@@ -28,6 +28,7 @@
 
 #if ENABLE(WEB_CODECS)
 
+#include "ContextDestructionObserverInlines.h"
 #include "DOMException.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -59,9 +60,7 @@ WebCodecsVideoDecoder::WebCodecsVideoDecoder(ScriptExecutionContext& context, In
 {
 }
 
-WebCodecsVideoDecoder::~WebCodecsVideoDecoder()
-{
-}
+WebCodecsVideoDecoder::~WebCodecsVideoDecoder() = default;
 
 static bool isSupportedDecoderCodec(const String& codec, const Settings::Values& settings)
 {
@@ -199,7 +198,7 @@ ExceptionOr<void> WebCodecsVideoDecoder::decode(Ref<WebCodecsEncodedVideoChunk>&
         --m_decodeQueueSize;
         scheduleDequeueEvent();
 
-        m_internalDecoder->decode({ { chunk->data(), chunk->byteLength() }, chunk->type() == WebCodecsEncodedVideoChunkType::Key, chunk->timestamp(), chunk->duration() }, [this](auto&& result) {
+        m_internalDecoder->decode({ chunk->span(), chunk->type() == WebCodecsEncodedVideoChunkType::Key, chunk->timestamp(), chunk->duration() }, [this](auto&& result) {
             --m_beingDecodedQueueSize;
             if (!result.isNull())
                 closeDecoder(Exception { ExceptionCode::EncodingError, WTFMove(result) });
@@ -259,7 +258,7 @@ void WebCodecsVideoDecoder::isConfigSupported(ScriptExecutionContext& context, W
         ScriptExecutionContext::postTaskTo(identifier, [success = result.has_value(), config = WTFMove(config).isolatedCopyWithoutDescription(), description = WTFMove(description), promisePtr](auto& context) mutable {
             if (auto promise = context.takeDeferredPromise(promisePtr)) {
                 if (description.size())
-                    config.description = RefPtr { JSC::ArrayBuffer::create(description.data(), description.size()) };
+                    config.description = RefPtr { JSC::ArrayBuffer::create(description) };
                 promise->template resolve<IDLDictionary<WebCodecsVideoDecoderSupport>>(WebCodecsVideoDecoderSupport { success, WTFMove(config) });
             }
         });
@@ -350,11 +349,6 @@ void WebCodecsVideoDecoder::stop()
 {
     m_state = WebCodecsCodecState::Closed;
     m_internalDecoder = nullptr;
-}
-
-const char* WebCodecsVideoDecoder::activeDOMObjectName() const
-{
-    return "VideoDecoder";
 }
 
 bool WebCodecsVideoDecoder::virtualHasPendingActivity() const

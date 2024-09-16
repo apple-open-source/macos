@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2014,2023-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <libDER/libDER.h>
+#include <libDER/asn1Types.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/DER_Encode.h>
+#include <libDER/oids.h>
+
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>
@@ -32,7 +38,8 @@
 #include <Security/SecTrust.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecInternal.h>
-#import "debugging.h"
+#include "debugging.h"
+#include "utilities/SecCFWrappers.h"
 
 //#include <AssertMacros.h>
 #include <CommonCrypto/CommonDigest.h>
@@ -45,6 +52,7 @@
 const CFStringRef __nonnull kSecImportExportPassphrase = CFSTR("passphrase");
 const CFStringRef __nonnull kSecImportExportKeychain = CFSTR("keychain");
 const CFStringRef __nonnull kSecImportExportAccess = CFSTR("access");
+const CFStringRef __nonnull kSecImportToMemoryOnly = CFSTR("memory");
 
 const CFStringRef __nonnull kSecImportItemLabel = CFSTR("label");
 const CFStringRef __nonnull kSecImportItemKeyID = CFSTR("keyid");
@@ -52,354 +60,362 @@ const CFStringRef __nonnull kSecImportItemTrust = CFSTR("trust");
 const CFStringRef __nonnull kSecImportItemCertChain = CFSTR("chain");
 const CFStringRef __nonnull kSecImportItemIdentity = CFSTR("identity");
 
-#if 0
-static void collect_certs(const void *key, const void *value, void *context)
-{
-    if (!CFDictionaryContainsKey(value, CFSTR("key"))) {
-        CFDataRef cert_bytes = CFDictionaryGetValue(value, CFSTR("cert"));
-        if (!cert_bytes)
-            return;
-        SecCertificateRef cert =
-            SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes);
-        if (!cert)
-            return;
-        CFMutableArrayRef cert_array = (CFMutableArrayRef)context;
-        CFArrayAppendValue(cert_array, cert);
-        CFRelease(cert);
-    }
-}
-
-typedef struct {
-    CFMutableArrayRef identities;
-    CFArrayRef certs;
-} build_trust_chains_context;
-
-static void build_trust_chains(const void *key, const void *value,
-    void *context)
-{
-    CFMutableDictionaryRef identity_dict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    SecKeyRef private_key = NULL;
-    SecCertificateRef cert = NULL;
-    SecIdentityRef identity = NULL;
-    SecPolicyRef policy = NULL;
-    CFMutableArrayRef cert_chain = NULL, eval_chain = NULL;
-    SecTrustRef trust = NULL;
-    build_trust_chains_context * a_build_trust_chains_context = (build_trust_chains_context*)context;
-
-    CFDataRef key_bytes = CFDictionaryGetValue(value, CFSTR("key"));
-	if(!key_bytes) goto out; //require(key_bytes, out);
-    CFDataRef cert_bytes = CFDictionaryGetValue(value, CFSTR("cert"));
-    if(!cert_bytes) goto out; //require(cert_bytes, out);
-
-    /* p12import only passes up rsa keys */
-//FIXME: needs SecKeyCreateRSAPrivateKey implementation
-//#if 0
-//	private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault,
-//        CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
-//        kSecKeyEncodingPkcs1);
-//#endif
-    if(!private_key) goto out; //require(private_key, out);
-    cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes);
-	if(!cert) goto out; //require(cert, out);
-    identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key);
-	if(!identity) goto out; //require(identity, out);
-    CFDictionarySetValue(identity_dict, kSecImportItemIdentity, identity);
-
-    eval_chain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	if(!eval_chain) goto out; //require(eval_chain, out);
-    CFArrayAppendValue(eval_chain, cert);
-    CFRange all_certs = { 0, CFArrayGetCount(a_build_trust_chains_context->certs) };
-    CFArrayAppendArray(eval_chain, a_build_trust_chains_context->certs, all_certs);
-    policy = SecPolicyCreateBasicX509();
-	if(!policy) goto out; //require(policy, out);
-    SecTrustResultType result;
-    SecTrustCreateWithCertificates(eval_chain, policy, &trust);
-	if(!trust) goto out; //require(trust, out);
-    SecTrustEvaluate(trust, &result);
-    CFDictionarySetValue(identity_dict, kSecImportItemTrust, trust);
-
-    cert_chain = SecTrustCopyCertificateChain(trust);
-	if(!cert_chain) goto out; //require(cert_chain, out);
-    CFDictionarySetValue(identity_dict, kSecImportItemCertChain, cert_chain);
-
-    CFArrayAppendValue(a_build_trust_chains_context->identities, identity_dict);
-out:
-    CFReleaseSafe(identity_dict);
-    CFReleaseSafe(identity);
-    CFReleaseSafe(private_key);
-    CFReleaseSafe(cert);
-    CFReleaseSafe(policy);
-    CFReleaseSafe(cert_chain);
-    CFReleaseSafe(eval_chain);
-    CFReleaseSafe(trust);
-}
-#endif // if 0
-
-static void parsePkcs12itemsAndAddtoModernKeychain(const void *value, void *context)
+static OSStatus importPkcs12CertChainToLegacyKeychain(CFDictionaryRef item, SecKeychainRef importKeychain)
 {
     OSStatus status = errSecSuccess;
-    CFDictionaryRef options = (CFDictionaryRef)context;
-    CFBooleanRef sync = kCFBooleanFalse;
-    if (options && CFDictionaryGetValue(options, kSecAttrSynchronizable)) {
-        sync = kCFBooleanTrue;
+    // go through certificate chain and all certificates
+    CFArrayRef certChain = (CFArrayRef)CFDictionaryGetValue(item, kSecImportItemCertChain);
+    if (!certChain || CFGetTypeID(certChain) != CFArrayGetTypeID()) {
+        return errSecInternal; // Should never happen since SecPKCS12Import_ios make the item dictionary
     }
-    if (CFGetTypeID(value) == CFDictionaryGetTypeID())
-    {
-        CFDictionaryRef item = (CFDictionaryRef)value;
-        if (CFDictionaryContainsKey(item, kSecImportItemIdentity)) {
-            SecIdentityRef identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity);
-            CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
-                                                                     0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
-            CFDictionaryAddValue(query, kSecAttrSynchronizable, sync);
-            CFDictionaryAddValue(query, kSecClass, kSecClassIdentity);
-            CFDictionaryAddValue(query, kSecValueRef, identity);
-            status = SecItemAdd(query, NULL);
-            switch(status) {
-                case errSecSuccess:
-                    secnotice("p12Decode", "cert added to keychain");
-                    break;
-                case errSecDuplicateItem:    // dup cert, OK to skip
-                    secnotice("p12Decode", "skipping dup cert");
-                    break;
-                default: //all other errors
-                    secerror("p12Decode: Error %d adding identity to keychain", status);
-            }
-            CFReleaseNull(query);
+    for (unsigned index=0; index<CFArrayGetCount(certChain); index++) {
+        SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certChain, index);
+        CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                                 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+        CFDictionaryAddValue(query, kSecValueRef, cert);
+        if (importKeychain) { CFDictionaryAddValue(query, kSecUseKeychain, importKeychain); }
+        OSStatus status = SecItemAdd(query, NULL);
+        switch(status) {
+            case errSecSuccess:
+                secnotice("p12Decode", "cert added to keychain");
+                break;
+            case errSecDuplicateItem:    // dup cert, OK to skip
+                secnotice("p12Decode", "skipping dup cert");
+                break;
+            default: //all other errors
+                secerror("p12Decode: Error %d adding identity to keychain", status);
         }
-        if (CFDictionaryContainsKey(item, kSecImportItemCertChain)) {
-            //go through certificate chain and all certificates
-            CFArrayRef certChain = (CFArrayRef)CFDictionaryGetValue(item, kSecImportItemCertChain);
-            for (unsigned index=0; index<CFArrayGetCount(certChain); index++) {
-                SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certChain, index);
-                CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
-                                                                         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-                CFDictionaryAddValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
-                CFDictionaryAddValue(query, kSecAttrSynchronizable, sync);
-                CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
-                CFDictionaryAddValue(query, kSecValueRef, cert);
-                status = SecItemAdd(query, NULL);
-                switch(status) {
-                    case errSecSuccess:
-                        secnotice("p12Decode", "cert added to keychain");
-                        break;
-                    case errSecDuplicateItem:    // dup cert, OK to skip
-                        secnotice("p12Decode", "skipping dup cert");
-                        break;
-                    default: //all other errors
-                        secerror("p12Decode: Error %d adding identity to keychain", status);
-                }
-                CFReleaseNull(query);
-            }
-        }
-    }
-}
-
-static OSStatus SecPKCS12Import_ios_wrapper(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
-{
-    OSStatus status = errSecSuccess;
-    //Decode the pkcs12 data into array of items
-    status = SecPKCS12Import_ios(pkcs12_data, options, items);
-
-    if (status == errSecSuccess) {
-        //items is an array of dictionary containing kSecImportItemIdentity,kSecImportItemCertChain
-        //kSecImportItemTrust keys/value pairs.
-        CFRange range = CFRangeMake(0, CFArrayGetCount(*items));
-        CFArrayApplyFunction(*items, range, parsePkcs12itemsAndAddtoModernKeychain, (void*)options);
+        CFReleaseNull(query);
     }
     return status;
 }
 
-OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
+/*
+* ECPrivateKey ::= SEQUENCE {
+*  version INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+*  privateKey OCTET STRING,
+*  parameters [0] ECDomainParameters {{ SECGCurveNames }} OPTIONAL,
+*  publicKey [1] BIT STRING OPTIONAL
+* } */
+typedef struct {
+    DERItem        version;
+    DERItem        privateKey;
+    DERItem        parameters;
+    DERItem        publicKey;
+} DER_ECPrivateKey;
+
+const DERItemSpec DER_ECPrivateKeyItemSpecs[] =
 {
-	if (_CFMZEnabled()) {
-		return SecPKCS12Import_ios(pkcs12_data, options, items);
-	}
-	// SecPKCS12Import is implemented on Mac OS X in terms of the existing
-	// SecKeychainItemImport API, which supports importing items into a
-	// specified keychain with initial access control settings for keys.
-	//
-	OSStatus status = errSecSuccess;
-	SecExternalFormat inputFormat = kSecFormatPKCS12;
-	SecExternalItemType itemType = kSecItemTypeAggregate;
-	SecItemImportExportFlags flags = 0; /* don't know if it's PEM armoured */
-	SecKeyImportExportParameters keyParams; /* filled in below... */
-	SecKeychainRef importKeychain = NULL;
-	SecAccessRef importAccess = NULL;
-	CFStringRef importPassword = NULL;
-	CFArrayRef tmpItems = NULL; /* items returned by SecKeychainItemImport */
-	CFMutableArrayRef certs = NULL; /* certificates imported by this function */
-	CFMutableArrayRef identities = NULL; /* items returned by this function */
+    { DER_OFFSET(DER_ECPrivateKey, version),
+        ASN1_INTEGER,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_ECPrivateKey, privateKey),
+        ASN1_OCTET_STRING,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_ECPrivateKey, parameters),
+        ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 0,
+        DER_DEC_OPTIONAL  },
+    { DER_OFFSET(DER_ECPrivateKey, publicKey),
+        ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 1,
+        DER_DEC_OPTIONAL }
+};
+const DERSize DERNumECPrivateKeyItemSpecs = sizeof(DER_ECPrivateKeyItemSpecs) / sizeof(DERItemSpec);
 
-	if (options) {
-        CFBooleanRef dataProtectionEnabled = CFDictionaryGetValue(options, kSecUseDataProtectionKeychain);
-        if (dataProtectionEnabled) {
-            return SecPKCS12Import_ios_wrapper(pkcs12_data, options, items);
-        }
-		importKeychain = (SecKeychainRef) CFDictionaryGetValue(options, kSecImportExportKeychain);
-		if (importKeychain)
-			CFRetain(importKeychain);
-		importAccess = (SecAccessRef) CFDictionaryGetValue(options, kSecImportExportAccess);
-		if (importAccess)
-			CFRetain(importAccess);
-		importPassword = (CFStringRef) CFDictionaryGetValue(options, kSecImportExportPassphrase);
-		if (importPassword)
-			CFRetain(importPassword);
-	}
+static const DERByte encodedAlgIdECsecp256[] = {
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+};
+static const DERByte encodedAlgIdECsecp384[] = {
+    0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22,
+};
+static const DERByte encodedAlgIdECsecp521[] = {
+    0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23,
+};
 
-	if (!importKeychain) {
-		// SecKeychainItemImport requires a keychain, so use default
-		status = SecKeychainCopyDefault(&importKeychain);
-	}
+static CF_RETURNS_RETAINED CFDataRef encodeECPrivateKey(SecKeyRef key, CFErrorRef *error) {
+    CFMutableDataRef result = NULL;
+    CFMutableDataRef K = NULL;
 
-	memset(&keyParams, 0, sizeof(SecKeyImportExportParameters));
-	keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
-	keyParams.passphrase = importPassword;
-	keyParams.accessRef = importAccess;
+    /* SecKeyCopyExternalRepresentation returns 04 | X | Y | K for an EC private key
+     * but we need just K as the private key for the ASN1 specs.
+     * So we strip 04 | X | Y by requesting the public key external representation
+     * ( 04 | X | Y ) and deleting that length off the private key external representation. */
+    SecKeyRef pubKey = SecKeyCopyPublicKey(key);
+    CFDataRef pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error);
+    CFDataRef privKeyData = SecKeyCopyExternalRepresentation(key, error);
+    require(pubKeyData && privKeyData, errOut);
+    K = CFDataCreateMutableCopy(NULL, 0, privKeyData);
+    CFDataDeleteBytes(K, CFRangeMake(0, CFDataGetLength(pubKeyData)));
 
-	status = SecKeychainItemImport(pkcs12_data,
-								   NULL,		/* no filename */
-								   &inputFormat,
-								   &itemType,
-								   flags,
-								   &keyParams,
-								   importKeychain,
-								   &tmpItems);
-
-	// build an array of all non-identity certificates which were imported
-	if (!status) {
-		certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		CFIndex i, count = CFArrayGetCount(tmpItems);
-		for (i=0; i<count; i++) {
-			CFTypeRef anItem = (CFTypeRef)CFArrayGetValueAtIndex(tmpItems, i);
-			CFTypeID itemID = CFGetTypeID(anItem);
-			if (itemID == SecCertificateGetTypeID()) {
-				CFArrayAppendValue(certs, anItem);
-			}
-		}
-	}
-
-	// now build the output items (array of dictionaries)
-	if (!status) {
-		identities = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		CFIndex i, count = CFArrayGetCount(tmpItems);
-		for (i=0; i<count; i++) {
-			CFTypeRef anItem = (CFTypeRef)CFArrayGetValueAtIndex(tmpItems, i);
-			CFTypeID itemID = CFGetTypeID(anItem);
-			if (itemID == SecIdentityGetTypeID()) {
-				CFMutableDictionaryRef itemDict;
-				itemDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-													 0,
-													 &kCFTypeDictionaryKeyCallBacks,
-													 &kCFTypeDictionaryValueCallBacks);
-
-				SecCertificateRef itemCert = NULL;
-				status = SecIdentityCopyCertificate((SecIdentityRef)anItem, &itemCert);
-
-				// label
-				if (!status) {
-					CFStringRef label = SecCertificateCopySubjectSummary(itemCert);
-					if (label) {
-						CFDictionaryAddValue(itemDict, kSecImportItemLabel, label);
-						CFRelease(label);
-					}
-				}
-
-				// key ID
-				if (!status) {
-					CFDataRef digest = SecCertificateCopyPublicKeySHA1Digest(itemCert);
-					if (digest) {
-						CFDictionaryAddValue(itemDict, kSecImportItemKeyID, digest);
-						CFRelease(digest);
-					}
-				}
-
-				// trust
-				SecTrustRef trust = NULL;
-				SecPolicyRef policy = SecPolicyCreateBasicX509();
-				CFMutableArrayRef certArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				CFArrayAppendValue(certArray, itemCert);
-				if (certs) {
-					CFArrayAppendArray(certArray, certs, CFRangeMake(0, CFArrayGetCount(certs)));
-				}
-				status = SecTrustCreateWithCertificates(certArray, policy, &trust);
-				if (policy) {
-					CFRelease(policy);
-				}
-				if (trust) {
-					CFDictionaryAddValue(itemDict, kSecImportItemTrust, trust);
-					CFRelease(trust);
-				}
-
-				// certificate chain
-				if (certArray) {
-					CFDictionaryAddValue(itemDict, kSecImportItemCertChain, certArray);
-					CFRelease(certArray);
-				}
-
-				// identity
-				CFDictionaryAddValue(itemDict, kSecImportItemIdentity, anItem);
-
-				if (itemCert)
-					CFRelease(itemCert);
-				CFArrayAppendValue(identities, itemDict);
-				CFRelease(itemDict);
-			}
-		}
-	}
-
-	if (items)
-		*items = identities;
-	else if (identities)
-		CFRelease(identities);
-
-	if (certs)
-		CFRelease(certs);
-	if (tmpItems)
-		CFRelease(tmpItems);
-	if (importKeychain)
-		CFRelease(importKeychain);
-	if (importAccess)
-		CFRelease(importAccess);
-	if (importPassword)
-		CFRelease(importPassword);
-
-	return status;
-
-//FIXME: needs SecAsn1Coder implementation
-#if 0
-    pkcs12_context context = {};
-    SecAsn1CoderCreate(&context.coder);
-    if (options)
-        context.passphrase = CFDictionaryGetValue(options, kSecImportExportPassphrase);
-    context.items = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    int status = p12decode(&context, pkcs12_data);
-    if (!status) {
-        CFMutableArrayRef certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-        CFDictionaryApplyFunction(context.items, collect_certs, certs);
-
-        CFMutableArrayRef identities = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-        build_trust_chains_context a_build_trust_chains_context = { identities, certs };
-        CFDictionaryApplyFunction(context.items, build_trust_chains, &a_build_trust_chains_context);
-        CFReleaseSafe(certs);
-
-        /* ignoring certs that weren't picked up as part of the certchain for found keys */
-
-        *items = identities;
+    DER_ECPrivateKey ecPrivKey;
+    memset(&ecPrivKey, 0, sizeof(ecPrivKey));
+    uint8_t version = 1;
+    ecPrivKey.version.data = &version;
+    ecPrivKey.version.length = 1;
+    ecPrivKey.privateKey.data = (DERByte *)CFDataGetBytePtr(K);
+    ecPrivKey.privateKey.length = (size_t)CFDataGetLength(K);
+    SecECNamedCurve curve = SecECKeyGetNamedCurve(key);
+    switch(curve) {
+        case kSecECCurveSecp256r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp256;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp256);
+            break;
+        case kSecECCurveSecp384r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp384;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp384);
+            break;
+        case kSecECCurveSecp521r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp521;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp521);
+            break;
+        default:
+            goto errOut;
     }
 
-    CFReleaseSafe(context.items);
-    SecAsn1CoderRelease(context.coder);
+    size_t keyLen = 0;
+    require_noerr(DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ecPrivKey, sizeof(ecPrivKey), (DERShort)DERNumECPrivateKeyItemSpecs, DER_ECPrivateKeyItemSpecs, &keyLen), errOut);
+    require(keyLen < LONG_MAX, errOut);
+    result = CFDataCreateMutable(NULL, (CFIndex)keyLen);
+    require(result, errOut);
+    CFDataSetLength(result, (CFIndex)keyLen);
+    require_noerr_action(DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ecPrivKey, sizeof(ecPrivKey),
+                                                        (DERShort)DERNumECPrivateKeyItemSpecs,  DER_ECPrivateKeyItemSpecs,
+                                                     CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &keyLen),
+                         errOut, CFReleaseNull(result));
 
-    switch (status) {
-    case p12_noErr: return errSecSuccess;
-    case p12_passwordErr: return errSecAuthFailed;
-    case p12_decodeErr: return errSecDecode;
-    default: return errSecInternal;
-    };
-    return errSecSuccess;
-#endif
+errOut:
+    CFReleaseNull(K);
+    CFReleaseNull(privKeyData);
+    CFReleaseNull(pubKeyData);
+    CFReleaseNull(pubKey);
+    return result;
+}
+
+static CF_RETURNS_RETAINED CFDataRef SecKeyCopyLegacyKeychainCompatibleExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+    CFDictionaryRef keyAttrs = SecKeyCopyAttributes(key);
+    CFDataRef result = NULL;
+    CFStringRef type = CFDictionaryGetValue(keyAttrs, kSecAttrKeyType);
+    if (CFEqualSafe(type, kSecAttrKeyTypeRSA)) {
+        result = SecKeyCopyExternalRepresentation(key, error);
+    } else if (CFEqualSafe(type, kSecAttrKeyTypeECSECPrimeRandom)) {
+        result = encodeECPrivateKey(key, error);
+    }
+
+    CFReleaseNull(keyAttrs);
+    return result;
+}
+
+static OSStatus importPkcs12KeyToLegacyKeychain(SecIdentityRef identity, SecKeychainRef importKeychain, SecAccessRef importAccess, SecKeyRef * CF_RETURNS_RETAINED outKey)
+{
+    SecKeyRef privateKey = NULL;
+    CFErrorRef error = NULL;
+    CFDataRef keyID = NULL;
+    CFDataRef keyData = NULL;
+    CFStringRef keyType = NULL;
+
+    OSStatus status = SecIdentityCopyPrivateKey(identity, &privateKey);
+    require_noerr(status, errOut);
+
+    // export the iOS-style key and re-import with legacy access control
+    keyID = SecKeyCopyPublicKeyHash(privateKey);
+    keyData = SecKeyCopyLegacyKeychainCompatibleExternalRepresentation(privateKey, &error);
+    require_action(error == NULL, errOut, status = (OSStatus)CFErrorGetCode(error););
+
+    SecExternalFormat inputFormat = kSecFormatOpenSSL;
+    SecExternalItemType itemType = kSecItemTypePrivateKey;
+    SecItemImportExportFlags flags = 0;
+    SecKeyImportExportParameters keyParams; /* filled in below... */
+    memset(&keyParams, 0, sizeof(SecKeyImportExportParameters));
+    keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+    keyParams.accessRef = importAccess;
+    CFArrayRef impItems = NULL;
+    status = SecKeychainItemImport(keyData, NULL, &inputFormat, &itemType, flags,
+                                   &keyParams, importKeychain, &impItems);
+    // try to replace iOS-style memory-based private key with CDSA keychain-based key
+    if (status == errSecSuccess && impItems != NULL) {
+        // we can get the key directly from the output items array
+        SecKeyRef impKeyRef = (SecKeyRef)CFArrayGetValueAtIndex(impItems, 0);
+        if (CFGetTypeID(impKeyRef) == SecKeyGetTypeID()) {
+            CFRetainAssign(privateKey, impKeyRef);
+        }
+    } else if (status == errSecDuplicateItem && keyID != NULL) {
+        // we can look up the private key given the digest of its public key
+        CFMutableDictionaryRef pkquery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+        CFTypeRef result = NULL;
+        CFDictionaryAddValue(pkquery, kSecClass, kSecClassKey);
+        CFDictionaryAddValue(pkquery, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+        CFDictionaryAddValue(pkquery, kSecAttrApplicationLabel, keyID);
+        CFDictionaryAddValue(pkquery, kSecReturnRef, kCFBooleanTrue);
+        status = SecItemCopyMatching(pkquery, &result);
+        if (status == errSecSuccess && CFGetTypeID(result) == SecKeyGetTypeID()) {
+            CFAssignRetained(privateKey, (SecKeyRef)result);
+        }
+        CFReleaseNull(pkquery);
+    }
+    CFReleaseNull(impItems);
+
+errOut:
+    if (outKey) {
+        *outKey = CFRetainSafe(privateKey);
+    }
+    CFReleaseNull(privateKey);
+    CFReleaseNull(keyID);
+    CFReleaseNull(keyData);
+    CFReleaseNull(error);
+    CFReleaseNull(keyType);
+    return status;
+}
+
+static OSStatus importPkcs12CertToLegacyKeychain(SecIdentityRef identity, SecKeychainRef importKeychain, SecCertificateRef * CF_RETURNS_RETAINED outCert)
+{
+    SecCertificateRef certificate = NULL;
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                             0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    OSStatus status = SecIdentityCopyCertificate(identity, &certificate);
+    if (status == errSecSuccess && certificate != NULL) {
+        CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+        CFDictionaryAddValue(query, kSecValueRef, certificate);
+        if (importKeychain) { CFDictionaryAddValue(query, kSecUseKeychain, importKeychain); }
+        status = SecItemAdd(query, NULL);
+    }
+    switch(status) {
+        case errSecSuccess:
+            secnotice("p12Decode", "cert added to keychain");
+            break;
+        case errSecDuplicateItem:    // dup cert, OK to skip
+            secnotice("p12Decode", "skipping dup cert");
+            status = errSecSuccess;
+            break;
+        default: //all other errors
+            secerror("p12Decode: Error %d adding identity to keychain", status);
+    }
+    if (outCert) {
+        *outCert = CFRetainSafe(certificate);
+    }
+    CFReleaseNull(certificate);
+    CFReleaseNull(query);
+    return status;
+}
+
+static OSStatus importPkcs12IdentityToLegacyKeychain(CFDictionaryRef item, SecKeychainRef importKeychain, SecAccessRef importAccess)
+{
+    SecIdentityRef identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity);
+    SecKeyRef privateKey = NULL;
+    SecCertificateRef certificate = NULL;
+    if (!identity || CFGetTypeID(identity) != SecIdentityGetTypeID()) {
+        return errSecInternal; // Should never happen since SecPKCS12Import_ios make the item dictionary
+    }
+
+    // retrieve and add the constituent parts of the identity
+    OSStatus status = importPkcs12KeyToLegacyKeychain(identity, importKeychain, importAccess, &privateKey);
+    require_noerr(status, errOut);
+    status = importPkcs12CertToLegacyKeychain(identity, importKeychain, &certificate);
+    require_noerr(status, errOut);
+
+    // update the returned item dictionary
+    if (certificate && privateKey) {
+        SecIdentityRef localIdentity = SecIdentityCreate(NULL, certificate, privateKey);
+        if (localIdentity) {
+            // replace identity with one using the keychain-based private key
+            CFDictionarySetValue((CFMutableDictionaryRef)item, kSecImportItemIdentity, localIdentity);
+            CFReleaseNull(localIdentity);
+        }
+        // set label item in output array to match legacy behavior
+        CFStringRef label = SecCertificateCopySubjectSummary(certificate);
+        if (label) {
+            CFDictionarySetValue((CFMutableDictionaryRef)item, kSecImportItemLabel, label);
+            CFReleaseNull(label);
+        }
+        CFDataRef keyID = SecKeyCopyPublicKeyHash(privateKey);
+        if (keyID) {
+            CFDictionarySetValue((CFMutableDictionaryRef)item, kSecImportItemKeyID, keyID);
+        }
+        CFReleaseNull(keyID);
+    }
+
+errOut:
+    CFReleaseNull(privateKey);
+    CFReleaseNull(certificate);
+
+    return status;
+}
+
+static OSStatus parsePkcs12ItemsAndAddtoLegacyKeychain(const void *value, CFDictionaryRef options)
+{
+    OSStatus status = errSecSuccess;
+    SecKeychainRef importKeychain = NULL;
+    SecAccessRef importAccess = NULL;
+    if (options) {
+        importKeychain = (SecKeychainRef) CFDictionaryGetValue(options, kSecImportExportKeychain);
+        CFRetainSafe(importKeychain);
+        importAccess = (SecAccessRef) CFDictionaryGetValue(options, kSecImportExportAccess);
+        CFRetainSafe(importAccess);
+    }
+    if (!importKeychain) {
+        // legacy import behavior requires a keychain, so use default
+        status = SecKeychainCopyDefault(&importKeychain);
+        if (!importKeychain && !status) { status = errSecNoDefaultKeychain; }
+        require_noerr(status, errOut);
+    }
+    if (CFGetTypeID(value) == CFDictionaryGetTypeID()) {
+        CFDictionaryRef item = (CFDictionaryRef)value;
+        if (CFDictionaryContainsKey(item, kSecImportItemIdentity)) {
+            status = importPkcs12IdentityToLegacyKeychain(item, importKeychain, importAccess);
+            require_noerr(status, errOut);
+        }
+        if (CFDictionaryContainsKey(item, kSecImportItemCertChain)) {
+            status = importPkcs12CertChainToLegacyKeychain(item, importKeychain);
+        }
+    }
+errOut:
+    CFReleaseNull(importKeychain);
+    CFReleaseNull(importAccess);
+    return status;
+}
+
+// This wrapper calls the iOS p12 code to extract items from PKCS12 data into process memory.
+// Once extracted into process memory, the wrapper maintains support for importing keys into
+// legacy macOS keychains with SecAccessRef access control. If kSecUseDataProtectionKeychain
+// is specified in options, items are imported to the "modern" data protection keychain.
+//
+OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
+{
+    if (!items) {
+        return errSecParam;
+    }
+    __block OSStatus status = SecPKCS12Import_ios(pkcs12_data, options, items);
+    if (_CFMZEnabled() || status != errSecSuccess) {
+        // Catalyst callers get iOS behavior (no macOS keychain or legacy access control)
+        return status;
+    }
+    Boolean useLegacyKeychain = true; // may be overridden by kSecUseDataProtectionKeychain
+    Boolean useKeychain = true; // may be overridden by kSecImportToMemoryOnly
+    if (options) {
+        // macOS callers can explicitly specify the data protection keychain (no legacy access)
+        CFBooleanRef dataProtectionEnabled = CFDictionaryGetValue(options, kSecUseDataProtectionKeychain);
+        if (dataProtectionEnabled && (dataProtectionEnabled == kCFBooleanTrue)) {
+            useLegacyKeychain = false;
+        }
+        // macOS callers can also specify not to use the keychain
+        CFBooleanRef keychainDisabled = CFDictionaryGetValue(options, kSecImportToMemoryOnly);
+        if (keychainDisabled && (keychainDisabled == kCFBooleanTrue)) {
+            useKeychain = false;
+        }
+    }
+    if (useKeychain) {
+        // items is an array of dictionary containing kSecImportItemIdentity,kSecImportItemCertChain
+        // kSecImportItemTrust keys/value pairs.
+        if (useLegacyKeychain) {
+            CFArrayForEach(*items, ^(const void *value) {
+                OSStatus itemStatus = parsePkcs12ItemsAndAddtoLegacyKeychain(value, options);
+                if (itemStatus != errSecSuccess) {
+                    status = itemStatus;
+                }
+            });
+        }
+        // SecPKCS12Import_ios adds items to ModernKeychain if kSecUseDataProtectionKeychain is true
+    }
+    return status;
 }
 

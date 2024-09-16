@@ -310,7 +310,7 @@ void PlatformCALayerCocoa::commonInit()
         m_customSublayers = makeUnique<PlatformCALayerList>(tileController->containerLayers());
     }
 
-    if (m_owner && m_owner->platformCALayerUseCSS3DTransformInteroperability() && [m_layer respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
+    if ([m_layer respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
         [m_layer setUsesWebKitBehavior:YES];
         if (m_layerType == PlatformCALayer::LayerType::LayerTypeTransformLayer) {
             [m_layer setSortsSublayers:YES];
@@ -356,6 +356,7 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::clone(PlatformCALayerClient* owner) c
     newLayer->setBackgroundColor(backgroundColor());
     newLayer->setContentsScale(contentsScale());
     newLayer->setCornerRadius(cornerRadius());
+    newLayer->setBackdropRootIsOpaque(backdropRootIsOpaque());
     newLayer->copyFiltersFrom(*this);
     newLayer->updateCustomAppearance(customAppearance());
 
@@ -421,6 +422,14 @@ void PlatformCALayerCocoa::setNeedsDisplayInRect(const FloatRect& dirtyRect)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_layer setNeedsDisplayInRect:dirtyRect];
     END_BLOCK_OBJC_EXCEPTIONS
+}
+
+bool PlatformCALayerCocoa::needsDisplay() const
+{
+    if (!m_backingStoreAttached)
+        return false;
+
+    return [m_layer needsDisplay];
 }
 
 void PlatformCALayerCocoa::copyContentsFromLayer(PlatformCALayer* layer)
@@ -646,6 +655,16 @@ void PlatformCALayerCocoa::setIsBackdropRoot(bool isBackdropRoot)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+bool PlatformCALayerCocoa::backdropRootIsOpaque() const
+{
+    return m_backdropRootIsOpaque;
+}
+
+void PlatformCALayerCocoa::setBackdropRootIsOpaque(bool backdropRootIsOpaque)
+{
+    m_backdropRootIsOpaque = backdropRootIsOpaque;
+}
+
 bool PlatformCALayerCocoa::isHidden() const
 {
     return [m_layer isHidden];
@@ -867,7 +886,7 @@ void PlatformCALayerCocoa::setOpacity(float value)
 
 void PlatformCALayerCocoa::setFilters(const FilterOperations& filters)
 {
-    PlatformCAFilters::setFiltersOnLayer(platformLayer(), filters);
+    PlatformCAFilters::setFiltersOnLayer(platformLayer(), filters, m_backdropRootIsOpaque);
 }
 
 void PlatformCALayerCocoa::copyFiltersFrom(const PlatformCALayer& sourceLayer)
@@ -901,12 +920,10 @@ bool PlatformCALayerCocoa::filtersCanBeComposited(const FilterOperations& filter
     return true;
 }
 
-#if ENABLE(CSS_COMPOSITING)
 void PlatformCALayerCocoa::setBlendMode(BlendMode blendMode)
 {
     PlatformCAFilters::setBlendingFiltersOnLayer(platformLayer(), blendMode);
 }
-#endif
 
 void PlatformCALayerCocoa::setName(const String& value)
 {

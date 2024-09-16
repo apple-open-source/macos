@@ -263,7 +263,7 @@ rangematch(const char *pattern, wchar_t test, const char *string, int flags,
 {
 	int negate, ok, special;
 	wchar_t c, c2;
-	wchar_t buf[STR_LEN];	/* STR_LEN defined in collate.h */
+	wchar_t buf[COLLATE_STR_LEN];	/* COLLATE_STR_LEN defined in collate.h */
 	size_t pclen, sclen, len;
 	const char *origpat, *cp, *savestring;
 	mbstate_t save;
@@ -309,7 +309,7 @@ rangematch(const char *pattern, wchar_t test, const char *string, int flags,
 				return (RANGE_ERROR);
 			if (special == '.') {
 treat_like_collating_symbol:
-				len = __collate_collating_symbol(buf, STR_LEN, pattern, cp - pattern, patmbs, loc);
+				len = __collate_collating_symbol(buf, COLLATE_STR_LEN, pattern, cp - pattern, patmbs, loc);
 				if (len == (size_t)-1 || len == 0)
 					return (RANGE_ERROR);
 				pattern = cp + 2;
@@ -429,7 +429,7 @@ treat_like_collating_symbol:
 				}
 				if (!cp)
 					return (RANGE_ERROR);
-				len = __collate_collating_symbol(buf, STR_LEN, pattern, cp - pattern, patmbs, loc);
+				len = __collate_collating_symbol(buf, COLLATE_STR_LEN, pattern, cp - pattern, patmbs, loc);
 				/* no multi-character collation symbols as end of range */
 				if (len != 1)
 					return (RANGE_ERROR);
@@ -440,7 +440,7 @@ treat_like_collating_symbol:
 			if (flags & FNM_CASEFOLD)
 				c2 = towlower_l(c2, loc);
 
-			if (loc->__collate_load_error ?
+			if (XLOCALE_COLLATE(loc)->__collate_load_error ?
 			    c <= test && test <= c2 :
 			       __collate_range_cmp(c, test, loc) <= 0
 			    && __collate_range_cmp(test, c2, loc) <= 0

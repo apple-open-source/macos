@@ -32,6 +32,15 @@
 #import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
 
+namespace WebKit {
+class RemoteLayerBackingStoreCollection;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerBackingStoreCollection> : std::true_type { };
+}
+
 namespace WebCore {
 class ImageBuffer;
 class ThreadSafeImageBufferFlusher;
@@ -46,7 +55,9 @@ class RemoteLayerWithInProcessRenderingBackingStore;
 class RemoteLayerTreeContext;
 class RemoteLayerTreeTransaction;
 class RemoteImageBufferSetProxy;
+class ThreadSafeImageBufferSetFlusher;
 
+enum class BufferInSetType : uint8_t;
 enum class SwapBuffersDisplayRequirement : uint8_t;
 
 class RemoteLayerBackingStoreCollection : public CanMakeWeakPtr<RemoteLayerBackingStoreCollection> {
@@ -56,14 +67,17 @@ public:
     RemoteLayerBackingStoreCollection(RemoteLayerTreeContext&);
     virtual ~RemoteLayerBackingStoreCollection();
 
+    void markFrontBufferVolatileForTesting(RemoteLayerBackingStore&);
     virtual void backingStoreWasCreated(RemoteLayerBackingStore&);
     virtual void backingStoreWillBeDestroyed(RemoteLayerBackingStore&);
 
+    void purgeFrontBufferForTesting(RemoteLayerBackingStore&);
+    void purgeBackBufferForTesting(RemoteLayerBackingStore&);
+
     // Return value indicates whether the backing store needs to be included in the transaction.
     bool backingStoreWillBeDisplayed(RemoteLayerBackingStore&);
+    bool backingStoreWillBeDisplayedWithRenderingSuppression(RemoteLayerBackingStore&);
     void backingStoreBecameUnreachable(RemoteLayerBackingStore&);
-
-    std::unique_ptr<RemoteLayerBackingStore> createRemoteLayerBackingStore(PlatformCALayerRemote*);
 
     virtual void prepareBackingStoresForDisplay(RemoteLayerTreeTransaction&);
     virtual bool paintReachableBackingStoreContents();
@@ -104,7 +118,7 @@ private:
     void volatilityTimerFired();
 
 protected:
-    void sendMarkBuffersVolatile(Vector<std::pair<Ref<RemoteImageBufferSetProxy>, OptionSet<BufferInSetType>>>&&, CompletionHandler<void(bool)>&&);
+    void sendMarkBuffersVolatile(Vector<std::pair<Ref<RemoteImageBufferSetProxy>, OptionSet<BufferInSetType>>>&&, CompletionHandler<void(bool)>&&, bool forcePurge = false);
 
     static constexpr auto volatileBackingStoreAgeThreshold = 1_s;
     static constexpr auto volatileSecondaryBackingStoreAgeThreshold = 200_ms;

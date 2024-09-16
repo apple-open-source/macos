@@ -34,6 +34,10 @@
 
 #import "utilities/SecCFWrappers.h"
 
+#import "keychain/analytics/SecurityAnalyticsConstants.h"
+#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+
 #import "keychain/SecureObjectSync/SOSCloudCircle.h"
 #import "KeychainCircle/PairingChannel.h"
 #import <Security/SecBase.h>
@@ -64,6 +68,11 @@ SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
 #pragma clang diagnostic ignored "-Wstrict-prototypes"
 SOFT_LINK_CLASS(KeychainCircle, KCPairingChannel);
 SOFT_LINK_CLASS(KeychainCircle, OTPairingChannel);
+SOFT_LINK_CLASS(KeychainCircle, SecurityAnalyticsReporterRTC);
+SOFT_LINK_CLASS(KeychainCircle, AAFAnalyticsEventSecurity);
+SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameCliqueMemberIdentifier, NSString*);
+SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventCategoryAccountDataAccessRecovery, NSNumber*);
+SOFT_LINK_CONSTANT(KeychainCircle, kSecurityRTCEventNameRPDDeleteAllRecords, NSString*);
 SOFT_LINK_CLASS(CloudServices, SecureBackup);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupErrorDomain, NSErrorDomain);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAppleID, NSString*);
@@ -270,26 +279,53 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
 - (NSString* _Nullable)cliqueMemberIdentifier
 {
+    return [self cliqueMemberIdentifier:nil];
+}
+
+- (NSString* _Nullable)cliqueMemberIdentifier:(NSError*__autoreleasing* _Nullable)error
+{
 #if OCTAGON
     __block NSString* retPeerID = nil;
     __block bool subTaskSuccess = false;
 
     OctagonSignpost fetchEgoPeerSignPost = OctagonSignpostBegin(OctagonSignpostNameFetchEgoPeer);
-    NSError* localError = nil;
+
+    AAFAnalyticsEventSecurity *eventS = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:nil
+                                                                                                 altDSID:self.ctx.altDSID
+                                                                                                  flowID:self.ctx.flowID
+                                                                                         deviceSessionID:self.ctx.deviceSessionID
+                                                                                               eventName:getkSecurityRTCEventNameCliqueMemberIdentifier()
+                                                                                         testsAreEnabled:self.ctx.testsEnabled
+                                                                                          canSendMetrics:YES
+                                                                                                category:getkSecurityRTCEventCategoryAccountDataAccessRecovery()];
+    __block NSError* localError = nil;
     OTControl* control = [self makeOTControl:&localError];
     if(!control) {
         secerror("octagon: Failed to create OTControl: %@", localError);
         OctagonSignpostEnd(fetchEgoPeerSignPost, OctagonSignpostNameFetchEgoPeer, OctagonSignpostNumber1(OctagonSignpostNameFetchEgoPeer), (int)subTaskSuccess);
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:eventS success:NO error:localError];
         return nil;
     }
 
     [control fetchEgoPeerID:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
-                      reply:^(NSString* peerID, NSError* error) {
-                          if(error) {
-                              secerror("octagon: Failed to fetch octagon peer ID: %@", error);
-                          }
-                          retPeerID = peerID;
-                      }];
+                      reply:^(NSString* peerID, NSError* fetchError) {
+        if (fetchError) {
+            secerror("octagon: Failed to fetch octagon peer ID: %@", fetchError);
+            localError = fetchError;
+            [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:eventS success:NO error:fetchError];
+        } else {
+            retPeerID = peerID;
+            [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:eventS success:(peerID ? YES : NO) error:nil];
+        }
+    }];
+
+    if (localError) {
+        if (error) {
+            *error = localError;
+        }
+        OctagonSignpostEnd(fetchEgoPeerSignPost, OctagonSignpostNameFetchEgoPeer, OctagonSignpostNumber1(OctagonSignpostNameFetchEgoPeer), (int)subTaskSuccess);
+        return nil;
+    }
 
     secnotice("clique", "cliqueMemberIdentifier complete: %@", retPeerID);
     subTaskSuccess = retPeerID ? true : false;
@@ -1047,6 +1083,30 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 
     return octagonSyncing;
+}
+
+- (void)fetchUserControllableViewsSyncingEnabledAsync:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
+{
+#if OCTAGON
+    NSError* localError = nil;
+    OTControl* control = [self makeOTControl:&localError];
+    if(!control) {
+        reply(NO, localError);
+        return;
+    }
+
+    [control fetchUserControllableViewsSyncStatusAsync:[[OTControlArguments alloc] initWithConfiguration:self.ctx]
+                                                 reply:^(BOOL nowSyncing, NSError* _Nullable fetchError) {
+        if(fetchError) {
+            secnotice("clique-user-sync-async", "fetching user-controllable-sync-async status errored: %@", fetchError);
+        } else {
+            secnotice("clique-user-sync-async", "fetched user-controllable-sync-async status as : %@", nowSyncing ? @"enabled" : @"paused");
+        }
+        reply(nowSyncing, fetchError);
+    }];
+#else
+    reply(NO, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
 }
 
 - (BOOL)waitForInitialSync:(NSError *__autoreleasing*)error
@@ -2035,6 +2095,90 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 #endif
 }
 
+// Recreate a new inheritance key (with the same keys as an existing IK)
++ (void)recreateInheritanceKey:(OTConfigurationContext*)ctx
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey*)oldIK
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply
+{
+#if OCTAGON
+    secnotice("octagon-recreateinheritancekey", "recreateInheritanceKey invoked for context: %@", ctx.context);
+    OctagonSignpost signPost = OctagonSignpostBegin(OctagonSignpostNameRecreateInheritanceKey);
+    __block bool subTaskSuccess = false;
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-recreateinheritancekey", "failed to fetch OTControl object: %@", controlError);
+        OctagonSignpostEnd(signPost, OctagonSignpostNameRecreateInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRecreateInheritanceKey), (int)subTaskSuccess);
+        reply(nil, controlError);
+        return;
+    }
+    [control recreateInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx]
+                               uuid:uuid
+                              oldIK:oldIK
+                              reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if(error) {
+                secerror("octagon-recreateinheritancekey, failed to recreate octagon inheritance recovery key");
+                OctagonSignpostEnd(signPost, OctagonSignpostNameRecreateInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRecreateInheritanceKey), (int)subTaskSuccess);
+                reply(nil, error);
+                return;
+            } else {
+                secnotice("octagon-recreateinheritancekey", "successfully recreated octagon inheritance recovery key");
+                subTaskSuccess = true;
+                OctagonSignpostEnd(signPost, OctagonSignpostNameRecreateInheritanceKey, OctagonSignpostNumber1(OctagonSignpostNameRecreateInheritanceKey), (int)subTaskSuccess);
+                reply(ik, nil);
+                return;
+            }
+        }];
+#else // !OCTAGON
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
+}
+
+// Create a new inheritance key with a given claim token/wrappingkey
++ (void)createInheritanceKey:(OTConfigurationContext*)ctx
+                        uuid:(NSUUID *_Nullable)uuid
+              claimTokenData:(NSData *)claimTokenData
+             wrappingKeyData:(NSData *)wrappingKeyData
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply
+{
+#if OCTAGON
+    secnotice("octagon-createinheritancekeyclaimtokenwrappingkey", "createInheritanceKey w/claimToken+wrappingKey invoked for context: %@", ctx.context);
+    OctagonSignpost signPost = OctagonSignpostBegin(OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey);
+    __block bool subTaskSuccess = false;
+
+    NSError* controlError = nil;
+    OTControl* control = [ctx makeOTControl:&controlError];
+    if(!control) {
+        secnotice("octagon-createinheritancekeyclaimtokenwrappingkey", "failed to fetch OTControl object: %@", controlError);
+        OctagonSignpostEnd(signPost, OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey, OctagonSignpostNumber1(OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey), (int)subTaskSuccess);
+        reply(nil, controlError);
+        return;
+    }
+    [control createInheritanceKey:[[OTControlArguments alloc] initWithConfiguration:ctx]
+                               uuid:uuid
+                   claimTokenData:claimTokenData
+                  wrappingKeyData:wrappingKeyData
+                              reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if(error) {
+                secerror("octagon-createinheritancekeyclaimtokenwrappingkey, failed to create octagon inheritance recovery key (w/claim+wrappingkey)");
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey, OctagonSignpostNumber1(OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey), (int)subTaskSuccess);
+                reply(nil, error);
+                return;
+            } else {
+                secnotice("octagon-createinheritancekeyclaimtokenwrappingkey", "successfully created octagon inheritance recovery key (w/claim+wrappingkey)");
+                subTaskSuccess = true;
+                OctagonSignpostEnd(signPost, OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey, OctagonSignpostNumber1(OctagonSignpostNameCreateInheritanceKeyWithClaimTokenAndWrappingKey), (int)subTaskSuccess);
+                reply(ik, nil);
+                return;
+            }
+        }];
+#else // !OCTAGON
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil]);
+#endif
+}
+
 - (void)performedCDPStateMachineRun:(OTCliqueCDPContextType)type
                             success:(BOOL)success
                               error:(NSError * _Nullable)error
@@ -2268,6 +2412,15 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         return nil;
     }
     
+    AAFAnalyticsEventSecurity *eventS = [[getAAFAnalyticsEventSecurityClass() alloc] initWithKeychainCircleMetrics:nil
+                                                                                                           altDSID:data.altDSID
+                                                                                                            flowID:data.flowID
+                                                                                                   deviceSessionID:data.deviceSessionID
+                                                                                                         eventName:getkSecurityRTCEventNameRPDDeleteAllRecords()
+                                                                                                   testsAreEnabled:data.testsEnabled
+                                                                                                    canSendMetrics:YES
+                                                                                                          category:getkSecurityRTCEventCategoryAccountDataAccessRecovery()];
+
     NSDictionary* deletionInformation = @{ getkSecureBackupAuthenticationAppleID() : data.authenticationAppleID,
                                            getkSecureBackupAuthenticationPassword() : data.passwordEquivalentToken,
                                            getkSecureBackupiCloudDataProtectionDeleteAllRecordsKey() : @YES,
@@ -2279,9 +2432,12 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         if(error) {
             *error = sbError;
         }
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:eventS success:NO error:sbError];
+
         return nil;
     } else {
         secnotice("clique-reset-protected-data", "sbd disableWithInfo succeeded");
+        [getSecurityAnalyticsReporterRTCClass() sendMetricWithEvent:eventS success:YES error:nil];
     }
     
     // best effort to reset sos

@@ -39,6 +39,19 @@
 #ifdef __APPLE__
 #include <System/sys/codesign.h>
 #include <TargetConditionals.h>
+
+#if defined(__arm64__)
+
+#undef MACHTYPE
+#define MACHTYPE "arm64"
+
+#elif defined(__x86_64__)
+
+#undef MACHTYPE
+#define MACHTYPE "x86_64"
+
+#endif
+
 #endif /* __APPLE__
 
 /**/

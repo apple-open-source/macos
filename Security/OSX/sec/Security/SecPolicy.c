@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2022 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
  * SecPolicy.c - Implementation of various X.509 certificate trust policies
  */
 
+#include <Security/SecFramework.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <AssertMacros.h>
@@ -139,6 +140,7 @@ SEC_CONST_DECL (kSecPolicyNameAppleUpdatesService, "Updates");
 SEC_CONST_DECL (kSecPolicyNameApplePushCertPortal, "PushCertPortal");
 SEC_CONST_DECL (kSecPolicyNameApplePotluckService, "Potluck");
 SEC_CONST_DECL (kSecPolicyNameAppleMacOSSoftwareUpdate, "MacSoftwareUpdate");
+SEC_CONST_DECL (kSecPolicyNameAppleIssued, "AppleIssued");
 
 #define kSecPolicySHA256Size CC_SHA256_DIGEST_LENGTH
 
@@ -365,6 +367,14 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         policy = SecPolicyCreateMDLTerminalAuth(true, true);
     } else if (CFEqual(policyIdentifier, kSecPolicyApplePPMAggregatorConfigSigning)) {
         policy = SecPolicyCreatePPMAggregatorConfigSigning(!client);
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleiAPAuthV4)) {
+        policy = SecPolicyCreateiAPAuthV4(SeciAPAuthV4TypeAccessory);
+    } else if (CFEqual(policyIdentifier, kSecPolicyAppleParakeetService)) {
+        if (name) {
+            policy = SecPolicyCreateParakeetService(name, context);
+        } else {
+            secerror("policy \"%@\" requires kSecPolicyName input", policyIdentifier);
+        }
     }
     /* For a couple of common patterns we use the macro, but some of the
      * policies are deprecated (or not yet available), so we need to ignore the warning. */
@@ -488,21 +498,26 @@ CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy) {
 }
 
 void SecPolicySetOptionsValue_internal(SecPolicyRef policy, CFStringRef key, CFTypeRef value) {
-	if (!policy || !key) return;
-	CFMutableDictionaryRef options = (CFMutableDictionaryRef) policy->_options;
-	if (!options) {
-		options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		if (!options) return;
-		policy->_options = options;
-	}
-	// special case for kSecPolicyCheckTemporalValidity == kCFBooleanFalse,
-	// which should remove the key rather than set its value. (rdar://83941011)
-	if (CFEqual(key, kSecPolicyCheckTemporalValidity) && value && CFEqual(value, kCFBooleanFalse)) {
-		CFDictionaryRemoveValue(options, key);
-		return;
-	}
-	CFDictionarySetValue(options, key, value);
+    if (!policy || !key || !value) return;
+    CFMutableDictionaryRef newOptions = NULL;
+    if (!policy->_options) {
+        newOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                               &kCFTypeDictionaryKeyCallBacks,
+                                               &kCFTypeDictionaryValueCallBacks);
+        if (!newOptions) return;
+    } else {
+        newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options);
+    }
+    CFReleaseNull(policy->_options); // Since dictionaries are COW, more efficient to release before mutating copy
+
+    // special case for kSecPolicyCheckTemporalValidity == kCFBooleanFalse,
+    // which should remove the key rather than set its value. (rdar://83941011)
+    if (CFEqual(key, kSecPolicyCheckTemporalValidity) && value && CFEqual(value, kCFBooleanFalse)) {
+        CFDictionaryRemoveValue(newOptions, key);
+    } else {
+        CFDictionarySetValue(newOptions, key, value);
+    }
+    CFAssignRetained(policy->_options, newOptions);
 }
 
 void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value) {
@@ -1446,7 +1461,9 @@ static CFArrayRef getNSPinnedIdentitiesForHostName(CFStringRef hostName, CFStrin
         CFBundleRef bundle = CFBundleGetMainBundle();
         require(bundle, initializationIncomplete);
 
-        CFTypeRef nsAppTransportSecurityDict = CFBundleGetValueForInfoDictionaryKey(bundle, CFSTR("NSAppTransportSecurity"));
+        CFDictionaryRef info = CFBundleGetInfoDictionary(bundle);
+        require(info, initializationIncomplete);
+        CFTypeRef nsAppTransportSecurityDict = CFDictionaryGetValue(info, CFSTR("NSAppTransportSecurity"));
         require_quiet(isDictionary(nsAppTransportSecurityDict), initializationIncomplete);
 
         nsPinnedDomainsDict = CFDictionaryGetValue(nsAppTransportSecurityDict, CFSTR("NSPinnedDomains"));
@@ -1519,11 +1536,14 @@ static bool SecPolicyAddPinningRequiredIfInfoSpecified(CFMutableDictionaryRef op
     dispatch_once(&onceToken, ^{
         CFBundleRef bundle = CFBundleGetMainBundle();
         if (bundle) {
-            CFTypeRef value = CFBundleGetValueForInfoDictionaryKey(bundle, CFSTR("SecTrustPinningRequired"));
-            if (isBoolean(value) && CFBooleanGetValue(value)) {
-                hasPinningRequiredKey = true;
+            CFDictionaryRef info = CFBundleGetInfoDictionary(bundle);
+            if (info) {
+                CFTypeRef value = CFDictionaryGetValue(info, CFSTR("SecTrustPinningRequired"));
+                if (isBoolean(value) && CFBooleanGetValue(value)) {
+                    hasPinningRequiredKey = true;
+                }
+                result = true;
             }
-            result = true;
         }
     });
     if (result && hasPinningRequiredKey) {
@@ -1581,6 +1601,26 @@ errOut:
 	return (SecPolicyRef _Nonnull)result;
 }
 
+static void set_validity_period_in_days(CFMutableDictionaryRef options, CFIndex maxDays) {
+    CFMutableArrayRef validityPeriods = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef maxDaysRule = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    double maxSeconds = 60*60*24*maxDays + 3600; // seconds in maxDays, plus 1 hour slip
+    CFDateRef effectiveDate = CFDateCreate(NULL, 0.0); // 1 Jan 2001 00:00:00 UTC
+    CFNumberRef maximum = CFNumberCreate(NULL, kCFNumberDoubleType, &maxSeconds);
+    CFArrayAppendValue(maxDaysRule, effectiveDate);
+    CFArrayAppendValue(maxDaysRule, maximum);
+    CFReleaseNull(effectiveDate);
+    CFReleaseNull(maximum);
+
+    CFArrayAppendValue(validityPeriods, maxDaysRule);
+    CFReleaseNull(maxDaysRule);
+
+    /* this check applies to both system-trusted and non-system-trusted certificates */
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustValidityPeriod, validityPeriods);
+    CFDictionaryAddValue(options, kSecPolicyCheckOtherTrustValidityPeriod, validityPeriods);
+    CFReleaseNull(validityPeriods);
+}
+
 static void set_ssl_validity_periods(CFMutableDictionaryRef options) {
     /*  System trust
      *  Effective Date                  Maximum
@@ -1634,6 +1674,49 @@ static void set_ssl_validity_periods(CFMutableDictionaryRef options) {
     CFReleaseNull(validityPeriods);
 }
 
+bool SecPolicySetSSLHostname(SecPolicyRef policy, CFStringRef hostname) {
+    if (!policy || !hostname) {
+        return false;
+    }
+    SecPolicySetOptionsValue_internal(policy, kSecPolicyCheckSSLHostname, hostname);
+    return true;
+}
+
+static void add_ats_options_from_dict(CFMutableDictionaryRef options, CFStringRef hostname, CFDictionaryRef nsAppTransportSecurityDict) {
+    // Add pinning from input ATS dictionary, if present and have hostname to match
+    if (nsAppTransportSecurityDict && hostname) {
+        CFDictionaryRef nsPinnedDomainsDict = CFDictionaryGetValue(nsAppTransportSecurityDict, CFSTR("NSPinnedDomains"));
+        if (isDictionary(nsPinnedDomainsDict)) {
+            CFArrayRef leafSPKISHA256 = parseNSPinnedDomains(nsPinnedDomainsDict, hostname, CFSTR("NSPinnedLeafIdentities"));
+            if (leafSPKISHA256) {
+                add_element(options, kSecPolicyCheckLeafSPKISHA256, leafSPKISHA256);
+            }
+
+            CFArrayRef caSPKISHA256 = parseNSPinnedDomains(nsPinnedDomainsDict, hostname, CFSTR("NSPinnedCAIdentities"));
+            if (caSPKISHA256) {
+                add_element(options, kSecPolicyCheckCAspkiSHA256, caSPKISHA256);
+            }
+        }
+
+        SecPolicyReconcilePinningRequiredIfInfoSpecified(options);
+    }
+}
+
+bool SecPolicySetATSPinning(SecPolicyRef policy, CFDictionaryRef nsAppTransportSecurityDict) {
+    if (!policy) {
+        return false;
+    }
+    CFStringRef hostname = CFDictionaryGetValue(policy->_options, kSecPolicyCheckSSLHostname);
+    if (!hostname || !nsAppTransportSecurityDict || !isString(hostname)) {
+        return false;
+    }
+    CFMutableDictionaryRef newOptions = CFDictionaryCreateMutableCopy(NULL, 0, policy->_options);
+    CFReleaseNull(policy->_options); // Since dictionaries are COW, more efficient to release before mutating copy
+    add_ats_options_from_dict(newOptions, hostname, nsAppTransportSecurityDict);
+    CFAssignRetained(policy->_options, newOptions);
+    return true;
+}
+
 static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef hostname, uint32_t keyUsage, CFDictionaryRef nsAppTransportSecurityDict)
 {
     CFMutableDictionaryRef options = NULL;
@@ -1670,24 +1753,7 @@ static SecPolicyRef SecPolicyCreateSSL_internal(Boolean server, CFStringRef host
     }
 
     set_ssl_ekus(options, server);
-
-    // Add pinning from input ATS dictionary, if present and have hostname to match
-    if (nsAppTransportSecurityDict && hostname) {
-        CFDictionaryRef nsPinnedDomainsDict = CFDictionaryGetValue(nsAppTransportSecurityDict, CFSTR("NSPinnedDomains"));
-        if (isDictionary(nsPinnedDomainsDict)) {
-            CFArrayRef leafSPKISHA256 = parseNSPinnedDomains(nsPinnedDomainsDict, hostname, CFSTR("NSPinnedLeafIdentities"));
-            if (leafSPKISHA256) {
-                add_element(options, kSecPolicyCheckLeafSPKISHA256, leafSPKISHA256);
-            }
-
-            CFArrayRef caSPKISHA256 = parseNSPinnedDomains(nsPinnedDomainsDict, hostname, CFSTR("NSPinnedCAIdentities"));
-            if (caSPKISHA256) {
-                add_element(options, kSecPolicyCheckCAspkiSHA256, caSPKISHA256);
-            }
-        }
-
-        SecPolicyReconcilePinningRequiredIfInfoSpecified(options);
-    }
+    add_ats_options_from_dict(options, hostname, nsAppTransportSecurityDict);
 
     require(result = SecPolicyCreate(kSecPolicyAppleSSL,
                 server ? kSecPolicyNameSSLServer : kSecPolicyNameSSLClient,
@@ -3007,7 +3073,7 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void)
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-    SecPolicyAddBasicX509Options(options);
+    SecPolicyAddBasicCertOptions(options);
     add_ku(options, kSecKeyUsageKeyEncipherment);
 
     /* Leaf has marker OID with value that can't be pre-determined */
@@ -4704,7 +4770,8 @@ CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(voi
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-    SecPolicyAddBasicX509Options(options);
+    SecPolicyAddBasicCertOptions(options);
+
     add_ku(options, kSecKeyUsageDigitalSignature);
 
     CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName,
@@ -5163,5 +5230,189 @@ SecPolicyRef SecPolicyCreateEDPSigning(void)
 
 errOut:
     CFReleaseSafe(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRepresentation)
+{
+    CFMutableDictionaryRef options = NULL;
+    CFMutableDictionaryRef digests = NULL;
+    CFDataRef sha1Digest = NULL;
+    CFDataRef sha256Digest = NULL;
+    SecPolicyRef result = NULL;
+
+    require(markRepresentation, errOut);
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    require(digests = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicX509Options(options);
+
+    // provided hostname must match in SAN
+    if (hostname) {
+        CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
+    }
+
+    // VMC 6.1.5.1-6.1.5.3: allowed SHA-256, SHA-384, SHA-512
+    require_quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
+
+    // VMC 6.1.5.1-6.1.5.3: allowed RSA 2048 or ECC P-256, P-384, P-521
+    require_quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    // VMC 7.1.2.3(a): require VMC certificate policy OID
+    add_certificate_policy_oid_string(options, CFSTR("1.3.6.1.4.1.53087.1.1"));
+
+    // VMC 7.1.2.3(f), 7.1.2.2(h): enforce single-purpose BIMI EKU for leaf and subordinate CAs
+    CFDictionaryAddValue(options, kSecPolicyCheckSinglePurposeChainEKU, CFSTR("1.3.6.1.5.5.7.3.31"));
+
+    // VMC 7.1.2.3(h): check that the mark representation matches the logotype extension.
+    // Since we don't know yet which digest algorithm was used in the extension, we'll
+    // capture both SHA-1 and SHA-256 digests of the input data.
+    require(sha1Digest = SecSHA1DigestCreate(kCFAllocatorDefault,
+            CFDataGetBytePtr(markRepresentation), CFDataGetLength(markRepresentation)), errOut);
+    require(sha256Digest = SecSHA256DigestCreate(kCFAllocatorDefault,
+            CFDataGetBytePtr(markRepresentation), CFDataGetLength(markRepresentation)), errOut);
+    CFDictionaryAddValue(digests, CFSTR("sha1"), sha1Digest);
+    CFDictionaryAddValue(digests, CFSTR("sha256"), sha256Digest);
+    add_element(options, kSecPolicyCheckMarkRepresentation, digests);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleVerifiedMark, hostname, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    CFReleaseSafe(digests);
+    CFReleaseSafe(sha1Digest);
+    CFReleaseSafe(sha256Digest);
+    return result;
+}
+
+static SecPolicyRef SecPolicyCreateParakeetCommon(CFStringRef __nullable hostname,
+                                                  CFDictionaryRef __nullable context,
+                                                  CFStringRef policyOid,
+                                                  CFStringRef policyName)
+{
+    CFMutableDictionaryRef options = NULL;
+    CFMutableArrayRef disallowedHashes = NULL;
+    CFDictionaryRef keySizes = NULL;
+    CFNumberRef ecSize = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* Check expiration and perform all other chain checks including basicConstraints */
+    SecPolicyAddBasicX509Options(options);
+
+    /* Exactly 3 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* RSA key sizes are disallowed. EC key sizes must be P-256 or larger. */
+    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
+                                          (const void**)&ecSize, 1,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks), errOut);
+    add_element(options, kSecPolicyCheckKeySize, keySizes);
+
+    /* Explicitly remove weak signature algorithms. */
+    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+    /* Add SHA224 here as this is not yet disallowed by SecPolicyRemoveWeakHashOptions. */
+    require(disallowedHashes = (CFMutableArrayRef) CFDictionaryGetValue(options, kSecPolicyCheckSignatureHashAlgorithms), errOut);
+    CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmSHA224);
+
+    /* Leaf certificate must have keyAgreement KU and CA:FALSE. */
+    add_ku(options, kSecKeyUsageKeyAgreement);
+    CFDictionarySetValue(options, kSecPolicyCheckNotCA, kCFBooleanTrue);
+    
+    /* Leaf certificate maximum validity period not to exceed 74 days */
+    set_validity_period_in_days(options, 74);
+
+    /* Skip networked revocation checks (revocation is checked in Valid) */
+    CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess, kCFBooleanTrue);
+
+    /* Hostname to be checked in SAN */
+    if (hostname) {
+        CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
+    }
+
+    /* Optional context parameters */
+    if (isDictionary(context)) {
+        /* Verify time is current system time unless specified in context */
+        CFAbsoluteTime verifyTime = CFAbsoluteTimeGetCurrent();
+        CFDateRef verify = CFDictionaryGetValue(context, CFSTR("verify"));
+        if (isDate(verify)) {
+            verifyTime = CFDateGetAbsoluteTime(verify);
+        }
+        CFBooleanRef fresh = CFDictionaryGetValue(context, CFSTR("fresh"));
+        if (CFEqualSafe(fresh, kCFBooleanTrue)) {
+            /* notValidBefore must be no greater than 48 hours old */
+            CFAbsoluteTime twoDaysAgo = verifyTime - (2*24*3600);
+            CFDateRef date = CFDateCreate(NULL, twoDaysAgo);
+            CFDictionaryAddValue(options, kSecPolicyCheckNotValidBefore, date);
+            CFReleaseNull(date);
+        }
+    }
+
+    result = SecPolicyCreate(policyOid, policyName, options);
+
+errOut:
+    CFReleaseSafe(options);
+    CFReleaseNull(keySizes);
+    CFReleaseNull(ecSize);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateParakeetSigning(void)
+{
+    return SecPolicyCreateParakeetCommon(NULL, NULL, kSecPolicyAppleParakeetSigning, kSecPolicyNameParakeetSigning);
+}
+
+SecPolicyRef SecPolicyCreateParakeetService(CFStringRef hostname, CFDictionaryRef __nullable context)
+{
+    return SecPolicyCreateParakeetCommon(hostname, context, kSecPolicyAppleParakeetService, kSecPolicyNameParakeetService);
+}
+
+SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* MFI certs don't expire */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* No chain length check because chains are either 3 or 4 long */
+
+    switch(type) {
+        case SeciAPAuthV4TypeAccessory:
+            CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonNamePrefix,
+                                 CFSTR("Apple Accessories Certification Authority - "));
+            break;
+        case SeciAPAuthV4TypeAttestation:
+            CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonNamePrefix,
+                                 CFSTR("Apple Accessory Host Attestation Authority - "));
+            break;
+        case SeciAPAuthV4TypeProvisioning:
+            CFDictionaryAddValue(options, kSecPolicyCheckIssuerCommonNamePrefix,
+                                 CFSTR("Apple Accessories Provisioning Authority - "));
+            break;
+        default:
+            goto errOut;
+    }
+
+    /* Leaf marker (mfiv4 properties extension) */
+    if (type != SeciAPAuthV4TypeProvisioning) {
+        add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.71.1"));
+    }
+
+    require(result = SecPolicyCreate(kSecPolicyAppleiAPAuthV4,
+                                     kSecPolicyNameiAPAuthV4, options), errOut);
+
+errOut:
+    CFReleaseNull(options);
     return result;
 }

@@ -34,43 +34,43 @@
  */
 struct trigger_info {
 	TAILQ_ENTRY(trigger_info) ti_entries;
-					/* tail queue of resolved triggers */
-	lck_mtx_t	*ti_lock;	/* mutex protecting accesses */
-	uint32_t	ti_seq;		/* sequence number of state changes */
-	u_int		ti_flags;
-	int		ti_error;
-	fsid_t		ti_this_fsid;	/* fsid of file system for this trigger */
-	fsid_t		ti_mounted_fsid;
-					/* fsid of file system mounted atop this */
-	time_t		ti_ref_time;	/* last reference to this trigger */
-	int		(*ti_check_notrigger_process)(int);
-					/* call this to check whether this process should trigger mounts */
-	int		(*ti_check_nowait_process)(int);
-					/* call this to check whether this process should block on mount-in-progress */
-	int		(*ti_check_homedirmounter_process)(vnode_t, int);
-					/* call this to check whether this process is a home directory mounter */
-	int		(*ti_check_homedirmount)(vnode_t);
-					/* call this to check whether this trigger is having a home directory mount done */
-	void		*(*ti_get_mount_args)(vnode_t, vfs_context_t, int *);
-					/* call this to get mount arguments */
-	int		(*ti_do_mount)(void *);
-					/* call this to make the mount upcall */
-	void		(*ti_rel_mount_args)(void *);
-					/* call this to release mount arguments */
-	void		(*ti_rearm)(vnode_t, int);
-					/* call this on a rearm */
-	void		(*ti_reclaim)(void *);
-					/* call this on a reclaim */
-	void		*ti_private;	/* private data, if any */
+	/* tail queue of resolved triggers */
+	lck_mtx_t       *ti_lock;       /* mutex protecting accesses */
+	uint32_t        ti_seq;         /* sequence number of state changes */
+	u_int           ti_flags;
+	int             ti_error;
+	fsid_t          ti_this_fsid;   /* fsid of file system for this trigger */
+	fsid_t          ti_mounted_fsid;
+	/* fsid of file system mounted atop this */
+	time_t          ti_ref_time;    /* last reference to this trigger */
+	int             (*ti_check_notrigger_process)(int);
+	/* call this to check whether this process should trigger mounts */
+	int             (*ti_check_nowait_process)(int);
+	/* call this to check whether this process should block on mount-in-progress */
+	int             (*ti_check_homedirmounter_process)(vnode_t, int);
+	/* call this to check whether this process is a home directory mounter */
+	int             (*ti_check_homedirmount)(vnode_t);
+	/* call this to check whether this trigger is having a home directory mount done */
+	void            *(*ti_get_mount_args)(vnode_t, vfs_context_t, int *);
+	/* call this to get mount arguments */
+	int             (*ti_do_mount)(void *);
+	/* call this to make the mount upcall */
+	void            (*ti_rel_mount_args)(void *);
+	/* call this to release mount arguments */
+	void            (*ti_rearm)(vnode_t, int);
+	/* call this on a rearm */
+	void            (*ti_reclaim)(void *);
+	/* call this on a reclaim */
+	void            *ti_private;    /* private data, if any */
 };
 
-#define	TF_INPROG		0x00000001	/* a mount is in progress for this trigger */
-#define TF_WAITING		0x00000002	/* somebody's waiting for that mount to finish */
-#define TF_FORCEMOUNT		0x00000004	/* all operations cause a mount */
-#define TF_AUTOFS		0x00000008	/* an autofs mount will be done atop this trigger */
-#define TF_DONTUNMOUNT		0x00000010	/* don't auto-unmount or preemptively unmount this */
-#define TF_DONTPREUNMOUNT	0x00000020	/* don't preemptively unmount this */
-#define TF_RESOLVED		0x00000040	/* trigger is on the resolved list */
+#define TF_INPROG               0x00000001      /* a mount is in progress for this trigger */
+#define TF_WAITING              0x00000002      /* somebody's waiting for that mount to finish */
+#define TF_FORCEMOUNT           0x00000004      /* all operations cause a mount */
+#define TF_AUTOFS               0x00000008      /* an autofs mount will be done atop this trigger */
+#define TF_DONTUNMOUNT          0x00000010      /* don't auto-unmount or preemptively unmount this */
+#define TF_DONTPREUNMOUNT       0x00000020      /* don't preemptively unmount this */
+#define TF_RESOLVED             0x00000040      /* trigger is on the resolved list */
 
 /*
  * Call used by the automounter to specify some additional routines

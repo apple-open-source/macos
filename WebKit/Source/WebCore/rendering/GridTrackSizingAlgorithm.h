@@ -26,9 +26,19 @@
 
 #include "Grid.h"
 #include "GridBaselineAlignment.h"
+#include "GridLayoutState.h"
 #include "GridTrackSize.h"
 #include "LayoutSize.h"
 #include "RenderBoxInlines.h"
+
+namespace WebCore {
+class GridTrack;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::GridTrack> : std::true_type { };
+}
 
 namespace WebCore {
 
@@ -107,14 +117,10 @@ class GridTrackSizingAlgorithm final {
     friend class GridTrackSizingAlgorithmStrategy;
 
 public:
-    GridTrackSizingAlgorithm(const RenderGrid* renderGrid, Grid& grid)
-        : m_grid(grid)
-        , m_renderGrid(renderGrid)
-        , m_sizingState(SizingState::ColumnSizingFirstIteration)
-    {
-    }
+    GridTrackSizingAlgorithm(const RenderGrid*, Grid&);
+    ~GridTrackSizingAlgorithm();
 
-    void setup(GridTrackSizingDirection, unsigned numTracks, SizingOperation, std::optional<LayoutUnit> availableSpace);
+    void setup(GridTrackSizingDirection, unsigned numTracks, SizingOperation, std::optional<LayoutUnit> availableSpace, GridLayoutState&);
     void run();
     void reset();
 
@@ -157,6 +163,28 @@ public:
 #endif
 
 private:
+    struct MasonryIndefiniteItems {
+        // Optimization: Masonry Indefinite Items
+        // Indefinite items need to be considered in each track; this causes a runtime of O(N_track * M_items).
+        // We can simplfiy this to O(N_tracks) if we add some constraints.
+        //
+        // We will precompute the min-content, max-content and min-size for all indefinite items if they meet the below requirements:
+        // - item has a span length of 1
+        // - item is not a sub-grid
+        // - track is not 'fr'
+        //
+        // In case we hit an 'fr' track we will fallback to computing all indefinte items in the track.
+        //
+        // FIXME: Add support for multi-track items.
+        // FIXME: Add support for flex items.
+        SingleThreadWeakListHashSet<RenderBox> indefiniteItems;
+        SingleThreadWeakListHashSet<RenderBox> singleTrackIndefiniteItems;
+
+        LayoutUnit largestMinContentSizeForSingleTrackItems;
+        LayoutUnit largestMaxContentSizeForSingleTrackItems;
+        LayoutUnit largestMinSizeForSingleTrackItems;
+    };
+
     std::optional<LayoutUnit> availableSpace() const;
     bool isRelativeGridLengthAsAuto(const GridLength&, GridTrackSizingDirection) const;
     GridTrackSize calculateGridTrackSize(GridTrackSizingDirection, unsigned translatedIndex) const;
@@ -168,6 +196,8 @@ private:
 
     // Helper methods for step 2. resolveIntrinsicTrackSizes().
     void sizeTrackToFitNonSpanningItem(const GridSpan&, RenderBox& gridItem, GridTrack&);
+    void sizeTrackToFitSingleSpanMasonryGroup(const GridSpan&, MasonryIndefiniteItems&, GridTrack&);
+
     bool spanningItemCrossesFlexibleSizedTracks(const GridSpan&) const;
     typedef struct GridItemsSpanGroupRange GridItemsSpanGroupRange;
     template <TrackSizeComputationVariant variant, TrackSizeComputationPhase phase> void increaseSizesToAccommodateSpanningItems(const GridItemsSpanGroupRange& gridItemsWithSpan);
@@ -183,7 +213,7 @@ private:
     bool isIntrinsicSizedGridArea(const RenderBox&, GridAxis) const;
     void computeGridContainerIntrinsicSizes();
 
-    // Helper methods for step 4. Strech flexible tracks.
+    // Helper methods for step 4. Stretch flexible tracks.
     typedef HashSet<unsigned, DefaultHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> TrackIndexSet;
     double computeFlexFactorUnitSize(const Vector<GridTrack>& tracks, double flexFactorSum, LayoutUnit& leftOverSpace, const Vector<unsigned, 8>& flexibleTracksIndexes, std::unique_ptr<TrackIndexSet> tracksToTreatAsInflexible = nullptr) const;
     void computeFlexSizedTracksGrowth(double flexFraction, Vector<LayoutUnit>& increments, LayoutUnit& totalGrowth) const;
@@ -191,13 +221,13 @@ private:
 
     // Track sizing algorithm steps. Note that the "Maximize Tracks" step is done
     // entirely inside the strategies, that's why we don't need an additional
-    // method at thise level.
+    // method at this level.
     void initializeTrackSizes();
     void resolveIntrinsicTrackSizes();
     void stretchFlexibleTracks(std::optional<LayoutUnit> freeSpace);
     void stretchAutoTracks();
 
-    void accumulateIntrinsicSizesForTrack(GridTrack&, unsigned trackIndex, GridIterator&, Vector<GridItemWithSpan>& itemsSortedByIncreasingSpan, Vector<GridItemWithSpan>& itemsCrossingFlexibleTracks, SingleThreadWeakHashSet<RenderBox>& itemsSet, LayoutUnit currentAccumulatedMbp);
+    void accumulateIntrinsicSizesForTrack(GridTrack&, unsigned trackIndex, GridIterator&, Vector<GridItemWithSpan>& itemsSortedByIncreasingSpan, Vector<GridItemWithSpan>& itemsCrossingFlexibleTracks, SingleThreadWeakHashSet<RenderBox>& itemsSet, MasonryIndefiniteItems&, LayoutUnit currentAccumulatedMbp);
 
     bool copyUsedTrackSizesForSubgrid();
 
@@ -234,6 +264,8 @@ private:
     const RenderGrid* m_renderGrid;
     std::unique_ptr<GridTrackSizingAlgorithmStrategy> m_strategy;
 
+    WeakPtr<GridLayoutState> m_gridLayoutState;
+
     // The track sizing algorithm is used for both layout and intrinsic size
     // computation. We're normally just interested in intrinsic inline sizes
     // (a.k.a widths in most of the cases) for the computeIntrinsicLogicalWidths()
@@ -252,14 +284,14 @@ private:
     SizingState m_sizingState;
 
     GridBaselineAlignment m_baselineAlignment;
-    typedef HashMap<const RenderBox*, bool> BaselineItemsCache;
+    using BaselineItemsCache = HashMap<SingleThreadWeakRef<const RenderBox>, bool>;
     BaselineItemsCache m_columnBaselineItemsMap;
     BaselineItemsCache m_rowBaselineItemsMap;
 
     SingleThreadWeakHashSet<RenderGrid> m_rowSubgridsWithBaselineAlignedItems;
 
     // This is a RAII class used to ensure that the track sizing algorithm is
-    // executed as it is suppossed to be, i.e., first resolve columns and then
+    // executed as it is supposed to be, i.e., first resolve columns and then
     // rows. Only if required a second iteration is run following the same order,
     // first columns and then rows.
     class StateMachine {

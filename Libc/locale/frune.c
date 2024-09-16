@@ -42,10 +42,12 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/frune.c,v 1.3 2002/09/18 06:19:12 tjr Ex
 
 #include "xlocale_private.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <rune.h>
 #include <stddef.h>
 #include <stdio.h>
+#include "mblocal.h"
 #include "runedepreciated.h"
 
 long
@@ -55,7 +57,8 @@ fgetrune(FILE *fp)
 	int c, len;
 	char buf[MB_LEN_MAX];
 	char const *result;
-	__darwin_rune_t invalid_rune = __current_locale()->__lc_ctype->_CurrentRuneLocale.__invalid_rune;
+	__darwin_rune_t invalid_rune =
+	    __current_lc_ctype->_CurrentRuneLocale->__invalid_rune;
 	static int warn_depreciated = 1;
 
 	if (warn_depreciated) {

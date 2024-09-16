@@ -28,6 +28,7 @@
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecTrust.h>
+#include <Security/SecTrustPriv.h>
 #include <Security/SecFramework.h>
 #include <Security/SecTrustStore.h>
 
@@ -203,6 +204,22 @@
     XCTSkip();
 #else
     XCTAssertEqual(errSecSuccess, SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)));
+#endif
+}
+
+- (void)testTrustStoreAssetVersion {
+#if TARGET_OS_BRIDGE
+    XCTSkip();
+#else
+    NSString *tsAssetVersion = (__bridge_transfer NSString *)SecTrustCopyTrustStoreAssetVersion(NULL);
+    if (!tsAssetVersion) {
+        XCTSkip(); /* asset currently unavailable */
+    } else {
+        NSCharacterSet *asciiDigits = [NSCharacterSet characterSetWithRange:NSMakeRange('0', '9')];
+        NSString *testStr = [tsAssetVersion stringByTrimmingCharactersInSet:asciiDigits];
+        /* valid asset version looks like "1.0.0.11.1234,0", so if we trim all digits, we expect the string "....," as the result. */
+        XCTAssertEqualObjects(testStr, @"....,", "expected remainder after trimming digits");
+    }
 #endif
 }
 

@@ -1,4 +1,4 @@
-/*  Copyright © 2017-2018 Apple Inc. All rights reserved.
+/*  Copyright © 2017-2023 Apple Inc. All rights reserved.
  *
  *  lf_hfs_utils.h
  *  livefiles_hfs
@@ -32,8 +32,8 @@
 
 void*       hashinit(int elements, u_long *hashmask);
 void        hashDeinit(void* pvHashTbl);
-time_t      to_bsd_time(u_int32_t hfs_time);
-u_int32_t   to_hfs_time(time_t bsd_time);
+time_t      to_bsd_time(u_int32_t hfs_time, bool expanded);
+u_int32_t   to_hfs_time(time_t bsd_time, bool expanded);
 void        microuptime(struct timeval *tvp);
 void        microtime(struct timeval *tvp);
 void*       lf_hfs_utils_allocate_and_copy_string( char *pcName, size_t uLen );

@@ -41,6 +41,21 @@ typedef void ( *DAProbeCallback )( int             status,
                                    CFUUIDRef       uuid,
                                    void *          context );
 
+typedef struct __DAProbeCallbackContext __DAProbeCallbackContext;
+
+struct __DAProbeCallbackContext
+{
+    DAProbeCallback   callback;
+    void *            callbackContext;
+    CFMutableArrayRef candidates;
+    DADiskRef         disk;
+    DADiskRef         containerDisk;
+    DAFileSystemRef   filesystem;
+#ifdef DA_FSKIT
+    int               gotFSModules;
+#endif
+};
+
 extern void DAProbe( DADiskRef       disk,
                      DADiskRef containerDisk,
                      DAProbeCallback callback,

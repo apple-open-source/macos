@@ -87,6 +87,15 @@ bool IOFWWriteQuadCommand::initAll(	IOFireWireNub *		device,
 
 	if( result )
 	{
+		
+		fQuads = (UInt32 *)IOMallocData( kMaxWriteQuads * 4 );
+		if( NULL == fQuads )
+			result = false;
+	}
+		
+	if( result )
+	{
+		
 		fWrite = true;
 		result = IOFWAsyncCommand::initAll(	device, 
 											devAddress,
@@ -114,6 +123,15 @@ bool IOFWWriteQuadCommand::initAll(	IOFireWireNub *		device,
 		result = createMemoryDescriptor();
 	}
 		
+	if( !result )
+	{
+		if( fQuads )
+		{
+			IOFreeData( fQuads, kMaxWriteQuads * 4 );
+			fQuads = NULL;
+		}
+	}
+
 	return result;
 }
 
@@ -136,6 +154,14 @@ bool IOFWWriteQuadCommand::initAll(	IOFireWireController *	control,
 	   result = false;
     }
 	
+	if( result )
+	{
+		
+		fQuads = (UInt32 *)IOMallocData( kMaxWriteQuads * 4 );
+		if( NULL == fQuads )
+			result = false;
+	}
+		
 	if( result )
 	{
 		fWrite = true;
@@ -164,7 +190,15 @@ bool IOFWWriteQuadCommand::initAll(	IOFireWireController *	control,
 	{
 		result = createMemoryDescriptor();
 	}
-		
+	
+	if( !result )
+	{
+		if( fQuads )
+		{
+			IOFreeData( fQuads, kMaxWriteQuads * 4 );
+			fQuads = NULL;
+		}
+	}
 	return result;
 }
 
@@ -284,6 +318,12 @@ void IOFWWriteQuadCommand::destroyMemoryDescriptor()
 
 void IOFWWriteQuadCommand::free()
 {
+	if( fQuads )
+	{
+		IOFreeData( fQuads, kMaxWriteQuads * 4 );
+		fQuads = NULL;
+	}
+		
 	destroyMemoryDescriptor();
 
 	destroyMemberVariables();

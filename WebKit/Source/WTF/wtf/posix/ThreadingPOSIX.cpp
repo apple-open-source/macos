@@ -53,12 +53,6 @@
 #endif
 #endif
 
-#if !COMPILER(MSVC)
-#include <limits.h>
-#include <sched.h>
-#include <sys/time.h>
-#endif
-
 #if !OS(DARWIN) && OS(UNIX)
 
 #include <semaphore.h>
@@ -77,11 +71,13 @@
 #include <mach/thread_switch.h>
 #endif
 
+#if OS(QNX)
+#define SA_RESTART 0
+#endif
+
 namespace WTF {
 
-Thread::~Thread()
-{
-}
+Thread::~Thread() = default;
 
 #if !OS(DARWIN)
 class Semaphore final {
@@ -326,7 +322,7 @@ bool Thread::establishHandle(NewThreadContext* context, std::optional<size_t> st
     if (policy == SCHED_RR)
         RealTimeThreads::singleton().registerThread(*this);
     else {
-        struct sched_param param = { 0 };
+        struct sched_param param = { };
         error = pthread_setschedparam(threadHandle, policy | SCHED_RESET_ON_FORK, &param);
         if (error)
             LOG_ERROR("Failed to set sched policy %d for thread %ld: %s", policy, threadHandle, safeStrerror(error).data());

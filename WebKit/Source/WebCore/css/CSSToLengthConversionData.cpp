@@ -45,6 +45,7 @@ CSSToLengthConversionData::CSSToLengthConversionData(const RenderStyle& style, c
     , m_renderView(builderContext.document->renderView())
     , m_elementForContainerUnitResolution(builderContext.element)
     , m_viewportDependencyDetectionStyle(const_cast<RenderStyle*>(m_style))
+    , m_anchorPositionedStateMap(builderContext.anchorPositionedStateMap)
 {
 }
 
@@ -81,7 +82,7 @@ int CSSToLengthConversionData::computedLineHeightForFontUnits() const
 
 float CSSToLengthConversionData::zoom() const
 {
-    return m_zoom.value_or(m_style ? m_style->effectiveZoom() : 1.f);
+    return m_zoom.value_or(m_style ? m_style->usedZoom() : 1.f);
 }
 
 FloatSize CSSToLengthConversionData::defaultViewportFactor() const

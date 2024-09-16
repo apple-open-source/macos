@@ -89,7 +89,7 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 	CFNumberRef			sessionNum	= NULL;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace("%s : %5d : %s : %@",
+	SC_trace("%s : %5u : %s : %@",
 		 internal ? "*watch+" : "watch+ ",
 		 storePrivate->server,
 		 isRegex  ? "pattern" : "key",
@@ -243,7 +243,7 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 	updateKeysContext		myContext;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace("watch   : %5d : %ld keys, %ld patterns",
+	SC_trace("watch   : %5u : %ld keys, %ld patterns",
 		 storePrivate->server,
 		 keys     ? CFArrayGetCount(keys)     : 0,
 		 patterns ? CFArrayGetCount(patterns) : 0);

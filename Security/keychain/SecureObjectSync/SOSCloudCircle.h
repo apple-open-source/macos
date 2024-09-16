@@ -94,9 +94,6 @@ typedef int SOSCCStatus;
 
 extern const char * kSOSCCCircleChangedNotification;
 extern const char * kSOSCCViewMembershipChangedNotification;
-extern const char * kSOSCCInitialSyncChangedNotification;
-extern const char * kSOSCCHoldLockForInitialSync;
-extern const char * kSOSCCPeerAvailable;
 extern const char * kSOSCCRecoveryKeyChanged;
 extern const char * kSOSCCCircleOctagonKeysChangedNotification;
 extern const char * kSOSCCSOSIsNowOFF;

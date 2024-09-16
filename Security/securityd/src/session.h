@@ -40,7 +40,7 @@
 #include <bsm/audit.h>
 #include <bsm/audit_session.h>
 #include <sys/event.h>
-#include "securityd_service/securityd_service/securityd_service_client.h"
+#include "keybag_helpers.h"
 
 class Key;
 class Connection;

@@ -149,7 +149,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef _Nonnull authorizat
  @param output CFDictionaryRef which will hold the properties
 
  */
-OSStatus AuthorizationCopyRightProperties(const char * __nonnull rightName, CFDictionaryRef __nullable * __nullable output) __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_NA);
+OSStatus AuthorizationCopyRightProperties(const char * __nonnull rightName, CFDictionaryRef __nullable * CF_RETURNS_RETAINED output) __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_NA);
 
 /*!
  @function AuthorizationCopyPrivilegedReference

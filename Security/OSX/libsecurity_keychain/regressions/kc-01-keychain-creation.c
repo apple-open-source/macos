@@ -4,7 +4,7 @@
 #include "keychain_regressions.h"
 #include "kc-helpers.h"
 
-int kc_01_keychain_creation(int argc, char *const *argv)
+int kc_01_keychain_creation(__unused int argc, __unused char *const *argv)
 {
 	plan_tests(9);
 
@@ -32,4 +32,21 @@ int kc_01_keychain_creation(int argc, char *const *argv)
     CFRelease(keychain2);
 
 	return 0;
+}
+
+int kc_01_corrupt_keychain(__unused int argc, __unused char *const *argv)
+{
+    plan_tests(2 + getCorruptTestKeychainTests);
+
+    initializeKeychainTests(__FUNCTION__);
+
+    SecKeychainRef keychain = getCorruptTestKeychain();
+    isnt(keychain, NULL, "corrupt keychain created");
+
+    SecKeychainStatus kcStatus;
+    is(SecKeychainGetStatus(keychain, &kcStatus), errSecInvalidKeychain, "SecKeychainGetStatus returns error");
+
+    CFRelease(keychain);
+
+    return 0;
 }

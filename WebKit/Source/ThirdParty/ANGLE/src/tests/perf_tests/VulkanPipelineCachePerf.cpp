@@ -8,9 +8,9 @@
 
 #include "ANGLEPerfTest.h"
 
-#include "libANGLE/renderer/vulkan/RendererVk.h"
 #include "libANGLE/renderer/vulkan/vk_cache_utils.h"
 #include "libANGLE/renderer/vulkan/vk_helpers.h"
+#include "libANGLE/renderer/vulkan/vk_renderer.h"
 #include "util/random_utils.h"
 
 using namespace rx;
@@ -69,7 +69,7 @@ void VulkanPipelineCachePerfTest::SetUp()
         {
             mCacheHits.push_back(desc);
         }
-        mCache.populate(desc, std::move(pipeline));
+        mCache.populate(desc, std::move(pipeline), nullptr);
     }
 
     for (int missCount = 0; missCount < 10000; ++missCount)

@@ -1,0 +1,8 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+sju{
+    AuxExemplarCharacters{"[c ñ ö q w x y z]"}
+    ExemplarCharacters{"[aáåä b d e f g h i j k l m nń o p r s t u v ŋ đ ï ŧ ü]"}
+    ExemplarCharactersIndex{"[AÁÅÄ B D E F G H I J K L M NŃ O P R S T U V]"}
+}

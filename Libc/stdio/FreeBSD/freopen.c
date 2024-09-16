@@ -48,6 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.21 2008/04/17 22:17:54 jhb 
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 /*
  * Re-direct an existing, open (probably) file to some other file.
@@ -59,6 +60,10 @@ freopen(const char * __restrict file, const char * __restrict mode, FILE *fp)
 {
 	int f;
 	int dflags, flags, isopen, oflags, sverrno, wantfd;
+
+	libc_hooks_will_read_cstring(file);
+	libc_hooks_will_read_cstring(mode);
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	if ((flags = __sflags(mode, &oflags)) == 0) {
 		sverrno = errno;

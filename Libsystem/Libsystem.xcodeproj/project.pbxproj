@@ -87,7 +87,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		2B9D8B542402427100E7F338 /* i386.c in Sources */ = {isa = PBXBuildFile; fileRef = 2B9D8B53240239BD00E7F338 /* i386.c */; };
 		8C1C6CD62655B06A001B99C7 /* Libsystem.plist in Install FeatureFlags */ = {isa = PBXBuildFile; fileRef = 8C7F4804264C24F1007076D8 /* Libsystem.plist */; };
 		923662F821276300001FB3E7 /* enable_asan_mode in Copy enable_asan_mode */ = {isa = PBXBuildFile; fileRef = 8C0BF1291F58E51D00706493 /* enable_asan_mode */; };
 		BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA5511B6136C9D780012B9B5 /* Info.plist */; };
@@ -223,7 +222,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2B9D8B53240239BD00E7F338 /* i386.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = i386.c; sourceTree = "<group>"; };
 		2BBCA221278E5D2C00224D15 /* requiredlibs_exclavekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs_exclavekit; sourceTree = "<group>"; };
 		2BBCA222278E5D2C00224D15 /* optionallibs_exclavekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs_exclavekit; sourceTree = "<group>"; };
 		8C0BF1291F58E51D00706493 /* enable_asan_mode */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = enable_asan_mode; sourceTree = "<group>"; };
@@ -282,7 +280,6 @@
 				BA5511B6136C9D780012B9B5 /* Info.plist */,
 				C9A43CAB15374DB200388D0C /* alloc_once_private.h */,
 				BA5511B7136C9D780012B9B5 /* init.c */,
-				2B9D8B53240239BD00E7F338 /* i386.c */,
 				BA5511B9136C9D780012B9B5 /* optionallibs */,
 				BA5511BA136C9D780012B9B5 /* requiredlibs */,
 				E43B88B42245778F00215272 /* optionallibs_driverkit */,
@@ -463,7 +460,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */,
-				2B9D8B542402427100E7F338 /* i386.c in Sources */,
 				BA5511CA136C9E510012B9B5 /* init.c in Sources */,
 				BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */,
 			);

@@ -47,3 +47,9 @@ _avphidbridge:*:288:288::0:0:Apple Virtual Platform HID Bridge:/var/empty:/usr/b
 _launchservices:*:290:290::0:0:Launch Services:/var/empty:/usr/bin/false
 _mobilegestalthelper:*:293:293::0:0:MobileGestaltHelper:/var/empty:/usr/bin/false
 _eligibilityd:*:297:297::0:0:OS Eligibility Daemon:/var/db/eligibilityd:/usr/bin/false
+_systemstatusd:*:298:298::0:0:SystemStatus Services:/var/empty:/usr/bin/false
+_aonsensed:*:300:300::0:0:Always On Sense Daemon:/var/db/aonsensed:/usr/bin/false
+_modelmanagerd:*:301:301::0:0:Model Manager:/var/db/modelmanagerd:/usr/bin/false
+_reportsystemmemory:*:302:302::0:0:ReportSystemMemory:/var/empty:/usr/bin/false
+_swtransparencyd:*:303:303::0:0:Software Transparency Services:/var/db/swtransparencyd:/usr/bin/false
+_naturallanguaged:*:304:304::0:0:Natural Language Services:/var/db/com.apple.naturallanguaged:/usr/bin/false

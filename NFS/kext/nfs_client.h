@@ -626,6 +626,7 @@ void    nfs_msg(thread_t, const char *, const char *, int);
 
 int     nfs_maperr(const char *, int);
 #define NFS_MAPERR(ERR) nfs_maperr(__FUNCTION__, (ERR))
+vm_offset_t nfs_kernel_hideaddr(void *);
 
 #if CONFIG_TRIGGERS
 resolver_result_t nfs_mirror_mount_trigger_resolve(vnode_t, const struct componentname *, enum path_operation, int, void *, vfs_context_t);

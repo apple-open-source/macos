@@ -26,6 +26,7 @@
 #import "config.h"
 #import "RemoteLayerWithRemoteRenderingBackingStore.h"
 
+#import "PlatformCALayerRemote.h"
 #import "RemoteImageBufferSetProxy.h"
 #import "RemoteLayerBackingStoreCollection.h"
 #import "RemoteLayerTreeContext.h"
@@ -92,7 +93,7 @@ void RemoteLayerWithRemoteRenderingBackingStore::createContextAndPaintContents()
         return;
 
     if (!bufferSet->hasContext()) {
-        ASSERT(m_layer->owner()->platformCALayerDelegatesDisplay(m_layer));
+        // The platform layer delegates display or bufferSet does not have a working connection to GPUP anymore.
         return;
     }
 

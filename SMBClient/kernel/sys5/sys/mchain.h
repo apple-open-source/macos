@@ -2,7 +2,7 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -123,6 +123,7 @@ int  md_get_uint64le(mdchain_t mdp, uint64_t *x);
 size_t md_get_utf16_strlen(mdchain_t mdp);
 size_t md_get_size(mdchain_t mdp);
 int  md_get_mem(mdchain_t mdp, caddr_t target, size_t size, int type);
+int  md_get_mem_put_mem(mdchain_t mdp, mbchain_t mbp, size_t size, int type);
 
 #ifdef KERNEL
 int  md_get_mbuf(mdchain_t mdp, size_t size, mbuf_t *m);

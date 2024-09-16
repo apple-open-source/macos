@@ -95,11 +95,24 @@
 
 #define NFS_SOCK_DBG(...) NFSCLNT_DBG(NFSCLNT_FAC_SOCK, 7, ## __VA_ARGS__)
 #define NFS_SOCK_DUMP_MBUF(msg, mb) if (NFSCLNT_IS_DBG(NFSCLNT_FAC_SOCK, 15)) nfs_dump_mbuf(__func__, __LINE__, (msg), (mb))
+#define SP(SP, FMT, ...) NFS_SOCK_DBG(FMT " [sock 0x%lx]\n", ##__VA_ARGS__, nfs_kernel_hideaddr(SP))
 
 #ifndef SUN_LEN
 #define SUN_LEN(su) \
 	(sizeof(*(su)) - sizeof((su)->sun_path) + strnlen((su)->sun_path, sizeof((su)->sun_path)))
 #endif /* SUN_LEN */
+
+const nfserr_info_t nfserrs_common[NFSERR_INFO_COMMON_SIZE] = {
+	NFSERR_INFO_COMMON
+};
+
+const nfserr_info_t nfserrs_v4[NFSERR_INFO_V4_SIZE] = {
+	NFSERR_INFO_V4
+};
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof(A[0]))
+#endif
 
 /* XXX */
 kern_return_t   thread_terminate(thread_t);
@@ -124,6 +137,40 @@ nfs_sendmbuf(__unused struct sockaddr *saddr, socket_t sock, const struct msghdr
 
 	NFS_KDBG_EXIT(NFSDBG_OP_SEND_SENDMBUF, saddr, sock, sentlen, error);
 	return error;
+}
+
+static int
+is_error_in_range(const nfserr_info_t *arr, int arr_size, int error)
+{
+	if (arr_size == 0) {
+		return 0;
+	}
+	return error >= arr[0].nei_error && error <= arr[arr_size - 1].nei_error;
+}
+
+void
+nfsstat_update_nfserror(int error, int vers)
+{
+	if (is_error_in_range(nfserrs_common, ARRAY_SIZE(nfserrs_common), error)) {
+		for (uint32_t i = 0; i < ARRAY_SIZE(nfserrs_common); i++) {
+			if (error == nfserrs_common[i].nei_error) {
+				nfsclntstats.nfs_errs.errs_common[nfserrs_common[i].nei_index]++;
+				return;
+			}
+		}
+	}
+
+	if (vers >= NFS_VER4 && is_error_in_range(nfserrs_v4, ARRAY_SIZE(nfserrs_v4), error)) {
+		for (uint32_t i = 0; i < ARRAY_SIZE(nfserrs_v4); i++) {
+			if (error == nfserrs_v4[i].nei_error) {
+				nfsclntstats.nfs_errs.errs_v4[nfserrs_v4[i].nei_index]++;
+				return;
+			}
+		}
+	}
+
+	/* Unknown error */
+	nfsclntstats.nfs_errs.errs_unknown++;
 }
 
 /*
@@ -365,7 +412,7 @@ nfs_connect_upcall(socket_t so, void *arg, __unused int waitflag)
 
 	lck_mtx_lock(&nso->nso_lock);
 	if (nso->nso_flags & NSO_CONNECTING) {
-		NFS_SOCK_DBG("nfs connect - socket %p upcall - connecting flags = %8.8x\n", nso, nso->nso_flags);
+		SP(nso, "nfs connect - socket upcall - connecting flags = %8.8x", nso->nso_flags);
 		if (nso->nso_wake) {
 			wakeup(nso->nso_wake);
 		}
@@ -374,11 +421,11 @@ nfs_connect_upcall(socket_t so, void *arg, __unused int waitflag)
 	}
 
 	if ((nso->nso_flags & (NSO_UPCALL | NSO_DISCONNECTING | NSO_DEAD)) || !(nso->nso_flags & NSO_PINGING)) {
-		NFS_SOCK_DBG("nfs connect - socket %p upcall - nevermind\n", nso);
+		SP(nso, "nfs connect - socket upcall - nevermind");
 		lck_mtx_unlock(&nso->nso_lock);
 		return;
 	}
-	NFS_SOCK_DBG("nfs connect - socket %p upcall %8.8x\n", nso, nso->nso_flags);
+	SP(nso, "nfs connect - socket upcall %8.8x", nso->nso_flags);
 	nso->nso_flags |= NSO_UPCALL;
 
 	/* loop while we make error-free progress */
@@ -638,13 +685,13 @@ nfs_socket_create(
 	}
 
 	if (error) {
-		NFS_SOCK_DBG("nfs connect %s error %d creating socket %p %s type %d%s port %d prot %d %d\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error, nso, naddr, sotype,
+		SP(nso, "nfs connect %s error %d creating socket %s type %d%s port %d prot %d %d",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error, naddr, sotype,
 		    resvport ? "r" : "", port, protocol, vers);
 		nfs_socket_destroy(nso);
 	} else {
-		NFS_SOCK_DBG("nfs connect %s created socket %p <%s> type %d%s port %d prot %d %d\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, naddr,
+		SP(nso, "nfs connect %s created socket <%s> type %d%s port %d prot %d %d",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, naddr,
 		    sotype, resvport ? "r" : "", port, protocol, vers);
 		*nsop = nso;
 	}
@@ -659,7 +706,7 @@ nfs_socket_destroy(struct nfs_socket *nso)
 {
 	struct timespec ts = { .tv_sec = 4, .tv_nsec = 0 };
 
-	NFS_SOCK_DBG("Destoring socket %p flags = %8.8x error = %d\n", nso, nso->nso_flags, nso->nso_error);
+	SP(nso, "Destoring socket flags = %8.8x error = %d", nso->nso_flags, nso->nso_error);
 	lck_mtx_lock(&nso->nso_lock);
 	nso->nso_flags |= NSO_DISCONNECTING;
 	if (nso->nso_flags & NSO_UPCALL) { /* give upcall a chance to complete */
@@ -681,7 +728,7 @@ nfs_socket_destroy(struct nfs_socket *nso)
 		kfree_data(nso->nso_saddr2, nso->nso_saddr2->sa_len);
 	}
 
-	NFS_SOCK_DBG("nfs connect - socket %p destroyed\n", nso);
+	SP(nso, "nfs connect - socket destroyed");
 	kfree_type(struct nfs_socket, nso);
 }
 
@@ -915,8 +962,8 @@ nfs_connect_search_socket_connect(struct nfsmount *nmp, struct nfs_socket *nso, 
 
 	if ((nso->nso_sotype != SOCK_STREAM) && NMFLAG(nmp, NOCONNECT)) {
 		/* no connection needed, just say it's already connected */
-		NFS_SOCK_DBG("nfs connect %s UDP socket %p noconnect\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+		SP(nso, "nfs connect %s UDP socket noconnect",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 		nso->nso_flags |= NSO_CONNECTED;
 		nfs_socket_options(nmp, nso);
 		return 1;   /* Socket is connected and setup */
@@ -924,13 +971,13 @@ nfs_connect_search_socket_connect(struct nfsmount *nmp, struct nfs_socket *nso, 
 		/* initiate the connection */
 		nso->nso_flags |= NSO_CONNECTING;
 		lck_mtx_unlock(&nso->nso_lock);
-		NFS_SOCK_DBG("nfs connect %s connecting socket %p %s\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso,
+		SP(nso, "nfs connect %s connecting socket %s",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname,
 		    nso->nso_saddr->sa_family == AF_LOCAL ? ((struct sockaddr_un*)nso->nso_saddr)->sun_path : "");
 		error = sock_connect(nso->nso_so, nso->nso_saddr, MSG_DONTWAIT);
 		if (error) {
-			NFS_SOCK_DBG("nfs connect %s connecting socket %p returned %d\n",
-			    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
+			SP(nso, "nfs connect %s connecting socket returned %d",
+			    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 		}
 		lck_mtx_lock(&nso->nso_lock);
 		if (error && (error != EINPROGRESS)) {
@@ -942,15 +989,15 @@ nfs_connect_search_socket_connect(struct nfsmount *nmp, struct nfs_socket *nso, 
 	if (nso->nso_flags & NSO_CONNECTING) {
 		/* check the connection */
 		if (sock_isconnected(nso->nso_so)) {
-			NFS_SOCK_DBG("nfs connect %s socket %p is connected\n",
-			    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+			SP(nso, "nfs connect %s socket is connected",
+			    vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 
 			/* set connect upcall once socket is connected */
 			lck_mtx_unlock(&nso->nso_lock);
 			error = sock_setupcall(nso->nso_so, nfs_connect_upcall, nso);
 			lck_mtx_lock(&nso->nso_lock);
 			if (error) {
-				NFS_SOCK_DBG("sock_setupcall failed for socket %p setting nfs_connect_upcall error = %d\n", nso, error);
+				SP(nso, "sock_setupcall failed for socket setting nfs_connect_upcall error = %d", error);
 				nso->nso_error = error;
 				nso->nso_flags |= NSO_DEAD;
 				return 0;
@@ -965,8 +1012,8 @@ nfs_connect_search_socket_connect(struct nfsmount *nmp, struct nfs_socket *nso, 
 			error = 0;
 			sock_getsockopt(nso->nso_so, SOL_SOCKET, SO_ERROR, &error, &optlen);
 			if (error) { /* we got an error on the socket */
-				NFS_SOCK_DBG("nfs connect %s socket %p connection error %d\n",
-				    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
+				SP(nso, "nfs connect %s socket connection error %d",
+				    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 				if (verbose) {
 					printf("nfs connect socket error %d for %s\n",
 					    error, vfs_statfs(nmp->nm_mountp)->f_mntfromname);
@@ -1003,7 +1050,7 @@ nfs_connect_search_ping(struct nfsmount *nmp, struct nfs_socket *nso, struct tim
 		}
 	}
 	lck_mtx_unlock(&nso->nso_lock);
-	NFS_SOCK_DBG("Pinging  socket %p %d %d %d\n", nso, nso->nso_sotype, nso->nso_protocol, vers);
+	SP(nso, "Pinging  socket %d %d %d", nso->nso_sotype, nso->nso_protocol, vers);
 	error = nfsm_rpchead2(nmp, nso->nso_sotype, nso->nso_protocol, vers, 0, RPCAUTH_SYS,
 	    vfs_context_ucred(vfs_context_kernel()), NULL, NULL, &xid, &mreq);
 	lck_mtx_lock(&nso->nso_lock);
@@ -1022,8 +1069,8 @@ nfs_connect_search_ping(struct nfsmount *nmp, struct nfs_socket *nso, struct tim
 		lck_mtx_unlock(&nso->nso_lock);
 		NFS_SOCK_DUMP_MBUF("Sending ping packet", mreq);
 		error = nfs_sendmbuf(nso->nso_saddr, nso->nso_so, &msg, mreq, 0, &sentlen);
-		NFS_SOCK_DBG("nfs connect %s verifying socket %p send rv %d\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
+		SP(nso, "nfs connect %s verifying socket send rv %d",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 		lck_mtx_lock(&nso->nso_lock);
 		if (!error && (sentlen != reqlen)) {
 			error = ETIMEDOUT;
@@ -1045,8 +1092,8 @@ nfs_connect_search_ping(struct nfsmount *nmp, struct nfs_socket *nso, struct tim
 void
 nfs_connect_search_socket_found(struct nfsmount *nmp, struct nfs_socket_search *nss, struct nfs_socket *nso)
 {
-	NFS_SOCK_DBG("nfs connect %s socket %p verified\n",
-	    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+	SP(nso, "nfs connect %s socket verified",
+	    vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 	if (!nso->nso_version) {
 		/* If the version isn't set, the default must have worked. */
 		if (nso->nso_protocol == PMAPPROG) {
@@ -1074,8 +1121,8 @@ nfs_connect_search_socket_reap(struct nfsmount *nmp __unused, struct nfs_socket_
 		lck_mtx_lock(&nso->nso_lock);
 		if (now->tv_sec >= (nso->nso_timestamp + nss->nss_timeo)) {
 			/* took too long */
-			NFS_SOCK_DBG("nfs connect %s socket %p timed out\n",
-			    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+			SP(nso, "nfs connect %s socket timed out",
+			    vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 			nso->nso_error = ETIMEDOUT;
 			nso->nso_flags |= NSO_DEAD;
 		}
@@ -1084,8 +1131,8 @@ nfs_connect_search_socket_reap(struct nfsmount *nmp __unused, struct nfs_socket_
 			continue;
 		}
 		lck_mtx_unlock(&nso->nso_lock);
-		NFS_SOCK_DBG("nfs connect %s reaping socket %p error = %d flags = %8.8x\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, nso->nso_error, nso->nso_flags);
+		SP(nso, "nfs connect %s reaping socket error = %d flags = %8.8x",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso->nso_error, nso->nso_flags);
 		nfs_socket_search_update_error(nss, nso->nso_error);
 		TAILQ_REMOVE(&nss->nss_socklist, nso, nso_link);
 		nss->nss_sockcnt--;
@@ -1441,8 +1488,8 @@ keepsearching:
 
 	if (port == PMAPPORT) {
 		/* Use this portmapper port to get the port #s we need. */
-		NFS_SOCK_DBG("nfs connect %s got portmapper socket %p\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+		SP(nso, "nfs connect %s got portmapper socket",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 
 		/* remove the connect upcall so nfs_portmap_lookup() can use this socket */
 		sock_setupcall(nso->nso_so, NULL, NULL);
@@ -1552,7 +1599,7 @@ keepsearching:
 				/* If NFS version is unknown, optimistically choose for NFSv3. */
 				int mntvers = (nfsvers == NFS_VER2) ? RPCMNT_VER1 : RPCMNT_VER3;
 				int mntproto = (NM_OMFLAG(nmp, MNTUDP) || (nso->nso_sotype == SOCK_DGRAM)) ? IPPROTO_UDP : IPPROTO_TCP;
-				NFS_SOCK_DBG("Looking up mount port with socket %p\n", nso->nso_so);
+				SP(nso, "Looking up mount port with so 0x%lx", nfs_kernel_hideaddr(nso->nso_so));
 				error = nfs_portmap_lookup(nmp, vfs_context_current(), (struct sockaddr*)&ss,
 				    nso->nso_so, RPCPROG_MNT, mntvers, mntproto == IPPROTO_UDP ? SOCK_DGRAM : SOCK_STREAM, timeo);
 			}
@@ -1583,13 +1630,13 @@ keepsearching:
 				lck_mtx_unlock(&nsonfs->nso_lock);
 			}
 		}
-		NFS_SOCK_DBG("Destroying socket %p so %p\n", nso, nso->nso_so);
+		SP(nso, "Destroying socket so 0x%lx", nfs_kernel_hideaddr(nso->nso_so));
 		nfs_socket_destroy(nso);
 		goto keepsearching;
 	}
 
 	/* nso is an NFS socket */
-	NFS_SOCK_DBG("nfs connect %s got NFS socket %p\n", vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso);
+	SP(nso, "nfs connect %s got NFS socket", vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 
 	/* If NFS version wasn't specified, it was determined during the connect. */
 	nfsvers = nmp->nm_vers ? nmp->nm_vers : (int)nso->nso_version;
@@ -1662,8 +1709,8 @@ keepsearching:
 		nfs_location_mntfromname(&nmp->nm_locations, nso->nso_location, path, MAXPATHLEN, 1);
 		error = nfs3_mount_rpc(nmp, saddr, nso->nso_sotype, nfsvers,
 		    path, vfs_context_current(), timeo, fh, &nmp->nm_servsec);
-		NFS_SOCK_DBG("nfs connect %s socket %p mount %d\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
+		SP(nso, "nfs connect %s socket mount %d",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 		if (!error) {
 			/* Make sure we can agree on a security flavor. */
 			int o, s;  /* indices into mount option and server security flavor lists */
@@ -1809,8 +1856,8 @@ keepsearching:
 		wakeup(&nmp->nm_sockflags);
 	}
 	if (error) {
-		NFS_SOCK_DBG("nfs connect %s socket %p setup failed %d\n",
-		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nso, error);
+		SP(nso, "nfs connect %s socket setup failed %d",
+		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, error);
 		nfs_socket_search_update_error(&nss, error);
 		nmp->nm_saddr = oldsaddr;
 		if (!(nmp->nm_sockflags & NMSOCK_HASCONNECTED)) {
@@ -4072,7 +4119,7 @@ nfs_request_create(
 		 */
 		if (req->r_lflags & RL_QUEUED) {
 	#if DEVELOPMENT
-			panic("nfs_request_send: req %p is in global requests queue", req);
+			panic("nfs_request_send: req 0x%lx is in global requests queue", nfs_kernel_hideaddr(req));
 	#else
 			TAILQ_REMOVE(&nfs_reqq, req, r_chain);
 			req->r_lflags &= ~RL_QUEUED;
@@ -4589,6 +4636,7 @@ nfs_request_finish(
 			nfsm_chain_get_32(error, &nmrep, *status);
 			nfsmout_if(error);
 		}
+		nfsstat_update_nfserror(*status, nmp->nm_vers);
 
 		if ((nmp->nm_vers != NFS_VER2) && (*status == NFSERR_TRYLATER)) {
 			/*

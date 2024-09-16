@@ -24,11 +24,12 @@
  */
 
 #include <wtf/Assertions.h>
-#if HAVE(UNIFIED_ASC_AUTH_UI)
+#if HAVE(UNIFIED_ASC_AUTH_UI) || HAVE(WEB_AUTHN_AS_MODERN)
 
 #import "config.h"
 #import "WebAuthenticatorCoordinatorProxy.h"
 
+#import "ArgumentCoders.h"
 #import "LocalService.h"
 #import "Logging.h"
 #import "PageClient.h"
@@ -48,10 +49,9 @@
 #import <WebCore/WebAuthenticationUtils.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
-#import <wtf/EnumTraits.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
-
+#import <wtf/text/Base64.h>
 #import "AuthenticationServicesCoreSoftLink.h"
 #if HAVE(WEB_AUTHN_AS_MODERN)
 #import "AuthenticationServicesSoftLink.h"
@@ -103,7 +103,14 @@ using namespace WebCore;
 
 static inline Ref<ArrayBuffer> toArrayBuffer(NSData *data)
 {
-    return ArrayBuffer::create(reinterpret_cast<const uint8_t *>(data.bytes), data.length);
+    return ArrayBuffer::create(span(data));
+}
+
+static inline RefPtr<ArrayBuffer> toArrayBufferNilIfEmpty(NSData *data)
+{
+    if (!data || !data.length)
+        return nullptr;
+    return ArrayBuffer::create(span(data));
 }
 
 static inline ExceptionCode toExceptionCode(NSInteger nsErrorCode)
@@ -195,6 +202,7 @@ static inline RetainPtr<NSString> toAttestationConveyancePreference(AttestationC
     return @"none";
 }
 
+#if HAVE(SECURITY_KEY_API)
 static inline RetainPtr<NSString> toASResidentKeyPreference(std::optional<ResidentKeyRequirement> requirement, bool requireResidentKey)
 {
     if (!requirement)
@@ -210,6 +218,7 @@ static inline RetainPtr<NSString> toASResidentKeyPreference(std::optional<Reside
     ASSERT_NOT_REACHED();
     return @"preferred";
 }
+#endif // HAVE(SECURITY_KEY_API)
 
 static inline RetainPtr<NSString> toASAuthorizationSecurityKeyPublicKeyCredentialDescriptorTransport(WebCore::AuthenticatorTransport transport)
 {
@@ -229,7 +238,7 @@ RetainPtr<ASAuthorizationController> WebAuthenticatorCoordinatorProxy::construct
 {
     RetainPtr<NSArray> requests;
     WTF::switchOn(requestData.options, [&](const PublicKeyCredentialCreationOptions &options) {
-        requests = requestsForRegisteration(options, requestData.frameInfo.securityOrigin);
+        requests = requestsForRegistration(options, requestData.frameInfo.securityOrigin);
     }, [&](const PublicKeyCredentialRequestOptions &options) {
         requests = requestsForAssertion(options, requestData.frameInfo.securityOrigin, requestData.parentOrigin);
     });
@@ -238,11 +247,31 @@ RetainPtr<ASAuthorizationController> WebAuthenticatorCoordinatorProxy::construct
     return adoptNS([allocASAuthorizationControllerInstance() initWithAuthorizationRequests:requests.get()]);
 }
 
-RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegisteration(const PublicKeyCredentialCreationOptions &options, const WebCore::SecurityOriginData& callerOrigin)
+#if HAVE(WEB_AUTHN_PRF_API)
+static inline RetainPtr<ASAuthorizationPublicKeyCredentialPRFAssertionInputValues> toASAssertionPRFInputValue(std::optional<WebCore::AuthenticationExtensionsClientInputs::PRFValues> eval)
+{
+    if (!eval)
+        return nullptr;
+
+    auto first = WebCore::toNSData(eval->first);
+
+    RetainPtr<NSData> second;
+    if (eval->second)
+        second = WebCore::toNSData(*eval->second);
+
+    if (eval->second)
+        return adoptNS([WebKit::allocASAuthorizationPublicKeyCredentialPRFAssertionInputValuesInstance() initWithSaltInput1:first.get() saltInput2:WebCore::toNSData(*eval->second).get()]);
+    return adoptNS([WebKit::allocASAuthorizationPublicKeyCredentialPRFAssertionInputValuesInstance() initWithSaltInput1:first.get() saltInput2:nil]);
+}
+#endif
+
+RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegistration(const PublicKeyCredentialCreationOptions &options, const WebCore::SecurityOriginData& callerOrigin)
 {
     RetainPtr<NSMutableArray<ASAuthorizationRequest *>> requests = adoptNS([[NSMutableArray alloc] init]);
-    bool includeSecurityKeyRequest = true;
     bool includePlatformRequest = true;
+
+#if HAVE(SECURITY_KEY_API)
+    bool includeSecurityKeyRequest = true;
     if (options.authenticatorSelection) {
         if (auto attachment = options.authenticatorSelection->authenticatorAttachment) {
             switch (*attachment) {
@@ -257,6 +286,7 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegisteration(co
             }
         }
     }
+#endif // HAVE(SECURITY_KEY_API)
 
     RetainPtr<NSMutableArray<ASAuthorizationPlatformPublicKeyCredentialDescriptor *>> platformExcludedCredentials = adoptNS([[NSMutableArray alloc] init]);
     RetainPtr<NSMutableArray<ASAuthorizationSecurityKeyPublicKeyCredentialDescriptor *>> crossPlatformExcludedCredentials = adoptNS([[NSMutableArray alloc] init]);
@@ -276,6 +306,19 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegisteration(co
     RetainPtr<ASPublicKeyCredentialClientData> clientData = adoptNS([allocASPublicKeyCredentialClientDataInstance() initWithChallenge:toNSData(options.challenge).get() origin:callerOrigin.toString()]);
     if (includePlatformRequest) {
         RetainPtr request = adoptNS([[allocASAuthorizationPlatformPublicKeyCredentialProviderInstance() initWithRelyingPartyIdentifier:*options.rp.id] createCredentialRegistrationRequestWithClientData:clientData.get() name:options.user.name userID:toNSData(options.user.id).get()]);
+
+        if (m_isConditionalMediation && [request respondsToSelector:@selector(setRequestStyle:)])
+            request.get().requestStyle = ASAuthorizationPlatformPublicKeyCredentialRegistrationRequestStyleConditional;
+#if HAVE(WEB_AUTHN_PRF_API)
+        if (options.extensions && options.extensions->prf) {
+            auto prf = options.extensions->prf;
+            if (prf->eval)
+                request.get().prf = adoptNS([allocASAuthorizationPublicKeyCredentialPRFRegistrationInputInstance() initWithInputValues:toASAssertionPRFInputValue(prf->eval).get()]).get();
+            else
+                request.get().prf = [getASAuthorizationPublicKeyCredentialPRFRegistrationInputClass() checkForSupport];
+        }
+#endif
+
         // Platform credentials may only support enterprise attestation.
         if (options.attestation == AttestationConveyancePreference::Enterprise)
             request.get().attestationPreference = toAttestationConveyancePreference(options.attestation).get();
@@ -289,6 +332,7 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegisteration(co
         request.get().excludedCredentials = platformExcludedCredentials.get();
         [requests addObject:request.leakRef()];
     }
+#if HAVE(SECURITY_KEY_API)
     if (includeSecurityKeyRequest) {
         RetainPtr provider = adoptNS([allocASAuthorizationSecurityKeyPublicKeyCredentialProviderInstance() initWithRelyingPartyIdentifier:*options.rp.id]);
         RetainPtr<ASAuthorizationSecurityKeyPublicKeyCredentialRegistrationRequest> request;
@@ -308,6 +352,7 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForRegisteration(co
         request.get().excludedCredentials = crossPlatformExcludedCredentials.get();
         [requests addObject:request.leakRef()];
     }
+#endif // HAVE(SECURITY_KEY_API)
 
     return requests;
 }
@@ -326,7 +371,6 @@ static inline bool isCrossPlatformRequest(const Vector<AuthenticatorTransport>& 
     });
 }
 
-
 static inline bool allowsHybrid(const Vector<AuthenticatorTransport>& transports)
 {
     return transports.isEmpty() || transports.containsIf([](auto transport) {
@@ -334,7 +378,7 @@ static inline bool allowsHybrid(const Vector<AuthenticatorTransport>& transports
     });
 }
 
-RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const PublicKeyCredentialRequestOptions& options, const WebCore::SecurityOriginData& callerOrigin, const std::optional<WebCore::SecurityOriginData>& parentOrigin)
+RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const PublicKeyCredentialRequestOptions &options, const WebCore::SecurityOriginData& callerOrigin, const std::optional<WebCore::SecurityOriginData>& parentOrigin)
 {
     RetainPtr<NSMutableArray<ASAuthorizationRequest *>> requests = adoptNS([[NSMutableArray alloc] init]);
     RetainPtr<NSMutableArray<ASAuthorizationPlatformPublicKeyCredentialDescriptor *>> platformAllowedCredentials = adoptNS([[NSMutableArray alloc] init]);
@@ -369,9 +413,10 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
             ASSERT(!options.extensions->largeBlob->support);
             ASSERT(!(options.extensions->largeBlob->read && options.extensions->largeBlob->write));
             auto largeBlob = options.extensions->largeBlob;
-            request.get().largeBlob = adoptNS([allocASAuthorizationPublicKeyCredentialLargeBlobAssertionInputInstance() initWithOperation:(largeBlob->read && *largeBlob->read) ? ASAuthorizationPublicKeyCredentialLargeBlobAssertionOperationRead : ASAuthorizationPublicKeyCredentialLargeBlobAssertionOperationWrite]).get();
+            RetainPtr asLargeBlob = adoptNS([allocASAuthorizationPublicKeyCredentialLargeBlobAssertionInputInstance() initWithOperation:(largeBlob->read && *largeBlob->read) ? ASAuthorizationPublicKeyCredentialLargeBlobAssertionOperationRead : ASAuthorizationPublicKeyCredentialLargeBlobAssertionOperationWrite]);
             if (largeBlob->write)
-                request.get().largeBlob.dataToWrite = WebCore::toNSData(*largeBlob->write).get();
+                asLargeBlob.get().dataToWrite = WebCore::toNSData(*largeBlob->write).get();
+            request.get().largeBlob = asLargeBlob.get();
         }
 
         request.get().userVerificationPreference = toASUserVerificationPreference(options.userVerification).get();
@@ -379,10 +424,29 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
         if (!allowHybrid)
             request.get().shouldShowHybridTransport = false;
 
+#if HAVE(WEB_AUTHN_PRF_API)
+        if (options.extensions && options.extensions->prf) {
+            auto prf = options.extensions->prf;
+            RetainPtr inputValues = toASAssertionPRFInputValue(prf->eval);
+            RetainPtr<NSMutableDictionary> perCredentialInputValues = nullptr;
+            if (prf->evalByCredential) {
+                perCredentialInputValues = adoptNS([[NSMutableDictionary alloc] init]);
+                for (auto& credentialIDAndInputValues : *prf->evalByCredential) {
+                    auto key = base64URLDecode(credentialIDAndInputValues.key.utf8().span());
+                    if (!key)
+                        continue;
+                    [perCredentialInputValues setObject:toASAssertionPRFInputValue(credentialIDAndInputValues.value).get() forKey: toNSData(*key).get()];
+                }
+            }
+            request.get().prf = adoptNS([allocASAuthorizationPublicKeyCredentialPRFAssertionInputInstance() initWithInputValues:inputValues.get() perCredentialInputValues:perCredentialInputValues.get()]).get();
+        }
+#endif
+
         [requests addObject:request.leakRef()];
     }
 
-    if (!m_isConditionalAssertion && ([crossPlatformAllowedCredentials count] || ![platformAllowedCredentials count])) {
+#if HAVE(SECURITY_KEY_API)
+    if (!m_isConditionalMediation && ([crossPlatformAllowedCredentials count] || ![platformAllowedCredentials count])) {
         RetainPtr provider = adoptNS([allocASAuthorizationSecurityKeyPublicKeyCredentialProviderInstance() initWithRelyingPartyIdentifier:options.rpId]);
         RetainPtr<ASAuthorizationSecurityKeyPublicKeyCredentialAssertionRequest> request;
         if ([provider respondsToSelector:@selector(createCredentialAssertionRequestWithClientData:)])
@@ -396,6 +460,7 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
             request.get().appID = options.extensions->appid;
         [requests addObject:request.leakRef()];
     }
+#endif // HAVE(SECURITY_KEY_API)
 
     return requests;
 }
@@ -413,7 +478,7 @@ void WebAuthenticatorCoordinatorProxy::pauseConditionalAssertion(CompletionHandl
         return;
     }
 
-    if (m_isConditionalAssertion) {
+    if (m_isConditionalMediation) {
         m_paused = true;
         m_cancelHandler = WTFMove(completionHandler);
         [m_controller cancel];
@@ -425,7 +490,7 @@ void WebAuthenticatorCoordinatorProxy::unpauseConditionalAssertion()
 {
     if (!m_paused)
         return;
-    if (m_controller && m_isConditionalAssertion) {
+    if (m_controller && m_isConditionalMediation) {
         activeConditionalMediationProxy() = *this;
         [m_controller performAutoFillAssistedRequests];
     }
@@ -462,6 +527,7 @@ inline static Vector<AuthenticatorTransport> toTransports(NSArray<ASAuthorizatio
 
 void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestData &&requestData, RequestCompletionHandler &&handler)
 {
+#if HAVE(UNIFIED_ASC_AUTH_UI)
     if (!m_webPageProxy.preferences().webAuthenticationASEnabled()) {
         auto context = contextForRequest(WTFMove(requestData));
         if (context.get() == nullptr) {
@@ -472,20 +538,20 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
         performRequestLegacy(context, WTFMove(handler));
         return;
     }
+#endif
+
 #if HAVE(WEB_AUTHN_AS_MODERN)
-    m_isConditionalAssertion = requestData.mediation == MediationRequirement::Conditional;
+    m_isConditionalMediation = requestData.mediation == MediationRequirement::Conditional;
     auto controller = constructASController(requestData);
     if (!controller) {
         handler(WebCore::AuthenticatorResponseData { }, AuthenticatorAttachment::Platform, { ExceptionCode::NotAllowedError, @"" });
         return;
     }
-    if (m_isConditionalAssertion)
+    if (m_isConditionalMediation)
         activeConditionalMediationProxy() = *this;
     m_controller = WTFMove(controller);
     m_completionHandler = WTFMove(handler);
     m_delegate = adoptNS([[_WKASDelegate alloc] initWithPage:WTFMove(requestData.page) completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }](ASAuthorization *auth, NSError *error) mutable {
-        if (!weakThis)
-            return;
         ensureOnMainRunLoop([weakThis = WTFMove(weakThis), auth = retainPtr(auth), error = retainPtr(error)]() {
             if (!weakThis)
                 return;
@@ -494,28 +560,93 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
             WebCore::AuthenticatorAttachment attachment = AuthenticatorAttachment::Platform;
             if ([error.get().domain isEqualToString:WKErrorDomain])
                 exceptionData = { toExceptionCode(error.get().code), error.get().userInfo[NSLocalizedDescriptionKey] };
-            else if ([auth.get().credential isKindOfClass:getASAuthorizationPlatformPublicKeyCredentialRegistrationClass()]) {
+            else if ([error.get().domain isEqualToString:ASAuthorizationErrorDomain]) {
+                switch (error.get().code) {
+                case ASAuthorizationErrorFailed: {
+                    RetainPtr<NSError> underlyingError = retainPtr(error.get().userInfo[NSUnderlyingErrorKey]);
+                    if ([underlyingError.get().domain isEqualToString:ASCAuthorizationErrorDomain] && underlyingError.get().code == ASCAuthorizationErrorSecurityError)
+                        exceptionData = { ExceptionCode::SecurityError, underlyingError.get().userInfo[NSLocalizedFailureReasonErrorKey] };
+                    else if ([underlyingError.get().domain isEqualToString:WKErrorDomain])
+                        exceptionData = { toExceptionCode(underlyingError.get().code), underlyingError.get().userInfo[NSLocalizedDescriptionKey] };
+                    break;
+                }
+                case ASAuthorizationErrorMatchedExcludedCredential:
+                    exceptionData = { ExceptionCode::InvalidStateError, @"" };
+                    break;
+                case ASAuthorizationErrorCanceled:
+                    exceptionData = { ExceptionCode::NotAllowedError, @"" };
+                    break;
+                case ASAuthorizationErrorUnknown:
+                case ASAuthorizationErrorInvalidResponse:
+                case ASAuthorizationErrorNotHandled:
+                case ASAuthorizationErrorNotInteractive:
+                    ASSERT_NOT_REACHED();
+                    break;
+                }
+            } else if ([auth.get().credential isKindOfClass:getASAuthorizationPlatformPublicKeyCredentialRegistrationClass()]) {
                 response.isAuthenticatorAttestationResponse = true;
                 auto credential = retainPtr((ASAuthorizationPlatformPublicKeyCredentialRegistration *)auth.get().credential);
                 response.rawId = toArrayBuffer(credential.get().credentialID);
                 response.attestationObject = toArrayBuffer(credential.get().rawAttestationObject);
                 response.transports = { AuthenticatorTransport::Internal, AuthenticatorTransport::Hybrid };
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
-                if (credential.get().largeBlob)
-                    response.extensionOutputs = { { std::nullopt, std::nullopt, { { credential.get().largeBlob.isSupported, nullptr, std::nullopt } } } };
+
+                bool hasExtensionOutput = false;
+                AuthenticationExtensionsClientOutputs extensionOutputs;
+                if (credential.get().largeBlob) {
+                    hasExtensionOutput = true;
+                    extensionOutputs.largeBlob = { credential.get().largeBlob.isSupported, nullptr, std::nullopt };
+                }
+
+#if HAVE(WEB_AUTHN_PRF_API)
+                if ([credential respondsToSelector:@selector(prf)] && credential.get().prf) {
+                    hasExtensionOutput = true;
+                    RefPtr<ArrayBuffer> first = nullptr;
+                    RefPtr<ArrayBuffer> second = nullptr;
+                    if (credential.get().prf.first)
+                        first = toArrayBuffer(credential.get().prf.first);
+                    if (credential.get().prf.second)
+                        second = toArrayBuffer(credential.get().prf.second);
+                    if (first)
+                        extensionOutputs.prf = { credential.get().prf.isSupported, { { first, second } } };
+                    else
+                        extensionOutputs.prf = { credential.get().prf.isSupported, std::nullopt };
+                }
+#endif
+
+                if (hasExtensionOutput)
+                    response.extensionOutputs = extensionOutputs;
             } else if ([auth.get().credential isKindOfClass:getASAuthorizationPlatformPublicKeyCredentialAssertionClass()]) {
                 auto credential = retainPtr((ASAuthorizationPlatformPublicKeyCredentialAssertion *)auth.get().credential);
                 response.rawId = toArrayBuffer(credential.get().credentialID);
                 response.authenticatorData = toArrayBuffer(credential.get().rawAuthenticatorData);
                 response.signature = toArrayBuffer(credential.get().signature);
-                response.userHandle = toArrayBuffer(credential.get().userID);
+                response.userHandle = toArrayBufferNilIfEmpty(credential.get().userID);
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
+
+                bool hasExtensionOutput = false;
+                AuthenticationExtensionsClientOutputs extensionOutputs;
                 if (credential.get().largeBlob) {
+                    hasExtensionOutput = true;
                     RefPtr<ArrayBuffer> protector = nullptr;
                     if (credential.get().largeBlob.readData)
                         protector = toArrayBuffer(credential.get().largeBlob.readData);
-                    response.extensionOutputs = { { std::nullopt, std::nullopt, { { std::nullopt, protector, credential.get().largeBlob.didWrite } } } };
+                    extensionOutputs.largeBlob = { std::nullopt, protector, credential.get().largeBlob.didWrite };
                 }
+
+#if HAVE(WEB_AUTHN_PRF_API)
+                if ([credential respondsToSelector:@selector(prf)] && credential.get().prf) {
+                    hasExtensionOutput = true;
+                    RefPtr<ArrayBuffer> first = toArrayBuffer(credential.get().prf.first);
+                    RefPtr<ArrayBuffer> second = nullptr;
+                    if (credential.get().prf.second)
+                        second = toArrayBuffer(credential.get().prf.second);
+                    extensionOutputs.prf = { std::nullopt, { { first, second } } };
+                }
+#endif
+
+                if (hasExtensionOutput)
+                    response.extensionOutputs = extensionOutputs;
             } else if ([auth.get().credential isKindOfClass:getASAuthorizationSecurityKeyPublicKeyCredentialRegistrationClass()]) {
                 auto credential = retainPtr((ASAuthorizationSecurityKeyPublicKeyCredentialRegistration *)auth.get().credential);
                 response.isAuthenticatorAttestationResponse = true;
@@ -531,7 +662,7 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 response.rawId = toArrayBuffer(credential.get().credentialID);
                 response.authenticatorData = toArrayBuffer(credential.get().rawAuthenticatorData);
                 response.signature = toArrayBuffer(credential.get().signature);
-                response.userHandle = toArrayBuffer(credential.get().userID);
+                response.userHandle = toArrayBufferNilIfEmpty(credential.get().userID);
                 response.clientDataJSON = toArrayBuffer(credential.get().rawClientDataJSON);
                 if ([credential respondsToSelector:@selector(appID)]) {
                     AuthenticationExtensionsClientOutputs extensionOutputs;
@@ -539,35 +670,32 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                     response.extensionOutputs = extensionOutputs;
                 }
             }
+
             if (weakThis) {
                 if (activeConditionalMediationProxy() == weakThis)
                     activeConditionalMediationProxy() = nullptr;
-                if (auto cancelHandler = WTFMove(weakThis->m_cancelHandler))
-                    cancelHandler();
                 if (!weakThis->m_paused) {
                     weakThis->m_completionHandler(response, attachment, exceptionData);
                     weakThis->m_delegate.clear();
                     weakThis->m_controller.clear();
-                    weakThis->m_isConditionalAssertion = false;
+                    weakThis->m_isConditionalMediation = false;
                 }
+                if (auto cancelHandler = WTFMove(weakThis->m_cancelHandler))
+                    cancelHandler();
             }
         });
     }).get()]);
 
     m_controller.get().presentationContextProvider = (id<ASAuthorizationControllerPresentationContextProviding>)m_delegate.get();
     m_controller.get().delegate = (id<ASAuthorizationControllerDelegate>)m_delegate.get();
-    if (requestData.mediation && *requestData.mediation == MediationRequirement::Conditional)
+    if (requestData.mediation && *requestData.mediation == MediationRequirement::Conditional && std::holds_alternative<PublicKeyCredentialRequestOptions>(requestData.options))
         [m_controller performAutoFillAssistedRequests];
     else
         [m_controller performRequests];
 #endif
 }
 
-static inline RetainPtr<NSData> toNSData(const Vector<uint8_t>& data)
-{
-    return adoptNS([[NSData alloc] initWithBytes:data.data() length:data.size()]);
-}
-
+#if HAVE(UNIFIED_ASC_AUTH_UI)
 static inline RetainPtr<NSString> toNSString(UserVerificationRequirement userVerificationRequirement)
 {
     switch (userVerificationRequirement) {
@@ -702,7 +830,7 @@ static RetainPtr<ASCCredentialRequestContext> configureRegistrationRequestContex
     auto credentialCreationOptions = adoptNS([allocASCPublicKeyCredentialCreationOptionsInstance() init]);
 
     auto clientDataJson = WebCore::buildClientDataJson(ClientDataType::Create, options.challenge, callerOrigin.securityOrigin(), WebAuthn::Scope::SameOrigin);
-    RetainPtr nsClientDataJSON = adoptNS([[NSData alloc] initWithBytes:clientDataJson->data() length:clientDataJson->byteLength()]);
+    RetainPtr nsClientDataJSON = toNSData(clientDataJson->span());
     [credentialCreationOptions setClientDataJSON:nsClientDataJSON.get()];
 
     [credentialCreationOptions setRelyingPartyIdentifier:*options.rp.id];
@@ -756,13 +884,12 @@ static RetainPtr<ASCCredentialRequestContext> configureRegistrationRequestContex
 
 static inline RetainPtr<ASCPublicKeyCredentialAssertionOptions> configureAssertionOptions(const PublicKeyCredentialRequestOptions& options, ASCPublicKeyCredentialKind kind, const std::optional<SecurityOriginData>& parentOrigin, RetainPtr<NSMutableArray<ASCPublicKeyCredentialDescriptor *>> allowedCredentials, RetainPtr<NSString> userVerification, const WebCore::SecurityOriginData& callerOrigin)
 {
-    auto assertionOptions = adoptNS(allocASCPublicKeyCredentialAssertionOptionsInstance());
     // AS API makes no difference between SameSite vs CrossOrigin
     auto scope = parentOrigin ? WebAuthn::Scope::CrossOrigin : WebAuthn::Scope::SameOrigin;
     auto topOrigin = parentOrigin ? parentOrigin->toString() : nullString();
     auto clientDataJson = WebCore::buildClientDataJson(ClientDataType::Get, options.challenge, callerOrigin.securityOrigin(), scope, topOrigin);
-    RetainPtr nsClientDataJSON = adoptNS([[NSData alloc] initWithBytes:clientDataJson->data() length:clientDataJson->byteLength()]);
-    [assertionOptions initWithKind:kind relyingPartyIdentifier:options.rpId clientDataJSON:nsClientDataJSON.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
+    RetainPtr nsClientDataJSON = toNSData(clientDataJson->span());
+    auto assertionOptions = adoptNS([allocASCPublicKeyCredentialAssertionOptionsInstance() initWithKind:kind relyingPartyIdentifier:options.rpId clientDataJSON:nsClientDataJSON.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get() origin:callerOrigin.toString()]);
     if (options.extensions) {
         if ([assertionOptions respondsToSelector:@selector(setExtensionsCBOR:)])
             [assertionOptions setExtensionsCBOR:toNSData(options.extensions->toCBOR()).get()];
@@ -841,14 +968,16 @@ static std::optional<AuthenticationExtensionsClientOutputs> toExtensionOutputs(N
 {
     if (!extensionOutputsCBOR)
         return std::nullopt;
-    return AuthenticationExtensionsClientOutputs::fromCBOR(vectorFromNSData(extensionOutputsCBOR));
+    return AuthenticationExtensionsClientOutputs::fromCBOR(makeVector(extensionOutputsCBOR));
 }
+#endif // HAVE(ASC_AUTH_UI)
 
 bool WebAuthenticatorCoordinatorProxy::isASCAvailable()
 {
     return isAuthenticationServicesCoreFrameworkAvailable();
 }
 
+#if HAVE(UNIFIED_ASC_AUTH_UI)
 RetainPtr<ASCCredentialRequestContext> WebAuthenticatorCoordinatorProxy::contextForRequest(WebAuthenticationRequestData&& requestData)
 {
     RetainPtr<ASCCredentialRequestContext> result;
@@ -897,7 +1026,7 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.rawId = toArrayBuffer(assertionCredential.credentialID);
         response.authenticatorData = toArrayBuffer(assertionCredential.authenticatorData);
         response.signature = toArrayBuffer(assertionCredential.signature);
-        response.userHandle = toArrayBuffer(assertionCredential.userHandle);
+        response.userHandle = toArrayBufferNilIfEmpty(assertionCredential.userHandle);
         response.clientDataJSON = toArrayBuffer(assertionCredential.rawClientDataJSON);
         rawAttachment = assertionCredential.attachment;
         if ([assertionCredential respondsToSelector:@selector(extensionOutputsCBOR)])
@@ -909,7 +1038,7 @@ static inline void continueAfterRequest(RetainPtr<id <ASCCredentialProtocol>> cr
         response.rawId = toArrayBuffer(assertionCredential.credentialID);
         response.authenticatorData = toArrayBuffer(assertionCredential.authenticatorData);
         response.signature = toArrayBuffer(assertionCredential.signature);
-        response.userHandle = toArrayBuffer(assertionCredential.userHandle);
+        response.userHandle = toArrayBufferNilIfEmpty(assertionCredential.userHandle);
         response.clientDataJSON = toArrayBuffer(assertionCredential.rawClientDataJSON);
         rawAttachment = assertionCredential.attachment;
         if ([assertionCredential respondsToSelector:@selector(extensionOutputsCBOR)])
@@ -1018,6 +1147,7 @@ void WebAuthenticatorCoordinatorProxy::performRequestLegacy(RetainPtr<ASCCredent
         });
     }).get()];
 }
+#endif // HAVE(UNIFIED_ASC_AUTH_UI)
 
 static inline void getCanCurrentProcessAccessPasskeyForRelyingParty(const WebCore::SecurityOriginData& data, CompletionHandler<void(bool)>&& handler)
 {
@@ -1088,22 +1218,39 @@ void WebAuthenticatorCoordinatorProxy::isUserVerifyingPlatformAuthenticatorAvail
     });
 }
 
-void WebAuthenticatorCoordinatorProxy::cancel()
+void WebAuthenticatorCoordinatorProxy::cancel(CompletionHandler<void()>&& handler)
 {
+#if HAVE(WEB_AUTHN_AS_MODERN)
+    if (m_completionHandler || m_delegate) {
+#else
+    if (m_proxy) {
+#endif
+        m_cancelHandler = [weakThis = WeakPtr { *this }, handler = WTFMove(handler)]() mutable {
+#if HAVE(WEB_AUTHN_AS_MODERN)
+            if (weakThis) {
+                weakThis->m_controller.clear();
+                weakThis->m_delegate.clear();
+                weakThis->m_completionHandler = nullptr;
+            }
+#endif
+            handler();
+        };
+    } else
+        handler();
+
+#if HAVE(UNIFIED_ASC_AUTH_UI)
     if (m_proxy) {
         [m_proxy cancelCurrentRequest];
         m_proxy.clear();
     }
+#endif
+
 #if HAVE(WEB_AUTHN_AS_MODERN)
-    if (m_controller) {
+    if (m_controller)
         [m_controller cancel];
-        m_controller.clear();
-        m_delegate.clear();
-        m_completionHandler = nullptr;
-    }
 #endif
 }
 
 } // namespace WebKit
 
-#endif // HAVE(UNIFIED_ASC_AUTH_UI)
+#endif // HAVE(UNIFIED_ASC_AUTH_UI) || HAVE(WEB_AUTHN_AS_MODERN)

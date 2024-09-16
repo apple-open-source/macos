@@ -60,8 +60,8 @@
 #include <machine/cpu_capabilities.h>
 #include <machine/commpage.h>
 #include <machine/pmap.h>
-#include <vm/vm_kern.h>
-#include <vm/vm_map.h>
+#include <vm/vm_kern_xnu.h>
+#include <vm/vm_map_xnu.h>
 #include <stdatomic.h>
 
 #include <ipc/ipc_port.h>
@@ -385,10 +385,10 @@ commpage_init_cpu_capabilities( void )
 		    CPUID_LEAF7_FEATURE_AVX512VPCDQ);
 	}
 
-	uint64_t misc_enable = rdmsr64(MSR_IA32_MISC_ENABLE);
-	setif(bits, kHasENFSTRG, (misc_enable & 1ULL) &&
-	    (cpuid_leaf7_features() &
-	    CPUID_LEAF7_FEATURE_ERMS));
+	if (cpuid_leaf7_features() & CPUID_LEAF7_FEATURE_ERMS) {
+		uint64_t misc_enable = rdmsr64(MSR_IA32_MISC_ENABLE);
+		setif(bits, kHasENFSTRG, (misc_enable & 1ULL));
+	}
 
 	_cpu_capabilities = bits;               // set kernel version for use by drivers etc
 }

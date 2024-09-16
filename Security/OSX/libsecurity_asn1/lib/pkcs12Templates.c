@@ -227,3 +227,39 @@ const SecAsn1Template NSS_P12_PBE_ParamsTemplate[] = {
     /* iterations is unsigned - right? */
     {SEC_ASN1_INTEGER, offsetof(NSS_P12_PBE_Params, iterations)},
     {0}};
+
+/*
+    PBES2 templates based on RFC 8018
+ */
+const SecAsn1Template NSS_P12_PBEPRF_ParamsTemplate[] = {
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_P12_PBEPRF_Params)},
+    {SEC_ASN1_OBJECT_ID, offsetof(NSS_P12_PBEPRF_Params, algOid)},
+    {SEC_ASN1_NULL, offsetof(NSS_P12_PBEPRF_Params, params)},
+    {0}};
+
+const SecAsn1Template NSS_P12_PBKDF2_ParamsTemplate[] = {  // see RFC 8018 section A.2
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_P12_PBKDF2_Params)},
+    {SEC_ASN1_OCTET_STRING, offsetof(NSS_P12_PBKDF2_Params, salt)},
+    {SEC_ASN1_INTEGER, offsetof(NSS_P12_PBKDF2_Params, iterations)},
+    {SEC_ASN1_OPTIONAL | SEC_ASN1_INTEGER, offsetof(NSS_P12_PBKDF2_Params, keyLength)},
+    {SEC_ASN1_INLINE, offsetof(NSS_P12_PBKDF2_Params, params), NSS_P12_PBEPRF_ParamsTemplate, sizeof(NSS_P12_PBEPRF_Params)},
+    {0}};
+
+const SecAsn1Template NSS_P12_PBEKDF_ParamsTemplate[] = {
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_P12_PBEKDF_Params)},
+    {SEC_ASN1_OBJECT_ID, offsetof(NSS_P12_PBEKDF_Params, algOid)},
+    {SEC_ASN1_INLINE, offsetof(NSS_P12_PBEKDF_Params, params), NSS_P12_PBKDF2_ParamsTemplate, sizeof(NSS_P12_PBKDF2_Params)},
+    {0}};
+
+const SecAsn1Template NSS_P12_PBEENC_ParamsTemplate[] = {
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_P12_PBEENC_Params)},
+    {SEC_ASN1_OBJECT_ID, offsetof(NSS_P12_PBEENC_Params, algOid)},
+    {SEC_ASN1_OCTET_STRING, offsetof(NSS_P12_PBEENC_Params, iv)},
+    {0}};
+
+const SecAsn1Template NSS_P12_PBE2_ParamsTemplate[] = {
+    {SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSS_P12_PBE2_Params)},
+    {SEC_ASN1_INLINE, offsetof(NSS_P12_PBE2_Params, kdf), NSS_P12_PBEKDF_ParamsTemplate, sizeof(NSS_P12_PBEKDF_Params)},
+    {SEC_ASN1_INLINE, offsetof(NSS_P12_PBE2_Params, enc), NSS_P12_PBEENC_ParamsTemplate, sizeof(NSS_P12_PBEENC_Params)},
+    {0}};
+

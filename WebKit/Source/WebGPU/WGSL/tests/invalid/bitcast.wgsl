@@ -26,3 +26,27 @@ fn testInvalidConversion()
     // CHECK: cannot bitcast from 'vec2<i32>' to 'i32'
     _ = bitcast<i32>(vec2(0));
 }
+
+fn testI32Overflow()
+{
+    // CHECK-L: value 4294967295 cannot be represented as 'i32'
+    { const x: f32 = bitcast<f32>(4294967295); }
+}
+
+fn testFunctionAsValue()
+{
+    // CHECK-L: cannot use function 'testI32Overflow' as value
+    { const x: f32 = bitcast<f32>(testI32Overflow); }
+}
+
+@group(0) @binding(1) var s: sampler;
+@group(0) @binding(2) var t: texture_depth_2d;
+
+fn testTypeCannotBeConcretized()
+{
+    // CHECK-L: cannot bitcast from 'sampler' to 'i32'
+    let x = bitcast<i32>(s);
+
+    // CHECK-L: cannot bitcast from 'texture_depth_2d' to 'i32'
+    let x = bitcast<i32>(t);
+}

@@ -1,4 +1,4 @@
-module DarwinPrivate.malloc [system] {
+module DarwinPrivate.malloc {
   header "malloc_private.h"
   export *
 
@@ -7,13 +7,13 @@ module DarwinPrivate.malloc [system] {
 	export *
   }
 
-  explicit module stack_logging {
-	header "stack_logging.h"
+  explicit module malloc_type {
+	header "malloc_type_private.h"
 	export *
   }
 
-  explicit module malloc_type {
-	header "malloc_type_private.h"
+  explicit module stack_logging {
+	header "stack_logging.h"
 	export *
   }
 }

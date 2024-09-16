@@ -36,6 +36,8 @@ public:
 
     const GstStructure* stats();
 
+    void setUpstreamBin(const GRefPtr<GstElement>&) final;
+
 protected:
     RealtimeIncomingVideoSourceGStreamer(AtomString&&);
 
@@ -46,6 +48,8 @@ private:
 
     // RealtimeIncomingSourceGStreamer API
     void dispatchSample(GRefPtr<GstSample>&&) final;
+
+    void ensureSizeAndFramerate(const GRefPtr<GstCaps>&);
 
     std::optional<RealtimeMediaSourceSettings> m_currentSettings;
     GUniquePtr<GstStructure> m_stats;

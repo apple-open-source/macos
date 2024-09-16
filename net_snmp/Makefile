@@ -170,7 +170,7 @@ AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch \
 			darwin-fix-overflow.patch 96091371.patch 103309742.patch \
 			0001-snmp_agent-disallow-SET-with-NULL-varbind.patch 0002-apps-snmpset-allow-SET-with-NULL-varbind-for-testing.patch \
-			0003-Add-test-for-NULL-varbind-set.patch
+			0003-Add-test-for-NULL-varbind-set.patch 108197989.patch
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf

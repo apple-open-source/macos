@@ -31,11 +31,15 @@ namespace WebCore {
 class BlendingKeyframes;
 class RenderLayer;
 class RenderSVGResourceClipper;
+class RenderSVGResourceFilter;
+class RenderSVGResourceMarker;
 class RenderSVGResourceMasker;
+class RenderSVGResourcePaintServer;
 class SVGGraphicsElement;
 
 class RenderLayerModelObject : public RenderElement {
     WTF_MAKE_ISO_ALLOCATED(RenderLayerModelObject);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderLayerModelObject);
 public:
     virtual ~RenderLayerModelObject();
 
@@ -71,7 +75,6 @@ public:
 
     void suspendAnimations(MonotonicTime = MonotonicTime()) override;
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     // Single source of truth deciding if a SVG renderer should be painted. All SVG renderers
     // use this method to test if they should continue processing in the paint() function or stop.
     bool shouldPaintSVGRenderer(const PaintInfo&, const OptionSet<PaintPhase> relevantPaintPhases = OptionSet<PaintPhase>()) const;
@@ -94,12 +97,20 @@ public:
     virtual LayoutPoint currentSVGLayoutLocation() const { ASSERT_NOT_REACHED(); return { }; }
     virtual void setCurrentSVGLayoutLocation(const LayoutPoint&) { ASSERT_NOT_REACHED(); }
 
-    // TODO: [LBSE] Add more cases here, as soon as we add the corresponding resources.
+    RenderSVGResourcePaintServer* svgFillPaintServerResourceFromStyle(const RenderStyle&) const;
+    RenderSVGResourcePaintServer* svgStrokePaintServerResourceFromStyle(const RenderStyle&) const;
+
     RenderSVGResourceClipper* svgClipperResourceFromStyle() const;
+    RenderSVGResourceFilter* svgFilterResourceFromStyle() const;
     RenderSVGResourceMasker* svgMaskerResourceFromStyle() const;
-    void paintSVGClippingMask(PaintInfo&) const;
+    RenderSVGResourceMarker* svgMarkerStartResourceFromStyle() const;
+    RenderSVGResourceMarker* svgMarkerMidResourceFromStyle() const;
+    RenderSVGResourceMarker* svgMarkerEndResourceFromStyle() const;
+
+    bool pointInSVGClippingArea(const FloatPoint&) const;
+
+    void paintSVGClippingMask(PaintInfo&, const FloatRect& objectBoundingBox) const;
     void paintSVGMask(PaintInfo&, const LayoutPoint& adjustedPaintOffset) const;
-#endif
 
     TransformationMatrix* layerTransform() const;
 
@@ -113,11 +124,12 @@ protected:
 
     void createLayer();
     void willBeDestroyed() override;
-    void willBeRemovedFromTree(IsInternalMove) override;
 
     virtual void updateFromStyle() { }
 
 private:
+    RenderSVGResourceMarker* svgMarkerResourceFromStyle(const String& markerResource) const;
+
     std::unique_ptr<RenderLayer> m_layer;
 
     // Used to store state between styleWillChange and styleDidChange

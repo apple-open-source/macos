@@ -52,17 +52,16 @@ void AutoTableLayout::recalcColumn(unsigned effCol)
     RenderTableCell* maxContributor = nullptr;
 
     for (auto& child : childrenOfType<RenderObject>(*m_table)) {
-        if (is<RenderTableCol>(child)) {
+        if (CheckedPtr column = dynamicDowncast<RenderTableCol>(child)) {
             // RenderTableCols don't have the concept of preferred logical width, but we need to clear their dirty bits
-            // so that if we call setPreferredWidthsDirty(true) on a col or one of its descendants, we'll mark it's
+            // so that if we call setPreferredWidthsDirty(true) on a col or one of its descendants, we'll mark its
             // ancestors as dirty.
-            downcast<RenderTableCol>(child).clearPreferredLogicalWidthsDirtyBits();
-        } else if (is<RenderTableSection>(child)) {
-            auto& section = downcast<RenderTableSection>(child);
-            unsigned numRows = section.numRows();
+            column->clearPreferredLogicalWidthsDirtyBits();
+        } else if (CheckedPtr section = dynamicDowncast<RenderTableSection>(child)) {
+            unsigned numRows = section->numRows();
             for (unsigned i = 0; i < numRows; ++i) {
-                RenderTableSection::CellStruct current = section.cellAt(i, effCol);
-                RenderTableCell* cell = current.primaryCell();
+                auto current = section->cellAt(i, effCol);
+                auto* cell = current.primaryCell();
                 
                 if (current.inColSpan || !cell)
                     continue;
@@ -124,7 +123,7 @@ void AutoTableLayout::recalcColumn(unsigned effCol)
                     default:
                         break;
                     }
-                } else if (!effCol || section.primaryCellAt(i, effCol - 1) != cell) {
+                } else if (!effCol || section->primaryCellAt(i, effCol - 1) != cell) {
                     // This spanning cell originates in this column. Insert the cell into spanning cells list.
                     insertSpanCell(cell);
                 }
@@ -182,6 +181,12 @@ void AutoTableLayout::fullRecalc()
 
     for (unsigned i = 0; i < nEffCols; i++)
         recalcColumn(i);
+
+    for (auto& section : childrenOfType<RenderTableSection>(*m_table)) {
+        section.setPreferredLogicalWidthsDirty(false);
+        for (auto* row = section.firstRow(); row; row = row->nextRow())
+            row->setPreferredLogicalWidthsDirty(false);
+    }
 }
 
 static bool shouldScaleColumnsForParent(const RenderTable& table)
@@ -224,13 +229,13 @@ static bool shouldScaleColumnsForSelf(RenderTable* table)
                 containingBlock = containingBlock->containingBlock();
 
             table = nullptr;
-            if (is<RenderTableCell>(containingBlock)
+            CheckedPtr cell = dynamicDowncast<RenderTableCell>(containingBlock);
+            if (cell
                 && (containingBlock->style().width().isAuto() || containingBlock->style().width().isPercentOrCalculated())) {
-                RenderTableCell& cell = downcast<RenderTableCell>(*containingBlock);
-                if (cell.colSpan() > 1 || cell.table()->style().width().isAuto())
+                if (cell->colSpan() > 1 || cell->table()->style().width().isAuto())
                     scale = false;
                 else
-                    table = cell.table();
+                    table = cell->table();
             }
         }
         else
@@ -283,7 +288,7 @@ void AutoTableLayout::computeIntrinsicLogicalWidths(LayoutUnit& minWidth, Layout
 void AutoTableLayout::applyPreferredLogicalWidthQuirks(LayoutUnit& minWidth, LayoutUnit& maxWidth) const
 {
     if (auto tableLogicalWidth = m_table->style().logicalWidth(); tableLogicalWidth.isFixed() && tableLogicalWidth.isPositive()) {
-        minWidth = std::max(minWidth, m_table->hasOverridingLogicalWidth() ? m_table->overridingLogicalWidth() : LayoutUnit(tableLogicalWidth.value()));
+        minWidth = std::max(minWidth, m_table->overridingLogicalWidth().value_or(LayoutUnit { tableLogicalWidth.value() }));
         maxWidth = minWidth;
     }
 }
@@ -675,6 +680,16 @@ void AutoTableLayout::layout()
             available -= cellLogicalWidth;
             total--;
             m_layoutStruct[i].computedLogicalWidth += cellLogicalWidth;
+        }
+    }
+
+    if (available > 0 && numAutoEmptyCellsOnly && nEffCols == numAutoEmptyCellsOnly) {
+        // All columns in this table are empty with 'width: auto'.
+        auto equalWidthForColumns = available / numAutoEmptyCellsOnly;
+        for (size_t i = 0; i < nEffCols; ++i) {
+            auto& column = m_layoutStruct[i];
+            column.computedLogicalWidth = equalWidthForColumns;
+            available -= column.computedLogicalWidth;
         }
     }
 

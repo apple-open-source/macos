@@ -46,7 +46,7 @@ CompositingRunLoop::CompositingRunLoop(Function<void ()>&& updateFunction)
 {
 #if USE(GLIB_EVENT_LOOP)
     m_updateTimer.setPriority(RunLoopSourcePriority::CompositingThreadUpdateTimer);
-    m_updateTimer.setName("[WebKit] CompositingRunLoop");
+    m_updateTimer.setName("[WebKit] CompositingRunLoop"_s);
 #endif
 }
 
@@ -106,7 +106,7 @@ void CompositingRunLoop::scheduleUpdate()
     scheduleUpdate(stateLocker);
 }
 
-void CompositingRunLoop::scheduleUpdate(LockHolder& stateLocker)
+void CompositingRunLoop::scheduleUpdate(Locker<Lock>& stateLocker)
 {
     // An update was requested. Depending on the state:
     //  - if Idle, enter the Scheduled state and start the update timer,
@@ -140,7 +140,7 @@ void CompositingRunLoop::stopUpdates()
     m_state.pendingUpdate = false;
 }
 
-void CompositingRunLoop::updateCompleted(LockHolder& stateLocker)
+void CompositingRunLoop::updateCompleted(Locker<Lock>& stateLocker)
 {
     // Scene update has been signaled as completed. Depending on the state:
     //  - if Idle, Scheduled or InProgress, do nothing,

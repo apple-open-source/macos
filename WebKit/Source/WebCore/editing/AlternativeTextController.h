@@ -31,6 +31,16 @@
 #include "Position.h"
 #include <variant>
 #include <wtf/Noncopyable.h>
+#include <wtf/WeakRef.h>
+
+namespace WebCore {
+class AlternativeTextController;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::AlternativeTextController> : std::true_type { };
+}
 
 namespace WebCore {
 

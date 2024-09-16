@@ -32,13 +32,13 @@ class MockDisplayCaptureSourceGStreamer : public RealtimeVideoCaptureSource, Rea
 public:
     static CaptureSourceOrError create(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, PageIdentifier);
 
-    void requestToEnd(Observer&) final;
+    void requestToEnd(RealtimeMediaSourceObserver&) final;
     bool isProducingData() const final { return m_source->isProducingData(); }
     void setMuted(bool isMuted) final;
     const IntSize size() const final { return m_source->size(); }
 
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "MockDisplayCaptureSourceGStreamer"; }
+    ASCIILiteral logClassName() const final { return "MockDisplayCaptureSourceGStreamer"_s; }
 #endif
 
 protected:

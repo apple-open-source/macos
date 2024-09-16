@@ -27,12 +27,6 @@
 #include <malloc/_ptrcheck.h>
 __ptrcheck_abi_assume_single()
 
-/* !!!!!!!!!!!!!!!!!!!!! WARNING WARNING WARNING WARNING !!!!!!!!!!!!!!!!!!!!!
- * Typed Memory Operations and malloc_type_* functions constitute a private,
- * unstable interface.  Don't use it, don't depend on it.
- * !!!!!!!!!!!!!!!!!!!!! WARNING WARNING WARNING WARNING !!!!!!!!!!!!!!!!!!!!!
- */
-
 typedef unsigned long long malloc_type_id_t;
 
 #if defined(__LP64__) /* MALLOC_TARGET_64BIT */
@@ -41,26 +35,26 @@ typedef unsigned long long malloc_type_id_t;
 #include <Availability.h> /* __SPI_AVAILABLE */
 #if __has_include(<sys/_types/_size_t.h>)
 #include <sys/_types/_size_t.h>
-#elif __has_include(<_liblibc/_size_t.h>)
-#include <_liblibc/_size_t.h>
 #else
-typedef __SIZE_TYPE__ size_t;
+#define __need_size_t
+#include <stddef.h>
+#undef __need_size_t
 #endif
 #include <sys/cdefs.h> /* __BEGIN_DECLS */
 
-#define _MALLOC_TYPE_AVAILABILITY __SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0), xros(1.0), driverkit(23.0))
+#define _MALLOC_TYPE_AVAILABILITY __API_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0), bridgeos(8.0), xros(1.0), driverkit(23.0))
 
 __BEGIN_DECLS
 
 /* <malloc/_malloc.h> */
 
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_malloc(size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_calloc(size_t count, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1,2);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_malloc(size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(count * size) malloc_type_calloc(size_t count, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1,2);
 _MALLOC_TYPE_AVAILABILITY void  malloc_type_free(void * __unsafe_indexable ptr, malloc_type_id_t type_id);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_realloc(void * __unsafe_indexable ptr, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_valloc(size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_aligned_alloc(size_t alignment, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
-/* rdar://75598414 (Support __counted_by_or_null) */
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_realloc(void * __unsafe_indexable ptr, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_valloc(size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(1);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_aligned_alloc(size_t alignment, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
+/* rdar://120689514 */
 _MALLOC_TYPE_AVAILABILITY int   malloc_type_posix_memalign(void * __unsafe_indexable *memptr, size_t alignment, size_t size, malloc_type_id_t type_id) /*__alloc_size(3)*/;
 
 
@@ -68,21 +62,21 @@ _MALLOC_TYPE_AVAILABILITY int   malloc_type_posix_memalign(void * __unsafe_index
 
 typedef struct _malloc_zone_t malloc_zone_t;
 
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_zone_malloc(malloc_zone_t *zone, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_zone_calloc(malloc_zone_t *zone, size_t count, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2,3);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_zone_malloc(malloc_zone_t *zone, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(count * size) malloc_type_zone_calloc(malloc_zone_t *zone, size_t count, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2,3);
 _MALLOC_TYPE_AVAILABILITY void  malloc_type_zone_free(malloc_zone_t *zone, void * __unsafe_indexable ptr, malloc_type_id_t type_id);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(3);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_zone_valloc(malloc_zone_t *zone, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
-_MALLOC_TYPE_AVAILABILITY void *malloc_type_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(3);
+_MALLOC_TYPE_AVAILABILITY void * __sized_by_or_null(size) malloc_type_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(3);
+_MALLOC_TYPE_AVAILABILITY void *__sized_by_or_null(size) malloc_type_zone_valloc(malloc_zone_t *zone, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(2);
+_MALLOC_TYPE_AVAILABILITY void *__sized_by_or_null(size) malloc_type_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size, malloc_type_id_t type_id) __result_use_check __alloc_size(3);
 
 __END_DECLS
 
 /* Rewrite enablement */
 #if defined(__has_feature) && __has_feature(typed_memory_operations)
-#if __has_builtin(__is_target_os) && (__is_target_os(ios) || __is_target_os(driverkit) || (__is_target_os(macos) && __has_builtin(__is_target_environment) && __is_target_environment(exclavekit)))
+#if __has_builtin(__is_target_os) && (__is_target_os(ios) || __is_target_os(driverkit) || __is_target_os(macos) || (__has_builtin(__is_target_environment) && (__is_target_environment(exclavekit) || __is_target_environment(exclavecore))))
 #define _MALLOC_TYPED(override, type_param_pos) __attribute__((typed_memory_operation(override, type_param_pos)))
 #define _MALLOC_TYPE_ENABLED 1
-#endif /* __has_builtin(__is_target_os) && (__is_target_os(ios) || __is_target_os(driverkit) || (__is_target_os(macos) && __has_builtin(__is_target_environment) && __is_target_environment(exclavekit))) */
+#endif /* __is_target_os(ios || driverkit || macos || exclave{kit,core}.*) */
 #endif /* defined(__has_feature) && __has_feature(typed_memory_operations) */
 
 #endif /* MALLOC_TARGET_64BIT */

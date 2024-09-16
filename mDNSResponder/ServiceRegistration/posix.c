@@ -36,6 +36,9 @@
 #include "srp.h"
 #include "dns-msg.h"
 #include "ioloop.h"
+#ifdef SRP_TEST_SERVER
+#include "test-api.h"
+#endif
 
 #undef OBJECT_TYPE
 #define OBJECT_TYPE(x) int x##_created, x##_finalized, old_##x##_created, old_##x##_finalized;
@@ -93,21 +96,70 @@ ioloop_strcpy(char *dest, const char *src, size_t lim)
 }
 
 bool
-ioloop_map_interface_addresses(const char *ifname, void *context, interface_callback_t callback)
+ioloop_map_interface_addresses(srp_server_t *server_state, const char *ifname, void *context,
+                               interface_callback_t callback)
 {
-    return ioloop_map_interface_addresses_here(&interface_addresses, ifname, context, callback);
+    return ioloop_map_interface_addresses_here(server_state, &interface_addresses, ifname, context, callback);
+}
+
+static bool
+ioloop_same_address(struct sockaddr *a, addr_t *b, struct sockaddr *ma, addr_t *sk)
+{
+    // If the family is different, addresses are definitely not the same
+    if (a->sa_family != b->sa.sa_family) {
+        return false;
+    }
+
+    // For IPv4 addresses, both the address and the netmask must match
+    if (a->sa_family == AF_INET && b->sa.sa_family == AF_INET && ma->sa_family == AF_INET) {
+        struct sockaddr_in *a4 = (struct sockaddr_in *)a;
+        struct sockaddr_in *ma4 = (struct sockaddr_in *)ma;
+
+        if (a4->sin_addr.s_addr == b->sin.sin_addr.s_addr && ma4->sin_addr.s_addr == sk->sin.sin_addr.s_addr) {
+            return true;
+        }
+    }
+
+    // For IPv6 adddresses, same deal
+    else if (a->sa_family == AF_INET6 && b->sa.sa_family == AF_INET6 && ma->sa_family == AF_INET6) {
+        struct sockaddr_in6 *a6 = (struct sockaddr_in6 *)a;
+        struct sockaddr_in6 *ma6 = (struct sockaddr_in6 *)ma;
+
+        if (!memcmp(&a6->sin6_addr, &b->sin6.sin6_addr, sizeof b->sin6.sin6_addr) &&
+            !memcmp(&ma6->sin6_addr, &sk->sin6.sin6_addr, sizeof sk->sin6.sin6_addr))
+        {
+            return true;
+        }
+    }
+#ifndef LINUX
+    // For AF_LINK addresses, there is no netmask, and we are assuming a 6-byte ethernet address.
+    else if (a->sa_family == AF_LINK && b->sa.sa_family == AF_LINK) {
+        struct sockaddr_dl *sdl = (struct sockaddr_dl *)a;
+        if (sdl->sdl_alen == 6 && !memcmp(LLADDR(sdl), b->ether_addr.addr, 6) && b->ether_addr.index == sdl->sdl_index)
+        {
+            return true;
+        }
+    }
+#endif
+
+    return false; // Unknown address family, don't know how to compare, don't really care.
 }
 
 bool
-ioloop_map_interface_addresses_here_(interface_address_state_t **here, const char *ifname, void *context,
-                                     interface_callback_t callback, const char *file, int line)
+ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_address_state_t **here, const char *ifname,
+                                     void *context, interface_callback_t callback, const char *file, int line)
 {
     struct ifaddrs *ifaddrs, *ifp;
     interface_address_state_t *kept_ifaddrs = NULL, **ki_end = &kept_ifaddrs;
     interface_address_state_t *new_ifaddrs = NULL, **ni_end = &new_ifaddrs;
     interface_address_state_t **ip, *nif;
 
-    if (getifaddrs(&ifaddrs) < 0) {
+#ifdef SRP_TEST_SERVER
+    int ret = srp_test_getifaddrs(server_state, &ifaddrs, context);
+#else
+    int ret = getifaddrs(&ifaddrs);
+#endif
+    if (ret < 0) {
         ERROR("getifaddrs failed: " PUB_S_SRP, strerror(errno));
         return false;
     }
@@ -180,21 +232,7 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
                 interface_address_state_t *ia = *ip;
                 // Same interface and address?
                 if (!remove && !strcmp(ia->name, ifp->ifa_name) &&
-                    ifp->ifa_addr->sa_family == ia->addr.sa.sa_family &&
-                    (
-#ifndef LINUX
-                        ifp->ifa_addr->sa_family == AF_LINK ||
-#endif
-                     (((ifp->ifa_addr->sa_family == AF_INET &&
-                        ((struct sockaddr_in *)ifp->ifa_addr)->sin_addr.s_addr == ia->addr.sin.sin_addr.s_addr) ||
-                       (ifp->ifa_addr->sa_family == AF_INET6 &&
-                        !memcmp(&((struct sockaddr_in6 *)ifp->ifa_addr)->sin6_addr,
-                                &ia->addr.sin6.sin6_addr, sizeof ia->addr.sin6.sin6_addr))) &&
-                      ((ifp->ifa_netmask->sa_family == AF_INET &&
-                        ((struct sockaddr_in *)ifp->ifa_netmask)->sin_addr.s_addr == ia->mask.sin.sin_addr.s_addr) ||
-                       (ifp->ifa_netmask->sa_family == AF_INET6 &&
-                        !memcmp(&((struct sockaddr_in6 *)ifp->ifa_netmask)->sin6_addr,
-                                &ia->mask.sin6.sin6_addr, sizeof ia->mask.sin6.sin6_addr))))))
+                    ioloop_same_address(ifp->ifa_addr, &ia->addr, ifp->ifa_netmask, &ia->mask))
                 {
                     *ip = ia->next;
                     *ki_end = ia;
@@ -246,16 +284,20 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
                         if (sdl->sdl_alen == 6) {
                             nif->addr.ether_addr.len = 6;
                             memcpy(nif->addr.ether_addr.addr, LLADDR(sdl), 6);
+                            nif->addr.ether_addr.index = sdl->sdl_index;
+                            nif->addr.ether_addr.family = AF_LINK;
                         } else {
-                            nif->addr.ether_addr.len = 0;
+                            free(nif);
+                            nif = NULL;
                         }
-                        nif->addr.ether_addr.index = sdl->sdl_index;
-                        nif->addr.ether_addr.family = AF_LINK;
+
 #endif // LINUX
                     }
-                    nif->flags = ifp->ifa_flags;
-                    *ni_end = nif;
-                    ni_end = &nif->next;
+                    if (nif != NULL) {
+                        nif->flags = ifp->ifa_flags;
+                        *ni_end = nif;
+                        ni_end = &nif->next;
+                    }
                 }
             }
         }
@@ -268,13 +310,34 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
     for (ip = &new_ifaddrs; *ip; ) {
         if ((*ip)->addr.sa.sa_family == AF_LINK) {
             bool drop = true;
-            for (nif = new_ifaddrs; nif; nif = nif->next) {
-                if (nif != *ip && !strcmp(nif->name, (*ip)->name)) {
-                    drop = false;
-                    break;
+            // We need to iterate across both new_ifaddrs and kept_ifaddrs to find all of the addresses on an
+            // interface. Only if there are no IP addresses on either list for the interface for which we have
+            // the AF_LINK address do we drop the AF_LINK address.
+            for (int q = 0; q < 2; q++) {
+                interface_address_state_t *list = q ? kept_ifaddrs : new_ifaddrs;
+                for (nif = list; nif; nif = nif->next) {
+                    if (nif != *ip && nif->addr.sa.sa_family != AF_LINK && !strcmp(nif->name, (*ip)->name)) {
+#define TOO_MUCH_INFO
+#ifdef TOO_MUCH_INFO
+                        char buf[INET6_ADDRSTRLEN];
+                        if (nif->addr.sa.sa_family == AF_INET6) {
+                            inet_ntop(AF_INET6, &nif->addr.sin6.sin6_addr, buf, sizeof(buf));
+                        } else if (nif->addr.sa.sa_family == AF_INET) {
+                            inet_ntop(AF_INET, &nif->addr.sin6.sin6_addr, buf, sizeof(buf));
+                        }
+                        INFO("new link-layer address not dropped because " PRI_S_SRP " - ifname: " PUB_S_SRP ", addr: "
+                             PRI_MAC_ADDR_SRP, buf, (*ip)->name, MAC_ADDR_PARAM_SRP((*ip)->addr.ether_addr.addr));
+#endif // TOO_MUCH_INFO
+                        drop = false;
+                        break;
+                    }
                 }
             }
             if (drop) {
+#ifdef TOO_MUCH_INFO
+                INFO("new link-layer interface address dropped - ifname: " PUB_S_SRP
+                     ", addr: " PRI_MAC_ADDR_SRP, (*ip)->name, MAC_ADDR_PARAM_SRP((*ip)->addr.ether_addr.addr));
+#endif
                 nif = *ip;
                 *ip = nif->next;
                 free(nif);
@@ -311,11 +374,19 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
             abort();
         }
         for (; nif; nif = nif->next) {
-            snprintf(infop, lim, " %p (", nif);
+            snprintf(infop, lim, "\n%p %s (", nif, nif->name);
             len = (int)strlen(infop);
             lim -= len;
             infop += len;
-            inet_ntop(AF_INET6, &nif->addr.sin6.sin6_addr, infop, lim);
+            if (nif->addr.sa.sa_family == AF_INET6) {
+                inet_ntop(AF_INET6, &nif->addr.sin6.sin6_addr, infop, lim);
+            } else if (nif->addr.sa.sa_family == AF_INET) {
+                inet_ntop(AF_INET, &nif->addr.sin.sin_addr, infop, lim);
+            } else if (nif->addr.sa.sa_family == AF_LINK) {
+                snprintf(infop, lim, "%02x:%02x:%02x:%02x:%02x:%02x",
+                         nif->addr.ether_addr.addr[0], nif->addr.ether_addr.addr[1], nif->addr.ether_addr.addr[2],
+                         nif->addr.ether_addr.addr[3], nif->addr.ether_addr.addr[4], nif->addr.ether_addr.addr[5]);
+            }
             len = (int)strlen(infop);
             lim -= len;
             infop += len;
@@ -334,7 +405,7 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
         nif = *ip;
         *ip = nif->next;
         if (callback != NULL) {
-            callback(context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_deleted);
+            callback(server_state, context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_deleted);
         }
         free(nif);
     }
@@ -342,14 +413,14 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
     // Report added interface addresses...
     for (nif = new_ifaddrs; nif; nif = nif->next) {
         if (callback != NULL) {
-            callback(context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_added);
+            callback(server_state, context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_added);
         }
     }
 
     // Report unchanged interface addresses...
     for (nif = kept_ifaddrs; nif; nif = nif->next) {
         if (callback != NULL) {
-            callback(context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_unchanged);
+            callback(server_state, context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_unchanged);
         }
     }
 
@@ -358,7 +429,11 @@ ioloop_map_interface_addresses_here_(interface_address_state_t **here, const cha
     for (ip = here; *ip; ip = &(*ip)->next)
         ;
     *ip = new_ifaddrs;
+#ifdef SRP_TEST_SERVER
+    srp_test_freeifaddrs(server_state, ifaddrs, context);
+#else
     freeifaddrs(ifaddrs);
+#endif
     return true;
 }
 

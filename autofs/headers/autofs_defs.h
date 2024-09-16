@@ -24,7 +24,7 @@
 #ifndef __AUTOFS_DEFS_H__
 #define __AUTOFS_DEFS_H__
 
-#define AUTOFS_MAXOPTSLEN	1024
-#define AUTOFS_DAEMONCOOKIE	100000
+#define AUTOFS_MAXOPTSLEN       1024
+#define AUTOFS_DAEMONCOOKIE     100000
 
 #endif /* __AUTOFS_DEFS_H__ */

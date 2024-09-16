@@ -23,6 +23,8 @@
 
 /* Begin PBXBuildFile section */
 		D02E38002A952C9600DF0FBD /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D02E37FF2A952C9600DF0FBD /* CoreAnalytics.framework */; };
+		D0679A332B16A00A001D6FB6 /* cronBTMToggle.plist in Install Feature Flag */ = {isa = PBXBuildFile; fileRef = D0679A312B169FBB001D6FB6 /* cronBTMToggle.plist */; };
+		D0EAD4DC2AFAB0E1001D10F6 /* BackgroundTaskManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0EAD4DA2AFAB0C6001D10F6 /* BackgroundTaskManagement.framework */; };
 		FDB436F11492EBDB00D5E278 /* entry.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436EC1492EBDB00D5E278 /* entry.c */; };
 		FDB436F21492EBDB00D5E278 /* env.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436ED1492EBDB00D5E278 /* env.c */; };
 		FDB436F41492EBDB00D5E278 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436EF1492EBDB00D5E278 /* misc.c */; };
@@ -76,6 +78,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		D0679A322B169FF0001D6FB6 /* Install Feature Flag */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/FeatureFlags/Domain;
+			dstSubfolderSpec = 0;
+			files = (
+				D0679A332B16A00A001D6FB6 /* cronBTMToggle.plist in Install Feature Flag */,
+			);
+			name = "Install Feature Flag";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FDB436D21492EB8E00D5E278 /* Install man1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,6 +137,9 @@
 
 /* Begin PBXFileReference section */
 		D02E37FF2A952C9600DF0FBD /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = SDKROOT; };
+		D0679A312B169FBB001D6FB6 /* cronBTMToggle.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = cronBTMToggle.plist; sourceTree = "<group>"; };
+		D0679A342B16A201001D6FB6 /* FeatureFlags.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FeatureFlags.framework; path = System/Library/PrivateFrameworks/FeatureFlags.framework; sourceTree = SDKROOT; };
+		D0EAD4DA2AFAB0C6001D10F6 /* BackgroundTaskManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTaskManagement.framework; path = System/Library/PrivateFrameworks/BackgroundTaskManagement.framework; sourceTree = SDKROOT; };
 		FDB436CC1492EB8500D5E278 /* libcron.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcron.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB436D41492EB8E00D5E278 /* cron */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cron; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDB436E11492EB9400D5E278 /* crontab */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = crontab; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -158,6 +174,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0EAD4DC2AFAB0E1001D10F6 /* BackgroundTaskManagement.framework in Frameworks */,
 				D02E38002A952C9600DF0FBD /* CoreAnalytics.framework in Frameworks */,
 				FDB437301492EEBE00D5E278 /* libcron.a in Frameworks */,
 				FDB437251492EE5000D5E278 /* libutil.dylib in Frameworks */,
@@ -180,6 +197,8 @@
 		D02E37FE2A952C9600DF0FBD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D0679A342B16A201001D6FB6 /* FeatureFlags.framework */,
+				D0EAD4DA2AFAB0C6001D10F6 /* BackgroundTaskManagement.framework */,
 				D02E37FF2A952C9600DF0FBD /* CoreAnalytics.framework */,
 			);
 			name = Frameworks;
@@ -188,6 +207,7 @@
 		FDB436BB1492EB4400D5E278 = {
 			isa = PBXGroup;
 			children = (
+				D0679A312B169FBB001D6FB6 /* cronBTMToggle.plist */,
 				FDB437341492EFCB00D5E278 /* com.vix.cron.plist */,
 				FDB436F51492EC1200D5E278 /* cron */,
 				FDB4370B1492EC8700D5E278 /* crontab */,
@@ -291,6 +311,7 @@
 				FDB436D21492EB8E00D5E278 /* Install man1 */,
 				FDB437331492EFB200D5E278 /* Install launchd plist */,
 				FDB437361492EFEC00D5E278 /* Install misc */,
+				D0679A322B169FF0001D6FB6 /* Install Feature Flag */,
 			);
 			buildRules = (
 			);
@@ -476,6 +497,10 @@
 				EXECUTABLE_PREFIX = lib;
 				PRODUCT_NAME = cron;
 				SKIP_INSTALL = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/cron";
 			};
 			name = Release;
@@ -484,6 +509,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = entitlements.plist;
 				CODE_SIGN_IDENTITY = "-";
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_PATH = /usr/sbin;

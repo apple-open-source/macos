@@ -70,7 +70,10 @@ SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef
 API_DEPRECATED_WITH_REPLACEMENT("SecAccessConstraintCreateBiometryCurrentSet", macos(10.12.1, 10.13.4), ios(9.0, 11.3));
 
 /*! Creates constraint which requires watch verification. */
-SecAccessConstraintRef SecAccessConstraintCreateWatch(CFAllocatorRef allocator) API_AVAILABLE(macos(10.14), ios(12.0));
+SecAccessConstraintRef SecAccessConstraintCreateWatch(CFAllocatorRef allocator) API_DEPRECATED_WITH_REPLACEMENT("SecAccessConstraintCreateCompanion", macos(10.14, 15.0), ios(12.0, 18.0));
+
+/*! Creates constraint which requires companion verification. */
+SecAccessConstraintRef SecAccessConstraintCreateCompanion(CFAllocatorRef allocator) API_AVAILABLE(macos(15.0), ios(18.0));
 
 /*! Creates constraint composed of other constraints.
     @param numRequired Number of constraints required to be satisfied in order to consider overal constraint satisfied.

@@ -184,4 +184,22 @@ vsockdomainpr(xpcb)
 	printf("\n");
 }
 
+void
+vsockstats(uint32_t proto, char *name, int af)
+{
+#pragma unused(proto, name, af)
+	uint32_t pcbcount;
+	size_t len;
+
+	printf("vsock:\n");
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.vsock.pcbcount", &pcbcount, &len, 0, 0) < 0) {
+		warn("sysctl: net.vsock.pcbcount");
+		return;
+	}
+
+	printf("\t%u open vsock socket%s\n", pcbcount, plural(pcbcount));
+}
+
 #endif /* AF_VSOCK */

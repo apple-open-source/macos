@@ -353,12 +353,25 @@ IOHIDEvent * IOHIDEvent::translationEvent(
                                         IOFixed                 z,
                                         IOOptionBits            options)
 {
-    return IOHIDEvent::_axisEvent(      kIOHIDEventTypeTranslation,
-                                        timeStamp,
-                                        x,
-                                        y,
-                                        z,
-                                        options);
+    IOHIDEvent *me = new IOHIDEvent;
+
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeTranslation, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+
+    IOHIDTranslationEventData * event = (IOHIDTranslationEventData *)me->_data;
+#if TARGET_OS_VISION
+    event->position.x = CAST_FIXED_TO_DOUBLE(x);
+    event->position.y = CAST_FIXED_TO_DOUBLE(y);
+    event->position.z = CAST_FIXED_TO_DOUBLE(z);
+#else
+    event->position.x = x;
+    event->position.y = y;
+    event->position.z = z;
+#endif
+    
+    return me;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -701,9 +714,15 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
     data = (IOHIDPointerEventData *)event->_data;
     require(data, exit);
     
+#if TARGET_OS_VISION
+    data->position.x = CAST_FIXED_TO_DOUBLE(x);
+    data->position.y = CAST_FIXED_TO_DOUBLE(y);
+    data->position.z = CAST_FIXED_TO_DOUBLE(z);
+#else
     data->position.x = x;
     data->position.y = y;
     data->position.z = z;
+#endif
     data->button.mask = buttonState;
     
     
@@ -760,9 +779,15 @@ IOHIDEvent * IOHIDEvent::relativePointerEventWithFixed(
     data = (IOHIDPointerEventData *)event->_data;
     require(data, exit);
 
+#if TARGET_OS_VISION
+    data->position.x = CAST_FIXED_TO_DOUBLE(x);
+    data->position.y = CAST_FIXED_TO_DOUBLE(y);
+    data->position.z = CAST_FIXED_TO_DOUBLE(z);
+#else
     data->position.x = x;
     data->position.y = y;
     data->position.z = z;
+#endif
     data->button.mask = buttonState;
     
     
@@ -902,29 +927,52 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
     event->transducerIndex  = transducerID; // Multitouch uses this as a path ID
     event->transducerType   = type;
     event->buttonMask       = buttonState;
+#if TARGET_OS_VISION
+    event->position.x       = CAST_FIXED_TO_DOUBLE(x);
+    event->position.y       = CAST_FIXED_TO_DOUBLE(y);
+    event->position.z       = CAST_FIXED_TO_DOUBLE(z);
+    event->pressure         = CAST_FIXED_TO_DOUBLE(tipPressure);
+    event->auxPressure      = CAST_FIXED_TO_DOUBLE(auxPressure);
+    event->angle.twist      = CAST_FIXED_TO_DOUBLE(twist);
+
+#else
     event->position.x       = x;
     event->position.y       = y;
     event->position.z       = z;
     event->pressure         = tipPressure;
     event->auxPressure      = auxPressure;
     event->angle.twist      = twist;
-
+#endif
 
     // Let's assume no tip pressure means finger
     switch ( event->transducerType ) {
         case kIOHIDDigitizerTransducerTypeFinger:
             event->identity = 2;        // Multitouch interprets this as 'finger', hard code to 2 or index finger
             event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
+#if TARGET_OS_VISION
+            event->orientation.quality.majorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
+            event->orientation.quality.minorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
+            event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
+            event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
+#else
             event->orientation.quality.majorRadius = 5<<16;
             event->orientation.quality.minorRadius = 5<<16;
             event->orientation.polar.majorRadius = 5<<16;
             event->orientation.polar.minorRadius = 5<<16;
+#endif
             break;
         default:
+#if TARGET_OS_VISION
+            event->orientation.quality.majorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
+            event->orientation.quality.minorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
+            event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
+            event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
+#else
             event->orientation.quality.majorRadius = 3<<16;
             event->orientation.quality.minorRadius = 3<<16;
             event->orientation.polar.majorRadius = 3<<16;
             event->orientation.polar.minorRadius = 3<<16;
+#endif
             break;
     }
 
@@ -960,9 +1008,14 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithTiltOrientation(
     require(event, exit);
 
     event->orientationType = kIOHIDDigitizerOrientationTypeTilt;
-
+    
+#if TARGET_OS_VISION
+    event->orientation.tilt.x = CAST_FIXED_TO_DOUBLE(xTilt);
+    event->orientation.tilt.y = CAST_FIXED_TO_DOUBLE(xTilt);
+#else
     event->orientation.tilt.x = xTilt;
     event->orientation.tilt.y = xTilt;
+#endif
 
 exit:
     return me;
@@ -998,9 +1051,13 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
 
     event->orientationType = kIOHIDDigitizerOrientationTypePolar;
 
+#if TARGET_OS_VISION
+    event->orientation.polar.altitude   = CAST_FIXED_TO_DOUBLE(altitude);
+    event->orientation.polar.azimuth    = CAST_FIXED_TO_DOUBLE(azimuth);
+#else
     event->orientation.polar.altitude   = altitude;
     event->orientation.polar.azimuth    = azimuth;
-
+#endif
 exit:
     return me;
 }
@@ -1033,8 +1090,13 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
  
     event = (IOHIDDigitizerEventData *)me->_data;
  
+#if TARGET_OS_VISION
+    event->orientation.polar.quality = CAST_FIXED_TO_DOUBLE(quality);
+    event->orientation.polar.density = CAST_FIXED_TO_DOUBLE(density);
+#else
     event->orientation.polar.quality = quality;
     event->orientation.polar.density = density;
+#endif
     
 exit:
     return me;
@@ -1069,9 +1131,14 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
     require(me, exit);
 
     event = (IOHIDDigitizerEventData *)me->_data;
-
+    
+#if TARGET_OS_VISION
+    event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(majorRadius);
+    event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(minorRadius);
+#else
     event->orientation.polar.majorRadius = majorRadius;
     event->orientation.polar.minorRadius = minorRadius;
+#endif
 
 exit:
     return me;
@@ -1110,12 +1177,20 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithQualityOrientation(
     require(event, exit);
 
     event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
-
+    
+#if TARGET_OS_VISION
+    event->orientation.quality.quality          = CAST_FIXED_TO_DOUBLE(quality);
+    event->orientation.quality.density          = CAST_FIXED_TO_DOUBLE(density);
+    event->orientation.quality.irregularity     = CAST_FIXED_TO_DOUBLE(irregularity);
+    event->orientation.quality.majorRadius      = CAST_FIXED_TO_DOUBLE(majorRadius);
+    event->orientation.quality.minorRadius      = CAST_FIXED_TO_DOUBLE(minorRadius);
+#else
     event->orientation.quality.quality          = quality;
     event->orientation.quality.density          = density;
     event->orientation.quality.irregularity     = irregularity;
     event->orientation.quality.majorRadius      = majorRadius;
     event->orientation.quality.minorRadius      = minorRadius;
+#endif
 
 exit:
     return me;

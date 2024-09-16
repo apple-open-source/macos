@@ -68,7 +68,7 @@ RefPtr<MediaTrackReader> MediaTrackReader::create(Allocator&& allocator, const M
 
 WorkQueue& MediaTrackReader::storageQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue = WorkQueue::create("WebKit::MediaFormatReader Queue");
+    static NeverDestroyed<Ref<WorkQueue>> queue = WorkQueue::create("WebKit::MediaFormatReader Queue"_s);
     return queue.get();
 }
 
@@ -147,18 +147,18 @@ void MediaTrackReader::finishParsing()
     m_sampleStorageCondition.notifyAll();
 }
 
-const char* MediaTrackReader::mediaTypeString() const
+ASCIILiteral MediaTrackReader::mediaTypeString() const
 {
     switch (m_mediaType) {
     case kCMMediaType_Video:
-        return "video";
+        return "video"_s;
     case kCMMediaType_Audio:
-        return "audio";
+        return "audio"_s;
     case kCMMediaType_Text:
-        return "text";
+        return "text"_s;
     }
     ASSERT_NOT_REACHED();
-    return "unknown";
+    return "unknown"_s;
 }
 
 OSStatus MediaTrackReader::copyProperty(CFStringRef key, CFAllocatorRef allocator, void* copiedValue)
@@ -248,10 +248,10 @@ WTFLogChannel& MediaTrackReader::logChannel() const
     return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 
-const void* MediaTrackReader::nextSampleCursorLogIdentifier(uint64_t cursorID) const
+const void* MediaTrackReader::nextSampleCursorLogIdentifier(MediaSampleCursorIdentifier cursorID) const
 {
     uint64_t trackID = reinterpret_cast<uint64_t>(m_logIdentifier) & 0xffffull;
-    uint64_t trackAndCursorID = trackID << 8 | (cursorID & 0xffull);
+    uint64_t trackAndCursorID = trackID << 8 | (cursorID.toUInt64() & 0xffull);
     return LoggerHelper::childLogIdentifier(m_logIdentifier, trackAndCursorID);
 }
 

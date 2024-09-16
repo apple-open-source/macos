@@ -46,6 +46,7 @@ class LayoutState;
 
 class RenderView final : public RenderBlockFlow {
     WTF_MAKE_ISO_ALLOCATED(RenderView);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderView);
 public:
     RenderView(Document&, RenderStyle&&);
     virtual ~RenderView();
@@ -210,6 +211,9 @@ public:
     void unregisterContainerQueryBox(const RenderBox&);
     const SingleThreadWeakHashSet<const RenderBox>& containerQueryBoxes() const { return m_containerQueryBoxes; }
 
+    SingleThreadWeakPtr<RenderElement> viewTransitionRoot() const;
+    void setViewTransitionRoot(RenderElement& renderer);
+
 private:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
@@ -279,6 +283,8 @@ private:
 
     SingleThreadWeakHashSet<const RenderBox> m_boxesWithScrollSnapPositions;
     SingleThreadWeakHashSet<const RenderBox> m_containerQueryBoxes;
+
+    SingleThreadWeakPtr<RenderElement> m_viewTransitionRoot;
 };
 
 } // namespace WebCore

@@ -1,6 +1,6 @@
 /* omr-publisher.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@
 #include "route.h"
 #include "dnssd-proxy.h"
 
+
 #define STATE_MACHINE_IMPLEMENTATION 1
 typedef enum {
     omr_publisher_state_invalid,
@@ -61,6 +62,7 @@ typedef enum {
 #include "thread-service.h"
 #include "omr-watcher.h"
 #include "omr-publisher.h"
+#include "route-tracker.h"
 
 typedef struct omr_publisher {
     int ref_count;
@@ -235,6 +237,7 @@ omr_publisher_cancel(omr_publisher_t *publisher)
         interface_release(publisher->dhcp_interface);
         publisher->dhcp_interface = NULL;
     }
+    state_machine_cancel(&publisher->state_header);
 }
 
 omr_publisher_t *
@@ -456,6 +459,7 @@ omr_publisher_high_prefix_present(omr_publisher_t *publisher)
 {
     bool ret = omr_publisher_prefix_present(publisher, omr_prefix_priority_high);
     if (ret) {
+        INFO("setting publisher->omr_priority to high");
         publisher->omr_priority = omr_prefix_priority_high;
     }
     return ret;
@@ -466,6 +470,7 @@ omr_publisher_medium_prefix_present(omr_publisher_t *publisher)
 {
     bool ret = omr_publisher_prefix_present(publisher, omr_prefix_priority_medium);
     if (ret) {
+        INFO("setting publisher->omr_priority to medium");
         publisher->omr_priority = omr_prefix_priority_medium;
     }
     return ret;
@@ -509,14 +514,30 @@ omr_publisher_low_prefix_wins(omr_publisher_t *publisher)
 }
 
 bool
-omr_publisher_publishing_prefix(omr_publisher_t *publisher)
+omr_publisher_publishing_dhcp(omr_publisher_t *publisher)
 {
-    if (publisher->state_header.state == omr_publisher_state_publishing_dhcp ||
-        publisher->state_header.state == omr_publisher_state_publishing_ula)
+    if (publisher->state_header.state == omr_publisher_state_publishing_dhcp)
     {
         return true;
     }
     return false;
+}
+
+bool
+omr_publisher_publishing_ula(omr_publisher_t *publisher)
+{
+    if (publisher->state_header.state == omr_publisher_state_publishing_ula)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool
+omr_publisher_publishing_prefix(omr_publisher_t *publisher)
+{
+    return omr_publisher_publishing_dhcp(publisher) ||
+           omr_publisher_publishing_ula(publisher);
 }
 
 static void omr_publisher_queue_run(omr_publisher_t *publisher);
@@ -661,6 +682,8 @@ omr_publisher_publish_prefix(omr_publisher_t *publisher,
     INFO("publishing prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/64",
          SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix_address, prefix_buf));
     omr_publisher_queue_prefix_update(publisher, prefix_address, priority, preferred, want_add);
+    INFO("setting publisher->omr_priority to %d, " PUB_S_SRP "preferred", omr_prefix_priority_to_int(priority),
+         preferred ? "" : "not ");
     publisher->omr_priority = priority;
 }
 
@@ -729,7 +752,9 @@ omr_publisher_unpublish_ula_prefix(omr_publisher_t *publisher)
 bool
 omr_publisher_have_routable_prefix(omr_publisher_t *publisher)
 {
-    if (publisher->omr_priority == omr_prefix_priority_medium || publisher->omr_priority == omr_prefix_priority_high) {
+    if ((publisher->published_prefix != NULL && omr_watcher_prefix_is_non_ula_prefix(publisher->published_prefix)) ||
+        (publisher->omr_watcher != NULL && omr_watcher_non_ula_prefix_present(publisher->omr_watcher)))
+    {
         INFO("we have a routable prefix");
         return true;
     }

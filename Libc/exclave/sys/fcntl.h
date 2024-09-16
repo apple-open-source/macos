@@ -70,9 +70,8 @@
 #ifndef _SYS_FCNTL_H_
 #define _SYS_FCNTL_H_
 
-#if defined(ENABLE_EXCLAVE_STORAGE)
-
 #include <sys/cdefs.h>
+#include <_compat/sys/_types.h>
 
 /*
  * File status flags: these are used by open(2), fcntl(2).
@@ -147,6 +146,8 @@
 /* command values */
 #define F_NOCACHE       48              /* turn data caching off/on for this fd */
 #define F_GETPATH       50              /* return the full path of the fd */
+
+#if defined(ENABLE_EXCLAVE_STORAGE)
 
 __BEGIN_DECLS
 

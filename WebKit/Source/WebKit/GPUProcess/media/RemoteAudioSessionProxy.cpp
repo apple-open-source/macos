@@ -54,9 +54,14 @@ RemoteAudioSessionProxy::RemoteAudioSessionProxy(GPUConnectionToWebProcess& gpuC
 
 RemoteAudioSessionProxy::~RemoteAudioSessionProxy() = default;
 
+RefPtr<GPUConnectionToWebProcess> RemoteAudioSessionProxy::gpuConnectionToWebProcess() const
+{
+    return m_gpuConnection.get();
+}
+
 WebCore::ProcessIdentifier RemoteAudioSessionProxy::processIdentifier()
 {
-    return m_gpuConnection.webProcessIdentifier();
+    return m_gpuConnection.get()->webProcessIdentifier();
 }
 
 RemoteAudioSessionConfiguration RemoteAudioSessionProxy::configuration()
@@ -70,7 +75,9 @@ RemoteAudioSessionConfiguration RemoteAudioSessionProxy::configuration()
         session.maximumNumberOfOutputChannels(),
         session.preferredBufferSize(),
         session.isMuted(),
-        m_active
+        m_active,
+        m_sceneIdentifier,
+        m_soundStageSize,
     };
 }
 
@@ -108,6 +115,7 @@ void RemoteAudioSessionProxy::tryToSetActive(bool active, SetActiveCompletion&& 
         configurationChanged();
 
     audioSessionManager().updatePresentingProcesses();
+    audioSessionManager().updateSpatialExperience();
 }
 
 void RemoteAudioSessionProxy::setIsPlayingToBluetoothOverride(std::optional<bool>&& value)
@@ -143,30 +151,44 @@ void RemoteAudioSessionProxy::endInterruptionRemote(AudioSession::MayResume mayR
     audioSessionManager().endInterruptionRemote(mayResume);
 }
 
+void RemoteAudioSessionProxy::setSceneIdentifier(const String& sceneIdentifier)
+{
+    m_sceneIdentifier = sceneIdentifier;
+    audioSessionManager().updateSpatialExperience();
+}
+
+void RemoteAudioSessionProxy::setSoundStageSize(AudioSession::SoundStageSize size)
+{
+    m_soundStageSize = size;
+    audioSessionManager().updateSpatialExperience();
+}
+
 RemoteAudioSessionProxyManager& RemoteAudioSessionProxy::audioSessionManager()
 {
-    return m_gpuConnection.gpuProcess().audioSessionManager();
+    return m_gpuConnection.get()->gpuProcess().audioSessionManager();
 }
 
 bool RemoteAudioSessionProxy::allowTestOnlyIPC()
 {
-    return m_gpuConnection.allowTestOnlyIPC();
+    if (auto connection = m_gpuConnection.get())
+        return connection->allowTestOnlyIPC();
+    return false;
 }
 
 IPC::Connection& RemoteAudioSessionProxy::connection()
 {
-    return m_gpuConnection.connection();
+    return m_gpuConnection.get()->connection();
 }
 
 void RemoteAudioSessionProxy::triggerBeginInterruptionForTesting()
 {
-    MESSAGE_CHECK(m_gpuConnection.allowTestOnlyIPC());
+    MESSAGE_CHECK(m_gpuConnection.get()->allowTestOnlyIPC());
     AudioSession::sharedSession().beginInterruptionForTesting();
 }
 
 void RemoteAudioSessionProxy::triggerEndInterruptionForTesting()
 {
-    MESSAGE_CHECK(m_gpuConnection.allowTestOnlyIPC());
+    MESSAGE_CHECK(m_gpuConnection.get()->allowTestOnlyIPC());
     AudioSession::sharedSession().endInterruptionForTesting();
 }
 

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ typedef struct
     DNSQuestion q_default;
     DNSQuestion q_autoall;
 } request_enumeration;
-mdns_compile_time_max_size_check(request_enumeration, 2096);
+mdns_compile_time_max_size_check(request_enumeration, 2144);
 
 typedef struct
 {
@@ -147,7 +147,7 @@ typedef struct
     mDNSBool txt_negative;          // Whether we have received a negative TXT record. If true, txt_rdata is always NULL
                                     // and txt_rdlength is 0. When txt_rdata is non-NULL, txt_negative is always false.
 } request_resolve;
-mdns_compile_time_max_size_check(request_resolve, 1424);
+mdns_compile_time_max_size_check(request_resolve, 1456);
 
 typedef struct
 {
@@ -190,7 +190,7 @@ struct request_state
 #endif
     void * platform_data;
 #if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mdns_trust_t trust;
+    CFMutableArrayRef trusts;
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
     mdns_signed_result_t signed_obj;
@@ -214,6 +214,8 @@ struct request_state
     dnssd_sock_t errsd;
     mDNSu32 uid;
     mDNSu32 request_id;
+    mDNSs32 request_start_time_secs; // The time when the request is started in continuous time seconds.
+    mDNSs32 last_full_log_time_secs; // The time when we print full log information in continuous time seconds.
     mDNSu32 hdr_bytes;              // bytes of header already read [1]
     ipc_msg_hdr hdr;                // [1]
     mDNSs32 time_blocked;           // record time of a blocked client
@@ -239,7 +241,7 @@ struct request_state
 MDNS_CLANG_TREAT_WARNING_AS_ERROR_END()
 MDNS_GENERAL_STRUCT_PAD_CHECK(struct request_state);
 #endif
-mdns_compile_time_max_size_check(struct request_state, 280);
+mdns_compile_time_max_size_check(struct request_state, 288);
 
 // Notes:
 // 1. On a shared connection these fields in the primary structure, including hdr, are re-used
@@ -273,7 +275,6 @@ extern int udsserver_init(dnssd_sock_t skts[], size_t count);
 extern mDNSs32 udsserver_idle(mDNSs32 nextevent);
 extern void udsserver_info_dump_to_fd(int fd);
 extern void udsserver_handle_configchange(mDNS *const m);
-extern void udsserver_report_request_progress_to_powerlog(void);
 extern int udsserver_exit(void);    // should be called prior to app exit
 extern void LogMcastStateInfo(mDNSBool mflag, mDNSBool start, mDNSBool mstatelog);
 #define LogMcastQ       (mDNS_McastLoggingEnabled == 0) ? ((void)0) : LogMcastQuestion

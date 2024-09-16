@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,7 +53,6 @@ struct hosts * 	hostadd(struct hosts * * hosts, struct timeval * tv_p,
 			char * bootfile);
 void		hostfree(struct hosts * * hosts, struct hosts * hp);
 void		hostinsert(struct hosts * * hosts, struct hosts * hp);
-void		hostprint(struct hosts * hp);
 void		hostremove(struct hosts * * hosts, struct hosts * hp);
 
 typedef boolean_t subnet_match_func_t(void * arg, struct in_addr iaddr);

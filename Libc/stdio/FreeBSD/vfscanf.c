@@ -57,6 +57,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das 
 #include "collate.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 #ifndef NO_FLOATING_POINT
 #include <locale.h>
@@ -114,6 +115,8 @@ __vfscanf(FILE * __restrict fp, char const * __restrict fmt0, va_list ap)
 {
 	int ret;
 
+	libc_hooks_will_write(fp, sizeof(*fp));
+
 	FLOCKFILE(fp);
 	ret = __svfscanf_l(fp, __current_locale(), fmt0, ap);
 	FUNLOCKFILE(fp);
@@ -124,6 +127,8 @@ int
 vfscanf_l(FILE * __restrict fp, locale_t loc, char const * __restrict fmt0, va_list ap)
 {
 	int ret;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	NORMALIZE_LOCALE(loc);
 	FLOCKFILE(fp);
@@ -161,6 +166,9 @@ __svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, v
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
 	static const short basefix[17] =
 		{ 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+	libc_hooks_will_write(loc, sizeof(*loc));
+	libc_hooks_will_read_cstring(fmt0);
 
 	NORMALIZE_LOCALE(loc);
 	mb_cur_max = MB_CUR_MAX_L(loc);
@@ -332,24 +340,25 @@ literal:
 			if (flags & SUPPRESS)	/* ??? */
 				continue;
 			void *ptr = va_arg(ap, void *);
-			if (ptr == NULL)
+			if (ptr == NULL) {
 				continue;
-			else if (flags & SHORTSHORT)
-				*(char *)ptr = nread;
-			else if (flags & SHORT)
-				*(short *)ptr = nread;
-			else if (flags & LONG)
-				*(long *)ptr = nread;
-			else if (flags & LONGLONG)
-				*(long long *)ptr = nread;
-			else if (flags & INTMAXT)
-				*(intmax_t *)ptr = nread;
-			else if (flags & SIZET)
-				*(size_t *)ptr = nread;
-			else if (flags & PTRDIFFT)
-				*(ptrdiff_t *)ptr = nread;
-			else
-				*(int *)ptr = nread;
+			} else if (flags & SHORTSHORT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, char, nread);
+			} else if (flags & SHORT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, short, nread);
+			} else if (flags & LONG) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long, nread);
+			} else if (flags & LONGLONG) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long long, nread);
+			} else if (flags & INTMAXT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, intmax_t, nread);
+			} else if (flags & SIZET) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, size_t, nread);
+			} else if (flags & PTRDIFFT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, ptrdiff_t, nread);
+			} else {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, int, nread);
+			}
 			continue;
 		}
 		default:
@@ -396,6 +405,7 @@ literal:
 			/* scan arbitrary characters (sets NOSKIP) */
 			if (width == 0)
 				width = 1;
+			// libc_hooks: TBD checking of wchar_t
 			if (flags & LONG) {
 				if ((flags & SUPPRESS) == 0)
 					wcp = va_arg(ap, wchar_t *);
@@ -456,6 +466,7 @@ literal:
 				}
 				nread += sum;
 			} else {
+				// libc_hooks: __fread() will validate
 				size_t r = __fread((void *)va_arg(ap, char *), 1,
 				    width, fp);
 
@@ -471,6 +482,7 @@ literal:
 			if (width == 0)
 				width = (size_t)~0;	/* `infinity' */
 			/* take only those things in the class */
+			// libsanitiers: TBD checking of wchar_t
 			if (flags & LONG) {
 				wchar_t twc;
 				int nchars;
@@ -571,6 +583,8 @@ literal:
 					goto match_failure;
 				*p = 0;
 				nassigned++;
+				// libc_hooks: Doing a post-check for efficiency
+				libc_hooks_will_read_cstring(p0);
 			}
 			nread += n;
 			break;
@@ -579,6 +593,7 @@ literal:
 			/* like CCL, but zero-length string OK, & no NOSKIP */
 			if (width == 0)
 				width = (size_t)~0;
+			// libsanitiers: TBD checking of wchar_t
 			if (flags & LONG) {
 				wchar_t twc;
 
@@ -653,6 +668,8 @@ literal:
 				*p = 0;
 				nread += p - p0;
 				nassigned++;
+				// libc_hooks: Doing a post-check for efficiency
+				libc_hooks_will_read_cstring(p0);
 			}
 			continue;
 
@@ -787,25 +804,26 @@ literal:
 				    res = strtoimax_l(buf, (char **)NULL, base, loc);
 				else
 				    res = strtoumax_l(buf, (char **)NULL, base, loc);
-				if (flags & POINTER)
-					*va_arg(ap, void **) =
-							(void *)(uintptr_t)res;
-				else if (flags & SHORTSHORT)
-					*va_arg(ap, char *) = res;
-				else if (flags & SHORT)
-					*va_arg(ap, short *) = res;
-				else if (flags & LONG)
-					*va_arg(ap, long *) = res;
-				else if (flags & LONGLONG)
-					*va_arg(ap, long long *) = res;
-				else if (flags & INTMAXT)
-					*va_arg(ap, intmax_t *) = res;
-				else if (flags & PTRDIFFT)
-					*va_arg(ap, ptrdiff_t *) = res;
-				else if (flags & SIZET)
-					*va_arg(ap, size_t *) = res;
-				else
-					*va_arg(ap, int *) = res;
+				void *ptr = va_arg(ap, void *);
+				if (flags & POINTER) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, uintptr_t, res);
+				} else if (flags & SHORTSHORT) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, char, res);
+				} else if (flags & SHORT) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, short, res);
+				} else if (flags & LONG) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long, res);
+				} else if (flags & LONGLONG) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long long, res);
+				} else if (flags & INTMAXT) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, intmax_t, res);
+				} else if (flags & PTRDIFFT) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, ptrdiff_t, res);
+				} else if (flags & SIZET) {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, size_t, res);
+				} else {
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, int, res);
+				}
 				nassigned++;
 			}
 			nread += p - buf;
@@ -819,15 +837,13 @@ literal:
 			if ((width = parsefloat(fp, &pbuf, width, loc)) == 0)
 				goto match_failure;
 			if ((flags & SUPPRESS) == 0) {
+				void *ptr = va_arg(ap, void *);
 				if (flags & LONGDBL) {
-					long double res = strtold_l(pbuf, &p, loc);
-					*va_arg(ap, long double *) = res;
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long double, strtold_l(pbuf, &p, loc));
 				} else if (flags & LONG) {
-					double res = strtod_l(pbuf, &p, loc);
-					*va_arg(ap, double *) = res;
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, double, strtod_l(pbuf, &p, loc));
 				} else {
-					float res = strtof_l(pbuf, &p, loc);
-					*va_arg(ap, float *) = res;
+					LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, float, strtof_l(pbuf, &p, loc));
 				}
 				nassigned++;
 			}
@@ -913,16 +929,14 @@ doswitch:
 			 */
 			n = *fmt;
 			if (n == ']'
-			    || (loc->__collate_load_error ? n < c :
-				__collate_range_cmp (n, c, loc) < 0
-			       )
-			   ) {
+			    || (XLOCALE_COLLATE(loc)->__collate_load_error ?
+			    n < c : __collate_range_cmp (n, c, loc) < 0)) {
 				c = '-';
 				break;	/* resume the for(;;) */
 			}
 			fmt++;
 			/* fill in the range */
-			if (loc->__collate_load_error) {
+			if (XLOCALE_COLLATE(loc)->__collate_load_error) {
 				do {
 					tab[++c] = v;
 				} while (c < n);

@@ -12,7 +12,8 @@
 		<string>sort.c: update version output (11351444)</string>
 		<string>sort.c: conformance failure with -k (28745165)</string>
 		<string>coll.c, sort.c, sort.h: use SHA256 (86257144)</string>
-		<string>sort.c: Don't ignore errors when flushing stdout (89040553)</string>
+		<string>sort.c: don't ignore errors when flushing stdout (89040553)</string>
+		<string>sort.c: re-raise signal errors to propagate correct exit status (128143070)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>sort</string>

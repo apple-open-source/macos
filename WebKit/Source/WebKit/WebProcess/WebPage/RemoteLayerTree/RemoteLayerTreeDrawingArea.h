@@ -37,6 +37,15 @@
 #include <wtf/HashMap.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebKit {
+class RemoteLayerTreeDrawingArea;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerTreeDrawingArea> : std::true_type { };
+}
+
 namespace WebCore {
 class PlatformCALayer;
 class ThreadSafeImageBufferFlusher;
@@ -95,8 +104,8 @@ private:
     void setLayerTreeStateIsFrozen(bool) final;
     bool layerTreeStateIsFrozen() const final { return m_isRenderingSuspended; }
 
-    void forceRepaint() final;
-    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) final;
+    void updateRenderingWithForcedRepaint() final;
+    void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) final;
 
     void setViewExposedRect(std::optional<WebCore::FloatRect>) final;
     std::optional<WebCore::FloatRect> viewExposedRect() const final { return m_viewExposedRect; }
@@ -121,7 +130,7 @@ private:
 
     void addCommitHandlers();
     void startRenderingUpdateTimer();
-    void didCompleteRenderingUpdateDisplay() final;
+    void didCompleteRenderingUpdateDisplayFlush(bool flushSucceeded);
 
     TransactionID takeNextTransactionID() { return m_currentTransactionID.increment(); }
 
@@ -137,7 +146,8 @@ private:
     public:
         static Ref<BackingStoreFlusher> create(Ref<IPC::Connection>&&);
 
-        void flush(UniqueRef<IPC::Encoder>&&, Vector<std::unique_ptr<ThreadSafeImageBufferSetFlusher>>&&);
+        // Returns true when flush succeeds. False if it failed, for example due to timeout.
+        bool flush(UniqueRef<IPC::Encoder>&&, Vector<std::unique_ptr<ThreadSafeImageBufferSetFlusher>>&&);
 
         bool hasPendingFlush() const { return m_hasPendingFlush; }
         void markHasPendingFlush()
@@ -153,7 +163,7 @@ private:
         std::atomic<bool> m_hasPendingFlush { false };
     };
 
-    std::unique_ptr<RemoteLayerTreeContext> m_remoteLayerTreeContext;
+    Ref<RemoteLayerTreeContext> m_remoteLayerTreeContext;
     
     struct RootLayerInfo {
         Ref<WebCore::GraphicsLayer> layer;

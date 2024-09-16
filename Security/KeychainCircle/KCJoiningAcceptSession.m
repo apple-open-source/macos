@@ -35,6 +35,8 @@
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #endif
 
+#import <KeychainCircle/PairingChannel.h>
+
 typedef enum {
     kExpectingA,
     kExpectingM,
@@ -493,6 +495,9 @@ typedef enum {
         }
         OTApplicantToSponsorRound2M1 *prepareMessage = pairingMessage.prepare;
 
+        // Max Capability - assume non-full and full-peers are allowed through piggybacking
+        NSString* maxCap = KCPairingIntent_Capability_FullPeer;
+        
         //handle identity, fetch voucher
         [self.otControl rpcVoucherWithArguments:self.controlArguments
                                   configuration:self.joiningConfiguration
@@ -500,7 +505,9 @@ typedef enum {
                                   permanentInfo:prepareMessage.permanentInfo
                                permanentInfoSig:prepareMessage.permanentInfoSig
                                      stableInfo:prepareMessage.stableInfo
-                                  stableInfoSig:prepareMessage.stableInfoSig reply:^(NSData *voucher,
+                                  stableInfoSig:prepareMessage.stableInfoSig 
+                                  maxCapability:maxCap
+                                          reply:^(NSData *voucher,
                                                                                      NSData *voucherSig,
                                                                                      NSError *err) {
             if (err) {

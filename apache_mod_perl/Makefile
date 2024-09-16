@@ -18,7 +18,7 @@ PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 CFLAGS += -std=c89
-INCLUDEDIR = $(shell $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs -q includedir)
+INCLUDEDIR = $(shell $(TOOLCHAIN_DIR)/usr/local/bin/apxs -q includedir)
 
 install::
 	@echo "--> Extracting..."
@@ -33,7 +33,7 @@ install::
 	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed 's,Perl,Perl/Extras,'` && \
 	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed 's,Perl,Perl/Extras,'` && \
 		ARCHFLAGS="$(RC_CFLAGS)" perl Makefile.PL \
-		MP_APXS="$(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs" \
+		MP_APXS="$(TOOLCHAIN_DIR)/usr/local/bin/apxs" \
 		MP_CCOPTS="$(CFLAGS)" \
 		INSTALLARCHLIB=$${installarchlib} \
 		INSTALLDIRS=perl \

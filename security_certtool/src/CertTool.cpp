@@ -92,6 +92,9 @@
  */
 #define VALIDITY_DAYS_ENVIRONMENT_VARIABLE	"CERTTOOL_EXPIRATION_DAYS"
 
+/* CRLs are not supported (rdar://123090883) */
+#define CRL_SUPPORTED 0
+
 	CSSM_BOOL			verbose = CSSM_FALSE;
 
 static void usage(char **argv)
@@ -104,9 +107,13 @@ static void usage(char **argv)
 	printf("   Create a system Identity:  %s C domainName [options]\n", argv[0]);
 	printf("   Import a certificate:      %s i inFileName [options]\n", argv[0]);
 	printf("   Display a certificate:     %s d inFileName [options]\n", argv[0]);
+#if CRL_SUPPORTED
 	printf("   Import a CRL:              %s I inFileName [options]\n", argv[0]);
 	printf("   Display a CRL:             %s D inFileName [options]\n", argv[0]);
 	printf("   Display certs and CRLs in keychain: %s y [options]\n", argv[0]);
+#else
+	printf("   Display certs in keychain: %s y [options]\n", argv[0]);
+#endif
 	printf("Options:\n");
 	printf("   k=keychainName\n");
 	printf("   c (create the keychain)\n");
@@ -1405,7 +1412,7 @@ static OSStatus createCertCsr(
 	return noErr;
 }
 
-/* dump all certs & CRLs in a DL/DB */
+/* dump all certs in a DL/DB */
 static OSStatus dumpCrlsCerts(
 	CSSM_DL_DB_HANDLE	dlDbHand,
 	CSSM_CL_HANDLE		clHand,
@@ -1421,6 +1428,7 @@ static OSStatus dumpCrlsCerts(
 		return noErr;
 	}
 	printf("...%u certificates found\n", numItems);
+#if CRL_SUPPORTED
 	crtn = cuDumpCrlsCerts(dlDbHand, clHand, CSSM_FALSE, numItems, verbose);
 	if(crtn && (crtn != CSSMERR_DL_INVALID_RECORDTYPE)) {
 		/* invalid record type just means "this hasn't been set up
@@ -1428,6 +1436,7 @@ static OSStatus dumpCrlsCerts(
 		return noErr;
 	}
 	printf("...%u CRLs found\n", numItems);
+#endif
 	return noErr;
 }
 
@@ -1542,6 +1551,7 @@ static int realmain (int argc, char **argv)
 			fileName = argv[2];
 			optArgs = 3;
 			break;
+#if CRL_SUPPORTED
 		case 'I':
 			if(argc < 3) {
 				usage(argv);
@@ -1558,6 +1568,7 @@ static int realmain (int argc, char **argv)
 			fileName = argv[2];
 			optArgs = 3;
 			break;
+#endif
 		case 'y':
 			op = CO_DumpDb;
 			optArgs = 2;
@@ -1677,9 +1688,11 @@ static int realmain (int argc, char **argv)
 			/* ready to roll */
 			displayCertCRL(fileName, pemFormat, CC_Cert, verbose);
 			return 0;
+#if CRL_SUPPORTED
 		case CO_DisplayCRL:
 			displayCertCRL(fileName, pemFormat, CC_CRL, verbose);
 			return 0;
+#endif
 		case CO_SystemIdentity:
 			if(avoidDupIdentity) {
 				/*

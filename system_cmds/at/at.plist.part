@@ -15,6 +15,7 @@
 			<string>parsetime.c: require command before year per posix</string>
 			<string>parsetime.c: long -> int and atol -> atoi to silence errors</string>
 			<string>perm.c: deal w/ size_t/int issue and fgets</string>
+			<string>at.c: re-raise signal errors to propagate correct exit status (128143033)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

@@ -1,0 +1,33 @@
+#! /bin/sh
+
+# Test --rsh quoting; this avoids interop testing since we really only care
+# about testing the client.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rshvar="arg1 'arg2' 'arg3' 'arg4''added' 'arg5'\"added\" 'arg\"6\"'"
+rshvar="$rshvar 'arg with spaces' \"arg7\"'added' \"arg8\"\"added\""
+
+export RSYNC_RSH="$rshvar"
+rsync -vv nonexistent:file foo &>args || true
+
+# smb rsync will leave the closing quote in for back-to-back quoted args (e.g.,
+# arg4added above), but this doesn't really match how shells quote... we've
+# opted for the shell-compatible quoting.
+missing=0
+for word in arg1 arg2 arg3 "arg4'added" arg5added "arg\"6\"" "arg with spaces" \
+    arg7added "arg8\"added"; do
+	if ! grep -q -Ee "$word" args; then
+		missing=$((missing + 1))
+		1>&2 echo "Missing $word"
+	fi
+done
+
+if [ "$missing" -gt 0 ]; then
+	1>&2 cat args
+	exit 1
+fi

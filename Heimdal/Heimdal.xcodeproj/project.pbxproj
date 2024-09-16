@@ -19653,7 +19653,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${PLATFORM_NAME}\" == \"macosx\" ]; then\n    mkdir -p ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles\n    cp ${SRCROOT}/packages/mac/com.apple.GSSCred.sb ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles/com.apple.GSSCred.sb\n    #compile the sb file using placeholder variables\n    sbutil compile -D HOME=/Users/local -D TMPDIR=/tmp -D DARWIN_CACHE_DIR=/whatever ${SRCROOT}/packages/mac/com.apple.GSSCred.sb > /dev/null\nfi\n";
+			shellScript = "if [ \"${PLATFORM_NAME}\" == \"macosx\" ]; then\n    mkdir -p ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles\n    cp ${SRCROOT}/packages/mac/com.apple.GSSCred.sb ${INSTALL_ROOT}${SYSTEM_LIBRARY_DIR}/Sandbox/Profiles/com.apple.GSSCred.sb\n    #compile the sb file using placeholder variables\n    sbutil compile -D IMPORT_DIR=/System/Library/Sandbox/Profiles -D HOME=/Users/local -D TMPDIR=/tmp -D DARWIN_CACHE_DIR=/whatever ${SRCROOT}/packages/mac/com.apple.GSSCred.sb > /dev/null\nfi\n";
 		};
 		8C7D2F4723B1303B0044EAA8 /* Rewrite headers for GSS project */ = {
 			isa = PBXShellScriptBuildPhase;

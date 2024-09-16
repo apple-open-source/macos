@@ -47,11 +47,11 @@
 #include <sys/mman.h>
 #endif
 
-#if CPU(MIPS) && OS(LINUX)
-#include <sys/cachectl.h>
-#endif
-
+#if ENABLE(MPROTECT_RX_TO_RWX)
+#define EXECUTABLE_POOL_WRITABLE false
+#else
 #define EXECUTABLE_POOL_WRITABLE true
+#endif
 
 namespace JSC {
 
@@ -114,12 +114,9 @@ ALWAYS_INLINE bool isJITPC(void* pc)
 
 JS_EXPORT_PRIVATE void dumpJITMemory(const void*, const void*, size_t);
 
-// We use this to prevent compile errors on some platforms that are unhappy
-// about the signature of the system's memcpy.
-ALWAYS_INLINE void* memcpyWrapper(void* dst, const void* src, size_t bytes)
-{
-    return memcpy(dst, src, bytes);
-}
+#if ENABLE(MPROTECT_RX_TO_RWX)
+JS_EXPORT_PRIVATE void* performJITMemcpyWithMProtect(void *dst, const void *src, size_t n);
+#endif
 
 static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n)
 {
@@ -134,6 +131,10 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 
         if (UNLIKELY(Options::dumpJITMemoryPath()))
             dumpJITMemory(dst, src, n);
+
+#if ENABLE(MPROTECT_RX_TO_RWX)
+        return performJITMemcpyWithMProtect(dst, src, n);
+#endif
 
         if (g_jscConfig.useFastJITPermissions) {
             threadSelfRestrictRWXToRW();
@@ -189,6 +190,11 @@ public:
 
     Lock& getLock() const;
 
+#if ENABLE(MPROTECT_RX_TO_RWX)
+    void startWriting(const void* start, size_t sizeInBytes);
+    void finishWriting(const void* start, size_t sizeInBytes);
+#endif
+
 #if ENABLE(JUMP_ISLANDS)
     JS_EXPORT_PRIVATE void* getJumpIslandToUsingJITMemcpy(void* from, void* newDestination);
     JS_EXPORT_PRIVATE void* getJumpIslandToUsingMemcpy(void* from, void* newDestination);
@@ -214,11 +220,6 @@ private:
     ~ExecutableAllocator() = default;
 };
 
-ALWAYS_INLINE void* memcpyWrapper(void* dst, const void* src, size_t bytes)
-{
-    return memcpy(dst, src, bytes);
-}
-
 static inline void* performJITMemcpy(void *dst, const void *src, size_t n)
 {
     return memcpy(dst, src, n);
@@ -226,6 +227,5 @@ static inline void* performJITMemcpy(void *dst, const void *src, size_t n)
 
 inline bool isJITPC(void*) { return false; }
 #endif // ENABLE(JIT)
-
 
 } // namespace JSC

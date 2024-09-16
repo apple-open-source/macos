@@ -363,12 +363,11 @@ OSStatus SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR dige
         /*
          * RFC 3278 section section 2.1.1 states that the signatureAlgorithm
          * field contains the full ecdsa-with-SHA1 OID, not plain old ecPublicKey
-         * as would appear in other forms of signed datas. However Microsoft doesn't
+         * as would appear in other forms of signed datas. However Microsoft Entourage didn't
          * do this, it puts ecPublicKey there, and if we put ecdsa-with-SHA1 there,
          * MS can't verify - presumably because it takes the digest of the digest
          * before feeding it to ECDSA.
-         * We handle this with a preference; default if it's not there is
-         * "Microsoft compatibility mode".
+         * We handle this with a preference; default if it's not there is OFF.
          */
         sigAlgTag = SEC_OID_EC_PUBLIC_KEY;
     }

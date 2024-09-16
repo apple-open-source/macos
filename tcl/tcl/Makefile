@@ -112,7 +112,7 @@ Sources               = $(SRCROOT)/$(Project)
 MakeDir               = $(Sources)/macosx
 
 Fmwk                  = $(SYMROOT)/$(ProjectName).framework
-BuildTarget           = $(Project) BUILD_STYLE=Deployment EXTRA_CFLAGS=-DNDEBUG
+BuildTarget           = $(Project) BUILD_STYLE=Deployment EXTRA_CFLAGS='-DNDEBUG -fno-typed-memory-operations -fno-typed-cxx-new-delete'
 InstallTarget         = install-deploy
 
 all: build

@@ -29,6 +29,7 @@
 #include "ExceptionHelpers.h"
 #include "StringPrototype.h"
 #include <wtf/Range.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringSearch.h>
 
 namespace JSC {
@@ -195,7 +196,7 @@ ALWAYS_INLINE JSString* jsSpliceSubstringsWithSeparators(JSGlobalObject* globalO
 enum class StringReplaceSubstitutions : bool { No, Yes };
 enum class StringReplaceUseTable : bool { No, Yes };
 template<StringReplaceSubstitutions substitutions, StringReplaceUseTable useTable, typename TableType>
-ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, JSString* stringCell, String string, String search, String replacement, const TableType* table)
+ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, JSString* stringCell, const String& string, const String& search, const String& replacement, const TableType* table)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -212,6 +213,7 @@ ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, 
 
     size_t searchLength = search.length();
     size_t matchEnd = matchStart + searchLength;
+    String result;
     if constexpr (substitutions == StringReplaceSubstitutions::Yes) {
         size_t dollarSignPosition = replacement.find('$');
         if (dollarSignPosition != WTF::notFound) {
@@ -222,11 +224,15 @@ ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, 
                 throwOutOfMemoryError(globalObject, scope);
                 return nullptr;
             }
-            replacement = builder.toString();
+            result = tryMakeString(StringView(string).substring(0, matchStart), builder.toString(), StringView(string).substring(matchEnd, string.length() - matchEnd));
+            if (UNLIKELY(!result)) {
+                throwOutOfMemoryError(globalObject, scope);
+                return nullptr;
+            }
         }
     }
-
-    auto result = tryMakeString(StringView(string).substring(0, matchStart), replacement, StringView(string).substring(matchEnd, string.length() - matchEnd));
+    if (!result)
+        result = tryMakeString(StringView(string).substring(0, matchStart), replacement, StringView(string).substring(matchEnd, string.length() - matchEnd));
     if (UNLIKELY(!result)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -236,7 +242,7 @@ ALWAYS_INLINE JSString* stringReplaceStringString(JSGlobalObject* globalObject, 
 }
 
 enum class StringReplaceMode : bool { Single, Global };
-inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, JSString* jsString, String string, String searchString, JSValue replaceValue, StringReplaceMode mode)
+inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, JSString* jsString, const String& string, const String& searchString, JSValue replaceValue, StringReplaceMode mode)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
 
@@ -254,13 +260,12 @@ inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, 
         } else if (callData.type == CallData::Type::JS) {
             cachedCall.emplace(globalObject, jsCast<JSFunction*>(replaceValue), 3);
             RETURN_IF_EXCEPTION(scope, nullptr);
-            cachedCall->setThis(jsUndefined());
         }
     }
 
     if (mode == StringReplaceMode::Single) {
         if (!replaceString.isNull())
-            RELEASE_AND_RETURN(scope, (stringReplaceStringString<StringReplaceSubstitutions::Yes, StringReplaceUseTable::No, BoyerMooreHorspoolTable<uint8_t>>(globalObject, jsString, WTFMove(string), WTFMove(searchString), WTFMove(replaceString), nullptr)));
+            RELEASE_AND_RETURN(scope, (stringReplaceStringString<StringReplaceSubstitutions::Yes, StringReplaceUseTable::No, BoyerMooreHorspoolTable<uint8_t>>(globalObject, jsString, string, searchString, replaceString, nullptr)));
     }
 
     size_t matchStart = StringView(string).find(vm.adaptiveStringSearcherTables(), StringView(searchString));
@@ -277,12 +282,8 @@ inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, 
             if (cachedCall) {
                 auto* substring = jsSubstring(vm, globalObject, jsString, matchStart, searchStringLength);
                 RETURN_IF_EXCEPTION(scope, nullptr);
-                cachedCall->clearArguments();
-                cachedCall->appendArgument(substring);
-                cachedCall->appendArgument(jsNumber(matchStart));
-                cachedCall->appendArgument(jsString);
-                ASSERT(!cachedCall->hasOverflowedArguments());
-                replacement = cachedCall->call();
+                replacement = cachedCall->callWithArguments(globalObject, jsUndefined(), substring, jsNumber(matchStart), jsString);
+                RETURN_IF_EXCEPTION(scope, nullptr);
             } else {
                 MarkedArgumentBuffer args;
                 auto* substring = jsSubstring(vm, globalObject, jsString, matchStart, searchString.impl()->length());
@@ -292,8 +293,8 @@ inline JSString* replaceUsingStringSearch(VM& vm, JSGlobalObject* globalObject, 
                 args.append(jsString);
                 ASSERT(!args.hasOverflowed());
                 replacement = call(globalObject, replaceValue, callData, jsUndefined(), args);
+                RETURN_IF_EXCEPTION(scope, nullptr);
             }
-            RETURN_IF_EXCEPTION(scope, nullptr);
             replaceString = replacement.toWTFString(globalObject);
             RETURN_IF_EXCEPTION(scope, nullptr);
         }

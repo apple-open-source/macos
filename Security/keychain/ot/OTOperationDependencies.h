@@ -36,6 +36,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly, weak) CKKSKeychainView* ckks;
 
+@property (readonly) CKKSReachabilityTracker* reachabilityTracker;
+
 @property CKKSLockStateTracker* lockStateTracker;
 @property Class<SecEscrowRequestable> escrowRequestClass;
 @property Class<CKKSNotifier> notifierClass;
@@ -62,7 +64,8 @@ NS_ASSUME_NONNULL_BEGIN
                    notifierClass:(Class<CKKSNotifier>)notifierClass
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
-          permittedToSendMetrics:(BOOL)permittedToSendMetrics;
+          permittedToSendMetrics:(BOOL)permittedToSendMetrics
+             reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker;
 
 @end
 

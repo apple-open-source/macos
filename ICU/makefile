@@ -703,8 +703,8 @@ endif
 # may be a different environment than the one for a which a build is targeted.
 
 INSTALLSRC_VARFILES=./ICU_embedded.order \
-	./minimalapis.txt ./minimalapisTest.c \
-	BuildICUForAAS_script.bat EXPORT.APPLE
+	./apple/minimalapis.txt ./apple/minimalapisTest.c \
+	./apple/BuildICUForAAS_script.bat ./apple/EXPORT.APPLE
 
 #################################
 # Cleaning
@@ -769,7 +769,7 @@ endif
 
 LIB_NAME = icucore
 ICU_VERS = 74
-ICU_SUBVERS = 1
+ICU_SUBVERS = 2
 CORE_VERS = A
 
 ifeq "$(WINDOWS)" "YES"
@@ -857,9 +857,9 @@ ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
   	$(TARGET_TRIPLES) \
   	-fvisibility=hidden \
   	-isysroot $(SDKROOT) \
-  	-iquote $(SRCROOT)/icuSources \
-  	-iquote $(SRCROOT)/icuSources/common \
-  	-iquote $(SRCROOT)/icuSources/i18n \
+  	-iquote $(SRCROOT)/icu/icu4c/source \
+  	-iquote $(SRCROOT)/icu/icu4c/source/common \
+  	-iquote $(SRCROOT)/icu/icu4c/source/i18n \
   	-install_name $(libdir)$($(INSTALLED_DYLIB_icu)) \
   	-current_version $(ICU_VERS).$(ICU_SUBVERS) \
     -compatibility_version 1 \
@@ -875,10 +875,10 @@ ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
   	-DU_COMBINED_IMPLEMENTATION=1 \
   	-DU_LOCAL_SERVICE_HOOK=1 \
   	-DU_TIMEZONE=timezone \
-  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dtitv_impl.h \
-  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dt_impl.h \
-  	-exclude-project-header $(SRCROOT)/icuSources/i18n/dtptngen_impl.h \
-  	-exclude-project-header $(SRCROOT)/icuSources/i18n/selfmtimpl.h \
+  	-exclude-project-header $(SRCROOT)/icu/icu4c/source/i18n/dtitv_impl.h \
+  	-exclude-project-header $(SRCROOT)/icu/icu4c/source/i18n/dt_impl.h \
+  	-exclude-project-header $(SRCROOT)/icu/icu4c/source/i18n/dtptngen_impl.h \
+  	-exclude-project-header $(SRCROOT)/icu/icu4c/source/i18n/selfmtimpl.h \
     -o $(ICU_TBD_PATH) \
   	-filelist $(OBJROOT_CURRENT)/tapi_headers.json
   
@@ -941,6 +941,7 @@ endif
 #################################
 
 localtooldir=/usr/local/bin/
+localtztooldir=/usr/local/bin/tztools/
 locallibdir=/usr/local/lib/
 
 INFOTOOL = icuinfo
@@ -964,7 +965,7 @@ TOOLS_DYLIB_FORTOOLS = libicutux.$(DYLIB_SUFF)
 TOOLS_DYLIB_OBJS_FORTOOLS = ./tools/toolutil/collationinfo.o ./tools/toolutil/filestrm.o \
 ./tools/toolutil/package.o ./tools/toolutil/pkg_icu.o ./tools/toolutil/pkgitems.o \
 ./tools/toolutil/swapimpl.o ./tools/toolutil/toolutil.o ./tools/toolutil/ucbuf.o \
-./tools/toolutil/unewdata.o ./tools/toolutil/uoptions.o ./tools/toolutil/uparse.o \
+./tools/toolutil/unewdata.o ./tools/toolutil/uoptions.o ./tools/toolutil/uparse.o ./tools/toolutil/writesrc.o \
 $(COMMON_OBJ) $(STUB_DATA_OBJ)
 
 ZICTOOL = icuzic
@@ -1040,7 +1041,7 @@ endif
 LDFLAGS += $(LDFLAGS_SANITIZER)
 
 APPLE_HARDENING_OPTS := -D_FORTIFY_SOURCE=2 -fstack-protector-strong
-APPLE_STACK_INIT_OPTS := -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang -ftrivial-auto-var-init=zero
+APPLE_STACK_INIT_OPTS := -ftrivial-auto-var-init=zero
 
 # For normal Windows builds set the ENV= options here; for debug Windows builds set the ENV_DEBUG=
 # options here and also the update the LINK.EXE lines in the TARGETS section below.
@@ -1227,16 +1228,16 @@ endif
 #################################
 
 .PHONY : icu check installsrc installhdrs installhdrsint installapi clean install installapi-verify debug \
-	debug-install crossbuildhost icutztoolsforsdk
+	debug-install crossbuildhost icutztoolsforsdk icudata
 .DELETE_ON_ERROR :
 
 # Rule for adjusting sources for different train types.
-# Assumes current directory is icuSources to be patched.
+# Assumes current directory is icu/icu4c/source to be patched.
 # This may be:
-#   $(SRCROOT)/icuSources for installsrc, or
+#   $(SRCROOT)/icu/icu4c/source for installsrc, or
 #   $(OBJROOT_CURRENT) if sources are copied for e.g. a local make.
 #
-# The various patchconfig files should assume the current directory is icuSources.
+# The various patchconfig files should assume the current directory is icu/icu4c/source.
 #
 # Note that if sources have been installed by installsrc (only run as part of buildit or
 # submitproject for Apple platforms, not for Windows/Linux), then
@@ -1370,34 +1371,46 @@ crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 	date "+# %F %T %z"
 
 # For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root.
+ifeq "$(SDK_PLATFORM_NORMALIZED)" "macosx"
 icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 	echo "# start make icutztoolsforsdk"
+	echo "SDK_PLATFORM_NORMALIZED=$(SDK_PLATFORM_NORMALIZED)"
 	date "+# %F %T %z"
 	(cd $(OBJROOT_CURRENT); \
-		$(MAKE) $(MAKEJOBS) $($(ENV)) || exit 1; \
+		$(MAKE) $(MAKEJOBS) $(ENV) || exit 1; \
 		echo '# build' $(TOOLS_DYLIB_FORTOOLS) 'linked against' $(LIB_NAME) ; \
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 			-g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) \
 			$(CXXFLAGS) $(LDFLAGS) -single_module \
-			-install_name $(locallibdir)$(TOOLS_DYLIB_FORTOOLS) -o ./$(TOOLS_DYLIB_FORTOOLS) $(TOOLS_DYLIB_OBJS_FORTOOLS) -L./ -l$(LIB_NAME) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			-install_name $(locallibdir)$(TOOLS_DYLIB_FORTOOLS) -o ./$(TOOLS_DYLIB_FORTOOLS) $(TOOLS_DYLIB_OBJS_FORTOOLS) -L./ -l$(LIB_NAME) || exit 1 ; \
 		echo '# build' $(ZICTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(RESTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) $(LIB_NAME) ; \
 		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) -l$(LIB_NAME) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) -l$(LIB_NAME) || exit 1 ; \
 		echo '# build' $(PKGTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(TZ2ICUTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(GENBRKTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(GENBRKTOOL) $(GENBRKTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
+			$(LDFLAGS) -dead_strip -o ./$(GENBRKTOOL) $(GENBRKTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 	);
 	echo "# end make icutztoolsforsdk"
 	date "+# %F %T %z"
+else
+icutztoolsforsdk :
+	$(info icutztoolsforsdk not supported for embedded platforms)
+endif
 
 check : icu
 ifneq "$(CROSS_BUILD)" "YES"
@@ -1440,7 +1453,7 @@ endif
 	if test ! -d $(OBJROOT_CURRENT); then \
 		mkdir -p $(OBJROOT_CURRENT); \
 	fi;
-	cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT_CURRENT)/;
+	cp -Rpf $(SRCROOT)/icu/icu4c/source/* $(OBJROOT_CURRENT)/;
 	(cd $(OBJROOT_CURRENT); \
 		if test -e $(SRCROOT)/installsrcNotRunFlag ; then $(ADJUST_SOURCES); fi; \
 		if test -f $(TZAUXFILESDIR)/metaZones.txt ; then cp -p $(TZAUXFILESDIR)/metaZones.txt data/misc/; fi; \
@@ -1467,7 +1480,7 @@ $(CROSSHOST_OBJROOT)/Makefile :
 	if test ! -d $(CROSSHOST_OBJROOT); then \
 		mkdir -p $(CROSSHOST_OBJROOT); \
 	fi;
-	cp -Rpf $(SRCROOT)/icuSources/* $(CROSSHOST_OBJROOT);
+	cp -Rpf $(SRCROOT)/icu/icu4c/source/* $(CROSSHOST_OBJROOT);
 	(cd $(CROSSHOST_OBJROOT); \
 		if test -e $(SRCROOT)/installsrcNotRunFlag; then $(ADJUST_SOURCES); fi; \
 		if test -f $(TZAUXFILESDIR)/metaZones.txt ; then cp -p $(TZAUXFILESDIR)/metaZones.txt data/misc/; fi; \
@@ -1483,17 +1496,17 @@ $(CROSSHOST_OBJROOT)/Makefile :
 # B&I TARGETS
 #################################
 
-# Since our sources are in icuSources (ignore the ICU subdirectory for now), we wish to
+# Since our sources are in icu/icu4c/source (ignore the ICU subdirectory for now), we wish to
 # copy them to somewhere else. We tar it to stdout, cd to the appropriate directory, and
 # untar from stdin.
 # Do NOT include installsrcNotRunFlag in the list of files to tar up, that defeats the purpose.
 
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
-	if test -d $(SRCROOT)/icuSources ; then rm -rf $(SRCROOT)/icuSources; fi;
-	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles ./emojiData ./modules \
-		./toolsSources/scripts/generate_json_for_tapi.py $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
-	(cd $(SRCROOT)/icuSources; $(ADJUST_SOURCES) );
+	if test -d $(SRCROOT)/icu/icu4c/source ; then rm -rf $(SRCROOT)/icu/icu4c/source; fi;
+	tar cf - ./makefile ./ICU.plist ./icu/LICENSE ./icu/icu4c/source ./apple/cldrFiles ./apple/emojiData ./apple/modules \
+		./apple/generate_json_for_tapi.py $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
+	(cd $(SRCROOT)/icu/icu4c/source; $(ADJUST_SOURCES) );
 
 # This works. Just not for ~ in the DSTROOT. We run configure first (in case it hasn't
 # been already). Then we make the install-headers target on specific makefiles (since
@@ -1506,7 +1519,7 @@ else
 installhdrs : installhdrsint
 endif
 
-MKINSTALLDIRS=$(SHELL) $(SRCROOT)/icuSources/mkinstalldirs
+MKINSTALLDIRS=$(SHELL) $(SRCROOT)/icu/icu4c/source/mkinstalldirs
 INSTALL_DATA=${INSTALL} -m 644
 UNIFDEF=unifdef
 ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
@@ -1525,7 +1538,7 @@ endif
 	if test ! -d $(OBJROOT_CURRENT); then \
 		mkdir -p $(OBJROOT_CURRENT); \
 	fi;
-	(if test -e $(SRCROOT)/installsrcNotRunFlag; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icuSources/; fi; \
+	(if test -e $(SRCROOT)/installsrcNotRunFlag; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icu/icu4c/source/; fi; \
 		$(MKINSTALLDIRS) $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; \
 		for subdir in $(HDR_MAKE_SUBDIR); do \
 			echo "# Subdir $$subdir"; \
@@ -1543,21 +1556,21 @@ endif
 			if test -d $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; then \
 				(cd $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode; \
 					for i in *.h; do \
-						if fgrep -q -x $$i $(SRCROOT)/minimalapis.txt ; then \
+						if fgrep -q -x $$i $(SRCROOT)/apple/minimalapis.txt ; then \
 							mv $$i $(DSTROOT)/$(HDR_PREFIX)/include/unicode ; \
 						fi ; \
 					done ); \
 				if test ! "$(RC_XBS)" = "YES"; then \
 					echo "# Not building for XBS, so running minimal test"; \
-					$(CC) $(SRCROOT)/minimalapisTest.c $(INSTALLHDRS_ARCH) $(ISYSROOT) -nostdinc \
+					$(CC) $(SRCROOT)/apple/minimalapisTest.c $(INSTALLHDRS_ARCH) $(ISYSROOT) -nostdinc \
 						-I $(DSTROOT)/$(HDR_PREFIX)/include/ -I $(SDKPATH)/usr/include/ -E > /dev/null ; \
 				fi; \
 			fi; \
-			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.modulemap         $(SRCROOT)/modules/ICU.modulemap; \
-			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.private.modulemap $(SRCROOT)/modules/ICU.private.modulemap; \
+			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.modulemap         $(SRCROOT)/apple/modules/ICU.modulemap; \
+			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.private.modulemap $(SRCROOT)/apple/modules/ICU.private.modulemap; \
 			$(INSTALL_DATA) $(OBJROOT_CURRENT)/ICU.modulemap         $(DSTROOT)/$(HDR_PREFIX)/include/unicode/module.modulemap; \
 			$(INSTALL_DATA) $(OBJROOT_CURRENT)/ICU.private.modulemap $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.modulemap; \
-			$(INSTALL_DATA) $(SRCROOT)/modules/empty.modulemap       $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.private.modulemap; \
+			$(INSTALL_DATA) $(SRCROOT)/apple/modules/empty.modulemap       $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.private.modulemap; \
 		fi; \
 	);
 installapi : installhdrsint 
@@ -1572,7 +1585,7 @@ installapi : installhdrsint
 	  exit 1; \
 	fi
 	 
-	$(SRCROOT)/toolsSources/scripts/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
+	$(SRCROOT)/apple/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
 
 	xcrun --sdk $(SDKROOT) tapi installapi \
 	  $(TAPI_COMMON_OPTS)
@@ -1640,7 +1653,7 @@ endif
 		if test ! -d $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)/; then \
 			$(INSTALL) -d -m 0755 $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)/; \
 		fi; \
-		$(INSTALL) -b -m 0644 $(SRCROOT)/LICENSE $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)ICU.txt; \
+		$(INSTALL) -b -m 0644 $(SRCROOT)/icu/LICENSE $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)ICU.txt; \
 		if test "$(LINUX)" != "YES"; then \
 			if test -f $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE); then \
 				$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(TZDATA_FORMAT_FILE); \
@@ -1648,13 +1661,13 @@ endif
 			if test ! -d $(DSTROOT)/$(CLDRFILESDIR)/; then \
 				$(INSTALL) -d -m 0755 $(DSTROOT)/$(CLDRFILESDIR)/; \
 			fi; \
-			$(INSTALL) -b -m 0644  $(SRCROOT)/cldrFiles/supplementalData.xml $(DSTROOT)/$(CLDRFILESDIR)/supplementalData.xml; \
-			$(INSTALL) -b -m 0644  $(SRCROOT)/cldrFiles/plurals.xml $(DSTROOT)/$(CLDRFILESDIR)/plurals.xml; \
+			$(INSTALL) -b -m 0644  $(SRCROOT)/apple/cldrFiles/supplementalData.xml $(DSTROOT)/$(CLDRFILESDIR)/supplementalData.xml; \
+			$(INSTALL) -b -m 0644  $(SRCROOT)/apple/cldrFiles/plurals.xml $(DSTROOT)/$(CLDRFILESDIR)/plurals.xml; \
 			if test ! -d $(DSTROOT)/$(EMOJI_DATA_DIR)/; then \
 				$(INSTALL) -d -m 0755 $(DSTROOT)/$(EMOJI_DATA_DIR)/; \
 			fi; \
-			$(INSTALL) -b -m 0644 $(SRCROOT)/emojiData/charClasses.txt $(DSTROOT)/$(EMOJI_DATA_DIR)/charClasses.txt; \
-			$(INSTALL) -b -m 0644 $(SRCROOT)/emojiData/lineClasses.txt $(DSTROOT)/$(EMOJI_DATA_DIR)/lineClasses.txt; \
+			$(INSTALL) -b -m 0644 $(SRCROOT)/apple/emojiData/charClasses.txt $(DSTROOT)/$(EMOJI_DATA_DIR)/charClasses.txt; \
+			$(INSTALL) -b -m 0644 $(SRCROOT)/apple/emojiData/lineClasses.txt $(DSTROOT)/$(EMOJI_DATA_DIR)/lineClasses.txt; \
 			if test ! -d $(DSTROOT)/$(localtooldir)/; then \
 				$(INSTALL) -d -m 0755 $(DSTROOT)/$(localtooldir)/; \
 			fi; \
@@ -1694,7 +1707,7 @@ installapi-verify: installhdrs icu
 	  exit 1; \
 	fi
 	
-	$(SRCROOT)/toolsSources/scripts/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
+	$(SRCROOT)/apple/generate_json_for_tapi.py $(SRCROOT) $(OBJROOT_CURRENT)/tapi_headers.json $(ICU_FOR_EMBEDDED_TRAINS)
 
 	xcrun --sdk $(SDKROOT) tapi installapi \
 	  $(TAPI_VERIFY_OPTS)
@@ -1747,8 +1760,9 @@ clean :
 
 # For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root
 install-icutztoolsforsdk : icutztoolsforsdk
-	if test ! -d $(DSTROOT)$(localtooldir)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(localtooldir)/; \
+ifeq "$(SDK_PLATFORM_NORMALIZED)" "macosx"
+	if test ! -d $(DSTROOT)$(localtztooldir)/; then \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(localtztooldir)/; \
 	fi;
 	if test ! -d $(DSTROOT)$(locallibdir)/; then \
 		$(INSTALL) -d -m 0755 $(DSTROOT)$(locallibdir)/; \
@@ -1758,22 +1772,31 @@ install-icutztoolsforsdk : icutztoolsforsdk
 		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(TOOLS_DYLIB_FORTOOLS) $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB_FORTOOLS); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(ZICTOOL); then \
-		echo '# install' $(ZICTOOL) 'to' $(DSTROOT)$(localtooldir)$(ZICTOOL) ; \
-		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(ZICTOOL) $(DSTROOT)$(localtooldir)$(ZICTOOL); \
+		echo '# install' $(ZICTOOL) 'to' $(DSTROOT)$(localtztooldir)$(ZICTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(ZICTOOL) $(DSTROOT)$(localtztooldir)$(ZICTOOL); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(RESTOOL); then \
-		echo '# install' $(RESTOOL) 'to' $(DSTROOT)$(localtooldir)$(RESTOOL) ; \
-		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(RESTOOL) $(DSTROOT)$(localtooldir)$(RESTOOL); \
+		echo '# install' $(RESTOOL) 'to' $(DSTROOT)$(localtztooldir)$(RESTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(RESTOOL) $(DSTROOT)$(localtztooldir)$(RESTOOL); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(PKGTOOL); then \
-		echo '# install' $(PKGTOOL) 'to' $(DSTROOT)$(localtooldir)$(PKGTOOL) ; \
-		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(PKGTOOL) $(DSTROOT)$(localtooldir)$(PKGTOOL); \
+		echo '# install' $(PKGTOOL) 'to' $(DSTROOT)$(localtztooldir)$(PKGTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(PKGTOOL) $(DSTROOT)$(localtztooldir)$(PKGTOOL); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(TZ2ICUTOOL); then \
-		echo '# install' $(TZ2ICUTOOL) 'to' $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL) ; \
-		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(TZ2ICUTOOL) $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL); \
+		echo '# install' $(TZ2ICUTOOL) 'to' $(DSTROOT)$(localtztooldir)$(TZ2ICUTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(TZ2ICUTOOL) $(DSTROOT)$(localtztooldir)$(TZ2ICUTOOL); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(GENBRKTOOL); then \
-		echo '# install' $(GENBRKTOOL) 'to' $(DSTROOT)$(localtooldir)$(GENBRKTOOL) ; \
-		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(GENBRKTOOL) $(DSTROOT)$(localtooldir)$(GENBRKTOOL); \
+		echo '# install' $(GENBRKTOOL) 'to' $(DSTROOT)$(localtztooldir)$(GENBRKTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(GENBRKTOOL) $(DSTROOT)$(localtztooldir)$(GENBRKTOOL); \
 	fi;
+else
+	echo "Dummy file to make verifiers happy (tzTools not supported on embedded platforms)" >$(OBJROOT_CURRENT)/README;
+	$(INSTALL) -d -m 0755 $(DSTROOT)$(localtztooldir)/; \
+	$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/README $(DSTROOT)$(localtztooldir)README;
+endif
+
+icudata :
+	cd $(SRCROOT)
+	apple/scripts/build-icu-data.sh

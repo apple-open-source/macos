@@ -59,6 +59,10 @@ public:
     static Ref<Geolocation> create(Navigator&);
     WEBCORE_EXPORT ~Geolocation();
 
+    // ActiveDOMObject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     WEBCORE_EXPORT void resetAllGeolocationPermission();
     Document* document() const { return downcast<Document>(scriptExecutionContext()); }
 
@@ -83,16 +87,16 @@ private:
 
     GeolocationPosition* lastPosition();
 
-    // ActiveDOMObject
+    // ActiveDOMObject.
     void stop() override;
     void suspend(ReasonForSuspension) override;
     void resume() override;
-    const char* activeDOMObjectName() const override;
 
     bool isDenied() const { return m_allowGeolocation == No; }
 
     Page* page() const;
     SecurityOrigin* securityOrigin() const;
+    RefPtr<SecurityOrigin> protectedSecurityOrigin() const;
 
     typedef Vector<RefPtr<GeoNotifier>> GeoNotifierVector;
     typedef HashSet<RefPtr<GeoNotifier>> GeoNotifierSet;

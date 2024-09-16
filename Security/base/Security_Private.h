@@ -42,6 +42,7 @@
 #include <Security/OTClique.h>
 #include <Security/OTClique+Private.h>
 #include <Security/OTConstants.h>
+#include <Security/Affordance_OTConstants.h>
 #include <Security/OTControl.h>
 #include <Security/OTControlProtocol.h>
 #include <Security/OTJoiningConfiguration.h>
@@ -82,6 +83,7 @@
 #include <Security/SecInternalReleasePriv.h>
 #include <Security/SecItemBackup.h>
 #include <Security/SecItemPriv.h>
+#include <Security/SecItemFetchOutOfBandPriv.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecKeyProxy.h>
 #include <Security/SecKnownFilePaths.h>

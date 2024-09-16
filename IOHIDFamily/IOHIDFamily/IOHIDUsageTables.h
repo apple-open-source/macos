@@ -54,7 +54,9 @@ enum
     kHIDPage_AlphanumericDisplay    = 0x14,
     /* Reserved 0x15 - 0x1F */
     kHIDPage_Sensor                 = 0x20,
-    /* Reserved 0x21 - 0x7f */
+    /* Reserved 0x21 - 0x40 */
+    kHIDPage_BrailleDisplay         = 0x41,
+    /* Reserved 0x42 - 0x7F */
     kHIDPage_Monitor                = 0x80,
     kHIDPage_MonitorEnumerated      = 0x81,
     kHIDPage_MonitorVirtual         = 0x82,
@@ -147,7 +149,8 @@ enum
     kHIDUsage_GD_SystemMenuLeft    = 0x8B,    /* Re-Trigger Control */
     kHIDUsage_GD_SystemMenuUp    = 0x8C,    /* Re-Trigger Control */
     kHIDUsage_GD_SystemMenuDown    = 0x8D,    /* Re-Trigger Control */
-    /* 0x8E - 0x8F Reserved */
+    kHIDUsage_GD_SystemColdRestart    = 0x8E,    /* One-Shot Control */
+    kHIDUsage_GD_SystemWarmRestart    = 0x8F,    /* One-Shot Control */
     kHIDUsage_GD_DPadUp    = 0x90,              /* On/Off Control */
     kHIDUsage_GD_DPadDown    = 0x91,            /* On/Off Control */
     kHIDUsage_GD_DPadRight    = 0x92,           /* On/Off Control */
@@ -160,7 +163,52 @@ enum
     kHIDUsage_GD_SFShiftLockIndicator = 0x99,   /* Dynamic Value */
     kHIDUsage_GD_SystemDismissNotification = 0x9A, /* One-Shot Control */
     kHIDUsage_GD_DoNotDisturb  = 0x9B,          /* On/Off Control */
-    /* 0x9C - 0xFFFF Reserved */
+    /* 0x9C - 0x9F Reserved */
+    kHIDUsage_GD_SystemDock    = 0xA0,          /* One-Shot Control */
+    kHIDUsage_GD_SystemUndock    = 0xA1,        /* One-Shot Control */
+    kHIDUsage_GD_SystemSetup    = 0xA2,         /* One-Shot Control */
+    kHIDUsage_GD_SystemBreak    = 0xA3,         /* One-Shot Control */
+    kHIDUsage_GD_SystemDebuggerBreak    = 0xA4,    /* One-Shot Control */
+    kHIDUsage_GD_ApplicationBreak    = 0xA5,          /* One-Shot Control */
+    kHIDUsage_GD_ApplicationDebuggerBreak    = 0xA6,    /* One-Shot Control */
+    kHIDUsage_GD_SystemSpeakerMute    = 0xA7,    /* One-Shot Control */
+    kHIDUsage_GD_SystemHibernate    = 0xA8,      /* One-Shot Control */
+    kHIDUsage_GD_SystemMicrophoneMute    = 0xA9,    /* On/Off Control */
+    /* 0xAA - 0xAF Reserved */
+    kHIDUsage_GD_SystemDisplayInvert    = 0xB0,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayInternal    = 0xB1,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayExternal    = 0xB2,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayBoth    = 0xB3,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayDual    = 0xB4,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayToggleMode    = 0xB5,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplaySwap    = 0xB6,    /* One-Shot Control */
+    kHIDUsage_GD_SystemDisplayToggleLCDAutoscale    = 0xB7,    /* One-Shot Control */
+    /* 0xB8 - 0xBF Reserved */
+    kHIDUsage_GD_SensorZone    = 0xC0,          /* Logical Collection */
+    kHIDUsage_GD_RPM    = 0xC1,                 /* Dynamic Value */
+    kHIDUsage_GD_CoolantLevel    = 0xC2,        /* Dynamic Value */
+    kHIDUsage_GD_CoolantCriticalLevel    = 0xC3,    /* Static Value */
+    kHIDUsage_GD_CoolantPump    = 0xC4,         /* Usage Switch */
+    kHIDUsage_GD_ChassisEnclosure    = 0xC5,    /* Logical Collection */
+    kHIDUsage_GD_WirelessRadioButton    = 0xC6,    /* On/Off Control */
+    kHIDUsage_GD_WirelessRadioLED    = 0xC7,        /* On/Off Control */
+    kHIDUsage_GD_WirelessRadioSliderSwitch    = 0xC8,    /* On/Off Control */
+    kHIDUsage_GD_SystemDisplayRotationLockButton    = 0xC9,    /* On/Off Control */
+    kHIDUsage_GD_SystemDisplayRotationLockSliderSwitch    = 0xCA,    /* On/Off Control */
+    kHIDUsage_GD_ControlEnable    = 0xCB,       /* Dynamic Flag */
+    /* 0xCC - 0xCF Reserved */
+    kHIDUsage_GD_DockableDeviceUniqueID    = 0xD0,    /* Dynamic Value */
+    kHIDUsage_GD_DockableDeviceVendorID    = 0xD1,    /* Dynamic Value */
+    kHIDUsage_GD_DockableDevicePrimaryUsagePage    = 0xD2,    /* Dynamic Value */
+    kHIDUsage_GD_DockableDevicePrimaryUsageID    = 0xD3,    /* Dynamic Value */
+    kHIDUsage_GD_DockableDeviceDockingState    = 0xD4,    /* Dynamic Flag */
+    kHIDUsage_GD_DockableDeviceDisplayOcclusion    = 0xD5,  /* Logical Collection */
+    kHIDUsage_GD_DockableDeviceObjectType    = 0xD6,    /* Dynamic Value */
+    /* 0xD7 - 0xDF Reserved */
+    kHIDUsage_GD_CallActiveLED    = 0xE0,       /* On/Off Control */
+    kHIDUsage_GD_CallMuteToggle    = 0xE1,      /* One-Shot Control */
+    kHIDUsage_GD_CallMuteLED    = 0xE2,         /* On/Off Control */
+    /* 0xE3 - 0xFFFF Reserved */
     kHIDUsage_GD_Reserved = 0xFFFF
 };
 
@@ -1445,7 +1493,8 @@ enum
     kHIDUsage_Dig_MultiplePointDigitizer            = 0x0C,     /* Application Collection */
     kHIDUsage_Dig_FreeSpaceWand                     = 0x0D,     /* Application Collection */
     kHIDUsage_Dig_DeviceConfiguration               = 0x0E,     /* Application Collection */
-    /* 0x0F - 0x1F Reserved */
+    kHIDUsage_Dig_CapacitiveHeatMapDigitizer        = 0x0F,     /* Application Collection */
+    /* 0x10 - 0x1F Reserved */
     kHIDUsage_Dig_Stylus                            = 0x20,     /* Logical Collection */
     kHIDUsage_Dig_Puck                              = 0x21,     /* Logical Collection */
     kHIDUsage_Dig_Finger                            = 0x22,     /* Logical Collection */
@@ -1498,6 +1547,9 @@ enum
     kHIDUsage_Dig_GestureCharacterEncodingUTF16BE   = 0x67,     /* Selector */
     kHIDUsage_Dig_GestureCharacterEncodingUTF32LE   = 0x68,     /* Selector */
     kHIDUsage_Dig_GestureCharacterEncodingUTF32BE   = 0x69,     /* Selector */
+    kHIDUsage_Dig_CapacitiveHeatMapProtocolVendorID = 0x6A,     /* Static Value */
+    kHIDUsage_Dig_CapacitiveHeatMapProtocolVersion  = 0x6B,     /* Static Value */
+    kHIDUsage_Dig_CapacitiveHeatMapFrameData        = 0x6C,     /* Dynamic Value */
     
     kHIDUsage_Dig_ReportRate                        = 0xA1,     /* Dynamic Value */
     
@@ -2169,6 +2221,60 @@ enum
     /* 0x054A - 0x055F Reserved */
 };
 
+/* Braille Display Page (0x20) */
+/* The Braille Display page is intended for use by devices that allow visually impaired computer users to read out text using raised pins. These devices also have support for controls that help navigate the computer screen. Typically, braille displays interface with software known as a screen reader in order to perform this navigation. */
+enum
+{
+    kHIDUsage_BD_Undefined = 0x00,
+    kHIDUsage_BD_BrailleDisplay = 0x01,                 /* Application Collection */
+    kHIDUsage_BD_BrailleRow = 0x02,                     /* Named Array */
+    kHIDUsage_BD_8DotBrailleCell = 0x03,                /* Dynamic Value */
+    kHIDUsage_BD_6DotBrailleCell = 0x04,                /* Dynamic Value */
+    kHIDUsage_BD_NumberOfBrailleCells = 0x05,           /* Dynamic Value */
+    kHIDUsage_BD_ScreenReaderControl = 0x06,            /* Named Array */
+    kHIDUsage_BD_ScreenReaderIdentifier = 0x07,         /* Dynamic Value */
+    /* 0x08 - 0xF9 Reserved */
+    kHIDUsage_BD_RouterSet1 = 0xFA,                     /* Named Array */
+    kHIDUsage_BD_RouterSet2 = 0xFB,                     /* Named Array */
+    kHIDUsage_BD_RouterSet3 = 0xFC,                     /* Named Array */
+    /* 0xFD - 0xFF Reserved */
+    kHIDUsage_BD_RouterKey = 0x100,                     /* Selector */
+    kHIDUsage_BD_RowRouterKey = 0x101,                  /* Selector */
+    /* 0x102 - 0x1FF Reserved */
+    kHIDUsage_BD_BrailleButtons = 0x200,                /* Named Array */
+    kHIDUsage_BD_BrailleKeyboardDot1 = 0x201,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot2 = 0x202,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot3 = 0x203,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot4 = 0x204,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot5 = 0x205,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot6 = 0x206,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot7 = 0x207,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardDot8 = 0x208,           /* Selector */
+    kHIDUsage_BD_BrailleKeyboardSpace = 0x209,          /* Selector */
+    kHIDUsage_BD_BrailleKeyboardLeftSpace = 0x20A,      /* Selector */
+    kHIDUsage_BD_BrailleKeyboardRightSpace = 0x20B,     /* Selector */
+    kHIDUsage_BD_BrailleFaceControls = 0x20C,           /* Named Array */
+    kHIDUsage_BD_BrailleLeftControls = 0x20D,           /* Named Array */
+    kHIDUsage_BD_BrailleRightControls = 0x20E,          /* Named Array */
+    kHIDUsage_BD_BrailleTopControls = 0x20F,            /* Named Array */
+    kHIDUsage_BD_BrailleJoystickCenter = 0x210,         /* Selector */
+    kHIDUsage_BD_BrailleJoystickUp = 0x211,             /* Selector */
+    kHIDUsage_BD_BrailleJoystickDown = 0x212,           /* Selector */
+    kHIDUsage_BD_BrailleJoystickLeft = 0x213,           /* Selector */
+    kHIDUsage_BD_BrailleJoystickRight = 0x214,          /* Selector */
+    kHIDUsage_BD_BrailleDPadCenter = 0x215,             /* Selector */
+    kHIDUsage_BD_BrailleDPadUp = 0x216,                 /* Selector */
+    kHIDUsage_BD_BrailleDPadDown = 0x217,               /* Selector */
+    kHIDUsage_BD_BrailleDPadLeft = 0x218,               /* Selector */
+    kHIDUsage_BD_BrailleDPadRight = 0x219,              /* Selector */
+    kHIDUsage_BD_BraillePanLeft = 0x21A,                /* Selector */
+    kHIDUsage_BD_BraillePanRight = 0x21B,               /* Selector */
+    kHIDUsage_BD_BrailleRockerUp = 0x21C,               /* Selector */
+    kHIDUsage_BD_BrailleRockerDown = 0x21D,             /* Selector */
+    kHIDUsage_BD_BrailleRockerPress = 0x21E,            /* Selector */
+    /* Reserved 0x21F - 0xFFFF */
+};
+    
 /* Power Device Page (0x84) */
 /* This section provides detailed descriptions of the usages employed by Power Devices. */
 enum
@@ -2537,8 +2643,8 @@ enum
     kHIDUsage_BCS_CheckDigitDisable = 0xD7,             /* SEL - Check Digit Disable */
     kHIDUsage_BCS_CheckDigitEnableInterleaved2of5OPCC = 0xD8, /* SEL - Check Digit Enable Interleaved 2 of 5 OPCC */
     kHIDUsage_BCS_CheckDigitEnableInterleaved2of5USS = 0xD9, /* SEL - Check Digit Enable Interleaved 2 of 5 USS */
-    kHIDUsage_BCS_CheckDigitEnableStandard2of5OPCC = 0xD8, /* SEL - Check Digit Enable Standard 2 of 5 OPCC */
-    kHIDUsage_BCS_CheckDigitEnableStandard2of5USS = 0xD9, /* SEL - Check Digit Enable Standard 2 of 5 USS */
+    kHIDUsage_BCS_CheckDigitEnableStandard2of5OPCC = 0xDA, /* SEL - Check Digit Enable Standard 2 of 5 OPCC */
+    kHIDUsage_BCS_CheckDigitEnableStandard2of5USS = 0xDB, /* SEL - Check Digit Enable Standard 2 of 5 USS */
     kHIDUsage_BCS_CheckDigitEnableOneMSIPlessey = 0xDC, /* SEL - Check Digit Enable One MSI Plessey */
     kHIDUsage_BCS_CheckDigitEnableTwoMSIPlessey = 0xDD, /* SEL - Check Digit Enable Two MSI Plessey */
     kHIDUsage_BCS_CheckDigitCodabarEnable = 0xDE,       /* SEL - Check Digit Codabar Enable */
@@ -2557,7 +2663,7 @@ enum
     kHIDUsage_BCS_ScannerDataAccuracy = 0x101,          /* DV - Scanner Data Accuracy */
     kHIDUsage_BCS_RawDataPolarity = 0x102,              /* NArry - Raw Data Polarity */
     kHIDUsage_BCS_PolarityInvertedBarCode = 0x103,      /* SEL - Polarity Inverted Bar Code */
-    kHIDUsage_BCS_PolarityNormalBarCode = 0x103,        /* SEL - Polarity Normal Bar Code */
+    kHIDUsage_BCS_PolarityNormalBarCode = 0x104,        /* SEL - Polarity Normal Bar Code */
     /* Reserved 0x105 */
     kHIDUsage_BCS_MinimumLengthToDecode = 0x106,        /* DV - Minimum Length to Decode */
     kHIDUsage_BCS_MaximumLengthToDecode = 0x107,        /* DV - Maximum Length to Decode */

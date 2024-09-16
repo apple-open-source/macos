@@ -33,12 +33,21 @@
 #include <wtf/RefPtr.h>
 
 namespace WebKit {
+class UserMediaPermissionRequestManager;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UserMediaPermissionRequestManager> : std::true_type { };
+}
+
+namespace WebKit {
 
 class WebPage;
 
 class UserMediaPermissionRequestManager : public WebCore::MediaCanStartListener
 #if USE(GSTREAMER)
-                                        , public WebCore::RealtimeMediaSourceCenter::Observer
+                                        , public WebCore::RealtimeMediaSourceCenterObserver
 #endif
 {
     WTF_MAKE_FAST_ALLOCATED;
@@ -53,7 +62,7 @@ public:
     void startUserMediaRequest(WebCore::UserMediaRequest&);
     void cancelUserMediaRequest(WebCore::UserMediaRequest&);
     void userMediaAccessWasGranted(WebCore::UserMediaRequestIdentifier, WebCore::CaptureDevice&& audioDevice, WebCore::CaptureDevice&& videoDevice, WebCore::MediaDeviceHashSalts&&, CompletionHandler<void()>&&);
-    void userMediaAccessWasDenied(WebCore::UserMediaRequestIdentifier, WebCore::MediaAccessDenialReason, String&&);
+    void userMediaAccessWasDenied(WebCore::UserMediaRequestIdentifier, WebCore::MediaAccessDenialReason, String&&, WebCore::MediaConstraintType);
 
     void enumerateMediaDevices(WebCore::Document&, CompletionHandler<void(Vector<WebCore::CaptureDeviceWithCapabilities>&&, WebCore::MediaDeviceHashSalts&&)>&&);
 
@@ -64,7 +73,7 @@ public:
 
 private:
 #if USE(GSTREAMER)
-    // WebCore::RealtimeMediaSourceCenter::Observer
+    // WebCore::RealtimeMediaSourceCenterObserver
     void devicesChanged() final;
     void deviceWillBeRemoved(const String& persistentId) final { }
 #endif

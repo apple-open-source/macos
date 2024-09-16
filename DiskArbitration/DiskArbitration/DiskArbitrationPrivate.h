@@ -34,6 +34,13 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#if TARGET_OS_OSX || TARGET_OS_IOS
+#define DA_FSKIT
+#define TARGET_FSKIT    1
+#else
+#define TARGET_FSKIT    0
+#endif
+
 #ifndef __DISKARBITRATIOND__
 #ifndef __LP64__
 
@@ -637,13 +644,44 @@ typedef void ( ^DADiskPeekCallbackBlock )( DADiskRef disk );
 extern void DARegisterDiskPeekCallbackBlock( DASessionRef               session,
                                                 CFDictionaryRef __nullable match,
                                                 CFIndex                    order,
-                                                DADiskPeekCallbackBlock         callback );
+                                                DADiskPeekCallbackBlock    callback );
 
 
 typedef void ( ^DAIdleCallbackBlock )( void );
 
 extern void DARegisterIdleCallbackWithBlock( DASessionRef session, DAIdleCallbackBlock callback );
 
+
+#ifdef DA_FSKIT
+
+typedef void ( ^DADiskSetFSKitAdditionsCallbackBlock )( DAReturn );
+
+/*!
+ * @function    DADiskSetFSKitAdditions
+ * @abstract    Updates the additional keys on a DADisk used to report FSKit information
+ * @param       disk              The disk object.
+ * @param       additions   Dictionary of keys to extend the associated disk object. Replaces the current additions
+ * @discussion
+ * Decorates the given DADisk with the keys and values in additions. Restricted to fskitd.
+ */
+
+extern void DADiskSetFSKitAdditions( DADiskRef                             disk,
+                                      CFDictionaryRef __nullable             additions,
+                                      DADiskSetFSKitAdditionsCallbackBlock   callback );
+
+typedef void ( ^DADiskProbeCallbackBlock )( DAReturn );
+
+/*!
+ * @function    DADiskProbeWithBlock
+ * @abstract    Requests that diskarbitrationd re-probe the indicated disk
+ * @param       disk            The disk object indicating which disk to re-probe
+ * @param       callback    The callback block to call after this probe has been processed
+ */
+
+extern void DADiskProbeWithBlock( DADiskRef                             disk,
+                                  DADiskProbeCallbackBlock __nullable   callback );
+
+#endif /* DA_FSKIT */
 
 #endif /* !__DISKARBITRATIOND__ */
 

@@ -871,7 +871,7 @@ show_service(int argc, char * const argv[])
 			SCPrint(TRUE, stdout, CFSTR("primary rank         = %@\n"), kSCValNetServicePrimaryRankScoped);
 			break;
 		default :
-			SCPrint(TRUE, stdout, CFSTR("primary rank         = %d\n"), serviceRank);
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %u\n"), serviceRank);
 			break;
 	}
 

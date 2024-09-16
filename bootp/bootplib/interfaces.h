@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,6 +97,7 @@ typedef struct {
 #define kInterfaceTypeFlagIsTethered	0x04
 #define kInterfaceTypeFlagIsExpensive	0x08
 #define kInterfaceTypeFlagIsWiFiInfra	0x10
+#define kInterfaceTypeFlagIsCarPlay	0x20
 
 typedef struct {
     char 		name[IFNAMSIZ]; /* eg. en0 */
@@ -190,6 +191,7 @@ link_status_t		if_link_status_update(interface_t * if_p);
 link_status_t		if_get_link_status(interface_t * if_p);
 boolean_t		if_is_awdl(interface_t * if_p);
 boolean_t		if_is_tethered(interface_t * if_p);
+boolean_t		if_is_carplay(interface_t * if_p);
 const char *		if_type_string(interface_t * if_p);
 
 static __inline__ int

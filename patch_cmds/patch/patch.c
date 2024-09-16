@@ -1559,7 +1559,7 @@ patch_match(LINENUM base, LINENUM offset, LINENUM fuzz)
 #endif
 	const char	*ilineptr;
 	const char	*plineptr;
-	unsigned short	plinelen;
+	size_t		plinelen;
 
 #ifdef __APPLE__
 	/*

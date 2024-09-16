@@ -1691,7 +1691,8 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     // all our preflight fixups are finally done, so we can now attempt to unlock the login keychain
 
     OSStatus loginResult = errSecSuccess;
-	if (!loginUnlocked) {
+    // Do not attempt password when SmartCard was used
+	if (!loginUnlocked && (tokenContextStatus != errSecSuccess)) {
         try
         {
             Keychain theKeychain(keychain(loginDLDbIdentifier));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -1535,16 +1535,36 @@ hfs_vnop_setattr(struct vnop_setattr_args *ap)
 	VATTR_SET_SUPPORTED(vap, va_modify_time);
 	VATTR_SET_SUPPORTED(vap, va_backup_time);
 	VATTR_SET_SUPPORTED(vap, va_change_time);
+	VATTR_SET_SUPPORTED(vap, va_addedtime);
+
 	if (VATTR_IS_ACTIVE(vap, va_create_time) ||
 	    VATTR_IS_ACTIVE(vap, va_access_time) ||
 	    VATTR_IS_ACTIVE(vap, va_modify_time) ||
-	    VATTR_IS_ACTIVE(vap, va_backup_time)) {
-		if (VATTR_IS_ACTIVE(vap, va_create_time))
+	    VATTR_IS_ACTIVE(vap, va_backup_time) ||
+		VATTR_IS_ACTIVE(vap, va_addedtime)) {
+
+		/*
+		 * In order to support expanded times, HFS behavior diverges based on whether or not
+		 * expanded timestamps are enabled on this volume.  If it is, HFS no longer supports
+		 * setting of cnode or inode timestamps to times BEFORE the beginning of the BSD epoch of
+		 * 1/1/1970.  These will be represented by *negative* values. In the event that
+		 * these timestamps are attempted to be set, we will eventually silently upgrade the times to
+		 * the beginning of the epoch.
+		 */
+
+		if (VATTR_IS_ACTIVE(vap, va_create_time)) {
 			cp->c_itime = vap->va_create_time.tv_sec;
+		}
+
+		if (VATTR_IS_ACTIVE(vap, va_backup_time)) {
+			cp->c_btime = vap->va_backup_time.tv_sec;
+		}
+
 		if (VATTR_IS_ACTIVE(vap, va_access_time)) {
 			cp->c_atime = vap->va_access_time.tv_sec;
 			cp->c_touch_acctime = FALSE;
 		}
+
 		if (VATTR_IS_ACTIVE(vap, va_modify_time)) {
 			cp->c_mtime = vap->va_modify_time.tv_sec;
 			cp->c_touch_modtime = FALSE;
@@ -1565,13 +1585,10 @@ hfs_vnop_setattr(struct vnop_setattr_args *ap)
 				cp->c_itime = cp->c_mtime;
 			}
 		}
-		if (VATTR_IS_ACTIVE(vap, va_backup_time))
-			cp->c_btime = vap->va_backup_time.tv_sec;
 		cp->c_flag |= C_MINOR_MOD;
 	}
 
 	// Set the date added time
-	VATTR_SET_SUPPORTED(vap, va_addedtime);
 	if (VATTR_IS_ACTIVE(vap, va_addedtime)) {
 		hfs_write_dateadded(&cp->c_attr, vap->va_addedtime.tv_sec);
 		cp->c_flag &= ~C_NEEDS_DATEADDED;
@@ -6446,6 +6463,8 @@ hfs_makenode(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp,
 	if (VATTR_IS_ACTIVE(vap, va_rdev)) {
 		attr.ca_rdev = vap->va_rdev;
 	}
+
+	/* Initialize timestamps: create time, modtime, access time */
 	if (VATTR_IS_ACTIVE(vap, va_create_time)) {
 		VATTR_SET_SUPPORTED(vap, va_create_time);
 		attr.ca_itime = vap->va_create_time.tv_sec;
@@ -6469,6 +6488,11 @@ hfs_makenode(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp,
 			attr.ca_recflags = kHFSHasFolderCountMask;
 	} else {
 		attr.ca_recflags = kHFSThreadExistsMask;
+	}
+
+	/* If expanded times are in use, set catalog flag */
+	if (hfsmp->hfs_flags & HFS_EXPANDED_TIMES) {
+		attr.ca_recflags |= kHFSCatExpandedTimesMask;
 	}
 
 #if CONFIG_PROTECT	

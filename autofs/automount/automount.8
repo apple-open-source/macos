@@ -15,8 +15,10 @@
 reads the
 .Pa /etc/auto_master
 file, and any local or network maps it includes, and mounts autofs on
-the appropriate mount points to cause mounts to be triggered.  It will
-also attempt to unmount any top-level autofs mounts that correspond to
+the appropriate mount points to cause mounts to be triggered.
+If the auto_master file does not exist or is empty and a Directory Service
+is configured, the service will be queried for an auto_master map.
+It will also attempt to unmount any top-level autofs mounts that correspond to
 maps no longer found.
 .Sh OPTIONS
 .Bl -tag -width Ds
@@ -35,7 +37,7 @@ Set to
 .Ar timeout
 seconds the time after which an automounted file system will be
 unmounted if it hasn't been referred to within that period of time.  The
-default is 10 minutes (600 seconds).
+default is 1 hour (3600 seconds).
 .El
 .Sh FILES
 .Bl -tag  -width Ds

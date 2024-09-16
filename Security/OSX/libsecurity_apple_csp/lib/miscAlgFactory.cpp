@@ -290,6 +290,9 @@ bool MiscAlgFactory::setup(
 					return true;
 
 				#if		MAF_MAC_ENABLE
+				case CSSM_ALGID_SHA512:
+				case CSSM_ALGID_SHA384:
+				case CSSM_ALGID_SHA256:
 				case CSSM_ALGID_SHA1HMAC:
 					if(cspCtx == NULL) {
 						cspCtx = new AppleSymmKeyGenerator(session,
@@ -327,6 +330,9 @@ bool MiscAlgFactory::setup(
 		case CSSM_ALGCLASS_MAC:
 			switch(alg) {
 				#if		MAF_MAC_ENABLE
+				case CSSM_ALGID_SHA512:
+				case CSSM_ALGID_SHA384:
+				case CSSM_ALGID_SHA256:
 				case CSSM_ALGID_SHA1HMAC:
 				case CSSM_ALGID_MD5HMAC:
 					if(cspCtx == NULL) {

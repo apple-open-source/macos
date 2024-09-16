@@ -11,7 +11,7 @@
 NS_ASSUME_NONNULL_BEGIN;
 
 extern NSErrorDomain const LWCRErrorDomain;
-typedef NS_ENUM(NSInteger, LWCRErrorCode) {
+typedef NS_ERROR_ENUM(LWCRErrorDomain, LWCRErrorCode) {
 	kLWCROK = 0,
 	kLWCRCoreError = 1,
 	kLWCRCEError = 2,

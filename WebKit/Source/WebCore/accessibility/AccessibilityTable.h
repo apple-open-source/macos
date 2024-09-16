@@ -38,7 +38,7 @@ class HTMLTableElement;
 
 class AccessibilityTable : public AccessibilityRenderObject {
 public:
-    static Ref<AccessibilityTable> create(RenderObject*);
+    static Ref<AccessibilityTable> create(RenderObject&);
     static Ref<AccessibilityTable> create(Node&);
     virtual ~AccessibilityTable();
 
@@ -50,6 +50,7 @@ public:
     void updateRoleAfterChildrenCreation() final { }
 
     virtual bool isAriaTable() const { return false; }
+    bool hasGridAriaRole() const;
 
     void addChildren() final;
     void clearChildren() final;
@@ -88,7 +89,7 @@ public:
     void setCellSlotsDirty();
 
 protected:
-    explicit AccessibilityTable(RenderObject*);
+    explicit AccessibilityTable(RenderObject&);
     explicit AccessibilityTable(Node&);
 
     AccessibilityChildrenVector m_rows;
@@ -109,7 +110,7 @@ protected:
 
 private:
     virtual bool computeIsTableExposableThroughAccessibility() const;
-    void titleElementText(Vector<AccessibilityText>&) const final;
+    void labelText(Vector<AccessibilityText>&) const final;
     HTMLTableElement* tableElement() const;
 
     void ensureRow(unsigned);

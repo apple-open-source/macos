@@ -40,22 +40,26 @@
 #include <errno.h>
 #include <assert.h>
 #include <mntopts.h>
+
+#include <os/activity.h>
+#include <os/log.h>
+
 #include "autofs.h"
 #include "automount.h"
 #include "auto_mntopts.h"
 
-#define MIN_CACHE_TIME	30	// min cache time for fstab cache (sec)
+#define MIN_CACHE_TIME  30      // min cache time for fstab cache (sec)
 
 /*
  * Structure for a server host in fstab.
  */
 struct fstabhost {
-	char	*name;			/* name of the host */
-	struct fstabnode *fstab_ents;	/* fstab entries for that host */
-	struct fstabhost *next;		/* next entry in hash table bucket */
+	char    *name;                  /* name of the host */
+	struct fstabnode *fstab_ents;   /* fstab entries for that host */
+	struct fstabhost *next;         /* next entry in hash table bucket */
 };
 
-#define HASHTABLESIZE	251
+#define HASHTABLESIZE   251
 
 /*
  * Hash table of hosts with at least one "net" entry.
@@ -72,8 +76,8 @@ static struct staticmap *static_hashtable[HASHTABLESIZE];
  */
 static pthread_rwlock_t fstab_cache_lock = PTHREAD_RWLOCK_INITIALIZER;
 
-static time_t min_cachetime;	// Min time that the cache is valid
-static time_t max_cachetime;	// Max time that the cache is valid
+static time_t min_cachetime;    // Min time that the cache is valid
+static time_t max_cachetime;    // Max time that the cache is valid
 
 static int
 process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
@@ -83,10 +87,11 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	size_t optlen;
 	char *p, *pp;
 	char *optp;
-        int error = 0;
+	int error = 0;
 
-	if (url == NULL || mntops_outp == NULL)
+	if (url == NULL || mntops_outp == NULL) {
 		return EINVAL;
+	}
 	*url = NULL;
 	*mntops_outp = NULL;
 
@@ -104,11 +109,13 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	 * add it to the end of the list of options.
 	 */
 	optlen = strlen(fs->fs_mntops) + strlen(fs->fs_type) + 1 + 1;
-	if (optlen > MAXOPTSLEN)
-		return (ENAMETOOLONG);
+	if (optlen > MAXOPTSLEN) {
+		return ENAMETOOLONG;
+	}
 	mntops_out = (char *)malloc(optlen);
-	if (mntops_out == NULL)
-		return (ENOMEM);
+	if (mntops_out == NULL) {
+		return ENOMEM;
+	}
 	strcpy(mntops_out, "");
 
 	/*
@@ -124,50 +131,53 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	 */
 	if ((mntops_copy = strdup(fs->fs_mntops)) == NULL) {
 		free(mntops_out);
-		return (ENOMEM);
+		return ENOMEM;
 	}
 	pp = mntops_copy;
 
 	while ((p = strsep(&pp, ",")) != NULL) {
 		if (strcmp(p, "net") == 0 || strcmp(p, "bg") == 0 ||
-		    strcmp(p, "bg") == 0)
+		    strcmp(p, "bg") == 0) {
 			continue;
+		}
 
 		if (strncmp(p, "url==", 5) == 0) {
 			/*
 			 * Extract the URL.
 			 */
-			if (*url != NULL)
+			if (*url != NULL) {
 				free(*url);
+			}
 			*url = strdup(p + 5);
 			if (*url == NULL) {
 				free(mntops_out);
 				free(mntops_copy);
-				return (ENOMEM);
+				return ENOMEM;
 			}
-			continue;	/* don't add it to the mount options */
+			continue;       /* don't add it to the mount options */
 		}
 
-		if (strcmp(p, "browse") == 0)
+		if (strcmp(p, "browse") == 0) {
 			optp = "findervol";
-		else if (strcmp(p, "nobrowse") == 0)
+		} else if (strcmp(p, "nobrowse") == 0) {
 			optp = "nofindervol";
-		else
+		} else {
 			optp = p;
+		}
 		if (mntops_out[0] != '\0') {
 			/*
 			 * We already have mount options; add
 			 * a comma before this one.
 			 */
 			if ((error = CHECK_STRCAT(mntops_out, ",", optlen))) {
-                                error = ENAMETOOLONG;
-                                goto DONE;
-                        }
+				error = ENAMETOOLONG;
+				goto DONE;
+			}
 		}
-                if ((error = CHECK_STRCAT(mntops_out, optp, optlen))) {
-                        error = ENAMETOOLONG;
-                        goto DONE;
-                }
+		if ((error = CHECK_STRCAT(mntops_out, optp, optlen))) {
+			error = ENAMETOOLONG;
+			goto DONE;
+		}
 	}
 	if (fs->fs_type[0] != '\0') {
 		/*
@@ -180,15 +190,15 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 			 * We already have mount options; add
 			 * a comma before this one.
 			 */
-                        if ((error = CHECK_STRCAT(mntops_out, ",", optlen))) {
-                                error = ENAMETOOLONG;
-                                goto DONE;
-                        }
+			if ((error = CHECK_STRCAT(mntops_out, ",", optlen))) {
+				error = ENAMETOOLONG;
+				goto DONE;
+			}
 		}
-                if ((error = CHECK_STRCAT(mntops_out, fs->fs_type, optlen))) {
-                        error = ENAMETOOLONG;
-                        goto DONE;
-                }
+		if ((error = CHECK_STRCAT(mntops_out, fs->fs_type, optlen))) {
+			error = ENAMETOOLONG;
+			goto DONE;
+		}
 	}
 DONE:
 	*mntops_outp = mntops_out;
@@ -197,23 +207,25 @@ DONE:
 }
 
 static void
-freefst_ent(fst)
-	struct fstabnode *fst;
+freefst_ent(struct fstabnode *fst)
 {
-	if (fst->fst_dir != NULL)
+	if (fst->fst_dir != NULL) {
 		free(fst->fst_dir);
-	if (fst->fst_vfstype != NULL)
+	}
+	if (fst->fst_vfstype != NULL) {
 		free(fst->fst_vfstype);
-	if (fst->fst_mntops != NULL)
+	}
+	if (fst->fst_mntops != NULL) {
 		free(fst->fst_mntops);
-	if (fst->fst_url != NULL)
+	}
+	if (fst->fst_url != NULL) {
 		free(fst->fst_url);
+	}
 	free((char *)fst);
 }
 
 static void
-freefst_list(fst)
-	struct fstabnode *fst;
+freefst_list(struct fstabnode *fst)
 {
 	struct fstabnode *tmpfst;
 
@@ -239,14 +251,17 @@ find_host_entry(const char *host, struct fstabhost ***bucketp)
 	 * letters, and take it mod HASHTABLESIZE.
 	 */
 	hash = 0;
-	for (hashp = (const unsigned char *)host; (c = *hashp) != '\0'; hashp++)
+	for (hashp = (const unsigned char *)host; (c = *hashp) != '\0'; hashp++) {
 		hash += tolower(c);
+	}
 	bucket = &fstab_hashtable[hash % HASHTABLESIZE];
-	if (bucketp != NULL)
+	if (bucketp != NULL) {
 		*bucketp = bucket;
+	}
 	for (hostent = *bucket; hostent != NULL; hostent = hostent->next) {
-		if (strcasecmp(hostent->name, host) == 0)
-			return (hostent);
+		if (strcasecmp(hostent->name, host) == 0) {
+			return hostent;
+		}
 	}
 	return NULL;
 }
@@ -265,23 +280,22 @@ find_staticmap_entry(const char *dir, struct staticmap ***bucketp)
 	 * directory name together, and take it mod HASHTABLESIZE.
 	 */
 	hash = 0;
-	for (hashp = (const unsigned char *)dir; (c = *hashp) != '\0'; hashp++)
+	for (hashp = (const unsigned char *)dir; (c = *hashp) != '\0'; hashp++) {
 		hash += c;
+	}
 	bucket = &static_hashtable[hash % HASHTABLESIZE];
-	if (bucketp != NULL)
+	if (bucketp != NULL) {
 		*bucketp = bucket;
+	}
 	for (staticent = *bucket; staticent != NULL; staticent = staticent->next) {
-		if (strcmp(staticent->dir, dir) == 0)
-		{
-			if (trace > 5)
-			{
+		if (strcmp(staticent->dir, dir) == 0) {
+			if (trace > 5) {
 				trace_prt(5, "find_staticmap_entry: %s -> %p[%s]", dir, staticent, staticent->dir);
 			}
-			return (staticent);
+			return staticent;
 		}
 	}
-	if (trace > 5)
-	{
+	if (trace > 5) {
 		trace_prt(5, "find_staticmap_entry: %s -> NULL", dir);
 	}
 	return NULL;
@@ -344,8 +358,9 @@ sort_fstab_entries(void)
 				duplicate = 0;
 				for (tfstp = &tfstlist; *tfstp;
 				    tfstp = &((*tfstp)->fst_next)) {
-					if (fstlen < strlen((*tfstp)->fst_dir))
+					if (fstlen < strlen((*tfstp)->fst_dir)) {
 						break;
+					}
 					duplicate = (strcmp(fst->fst_dir, (*tfstp)->fst_dir) == 0);
 					if (duplicate) {
 						/* disregard duplicate entry */
@@ -365,7 +380,7 @@ sort_fstab_entries(void)
 
 static const struct mntopt mopts_net[] = {
 	MOPT_NET,
-	{ NULL,		0, 0, 0 }
+	{ NULL, 0, 0, 0 }
 };
 
 /*
@@ -392,8 +407,9 @@ readfstab(void)
 	int altflags;
 	char *mntops, *url, *host, *localpath;
 
-	if (trace  > 1)
+	if (trace > 1) {
 		trace_prt(1, "readfstab called\n");
+	}
 
 	/*
 	 * Re-read fstab and rebuild the table.
@@ -405,7 +421,7 @@ readfstab(void)
 	err = pthread_rwlock_wrlock(&fstab_cache_lock);
 	if (err != 0) {
 		pr_msg(LOG_ERR, "Error attempting to get write lock on fstab cache: %m");
-		return (err);	/* use the cached data */
+		return err;   /* use the cached data */
 	}
 
 	/*
@@ -415,12 +431,11 @@ readfstab(void)
 	 * spurious cache purging by because a process is
 	 * repeatedly looking up a name that's not cached.
 	 */
-	if (time(NULL) < min_cachetime)
-	{
+	if (time(NULL) < min_cachetime) {
 		if (trace > 3) {
 			trace_prt(3, "readfstab(): ignoring cache flush: %ld > %ld", min_cachetime, time(NULL));
 		}
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -502,7 +517,7 @@ readfstab(void)
 		if (mop == NULL) {
 			pr_msg(LOG_WARNING, "Couldn't parse mount options \"%s\" for %s: %m",
 			    fs->fs_mntops, fs->fs_spec);
-			continue;	/* give up on this */
+			continue;       /* give up on this */
 		}
 		freemntopts(mop);
 
@@ -518,17 +533,18 @@ readfstab(void)
 			 * the path was missing, so report it as that.
 			 */
 			pr_msg(LOG_WARNING, "Mount for %s has no path for the directory to mount", fs->fs_spec);
-			continue;	/* no path - ignore this */
+			continue;       /* no path - ignore this */
 		}
 		if (p == fs->fs_spec) {
 			pr_msg(LOG_WARNING, "Mount for %s has an empty host name", fs->fs_spec);
-			continue;	/* empty host name - ignore this */
+			continue;       /* empty host name - ignore this */
 		}
-		*p = '\0';		/* split into host name and the rest */
+		*p = '\0';              /* split into host name and the rest */
 		host = strdup(fs->fs_spec);
-		if (host == NULL)
+		if (host == NULL) {
 			goto outofmem;
-		localpath = strdup(p+1);
+		}
+		localpath = strdup(p + 1);
 		if (localpath == NULL) {
 			free(host);
 			goto outofmem;
@@ -548,11 +564,13 @@ readfstab(void)
 			    fs->fs_spec);
 			free(localpath);
 			free(host);
-			if (url != NULL)
+			if (url != NULL) {
 				free(url);
-			if (mntops != NULL)
+			}
+			if (mntops != NULL) {
 				free(mntops);
-			continue;	/* give up on this */
+			}
+			continue;       /* give up on this */
 		}
 		if (err == ENOMEM) {
 			free(localpath);
@@ -565,8 +583,9 @@ readfstab(void)
 		 * backwards compatibility with the old automounter.
 		 */
 		vfstype = fs->fs_vfstype;
-		if (vfstype[0] == '\0')
+		if (vfstype[0] == '\0') {
 			vfstype = "nfs";
+		}
 		if (strcmp(vfstype, "url") == 0) {
 			/* We must have a URL. */
 			if (url == NULL) {
@@ -600,7 +619,7 @@ readfstab(void)
 			 *
 			 * Allocate an entry for this fstab record.
 			 */
-			fst = calloc(1, sizeof (struct fstabnode));
+			fst = calloc(1, sizeof(struct fstabnode));
 			if (fst == NULL) {
 				free(url);
 				free(mntops);
@@ -619,8 +638,8 @@ readfstab(void)
 				free(host);
 				goto outofmem;
 			}
-			fst->fst_mntops = mntops;	/* this is mallocated */
-			fst->fst_url = url;		/* as is this */
+			fst->fst_mntops = mntops;       /* this is mallocated */
+			fst->fst_url = url;             /* as is this */
 
 			/*
 			 * Now add an entry for the host if we haven't already
@@ -632,7 +651,7 @@ readfstab(void)
 				 * We found no entry for the host; allocate
 				 * one and add it to the hash table bucket.
 				 */
-				host_entry = malloc(sizeof (struct fstabhost));
+				host_entry = malloc(sizeof(struct fstabhost));
 				if (host_entry == NULL) {
 					free(fst->fst_vfstype);
 					free(fst->fst_dir);
@@ -673,18 +692,26 @@ readfstab(void)
 			if (strlen(fs->fs_file) == 0) {
 				pr_msg(LOG_WARNING, "Mount for %s has an empty mount point path",
 				    fs->fs_spec);
-				if (url != NULL) free(url);
-				if (mntops != NULL) free(mntops);
-				if (localpath != NULL) free(localpath);
-				if (host != NULL) free(host);
-				continue;	/* empty mount point path - ignore this */
+				if (url != NULL) {
+					free(url);
+				}
+				if (mntops != NULL) {
+					free(mntops);
+				}
+				if (localpath != NULL) {
+					free(localpath);
+				}
+				if (host != NULL) {
+					free(host);
+				}
+				continue;       /* empty mount point path - ignore this */
 			}
 
 			static_ent = find_staticmap_entry(fs->fs_file,
 			    &static_bucket);
 			if (static_ent == NULL) {
 				/* No - make one. */
-				static_ent = malloc(sizeof (struct staticmap));
+				static_ent = malloc(sizeof(struct staticmap));
 				if (static_ent == NULL) {
 					free(url);
 					free(mntops);
@@ -758,18 +785,17 @@ readfstab(void)
 	min_cachetime = time(NULL) + MIN_CACHE_TIME;
 	max_cachetime = time(NULL) + RDDIR_CACHE_TIME * 2;
 
-	if (trace > 5)
-	{
+	if (trace > 5) {
 		trace_prt(5, "readfstab(): returning success");
 	}
-	return (0);
+	return 0;
 
 outofmem:
 	endfsent();
 	clean_hashtables();
 	pthread_rwlock_unlock(&fstab_cache_lock);
 	pr_msg(LOG_ERR, "Memory allocation failed while reading fstab");
-	return (ENOMEM);
+	return ENOMEM;
 }
 
 /*
@@ -789,8 +815,9 @@ fstab_process_host(const char *host, int (*callback)(struct fstabnode *, void *)
 	 * from under us.
 	 */
 	err = pthread_rwlock_rdlock(&fstab_cache_lock);
-	if (err != 0)
-		return (err);
+	if (err != 0) {
+		return err;
+	}
 
 	hostent = find_host_entry(host, NULL);
 	if (hostent == NULL) {
@@ -807,7 +834,7 @@ fstab_process_host(const char *host, int (*callback)(struct fstabnode *, void *)
 			/*
 			 * That failed; give up.
 			 */
-			return (err);
+			return err;
 		}
 
 		/*
@@ -819,7 +846,7 @@ fstab_process_host(const char *host, int (*callback)(struct fstabnode *, void *)
 			 * No - give up.
 			 */
 			pthread_rwlock_unlock(&fstab_cache_lock);
-			return (-1);
+			return -1;
 		}
 	}
 
@@ -831,14 +858,15 @@ fstab_process_host(const char *host, int (*callback)(struct fstabnode *, void *)
 	err = 0;
 	for (fst = hostent->fstab_ents; fst != NULL; fst = fst->fst_next) {
 		err = (*callback)(fst, callback_arg);
-		if (err != 0)
+		if (err != 0) {
 			break;
+		}
 	}
 
 	/* We're done processing the list; release the lock. */
 	pthread_rwlock_unlock(&fstab_cache_lock);
 
-	return (err);
+	return err;
 }
 
 /*
@@ -855,7 +883,7 @@ scan_fstab(struct dir_entry **list, struct dir_entry **lastp)
 	for (i = 0; i < HASHTABLESIZE; i++) {
 		for (host_ent = fstab_hashtable[i]; host_ent != NULL;
 		    host_ent = host_ent->next) {
-		    	/*
+			/*
 			 * Add an entry for it if we haven't already
 			 * done so.
 			 *
@@ -864,13 +892,14 @@ scan_fstab(struct dir_entry **list, struct dir_entry **lastp)
 			err = add_dir_entry(host_ent->name, NULL, NULL, list,
 			    lastp);
 			if (err != -1) {
-				if (err)
-					return (err);
+				if (err) {
+					return err;
+				}
 				assert(*lastp != NULL);
 			}
 		}
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -895,21 +924,23 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 	err = pthread_rwlock_rdlock(&fstab_cache_lock);
 	if (err != 0) {
 		*error = err;
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 
 	/*
 	 * Return the time until the current cache data times out.
 	 */
 	timediff = max_cachetime - time(NULL);
-	if (timediff < 0)
+	if (timediff < 0) {
 		timediff = 0;
-	else if (timediff > INT_MAX)
+	} else if (timediff > INT_MAX) {
 		timediff = INT_MAX;
+	}
 	*cache_time = (int)timediff;
 	*error = 0;
-	if (trace  > 1)
+	if (trace > 1) {
 		trace_prt(1, "getfstabkeys called\n");
+	}
 
 	/*
 	 * Get what we have cached.
@@ -930,7 +961,7 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 				 * That failed; give up.
 				 */
 				*error = err;
-				return (__NSW_UNAVAIL);
+				return __NSW_UNAVAIL;
 			}
 
 			/*
@@ -964,8 +995,9 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 			gethostname(thishost, MAXHOSTNAMELEN);
 			err = add_dir_entry(thishost, NULL, NULL, list, &last);
 			if (err != -1) {
-				if (err)
-					return (err);
+				if (err) {
+					return err;
+				}
 				assert(last != NULL);
 			}
 
@@ -976,8 +1008,9 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 				err = add_dir_entry(thishost, NULL, NULL, list,
 				    &last);
 				if (err != -1) {
-					if (err)
-						return (err);
+					if (err) {
+						return err;
+					}
 					assert(last != NULL);
 				}
 			}
@@ -987,7 +1020,7 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 	/* We're done processing the list; release the lock. */
 	pthread_rwlock_unlock(&fstab_cache_lock);
 
-	return (__NSW_SUCCESS);
+	return __NSW_SUCCESS;
 }
 
 /*
@@ -1006,19 +1039,22 @@ havefstabkeys(void)
 	 * Are we a server?  If so, we always have -fstab entries,
 	 * as there's always the selflink.
 	 */
-	if (we_are_a_server())
-		return (1);
+	if (we_are_a_server()) {
+		return 1;
+	}
 
 	/*
 	 * Get a read lock, so the cache doesn't get modified out
 	 * from under us.
 	 */
 	err = pthread_rwlock_rdlock(&fstab_cache_lock);
-	if (err != 0)
-		return (0);
+	if (err != 0) {
+		return 0;
+	}
 
-	if (trace  > 1)
+	if (trace > 1) {
 		trace_prt(1, "havefstabkeys called\n");
+	}
 
 	/*
 	 * Check what we have cached.
@@ -1072,27 +1108,34 @@ done:
 	/* We're done processing the list; release the lock. */
 	pthread_rwlock_unlock(&fstab_cache_lock);
 
-	return (ret);
+	return ret;
 }
 
 /*
  * Load the -static direct map.
  */
 int
-loaddirect_static(local_map, opts, stack, stkptr)
-	char *local_map, *opts;
-	char **stack, ***stkptr;
+loaddirect_static(char *local_map, char *opts, char **stack, char ***stkptr)
 {
 	int done = 0;
 	int i;
 	struct staticmap *static_ent;
 
+	struct os_activity_scope_state_s state;
+
+	os_activity_t activity = os_activity_create("loaddirect_static", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
+	os_log_debug(OS_LOG_DEFAULT, "%s:%s:start", __FUNCTION__, local_map);
+
 	/*
 	 * Get a read lock, so the cache doesn't get modified out
 	 * from under us.
 	 */
-	if (pthread_rwlock_rdlock(&fstab_cache_lock) != 0)
-		return (__NSW_UNAVAIL);
+	if (pthread_rwlock_rdlock(&fstab_cache_lock) != 0) {
+		os_log_error(OS_LOG_DEFAULT, "%s:%s:finish1:%d", __FUNCTION__, local_map, __NSW_UNAVAIL);
+		os_activity_scope_leave(&state);
+		return __NSW_UNAVAIL;
+	}
 
 	/*
 	 * Get what we have cached.
@@ -1117,7 +1160,9 @@ loaddirect_static(local_map, opts, stack, stkptr)
 			/*
 			 * That failed; give up.
 			 */
-			return (__NSW_UNAVAIL);
+			os_log_debug(OS_LOG_DEFAULT, "%s:%s:finish2:%d", __FUNCTION__, local_map, __NSW_UNAVAIL);
+			os_activity_scope_leave(&state);
+			return __NSW_UNAVAIL;
 		}
 
 		/*
@@ -1132,9 +1177,11 @@ loaddirect_static(local_map, opts, stack, stkptr)
 			}
 		}
 	}
-
 	pthread_rwlock_unlock(&fstab_cache_lock);
-	return (done ? __NSW_SUCCESS : __NSW_NOTFOUND);
+
+	os_log_debug(OS_LOG_DEFAULT, "%s:%s:finish3:%d", __FUNCTION__, local_map, done);
+	os_activity_scope_leave(&state);
+	return done ? __NSW_SUCCESS : __NSW_NOTFOUND;
 }
 
 /*
@@ -1154,8 +1201,9 @@ get_staticmap_entry(const char *dir)
 	 * Get a read lock, so the cache doesn't get modified out
 	 * from under us.
 	 */
-	if (pthread_rwlock_rdlock(&fstab_cache_lock) != 0)
-		return (NULL);
+	if (pthread_rwlock_rdlock(&fstab_cache_lock) != 0) {
+		return NULL;
+	}
 
 	/*
 	 * Get what we have cached.
@@ -1175,7 +1223,7 @@ get_staticmap_entry(const char *dir)
 			 * That failed; give up.
 			 */
 			pthread_rwlock_unlock(&fstab_cache_lock);
-			return (NULL);
+			return NULL;
 		}
 
 		/*
@@ -1188,11 +1236,12 @@ get_staticmap_entry(const char *dir)
 		 * as we're not returning a pointer to something
 		 * in the cache.
 		 */
-		if (static_ent == NULL)
+		if (static_ent == NULL) {
 			pthread_rwlock_unlock(&fstab_cache_lock);
+		}
 	}
 
-	return (static_ent);
+	return static_ent;
 }
 
 /*
@@ -1216,14 +1265,16 @@ clean_fstab_cache(int scheduled)
 	 * If this is a scheduled cache cleanup, and the cache is still
 	 * valid, don't purge it.
 	 */
-	if (scheduled && max_cachetime > time(NULL))
+	if (scheduled && max_cachetime > time(NULL)) {
 		return;
+	}
 
 	/*
 	 * Lock the cache against all operations.
 	 */
-	if (pthread_rwlock_wrlock(&fstab_cache_lock) != 0)
+	if (pthread_rwlock_wrlock(&fstab_cache_lock) != 0) {
 		return;
+	}
 
 	/*
 	 * Clean out the old entries.

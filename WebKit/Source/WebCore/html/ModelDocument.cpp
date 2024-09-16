@@ -40,6 +40,7 @@
 #include "HTMLNames.h"
 #include "HTMLSourceElement.h"
 #include "HTMLStyleElement.h"
+#include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
 #include "RawDataDocumentParser.h"
 #include <wtf/IsoMallocInlines.h>
@@ -67,7 +68,7 @@ private:
 
     void createDocumentStructure();
 
-    void appendBytes(DocumentWriter&, const uint8_t*, size_t) final;
+    void appendBytes(DocumentWriter&, std::span<const uint8_t>) final;
     void finish() final;
 
     WeakPtr<HTMLModelElement, WeakPtrImplWithEventTargetData> m_modelElement;
@@ -81,7 +82,6 @@ void ModelDocumentParser::createDocumentStructure()
     auto rootElement = HTMLHtmlElement::create(document);
     document.appendChild(rootElement);
     document.setCSSTarget(rootElement.ptr());
-    rootElement->insertedByParser();
 
     if (document.frame())
         document.frame()->injectUserScripts(UserScriptInjectionTime::DocumentStart);
@@ -126,7 +126,7 @@ void ModelDocumentParser::createDocumentStructure()
     frame->loader().setOutgoingReferrer(document.completeURL(m_outgoingReferrer));
 }
 
-void ModelDocumentParser::appendBytes(DocumentWriter&, const uint8_t*, size_t)
+void ModelDocumentParser::appendBytes(DocumentWriter&, std::span<const uint8_t>)
 {
     if (!m_modelElement)
         createDocumentStructure();

@@ -301,8 +301,29 @@ pdfjs-editor-ink-button-label = ציור
 pdfjs-editor-stamp-button =
     .title = הוספה או עריכת תמונות
 pdfjs-editor-stamp-button-label = הוספה או עריכת תמונות
-pdfjs-editor-remove-button =
-    .title = הסרה
+pdfjs-editor-highlight-button =
+    .title = סימון
+pdfjs-editor-highlight-button-label = סימון
+pdfjs-highlight-floating-button =
+    .title = סימון
+pdfjs-highlight-floating-button1 =
+    .title = סימון
+    .aria-label = סימון
+pdfjs-highlight-floating-button-label = סימון
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = הסרת ציור
+pdfjs-editor-remove-freetext-button =
+    .title = הסרת טקסט
+pdfjs-editor-remove-stamp-button =
+    .title = הסרת תמונה
+pdfjs-editor-remove-highlight-button =
+    .title = הסרת הדגשה
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = צבע
 pdfjs-editor-free-text-size-input = גודל
@@ -312,6 +333,10 @@ pdfjs-editor-ink-opacity-input = אטימות
 pdfjs-editor-stamp-add-image-button =
     .title = הוספת תמונה
 pdfjs-editor-stamp-add-image-button-label = הוספת תמונה
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = עובי
+pdfjs-editor-free-highlight-thickness-title =
+    .title = שינוי עובי בעת הדגשת פריטים שאינם טקסט
 pdfjs-free-text =
     .aria-label = עורך טקסט
 pdfjs-free-text-default-content = להתחיל להקליד…
@@ -349,3 +374,29 @@ pdfjs-editor-resizer-label-bottom-right = פינה ימנית תחתונה - ש�
 pdfjs-editor-resizer-label-bottom-middle = למטה באמצע - שינוי גודל
 pdfjs-editor-resizer-label-bottom-left = פינה שמאלית תחתונה - שינוי גודל
 pdfjs-editor-resizer-label-middle-left = שמאלה באמצע - שינוי גודל
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = צבע הדגשה
+pdfjs-editor-colorpicker-button =
+    .title = שינוי צבע
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = בחירת צבע
+pdfjs-editor-colorpicker-yellow =
+    .title = צהוב
+pdfjs-editor-colorpicker-green =
+    .title = ירוק
+pdfjs-editor-colorpicker-blue =
+    .title = כחול
+pdfjs-editor-colorpicker-pink =
+    .title = ורוד
+pdfjs-editor-colorpicker-red =
+    .title = אדום
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = הצגת הכול
+pdfjs-editor-highlight-show-all-button =
+    .title = הצגת הכול

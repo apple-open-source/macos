@@ -34,30 +34,42 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
+class DateTimeFieldElementFieldOwner;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::DateTimeFieldElementFieldOwner> : std::true_type { };
+}
+
+namespace WebCore {
 
 class DateComponents;
+class DateTimeFieldElement;
 class RenderStyle;
 
 struct DateTimeFieldsState;
+
+enum class DateTimePlaceholderIfNoValue : bool { No, Yes };
+
+class DateTimeFieldElementFieldOwner : public CanMakeWeakPtr<DateTimeFieldElementFieldOwner> {
+public:
+    virtual ~DateTimeFieldElementFieldOwner();
+    virtual void didBlurFromField(Event&) = 0;
+    virtual void fieldValueChanged() = 0;
+    virtual bool focusOnNextField(const DateTimeFieldElement&) = 0;
+    virtual bool focusOnPreviousField(const DateTimeFieldElement&) = 0;
+    virtual bool isFieldOwnerDisabled() const = 0;
+    virtual bool isFieldOwnerReadOnly() const = 0;
+    virtual bool isFieldOwnerHorizontal() const = 0;
+    virtual AtomString localeIdentifier() const = 0;
+    virtual const GregorianDateTime& placeholderDate() const = 0;
+};
 
 class DateTimeFieldElement : public HTMLDivElement {
     WTF_MAKE_ISO_ALLOCATED(DateTimeFieldElement);
 public:
     enum EventBehavior : bool { DispatchNoEvent, DispatchInputAndChangeEvents };
-
-    class FieldOwner : public CanMakeWeakPtr<FieldOwner> {
-    public:
-        virtual ~FieldOwner();
-        virtual void didBlurFromField(Event&) = 0;
-        virtual void fieldValueChanged() = 0;
-        virtual bool focusOnNextField(const DateTimeFieldElement&) = 0;
-        virtual bool focusOnPreviousField(const DateTimeFieldElement&) = 0;
-        virtual bool isFieldOwnerDisabled() const = 0;
-        virtual bool isFieldOwnerReadOnly() const = 0;
-        virtual bool isFieldOwnerHorizontal() const = 0;
-        virtual AtomString localeIdentifier() const = 0;
-        virtual const GregorianDateTime& placeholderDate() const = 0;
-    };
 
     void defaultEventHandler(Event&) override;
     bool isFocusable() const final;
@@ -65,7 +77,7 @@ public:
     String visibleValue() const;
 
     virtual bool hasValue() const = 0;
-    virtual void populateDateTimeFieldsState(DateTimeFieldsState&) = 0;
+    virtual void populateDateTimeFieldsState(DateTimeFieldsState&, DateTimePlaceholderIfNoValue = DateTimePlaceholderIfNoValue::No) = 0;
     virtual void setEmptyValue(EventBehavior = DispatchNoEvent) = 0;
     virtual void setValueAsDate(const DateComponents&) = 0;
     virtual void setValueAsInteger(int, EventBehavior = DispatchNoEvent) = 0;
@@ -75,12 +87,13 @@ public:
     virtual String placeholderValue() const = 0;
 
 protected:
-    DateTimeFieldElement(Document&, FieldOwner&);
+    DateTimeFieldElement(Document&, DateTimeFieldElementFieldOwner&);
     Locale& localeForOwner() const;
     AtomString localeIdentifier() const;
     void updateVisibleValue(EventBehavior);
     virtual void adjustMinInlineSize(RenderStyle&) const = 0;
     virtual int valueAsInteger() const = 0;
+    virtual int placeholderValueAsInteger() const = 0;
     virtual void handleKeyboardEvent(KeyboardEvent&) = 0;
     virtual void handleBlurEvent(Event&);
 
@@ -94,7 +107,7 @@ private:
     bool isFieldOwnerReadOnly() const;
     bool isFieldOwnerHorizontal() const;
 
-    WeakPtr<FieldOwner> m_fieldOwner;
+    WeakPtr<DateTimeFieldElementFieldOwner> m_fieldOwner;
 };
 
 } // namespace WebCore

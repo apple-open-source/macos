@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdarg.h>
 #include <tuple>
 #include <wtf/Forward.h>
@@ -101,6 +102,11 @@ protected:
 };
 
 WTF_EXPORT_PRIVATE void printInternal(PrintStream&, const char*);
+template<std::size_t Extent>
+inline void printInternal(PrintStream& out, std::span<const char, Extent> string)
+{
+    out.printf("%.*s", static_cast<int>(string.size()), string.data());
+}
 WTF_EXPORT_PRIVATE void printInternal(PrintStream&, StringView);
 WTF_EXPORT_PRIVATE void printInternal(PrintStream&, const CString&);
 WTF_EXPORT_PRIVATE void printInternal(PrintStream&, const String&);
@@ -213,6 +219,12 @@ template<typename T>
 void printInternal(PrintStream& out, const RefPtr<T>& value)
 {
     out.print(pointerDump(value.get()));
+}
+
+template<typename T>
+void printInternal(PrintStream& out, const Ref<T>& value)
+{
+    printInternal(out, value.get());
 }
 
 template<typename T, typename U>

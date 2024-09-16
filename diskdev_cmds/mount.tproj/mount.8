@@ -31,21 +31,21 @@
 .\"
 .\"     @(#)mount.8	8.8 (Berkeley) 6/16/94
 .\"
-.Dd June 16, 1994
+.Dd December 20, 2023
 .Dt MOUNT 8
-.Os BSD 4
+.Os macOS 15
 .Sh NAME
 .Nm mount
 .Nd mount file systems
 .Sh SYNOPSIS
 .Nm mount
-.Op Fl adfrkuvw
+.Op Fl adfFrkuvw
 .Op Fl t Ar lfs | external_type
 .Nm mount
-.Op Fl dfrkuvw
+.Op Fl dfFrkuvw
 .Ar special | mount_point
 .Nm mount
-.Op Fl dfrkuvw
+.Op Fl dfFrkuvw
 .Op Fl o Ar options
 .Op Fl t Ar lfs | external_type
 .Ar special mount_point
@@ -94,6 +94,9 @@ command is trying to do.
 .It Fl f
 Forces the revocation of write access when trying to downgrade
 a filesystem mount status from read-write to read-only.
+.It Fl F
+Forces the file system type be considered as an FSModule delivered
+using FSKit.
 .It Fl k
 In the course of the mount system call, the kernel should not follow
 any symlinks that may be present in the provided mount-on directory.

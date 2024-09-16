@@ -44,16 +44,18 @@
 #include <wtf/Box.h>
 #endif
 
-namespace WebKit {
-
+namespace WebCore {
 class SharedMemory;
+}
+
+namespace WebKit {
 
 namespace NetworkCache {
 
 class Data {
 public:
     Data() { }
-    Data(const uint8_t*, size_t);
+    Data(std::span<const uint8_t>);
 
     ~Data() { }
 
@@ -68,15 +70,15 @@ public:
     Data(GRefPtr<GBytes>&&, FileSystem::PlatformFileHandle fd = FileSystem::invalidPlatformFileHandle);
 #elif USE(CURL)
     Data(std::variant<Vector<uint8_t>, FileSystem::MappedFileData>&&);
+    Data(Vector<uint8_t>&& data) : Data(std::variant<Vector<uint8_t>, FileSystem::MappedFileData> { WTFMove(data) }) { }
 #endif
     bool isNull() const;
     bool isEmpty() const { return !m_size; }
 
-    const uint8_t* data() const;
+    std::span<const uint8_t> span() const;
     size_t size() const { return m_size; }
-    std::span<const uint8_t> span() const { return { data(), size() }; }
     bool isMap() const { return m_isMap; }
-    RefPtr<SharedMemory> tryCreateSharedMemory() const;
+    RefPtr<WebCore::SharedMemory> tryCreateSharedMemory() const;
 
     Data subrange(size_t offset, size_t) const;
 

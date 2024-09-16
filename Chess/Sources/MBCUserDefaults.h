@@ -1,7 +1,7 @@
 /*
     File:		MBCUserDefaults.h
     Contains:	User defaults keys
-    Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+    Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
     IMPORTANT: This Apple software is supplied to you by Apple Computer,
     Inc.  ("Apple") in consideration of your agreement to the following
@@ -68,3 +68,32 @@ extern NSString * const kMBCBoardSpin;
 extern NSString * const kMBCCastleSides;
 extern NSString * const kMBCGCVictories;
 extern NSString * const kMBCShowGameLog;
+extern NSString * const kMBCShowEdgeNotation;
+
+extern NSString * const kMBCShareplayEnabledFF;
+extern NSString * const kMBCUseMetalRendererFF;
+
+@interface MBCUserDefaults : NSObject
+
+/*!
+ @abstract isSharePlayEnabled
+ @return BOOL value indicating whether or not SharePlay is enabled.
+ @discussion This function reads the BOOL value for key "SharePlayEnabled" from the Defaults.plist in the bundle.
+*/
++ (BOOL)isSharePlayEnabled;
+
+/*!
+ @abstract isMetalRenderingEnabled
+ @return BOOL value indicating whether or not to render with Metal (YES), or OpenGL (NO)
+ @discussion This function returns whether or not to use Metal rendering. Default NO.
+*/
++ (BOOL)isMetalRenderingEnabled;
+
+/*!
+ @abstract usingScreenCaptureKit
+ @return BOOL value indicating whether or not enabled SCK screen recording
+ @discussion This function returns whether or not to use SCK recording. Default NO.
+*/
++ (BOOL)usingScreenCaptureKit;
+
+@end

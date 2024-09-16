@@ -159,13 +159,6 @@ IPConfigFunc manual_v6_thread;
 IPConfigFunc linklocal_v6_thread;
 IPConfigFunc dhcpv6_pd_thread;
 
-/*
- * more globals
- */
-extern bootp_session_t *	G_bootp_session;
-extern arp_session_t *		G_arp_session;
-
-
 /**
  ** ServiceRef accessor functions
  **/
@@ -216,7 +209,7 @@ boolean_t
 ServiceIsCGAEnabled(ServiceRef service_p);
 
 boolean_t
-ServiceIsPrivacyRequired(ServiceRef service_p);
+ServiceIsPrivacyRequired(ServiceRef service_p, boolean_t * share_device_type_p);
 
 void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
@@ -266,6 +259,9 @@ service_interface_no_ipv4(ServiceRef service_p);
 
 boolean_t
 service_interface_ipv4_published(ServiceRef service_p);
+
+boolean_t
+service_disable_dhcpv6(ServiceRef service_p);
 
 void
 ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p);
@@ -415,12 +411,12 @@ typedef void (service_resolve_router_callback_t)(ServiceRef service_p,
 						 router_arp_status_t status);
 
 boolean_t
-service_resolve_router(ServiceRef service_p, arp_client_t * arp,
+service_resolve_router(ServiceRef service_p, arp_client_t arp,
 		       service_resolve_router_callback_t * callback_func,
 		       struct in_addr our_ip);
 
 void
-service_resolve_router_cancel(ServiceRef service_p, arp_client_t * arp);
+service_resolve_router_cancel(ServiceRef service_p, arp_client_t arp);
 
 boolean_t
 service_update_router_address(ServiceRef service_p,

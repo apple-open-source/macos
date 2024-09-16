@@ -67,6 +67,8 @@ bool _hasPostedAndStillInError = false;
 bool _haveCheckedForICDPStatusOnceInCircle = false;
 bool _isAccountICDP = false;
 
+#define TwentyFourHourCutoff -60.0 * 60.0 * 24.0 * 1 // -1 day
+
 @implementation KNAppDelegate
 
 static NSUserNotificationCenter *appropriateNotificationCenter(void)
@@ -272,8 +274,22 @@ static void PSKeychainSyncIsUsingICDP(void)
     }
     
     KNAppDelegate *me = self;
-    NSMutableSet *applicantIds = [NSMutableSet new];
-    for (KDCirclePeer *applicant in me.circle.applicants) {
+    NSMutableSet *applicantIds = [NSMutableSet set];
+    
+    CFErrorRef localError = NULL;
+    NSArray *peerInfos = (__bridge_transfer NSArray *) SOSCCCopyApplicantPeerInfo(&localError);
+    if (localError) {
+        secerror("kcn: failed to fetch peer applicants: %@", localError);
+        CFReleaseNull(localError);
+        return [NSMutableSet set];
+    }
+    
+    NSMutableArray *newApplicants = [[NSMutableArray alloc] initWithCapacity:peerInfos.count];
+    [peerInfos enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+        [newApplicants addObject:[[KDCirclePeer alloc] initWithPeerObject:obj]];
+    }];
+    
+    for (KDCirclePeer *applicant in newApplicants) {
         [me postForApplicant:applicant];
         [applicantIds addObject:applicant.idString];
     }
@@ -466,9 +482,15 @@ static const char *sosDepartureReasonCString(enum DepartureReason departureReaso
         }
     }
 
+    secnotice("kcn", "Last time KCN posted approval notification: %@", me.state.applicantNotificationTimestamp);
+    NSDate* twentyFourHoursAgo = [NSDate dateWithTimeIntervalSinceNow: TwentyFourHourCutoff];
+
     // Clear out (old) reset notifications
-    if (circleStatus == kSOSCCInCircle) {
+    if (circleStatus == kSOSCCInCircle && [me.state.applicantNotificationTimestamp compare:twentyFourHoursAgo] == NSOrderedAscending) {
         secnotice("kcn", "{ChangeCallback} kSOSCCInCircle");
+
+        me.state.applicantNotificationTimestamp = [NSDate date];
+        
         if([me removeAllNotificationsOfType: (NSString*) kValidOnlyOutOfCircleKey]) {
             secnotice("kcn", "Removed existing notifications now that we're in circle");
         }

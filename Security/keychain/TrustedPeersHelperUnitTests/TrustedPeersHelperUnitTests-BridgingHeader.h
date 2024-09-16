@@ -20,9 +20,11 @@
 #import <TrustedPeers/TPLog.h>
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelper-Bridging-Header.h"
+#import "keychain/trust/TrustedPeersTests/TPModelInMemoryDb.h"
 #import "keychain/securityd/SecItemDataSource.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "tests/secdmockaks/mockaks.h"
 
 #include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"

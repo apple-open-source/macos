@@ -258,7 +258,7 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 		lck_mtx_lock(&nmp->nm_lock);
 		if (!nmp->nm_nso || (nmp->nm_sockflags & NMSOCK_DISCONNECTING)) {
 			lck_mtx_unlock(&nmp->nm_lock);
-			printf("nfs4_setclientid: socket is being disconnected. nso %p, sockflags 0x%x\n", nmp->nm_nso, nmp->nm_sockflags);
+			printf("nfs4_setclientid: socket is being disconnected. nso 0x%lx, sockflags 0x%x\n", nfs_kernel_hideaddr(nmp->nm_nso), nmp->nm_sockflags);
 			error = ENOTCONN;
 			nfsmout_if(error);
 		}
@@ -456,7 +456,7 @@ nfs4_has_open_files(struct nfsmount *nmp)
 	lck_mtx_lock(&nmp->nm_open_owners_lock);
 	TAILQ_FOREACH(noop, &nmp->nm_open_owners, noo_link) {
 		/* for each of its opens... */
-		lck_mtx_lock(&noop->noo_lock);
+		lck_mtx_lock(&noop->noo_opens_lock);
 		TAILQ_FOREACH(nofp, &noop->noo_opens, nof_oolink) {
 			if (!nofp->nof_access || (nofp->nof_flags & NFS_OPEN_FILE_LOST) || (nofp->nof_np->n_flag & NREVOKE)) {
 				continue;
@@ -464,7 +464,7 @@ nfs4_has_open_files(struct nfsmount *nmp)
 			has_open_files = 1;
 			break;
 		}
-		lck_mtx_unlock(&noop->noo_lock);
+		lck_mtx_unlock(&noop->noo_opens_lock);
 		if (has_open_files) {
 			break;
 		}
@@ -2890,8 +2890,10 @@ restart:
 	}
 
 	/* for each open owner... */
+	lck_mtx_lock(&nmp->nm_open_owners_lock);
 	TAILQ_FOREACH(noop, &nmp->nm_open_owners, noo_link) {
 		/* for each of its opens... */
+		lck_mtx_lock(&noop->noo_opens_lock);
 		TAILQ_FOREACH(nofp, &noop->noo_opens, nof_oolink) {
 			if (!nofp->nof_access || (nofp->nof_flags & NFS_OPEN_FILE_LOST) || (nofp->nof_np->n_flag & NREVOKE)) {
 				continue;
@@ -2985,20 +2987,22 @@ restart:
 					tsleep(nfs_recover, (PZERO - 1), "nfsrecoverrestart", hz);
 					printf("nfs recovery restarting for %s, 0x%x, error %d\n",
 					    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nmp->nm_stategenid, error);
+					lck_mtx_unlock(&noop->noo_opens_lock);
+					lck_mtx_unlock(&nmp->nm_open_owners_lock);
 					goto restart;
 				}
 				if (reopen && (nfs_check_for_locks(noop, nofp) == 0)) {
 					/* just reopen the file on next access */
-					NP(nofp->nof_np, "nfs_recover: %d, need reopen for %d %p 0x%x", reopen,
-					    kauth_cred_getuid(noop->noo_cred), nofp->nof_np, nofp->nof_np ? nofp->nof_np->n_flag : 0);
+					NP(nofp->nof_np, "nfs_recover: %d, need reopen for %d 0x%x", reopen,
+					    kauth_cred_getuid(noop->noo_cred), nofp->nof_np ? nofp->nof_np->n_flag : 0);
 					lck_mtx_lock(&nofp->nof_lock);
 					nofp->nof_flags |= NFS_OPEN_FILE_REOPEN;
 					lck_mtx_unlock(&nofp->nof_lock);
 				} else {
 					/* open file state lost */
 					if (reopen) {
-						NP(nofp->nof_np, "nfs_recover: %d, can't reopen because of locks %d %p", reopen,
-						    kauth_cred_getuid(noop->noo_cred), nofp->nof_np);
+						NP(nofp->nof_np, "nfs_recover: %d, can't reopen because of locks %d", reopen,
+						    kauth_cred_getuid(noop->noo_cred));
 					}
 					lost = 1;
 					error = 0;
@@ -3049,6 +3053,8 @@ reclaim_locks:
 						tsleep(nfs_recover, (PZERO - 1), "nfsrecoverrestart", hz);
 						printf("nfs recovery restarting for %s, 0x%x, error %d\n",
 						    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nmp->nm_stategenid, error);
+						lck_mtx_unlock(&noop->noo_opens_lock);
+						lck_mtx_unlock(&nmp->nm_open_owners_lock);
 						goto restart;
 					}
 					/* lock state lost - attempt to close file */
@@ -3074,18 +3080,22 @@ reclaim_locks:
 					tsleep(nfs_recover, (PZERO - 1), "nfsrecoverrestart", hz);
 					printf("nfs recovery restarting for %s, 0x%x, error %d\n",
 					    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nmp->nm_stategenid, error);
+					lck_mtx_unlock(&noop->noo_opens_lock);
+					lck_mtx_unlock(&nmp->nm_open_owners_lock);
 					goto restart;
 				}
 			}
 #endif
 			if (lost) {
 				/* revoke open file state */
-				NP(nofp->nof_np, "nfs_recover: state lost for %d %p 0x%x",
-				    kauth_cred_getuid(noop->noo_cred), nofp->nof_np, nofp->nof_np->n_flag);
+				NP(nofp->nof_np, "nfs_recover: state lost for %d 0x%x",
+				    kauth_cred_getuid(noop->noo_cred), nofp->nof_np->n_flag);
 				nfs_revoke_open_state_for_node(nofp->nof_np);
 			}
 		}
+		lck_mtx_unlock(&noop->noo_opens_lock);
 	}
+	lck_mtx_unlock(&nmp->nm_open_owners_lock);
 
 	if (!error) {
 		/* If state expired, make sure we're not holding onto any stale delegations */

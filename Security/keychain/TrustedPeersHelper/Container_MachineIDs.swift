@@ -1,6 +1,6 @@
 import CoreData
-import Foundation
 import CryptoKit
+import Foundation
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "machineids")
 
@@ -47,10 +47,13 @@ let unknownReasonCutoffHours = 48
 // If on the unknown list - 48 hours grace to get back on the TDL before being disallowed
 let unknownCutoffHours = 48
 
+// If a machineID doesn't appear on the TDL and hasn't been modified in the last 10+ days, then TPH shouldn't send the metric
+let vanishedCutoffHours = 240
+
 extension Container {
     // CoreData suggests not using heavyweight migrations, so we have two locations to store the machine ID list.
     // Perform our own migration from the no-longer-used field.
-    internal static func onqueueUpgradeMachineIDSetToModel(container: ContainerMO, moc: NSManagedObjectContext) {
+    internal static func onqueueUpgradeMachineIDSetToModel(container: ContainerMO, moc: NSManagedObjectContext) throws {
         let knownMachineMOs = container.machines as? Set<MachineMO> ?? Set()
         let knownMachineIDs = Set(knownMachineMOs.compactMap { $0.machineID })
 
@@ -67,9 +70,11 @@ extension Container {
         }
 
         container.allowedMachineIDs = Set<String>() as NSSet
+
+        try moc.save()
     }
 
-    internal static func onqueueUpgradeMachineIDSetToUseStatus(container: ContainerMO, moc: NSManagedObjectContext) {
+    internal static func onqueueUpgradeMachineIDSetToUseStatus(container: ContainerMO, moc: NSManagedObjectContext) throws {
         let knownMachineMOs = container.machines as? Set<MachineMO> ?? Set()
 
         // Once we run this upgrade, we will set the allowed bool to false, since it's unused.
@@ -84,18 +89,17 @@ extension Container {
                 }
                 mo.allowed = false
             }
+            try moc.save()
         }
     }
 
     func enforceIDMSListChanges(knownMachines: Set<MachineMO>) -> Bool {
-        if self.containerMO.honorIDMSListChanges == "YES"{
+        if self.containerMO.honorIDMSListChanges == "YES" {
             return true
         } else if self.containerMO.honorIDMSListChanges == "NO" {
             return false
-        } else if self.containerMO.honorIDMSListChanges == "UNKNOWN" && knownMachines.isEmpty {
+        } else if self.containerMO.honorIDMSListChanges == "UNKNOWN" {
             return false
-        } else if self.containerMO.honorIDMSListChanges == "UNKNOWN" && !knownMachines.isEmpty {
-            return true
         } else {
             return true
         }
@@ -151,7 +155,7 @@ extension Container {
                 break
             }
         }
-        
+
         if duplicateDetected {
             let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
                                                    altDSID: altDSID,
@@ -170,12 +174,11 @@ extension Container {
         return false
     }
 
-    func sendVanishedMetric(egoMachineIDVanished: Bool,
-                            altDSID: String?,
+    func sendVanishedMetric(altDSID: String?,
                             flowID: String?,
-                            deviceSessionID: String?) -> Void {
+                            deviceSessionID: String?) {
 
-        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: [kSecurityRTCFieldEgoMachineIDVanishedFromTDL : egoMachineIDVanished],
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: [kSecurityRTCFieldEgoMachineIDVanishedFromTDL: self.egoMachineIDVanished],
                                                altDSID: altDSID,
                                                flowID: flowID,
                                                deviceSessionID: deviceSessionID,
@@ -204,6 +207,28 @@ extension Container {
         }
 
         return nil
+    }
+
+    func markTrustedDeviceListFetchFailed(reply: @escaping (Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            logger.info("markTrustedDeviceListFetchFailed complete: \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+
+        self.moc.performAndWait {
+            logger.info("Setting honorIDMSListChanges to NO")
+            self.containerMO.honorIDMSListChanges = "NO"
+
+            do {
+                try self.moc.save()
+                reply(nil)
+            } catch {
+                logger.error("Error marking machine ID list as unusable: \(String(describing: error), privacy: .public)")
+                reply(error)
+            }
+        }
     }
 
     func setAllowedMachineIDs(_ allowedMachineIDs: Set<String>,
@@ -235,7 +260,7 @@ extension Container {
         self.moc.performAndWait {
             do {
 
-                var egoMachineID: String? = nil
+                var egoMachineID: String?
                 var egoIsTrusted: Bool = false
 
                 if let egoPeerID = self.containerMO.egoPeerID {
@@ -251,7 +276,7 @@ extension Container {
                     }
                     if let egoPeer {
                         egoMachineID = egoPeer.permanentInfo.machineID
-                        
+
                         do {
                             let status = try self.model.statusOfPeer(withID: egoPeerID)
                             egoIsTrusted = (status != .excluded && status != .unknown && status != .ignored)
@@ -310,7 +335,8 @@ extension Container {
 
                 let detectedDuplicate = self.checkForDuplicateEntriesAndSendMetric(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, flowID: flowID, deviceSessionID: deviceSessionID, altDSID: altDSID, testsAreEnabled: false)
 
-                var midVanishedFromTDL = false
+                self.midVanishedFromTDL = false
+                self.egoMachineIDVanished = false
                 var differences = false
                 self.containerMO.honorIDMSListChanges = honorIDMSListChanges ? "YES" : "NO"
 
@@ -322,7 +348,6 @@ extension Container {
                         logger.info("Machine has no ID: \(String(describing: machine), privacy: .public)")
                         return
                     }
-
                     if allowedMachineIDs.contains(mid) {
                         if machine.status == TPMachineIDStatus.allowed.rawValue {
                             logger.info("Machine ID still trusted: \(String(describing: machine.machineID), privacy: .public)")
@@ -362,8 +387,8 @@ extension Container {
                         }
                     }
 
-                    if let unknowns = unknownReasonRemovals {
-                        if unknowns.contains(mid) {
+                    if let unknownReasons = unknownReasonRemovals {
+                        if unknownReasons.contains(mid) {
                             logger.notice("Unknown reason removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); tagging as unknown reason: \(String(describing: machine.machineID), privacy: .public)")
                             if machine.status == TPMachineIDStatus.unknownReason.rawValue {
                                 self.handleUnknownReasons(machine: machine, listDifferences: &differences)
@@ -378,17 +403,21 @@ extension Container {
 
                     // This machine ID is not on the allow list, user initiated list, evicted list, or unknown reason list. What, if anything, should be done?
 
-                    var egoMachineIDVanished = false
-                    self.testEgoMachineIDVanished = false
+                    if machine.modifiedInPast(hours: vanishedCutoffHours) {
+                        if machine.status != Int64(TPMachineIDStatus.unknown.rawValue) &&
+                            machine.status != Int64(TPMachineIDStatus.ghostedFromTDL.rawValue) &&
+                            machine.status != Int64(TPMachineIDStatus.disallowed.rawValue) {
+                            // machine status must have been either allowed, evicted, or user unknown removal
+                            logger.notice("machineID that vanished: \(String(describing: mid), privacy: .public), last modified : \(String(describing: machine.modifiedDate()))")
 
-                    if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
-                        egoMachineIDVanished = true
-                        self.testEgoMachineIDVanished = true
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDVanished = true
+                            }
+
+                            self.midVanishedFromTDL = true
+                        }
                     }
 
-                    self.sendVanishedMetric(egoMachineIDVanished: egoMachineIDVanished, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
-
-                    midVanishedFromTDL = true
 
                     if machine.status == TPMachineIDStatus.evicted.rawValue {
                         self.handleEvicted(machine: machine, listDifferences: &differences)
@@ -419,8 +448,8 @@ extension Container {
                         machine.status = Int64(TPMachineIDStatus.ghostedFromTDL.rawValue)
                         machine.modified = Date()
                         differences = true
-                } else if machine.status == TPMachineIDStatus.unknown.rawValue {
-                    if machine.modifiedInPast(hours: unknownCutoffHours) {
+                    } else if machine.status == TPMachineIDStatus.unknown.rawValue {
+                        if machine.modifiedInPast(hours: unknownCutoffHours) {
                             logger.info("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown: \(String(describing: machine.machineID), privacy: .public)")
                         } else {
                             logger.notice("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
@@ -530,7 +559,7 @@ extension Container {
                     // Are there any machine IDs in the model that aren't in the list? If so, add them as "unknown"
                     let modelMachineIDs = try self.model.allMachineIDs()
                     modelMachineIDs.forEach { peerMachineID in
-                        if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) && 
+                        if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) &&
                             !(evictedRemovals?.contains(peerMachineID) ?? false) &&
                             !(unknownReasonRemovals?.contains(peerMachineID) ?? false) &&
                             !(userInitiatedRemovals?.contains(peerMachineID) ?? false) {
@@ -556,6 +585,10 @@ extension Container {
                 // We no longer use allowed machine IDs.
                 self.containerMO.allowedMachineIDs = NSSet()
 
+                if self.midVanishedFromTDL {
+                    self.sendVanishedMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
                 let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
                                                        altDSID: altDSID,
                                                        flowID: flowID,
@@ -564,7 +597,7 @@ extension Container {
                                                        testsAreEnabled: false,
                                                        canSendMetrics: true,
                                                        category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
-                if midVanishedFromTDL == false && detectedDuplicate == false && self.testHashMismatchDetected == false {
+                if self.midVanishedFromTDL == false && detectedDuplicate == false && self.testHashMismatchDetected == false {
                     SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
                 } else {
                     SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: nil)
@@ -648,7 +681,7 @@ extension Container {
             do {
                 return try self.model.peer(withID: $0)?.permanentInfo.machineID
             } catch {
-                logger.warning("Error getting peer with machineID \($0, privacy: .public): \(String(describing: error), privacy: .public)")
+                logger.warning("Error getting peer with machineID \($0, privacy: .public): \(error, privacy: .public)")
                 return nil
             }
         })

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -372,10 +372,7 @@ NodesAreContiguous				(ExtendedVCB *			vcb,
 
 /*	Get the current time in UTC (GMT)*/
 EXTERN_API_C( u_int32_t )
-GetTimeUTC						(void);
-
-EXTERN_API_C( u_int32_t )
-LocalToUTC						(u_int32_t 				localTime);
+GetTimeUTC						(bool                   expanded_time);
 
 EXTERN_API_C( u_int32_t )
 UTCToLocal						(u_int32_t 				utcTime);

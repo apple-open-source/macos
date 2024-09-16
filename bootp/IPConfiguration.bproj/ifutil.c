@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1706,6 +1706,88 @@ inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p)
 }
 
 /**
+ ** sysctls
+ **/
+STATIC bool
+sysctl_int_log(const char * name, int new_val, int * old_val)
+{
+    int		error;
+    size_t	len = sizeof(new_val);
+
+    error = sysctlbyname(name, old_val, &len, &new_val, len);
+    if (error != 0) {
+	my_log(LOG_NOTICE,
+	       "sysctlbyname(%s) %d failed, %s (%d)",
+	       name, new_val, strerror(errno), errno);
+    }
+    else {
+	my_log(LOG_NOTICE,
+	       "sysctlbyname(%s) %d -> %d ", name,
+	       *old_val, new_val);
+    }
+    return (error == 0);
+}
+
+STATIC bool
+sysctl_set_integer(const char * name, int val, int * restore_val)
+{
+    bool	was_set = false;
+
+    if (sysctl_int_log(name, val, restore_val)) {
+	was_set = (*restore_val != val);
+    }
+    return (was_set);
+}
+
+STATIC void
+sysctl_restore_integer(const char * name, int restore_val, bool was_set)
+{
+    if (was_set) {
+	int	old_val;
+
+	(void)sysctl_int_log(name, restore_val, &old_val);
+    }
+    else {
+	my_log(LOG_DEBUG, "sysctl %s not modified", name);
+    }
+    return;
+}
+
+#define ROUTE_VERBOSE_KEY		"net.route.verbose"
+#define ROUTE_VERBOSE_VAL		2
+static int S_route_verbose;
+static bool S_route_verbose_was_set;
+
+#define INET6_ICMP6_ND6_DEBUG_KEY	"net.inet6.icmp6.nd6_debug"
+#define INET6_ICMP6_ND6_DEBUG_VAL	2
+static int S_inet6_icmp6_nd6_debug;
+static bool S_inet6_icmp6_nd6_debug_was_set;
+
+PRIVATE_EXTERN void
+set_verbose_sysctls(bool verbose)
+{
+    if (verbose) {
+	S_route_verbose_was_set
+	    = sysctl_set_integer(ROUTE_VERBOSE_KEY,
+				 ROUTE_VERBOSE_VAL,
+				 &S_route_verbose);
+	S_inet6_icmp6_nd6_debug_was_set
+	    = sysctl_set_integer(INET6_ICMP6_ND6_DEBUG_KEY,
+				 INET6_ICMP6_ND6_DEBUG_VAL,
+				 &S_inet6_icmp6_nd6_debug);
+    }
+    else {
+	sysctl_restore_integer(ROUTE_VERBOSE_KEY,
+			       S_route_verbose,
+			       S_route_verbose_was_set);
+	sysctl_restore_integer(INET6_ICMP6_ND6_DEBUG_KEY,
+			       S_inet6_icmp6_nd6_debug,
+			       S_inet6_icmp6_nd6_debug_was_set);
+    }
+}
+
+
+/**
  ** Test Harnesses
  **/
 
@@ -1731,8 +1813,7 @@ CGAPrepareSetForInterface(const char * name, struct in6_cga_prepare * cga_prep)
 	return;
     }
     cga_prep->cga_security_level = 0;
-    fill_with_random(cga_prep->cga_modifier.octets, 
-		     sizeof(cga_prep->cga_modifier.octets));
+    arc4random_buf(cga_prep->cga_modifier.octets, sizeof(cga_prep->cga_modifier.octets));
     return;
 }
 
@@ -1971,3 +2052,24 @@ main(int argc, char * argv[])
 }
 
 #endif /* TEST_PROTOLIST */
+
+#if TEST_VERBOSE_SYSCTLS
+
+boolean_t G_is_netboot;
+
+int
+main(int argc, char * argv[])
+{
+	while (1) {
+	    set_verbose_sysctls(true);
+	    printf("Sleeping for 10\n");
+	    sleep(10);
+	    set_verbose_sysctls(false);
+	    printf("Sleeping for 10\n");
+	    sleep(10);
+	}
+	exit(0);
+	return (0);
+}
+
+#endif /* TEST_VERBOSE_SYSCTLS */

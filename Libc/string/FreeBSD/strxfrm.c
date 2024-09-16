@@ -70,7 +70,7 @@ strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len,
     locale_t loc)
 {
 	size_t slen;
-	wchar_t *wcs, *xf[2];
+	wchar_t *wcs, *xf[COLL_WEIGHTS_MAX];
 	int sverrno;
 
 	if (!*src && dest) {
@@ -80,11 +80,16 @@ strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len,
 	}
 
 	NORMALIZE_LOCALE(loc);
-	if (loc->__collate_load_error || (wcs = __collate_mbstowcs(src, loc)) == NULL)
+	if (XLOCALE_COLLATE(loc)->__collate_load_error ||
+	    (wcs = __collate_mbstowcs(src, loc)) == NULL)
 		return strlcpy(dest, src, len);
 
 	__collate_xfrm(wcs, xf, loc);
 
+	/*
+	 * XXX This and wcsxfrm both need fixed to work in our new localedata
+	 * world.
+	 */
 	slen = wcslen(xf[0]) * XFRM_BYTES;
 	if (xf[1])
 		slen += (wcslen(xf[1]) + 1) * XFRM_BYTES;

@@ -111,12 +111,14 @@ shownode(NODE *n, int f, char const *path)
 		printf(" nxattr=%llu", n->nxattr);
 	if (f & F_DATALESS)
 		printf(" dataless=%lu", n->st_flags & SF_DATALESS);
+	if (f & F_PROTECTION_CLASS)
+		printf(" protectionclass=%d", n->protection_class);
 	
 	printf("\n");
 }
 
 static int
-mismatch(NODE *n1, NODE *n2, int differ, char const *path)
+mismatch(NODE *n1, NODE *n2, uint differ, char const *path)
 {
 
 	if (n2 == NULL) {
@@ -128,8 +130,6 @@ mismatch(NODE *n1, NODE *n2, int differ, char const *path)
 		shownode(n2, differ, path);
 		return (1);
 	}
-	if (!(differ & keys))
-		return(0);
 	printf("\t\t");
 	shownode(n1, differ, path);
 	printf("\t\t");
@@ -140,13 +140,13 @@ mismatch(NODE *n1, NODE *n2, int differ, char const *path)
 static int
 compare_nodes(NODE *n1, NODE *n2, char const *path)
 {
-	int differs;
+	u_int differs = 0;
 	
 	if (n1 != NULL && n1->type == F_LINK)
 		n1->flags &= ~F_MODE;
 	if (n2 != NULL && n2->type == F_LINK)
 		n2->flags &= ~F_MODE;
-	differs = 0;
+
 	if ((n1 == NULL) && (n2 == NULL)) {
 		return 0;
 	} else if (n1 == NULL) {
@@ -215,6 +215,8 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_NXATTR;
 	if (FF(n1, n2, F_DATALESS, st_flags & SF_DATALESS))
 		differs |= F_DATALESS;
+	if (FF(n1, n2, F_PROTECTION_CLASS, protection_class))
+		differs |= F_PROTECTION_CLASS;
 	
 	if (differs) {
 		RECORD_FAILURE(114, WARN_MISMATCH);

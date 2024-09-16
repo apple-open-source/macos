@@ -277,7 +277,7 @@ tiny_check_zero_or_clear(void *ptr, msize_t msize, boolean_t clear)
 		if (!clear) {
 			break;
 		}
-		// fall through
+		MALLOC_FALLTHROUGH;
 	case MALLOC_ZERO_ON_ALLOC:
 		memset(ptr, '\0', TINY_BYTES_FOR_MSIZE(msize));
 		break;
@@ -2250,6 +2250,12 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 				BITMAPV_CLR(tiny_mag_ptr->mag_bitmap, slot);
 			}
 			this_msize = get_tiny_free_size(ptr);
+			if (os_unlikely(this_msize < msize)) {
+				malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+						"Corruption of tiny freelist %p: size too small (%u/%u)\n",
+						ptr, this_msize, msize);
+
+			}
 			tiny_update_region_free_list_for_remove(slot, ptr, next);
 			tiny_check_and_zero_inline_meta_from_freelist(rack, ptr, this_msize);
 			goto add_leftover_and_proceed;
@@ -2266,6 +2272,11 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 	ptr = limit->p;
 	if (ptr) {
 		this_msize = get_tiny_free_size(ptr);
+        if (os_unlikely(this_msize < msize)) {
+            malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
+                    "Corruption of tiny freelist %p: size too small (%u/%u)\n",
+                    ptr, this_msize, msize);
+        }
 		next = free_list_unchecksum_ptr(rack, &ptr->next);
 		if (this_msize - msize > NUM_TINY_SLOTS) {
 			// the leftover will go back to the free list, so we optimize by

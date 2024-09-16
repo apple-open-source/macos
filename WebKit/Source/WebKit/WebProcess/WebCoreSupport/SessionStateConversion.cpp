@@ -72,6 +72,7 @@ static FrameState toFrameState(const HistoryItem& historyItem)
     frameState.originalURLString = historyItem.originalURLString();
     frameState.referrer = historyItem.referrer();
     frameState.target = historyItem.target();
+    frameState.frameID = historyItem.frameID();
 
     frameState.setDocumentState(historyItem.documentState());
     if (RefPtr<SerializedScriptValue> stateObject = historyItem.stateObject())
@@ -128,7 +129,7 @@ static Ref<FormData> toFormData(const HTTPBody& httpBody)
 
     for (const auto& element : httpBody.elements) {
         switchOn(element.data, [&] (const Vector<uint8_t>& data) {
-            formData->appendData(data.data(), data.size());
+            formData->appendData(data.span());
         }, [&] (const HTTPBody::Element::FileData& data) {
             formData->appendFileRange(data.filePath, data.fileStart, data.fileLength.value_or(BlobDataItem::toEndOfFile), data.expectedFileModificationTime);
         }, [&] (const String& blobURLString) {
@@ -144,6 +145,7 @@ static void applyFrameState(WebCore::HistoryItemClient& client, HistoryItem& his
     historyItem.setOriginalURLString(frameState.originalURLString);
     historyItem.setReferrer(frameState.referrer);
     historyItem.setTarget(frameState.target);
+    historyItem.setFrameID(frameState.frameID);
 
     historyItem.setDocumentState(frameState.documentState());
 

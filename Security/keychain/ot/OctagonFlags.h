@@ -14,6 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)_onqueueContains:(OctagonFlag*)flag;
 - (NSArray<NSString*>*)dumpFlags;
 - (CKKSCondition*)conditionForFlag:(OctagonFlag*)flag;
+
+- (CKKSCondition* _Nullable)conditionForFlagIfPresent:(OctagonFlag*)flag;
 @end
 
 @protocol OctagonFlagSetter <OctagonFlagContainer>

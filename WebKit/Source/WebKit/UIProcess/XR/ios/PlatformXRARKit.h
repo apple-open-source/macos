@@ -46,7 +46,7 @@ public:
     ARKitCoordinator();
     virtual ~ARKitCoordinator() = default;
 
-    void getPrimaryDeviceInfo(DeviceInfoCallback&&) override;
+    void getPrimaryDeviceInfo(WebPageProxy&, DeviceInfoCallback&&) override;
     void requestPermissionOnSessionFeatures(WebPageProxy&, const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, FeatureListCallback&&) override;
 
     void startSession(WebPageProxy&, WeakPtr<SessionEventClient>&&, const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList&) override;
@@ -67,7 +67,7 @@ private:
     struct Idle {
     };
     struct Active {
-        WeakPtr<PlatformXRCoordinator::SessionEventClient> sessionEventClient;
+        WeakPtr<PlatformXRCoordinatorSessionEventClient> sessionEventClient;
         WebCore::PageIdentifier pageIdentifier;
         Box<RenderState> renderState;
         RefPtr<Thread> renderThread;

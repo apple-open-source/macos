@@ -763,7 +763,7 @@ ipc_port_init_validate_flags(ipc_port_init_flags_t flags)
 {
 	uint32_t at_most_one_flags = flags & (IPC_PORT_ENFORCE_REPLY_PORT_SEMANTICS |
 	    IPC_PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS |
-	    IPC_PORT_INIT_PROVISIONAL_ID_PROT_OPTOUT |
+	    IPC_PORT_INIT_EXCEPTION_PORT |
 	    IPC_PORT_INIT_PROVISIONAL_REPLY);
 
 	if (at_most_one_flags & (at_most_one_flags - 1)) {
@@ -830,8 +830,8 @@ ipc_port_init(
 		ip_mark_provisional_reply_port(port);
 	}
 
-	if (flags & IPC_PORT_INIT_PROVISIONAL_ID_PROT_OPTOUT) {
-		ip_mark_id_prot_opt_out(port);
+	if (flags & IPC_PORT_INIT_EXCEPTION_PORT) {
+		ip_mark_exception_port(port);
 		port->ip_immovable_receive = true;
 	}
 
@@ -1775,7 +1775,7 @@ retry_alloc:
  *		ref becomes zero, deallocate the turnstile.
  *
  *	Conditions:
- *		The space might be locked, use safe deallocate.
+ *		The space might be locked
  */
 void
 ipc_port_send_turnstile_complete(ipc_port_t port)
@@ -1795,7 +1795,7 @@ ipc_port_send_turnstile_complete(ipc_port_t port)
 	turnstile_cleanup();
 
 	if (turnstile != TURNSTILE_NULL) {
-		turnstile_deallocate_safe(turnstile);
+		turnstile_deallocate(turnstile);
 		turnstile = TURNSTILE_NULL;
 	}
 }
@@ -2134,11 +2134,11 @@ not_special:
 	} else if (ts) {
 		/* Call turnstile cleanup after dropping the interlock */
 		turnstile_update_inheritor_complete(ts, TURNSTILE_INTERLOCK_NOT_HELD);
-		turnstile_deallocate_safe(ts);
+		turnstile_deallocate(ts);
 	}
 
 	if (port_stashed_turnstile) {
-		turnstile_deallocate_safe(port_stashed_turnstile);
+		turnstile_deallocate(port_stashed_turnstile);
 	}
 
 	/* Release the ref on the dest port and its turnstile */
@@ -2193,7 +2193,7 @@ ipc_port_adjust_sync_link_state_locked(
 		break;
 	case PORT_SYNC_LINK_WORKLOOP_STASH:
 		/* deallocate the turnstile reference for the inheritor */
-		turnstile_deallocate_safe(port->ip_messages.imq_inheritor_turnstile);
+		turnstile_deallocate(port->ip_messages.imq_inheritor_turnstile);
 		break;
 	}
 
@@ -2453,7 +2453,7 @@ ipc_port_send_turnstile_recompute_push_locked(
 	if (send_turnstile) {
 		turnstile_update_inheritor_complete(send_turnstile,
 		    TURNSTILE_INTERLOCK_NOT_HELD);
-		turnstile_deallocate_safe(send_turnstile);
+		turnstile_deallocate(send_turnstile);
 	}
 }
 

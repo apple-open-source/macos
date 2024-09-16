@@ -730,7 +730,7 @@ lint ::
 #  ldconfig:      
 #  overwrite:     no
 #  depend:        ../include/ncurses_cfg.h ./curses.priv.h
-#  host:          x86_64-apple-darwin22.0.0
+#  host:          arm-apple-darwin23.0.0
 
 SHARED_OBJS = \
 	../obj_s/hardscroll$o \

@@ -49,7 +49,7 @@ public:
     IDBFactory* indexedDB();
 
 private:
-    static const char* supplementName() { return "DOMWindowIndexedDatabase"; }
+    static ASCIILiteral supplementName() { return "DOMWindowIndexedDatabase"_s; }
 
     RefPtr<IDBFactory> m_idbFactory;
 };
@@ -64,7 +64,7 @@ public:
     IDBFactory* indexedDB();
 
 private:
-    static const char* supplementName() { return "WorkerGlobalScopeIndexedDatabase"; }
+    static ASCIILiteral supplementName() { return "WorkerGlobalScopeIndexedDatabase"_s; }
 
     RefPtr<IDBFactory> m_idbFactory;
     Ref<IDBClient::IDBConnectionProxy> m_connectionProxy;
@@ -152,9 +152,12 @@ IDBFactory* WindowOrWorkerGlobalScopeIndexedDatabase::indexedDB(WorkerGlobalScop
     return scopeIDB ? scopeIDB->indexedDB() : nullptr;
 }
 
-IDBFactory* WindowOrWorkerGlobalScopeIndexedDatabase::indexedDB(LocalDOMWindow& window)
+IDBFactory* WindowOrWorkerGlobalScopeIndexedDatabase::indexedDB(DOMWindow& window)
 {
-    return DOMWindowIndexedDatabase::from(window)->indexedDB();
+    RefPtr localWindow = dynamicDowncast<LocalDOMWindow>(window);
+    if (!localWindow)
+        return nullptr;
+    return DOMWindowIndexedDatabase::from(*localWindow)->indexedDB();
 }
 
 } // namespace WebCore

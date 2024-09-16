@@ -29,7 +29,6 @@
 #include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
-#if USE(EGL)
 typedef intptr_t EGLAttrib;
 typedef void *EGLClientBuffer;
 typedef void *EGLContext;
@@ -41,7 +40,6 @@ typedef void *EGLDeviceEXT;
 #endif
 #if USE(GBM)
 struct gbm_device;
-#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -61,9 +59,17 @@ typedef struct _GstGLDisplay GstGLDisplay;
 #include "LCMSUniquePtr.h"
 #endif
 
+#if USE(SKIA)
+#include <skia/gpu/GrDirectContext.h>
+#include <wtf/ThreadSafeWeakHashSet.h>
+#endif
+
 namespace WebCore {
 
 class GLContext;
+#if USE(SKIA)
+class SkiaGLContext;
+#endif
 
 class PlatformDisplay {
     WTF_MAKE_NONCOPYABLE(PlatformDisplay); WTF_MAKE_FAST_ALLOCATED;
@@ -85,22 +91,16 @@ public:
 #if USE(WPE_RENDERER)
         WPE,
 #endif
-#if USE(EGL)
         Surfaceless,
 #if USE(GBM)
         GBM,
-#endif
 #endif
     };
 
     virtual Type type() const = 0;
 
-#if USE(EGL)
     WEBCORE_EXPORT GLContext* sharingGLContext();
     void clearSharingGLContext();
-#endif
-
-#if USE(EGL)
     EGLDisplay eglDisplay() const;
     bool eglCheckVersion(int major, int minor) const;
 
@@ -136,12 +136,16 @@ public:
     EGLDisplay angleEGLDisplay() const;
     EGLContext angleSharingGLContext();
 #endif
-#endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
     GstGLDisplay* gstGLDisplay() const;
     GstGLContext* gstGLContext() const;
     void clearGStreamerGLState();
+#endif
+
+#if USE(SKIA)
+    GLContext* skiaGLContext();
+    GrDirectContext* skiaGrContext();
 #endif
 
 #if USE(LCMS)
@@ -164,14 +168,13 @@ protected:
 
     static void setSharedDisplayForCompositing(PlatformDisplay&);
 
+    virtual void initializeEGLDisplay();
+
 #if PLATFORM(GTK)
     virtual void sharedDisplayDidClose();
 
     GRefPtr<GdkDisplay> m_sharedDisplay;
 #endif
-
-#if USE(EGL)
-    virtual void initializeEGLDisplay();
 
     EGLDisplay m_eglDisplay;
     bool m_eglDisplayOwned { true };
@@ -185,7 +188,6 @@ protected:
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     std::optional<int> m_anglePlatform;
     void* m_angleNativeDisplay { nullptr };
-#endif
 #endif
 
 #if USE(LCMS)
@@ -201,11 +203,14 @@ protected:
 private:
     static std::unique_ptr<PlatformDisplay> createPlatformDisplay();
 
+#if USE(SKIA)
+    void invalidateSkiaGLContexts();
+#endif
+
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     void clearANGLESharingGLContext();
 #endif
 
-#if USE(EGL)
     void terminateEGLDisplay();
 #if USE(LIBDRM)
     EGLDeviceEXT eglDevice();
@@ -222,11 +227,14 @@ private:
 #if USE(GBM)
     Vector<DMABufFormat> m_dmabufFormats;
 #endif
-#endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
     mutable GRefPtr<GstGLDisplay> m_gstGLDisplay;
     mutable GRefPtr<GstGLContext> m_gstGLContext;
+#endif
+
+#if USE(SKIA)
+    ThreadSafeWeakHashSet<SkiaGLContext> m_skiaGLContexts;
 #endif
 
 #if PLATFORM(WPE)

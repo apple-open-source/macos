@@ -42,7 +42,7 @@ enum class MediaPlayerPitchCorrectionAlgorithm : uint8_t;
 
 class MediaSessionManagerCocoa
     : public PlatformMediaSessionManager
-    , private NowPlayingManager::Client
+    , private NowPlayingManagerClient
     , private AudioHardwareListener::Client {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -61,6 +61,7 @@ public:
 
     void prepareToSendUserMediaPermissionRequest() final;
 
+    std::optional<NowPlayingInfo> nowPlayingInfo() const final { return m_nowPlayingInfo; }
     static WEBCORE_EXPORT void clearNowPlayingInfo();
     static WEBCORE_EXPORT void setNowPlayingInfo(bool setAsNowPlayingApplication, const NowPlayingInfo&);
 
@@ -83,6 +84,7 @@ public:
 protected:
     void scheduleSessionStatusUpdate() final;
     void updateNowPlayingInfo();
+    void updateActiveNowPlayingSession(CheckedPtr<PlatformMediaSession>);
 
     void removeSession(PlatformMediaSession&) final;
     void addSession(PlatformMediaSession&) final;
@@ -107,10 +109,10 @@ protected:
 
 private:
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "MediaSessionManagerCocoa"; }
+    ASCIILiteral logClassName() const override { return "MediaSessionManagerCocoa"_s; }
 #endif
 
-    // NowPlayingManager::Client
+    // NowPlayingManagerClient
     void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType type, const PlatformMediaSession::RemoteCommandArgument& argument) final { processDidReceiveRemoteControlCommand(type, argument); }
 
     // AudioHardwareListenerClient
@@ -131,6 +133,7 @@ private:
     double m_lastUpdatedNowPlayingDuration { NAN };
     double m_lastUpdatedNowPlayingElapsedTime { NAN };
     MediaUniqueIdentifier m_lastUpdatedNowPlayingInfoUniqueIdentifier;
+    std::optional<NowPlayingInfo> m_nowPlayingInfo;
 
     const std::unique_ptr<NowPlayingManager> m_nowPlayingManager;
     RefPtr<AudioHardwareListener> m_audioHardwareListener;
@@ -143,6 +146,6 @@ private:
     bool m_previousHadAudibleAudioOrVideoMediaType { false };
 };
 
-}
+} // namespace WebCore
 
 #endif // PLATFORM(COCOA)

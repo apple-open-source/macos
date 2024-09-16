@@ -21,6 +21,8 @@ notify_register_mach_port: CODE_SIGN_ENTITLEMENTS = notify_register_mach_port.en
 notify_register_mach_port: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
 notify_register_mach_port: OTHER_CFLAGS += $(OBJROOT)/rnserver.c -I $(OBJROOT)
 
+notify_introspect: CODE_SIGN_ENTITLEMENTS = notify_introspect.entitlements
+
 ifneq ($(wildcard $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common),)
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
@@ -29,6 +31,7 @@ EXCLUDED_SOURCES := \
 	random_test.c \
 	notify_control.c \
 	notify_test_helper.c \
+	notify_loopback_test_helper.c \
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 

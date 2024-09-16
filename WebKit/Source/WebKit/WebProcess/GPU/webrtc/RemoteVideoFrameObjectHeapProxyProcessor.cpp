@@ -34,6 +34,7 @@
 #include "RemoteVideoFrameProxy.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
+#include <WebCore/NativeImage.h>
 #include <WebCore/PixelBufferConformerCV.h>
 
 namespace WebKit {
@@ -49,7 +50,7 @@ Ref<RemoteVideoFrameObjectHeapProxyProcessor> RemoteVideoFrameObjectHeapProxyPro
 
 RemoteVideoFrameObjectHeapProxyProcessor::RemoteVideoFrameObjectHeapProxyProcessor(GPUProcessConnection& connection)
     : m_connection(&connection.connection())
-    , m_queue(WorkQueue::create("RemoteVideoFrameObjectHeapProxy", WorkQueue::QOS::UserInteractive))
+    , m_queue(WorkQueue::create("RemoteVideoFrameObjectHeapProxy"_s, WorkQueue::QOS::UserInteractive))
 {
     connection.addClient(*this);
 }

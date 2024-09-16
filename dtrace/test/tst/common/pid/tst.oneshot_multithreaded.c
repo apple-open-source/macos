@@ -6,6 +6,7 @@
  */
 
 #include <pthread.h>
+#include <pthread/qos_private.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

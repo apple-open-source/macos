@@ -28,7 +28,7 @@
 #include "ProcessIdentifier.h"
 #include <wtf/Hasher.h>
 #include <wtf/Markable.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -87,9 +87,6 @@ public:
 
     String toString() const { return makeString(m_processIdentifier.toUInt64(), '-', m_object.toUInt64()); }
 
-    template<typename Encoder> void encode(Encoder& encoder) const { encoder << m_object << m_processIdentifier; }
-    template<typename Decoder> static std::optional<ProcessQualified> decode(Decoder&);
-
     struct MarkableTraits {
         static bool isEmptyValue(const ProcessQualified& identifier) { return !identifier; }
         static constexpr ProcessQualified emptyValue() { return { }; }
@@ -99,20 +96,6 @@ private:
     T m_object;
     ProcessIdentifier m_processIdentifier;
 };
-
-template <typename T>
-template<typename Decoder> std::optional<ProcessQualified<T>> ProcessQualified<T>::decode(Decoder& decoder)
-{
-    std::optional<T> object;
-    decoder >> object;
-    if (!object)
-        return std::nullopt;
-    std::optional<ProcessIdentifier> processIdentifier;
-    decoder >> processIdentifier;
-    if (!processIdentifier)
-        return std::nullopt;
-    return { { *object, *processIdentifier } };
-}
 
 template <typename T>
 inline TextStream& operator<<(TextStream& ts, const ProcessQualified<T>& processQualified)

@@ -75,6 +75,8 @@ SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 	@constant kSecCodeSignerFlags A CFNumber specifying which flags to set in the code signature.
 		Note that depending on circumstances, this value may be augmented or modified
 		as part of the signing operation.
+ 	@constant kSecCodeSignerForceLibraryEntitlements A boolean value. If true, and entitlements
+ 		are present, entitlements will be included in signature of libraries (non-main executables).
 	@constant kSecCodeSignerIdentifier If present, a CFString that explicitly specifies
 		the unique identifier string sealed into the code signature. If absent, the identifier
 		is derived implicitly from the code being signed.
@@ -165,6 +167,9 @@ SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
 
 extern const CFStringRef kSecCodeSignerFlags
 SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));
+
+extern const CFStringRef kSecCodeSignerForceLibraryEntitlements
+SPI_AVAILABLE(macos(15.0), ios(18.0), macCatalyst(18.0));
 
 extern const CFStringRef kSecCodeSignerIdentifier
 SPI_AVAILABLE(macos(10.5), ios(15.0), macCatalyst(13.0));

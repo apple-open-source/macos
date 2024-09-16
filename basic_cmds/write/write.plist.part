@@ -11,6 +11,7 @@
 		<array>
 			<string>write.c: work even w/o local tty</string>
 			<string>write.c: don't use possibly non-NUL terminated ut_line</string>
+			<string>write.c: don't install a SIGHUP handler for conformance (128143269)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

@@ -155,7 +155,13 @@
     [self.deps.cuttlefishXPCWrapper requestHealthCheckWithSpecificUser:self.deps.activeAccount
                                                    requiresEscrowCheck:[self checkIfPasscodeIsSetForDevice]
                                                                 repair:self.repair
+#if TARGET_OS_TV
+                                                      knownFederations:[NSArray array]
+#else
                                                       knownFederations:[SecureBackup knownICDPFederations:NULL]
+#endif
+                                                                flowID:self.deps.flowID
+                                                       deviceSessionID:self.deps.deviceSessionID 
                                                                  reply:^(TrustedPeersHelperHealthCheckResult* result, NSError *error) {
             STRONGIFY(self);
             if(error) {

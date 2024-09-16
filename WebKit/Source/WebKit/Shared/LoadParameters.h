@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "DataReference.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "PolicyDecision.h"
 #include "SandboxExtension.h"
@@ -34,6 +33,8 @@
 #include <WebCore/AdvancedPrivacyProtections.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/OwnerPermissionsPolicyData.h>
+#include <WebCore/PublicSuffixStore.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ShouldTreatAsContinuingLoad.h>
 #include <WebCore/SubstituteData.h>
@@ -46,16 +47,13 @@ class Encoder;
 }
 
 namespace WebCore {
-typedef int SandboxFlags;
+using SandboxFlags = int;
 }
 
 namespace WebKit {
 
 struct LoadParameters {
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    String topPrivatelyControlledDomain;
-    String host;
-#endif
+    WebCore::PublicSuffix publicSuffix;
 
     uint64_t navigationID { 0 };
     std::optional<WebCore::FrameIdentifier> frameIdentifier;
@@ -63,7 +61,7 @@ struct LoadParameters {
     WebCore::ResourceRequest request;
     SandboxExtension::Handle sandboxExtensionHandle;
 
-    IPC::DataReference data;
+    std::span<const uint8_t> data;
     String MIMEType;
     String encodingName;
 
@@ -81,6 +79,7 @@ struct LoadParameters {
     WebCore::SubstituteData::SessionHistoryVisibility sessionHistoryVisibility { WebCore::SubstituteData::SessionHistoryVisibility::Visible };
     String clientRedirectSourceForHistory;
     WebCore::SandboxFlags effectiveSandboxFlags { 0 };
+    std::optional<WebCore::OwnerPermissionsPolicyData> ownerPermissionsPolicy;
     std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
     bool isServiceWorkerLoad { false };
@@ -88,8 +87,9 @@ struct LoadParameters {
 #if PLATFORM(COCOA)
     std::optional<double> dataDetectionReferenceDate;
 #endif
+    bool isRequestFromClientOrUserInput { false };
 
-    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
+    std::optional<OptionSet<WebCore::AdvancedPrivacyProtections>> advancedPrivacyProtections;
 };
 
 } // namespace WebKit

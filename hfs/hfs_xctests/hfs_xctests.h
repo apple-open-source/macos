@@ -9,7 +9,9 @@
 #define hfs_xctests_h
 
 #import <XCTest/XCTest.h>
+#import <FSKitTesting/FSKitTesting.h>
 #import <UVFSPluginTesting/UVFSPluginTests.h>
+#import <UVFSPluginTesting/UVFSPluginPerformanceTests.h>
 
 @interface HFSUnitTests : UVFSPluginUnitTests
 

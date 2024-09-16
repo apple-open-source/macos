@@ -1,7 +1,7 @@
 /*
 	File:		MBCAbout.mm
 	Contains:	Show the about box
-	Copyright:	© 2003-2010 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -81,7 +81,7 @@
 {
 	NSURL * url = 
 		[NSURL 
-			URLWithString:@"http://www.opensource.apple.com/source/Chess/"];
+			URLWithString:@"http://www.opensource.apple.com/releases/"];
 	[[NSWorkspace sharedWorkspace] openURL:url];
 }				
 

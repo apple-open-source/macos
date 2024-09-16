@@ -574,8 +574,8 @@ main(int argc, char *argv[])
 			t = strtod(optarg, &e);
 			if (*optarg == '\0' || *e != '\0')
 				errx(1, "illegal timing interval %s", optarg);
-			if (t < 0.1 && getuid()) {
-				errx(1, "%s: only root may use interval < 1s",
+			if (t < 0.002 && getuid()) {
+				errx(1, "%s: only root may use interval < 0.002s",
 				    strerror(EPERM));
 			}
 			intvl.tv_sec = (long)t;

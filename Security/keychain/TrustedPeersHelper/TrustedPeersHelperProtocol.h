@@ -31,11 +31,12 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 #import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSCurrentItemPointer.h"
 
 #import "keychain/ot/OTConstants.h"
 
-#import "keychain/ot/proto/generated_source/OTEscrowMoveRequestContext.h"
 @class OTAccountSettings;
+@class OTEscrowMoveRequestContext;
 NS_ASSUME_NONNULL_BEGIN
 
 // Any client hoping to use the TrustedPeersHelperProtocol should have an entitlement
@@ -172,6 +173,44 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSDictionary*)dictionaryRepresentation;
 @end
 
+@interface CuttlefishPCSServiceIdentifier : NSObject <NSSecureCoding>
+@property (nullable) NSNumber* PCSServiceID;
+@property (nullable) NSData* PCSPublicKey;
+@property (nullable) NSString* zoneID;
+
+- (instancetype)init:(NSNumber*)PCSServiceID
+        PCSPublicKey:(NSData*)PCSPublicKey
+              zoneID:(NSString*)zoneID;
+
+@end
+
+@interface CuttlefishPCSIdentity : NSObject <NSSecureCoding>
+@property CuttlefishPCSServiceIdentifier* service;
+@property CKRecord* item;
+
+- (instancetype)init:(CuttlefishPCSServiceIdentifier*)service
+                item:(CKRecord*)item;
+
+@end
+
+@interface CuttlefishCurrentItemSpecifier : NSObject <NSSecureCoding>
+@property NSString* zoneID;
+@property NSString* itemPtrName;
+
+- (instancetype)init:(NSString*)itemPtrName
+              zoneID:(NSString*)zoneID;
+
+@end
+
+@interface CuttlefishCurrentItem : NSObject <NSSecureCoding>
+@property CuttlefishCurrentItemSpecifier* itemPtr;
+@property CKRecord* item;
+
+- (instancetype)init:(CuttlefishCurrentItemSpecifier*)itemPtr
+                item:(CKRecord*)item;
+
+@end
+
 // This protocol describes the interface of the TrustedPeersHelper XPC service.
 @protocol TrustedPeersHelperProtocol
 
@@ -232,6 +271,10 @@ NS_ASSUME_NONNULL_BEGIN
                            deletedDeviceHash:(NSString * _Nullable)deletedDeviceHash
                trustedDevicesUpdateTimestamp:(NSNumber * _Nullable)trustedDevicesUpdateTimestamp
                                        reply:(void (^)(BOOL listDifferences, NSError * _Nullable error))reply;
+
+// Tell TPH that we were unable to fetch the TDL, and so it shouldn't enforce the list until setAllowedMachineIDsWithSpecificUser is called
+- (void)markTrustedDeviceListFetchFailed:(TPSpecificUser* _Nullable)specificUser
+                                   reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)fetchAllowedMachineIDsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                          reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))reply;
@@ -465,6 +508,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)fetchViableBottlesWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                     source:(OTEscrowRecordFetchSource)source
+                                    flowID:(NSString * _Nullable)flowID
+                           deviceSessionID:(NSString * _Nullable)deviceSessionID
                                      reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
 - (void)fetchViableEscrowRecordsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -533,6 +578,8 @@ NS_ASSUME_NONNULL_BEGIN
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
                           knownFederations:(NSArray<NSString *> *)knownFederations
+                                    flowID:(NSString* _Nullable )flowID
+                           deviceSessionID:(NSString* _Nullable )deviceSessionID
                                      reply:(void (^)(TrustedPeersHelperHealthCheckResult* _Nullable result, NSError* _Nullable error))reply;
 
 - (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
@@ -551,7 +598,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 - (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                                       forceFetch:(bool)forceFetch
+                                  forceFetch:(bool)forceFetch
                                        reply:(void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable setting,
                                                        NSError* _Nullable error))reply;
 
@@ -579,6 +626,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)octagonContainsDistrustedRecoveryKeysWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                                         reply:(void (^)(BOOL containsDistrusted, NSError* _Nullable error))reply;
+
+- (void)fetchCurrentItemWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                    items:(NSArray<CuttlefishCurrentItemSpecifier*> *)items
+                                    reply:(void (^)(NSArray<CuttlefishCurrentItem*>* _Nullable items, NSArray<CKRecord*>* _Nullable syncKeyRecords, NSError* _Nullable error))reply;
+
+
+- (void)fetchPCSIdentityByPublicKeyWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                        pcsservices:(NSArray<CuttlefishPCSServiceIdentifier*> *)pcsservices
+                                              reply:(void (^)(NSArray<CuttlefishPCSIdentity*>* _Nullable pcsIdentities, NSArray<CKRecord*>* _Nullable syncKeyRecords, NSError* _Nullable error))reply;
+
 @end
 
 /*

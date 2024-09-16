@@ -32,7 +32,8 @@
 
 #if TARGET_OS_BRIDGE
 /* For BridgeOS, only two tests are currently working */
-#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_AuthorizationTests _TRUE_
+#define BATS_UTD_Disabled_AuthorizationRootTests _TRUE_
 #define BATS_UTD_Disabled_EduModeTest _FALSE_
 #define BATS_UTD_Disabled_KCPairingTest _TRUE_
 #define BATS_UTD_Disabled_KeychainAnalyticsTests _TRUE_
@@ -50,11 +51,13 @@
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _TRUE_
+#define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
 
 #elif TARGET_OS_OSX
 /* For MacOS, we disable the iOS only tests. */
-#define BATS_UTD_Disabled_AuthorizationTest _FALSE_
+#define BATS_UTD_Disabled_AuthorizationTests _FALSE_
+#define BATS_UTD_Disabled_AuthorizationRootTests _FALSE_
 #define BATS_UTD_Disabled_EduModeTest _FALSE_
 #define BATS_UTD_Disabled_KCPairingTest _FALSE_
 #define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
@@ -71,11 +74,13 @@
 #define BATS_UTD_Disabled_SecStaticCodeAPITestUnsigned _FALSE_
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _FALSE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _FALSE_
-#define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
+#define BATS_UTD_Disabled_SecurityUnitTests _TRUE_
+#define BATS_UTD_Disabled_SecurityUnitTestsMacOS _FALSE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _FALSE_
 
 #elif TARGET_OS_WATCH
-#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_AuthorizationTests _TRUE_
+#define BATS_UTD_Disabled_AuthorizationRootTests _TRUE_
 #define BATS_UTD_Disabled_EduModeTest _FALSE_
 #define BATS_UTD_Disabled_KCPairingTest _FALSE_
 #define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
@@ -93,10 +98,12 @@
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
+#define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
 
 #elif TARGET_OS_TV
-#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_AuthorizationTests _TRUE_
+#define BATS_UTD_Disabled_AuthorizationRootTests _TRUE_
 #define BATS_UTD_Disabled_EduModeTest _FALSE_
 #define BATS_UTD_Disabled_KCPairingTest _FALSE_
 #define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
@@ -114,11 +121,13 @@
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _TRUE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
+#define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _TRUE_
 
 #else
 /* By default, assume iOS platforms. We disable the MacOS only tests. */
-#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_AuthorizationTests _TRUE_
+#define BATS_UTD_Disabled_AuthorizationRootTests _TRUE_
 #define BATS_UTD_Disabled_EduModeTest _FALSE_
 #define BATS_UTD_Disabled_KCPairingTest _FALSE_
 #define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
@@ -136,6 +145,7 @@
 #define BATS_UTD_Disabled_SecLegacyCodeRegressions _TRUE_
 #define BATS_UTD_Disabled_SecCodeSignerAPITest _FALSE_
 #define BATS_UTD_Disabled_SecurityUnitTests _FALSE_
+#define BATS_UTD_Disabled_SecurityUnitTestsMacOS _TRUE_
 #define BATS_UTD_Disabled_CodesigningUnitTests _FALSE_
 
 #endif

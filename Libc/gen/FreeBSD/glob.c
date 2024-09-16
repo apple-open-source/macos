@@ -989,7 +989,7 @@ match(Char *name, Char *pat, Char *patend, locale_t loc)
 					++pat;
 				while (((c = *pat++) & M_MASK) != M_END)
 					if ((*pat & M_MASK) == M_RNG) {
-						if (loc->__collate_load_error ?
+						if (XLOCALE_COLLATE(loc)->__collate_load_error ?
 							CHAR(c) <= CHAR(k) && CHAR(k) <= CHAR(pat[1]) :
 							   __collate_range_cmp(CHAR(c), CHAR(k), loc) <= 0
 							&& __collate_range_cmp(CHAR(k), CHAR(pat[1]), loc) <= 0

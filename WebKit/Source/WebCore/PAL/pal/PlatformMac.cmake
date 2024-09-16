@@ -30,6 +30,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     cocoa/VisionKitCoreSoftLink.h
     cocoa/VisionSoftLink.h
     cocoa/WebPrivacySoftLink.h
+    cocoa/WritingToolsUISoftLink.h
 
     mac/DataDetectorsSoftLink.h
     mac/LookupSoftLink.h
@@ -69,9 +70,6 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/IOKitSPI.h
     spi/cocoa/IOPMLibSPI.h
     spi/cocoa/IOPSLibSPI.h
-    spi/cocoa/IOReturnSPI.h
-    spi/cocoa/IOSurfaceSPI.h
-    spi/cocoa/IOTypesSPI.h
     spi/cocoa/LaunchServicesSPI.h
     spi/cocoa/LinkPresentationSPI.h
     spi/cocoa/MediaToolboxSPI.h
@@ -98,6 +96,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/PassKitSPI.h
     spi/cocoa/QuartzCoreSPI.h
     spi/cocoa/RevealSPI.h
+    spi/cocoa/SQLite3SPI.h
     spi/cocoa/SceneKitSPI.h
     spi/cocoa/SecKeyProxySPI.h
     spi/cocoa/ServersSPI.h
@@ -193,8 +192,9 @@ list(APPEND PAL_SOURCES
     cocoa/UsageTrackingSoftLink.mm
     cocoa/VisionKitCoreSoftLink.mm
     cocoa/WebPrivacySoftLink.mm
+    cocoa/WritingToolsUISoftLink.mm
 
-    crypto/commoncrypto/CryptoDigestCommonCrypto.cpp
+    crypto/commoncrypto/CryptoDigestCommonCrypto.mm
 
     mac/DataDetectorsSoftLink.mm
     mac/LookupSoftLink.mm

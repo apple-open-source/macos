@@ -1,2 +1,2 @@
-/^extra=/s/""/"-D_DARWIN_C_SOURCE"/
+/^extra=/s/""/"-D_DARWIN_C_SOURCE -fno-typed-memory-operations-experimental -fno-typed-cxx-new-delete"/
 w

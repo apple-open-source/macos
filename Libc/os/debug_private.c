@@ -38,6 +38,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <os/log_simple_private.h>
+#include <ptrauth.h>
 
 struct os_debug_log_globals_s {
 	uint64_t start;
@@ -91,15 +92,30 @@ _os_debug_log_open_file(const char *suggestion)
 	return -1;
 }
 
+__attribute__((weak))
+bool
+_os_debug_log_redirect_func(const char *message)
+{
+	return false;
+}
+
+extern char __text_start __asm__("section$start$__TEXT$__text");
+extern char __text_end __asm__("section$end$__TEXT$__text");
+
 static
 void
 _os_debug_log_init(void *globals)
 {
 	struct os_debug_log_globals_s *g = globals;
+	os_redirect_t redirect = &_os_debug_log_redirect_func;
+	char *addr = (char *)ptrauth_strip(redirect, ptrauth_key_function_pointer);
 
 	g->errors_only = false;
 
-	g->redirect = dlsym(RTLD_MAIN_ONLY, "_os_debug_log_redirect_func");
+	/* check if our weak _os_debug_log_redirect_func was overriden */
+	if (addr < &__text_start || &__text_end <= addr) {
+		g->redirect = redirect;
+	}
 
 	// This is a bit of a hack. LIBDISPATCH_LOG is part of dispatch's API.
 	// But now all dispatch logging goes through os_debug_log. So we have to

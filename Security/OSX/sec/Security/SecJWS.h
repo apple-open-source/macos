@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 extern NSString *const SecJWSErrorDomain;
 
-typedef NS_ENUM(NSInteger, SecJWSError) {
+typedef NS_ERROR_ENUM(SecJWSErrorDomain, SecJWSError) {
     SecJWSErrorInvalidCompactEncoding,            /// Not compact encoding
     SecJWSErrorCompactEncodingParseError,         /// Did not have all 3-tuple compact encoding segments
     SecJWSErrorCompactEncodingClaimError,         /// The Claim body is invalid or unparseable for this specification
@@ -51,9 +51,10 @@ typedef NS_ENUM(NSInteger, SecJWSError) {
 @interface SecJWSDecoder : NSObject
 @property (nonatomic, readonly) NSString *keyID;
 @property (nonatomic, readonly) NSData *payload;
+@property (nonatomic, readonly) NSData *signature;
 @property (nonatomic, readonly) NSError *verificationError;   /// One of the SecJWSError errors
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithJWSCompactEncodedString:(NSString *)compactEncodedString keyID:(NSString *)keyID publicKey:(SecKeyRef)publicKeyRef NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithJWSCompactEncodedString:(NSString *)compactEncodedString keyID:(NSString * _Nullable)keyID publicKey:(SecKeyRef)publicKeyRef NS_DESIGNATED_INITIALIZER;
 - (NSData *) dataWithBase64URLEncodedString:(NSString *)base64URLEncodedString;
 @end
 

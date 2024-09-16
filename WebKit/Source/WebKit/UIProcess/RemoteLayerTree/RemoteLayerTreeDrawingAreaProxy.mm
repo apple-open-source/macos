@@ -105,6 +105,18 @@ void RemoteLayerTreeDrawingAreaProxy::sizeDidChange()
     sendUpdateGeometry();
 }
 
+void RemoteLayerTreeDrawingAreaProxy::remotePageProcessDidTerminate(WebCore::ProcessIdentifier processIdentifier)
+{
+    if (!m_remoteLayerTreeHost)
+        return;
+
+    if (auto* scrollingCoordinator = m_webPageProxy->scrollingCoordinatorProxy()) {
+        scrollingCoordinator->willCommitLayerAndScrollingTrees();
+        m_remoteLayerTreeHost->remotePageProcessDidTerminate(processIdentifier);
+        scrollingCoordinator->didCommitLayerAndScrollingTrees();
+    }
+}
+
 void RemoteLayerTreeDrawingAreaProxy::viewWillStartLiveResize()
 {
     if (auto scrollingCoordinator = m_webPageProxy->scrollingCoordinatorProxy())
@@ -269,7 +281,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
         if (layerTreeTransaction.hasAnyLayerChanges())
             ++m_countOfTransactionsWithNonEmptyLayerChanges;
 
-        if (m_remoteLayerTreeHost->updateLayerTree(layerTreeTransaction)) {
+        if (m_remoteLayerTreeHost->updateLayerTree(connection, layerTreeTransaction)) {
             if (!m_replyForUnhidingContent)
                 webPageProxy->setRemoteLayerTreeRootNode(m_remoteLayerTreeHost->rootNode());
             else
@@ -277,14 +289,19 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
         }
 
 #if ENABLE(ASYNC_SCROLLING)
-        // FIXME: Making scrolling trees work with site isolation.
-        if (layerTreeTransaction.isMainFrameProcessTransaction())
-            requestedScroll = webPageProxy->scrollingCoordinatorProxy()->commitScrollingTreeState(scrollingTreeTransaction);
+#if PLATFORM(IOS_FAMILY)
+        if (!layerTreeTransaction.isMainFrameProcessTransaction()) {
+            // TODO: rdar://123104203 Making scrolling trees work with site isolation on iOS.
+            return;
+        }
+#endif
+        requestedScroll = webPageProxy->scrollingCoordinatorProxy()->commitScrollingTreeState(connection, scrollingTreeTransaction, layerTreeTransaction.remoteContextHostedIdentifier());
 #endif
     };
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     m_acceleratedTimelineTimeOrigin = layerTreeTransaction.acceleratedTimelineTimeOrigin();
+    m_animationCurrentTime = MonotonicTime::now();
 #endif
 
     webPageProxy->scrollingCoordinatorProxy()->willCommitLayerAndScrollingTrees();
@@ -316,7 +333,9 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
 
     if (m_debugIndicatorLayerTreeHost) {
         float scale = indicatorScale(layerTreeTransaction.contentsSize());
-        bool rootLayerChanged = m_debugIndicatorLayerTreeHost->updateLayerTree(layerTreeTransaction, scale);
+        webPageProxy->scrollingCoordinatorProxy()->willCommitLayerAndScrollingTrees();
+        bool rootLayerChanged = m_debugIndicatorLayerTreeHost->updateLayerTree(connection, layerTreeTransaction, scale);
+        webPageProxy->scrollingCoordinatorProxy()->didCommitLayerAndScrollingTrees();
         IntPoint scrollPosition;
 #if PLATFORM(MAC)
         scrollPosition = layerTreeTransaction.scrollPosition();
@@ -509,7 +528,7 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay(ProcessState& state, IPC
     // Waiting for CA to commit is insufficient, because the render server can still be
     // using our backing store. We can improve this by waiting for the render server to commit
     // if we find API to do so, but for now we will make extra buffers if need be.
-    connection.send(Messages::DrawingArea::DisplayDidRefresh(), m_identifier);
+    connection.send(Messages::DrawingArea::DisplayDidRefresh(), identifier());
 
 #if ASSERT_ENABLED
     state.lastVisibleTransactionID = state.transactionIDForPendingCACommit;
@@ -562,7 +581,7 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
 
     WeakPtr weakThis { *this };
     auto startTime = MonotonicTime::now();
-    while (connection->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_identifier, activityStateUpdateTimeout - (MonotonicTime::now() - startTime), IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError) {
+    while (connection->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(identifier(), activityStateUpdateTimeout - (MonotonicTime::now() - startTime), IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError) {
         if (!weakThis || activityStateChangeID <= state.activityStateChangeID)
             return;
 
@@ -573,9 +592,7 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()
 {
-    // FIXME(rdar://122365213): Rethink whether this needs to use an async reply handler or start a background activity.
-    auto activity = m_webProcessProxy->throttler().backgroundActivity("hideContentUntilPendingUpdate"_s);
-    m_replyForUnhidingContent = m_webProcessProxy->sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [timedActivity = makeUnique<ProcessThrottlerTimedActivity>(1_s, WTFMove(activity))] () mutable { }, messageSenderDestinationID(), { }, WebProcessProxy::ShouldStartProcessThrottlerActivity::No);
+    m_replyForUnhidingContent = m_webProcessProxy->sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [] () { }, messageSenderDestinationID(), { }, WebProcessProxy::ShouldStartProcessThrottlerActivity::No);
     m_remoteLayerTreeHost->detachRootLayer();
 }
 

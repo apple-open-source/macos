@@ -60,7 +60,7 @@ nanov2_allocate_outlined(nanozonev2_t *nanozone,
 		nanov2_block_meta_t **block_metapp, size_t rounded_size,
 		nanov2_size_class_t size_class, int allocation_index,
 		nanov2_block_meta_t *madvise_block_metap, void *corrupt_slot,
-		bool clear);
+		bool clear, bool typed, malloc_type_id_t type_id);
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_block_meta_t *
 nanov2_free_to_block_inline(nanozonev2_t *nanozone, void *ptr,
@@ -1067,32 +1067,43 @@ nanov2_size(nanozonev2_t *nanozone, const void *ptr)
 	return size ? size : nanozone->helper_zone->size(nanozone->helper_zone, ptr);
 }
 
-MALLOC_NOEXPORT void *
-nanov2_malloc(nanozonev2_t *nanozone, size_t size)
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+void
+nanov2_bzero(void *ptr, size_t size)
 {
-	size_t rounded_size = _nano_common_good_size(size);
-	if (rounded_size <= NANO_MAX_SIZE) {
-		nanov2_block_meta_t *madvise_block_metap = NULL;
-		nanov2_size_class_t size_class = nanov2_size_class_from_size(rounded_size);
+	// TODO: inline bzero from libplatform
+	bzero(ptr, size);
+}
 
-		// Get the index of the pointer to the block from which we are should be
-		// allocating. This currently depends on the physical CPU number.
-		int allocation_index = nanov2_get_allocation_block_index();
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static void *
+_nanov2_allocate(nanozonev2_t *nanozone, size_t rounded_size, bool clear,
+		bool typed, malloc_type_id_t type_id)
+{
+	nanov2_block_meta_t *madvise_block_metap = NULL;
+	nanov2_size_class_t size_class = nanov2_size_class_from_size(rounded_size);
 
-		// Get the current allocation block meta data pointer. If this is NULL,
-		// we need to find a new allocation block.
-		nanov2_block_meta_t **block_metapp =
-				&nanozone->current_block[size_class][allocation_index];
-		nanov2_block_meta_t *block_metap = os_atomic_load(block_metapp, relaxed);
-		bool corruption = false;
-		void *ptr = NULL;
-		if (block_metap) {
-			// Fast path: we have a block -- try to allocate from it.
-			ptr = nanov2_allocate_from_block_inline(nanozone, block_metap,
-					size_class, &madvise_block_metap, &corruption);
-			if (ptr && !corruption) {
-				// Always clear the double-free guard so that we can recognize
-				// that this block is not on the free list.
+	// Get the index of the pointer to the block from which we are should be
+	// allocating. This currently depends on the physical CPU number.
+	int allocation_index = nanov2_get_allocation_block_index();
+
+	// Get the current allocation block meta data pointer. If this is NULL, we
+	// need to find a new allocation block.
+	nanov2_block_meta_t **block_metapp =
+			&nanozone->current_block[size_class][allocation_index];
+	nanov2_block_meta_t *block_metap = os_atomic_load(block_metapp, relaxed);
+	bool corruption = false;
+	void *ptr = NULL;
+	if (block_metap) {
+		// Fast path: we have a block -- try to allocate from it.
+		ptr = nanov2_allocate_from_block_inline(nanozone, block_metap,
+				size_class, &madvise_block_metap, &corruption);
+		if (ptr && !corruption) {
+			if (clear && malloc_zero_policy != MALLOC_ZERO_ON_FREE) {
+				nanov2_bzero(ptr, rounded_size);
+			} else {
+				// Always clear the double-free guard so that we can recognize that
+				// this block is not on the free list.
 				nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
 				os_atomic_store(&slotp->double_free_guard, 0, relaxed);
 
@@ -1101,24 +1112,41 @@ nanov2_malloc(nanozonev2_t *nanozone, size_t size)
 				// all cases, even if a cleared allocation is not requested, to
 				// prevent any leakage through the next_slot bits.
 				os_atomic_store(&slotp->next_slot, 0, relaxed);
-				return ptr;
 			}
+			return ptr;
 		}
+	}
 
-		return nanov2_allocate_outlined(nanozone, block_metapp, rounded_size,
-				size_class, allocation_index, madvise_block_metap, ptr, false);
+	return nanov2_allocate_outlined(nanozone, block_metapp, rounded_size,
+			size_class, allocation_index, madvise_block_metap, ptr, clear,
+			typed, type_id);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_malloc(nanozonev2_t *nanozone, size_t size)
+{
+	size_t rounded_size = _nano_common_good_size(size);
+	if (rounded_size <= NANO_MAX_SIZE) {
+		return _nanov2_allocate(nanozone, rounded_size, false, false,
+				MALLOC_TYPE_ID_NONE);
 	}
 
 	// Too big for nano, so delegate to the helper zone.
 	return nanozone->helper_zone->malloc(nanozone->helper_zone, size);
 }
 
-MALLOC_ALWAYS_INLINE MALLOC_INLINE
-void
-nanov2_bzero(void *ptr, size_t size)
+MALLOC_NOEXPORT void *
+nanov2_malloc_type(nanozonev2_t *nanozone, size_t size,
+		malloc_type_id_t type_id)
 {
-	// TODO: inline bzero from libplatform
-	bzero(ptr, size);
+	size_t rounded_size = _nano_common_good_size(size);
+	if (rounded_size <= NANO_MAX_SIZE) {
+		return _nanov2_allocate(nanozone, rounded_size, false, true, type_id);
+	}
+
+	// Too big for nano, so delegate to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_malloc(helper_zone, size, type_id);
 }
 
 MALLOC_NOEXPORT void
@@ -1189,51 +1217,6 @@ nanov2_try_free_default(nanozonev2_t *nanozone, void *ptr)
 	_nanov2_free(nanozone, ptr, true);
 }
 
-MALLOC_ALWAYS_INLINE MALLOC_INLINE
-void *
-nanov2_malloc_zero(nanozonev2_t *nanozone, size_t rounded_size)
-{
-	nanov2_block_meta_t *madvise_block_metap = NULL;
-	nanov2_size_class_t size_class = nanov2_size_class_from_size(rounded_size);
-
-	// Get the index of the pointer to the block from which we are should be
-	// allocating. This currently depends on the physical CPU number.
-	int allocation_index = nanov2_get_allocation_block_index();
-
-	// Get the current allocation block meta data pointer. If this is NULL,
-	// we need to find a new allocation block.
-	nanov2_block_meta_t **block_metapp =
-			&nanozone->current_block[size_class][allocation_index];
-	nanov2_block_meta_t *block_metap = os_atomic_load(block_metapp, relaxed);
-	bool corruption = false;
-	void *ptr = NULL;
-	if (block_metap) {
-		// Fast path: we have a block -- try to allocate from it.
-		ptr = nanov2_allocate_from_block_inline(nanozone, block_metap,
-				size_class, &madvise_block_metap, &corruption);
-		if (ptr && !corruption) {
-			if (malloc_zero_policy == MALLOC_ZERO_ON_FREE) {
-				// Always clear the double-free guard so that we can recognize that
-				// this block is not on the free list.
-				nanov2_free_slot_t *slotp = (nanov2_free_slot_t *)ptr;
-				os_atomic_store(&slotp->double_free_guard, 0, relaxed);
-
-				// We know the body of the allocation is already clear, so we just
-				// need to clean up the next_slot word to get to all-zero.  Do so in
-				// all cases, even if a cleared allocation is not requested, to
-				// prevent any leakage through the next_slot bits.
-				os_atomic_store(&slotp->next_slot, 0, relaxed);
-			} else {
-				nanov2_bzero(ptr, rounded_size);
-			}
-			return ptr;
-		}
-	}
-
-	return nanov2_allocate_outlined(nanozone, block_metapp, rounded_size,
-			size_class, allocation_index, madvise_block_metap, ptr, true);
-}
-
 MALLOC_NOEXPORT void *
 nanov2_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 {
@@ -1243,7 +1226,8 @@ nanov2_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 	}
 	size_t rounded_size = _nano_common_good_size(total_bytes);
 	if (total_bytes <= NANO_MAX_SIZE) {
-		return nanov2_malloc_zero(nanozone, rounded_size);
+		return _nanov2_allocate(nanozone, rounded_size, true, false,
+				MALLOC_TYPE_ID_NONE);
 	}
 
 	// Too big for nano, so delegate to the helper zone.
@@ -1251,15 +1235,49 @@ nanov2_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 }
 
 MALLOC_NOEXPORT void *
+nanov2_calloc_type(nanozonev2_t *nanozone, size_t num_items, size_t size,
+		malloc_type_id_t type_id)
+{
+	size_t total_bytes;
+	if (calloc_get_size(num_items, size, 0, &total_bytes)) {
+		return NULL;
+	}
+	size_t rounded_size = _nano_common_good_size(total_bytes);
+	if (total_bytes <= NANO_MAX_SIZE) {
+		return _nanov2_allocate(nanozone, rounded_size, true, true, type_id);
+	}
+
+	// Too big for nano, so delegate to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_calloc(helper_zone, 1, total_bytes,
+			type_id);
+}
+
+MALLOC_NOEXPORT void *
 nanov2_malloc_zero_on_alloc(nanozonev2_t *nanozone, size_t size)
 {
 	size_t rounded_size = _nano_common_good_size(size);
 	if (rounded_size <= NANO_MAX_SIZE) {
-		return nanov2_malloc_zero(nanozone, rounded_size);
+		return _nanov2_allocate(nanozone, rounded_size, true, false,
+				MALLOC_TYPE_ID_NONE);
 	}
 
 	// Too big for nano, so delegate to the helper zone.
 	return nanozone->helper_zone->malloc(nanozone->helper_zone, size);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_malloc_type_zero_on_alloc(nanozonev2_t *nanozone, size_t size,
+		malloc_type_id_t type_id)
+{
+	size_t rounded_size = _nano_common_good_size(size);
+	if (rounded_size <= NANO_MAX_SIZE) {
+		return _nanov2_allocate(nanozone, rounded_size, true, true, type_id);
+	}
+
+	// Too big for nano, so delegate to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_malloc(helper_zone, size, type_id);
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -1273,25 +1291,44 @@ nanov2_valloc(nanozonev2_t *nanozone, size_t size)
 #endif // OS_VARIANT_NOTRESOLVED
 
 #if OS_VARIANT_RESOLVED
-MALLOC_NOEXPORT void *
-nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static void *
+_nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size, bool typed,
+		malloc_type_id_t type_id)
 {
 	// If we are given a NULL pointer, just allocate memory of the requested
 	// size.
 	if (ptr == NULL) {
-		return nanov2_malloc(nanozone, new_size);
+		if (typed) {
+			return nanov2_malloc_type(nanozone, new_size, type_id);
+		} else {
+			return nanov2_malloc(nanozone, new_size);
+		}
 	}
+
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
 
 	size_t old_size = nanov2_pointer_size(nanozone, ptr, FALSE);
 	if (!old_size) {
 		// Not a Nano pointer - let the helper deal with it
-		return nanozone->helper_zone->realloc(nanozone->helper_zone, ptr, new_size);
+		if (typed) {
+			return helper_zone->malloc_type_realloc(helper_zone, ptr, new_size,
+					type_id);
+		} else {
+			return helper_zone->realloc(helper_zone, ptr, new_size);
+		}
 	}
 
 	void *new_ptr;
 	if (new_size > NANO_MAX_SIZE) {
 		// Too large for Nano. Try to allocate from the helper zone.
-		new_ptr = nanozone->helper_zone->malloc(nanozone->helper_zone, new_size);
+		if (typed) {
+			new_ptr = helper_zone->malloc_type_malloc(helper_zone, new_size,
+					type_id);
+		} else {
+			new_ptr = helper_zone->malloc(helper_zone, new_size);
+		}
+
 		if (!new_ptr) {
 			// Failed to allocate - leave the existing allocation alone.
 			return NULL;
@@ -1303,10 +1340,15 @@ nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
 		return nanov2_malloc(nanozone, 0);
 	} else {
 		size_t new_good_size = _nano_common_good_size(new_size);
-		if (new_good_size > old_size || new_good_size <= old_size/2) {
+		if (new_good_size > old_size || new_good_size <= old_size / 2) {
 			// Growing or shrinking to less than half size - we need to
 			// reallocate.
-			new_ptr = nanov2_malloc(nanozone, new_good_size);
+			if (typed) {
+				new_ptr = nanov2_malloc_type(nanozone, new_good_size, type_id);
+			} else {
+				new_ptr = nanov2_malloc(nanozone, new_good_size);
+			}
+
 			if (!new_ptr) {
 				// Failed to allocate - leave the existing allocation alone.
 				return NULL;
@@ -1333,6 +1375,19 @@ nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
 	nanov2_free(nanozone, ptr);
 
 	return new_ptr;
+}
+
+MALLOC_NOEXPORT void *
+nanov2_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
+{
+	return _nanov2_realloc(nanozone, ptr, new_size, false, MALLOC_TYPE_ID_NONE);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_realloc_type(nanozonev2_t *nanozone, void *ptr, size_t new_size,
+		malloc_type_id_t type_id)
+{
+	return _nanov2_realloc(nanozone, ptr, new_size, true, type_id);
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -1407,6 +1462,22 @@ nanov2_memalign(nanozonev2_t *nanozone, size_t alignment, size_t size)
 	// Otherwise delegate to the helper zone
 	return nanozone->helper_zone->memalign(nanozone->helper_zone, alignment,
 			size);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_memalign_type(nanozonev2_t *nanozone, size_t alignment, size_t size,
+		malloc_type_id_t type_id)
+{
+	// Serve directly if the requested alignment is trivially satisfied by our
+	// baseline alignment (16 bytes)
+	if (alignment <= NANO_REGIME_QUANTA_SIZE) {
+		return nanov2_malloc_type(nanozone, size, type_id);
+	}
+
+	// Otherwise delegate to the helper zone
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_memalign(helper_zone, alignment, size,
+			type_id);
 }
 
 size_t
@@ -2910,7 +2981,7 @@ static void *
 nanov2_allocate_outlined(nanozonev2_t *nanozone, nanov2_block_meta_t **block_metapp,
 		size_t rounded_size, nanov2_size_class_t size_class,
 		int allocation_index, nanov2_block_meta_t *madvise_block_metap,
-		void *corrupt_slot, bool clear)
+		void *corrupt_slot, bool clear, bool typed, malloc_type_id_t type_id)
 {
 	void *ptr = NULL;
 
@@ -2929,7 +3000,13 @@ nanov2_allocate_outlined(nanozonev2_t *nanozone, nanov2_block_meta_t **block_met
 	// get a new block. Before doing so, delegate to the helper allocator if
 	// the size class was full and has not released enough memory yet.
 	if (nanozone->delegate_allocations & (1 << size_class)) {
-		ptr = nanozone->helper_zone->malloc(nanozone->helper_zone, rounded_size);
+		malloc_zone_t *helper_zone = nanozone->helper_zone;
+		if (typed) {
+			ptr = helper_zone->malloc_type_malloc(helper_zone, rounded_size,
+					type_id);
+		} else {
+			ptr = helper_zone->malloc(helper_zone, rounded_size);
+		}
 		goto done;
 	}
 
@@ -2964,7 +3041,13 @@ unlock:
 		os_atomic_or(&nanozone->delegate_allocations,
 				(uint16_t)(1 << size_class), relaxed);
 
-		ptr = nanozone->helper_zone->malloc(nanozone->helper_zone, rounded_size);
+		malloc_zone_t *helper_zone = nanozone->helper_zone;
+		if (typed) {
+			ptr = helper_zone->malloc_type_malloc(helper_zone, rounded_size,
+					type_id);
+		} else {
+			ptr = helper_zone->malloc(helper_zone, rounded_size);
+		}
 	}
 
 done:
@@ -2991,7 +3074,7 @@ done:
 				os_atomic_store(&slotp->double_free_guard, 0, relaxed);
 				break;
 			}
-			// fall through
+			MALLOC_FALLTHROUGH;
 		case MALLOC_ZERO_ON_ALLOC:
 			memset(ptr, '\0', rounded_size);
 			break;
@@ -3111,13 +3194,17 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	}
 
 	// Set up the basic_zone portion of the nanozonev2 structure
-	nanozone->basic_zone.version = 13;
+	nanozone->basic_zone.version = 16;
 	nanozone->basic_zone.size = OS_RESOLVED_VARIANT_ADDR(nanov2_size);
 	if (malloc_zero_policy == MALLOC_ZERO_ON_ALLOC) {
 		nanozone->basic_zone.malloc =
 				OS_RESOLVED_VARIANT_ADDR(nanov2_malloc_zero_on_alloc);
+		nanozone->basic_zone.malloc_type_malloc =
+				OS_RESOLVED_VARIANT_ADDR(nanov2_malloc_type_zero_on_alloc);
 	} else {
 		nanozone->basic_zone.malloc = OS_RESOLVED_VARIANT_ADDR(nanov2_malloc);
+		nanozone->basic_zone.malloc_type_malloc =
+				OS_RESOLVED_VARIANT_ADDR(nanov2_malloc_type);
 	}
 	nanozone->basic_zone.calloc = OS_RESOLVED_VARIANT_ADDR(nanov2_calloc);
 	nanozone->basic_zone.valloc = (void *)nanov2_valloc;
@@ -3133,6 +3220,13 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	nanozone->basic_zone.pressure_relief = OS_RESOLVED_VARIANT_ADDR(nanov2_pressure_relief);
 	nanozone->basic_zone.claimed_address = OS_RESOLVED_VARIANT_ADDR(nanov2_claimed_address);
 	nanozone->basic_zone.try_free_default = OS_RESOLVED_VARIANT_ADDR(nanov2_try_free_default);
+
+	// zone_type == MALLOC_ZONE_TYPE_UNKNOWN
+	// No malloc_with_options
+
+	nanozone->basic_zone.malloc_type_calloc = OS_RESOLVED_VARIANT_ADDR(nanov2_calloc_type);
+	nanozone->basic_zone.malloc_type_realloc = OS_RESOLVED_VARIANT_ADDR(nanov2_realloc_type);
+	nanozone->basic_zone.malloc_type_memalign = OS_RESOLVED_VARIANT_ADDR(nanov2_memalign_type);
 
 	// Set these both to zero as required by CFAllocator.
 	nanozone->basic_zone.reserved1 = 0;
@@ -3230,6 +3324,15 @@ nanov2_forked_malloc(nanozonev2_t *nanozone, size_t size)
 	// Just hand to the helper zone.
 	return nanozone->helper_zone->malloc(nanozone->helper_zone, size);
 }
+
+MALLOC_NOEXPORT void *
+nanov2_forked_malloc_type(nanozonev2_t *nanozone, size_t size,
+		malloc_type_id_t type_id)
+{
+	// Just hand to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_malloc(helper_zone, size, type_id);
+}
 #endif // OS_VARIANT_RESOLVED
 
 #if OS_VARIANT_NOTRESOLVED
@@ -3243,11 +3346,30 @@ nanov2_forked_calloc(nanozonev2_t *nanozone, size_t num_items, size_t size)
 }
 
 static void *
+nanov2_forked_calloc_type(nanozonev2_t *nanozone, size_t num_items, size_t size,
+		malloc_type_id_t type_id)
+{
+	// Just hand to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_calloc(helper_zone, num_items, size, type_id);
+}
+
+static void *
 nanov2_forked_memalign(nanozonev2_t *nanozone, size_t alignment, size_t size)
 {
 	// Just hand to the helper zone.
 	return nanozone->helper_zone->memalign(nanozone->helper_zone, alignment,
 			size);
+}
+
+static void *
+nanov2_forked_memalign_type(nanozonev2_t *nanozone, size_t alignment,
+		size_t size, malloc_type_id_t type_id)
+{
+	// Just hand to the helper zone.
+	malloc_zone_t *helper_zone = nanozone->helper_zone;
+	return helper_zone->malloc_type_memalign(helper_zone, alignment, size,
+			type_id);
 }
 
 #endif // OS_VARIANT_NOTRESOLVED
@@ -3282,21 +3404,31 @@ nanov2_forked_free_definite_size(nanozonev2_t *nanozone, void *ptr, size_t size)
 	nanov2_forked_free(nanozone, ptr);
 }
 
-MALLOC_NOEXPORT void *
-nanov2_forked_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static void *
+_nanov2_forked_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size,
+		bool typed, malloc_type_id_t type_id)
 {
 	// could occur through malloc_zone_realloc() path
 	if (!ptr) {
 		// If ptr is a null pointer, realloc() shall be equivalent to malloc()
 		// for the specified size.
-		return nanov2_forked_malloc(nanozone, new_size);
+		if (typed) {
+			return nanov2_forked_malloc_type(nanozone, new_size, type_id);
+		} else {
+			return nanov2_forked_malloc(nanozone, new_size);
+		}
 	}
 
 	size_t old_size = nanov2_pointer_size(nanozone, ptr, FALSE);
 	if (!old_size) {
 		// not-nano pointer, hand down to helper zone
 		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
-		return zone->realloc(zone, ptr, new_size);
+		if (typed) {
+			return zone->malloc_type_realloc(zone, ptr, new_size, type_id);
+		} else {
+			return zone->realloc(zone, ptr, new_size);
+		}
 	} else {
 		if (!new_size) {
 			// If size is 0 and ptr is not a null pointer, the object pointed to
@@ -3308,8 +3440,15 @@ nanov2_forked_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
 			return nanov2_forked_malloc(nanozone, 1);
 		}
 
-		void *new_ptr = nanozone->helper_zone->malloc(nanozone->helper_zone,
+		void *new_ptr;
+		if (typed) {
+			malloc_zone_t *helper_zone = nanozone->helper_zone;
+			new_ptr = helper_zone->malloc_type_malloc(helper_zone, new_size,
+					type_id);
+		} else {
+			new_ptr = nanozone->helper_zone->malloc(nanozone->helper_zone,
 				new_size);
+		}
 		if (new_ptr) {
 			size_t valid_size = MIN(old_size, new_size);
 			memcpy(new_ptr, ptr, valid_size);
@@ -3323,6 +3462,20 @@ nanov2_forked_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
 		/* NOTREACHED */
 	}
 	/* NOTREACHED */
+}
+
+MALLOC_NOEXPORT void *
+nanov2_forked_realloc(nanozonev2_t *nanozone, void *ptr, size_t new_size)
+{
+	return _nanov2_forked_realloc(nanozone, ptr, new_size, false,
+			MALLOC_TYPE_ID_NONE);
+}
+
+MALLOC_NOEXPORT void *
+nanov2_forked_realloc_type(nanozonev2_t *nanozone, void *ptr, size_t new_size,
+		malloc_type_id_t type_id)
+{
+	return _nanov2_forked_realloc(nanozone, ptr, new_size, true, type_id);
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -3393,6 +3546,13 @@ nanov2_forked_zone(nanozonev2_t *nanozone)
 			OS_RESOLVED_VARIANT_ADDR(nanov2_forked_free_definite_size);
 	nanozone->basic_zone.claimed_address = nanov2_forked_claimed_address;
 	nanozone->basic_zone.try_free_default = NULL; // Fall back to old protocol
+	nanozone->basic_zone.malloc_type_malloc =
+			OS_RESOLVED_VARIANT_ADDR(nanov2_forked_malloc_type);
+	nanozone->basic_zone.malloc_type_calloc = (void *)nanov2_forked_calloc_type;
+	nanozone->basic_zone.malloc_type_realloc =
+			OS_RESOLVED_VARIANT_ADDR(nanov2_forked_realloc_type);
+	nanozone->basic_zone.malloc_type_memalign =
+			(void *)nanov2_forked_memalign_type;
 	mprotect(nanozone, sizeof(nanozone->basic_zone), PROT_READ);
 }
 

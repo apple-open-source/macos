@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,11 +36,13 @@
 #import "WebExtensionAction.h"
 #import "WebExtensionCommand.h"
 #import "WebExtensionContext.h"
+#import "WebExtensionMatchPattern.h"
 #import "_WKWebExtensionCommandInternal.h"
 #import "_WKWebExtensionControllerInternal.h"
 #import "_WKWebExtensionInternal.h"
 #import "_WKWebExtensionMatchPatternInternal.h"
 #import "_WKWebExtensionTab.h"
+#import <wtf/BlockPtr.h>
 #import <wtf/URLParser.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -69,6 +71,8 @@ using CocoaMenuItem = UIMenuElement;
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(_WKWebExtensionContext, WebExtensionContext, _webExtensionContext);
+
 + (instancetype)contextForExtension:(_WKWebExtension *)extension
 {
     NSParameterAssert([extension isKindOfClass:_WKWebExtension.class]);
@@ -86,13 +90,6 @@ using CocoaMenuItem = UIMenuElement;
     API::Object::constructInWrapper<WebKit::WebExtensionContext>(self, extension._webExtension);
 
     return self;
-}
-
-- (void)dealloc
-{
-    ASSERT(isMainRunLoop());
-
-    _webExtensionContext->~WebExtensionContext();
 }
 
 - (_WKWebExtension *)webExtension
@@ -120,6 +117,7 @@ using CocoaMenuItem = UIMenuElement;
     NSParameterAssert([baseURL isKindOfClass:NSURL.class]);
     NSAssert1(WTF::URLParser::maybeCanonicalizeScheme(String(baseURL.scheme)), @"Invalid parameter: '%@' is not a valid URL scheme", baseURL.scheme);
     NSAssert1(![WKWebView handlesURLScheme:baseURL.scheme], @"Invalid parameter: '%@' is a URL scheme that WKWebView handles natively and cannot be used for extensions", baseURL.scheme);
+    NSAssert1(WebKit::WebExtensionMatchPattern::extensionSchemes().contains(baseURL.scheme), @"Invalid parameter: '%@' is not a registered custom scheme with _WKWebExtensionMatchPattern", baseURL.scheme);
     NSAssert(!baseURL.path.length || [baseURL.path isEqualToString:@"/"], @"Invalid parameter: a URL with a path cannot be used");
 
     _webExtensionContext->setBaseURL(baseURL);
@@ -145,6 +143,28 @@ using CocoaMenuItem = UIMenuElement;
 - (void)setInspectable:(BOOL)inspectable
 {
     _webExtensionContext->setInspectable(inspectable);
+}
+
+- (NSString *)inspectionName
+{
+    return _webExtensionContext->backgroundWebViewInspectionName();
+}
+
+- (void)setInspectionName:(NSString *)name
+{
+    _webExtensionContext->setBackgroundWebViewInspectionName(name);
+}
+
+- (NSSet<NSString *> *)unsupportedAPIs
+{
+    return WebKit::toAPI(_webExtensionContext->unsupportedAPIs());
+}
+
+- (void)setUnsupportedAPIs:(NSSet<NSString *> *)unsupportedAPIs
+{
+    NSParameterAssert(!unsupportedAPIs || [unsupportedAPIs isKindOfClass:NSSet.class]);
+
+    _webExtensionContext->setUnsupportedAPIs(WebKit::toImpl(unsupportedAPIs));
 }
 
 - (WKWebViewConfiguration *)webViewConfiguration
@@ -513,6 +533,16 @@ static inline WebKit::WebExtensionContext::PermissionState toImpl(_WKWebExtensio
     return _webExtensionContext->hasInjectedContentForURL(url);
 }
 
+- (BOOL)hasContentModificationRules
+{
+    return _webExtensionContext->hasContentModificationRules();
+}
+
+- (void)loadBackgroundContentWithCompletionHandler:(void (^)(NSError *error))completionHandler
+{
+    _webExtensionContext->loadBackgroundContent(makeBlockPtr(completionHandler));
+}
+
 - (_WKWebExtensionAction *)actionForTab:(id<_WKWebExtensionTab>)tab
 {
     if (tab)
@@ -542,6 +572,15 @@ static inline WebKit::WebExtensionContext::PermissionState toImpl(_WKWebExtensio
 
     _webExtensionContext->performCommand(command._webExtensionCommand, WebKit::WebExtensionContext::UserTriggered::Yes);
 }
+
+#if TARGET_OS_IPHONE
+- (BOOL)performCommandForKeyCommand:(UIKeyCommand *)keyCommand
+{
+    NSParameterAssert([keyCommand isKindOfClass:UIKeyCommand.class]);
+
+    return _webExtensionContext->performCommand(keyCommand);
+}
+#endif
 
 #if USE(APPKIT)
 - (BOOL)performCommandForEvent:(NSEvent *)event
@@ -601,7 +640,7 @@ static inline NSArray *toAPI(const WebKit::WebExtensionContext::WindowVector& wi
 
     NSMutableArray *result = [[NSMutableArray alloc] initWithCapacity:windows.size()];
 
-    for (auto& window : windows) {
+    for (Ref window : windows) {
         if (auto delegate = window->delegate())
             [result addObject:delegate];
     }
@@ -611,7 +650,7 @@ static inline NSArray *toAPI(const WebKit::WebExtensionContext::WindowVector& wi
 
 - (NSArray<id<_WKWebExtensionWindow>> *)openWindows
 {
-    return toAPI(_webExtensionContext->openWindows());
+    return toAPI(_webExtensionContext->openWindows(WebKit::WebExtensionContext::IgnoreExtensionAccess::Yes));
 }
 
 - (id<_WKWebExtensionWindow>)focusedWindow
@@ -619,14 +658,14 @@ static inline NSArray *toAPI(const WebKit::WebExtensionContext::WindowVector& wi
     return toAPI(_webExtensionContext->focusedWindow(WebKit::WebExtensionContext::IgnoreExtensionAccess::Yes));
 }
 
-static inline NSSet *toAPI(const WebKit::WebExtensionContext::TabMapValueIterator& tabs)
+static inline NSSet *toAPI(const WebKit::WebExtensionContext::TabVector& tabs)
 {
     if (tabs.isEmpty())
         return [NSSet set];
 
     NSMutableSet *result = [[NSMutableSet alloc] initWithCapacity:tabs.size()];
 
-    for (auto& tab : tabs) {
+    for (Ref tab : tabs) {
         if (auto delegate = tab->delegate())
             [result addObject:delegate];
     }
@@ -636,7 +675,7 @@ static inline NSSet *toAPI(const WebKit::WebExtensionContext::TabMapValueIterato
 
 - (NSSet<id<_WKWebExtensionTab>> *)openTabs
 {
-    return toAPI(_webExtensionContext->openTabs());
+    return toAPI(_webExtensionContext->openTabs(WebKit::WebExtensionContext::IgnoreExtensionAccess::Yes));
 }
 
 static inline Ref<WebKit::WebExtensionWindow> toImpl(id<_WKWebExtensionWindow> window, WebKit::WebExtensionContext& context)
@@ -681,7 +720,7 @@ static inline WebKit::WebExtensionContext::TabSet toImpl(NSSet<id<_WKWebExtensio
     WebKit::WebExtensionContext::TabSet result;
     result.reserveInitialCapacity(tabs.count);
 
-    for (id<_WKWebExtensionTab> tab in tabs) {
+    for (id tab in tabs) {
         NSCParameterAssert([tab conformsToProtocol:@protocol(_WKWebExtensionTab)]);
         result.addVoid(context.getOrCreateTab(tab));
     }
@@ -732,7 +771,7 @@ static inline WebKit::WebExtensionContext::TabSet toImpl(NSSet<id<_WKWebExtensio
     if (oldWindow)
         NSParameterAssert([oldWindow conformsToProtocol:@protocol(_WKWebExtensionWindow)]);
 
-    _webExtensionContext->didMoveTab(toImpl(movedTab, *_webExtensionContext), index, oldWindow ? toImpl(oldWindow, *_webExtensionContext).ptr() : nullptr);
+    _webExtensionContext->didMoveTab(toImpl(movedTab, *_webExtensionContext), index != NSNotFound ? index : notFound, oldWindow ? toImpl(oldWindow, *_webExtensionContext).ptr() : nullptr);
 }
 
 - (void)didReplaceTab:(id<_WKWebExtensionTab>)oldTab withTab:(id<_WKWebExtensionTab>)newTab
@@ -788,16 +827,6 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
     NSParameterAssert([changedTab conformsToProtocol:@protocol(_WKWebExtensionTab)]);
 
     _webExtensionContext->didChangeTabProperties(toImpl(changedTab, *_webExtensionContext), toImpl(properties));
-}
-
-- (BOOL)_inTestingMode
-{
-    return _webExtensionContext->inTestingMode();
-}
-
-- (void)_setTestingMode:(BOOL)testingMode
-{
-    _webExtensionContext->setTestingMode(testingMode);
 }
 
 - (WKWebView *)_backgroundWebView
@@ -873,6 +902,24 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 }
 
 - (void)setInspectable:(BOOL)inspectable
+{
+}
+
+- (NSString *)inspectionName
+{
+    return nil;
+}
+
+- (void)setInspectionName:(NSString *)name
+{
+}
+
+- (NSSet<NSString *> *)unsupportedAPIs
+{
+    return nil;
+}
+
+- (void)setUnsupportedAPIs:(NSSet<NSString *> *)unsupportedAPIs
 {
 }
 
@@ -1049,6 +1096,16 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
     return NO;
 }
 
+- (BOOL)hasContentModificationRules
+{
+    return NO;
+}
+
+- (void)loadBackgroundContentWithCompletionHandler:(void (^)(NSError *error))completionHandler
+{
+    completionHandler([NSError errorWithDomain:NSCocoaErrorDomain code:NSFeatureUnsupportedError userInfo:nil]);
+}
+
 - (_WKWebExtensionAction *)actionForTab:(id<_WKWebExtensionTab>)tab NS_SWIFT_NAME(action(for:))
 {
     return nil;
@@ -1066,6 +1123,13 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 - (void)performCommand:(_WKWebExtensionCommand *)command
 {
 }
+
+#if TARGET_OS_IPHONE
+- (BOOL)performCommandForKeyCommand:(UIKeyCommand *)keyCommand
+{
+    return NO;
+}
+#endif
 
 #if USE(APPKIT)
 - (BOOL)performCommandForEvent:(NSEvent *)event
@@ -1153,15 +1217,6 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 }
 
 - (void)didChangeTabProperties:(_WKWebExtensionTabChangedProperties)properties forTab:(id<_WKWebExtensionTab>)changedTab
-{
-}
-
-- (BOOL)_inTestingMode
-{
-    return NO;
-}
-
-- (void)_setTestingMode:(BOOL)testingMode
 {
 }
 

@@ -67,6 +67,7 @@
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMWindow.h"
 #include "JSNode.h"
 #include "JSServiceWorkerGlobalScope.h"
 #include "JSWindowProxy.h"
@@ -133,7 +134,7 @@ DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, frameCounter, ("Frame"));
 
 static inline float parentPageZoomFactor(LocalFrame* frame)
 {
-    LocalFrame* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
+    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
     if (!parent)
         return 1;
     return parent->pageZoomFactor();
@@ -141,33 +142,34 @@ static inline float parentPageZoomFactor(LocalFrame* frame)
 
 static inline float parentTextZoomFactor(LocalFrame* frame)
 {
-    LocalFrame* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
+    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(frame->tree().parent());
     if (!parent)
         return 1;
     return parent->textZoomFactor();
 }
 
-static bool isRootFrame(const Frame& frame)
+static const LocalFrame& rootFrame(const LocalFrame& frame)
 {
-    if (auto* parent = frame.tree().parent())
-        return is<RemoteFrame>(parent);
-    ASSERT(&frame.mainFrame() == &frame);
-    return true;
+    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(frame.tree().parent());
+    if (parent)
+        return parent->rootFrame();
+    ASSERT(is<RemoteFrame>(frame.tree().parent()) || frame.isMainFrame());
+    return frame;
 }
 
-LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, Frame* parent)
-    : Frame(page, identifier, FrameType::Local, ownerElement, parent)
-    , m_loader(makeUniqueRef<FrameLoader>(*this, WTFMove(frameLoaderClient)))
+LocalFrame::LocalFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, Frame* parent, Frame* opener)
+    : Frame(page, identifier, FrameType::Local, ownerElement, parent, opener)
+    , m_loader(makeUniqueRef<FrameLoader>(*this, clientCreator(*this)))
     , m_script(makeUniqueRef<ScriptController>(*this))
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
-    , m_isRootFrame(WebCore::isRootFrame(*this))
+    , m_rootFrame(WebCore::rootFrame(*this))
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
 {
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
 
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()); localMainFrame && parent)
+    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()); localMainFrame && parent)
         localMainFrame->selfOnlyRef();
 
 #ifndef NDEBUG
@@ -175,11 +177,13 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
 #endif
 
     // Pause future ActiveDOMObjects if this frame is being created while the page is in a paused state.
-    if (LocalFrame* parent = dynamicDowncast<LocalFrame>(tree().parent()); parent && parent->activeDOMObjectsAndAnimationsSuspended())
+    if (RefPtr parent = dynamicDowncast<LocalFrame>(tree().parent()); parent && parent->activeDOMObjectsAndAnimationsSuspended())
         suspendActiveDOMObjectsAndAnimations();
 
     if (isRootFrame())
         page.addRootFrame(*this);
+
+    ASSERT(isRootFrameIdentifier(frameID()) == isRootFrame());
 }
 
 void LocalFrame::init()
@@ -187,19 +191,19 @@ void LocalFrame::init()
     checkedLoader()->init();
 }
 
-Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier)
+Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, Frame* opener)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, nullptr));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, nullptr, nullptr, opener));
 }
 
-Ref<LocalFrame> LocalFrame::createSubframe(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement)
+Ref<LocalFrame> LocalFrame::createSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame()));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, &ownerElement, ownerElement.document().frame(), nullptr));
 }
 
-Ref<LocalFrame> LocalFrame::createSubframeHostedInAnotherProcess(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier, Frame& parent)
+Ref<LocalFrame> LocalFrame::createProvisionalSubframe(Page& page, ClientCreator&& clientCreator, FrameIdentifier identifier, Frame& parent)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, &parent));
+    return adoptRef(*new LocalFrame(page, WTFMove(clientCreator), identifier, nullptr, &parent, nullptr));
 }
 
 LocalFrame::~LocalFrame()
@@ -224,19 +228,11 @@ LocalFrame::~LocalFrame()
     while (auto* destructionObserver = m_destructionObservers.takeAny())
         destructionObserver->frameDestroyed();
 
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
     if (!isMainFrame() && localMainFrame)
         localMainFrame->selfOnlyDeref();
 
-    if (isRootFrame()) {
-        if (auto* page = this->page())
-            page->removeRootFrame(*this);
-    }
-}
-
-bool LocalFrame::isRootFrame() const
-{
-    return m_isRootFrame;
+    detachFromPage();
 }
 
 void LocalFrame::addDestructionObserver(FrameDestructionObserver& observer)
@@ -299,13 +295,8 @@ void LocalFrame::setDocument(RefPtr<Document>&& newDocument)
 
     if (isMainFrame()) {
         if (RefPtr page = this->page())
-            page->didChangeMainDocument();
+            page->didChangeMainDocument(newDocument.get());
         checkedLoader()->client().dispatchDidChangeMainDocument();
-
-        // We want to generate the same unique names whenever a page is loaded to avoid making layout tests
-        // flaky and for things like form state restoration to work. To achieve this, we reset our frame
-        // identifier generator every time the page is navigated.
-        tree().resetFrameIdentifiers();
     }
 
     if (RefPtr previousDocument = m_doc) {
@@ -360,11 +351,6 @@ bool LocalFrame::preventsParentFromBeingComplete() const
 void LocalFrame::changeLocation(FrameLoadRequest&& request)
 {
     checkedLoader()->changeLocation(WTFMove(request));
-}
-
-void LocalFrame::broadcastFrameRemovalToOtherProcesses()
-{
-    checkedLoader()->client().broadcastFrameRemovalToOtherProcesses();
 }
 
 void LocalFrame::didFinishLoadInAnotherProcess()
@@ -444,7 +430,7 @@ static JSC::Yarr::RegularExpression createRegExpForLabels(const Vector<String>& 
 
         // Search for word boundaries only if label starts/ends with "word characters".
         // If we always searched for word boundaries, this wouldn't work for languages such as Japanese.
-        pattern.append(i ? "|" : "", startsWithWordCharacter ? "\\b" : "", label, endsWithWordCharacter ? "\\b" : "");
+        pattern.append(i ? "|"_s : ""_s, startsWithWordCharacter ? "\\b"_s : ""_s, label, endsWithWordCharacter ? "\\b"_s : ""_s);
     }
     pattern.append(')');
     return JSC::Yarr::RegularExpression(pattern.toString(), { JSC::Yarr::Flags::IgnoreCase });
@@ -456,7 +442,7 @@ String LocalFrame::searchForLabelsAboveCell(const JSC::Yarr::RegularExpression& 
         // search within the above cell we found for a match
         size_t lengthSearched = 0;
         for (RefPtr textNode = TextNodeTraversal::firstWithin(*aboveCell); textNode; textNode = TextNodeTraversal::next(*textNode, aboveCell.get())) {
-            if (!textNode->renderer() || textNode->renderer()->style().visibility() != Visibility::Visible)
+            if (!textNode->renderer() || textNode->renderer()->style().usedVisibility() != Visibility::Visible)
                 continue;
             // For each text chunk, run the regexp
             String nodeString = textNode->data();
@@ -500,7 +486,10 @@ String LocalFrame::searchForLabelsBeforeElement(const Vector<String>& labels, El
     RefPtr<Node> n;
     for (n = NodeTraversal::previous(*element); n && lengthSearched < charsSearchedThreshold; n = NodeTraversal::previous(*n)) {
         // We hit another form element or the start of the form - bail out
-        if (is<HTMLFormElement>(*n) || (is<Element>(*n) && downcast<Element>(*n).isValidatedFormListedElement()))
+        if (is<HTMLFormElement>(*n))
+            break;
+
+        if (RefPtr element = dynamicDowncast<Element>(*n); element && element->isValidatedFormListedElement())
             break;
 
         if (n->hasTagName(tdTag) && !startingTableCell)
@@ -513,7 +502,7 @@ String LocalFrame::searchForLabelsBeforeElement(const Vector<String>& labels, El
                 return result;
             }
             searchedCellAbove = true;
-        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().visibility() == Visibility::Visible) {
+        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().usedVisibility() == Visibility::Visible) {
             // For each text chunk, run the regexp
             String nodeString = n->nodeValue();
             // add 100 for slop, to make it more likely that we'll search whole nodes
@@ -686,7 +675,7 @@ bool LocalFrame::shouldUsePrintingLayout() const
 {
     // Only top frame being printed should be fit to page size.
     // Subframes should be constrained by parents only.
-    auto* parent = dynamicDowncast<LocalFrame>(tree().parent());
+    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(tree().parent());
     return m_doc->printing() && (!parent || !parent->m_doc->printing());
 }
 
@@ -774,7 +763,8 @@ RenderView* LocalFrame::contentRenderer() const
 
 LocalFrame* LocalFrame::frameForWidget(const Widget& widget)
 {
-    if (auto* renderer = RenderWidget::find(widget))
+    SUPPRESS_UNCOUNTED_LOCAL auto* renderer = RenderWidget::find(widget);
+    if (renderer)
         return renderer->frameOwnerElement().document().frame();
 
     // Assume all widgets are either a FrameView or owned by a RenderWidget.
@@ -827,8 +817,7 @@ void LocalFrame::willDetachPage()
 
     // FIXME: It's unclear as to why this is called more than once, but it is,
     // so page() could be NULL.
-    // Unable to ref the page as it may have started destruction.
-    if (WeakPtr page = this->page()) {
+    if (RefPtrAllowingPartiallyDestroyed<Page> page = this->page()) {
         CheckedRef focusController = page->focusController();
         if (focusController->focusedFrame() == this)
             focusController->setFocusedFrame(nullptr);
@@ -869,7 +858,7 @@ VisiblePosition LocalFrame::visiblePositionForPoint(const IntPoint& framePoint) 
     CheckedPtr renderer = node->renderer();
     if (!renderer)
         return VisiblePosition();
-    VisiblePosition visiblePos = renderer->positionForPoint(result.localPoint(), nullptr);
+    VisiblePosition visiblePos = renderer->positionForPoint(result.localPoint(), HitTestSource::User, nullptr);
     if (visiblePos.isNull())
         visiblePos = firstPositionInOrBeforeNode(node.get());
     return visiblePos;
@@ -894,8 +883,8 @@ std::optional<SimpleRange> LocalFrame::rangeForPoint(const IntPoint& framePoint)
 {
     auto position = visiblePositionForPoint(framePoint);
 
-    auto containerText = position.deepEquivalent().containerText();
-    if (!containerText || !containerText->renderer() || containerText->renderer()->style().effectiveUserSelect() == UserSelect::None)
+    SUPPRESS_UNCOUNTED_LOCAL auto containerText = position.deepEquivalent().containerText();
+    if (!containerText || !containerText->renderer() || containerText->renderer()->style().usedUserSelect() == UserSelect::None)
         return std::nullopt;
 
     if (auto previousCharacterRange = makeSimpleRange(position.previous(), position)) {
@@ -964,29 +953,33 @@ DOMWindow* LocalFrame::virtualWindow() const
     return window();
 }
 
+void LocalFrame::reinitializeDocumentSecurityContext()
+{
+    if (RefPtr document = this->document())
+        document->initSecurityContext();
+}
+
 void LocalFrame::disconnectView()
 {
     setView(nullptr);
 }
 
-void LocalFrame::setOpener(Frame* opener)
-{
-    loader().setOpener(opener);
-}
-
-const Frame* LocalFrame::opener() const
-{
-    return loader().opener();
-}
-
-Frame* LocalFrame::opener()
-{
-    return loader().opener();
-}
-
 FrameView* LocalFrame::virtualView() const
 {
     return m_view.get();
+}
+
+FrameLoaderClient& LocalFrame::loaderClient()
+{
+    return loader().client();
+}
+
+void LocalFrame::documentURLForConsoleLog(CompletionHandler<void(const URL&)>&& completionHandler)
+{
+    RefPtr document = this->document();
+    if (!document)
+        return completionHandler({ });
+    completionHandler(document->url());
 }
 
 String LocalFrame::trackedRepaintRectsAsText() const
@@ -1023,7 +1016,7 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
 
     // Respect SVGs zoomAndPan="disabled" property in standalone SVG documents.
     // FIXME: How to handle compound documents + zoomAndPan="disabled"? Needs SVG WG clarification.
-    if (is<SVGDocument>(*document) && !downcast<SVGDocument>(*document).zoomAndPanEnabled())
+    if (RefPtr svgDocument = dynamicDowncast<SVGDocument>(*document); svgDocument && !svgDocument->zoomAndPanEnabled())
         return;
 
     std::optional<ScrollPosition> scrollPositionAfterZoomed;
@@ -1131,7 +1124,7 @@ FloatSize LocalFrame::screenSize() const
     if (!m_overrideScreenSize.isEmpty())
         return m_overrideScreenSize;
 
-    auto defaultSize = screenRect(view()).size();
+    auto defaultSize = screenRect(protectedView().get()).size();
     RefPtr document = this->document();
     if (!document)
         return defaultSize;
@@ -1186,7 +1179,7 @@ String LocalFrame::debugDescription() const
     if (isMainFrame())
         builder.append(" (main frame)"_s);
 
-    if (auto document = this->document())
+    if (RefPtr document = this->document())
         builder.append(' ', document->documentURI());
     
     return builder.toString();
@@ -1209,8 +1202,8 @@ void LocalFrame::resetScript()
 LocalFrame* LocalFrame::fromJSContext(JSContextRef context)
 {
     JSC::JSGlobalObject* globalObjectObj = toJS(context);
-    if (auto* window = JSC::jsDynamicCast<JSLocalDOMWindow*>(globalObjectObj))
-        return window->wrapped().frame();
+    if (auto* window = JSC::jsDynamicCast<JSDOMWindow*>(globalObjectObj))
+        return dynamicDowncast<LocalFrame>(window->wrapped().frame());
     if (auto* serviceWorkerGlobalScope = JSC::jsDynamicCast<JSServiceWorkerGlobalScope*>(globalObjectObj))
         return serviceWorkerGlobalScope->wrapped().serviceWorkerPage() ? dynamicDowncast<LocalFrame>(serviceWorkerGlobalScope->wrapped().serviceWorkerPage()->mainFrame()) : nullptr;
     return nullptr;
@@ -1223,15 +1216,16 @@ LocalFrame* LocalFrame::contentFrameFromWindowOrFrameElement(JSContextRef contex
 
     JSC::JSGlobalObject* globalObject = toJS(context);
     JSC::JSValue value = toJS(globalObject, valueRef);
-    JSC::VM& vm = globalObject->vm();
 
-    if (auto* window = JSLocalDOMWindow::toWrapped(vm, value))
-        return window->frame();
+    if (RefPtr window = JSDOMWindow::toWrapped(globalObject->vm(), value))
+        return dynamicDowncast<LocalFrame>(window->frame());
 
     auto* jsNode = JSC::jsDynamicCast<JSNode*>(value);
-    if (!jsNode || !is<HTMLFrameOwnerElement>(jsNode->wrapped()))
+    if (!jsNode)
         return nullptr;
-    return dynamicDowncast<LocalFrame>(downcast<HTMLFrameOwnerElement>(jsNode->wrapped()).contentFrame());
+
+    RefPtr frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(jsNode->wrapped());
+    return frameOwner ? dynamicDowncast<LocalFrame>(frameOwner->contentFrame()) : nullptr;
 }
 
 CheckedRef<EventHandler> LocalFrame::checkedEventHandler()
@@ -1274,6 +1268,27 @@ void LocalFrame::frameWasDisconnectedFromOwner() const
     protectedDocument()->detachFromFrame();
 }
 
+CheckedRef<FrameSelection> LocalFrame::checkedSelection() const
+{
+    return document()->selection();
+}
+
+void LocalFrame::storageAccessExceptionReceivedForDomain(const RegistrableDomain& domain)
+{
+    m_storageAccessExceptionDomains.add(domain);
+}
+
+bool LocalFrame::requestSkipUserActivationCheckForStorageAccess(const RegistrableDomain& domain)
+{
+    auto iter = m_storageAccessExceptionDomains.find(domain);
+    if (iter == m_storageAccessExceptionDomains.end())
+        return false;
+
+    // We only allow the domain to skip check once.
+    m_storageAccessExceptionDomains.remove(iter);
+    return true;
+}
+
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
 
 void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty property)
@@ -1289,14 +1304,10 @@ void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty prope
     if (origin.isNull() || origin.isOpaque())
         return;
 
-    if (!opener())
+    if (!opener() || !opener()->page())
         return;
 
-    auto openerMainFrame = dynamicDowncast<LocalFrame>(opener()->mainFrame());
-    if (!openerMainFrame)
-        return;
-
-    auto openerMainFrameOrigin = SecurityOriginData::fromFrame(openerMainFrame);
+    auto openerMainFrameOrigin = opener()->page()->mainFrameOrigin().data();
     if (openerMainFrameOrigin.isNull() || openerMainFrameOrigin.isOpaque())
         return;
 
@@ -1310,6 +1321,34 @@ void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty prope
 }
 
 #endif
+
+String LocalFrame::customUserAgent() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customUserAgent();
+    return { };
+}
+
+String LocalFrame::customUserAgentAsSiteSpecificQuirks() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customUserAgentAsSiteSpecificQuirks();
+    return { };
+}
+
+String LocalFrame::customNavigatorPlatform() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customNavigatorPlatform();
+    return { };
+}
+
+OptionSet<AdvancedPrivacyProtections> LocalFrame::advancedPrivacyProtections() const
+{
+    if (auto* documentLoader = loader().activeDocumentLoader())
+        return documentLoader->advancedPrivacyProtections();
+    return { };
+}
 
 } // namespace WebCore
 

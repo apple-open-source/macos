@@ -62,7 +62,7 @@ int __mb_cur_max = 1;
 int __mb_sb_limit = 256; /* Expected to be <= _CACHED_RUNES */
 
 int
-_none_init(struct __xlocale_st_runelocale *xrl)
+_none_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _none_mbrtowc;

@@ -106,48 +106,48 @@ void MediaSourcePrivateAVFObjC::removeSourceBuffer(SourceBufferPrivate& sourceBu
 {
     if (downcast<SourceBufferPrivateAVFObjC>(&sourceBuffer) == m_sourceBufferWithSelectedVideo)
         m_sourceBufferWithSelectedVideo = nullptr;
+    if (m_bufferedRanges.contains(&sourceBuffer))
+        m_bufferedRanges.remove(&sourceBuffer);
 
     MediaSourcePrivate::removeSourceBuffer(sourceBuffer);
 }
 
 void MediaSourcePrivateAVFObjC::notifyActiveSourceBuffersChanged()
 {
-    if (auto* player = this->player())
+    if (auto player = this->player())
         player->notifyActiveSourceBuffersChanged();
+}
+
+RefPtr<MediaPlayerPrivateInterface> MediaSourcePrivateAVFObjC::player() const
+{
+    return m_player.get();
 }
 
 void MediaSourcePrivateAVFObjC::durationChanged(const MediaTime& duration)
 {
     MediaSourcePrivate::durationChanged(duration);
-    if (auto* player = this->player())
+    if (auto player = platformPlayer())
         player->durationChanged();
 }
 
 void MediaSourcePrivateAVFObjC::markEndOfStream(EndOfStreamStatus status)
 {
-    if (auto* player = this->player(); status == EndOfStreamStatus::NoError && player)
+    if (auto player = platformPlayer(); status == EndOfStreamStatus::NoError && player)
         player->setNetworkState(MediaPlayer::NetworkState::Loaded);
     MediaSourcePrivate::markEndOfStream(status);
 }
 
 MediaPlayer::ReadyState MediaSourcePrivateAVFObjC::mediaPlayerReadyState() const
 {
-    if (auto* player = this->player())
+    if (auto player = this->player())
         return player->readyState();
     return MediaPlayer::ReadyState::HaveNothing;
 }
 
 void MediaSourcePrivateAVFObjC::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
 {
-    if (auto* player = this->player())
+    if (auto player = platformPlayer())
         player->setReadyState(readyState);
-}
-
-MediaTime MediaSourcePrivateAVFObjC::currentMediaTime() const
-{
-    if (auto* player = this->player())
-        return player->currentMediaTime();
-    return MediaTime::invalidTime();
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
@@ -155,7 +155,7 @@ void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC
 {
     m_sourceBuffersNeedingSessions.append(buffer);
 
-    if (auto* player = this->player())
+    if (auto player = platformPlayer())
         player->keyNeeded(initData);
 }
 #endif
@@ -192,10 +192,16 @@ void MediaSourcePrivateAVFObjC::hasSelectedVideoChanged(SourceBufferPrivateAVFOb
         setSourceBufferWithSelectedVideo(&sourceBuffer);
 }
 
-void MediaSourcePrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer)
+void MediaSourcePrivateAVFObjC::setVideoRenderer(WebSampleBufferVideoRendering *renderer)
 {
     if (m_sourceBufferWithSelectedVideo)
-        m_sourceBufferWithSelectedVideo->setVideoLayer(layer);
+        m_sourceBufferWithSelectedVideo->setVideoRenderer(renderer);
+}
+
+void MediaSourcePrivateAVFObjC::stageVideoRenderer(WebSampleBufferVideoRendering *renderer)
+{
+    if (m_sourceBufferWithSelectedVideo)
+        m_sourceBufferWithSelectedVideo->stageVideoRenderer(renderer);
 }
 
 void MediaSourcePrivateAVFObjC::setDecompressionSession(WebCoreDecompressionSession* decompressionSession)
@@ -255,14 +261,14 @@ void MediaSourcePrivateAVFObjC::outputObscuredDueToInsufficientExternalProtectio
 void MediaSourcePrivateAVFObjC::setSourceBufferWithSelectedVideo(SourceBufferPrivateAVFObjC* sourceBuffer)
 {
     if (m_sourceBufferWithSelectedVideo) {
-        m_sourceBufferWithSelectedVideo->setVideoLayer(nullptr);
+        m_sourceBufferWithSelectedVideo->setVideoRenderer(nullptr);
         m_sourceBufferWithSelectedVideo->setDecompressionSession(nullptr);
     }
 
     m_sourceBufferWithSelectedVideo = sourceBuffer;
 
-    if (auto* player = this->player(); m_sourceBufferWithSelectedVideo && player) {
-        m_sourceBufferWithSelectedVideo->setVideoLayer(player->sampleBufferDisplayLayer());
+    if (auto player = platformPlayer(); m_sourceBufferWithSelectedVideo && player) {
+        m_sourceBufferWithSelectedVideo->setVideoRenderer(player->layerOrVideoRenderer());
         m_sourceBufferWithSelectedVideo->setDecompressionSession(player->decompressionSession());
     }
 }
@@ -285,6 +291,29 @@ bool MediaSourcePrivateAVFObjC::needsVideoLayer() const
     return anyOf(m_sourceBuffers, [] (auto& sourceBuffer) {
         return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->needsVideoLayer();
     });
+}
+
+void MediaSourcePrivateAVFObjC::bufferedChanged(const PlatformTimeRanges& buffered)
+{
+    MediaSourcePrivate::bufferedChanged(buffered);
+    if (RefPtr player = m_player.get())
+        player->bufferedChanged();
+}
+
+void MediaSourcePrivateAVFObjC::trackBufferedChanged(SourceBufferPrivate& sourceBuffer, Vector<PlatformTimeRanges>&& ranges)
+{
+    auto it = m_bufferedRanges.find(&sourceBuffer);
+    if (it == m_bufferedRanges.end())
+        m_bufferedRanges.add(&sourceBuffer, WTFMove(ranges));
+    else
+        it->value = WTFMove(ranges);
+
+    PlatformTimeRanges intersectionRange { MediaTime::zeroTime(), MediaTime::positiveInfiniteTime() };
+    for (auto& ranges : m_bufferedRanges.values()) {
+        for (auto& range : ranges)
+            intersectionRange.intersectWith(range);
+    }
+    bufferedChanged(intersectionRange);
 }
 
 }

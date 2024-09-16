@@ -3,16 +3,19 @@
 #include <stdatomic.h>
 #include <math.h>
 #include <unistd.h>
-#include <sys/sysctl.h>
-#include <mach/mach.h>
-#include <perfcheck_keys.h>
 #include <pthread.h>
 #include <malloc/malloc.h>
 #include <darwintest.h>
 
 #include <../src/internal.h> // for platform.h
 
-T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE);
+#if !MALLOC_TARGET_EXCLAVES
+#include <sys/sysctl.h>
+#include <mach/mach.h>
+#include <perfcheck_keys.h>
+#endif // !MALLOC_TARGET_EXCLAVES
+
+T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
 
 // number of times malloc & free are called per dt_stat batch
 #define ITERATIONS_PER_DT_STAT_BATCH 10000ull
@@ -23,6 +26,8 @@ T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE);
 // maintain and print progress counters in between measurement batches
 #define COUNTERS 0
 
+#define MAX_THREADS 32
+
 // move the darwintest assertion code out of the straight line execution path
 // since it is has non-trivial overhead and codegen impact even if the assertion
 // is never triggered.
@@ -30,7 +35,7 @@ T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE);
 
 #pragma mark -
 
-uint64_t
+static uint64_t
 random_busy_counts(unsigned int *seed, uint64_t *first, uint64_t *second)
 {
 	uint64_t random = rand_r(seed);
@@ -90,8 +95,17 @@ busy(uint64_t n)
 
 #pragma mark -
 
+#if MALLOC_TARGET_EXCLAVES
+static pthread_cond_t start_cond, end_cond;
+static pthread_mutex_t start_mut, end_mut;
+static uint32_t num_waiting_start, num_waiting_end;
+static bool done;
+#else
 static semaphore_t ready_sem, start_sem, end_sem;
+#endif // MALLOC_TARGET_EXCLAVES
+
 static uint32_t nthreads;
+static pthread_t threads[MAX_THREADS];
 static _Atomic uint32_t active_thr;
 static _Atomic int64_t todo;
 uint64_t iterations_per_dt_stat_batch = ITERATIONS_PER_DT_STAT_BATCH;
@@ -119,23 +133,110 @@ ncpu(void)
 	return MIN(activecpu, physicalcpu);
 }
 
-__attribute__((noinline))
 static void
-threaded_bench(dt_stat_time_t s, int batch_size)
+wait_for_ready(void)
 {
+#if MALLOC_TARGET_EXCLAVES
+	// Postcondition: start_mut will be locked
+	int rc;
+	for (;;) {
+		rc = pthread_mutex_lock(&start_mut);
+		T_QUIET; T_ASSERT_POSIX_ZERO(rc, "lock start mutex");
+		if (num_waiting_start == nthreads) {
+			num_waiting_start = 0;
+			break;
+		} else {
+			rc = pthread_mutex_unlock(&start_mut);
+			T_QUIET; T_ASSERT_POSIX_ZERO(rc, "unlock start mutex");
+			yield();
+		}
+	}
+#else
 	kern_return_t kr;
 	for (int i = 0; i < nthreads; i++) {
 		kr = semaphore_wait(ready_sem);
 		iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait");}
 	}
+#endif // MALLOC_TARGET_EXCLAVES
+}
+
+static void
+start_threads(void)
+{
+#if MALLOC_TARGET_EXCLAVES
+	// precondition: start_mut must be locked
+	int rc = pthread_cond_broadcast(&start_cond);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "broadcast start");
+	rc = pthread_mutex_unlock(&start_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "unlock start mutex");
+#else
+	kern_return_t kr = semaphore_signal_all(start_sem);
+	iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_signal_all");}
+#endif // MALLOC_TARGET_EXCLAVES
+}
+
+static void
+wait_for_end(void)
+{
+#if MALLOC_TARGET_EXCLAVES
+	int rc;
+	rc = pthread_mutex_lock(&end_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "lock end mutex");
+	num_waiting_end = 1;
+	rc = pthread_cond_wait(&end_cond, &end_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "wait for end");
+	rc = pthread_mutex_unlock(&end_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "unlock end mutex");
+#else
+	kern_return_t kr = semaphore_wait(end_sem);
+	iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait");}
+#endif // MALLOC_TARGET_EXCLAVES
+}
+
+__attribute__((noinline))
+static void
+#if MALLOC_TARGET_EXCLAVES
+threaded_bench(int batch_size)
+#else
+threaded_bench(dt_stat_time_t s, int batch_size)
+#endif // MALLOC_TARGET_EXCLAVES
+{
+	wait_for_ready();
 	atomic_init(&active_thr, nthreads);
 	atomic_init(&todo, batch_size * iterations_per_dt_stat_batch);
+#if !MALLOC_TARGET_EXCLAVES
 	dt_stat_token t = dt_stat_begin(s);
-	kr = semaphore_signal_all(start_sem);
-	iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_signal_all");}
-	kr = semaphore_wait(end_sem);
-	iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait");}
+#endif // !MALLOC_TARGET_EXCLAVES
+	start_threads();
+	wait_for_end();
+#if !MALLOC_TARGET_EXCLAVES
 	dt_stat_end_batch(s, batch_size, t);
+#endif // !MALLOC_TARGET_EXCLAVES
+}
+
+static void
+init_semaphores(void)
+{
+#if MALLOC_TARGET_EXCLAVES
+	int rc = pthread_cond_init(&start_cond, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "start cond init");
+	rc = pthread_cond_init(&end_cond, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "end cond init");
+	rc = pthread_mutex_init(&start_mut, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "start mutex init");
+	rc = pthread_mutex_init(&end_mut, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(rc, "end mutex init");
+	num_waiting_start = 0;
+	num_waiting_end = 0;
+	done = false;
+#else
+	int kr = semaphore_create(mach_task_self(), &ready_sem, SYNC_POLICY_FIFO, 0);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
+	kr = semaphore_create(mach_task_self(), &start_sem, SYNC_POLICY_FIFO, 0);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
+	kr = semaphore_create(mach_task_self(), &end_sem, SYNC_POLICY_FIFO, 0);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
+#endif // MALLOC_TARGET_EXCLAVES
 }
 
 static void
@@ -145,6 +246,9 @@ setup_threaded_bench(void* (*thread_fn)(void*), bool singlethreaded)
 	int r;
 	char *e;
 
+#if MALLOC_TARGET_EXCLAVES
+	nthreads = singlethreaded ? 1 : ncpu();
+#else
 	if (singlethreaded) {
 		nthreads = 1;
 	} else {
@@ -152,23 +256,26 @@ setup_threaded_bench(void* (*thread_fn)(void*), bool singlethreaded)
 		if (nthreads < 2) nthreads = ncpu();
 	}
 	if ((e = getenv("DT_STAT_CPU_BUSY"))) busy_select = strtoul(e, NULL, 0);
+#endif // MALLOC_TARGET_EXCLAVES
 
-	kr = semaphore_create(mach_task_self(), &ready_sem, SYNC_POLICY_FIFO, 0);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
-	kr = semaphore_create(mach_task_self(), &start_sem, SYNC_POLICY_FIFO, 0);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
-	kr = semaphore_create(mach_task_self(), &end_sem, SYNC_POLICY_FIFO, 0);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
+	T_QUIET; T_ASSERT_LE(nthreads, MAX_THREADS, "Too many threads requested");
 
+	init_semaphores();
+
+#if MALLOC_TARGET_EXCLAVES
+	pthread_attr_t *p_attr = NULL;
+#else
 	pthread_attr_t attr;
-	r = pthread_attr_init(&attr);
+	pthread_attr_t *p_attr = &attr;
+	r = pthread_attr_init(p_attr);
 	T_QUIET; T_ASSERT_POSIX_ZERO(r, "pthread_attr_init");
-	r = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	r = pthread_attr_setdetachstate(p_attr, PTHREAD_CREATE_DETACHED);
 	T_QUIET; T_ASSERT_POSIX_ZERO(r, "pthread_attr_setdetachstate");
+#endif // MALLOC_TARGET_EXCLAVES
 
 	for (int i = 0; i < nthreads; i++) {
-		pthread_t th;
-		r = pthread_create(&th, &attr, thread_fn, (void *)(uintptr_t)(i+1));
+		r = pthread_create(&threads[i], p_attr, thread_fn,
+				(void *)(uintptr_t)(i+1));
 		T_QUIET; T_ASSERT_POSIX_ZERO(r, "pthread_create");
 	}
 }
@@ -193,8 +300,26 @@ restart:
 	// start threads off in different positions in allocations array
 	pos = (seed - 1) * (LIVE_ALLOCATIONS / nthreads);
 	remaining_frees = LIVE_ALLOCATIONS;
+
+#if MALLOC_TARGET_EXCLAVES
+	r = pthread_mutex_lock(&start_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, "lock start mutex");
+
+	num_waiting_start++;
+
+	r = pthread_cond_wait(&start_cond, &start_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, "Wait start condvar");
+
+	r = pthread_mutex_unlock(&start_mut);
+	T_ASSERT_POSIX_ZERO(r, "unlock start mutex");
+
+	if (done) {
+		return NULL;
+	}
+#else
 	kr = semaphore_wait_signal(start_sem, ready_sem);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait_signal");
+#endif // MALLOC_TARGET_EXCLAVES
 
 	while (1) {
 		uint64_t first, second;
@@ -216,8 +341,28 @@ restart:
 	}
 
 	if (atomic_fetch_sub_explicit(&active_thr, 1, memory_order_relaxed) == 1) {
+#if MALLOC_TARGET_EXCLAVES
+		for (;;) {
+			r = pthread_mutex_lock(&end_mut);
+			T_ASSERT_POSIX_ZERO(r, "Lock end mutex");
+			if (num_waiting_end > 0) {
+				num_waiting_end = 0;
+				r = pthread_cond_signal(&end_cond);
+				T_QUIET; T_ASSERT_POSIX_ZERO(r, "Signal end mutex");
+				r = pthread_mutex_unlock(&end_mut);
+				T_QUIET; T_ASSERT_POSIX_ZERO(r, "Unlock end mutex");
+
+				break;
+			} else {
+				r = pthread_mutex_unlock(&end_mut);
+				T_QUIET; T_ASSERT_POSIX_ZERO(r, "Unlock end mutex");
+				yield();
+			}
+		}
+#else
 		kr = semaphore_signal(end_sem);
 		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_signal");
+#endif // MALLOC_TARGET_EXCLAVES
 	}
 	goto restart;
 }
@@ -238,6 +383,7 @@ malloc_bench(bool singlethreaded, size_t from, size_t to, size_t incr)
 	max_rand = (to - from) / incr;
 	assert((to - from) % incr == 0);
 
+#if !MALLOC_TARGET_EXCLAVES
 	dt_stat_time_t s = dt_stat_time_create(
 			nthreads > 1 ? "%llu malloc & free multithreaded" :
 					"%llu malloc & free singlethreaded",
@@ -260,6 +406,30 @@ malloc_bench(bool singlethreaded, size_t from, size_t to, size_t incr)
 	fprintf(stderr, "\n");
 #endif
 	dt_stat_finalize(s);
+#else // !MALLOC_TARGET_EXCLAVES
+
+	// TODO: Collect perf data and repeat test until runtime stabilizes. Or get
+	// darwintest_perf into Exclaves/EVE
+	for (int i = 0; i < 10; i++) {
+		threaded_bench(10);
+	}
+
+	// Signal the threads to join because the process isn't torn down between
+	// test cases
+	wait_for_ready();
+	done = true; // setting done will cause threads to return
+	start_threads();
+
+	for (int i = 0; i < nthreads; i++) {
+		r = pthread_join(threads[i], NULL);
+		T_ASSERT_POSIX_ZERO(r, "Join thread");
+	}
+
+	for (int i = 0; i < LIVE_ALLOCATIONS; i++) {
+		free(allocations[i]);
+		allocations[i] = NULL;
+	}
+#endif // !MALLOC_TARGET_EXCLAVES
 }
 
 T_DECL(perf_uncontended_nano_bench, "Uncontended nano malloc",

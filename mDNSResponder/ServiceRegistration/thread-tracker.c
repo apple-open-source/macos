@@ -168,8 +168,8 @@ thread_tracker_callback(void *context, cti_network_state_t cti_state, cti_status
         break;
     }
 
-	if ((state == kCTI_NCPState_Associated)     || (state == kCTI_NCPState_Isolated) ||
-		(state == kCTI_NCPState_NetWake_Asleep) || (state == kCTI_NCPState_NetWake_Waking))
+	if ((cti_state == kCTI_NCPState_Associated)     || (cti_state == kCTI_NCPState_Isolated) ||
+		(cti_state == kCTI_NCPState_NetWake_Asleep) || (cti_state == kCTI_NCPState_NetWake_Waking))
 	{
 		associated = true;
 	}

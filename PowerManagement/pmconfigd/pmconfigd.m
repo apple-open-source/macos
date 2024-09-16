@@ -30,11 +30,21 @@
 #endif
 
 
+
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 #import "PMCoreSmartPowerNapService.h"
 #import <LowPowerMode/_PMCoreSmartPowerNap.h>
 #endif
 #include "prefs.h"
+
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include <reboot2.h>
+
+#ifndef kIOPMMessageRequestSystemShutdown
+#define kIOPMMessageRequestSystemShutdown \
+        iokit_family_msg(sub_iokit_powermanagement, 0x470)
+#endif
+#endif
 /* load
  *
  * configd entry point
@@ -827,6 +837,9 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      else if (xpc_dictionary_get_value(event, kDominoState)) {
                          updateDominoState(peer, event);
                      }
+                     else if (xpc_dictionary_get_value(event, kOnenessState)) {
+                         updateOnenessState(peer, event);
+                     }
                      else {
                         os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }
@@ -1536,16 +1549,26 @@ RootDomainInterest(
 
         }
     }
-
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
     if (messageType == kIOPMMessageClamshellStateChange)
     {
-#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
         INFO_LOG("Clamshell state changed\n");
         dispatch_async(_getPMMainQueue(), ^{
             updateClamshellState(messageArgument);
         });
-#endif
+
     }
+    if (messageType == kIOPMMessageRequestSystemShutdown)
+    {
+        INFO_LOG("Received system shutdown request\n");
+              dispatch_async(_getPMMainQueue(), ^{
+                  int ret = reboot3(RB_HALT);
+                  if (ret) {
+                      INFO_LOG("Failed to shutdown system: %d (%s)", errno, strerror(errno));
+                  }
+              });
+    }
+#endif
 }
 
 static void

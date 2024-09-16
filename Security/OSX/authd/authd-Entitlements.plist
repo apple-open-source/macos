@@ -16,5 +16,7 @@
 	<true/>
 	<key>com.apple.private.endpoint-security.submit.authorization</key>
 	<true/>
+	<key>com.apple.rootless.storage.ExtensibleSSO</key>
+	<true/>
 </dict>
 </plist>

@@ -67,10 +67,10 @@ private:
     {
         return root().streamClientConnection().send(WTFMove(message), backing(), defaultSendTimeout);
     }
-    template<typename T>
-    WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
+    template<typename T, typename C>
+    WARN_UNUSED_RETURN IPC::StreamClientConnection::AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler)
     {
-        return root().streamClientConnection().sendSync(WTFMove(message), backing(), defaultSendTimeout);
+        return root().streamClientConnection().sendWithAsyncReply(WTFMove(message), completionHandler, backing(), defaultSendTimeout);
     }
 
     void submit(Vector<std::reference_wrapper<WebCore::WebGPU::CommandBuffer>>&&) final;
@@ -80,15 +80,26 @@ private:
     void writeBuffer(
         const WebCore::WebGPU::Buffer&,
         WebCore::WebGPU::Size64 bufferOffset,
-        const void* source,
-        size_t byteLength,
+        std::span<const uint8_t> source,
         WebCore::WebGPU::Size64 dataOffset = 0,
         std::optional<WebCore::WebGPU::Size64> = std::nullopt) final;
 
     void writeTexture(
         const WebCore::WebGPU::ImageCopyTexture& destination,
-        const void* source,
-        size_t byteLength,
+        std::span<const uint8_t> source,
+        const WebCore::WebGPU::ImageDataLayout&,
+        const WebCore::WebGPU::Extent3D& size) final;
+
+    void writeBufferNoCopy(
+        const WebCore::WebGPU::Buffer&,
+        WebCore::WebGPU::Size64 bufferOffset,
+        std::span<uint8_t> source,
+        WebCore::WebGPU::Size64 dataOffset = 0,
+        std::optional<WebCore::WebGPU::Size64> = std::nullopt) final;
+
+    void writeTexture(
+        const WebCore::WebGPU::ImageCopyTexture& destination,
+        std::span<uint8_t> source,
         const WebCore::WebGPU::ImageDataLayout&,
         const WebCore::WebGPU::Extent3D& size) final;
 

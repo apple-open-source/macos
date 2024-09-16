@@ -35,6 +35,9 @@
 .Br
 .Nm
 .Fl -nc Ar nc-arguments
+.Br
+.Nm
+.Fl -renew Ar interface-name
 .\".Br
 .\".Nm
 .\".Fl -net
@@ -112,6 +115,10 @@ Use
 .Fl -nc
 .Ar help
 for a full list of commands.
+.Pp
+The
+.Fl -renew
+option triggers a re-evaluation of the network configuration on the interface.
 .\".Pp
 .\"Lastly, the
 .\".Fl -net
@@ -214,6 +221,8 @@ Provides a set of commands for monitoring and interacting with VPN connections. 
 .Fl -nc
 .Ar help
 for a full list of commands.
+.It Fl -renew Ar interface-name
+Triggers a re-evaluation of the network configuration on the interface.
 .\".It Fl -net
 .\"Provides a command line interface to the
 .\".Qq network configuration .

@@ -36,7 +36,7 @@
 #include <kern/mach_filter.h>
 #include <kern/task.h>
 
-#include <vm/vm_map.h> /* current_map() */
+#include <vm/vm_map_xnu.h> /* current_map() */
 #include <vm/vm_protos.h> /* current_proc() */
 
 #include <ipc/ipc_policy.h>

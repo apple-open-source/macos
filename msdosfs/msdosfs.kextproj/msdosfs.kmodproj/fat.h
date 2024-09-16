@@ -146,6 +146,7 @@ check and parse the header once at vnode creation time.
 
 */
 
+#ifndef SYMLINK_LINK_MAX
 static const char symlink_magic[5] = "XSym\n";
 
 #define SYMLINK_LINK_MAX 1024
@@ -158,6 +159,7 @@ struct symlink {
 	char newline2;		/* '\n' */
 	char link[SYMLINK_LINK_MAX]; /* "length" bytes, padded by '\n' and spaces */
 };
+#endif
 
 #ifdef KERNEL
 /*

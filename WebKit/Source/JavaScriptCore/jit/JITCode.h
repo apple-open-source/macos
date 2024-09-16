@@ -72,7 +72,7 @@ enum class JITType : uint8_t {
 static constexpr unsigned widthOfJITType = 3;
 static_assert(WTF::getMSBSetConstexpr(static_cast<std::underlying_type_t<JITType>>(JITType::FTLJIT)) + 1 == widthOfJITType);
 
-#if USE(JSVALUE64)
+#if CPU(ADDRESS64)
 template<typename ByteSizedEnumType>
 class JITConstant {
     static_assert(sizeof(ByteSizedEnumType) == 1);
@@ -278,7 +278,7 @@ public:
     virtual DFG::JITCode* dfg();
     virtual FTL::JITCode* ftl();
     virtual FTL::ForOSREntryJITCode* ftlForOSREntry();
-    virtual void shrinkToFit(const ConcurrentJSLocker&);
+    virtual void shrinkToFit();
     
     virtual void validateReferences(const TrackedReferences&);
     
@@ -301,7 +301,7 @@ public:
 
     const RegisterAtOffsetList* calleeSaveRegisters() const;
 
-    static ptrdiff_t offsetOfJITType() { return OBJECT_OFFSETOF(JSC::JITCode, m_jitType); }
+    static constexpr ptrdiff_t offsetOfJITType() { return OBJECT_OFFSETOF(JSC::JITCode, m_jitType); }
 
 private:
     const JITType m_jitType;

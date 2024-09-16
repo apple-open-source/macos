@@ -127,6 +127,7 @@ int main(int argc, char *argv[]) {
 		suite_failed = true;
 	}
 
+	// Remove our test directory at the end.
 	(void)removefile(TEST_DIR, NULL, REMOVEFILE_RECURSIVE);
 
 	return suite_failed ? EXIT_FAILURE : EXIT_SUCCESS;

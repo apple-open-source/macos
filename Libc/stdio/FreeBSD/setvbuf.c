@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/setvbuf.c,v 1.14 2007/01/09 00:28:07 imp 
 #include "un-namespace.h"
 #include "local.h"
 #include "libc_private.h"
+#include "libc_hooks_impl.h"
 
 /*
  * Set one of the three kinds of buffering, optionally including
@@ -62,6 +63,9 @@ setvbuf(FILE * __restrict fp, char * __restrict buf, int mode, size_t size)
 	if (mode != _IONBF)
 		if ((mode != _IOFBF && mode != _IOLBF) || (int)size < 0)
 			return (EOF);
+
+	libc_hooks_will_write(fp, sizeof(*fp));
+	libc_hooks_will_write(buf, size);
 
 	FLOCKFILE(fp);
 	/*
@@ -154,7 +158,11 @@ nbf:
 		/* begin/continue reading, or stay in intermediate state */
 		fp->_w = 0;
 	}
+#ifdef __APPLE__
+	__cleanup = 1;
+#else
 	__cleanup = _cleanup;
+#endif // __APPLE__
 
 	FUNLOCKFILE(fp);
 	return (ret);

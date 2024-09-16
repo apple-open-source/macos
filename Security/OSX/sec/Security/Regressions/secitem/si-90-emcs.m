@@ -1,3 +1,5 @@
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
 #include <Foundation/Foundation.h>
 #include <Security/Security.h>
 
@@ -53,3 +55,5 @@ int si_90_emcs(int argc, char *const *argv)
 
     return 0;
 }
+
+#endif // TARGET_OS_IPHONE

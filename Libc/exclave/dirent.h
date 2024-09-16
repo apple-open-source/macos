@@ -58,8 +58,6 @@
 #ifndef _DIRENT_H_
 #define _DIRENT_H_
 
-#if defined(ENABLE_EXCLAVE_STORAGE)
-
 #include <sys/cdefs.h>
 #include <stdint.h>
 
@@ -98,6 +96,8 @@ struct dirent {
 #define IFTODT(mode)    (((mode) & 0170000) >> 12)
 #define DTTOIF(dirtype) ((dirtype) << 12)
 #endif
+
+#if defined(ENABLE_EXCLAVE_STORAGE)
 
 __BEGIN_DECLS
 

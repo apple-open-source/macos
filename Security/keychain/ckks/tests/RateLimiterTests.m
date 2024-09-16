@@ -188,6 +188,10 @@
         XCTAssertNil(limitTime, @"single object, clear to process right now");
     }
 
+    if (obj == nil) {
+        XCTFail("obj has to be set (non-nil)");
+        return;
+    }
     XCTAssertEqual([self.RL judge:obj at:self.time limitTime:&limitTime], RateLimiterBadnessCongested, @"Received RateLimiterBadnessCongested");
     XCTAssertNotNil(limitTime, @"After hammering same object need to wait now");
     XCTAssertEqualObjects(limitTime, [self.time dateByAddingTimeInterval:[self.config[@"groups"][0][@"rate"] intValue]], @"time: %@, process-OK time is time + rate (%d)", self.time, [self.config[@"groups"][0][@"rate"] intValue]);

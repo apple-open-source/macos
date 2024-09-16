@@ -31,11 +31,11 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
-#include "ShareableBitmap.h"
 #include "SimulatedInputDispatcher.h"
 #include "WebEvent.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/ShareableBitmap.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -101,9 +101,6 @@ public:
 using AutomationCompletionHandler = WTF::CompletionHandler<void(std::optional<AutomationCommandError>)>;
 
 class WebAutomationSession final : public API::ObjectImpl<API::Object::Type::AutomationSession>, public IPC::MessageReceiver
-#if ENABLE(REMOTE_INSPECTOR)
-    , public Inspector::RemoteAutomationTarget
-#endif
     , public Inspector::AutomationBackendDispatcherHandler
 #if ENABLE(WEBDRIVER_ACTIONS_API)
     , public SimulatedInputDispatcher::Client
@@ -112,6 +109,26 @@ class WebAutomationSession final : public API::ObjectImpl<API::Object::Type::Aut
 public:
     WebAutomationSession();
     ~WebAutomationSession();
+
+#if ENABLE(REMOTE_INSPECTOR)
+    class Debuggable : public Inspector::RemoteAutomationTarget {
+    public:
+        static Ref<Debuggable> create(WebAutomationSession&);
+
+        void sessionDestroyed();
+
+    // Inspector::RemoteAutomationTarget API
+    String name() const;
+    void dispatchMessageFromRemote(String&& message);
+    void connect(Inspector::FrontendChannel&, bool isAutomaticConnection = false, bool immediatelyPause = false);
+    void disconnect(Inspector::FrontendChannel&);
+
+    private:
+        explicit Debuggable(WebAutomationSession&);
+
+        WebAutomationSession* m_session;
+    };
+#endif // ENABLE(REMOTE_INSPECTOR)
 
     void setClient(std::unique_ptr<API::AutomationSessionClient>&&);
 
@@ -136,12 +153,16 @@ public:
     bool shouldAllowGetUserMediaForPage(const WebPageProxy&) const;
 
 #if ENABLE(REMOTE_INSPECTOR)
-    // Inspector::RemoteAutomationTarget API
     String name() const { return m_sessionIdentifier; }
     void dispatchMessageFromRemote(String&& message);
     void connect(Inspector::FrontendChannel&, bool isAutomaticConnection = false, bool immediatelyPause = false);
     void disconnect(Inspector::FrontendChannel&);
+
+    void init();
+    bool isPaired() const;
+    bool isPendingTermination() const;
 #endif
+
     void terminate();
 
 #if ENABLE(WEBDRIVER_ACTIONS_API)
@@ -227,7 +248,6 @@ public:
 #endif
 
 #if PLATFORM(MAC)
-    static const int synthesizedMouseEventMagicEventNumber = 0;
     bool wasEventSynthesizedForAutomation(NSEvent *);
     void markEventAsSynthesizedForAutomation(NSEvent *);
 #endif
@@ -260,14 +280,14 @@ private:
 
     // Called by WebAutomationSession messages.
     void didEvaluateJavaScriptFunction(uint64_t callbackID, const String& result, const String& errorType);
-    void didTakeScreenshot(uint64_t callbackID, std::optional<ShareableBitmap::Handle>&&, const String& errorType);
+    void didTakeScreenshot(uint64_t callbackID, std::optional<WebCore::ShareableBitmap::Handle>&&, const String& errorType);
 
     // Platform-dependent implementations.
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
     void updateClickCount(MouseButton, const WebCore::IntPoint&, Seconds maxTime = 1_s, int maxDistance = 0);
     void resetClickCount();
     void platformSimulateMouseInteraction(WebPageProxy&, MouseInteraction, MouseButton, const WebCore::IntPoint& locationInViewport, OptionSet<WebEventModifier>, const String& pointerType);
-    static OptionSet<WebEventModifier> platformWebModifiersFromRaw(unsigned modifiers);
+    static OptionSet<WebEventModifier> platformWebModifiersFromRaw(WebPageProxy&, unsigned modifiers);
 #endif
 #if ENABLE(WEBDRIVER_TOUCH_INTERACTIONS)
     // Simulates a single touch point being pressed, moved, and released.
@@ -284,7 +304,7 @@ private:
 #endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 
     // Get base64-encoded PNG data from a bitmap.
-    static std::optional<String> platformGetBase64EncodedPNGData(ShareableBitmap::Handle&&);
+    static std::optional<String> platformGetBase64EncodedPNGData(WebCore::ShareableBitmap::Handle&&);
     static std::optional<String> platformGetBase64EncodedPNGData(const ViewSnapshot&);
 
     // Save base64-encoded file contents to a local file path and return the path.
@@ -370,6 +390,7 @@ private:
 
 #if ENABLE(REMOTE_INSPECTOR)
     Inspector::FrontendChannel* m_remoteChannel { nullptr };
+    Ref<Debuggable> m_debuggable;
 #endif
 
 };

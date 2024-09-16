@@ -111,6 +111,8 @@ const CFStringRef kDADiskDescriptionAppearanceTimeKey  = CFSTR( "DAAppearanceTim
 
 const CFStringRef kDADiskDescriptionMediaMatchKey      = CFSTR( "DAMediaMatch"      );
 
+const CFStringRef kDADiskDescriptionFSKitPrefix        = CFSTR( "FS"                );
+
 static const char * __kDAKindNameList[] =
 {
     "disk appeared",
@@ -129,7 +131,8 @@ static const char * __kDAKindNameList[] =
     "disk unmount",
     "disk unmount approval",
     "idle",
-    "disk list complete"
+    "disk list complete",
+    "disk fskit additions changed",
 };
 
 extern CFIndex __CFBinaryPlistWriteToStream( CFPropertyListRef plist, CFTypeRef stream );
@@ -273,7 +276,10 @@ __private_extern__ SInt64 ___CFNumberGetIntegerValue( CFNumberRef number )
 {
     SInt64 value = 0;
 
-    CFNumberGetValue( number, kCFNumberSInt64Type, &value );
+    if ( number && ( CFGetTypeID( number ) == CFNumberGetTypeID( ) ))
+    {
+        CFNumberGetValue( number, kCFNumberSInt64Type, &value );
+    }
 
     return value;
 }

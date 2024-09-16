@@ -43,7 +43,7 @@ std::unique_ptr<KeyedDecoder> createForFile(const String& path)
     if (!buffer)
         return nullptr;
 
-    return KeyedDecoder::decoder(buffer->data(), buffer->size());
+    return KeyedDecoder::decoder(buffer->span());
 }
 
 void writeToDisk(std::unique_ptr<KeyedEncoder>&& encoder, String&& path)
@@ -58,7 +58,7 @@ void writeToDisk(std::unique_ptr<KeyedEncoder>&& encoder, String&& path)
     if (handle == FileSystem::invalidPlatformFileHandle)
         return;
 
-    auto writtenBytes = FileSystem::writeToFile(handle, rawData->data(), rawData->size());
+    auto writtenBytes = FileSystem::writeToFile(handle, rawData->span());
     FileSystem::unlockAndCloseFile(handle);
 
     if (writtenBytes != static_cast<int64_t>(rawData->size()))

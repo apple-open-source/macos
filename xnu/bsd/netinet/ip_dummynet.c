@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1929,10 +1929,10 @@ config_red(struct dn_flow_set *p, struct dn_flow_set * x)
 	}
 	x->lookup_depth = red_lookup_depth;
 	x->w_q_lookup = (u_int *) kalloc_data(x->lookup_depth * sizeof(int),
-	    Z_NOWAIT);
+	    Z_WAITOK | Z_ZERO);
 	if (x->w_q_lookup == NULL) {
 		printf("dummynet: sorry, cannot allocate red lookup table\n");
-		return ENOSPC;
+		return ENOMEM;
 	}
 
 	/* fill the lookup table with (1 - w_q)^x */
@@ -1975,7 +1975,7 @@ alloc_hash(struct dn_flow_set *x, struct dn_flow_set *pfs)
 	    Z_NOWAIT | Z_ZERO);
 	if (x->rq == NULL) {
 		printf("dummynet: sorry, cannot allocate queue\n");
-		return ENOSPC;
+		return ENOMEM;
 	}
 	x->rq_elements = 0;
 	return 0;
@@ -2042,11 +2042,11 @@ config_pipe(struct dn_pipe *p)
 
 		if (b == NULL || b->pipe_nr != p->pipe_nr) { /* new pipe */
 			is_new = true;
-			x = kalloc_type(struct dn_pipe, Z_NOWAIT | Z_ZERO);
+			x = kalloc_type(struct dn_pipe, Z_WAITOK | Z_ZERO);
 			if (x == NULL) {
 				lck_mtx_unlock(&dn_mutex);
 				printf("dummynet: no memory for new pipe\n");
-				return ENOSPC;
+				return ENOMEM;
 			}
 			x->pipe_nr = p->pipe_nr;
 			x->fs.pipe = x;
@@ -2112,11 +2112,11 @@ config_pipe(struct dn_pipe *p)
 				lck_mtx_unlock(&dn_mutex);
 				return EINVAL;
 			}
-			x = kalloc_type(struct dn_flow_set, Z_NOWAIT | Z_ZERO);
+			x = kalloc_type(struct dn_flow_set, Z_WAITOK | Z_ZERO);
 			if (x == NULL) {
 				lck_mtx_unlock(&dn_mutex);
 				printf("dummynet: no memory for new flow_set\n");
-				return ENOSPC;
+				return ENOMEM;
 			}
 			x->fs_nr = pfs->fs_nr;
 			x->parent_nr = pfs->parent_nr;
@@ -2455,7 +2455,7 @@ dummynet_get(struct sockopt *sopt)
 		lck_mtx_unlock(&dn_mutex);
 		buf = kalloc_data(size, Z_WAITOK | Z_ZERO);
 		if (buf == NULL) {
-			return ENOBUFS;
+			return ENOMEM;
 		}
 		lck_mtx_lock(&dn_mutex);
 		if (size == dn_calc_size(is64user)) {
@@ -2466,7 +2466,7 @@ dummynet_get(struct sockopt *sopt)
 	}
 	if (buf == NULL) {
 		lck_mtx_unlock(&dn_mutex);
-		return ENOBUFS;
+		return ENOMEM;
 	}
 
 	bp = buf;
@@ -2609,11 +2609,29 @@ dummynet_event_enqueue_nwk_wq_entry(struct dummynet_event *p_dn_event)
 {
 	struct dn_event_nwk_wq_entry *p_ev = NULL;
 
+	evhlog(debug, "%s: eventhandler enqueuing event of type=dummynet_event event_code=%s",
+	    __func__, dummynet_event2str(p_dn_event->dn_event_code));
+
 	p_ev = kalloc_type(struct dn_event_nwk_wq_entry,
 	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	p_ev->nwk_wqe.func = dummynet_event_callback;
 	p_ev->dn_ev_arg = *p_dn_event;
 	nwk_wq_enqueue(&p_ev->nwk_wqe);
+}
+
+const char *
+dummynet_event2str(int event)
+{
+	switch (event) {
+#define DUMMYNET_EVENT_TO_STRING(type) case type: return #type;
+		DUMMYNET_EVENT_TO_STRING(DUMMYNET_RULE_CONFIG)
+		DUMMYNET_EVENT_TO_STRING(DUMMYNET_RULE_DELETE)
+		DUMMYNET_EVENT_TO_STRING(DUMMYNET_PIPE_CONFIG)
+		DUMMYNET_EVENT_TO_STRING(DUMMYNET_PIPE_DELETE)
+		DUMMYNET_EVENT_TO_STRING(DUMMYNET_NLC_DISABLED)
+#undef DUMMYNET_EVENT_TO_STRING
+	}
+	return "UNKNOWN_DUMMYNET_EVENT";
 }
 
 struct dummynet_tag_container {

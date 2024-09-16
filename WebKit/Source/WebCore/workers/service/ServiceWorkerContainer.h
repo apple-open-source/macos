@@ -47,6 +47,7 @@ namespace WebCore {
 class DeferredPromise;
 class NavigatorBase;
 class ServiceWorker;
+class TrustedScriptURL;
 
 enum class ServiceWorkerUpdateViaCache : uint8_t;
 enum class WorkerType : bool;
@@ -59,13 +60,17 @@ public:
 
     ~ServiceWorkerContainer();
 
+    // ActiveDOMObject.
+    void ref() const final;
+    void deref() const final;
+
     ServiceWorker* controller() const;
 
     using ReadyPromise = DOMPromiseProxy<IDLInterface<ServiceWorkerRegistration>>;
     ReadyPromise& ready();
 
     using RegistrationOptions = ServiceWorkerRegistrationOptions;
-    void addRegistration(const String& scriptURL, const RegistrationOptions&, Ref<DeferredPromise>&&);
+    void addRegistration(std::variant<RefPtr<TrustedScriptURL>, String>&&, const RegistrationOptions&, Ref<DeferredPromise>&&);
     void unregisterRegistration(ServiceWorkerRegistrationIdentifier, DOMPromiseDeferred<IDLBoolean>&&);
     void updateRegistration(const URL& scopeURL, const URL& scriptURL, WorkerType, RefPtr<DeferredPromise>&&);
 
@@ -130,13 +135,12 @@ private:
 
     SWClientConnection& ensureSWClientConnection();
 
-    // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
-    
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
-    EventTargetInterface eventTargetInterface() const final { return ServiceWorkerContainerEventTargetInterfaceType; }
+    enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::ServiceWorkerContainer; }
     void refEventTarget() final;
     void derefEventTarget() final;
+
+    // ActiveDOMObject.
     void stop() final;
 
     void notifyRegistrationIsSettled(const ServiceWorkerRegistrationKey&);
@@ -154,7 +158,7 @@ private:
     HashMap<ServiceWorkerJobIdentifier, OngoingJob> m_jobMap;
 
     bool m_isStopped { false };
-    HashMap<ServiceWorkerRegistrationIdentifier, ServiceWorkerRegistration*> m_registrations;
+    HashMap<ServiceWorkerRegistrationIdentifier, WeakRef<ServiceWorkerRegistration, WeakPtrImplWithEventTargetData>> m_registrations;
 
 #if ASSERT_ENABLED
     Ref<Thread> m_creationThread { Thread::current() };

@@ -8,11 +8,9 @@ CORETELEPHONY=-framework CoreTelephony
 ARCHS=arm64
 endif
 
-WIRELESS_CODESIGN=codesign
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
 CORETELEPHONY=
-WIRELESS_CODESIGN=true
 endif
 
 ifeq ($(PLATFORM),)
@@ -25,7 +23,7 @@ else
 # Mac OS X or iOS internal SDK
 SDK=$(PLATFORM).internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
-CC = xcrun -sdk $(SDK) cc
+CC = xcrun -sdk $(SDK) cc -fno-color-diagnostics
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
 endif
 
@@ -40,34 +38,30 @@ IBLIB = -I$(BLIB)
 
 ARPTEST_BOOTPLIB_CFILES = $(BLIB)/dynarray.c $(BLIB)/ptrlist.c $(BLIB)/interfaces.c $(BLIB)/bpflib.c $(BLIB)/ioregpath.c $(BLIB)/IPConfigurationLog.c $(BLIB)/util.c $(BLIB)/cfutil.c
 
-arptest: arp_session.c arp_session.h
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g  -Wall -DTEST_ARP_SESSION $(SC_PRIV) $(IBLIB) timer.c FDSet.c $(ARPTEST_BOOTPLIB_CFILES) -framework CoreFoundation -framework IOKit -framework SystemConfiguration arp_session.c -o $@
+IFUTIL_FILES = ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c HostUUID.c
 
-##arp_session.o: arp_session.c arp_session.h
-##	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g -Wall -c arp_session.c -DTEST_ARP_SESSION $(SYSTEM_PRIVATE) $(IBLIB)
-##
+arptest: FDSet.c IPConfigurationAgentUtil.c arp_session.c timer.c $(ARPTEST_BOOTPLIB_CFILES)
+	$(CC)  -DSC_LOG_HANDLE=IPConfigLogGetHandle -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_ARP_SESSION $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -o $@ $^
 
-IFUTIL_FILES = ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c HostUUID.c rsakey.c
+test_timer: timer.c IPConfigurationAgentUtil.c  $(ARPTEST_BOOTPLIB_CFILES)
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_TIMER $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -o $@ $^
 
 inet6_addrs: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 $(IBLIB) $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^
 
-dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c ../bootplib/IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c wireless.c
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DSC_LOG_HANDLE=IPConfigLogGetHandle -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -o $@ $^
+dhcpv6: IPConfigurationAgentUtil.c DHCPv6Client.c ifutil.c cga.c FDSet.c timer.c HostUUID.c ../bootplib/IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c wireless.c
+	$(CC) -DMYLOG_STDOUT -isysroot $(SYSROOT) $(ARCH_FLAGS) -DSC_LOG_HANDLE=IPConfigLogGetHandle -D__APPLE_USE_RFC_3542 -DTEST_DHCPV6_CLIENT $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -o $@ $^
 
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_DHCPDUIDIAID $(IBLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
 
-rtadv: RTADVSocket.c ICMPv6Socket.c ../bootplib/cfutil.c ../bootplib/IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c ../bootplib/DNSNameList.c ../bootplib/RouterAdvertisement.c
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) $(IBLIB) -DTEST_RTADVSOCKET -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
+rtadv: IPConfigurationAgentUtil.c RTADVSocket.c ICMPv6Socket.c ../bootplib/cfutil.c ../bootplib/IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c ../bootplib/DNSNameList.c ../bootplib/RouterAdvertisement.c
+	$(CC) -DMYLOG_STDOUT -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) $(IBLIB) -DTEST_RTADVSOCKET $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -g -o $@ $^
 
-rsakey: RSAKey.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c
-	cc $(IBLIB) -DTEST_RSAKEY -framework SystemConfiguration -framework CoreFoundation -g -Wall -o $@ $^
-
-cga: CGA.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c RSAKey.c HostUUID.c ../bootplib/util.c
+cga: CGA.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c HostUUID.c ../bootplib/util.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) $(IBLIB) -DTEST_CGA -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
 
-ndadvert: IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c rsakey.c HostUUID.c
+ndadvert: IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c HostUUID.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) $(IBLIB) -DTEST_NEIGHBOR_ADVERT -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
 
 ipv6ll: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
@@ -85,10 +79,16 @@ ipv6defpfx: $(IFUTIL_FILES)
 protolist: $(IFUTIL_FILES)
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) -o $@ $^
 
+verbose_sysctls: $(IFUTIL_FILES)
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DMYLOG_STDOUT -DTEST_VERBOSE_SYSCTLS -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) -o $@ $^
+
 wireless: wireless.c
-	$(CC) -DTEST_WIRELESS -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) ../bootplib/util.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c -lio80211 -framework IOKit -o $@ $^
-	$(WIRELESS_CODESIGN) -s - -f --entitlements wireless-entitlements.plist $@
+	$(CC) -DTEST_WIRELESS -isysroot $(SYSROOT) $(PF_INC) $(ARCH_FLAGS) -g  -Wall -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) ../bootplib/util.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c -framework IO80211 -framework IOKit -o $@ $^
+	codesign -s - -f --entitlements wireless-entitlements.plist $@
+
+bootp_session: bootp_session.c IPConfigurationAgentUtil.c FDSet.c timer.c ../bootplib/dhcp_options.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/dhcplib.c ../bootplib/in_cksum.c ../bootplib/bpflib.c ../bootplib/DNSNameList.c ../bootplib/udp_transmit.c ../bootplib/IPv4ClasslessRoute.c ../bootplib/interfaces.c ../bootplib/cfutil.c ../bootplib/util.c
+	$(CC) -DMYLOG_STDOUT -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 -DTEST_BOOTP_SESSION $(PF_INC) -g -Wall $(IBLIB) -framework CoreFoundation -framework SystemConfiguration -framework Apple80211 -framework IOKit $(SYSTEM_PRIVATE) -o $@ $^
 
 clean:
-	rm -f *~ arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest rtadv wireless
+	rm -f *~ arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest rtadv wireless bootp_session test_timer
 	rm -rf *.dSYM/

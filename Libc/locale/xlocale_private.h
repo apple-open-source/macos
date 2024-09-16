@@ -24,11 +24,11 @@
 #ifndef _XLOCALE_PRIVATE_H_
 #define _XLOCALE_PRIVATE_H_
 
-#include <sys/cdefs.h>
 #define __DARWIN_XLOCALE_PRIVATE
+#include <sys/cdefs.h>
 #include <xlocale.h>
-#undef __DARWIN_XLOCALE_PRIVATE
 #include <stdlib.h>
+#include <string.h>
 #include <locale.h>
 #include <libkern/OSAtomic.h>
 #include <pthread.h>
@@ -36,82 +36,87 @@
 #include <limits.h>
 #include <os/lock.h>
 #include "setlocale.h"
-#include "collate.h"
-#include "runetype.h"
-#include "lmessages.h"
-#include "lmonetary.h"
-#include "lnumeric.h"
 #include "timelocal.h"
 #include <TargetConditionals.h>
+#undef __DARWIN_XLOCALE_PRIVATE
 
-#undef MB_CUR_MAX
-#define MB_CUR_MAX	(__current_locale()->__lc_ctype->__mb_cur_max)
 #undef MB_CUR_MAX_L
-#define MB_CUR_MAX_L(x)	((x)->__lc_ctype->__mb_cur_max)
+#define MB_CUR_MAX_L(x)	(XLOCALE_CTYPE(x)->__mb_cur_max)
+#undef MB_CUR_MAX
+#define MB_CUR_MAX	MB_CUR_MAX_L(__current_locale())
 
 typedef void (*__free_extra_t)(void *);
 
-#define XPERMANENT	((__free_extra_t)-1)
 #define XMAGIC		0x786c6f63616c6530LL	/* 'xlocale0' */
 
-#define	__STRUCT_COMMON	\
-	int32_t __refcount; \
-	__free_extra_t __free_extra;
+/**
+ * The XLC_ values are indexes into the components array.  They are defined in
+ * the same order as the LC_ values in locale.h, but without the LC_ALL zero
+ * value.  Translating from LC_X to XLC_X is done by subtracting one.
+ *
+ * Any reordering of this enum should ensure that these invariants are not
+ * violated.
+ */
+enum {
+	XLC_COLLATE = 0,
+	XLC_CTYPE,
+	XLC_MONETARY,
+	XLC_NUMERIC,
+	XLC_TIME,
+	XLC_MESSAGES,
+	XLC_LAST
+};
 
-struct __xlocale_st_collate {
-	__STRUCT_COMMON
-	char __encoding[ENCODING_LEN + 1];
-	struct __collate_st_info __info;
-	struct __collate_st_subst *__substitute_table[COLL_WEIGHTS_MAX];
-	struct __collate_st_chain_pri *__chain_pri_table;
-	struct __collate_st_large_char_pri *__large_char_pri_table;
-	struct __collate_st_char_pri __char_pri_table[UCHAR_MAX + 1];
+_Static_assert(XLC_LAST - XLC_COLLATE == 6, "XLC values should be contiguous");
+_Static_assert(XLC_COLLATE == LC_COLLATE - 1,
+               "XLC_COLLATE doesn't match the LC_COLLATE value.");
+_Static_assert(XLC_CTYPE == LC_CTYPE - 1,
+               "XLC_CTYPE doesn't match the LC_CTYPE value.");
+_Static_assert(XLC_MONETARY == LC_MONETARY - 1,
+               "XLC_MONETARY doesn't match the LC_MONETARY value.");
+_Static_assert(XLC_NUMERIC == LC_NUMERIC - 1,
+               "XLC_NUMERIC doesn't match the LC_NUMERIC value.");
+_Static_assert(XLC_TIME == LC_TIME - 1,
+               "XLC_TIME doesn't match the LC_TIME value.");
+_Static_assert(XLC_MESSAGES == LC_MESSAGES - 1,
+               "XLC_MESSAGES doesn't match the LC_MESSAGES value.");
+
+struct xlocale_refcounted {
+	/** Number of references to this component. */
+	int retain_count;
+	/** Function used to destroy this component, if one is required. */
+	__free_extra_t destructor;
 };
-struct __xlocale_st_runelocale {
-	__STRUCT_COMMON
-	char __ctype_encoding[ENCODING_LEN + 1];
-	int __mb_cur_max;
-	int __mb_sb_limit;
-	size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict,
-	    size_t, __darwin_mbstate_t * __restrict, struct _xlocale *);
-	int (*__mbsinit)(const __darwin_mbstate_t *, struct _xlocale *);
-	size_t (*__mbsnrtowcs)(wchar_t * __restrict, const char ** __restrict,
-	    size_t, size_t, __darwin_mbstate_t * __restrict, struct _xlocale *);
-	size_t (*__wcrtomb)(char * __restrict, wchar_t,
-	    __darwin_mbstate_t * __restrict, struct _xlocale *);
-	size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
-	    size_t, size_t, __darwin_mbstate_t * __restrict, struct _xlocale *);
-	int __datasize;
-	_RuneLocale _CurrentRuneLocale;
+
+#define XLOCALE_DEF_VERSION_LEN 12
+
+/**
+ * Header for a locale component.  All locale components must begin wtih this
+ * header.
+ */
+struct xlocale_component {
+	struct xlocale_refcounted header;
+	/** Name of the locale used for this component. */
+	char locale[ENCODING_LEN+1];
+	/** Version of the definition for this component. */
+	char version[XLOCALE_DEF_VERSION_LEN];
 };
-struct __xlocale_st_ldpart {
-	__STRUCT_COMMON
-	char *_locale_buf;
+
+struct xlocale_ldpart {
+	struct xlocale_component header;
+	char *buffer;
 };
 /*
  * the next four structures must have the first three fields of the same
- * as the _xlocale_st_ldpart structure above.
+ * as the xlocale_ldpart structure above.
  */
-struct __xlocale_st_messages {
-	__STRUCT_COMMON
-	char *_messages_locale_buf;
-	struct lc_messages_T _messages_locale;
-};
-struct __xlocale_st_monetary {
-	__STRUCT_COMMON
-	char *_monetary_locale_buf;
-	struct lc_monetary_T _monetary_locale;
-};
-struct __xlocale_st_numeric {
-	__STRUCT_COMMON
-	char *_numeric_locale_buf;
-	struct lc_numeric_T _numeric_locale;
-};
-struct __xlocale_st_time {
-	__STRUCT_COMMON
-	char *_time_locale_buf;
-	struct lc_time_T _time_locale;
-};
+struct xlocale_messages;
+struct xlocale_monetary;
+struct xlocale_numeric;
+struct xlocale_time;
+
+#define	XLC_PART_MASKS	((1 << XLC_MESSAGES) | (1 << XLC_MONETARY) | \
+    (1 << XLC_NUMERIC) | (1 << XLC_TIME))
 
 /* the extended locale structure */
     /* values for __numeric_fp_cvt */
@@ -121,7 +126,8 @@ struct __xlocale_st_time {
 
 struct _xlocale {
 /* The item(s) before __magic are not copied when duplicating locale_t's */
-	__STRUCT_COMMON	/* only used for locale_t's in __lc_numeric_loc */
+	struct xlocale_refcounted header;
+	/* only used for locale_t's in __lc_numeric_loc */
 	/* 10 independent mbstate_t buffers! */
 	__darwin_mbstate_t __mbs_mblen;
 	__darwin_mbstate_t __mbs_mbrlen;
@@ -137,8 +143,6 @@ struct _xlocale {
 /* magic (Here up to the end is copied when duplicating locale_t's) */
 	int64_t __magic;
 /* flags */
-	unsigned char __collate_load_error;
-	unsigned char __collate_substitute_nontrivial;
 	unsigned char _messages_using_locale;
 	unsigned char _monetary_using_locale;
 	unsigned char _numeric_using_locale;
@@ -146,22 +150,24 @@ struct _xlocale {
 	unsigned char __mlocale_changed;
 	unsigned char __nlocale_changed;
 	unsigned char __numeric_fp_cvt;
-/* collate */
-	struct __xlocale_st_collate *__lc_collate;
-/* ctype */
-	struct __xlocale_st_runelocale *__lc_ctype;
-/* messages */
-	struct __xlocale_st_messages *__lc_messages;
-/* monetary */
-	struct __xlocale_st_monetary *__lc_monetary;
-/* numeric */
-	struct __xlocale_st_numeric *__lc_numeric;
+	struct xlocale_component *components[XLC_LAST];
 	struct _xlocale *__lc_numeric_loc;
-/* time */
-	struct __xlocale_st_time *__lc_time;
 /* localeconv */
 	struct lconv __lc_localeconv;
 };
+
+#define	XLOCALE_COLLATE(l) \
+    ((struct xlocale_collate *)(l)->components[XLC_COLLATE])
+#define	XLOCALE_CTYPE(l)	\
+    ((struct xlocale_ctype *)(l)->components[XLC_CTYPE])
+#define	XLOCALE_MONETARY(l)	\
+    ((struct xlocale_monetary *)(l)->components[XLC_MONETARY])
+#define	XLOCALE_NUMERIC(l)	\
+    ((struct xlocale_numeric *)(l)->components[XLC_NUMERIC])
+#define	XLOCALE_TIME(l)	\
+    ((struct xlocale_time *)(l)->components[XLC_TIME])
+#define	XLOCALE_MESSAGES(l)	\
+    ((struct xlocale_messages *)(l)->components[XLC_MESSAGES])
 
 #define DEFAULT_CURRENT_LOCALE(x)	\
 				if ((x) == NULL) { \
@@ -177,17 +183,59 @@ struct _xlocale {
 				}
 
 #define XL_LOCK(x)	os_unfair_lock_lock(&(x)->__lock);
-#define	XL_RELEASE(x)	if ((x) && (x)->__free_extra != XPERMANENT && OSAtomicDecrement32Barrier(&(x)->__refcount) == 0) { \
-				if ((x)->__free_extra) \
-					(*(x)->__free_extra)((x)); \
-				free((x)); \
-				(x) = NULL; \
-			}
-#define	XL_RETAIN(x)	if ((x) && (x)->__free_extra != XPERMANENT) { OSAtomicIncrement32Barrier(&(x)->__refcount); }
 #define XL_UNLOCK(x)	os_unfair_lock_unlock(&(x)->__lock);
 
+static __inline void*
+xlocale_retain(void *val)
+{
+	struct xlocale_refcounted *obj = val;
+
+	if (obj == NULL)
+		return (NULL);
+
+	OSAtomicIncrement32Barrier(&obj->retain_count);
+
+	return (val);
+}
+
+static __inline void
+xlocale_release(void *val)
+{
+	struct xlocale_refcounted *obj = val;
+
+	if (obj == NULL)
+		return;
+
+	/*
+	 * FreeBSD has one main difference in refcounting that we may adopt
+	 * later:
+	 *
+	 * retain_count is a signed long, 0 is the minimum for a live object
+	 */
+	if (OSAtomicDecrement32Barrier(&obj->retain_count) == 0) {
+		if (obj->destructor != NULL)
+			(*obj->destructor)(val);
+	}
+}
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+/*
+ * Some files in Libc want POSIX C, but they won't be needing
+ * xlocale_fill_name() anyways.
+ */
+static __inline void
+xlocale_fill_name(struct xlocale_component *comp, const char *name)
+{
+
+	if (comp == NULL)
+		return;
+
+	(void)strlcpy(comp->locale, name, sizeof(comp->locale));
+}
+#endif
+
 __attribute__((visibility("hidden")))
-extern struct __xlocale_st_runelocale _DefaultRuneXLocale;
+extern struct xlocale_ctype _DefaultRuneXLocale;
 
 __attribute__((visibility("hidden")))
 extern struct _xlocale	__global_locale;
@@ -197,7 +245,7 @@ extern pthread_key_t	__locale_key;
 
 __BEGIN_DECLS
 
-void	__ldpart_free_extra(struct __xlocale_st_ldpart *);
+void	destruct_ldpart(void *);
 locale_t __numeric_ctype(locale_t);
 void	__xlocale_init(void);
 

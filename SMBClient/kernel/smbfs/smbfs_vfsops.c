@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@
 #include <sys/sysctl.h>
 #include <libkern/OSAtomic.h>
 #include <sys/vnode_if.h>
+#include <string.h>
 
 #include <sys/kauth.h>
 
@@ -161,8 +162,12 @@ struct smbmnt_carg {
 	int found;
 };
 
-static uint32_t smb_maxsegreadsize = 1024 * 1024 * 8;
-static uint32_t smb_maxsegwritesize = 1024 * 1024 * 8;
+/*
+ * smb_maxsegreadsize/smb_maxsegwritesize is max size that UBC will call
+ * our vnop_strategy with.
+ */
+uint32_t smb_maxsegreadsize = 1024 * 1024 * 16;
+uint32_t smb_maxsegwritesize = 1024 * 1024 * 16;
 
 SYSCTL_DECL(_net_smb);
 SYSCTL_NODE(_net_smb, OID_AUTO, fs, CTLFLAG_RW, 0, "SMB/CIFS file system");
@@ -244,11 +249,17 @@ smbfs_lock_init(void)
 		/* Should never fail */
 		SMBERROR("lease table hashinit failed \n");
 	}
+    
+    /* Set up mutexes for buf_map */
+    smbfs_init_buf_map();
 }
 
 static void 
 smbfs_lock_uninit(void)
 {
+    /* Free mutexes for buf_map */
+    smbfs_teardown_buf_map();
+    
 	if (g_registered_for_low_memory == 1) {
 		/* Unregister for low memory callback */
 		fs_buffer_cache_gc_unregister(smb_global_dir_cache_low_memory, NULL);
@@ -776,7 +787,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	uint32_t stream_flags = 0;
 	uint8_t *uu = NULL;
 	id_t uid;
-    u_int32_t option = 0;
+    u_int32_t option = 0, i = 0;
 	static const uuid_t _user_compat_prefix = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
     struct vnode_attr vap;
 #define COMPAT_PREFIX_LEN       (sizeof(uuid_t) - sizeof(id_t))
@@ -1054,13 +1065,63 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
         SS_TO_SESSION(share)->iod_writeCounts[2] = smp->sm_args.write_count[2];
     }
 
-    /* Changing io thread control? */
-    smp->sm_args.rw_thread_control = args->rw_thread_control;
-    if (smp->sm_args.rw_thread_control != 0) {
-        SMBWARNING("%s using custom read/write thread control of 0x%x \n",
-                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.rw_thread_control);
-        SS_TO_SESSION(share)->rw_thread_control = smp->sm_args.rw_thread_control;
+    /* Changing rw_max_check_time? */
+    smp->sm_args.rw_max_check_time = args->rw_max_check_time;
+    if (smp->sm_args.rw_max_check_time != 0) {
+        SMBWARNING("%s using custom read/write max check timeout of %d microSecs \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.rw_max_check_time);
+        SS_TO_SESSION(share)->rw_max_check_time = smp->sm_args.rw_max_check_time;
     }
+
+     /* Changing rw_gb_threshold? */
+    smp->sm_args.rw_gb_threshold = args->rw_gb_threshold;
+    if (smp->sm_args.rw_gb_threshold != 0) {
+        SMBWARNING("%s using custom read/write Gb threshold of %d\n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.rw_gb_threshold);
+        SS_TO_SESSION(share)->rw_gb_threshold = smp->sm_args.rw_gb_threshold;
+    }
+
+    /*
+     * Compression
+     */
+    
+    /* Client compression algorithm map passed into session via ioctl */
+    smp->sm_args.compression_io_threshold = args->compression_io_threshold;
+    SS_TO_SESSION(share)->compression_io_threshold = args->compression_io_threshold;
+    if (smp->sm_args.compression_io_threshold != 4096) {
+        SMBWARNING("%s using custom compression IO threshold of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.compression_io_threshold);
+    }
+
+    smp->sm_args.compression_chunk_len = args->compression_chunk_len;
+    SS_TO_SESSION(share)->compression_chunk_len = args->compression_chunk_len;
+    if (smp->sm_args.compression_chunk_len != 262144) {
+        SMBWARNING("%s using custom compression chunk len of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.compression_chunk_len);
+    }
+
+    smp->sm_args.compression_max_fail_cnt = args->compression_max_fail_cnt;
+    SS_TO_SESSION(share)->compression_max_fail_cnt = args->compression_max_fail_cnt;
+    if (smp->sm_args.compression_max_fail_cnt != 5) {
+        SMBWARNING("%s using custom compression max fail cnt of %d \n",
+                   vfs_statfs(mp)->f_mntfromname, smp->sm_args.compression_max_fail_cnt);
+    }
+
+    /* Copy user exclusion list if any */
+    for (i = 0; i < args->compression_exclude_cnt; i++) {
+        smp->sm_args.compression_exclude[i] = smb_strndup(args->compression_exclude[i],
+                                                          kClientCompressMaxExtLen,
+                                                          &smp->sm_args.compression_exclude_allocsize[i]);
+    }
+    smp->sm_args.compression_exclude_cnt = args->compression_exclude_cnt;
+
+    /* Copy user inclusion list if any */
+    for (i = 0; i < args->compression_include_cnt; i++) {
+        smp->sm_args.compression_include[i] = smb_strndup(args->compression_include[i],
+                                                          kClientCompressMaxExtLen,
+                                                          &smp->sm_args.compression_include_allocsize[i]);
+    }
+    smp->sm_args.compression_include_cnt = args->compression_include_cnt;
 
     /*
      * See if they sent use a submount path to use.
@@ -1562,16 +1623,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	 */
     
 	if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
-		/* Never allow more than 8 MB */
-		if (smb_maxsegreadsize > SMB_IOMAXCACHE) {
-			smb_maxsegreadsize = SMB_IOMAXCACHE;
-		}
-		smbIOAttr.io_segwritecnt = smb_maxsegreadsize / PAGE_SIZE;
-		/* Never allow more than 8 MB */
-		if (smb_maxsegwritesize > SMB_IOMAXCACHE) {
-			smb_maxsegwritesize = SMB_IOMAXCACHE;
-		}
-		smbIOAttr.io_segreadcnt = smb_maxsegwritesize / PAGE_SIZE;
+		smbIOAttr.io_segwritecnt = smb_maxsegwritesize / PAGE_SIZE;
+		smbIOAttr.io_segreadcnt = smb_maxsegreadsize / PAGE_SIZE;
 		
 	} else {
         size_t f_iosize = vfs_statfs(mp)->f_iosize;
@@ -1792,10 +1845,11 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
     struct smb_share *share = smp->sm_share;
-	vnode_t vp;
+	vnode_t vp = NULL;
 	int error = 0;
     struct smb_session *sessionp = NULL;
-    struct timespec unmount_sleeptimespec;
+    struct timespec unmount_sleeptimespec = {0, 0};
+    uint32_t i = 0;
 
     SMB_LOG_KTRACE(SMB_DBG_UNMOUNT | DBG_FUNC_START, mntflags, 0, 0, 0, 0);
 
@@ -1949,6 +2003,23 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
     if (smp->ntwrk_sids) {
         SMB_FREE_DATA(smp->ntwrk_sids, smp->ntwrk_sids_allocsize);
     }
+
+    for (i = 0; i < smp->sm_args.compression_exclude_cnt; i++) {
+        if (smp->sm_args.compression_exclude[i] != NULL) {
+            SMB_FREE_DATA(smp->sm_args.compression_exclude[i],
+                          smp->sm_args.compression_exclude_allocsize[i]);
+        }
+    }
+    smp->sm_args.compression_exclude_cnt = 0;
+    
+    for (i = 0; i < smp->sm_args.compression_include_cnt; i++) {
+        if (smp->sm_args.compression_include[i] != NULL) {
+            SMB_FREE_DATA(smp->sm_args.compression_include[i],
+                          smp->sm_args.compression_include_allocsize[i]);
+        }
+    }
+    smp->sm_args.compression_include_cnt = 0;
+
     if (smp) {
         SMB_FREE_TYPE(struct smbmount, smp);
     }

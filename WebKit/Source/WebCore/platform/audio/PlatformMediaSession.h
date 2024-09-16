@@ -38,6 +38,11 @@
 #include "MediaPlaybackTargetClient.h"
 #endif
 
+namespace WebCore {
+class PlatformMediaSession;
+class AudioCaptureSource;
+}
+
 namespace WTF {
 class MediaTime;
 }
@@ -108,8 +113,16 @@ struct PlatformMediaSessionRemoteCommandArgument {
     std::optional<bool> fastSeek;
 };
 
+class AudioCaptureSource : public CanMakeWeakPtr<AudioCaptureSource> {
+public:
+    virtual ~AudioCaptureSource() = default;
+    virtual bool isCapturingAudio() const = 0;
+    virtual bool wantsToCaptureAudio() const = 0;
+};
+
 class PlatformMediaSession
-    : public CanMakeWeakPtr<PlatformMediaSession>
+    : public CanMakeCheckedPtr<PlatformMediaSession>
+    , public CanMakeWeakPtr<PlatformMediaSession>
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     , public MediaPlaybackTargetClient
 #endif
@@ -118,6 +131,7 @@ class PlatformMediaSession
 #endif
 {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlatformMediaSession);
 public:
     static std::unique_ptr<PlatformMediaSession> create(PlatformMediaSessionManager&, PlatformMediaSessionClient&);
 
@@ -214,21 +228,14 @@ public:
     bool preparingToPlay() const { return m_preparingToPlay; }
 
 #if !RELEASE_LOG_DISABLED
-    const Logger& logger() const final { return m_logger.get(); }
-    const void* logIdentifier() const override { return m_logIdentifier; }
-    const char* logClassName() const override { return "PlatformMediaSession"; }
+    const Logger& logger() const final;
+    const void* logIdentifier() const final;
+    ASCIILiteral logClassName() const override { return "PlatformMediaSession"_s; }
     WTFLogChannel& logChannel() const final;
 #endif
 
     bool canPlayConcurrently(const PlatformMediaSession&) const;
     bool shouldOverridePauseDuringRouteChange() const;
-
-    class AudioCaptureSource : public CanMakeWeakPtr<AudioCaptureSource> {
-    public:
-        virtual ~AudioCaptureSource() = default;
-        virtual bool isCapturingAudio() const = 0;
-        virtual bool wantsToCaptureAudio() const = 0;
-    };
 
     std::optional<NowPlayingInfo> nowPlayingInfo() const;
     bool isNowPlayingEligible() const;
@@ -240,30 +247,36 @@ public:
 
     MediaSessionIdentifier mediaSessionIdentifier() const { return m_mediaSessionIdentifier; }
 
+    bool isActiveNowPlayingSession() const { return m_isActiveNowPlayingSession; }
+    void setActiveNowPlayingSession(bool);
+
+#if !RELEASE_LOG_DISABLED
+    virtual String description() const;
+#endif
+
 protected:
     PlatformMediaSession(PlatformMediaSessionManager&, PlatformMediaSessionClient&);
     PlatformMediaSessionClient& client() const { return m_client; }
 
 private:
     bool processClientWillPausePlayback(DelayCallingUpdateNowPlaying);
-    size_t interruptionCount() const { return m_interruptionStack.size(); }
+    size_t activeInterruptionCount() const;
 
     PlatformMediaSessionClient& m_client;
     MediaSessionIdentifier m_mediaSessionIdentifier;
     State m_state { State::Idle };
     State m_stateToRestore { State::Idle };
-    Vector<InterruptionType> m_interruptionStack;
-    int m_interruptionCount { 0 };
+    struct Interruption {
+        InterruptionType type { InterruptionType::NoInterruption };
+        bool ignored { false };
+    };
+    Vector<Interruption> m_interruptionStack;
     bool m_active { false };
     bool m_notifyingClient { false };
     bool m_isPlayingToWirelessPlaybackTarget { false };
     bool m_hasPlayedAudiblySinceLastInterruption { false };
     bool m_preparingToPlay { false };
-
-#if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
-#endif
+    bool m_isActiveNowPlayingSession { false };
 
     friend class PlatformMediaSessionManager;
 };
@@ -315,8 +328,11 @@ public:
     virtual std::optional<NowPlayingInfo> nowPlayingInfo() const;
     virtual WeakPtr<PlatformMediaSession> selectBestMediaSession(const Vector<WeakPtr<PlatformMediaSession>>&, PlatformMediaSession::PlaybackControlsPurpose) { return nullptr; }
 
+    virtual void isActiveNowPlayingSessionChanged() = 0;
+
 #if !RELEASE_LOG_DISABLED
     virtual const Logger& logger() const = 0;
+    virtual const void* logIdentifier() const = 0;
 #endif
 
 protected:
@@ -325,6 +341,7 @@ protected:
 
 String convertEnumerationToString(PlatformMediaSession::State);
 String convertEnumerationToString(PlatformMediaSession::InterruptionType);
+String convertEnumerationToString(PlatformMediaSession::MediaType);
 WEBCORE_EXPORT String convertEnumerationToString(PlatformMediaSession::RemoteControlCommandType);
 
 } // namespace WebCore
@@ -355,6 +372,14 @@ struct LogArgument<WebCore::PlatformMediaSession::RemoteControlCommandType> {
     static String toString(const WebCore::PlatformMediaSession::RemoteControlCommandType command)
     {
         return convertEnumerationToString(command);
+    }
+};
+
+template <>
+struct LogArgument<WebCore::PlatformMediaSession::MediaType> {
+    static String toString(const WebCore::PlatformMediaSession::MediaType mediaType)
+    {
+        return convertEnumerationToString(mediaType);
     }
 };
 

@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 #include "common/system_utils.h"
-#include "compiler/translator/msl/IntermRebuild.h"
+#include "compiler/translator/IntermRebuild.h"
 #include "compiler/translator/tree_ops/SimplifyLoopConditions.h"
 #include "compiler/translator/tree_ops/msl/SeparateCompoundExpressions.h"
 #include "compiler/translator/util.h"
@@ -637,7 +637,7 @@ class Separator : public TIntermRebuild
     PostResult visitConstantUnionPost(TIntermConstantUnion &node) override
     {
         const TType &type = node.getType();
-        if (!type.isScalar())
+        if (!type.isScalar() && !type.isVector() && !type.isMatrix())
         {
             pushBinding(node, node);
         }

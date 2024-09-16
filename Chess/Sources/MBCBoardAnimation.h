@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardAnimation.h
 	Contains:	Animate the board rotating by 180 degrees
-	Copyright:	© 2003 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,7 +44,7 @@
 */
 
 #import "MBCAnimation.h"
-#import "MBCBoardView.h"
+#import "MBCBoardViewInterface.h"
 
 @interface MBCBoardAnimation : MBCAnimation {
 	float			fFromAzimuth;
@@ -52,7 +52,7 @@
 	float			fDelta;
 }
 
-+ (id) boardAnimation:(MBCBoardView *)view;
++ (id) boardAnimation:(NSView<MBCBoardViewInterface> *)view;
             
 - (void) step: (float)pctDone;
 - (void) endState;

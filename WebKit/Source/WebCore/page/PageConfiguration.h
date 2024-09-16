@@ -30,6 +30,7 @@
 #include "PageIdentifier.h"
 #include "ShouldRelaxThirdPartyCookieBlocking.h"
 #include <pal/SessionID.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -46,6 +47,10 @@
 #include "DeviceOrientationUpdateProvider.h"
 #endif
 
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+#include "ShouldRequireExplicitConsentForGamepadAccess.h"
+#endif
+
 namespace WebCore {
 
 class AlternativeTextClient;
@@ -59,10 +64,12 @@ class CacheStorageProvider;
 class ChromeClient;
 class ContextMenuClient;
 class CookieJar;
+class CryptoClient;
 class DatabaseProvider;
 class DiagnosticLoggingClient;
 class DragClient;
 class EditorClient;
+class Frame;
 class HistoryItemClient;
 class InspectorClient;
 class LocalFrameLoaderClient;
@@ -72,6 +79,7 @@ class PaymentCoordinatorClient;
 class PerformanceLoggingClient;
 class PluginInfoProvider;
 class ProgressTrackerClient;
+class RemoteFrame;
 class RemoteFrameClient;
 class ScreenOrientationManager;
 class SocketProvider;
@@ -89,6 +97,8 @@ class PageConfiguration {
     WTF_MAKE_NONCOPYABLE(PageConfiguration); WTF_MAKE_FAST_ALLOCATED;
 public:
 
+    using ClientCreatorForMainFrame = std::variant<CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&)>, CompletionHandler<UniqueRef<RemoteFrameClient>(RemoteFrame&)>>;
+
     WEBCORE_EXPORT PageConfiguration(
         std::optional<PageIdentifier>,
         PAL::SessionID,
@@ -100,8 +110,9 @@ public:
         Ref<BackForwardClient>&&,
         Ref<CookieJar>&&,
         UniqueRef<ProgressTrackerClient>&&,
-        std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>>&&,
+        ClientCreatorForMainFrame&&,
         FrameIdentifier mainFrameIdentifier,
+        RefPtr<Frame>&& mainFrameOpener,
         UniqueRef<SpeechRecognitionProvider>&&,
         UniqueRef<MediaRecorderProvider>&&,
         Ref<BroadcastChannelRegistry>&&,
@@ -115,7 +126,8 @@ public:
 #if ENABLE(APPLE_PAY)
         UniqueRef<PaymentCoordinatorClient>&&,
 #endif
-        UniqueRef<ChromeClient>&&
+        UniqueRef<ChromeClient>&&,
+        UniqueRef<CryptoClient>&&
     );
     WEBCORE_EXPORT ~PageConfiguration();
     PageConfiguration(PageConfiguration&&);
@@ -150,9 +162,10 @@ public:
     Ref<CookieJar> cookieJar;
     std::unique_ptr<ValidationMessageClient> validationMessageClient;
 
-    std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>> clientForMainFrame;
+    ClientCreatorForMainFrame clientCreatorForMainFrame;
 
     FrameIdentifier mainFrameIdentifier;
+    RefPtr<Frame> mainFrameOpener;
     std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient;
     std::unique_ptr<PerformanceLoggingClient> performanceLoggingClient;
 #if ENABLE(SPEECH_SYNTHESIS)
@@ -183,6 +196,11 @@ public:
     bool userScriptsShouldWaitUntilNotification { true };
     ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { ShouldRelaxThirdPartyCookieBlocking::No };
     bool httpsUpgradeEnabled { true };
+    std::optional<std::pair<uint16_t, uint16_t>> portsForUpgradingInsecureSchemeForTesting;
+
+#if PLATFORM(IOS_FAMILY)
+    bool canShowWhileLocked { false };
+#endif
 
     UniqueRef<StorageProvider> storageProvider;
 
@@ -195,6 +213,11 @@ public:
     Ref<HistoryItemClient> historyItemClient;
 
     ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
+    UniqueRef<CryptoClient> cryptoClient;
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    ShouldRequireExplicitConsentForGamepadAccess gamepadAccessRequiresExplicitConsent { ShouldRequireExplicitConsentForGamepadAccess::No };
+#endif
 };
 
 }

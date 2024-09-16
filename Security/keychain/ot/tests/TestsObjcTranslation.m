@@ -1,6 +1,6 @@
 #import "TestsObjcTranslation.h"
 #import <OCMock/OCMock.h>
-
+#import <Foundation/Foundation.h>
 #import <Security/SecItemPriv.h>
 #import <SecurityFoundation/SecurityFoundation.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -8,6 +8,12 @@
 #import "keychain/SecureObjectSync/SOSAccountPriv.h"
 #import "keychain/OctagonTrust/OctagonTrust.h"
 #import "keychain/securityd/SecItemServer.h"
+#import "KeychainCircle/PairingChannel.h"
+#import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/ot/OTClique.h"
+#import "keychain/ot/Affordance_OTConstants.h"
+#import <SoftLinking/SoftLinking.h>
+
 
 static const uint8_t signingKey_384[] = {
     0x04, 0xe4, 0x1b, 0x3e, 0x88, 0x81, 0x9f, 0x3b, 0x80, 0xd0, 0x28, 0x1c,
@@ -122,8 +128,29 @@ static const uint8_t signingKey_384[] = {
     return results;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
++ (NSData* _Nullable)keychainPersistentRefForKey:(SecKeyRef)key error:(NSError**)error
+{
+    NSDictionary* query = @{
+        (id)kSecReturnPersistentRef : @YES,
+        (id)kSecValueRef : (__bridge id)key,
+        (id)kSecAttrSynchronizable : (id)kSecAttrSynchronizableAny,
+    };
+
+    CFTypeRef foundRef = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &foundRef);
+
+    if (status == errSecSuccess && CFGetTypeID(foundRef) == CFDataGetTypeID()) {
+        return (NSData*)CFBridgingRelease(foundRef);
+
+    } else {
+        if(error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:status
+                                     userInfo:nil];
+        }
+        return nil;
+    }
+}
 
 + (BOOL)testSecKey:(CKKSSelves*)octagonSelf error:(NSError**)error
 {
@@ -167,20 +194,12 @@ static const uint8_t signingKey_384[] = {
     }
 
     // and can you get the persistent ref from that private key?
-    CFDataRef pref = NULL;
-    OSStatus status = SecKeyCopyPersistentRef(signingPrivateKey, &pref);
-    if(status != errSecSuccess) {
-        if(error) {
-            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
-                                         code:status
-                                  description:@"Failed to copy persistent ref"];
-        }
-        CFReleaseNull(pref);
+    NSData* signingPrivatePref = [self keychainPersistentRefForKey:signingPrivateKey error:error];
+    if(signingPrivatePref == nil) {
         CFReleaseNull(octagonSigningPubSecKey);
         CFReleaseNull(octagonEncryptionPubSecKey);
         return NO;
     }
-
 
     SFECKeyPair *signingFullKeyPair = [[SFECKeyPair alloc] initWithData:signingFullKey
                                                               specifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]
@@ -194,21 +213,13 @@ static const uint8_t signingKey_384[] = {
         return NO;
     }
 
-    CFDataRef prefFromSF = NULL;
-    OSStatus statusFromSF = SecKeyCopyPersistentRef(signingFullKeyPair.secKey, &prefFromSF);
-    if(statusFromSF != errSecSuccess) {
-        if(error) {
-            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
-                                         code:statusFromSF
-                                  description:@"Failed to copy persistent ref"];
-        }
-        CFReleaseNull(pref);
+    NSData* signingFullPairPref = [self keychainPersistentRefForKey:signingFullKeyPair.secKey error:error];
+    if(signingFullPairPref == nil) {
         CFReleaseNull(octagonSigningPubSecKey);
         CFReleaseNull(octagonEncryptionPubSecKey);
         return NO;
     }
 
-    CFReleaseNull(pref);
     CFReleaseNull(octagonSigningPubSecKey);
     CFReleaseNull(octagonEncryptionPubSecKey);
 
@@ -384,6 +395,7 @@ static int invocationCount = 0;
     return (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAudioAccessory);
 }
 
+
 @end
 
 @interface OctagonTrustCliqueBridge ()
@@ -441,8 +453,8 @@ static int invocationCount = 0;
 }
 
 + (OTAccountSettings* _Nullable)fetchAccountWideSettingsDefaultWithForceFetch:(bool)forceFetch
-                                                         configuration:(OTConfigurationContext*)context
-                                                                 error:(NSError**)error
+                                                                configuration:(OTConfigurationContext*)context
+                                                                        error:(NSError**)error
 {
     return [OTClique fetchAccountWideSettingsDefaultWithForceFetch:forceFetch configuration:context error:error];
 }
@@ -501,4 +513,330 @@ static int invocationCount = 0;
     return [OTClique areRecoveryKeysDistrusted:ctx error:error];
 }
 
++ (void)mockEpochXPCErrorWithArguments:(OTControlArguments*)arguments
+                         configuration:(OTJoiningConfiguration*)config
+                                 reply:(void (^)(uint64_t epoch,
+                                                 NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(0, [NSError errorWithDomain:NSCocoaErrorDomain code:NSXPCConnectionInterrupted description:@"test xpc connection interrupted error"]);
+}
+
++ (void)mockTrustStatusWithArguments:(OTControlArguments*)arguments
+                     configuration:(OTJoiningConfiguration*)config
+                               reply:(void (^)(CliqueStatus status,
+                                               NSString * _Nullable peerID,
+                                               NSNumber * _Nullable numberOfOctagonPeers,
+                                               BOOL isExcluded,
+                                               NSError * _Nullable retError))reply
+{
+    reply(CliqueStatusIn, nil, nil, NO, nil);
+}
+ 
++ (OTControl*)makeMockOTControlObjectWithFailingEpochFetchWithXPCError
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcEpochWithArguments:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockEpochXPCErrorWithArguments:configuration:reply:));
+    OCMStub([mockOTControl fetchTrustStatus:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockTrustStatusWithArguments:configuration:reply:));
+
+    return mockOTControl;
+}
+
++ (void)mockEpochRandomErrorWithArguments:(OTControlArguments*)arguments
+                            configuration:(OTJoiningConfiguration*)config
+                                    reply:(void (^)(uint64_t epoch,
+                                                    NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(0, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNoIdentity description:@"test no identity error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingEpochFetchWithRandomError
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcEpochWithArguments:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockEpochRandomErrorWithArguments:configuration:reply:));
+    OCMStub([mockOTControl fetchTrustStatus:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockTrustStatusWithArguments:configuration:reply:));
+
+    return mockOTControl;
+}
+
++ (void)mockVoucherWithArguments:(OTControlArguments*)arguments
+                   configuration:(OTJoiningConfiguration*)config
+                          peerID:(NSString*)peerID
+                   permanentInfo:(NSData *)permanentInfo
+                permanentInfoSig:(NSData *)permanentInfoSig
+                      stableInfo:(NSData *)stableInfo
+                   stableInfoSig:(NSData *)stableInfoSig
+                   maxCapability:(NSString*)maxCapability
+                           reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, [NSError errorWithDomain:NSCocoaErrorDomain code:NSXPCConnectionInterrupted description:@"test xpc connection interrupted error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithXPCError
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcVoucherWithArguments:[OCMArg any]
+                                     configuration:[OCMArg any]
+                                            peerID:[OCMArg any]
+                                     permanentInfo:[OCMArg any]
+                                  permanentInfoSig:[OCMArg any]
+                                        stableInfo:[OCMArg any]
+                                     stableInfoSig:[OCMArg any]
+                                     maxCapability:[OCMArg any]
+                                             reply:[OCMArg any]]).andCall(self, @selector(mockVoucherWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:));
+    OCMStub([mockOTControl fetchTrustStatus:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockTrustStatusWithArguments:configuration:reply:));
+
+    return mockOTControl;
+}
+
++ (void)mockVoucherErrorNetworkFailureWithArguments:(OTControlArguments*)arguments
+                                      configuration:(OTJoiningConfiguration*)config
+                                             peerID:(NSString*)peerID
+                                      permanentInfo:(NSData *)permanentInfo
+                                   permanentInfoSig:(NSData *)permanentInfoSig
+                                         stableInfo:(NSData *)stableInfo
+                                      stableInfoSig:(NSData *)stableInfoSig
+                                      maxCapability:(NSString*)maxCapability
+                                              reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorTimedOut description:@"The request timed out."]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithNetworkError
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcVoucherWithArguments:[OCMArg any]
+                                     configuration:[OCMArg any]
+                                            peerID:[OCMArg any]
+                                     permanentInfo:[OCMArg any]
+                                  permanentInfoSig:[OCMArg any]
+                                        stableInfo:[OCMArg any]
+                                     stableInfoSig:[OCMArg any]
+                                     maxCapability:[OCMArg any]
+                                             reply:[OCMArg any]]).andCall(self, @selector(mockVoucherErrorNetworkFailureWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:));
+    
+    OCMStub([mockOTControl fetchTrustStatus:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockTrustStatusWithArguments:configuration:reply:));
+
+    return mockOTControl;
+}
+
++ (void)mockVoucherErrorUnderlyingNetworkFailureWithArguments:(OTControlArguments*)arguments
+                                                configuration:(OTJoiningConfiguration*)config
+                                                       peerID:(NSString*)peerID
+                                                permanentInfo:(NSData *)permanentInfo
+                                             permanentInfoSig:(NSData *)permanentInfoSig
+                                                   stableInfo:(NSData *)stableInfo
+                                                stableInfoSig:(NSData *)stableInfoSig
+                                                maxCapability:(NSString*)maxCapability
+                                                        reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+{
+    invocationCount++;
+    NSError* networkError = [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorTimedOut description:@"The request timed out."];
+    NSError* ckError = [NSError errorWithDomain:CKErrorDomain code:CKErrorNetworkFailure description:@"NSURLErrorDomain: -1001" underlying:networkError];
+
+    reply(nil, nil, ckError);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkError
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcVoucherWithArguments:[OCMArg any]
+                                     configuration:[OCMArg any]
+                                            peerID:[OCMArg any]
+                                     permanentInfo:[OCMArg any]
+                                  permanentInfoSig:[OCMArg any]
+                                        stableInfo:[OCMArg any]
+                                     stableInfoSig:[OCMArg any]
+                                     maxCapability:[OCMArg any]
+                                             reply:[OCMArg any]]).andCall(self, @selector(mockVoucherErrorUnderlyingNetworkFailureWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:));
+    return mockOTControl;
+}
+
++ (void)mockVoucherErrorUnderlyingNetworkConnectionLostWithArguments:(OTControlArguments*)arguments
+                                                       configuration:(OTJoiningConfiguration*)config
+                                                              peerID:(NSString*)peerID
+                                                       permanentInfo:(NSData *)permanentInfo
+                                                    permanentInfoSig:(NSData *)permanentInfoSig
+                                                          stableInfo:(NSData *)stableInfo
+                                                       stableInfoSig:(NSData *)stableInfoSig
+                                                       maxCapability:(NSString*)maxCapability
+                                                               reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+{
+    invocationCount++;
+    NSError* networkError = [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorNetworkConnectionLost description:@"The network connection was lost."];
+    NSError* ckError = [NSError errorWithDomain:CKErrorDomain code:CKErrorNetworkFailure description:@"NSURLErrorDomain: -1005" underlying:networkError];
+
+    reply(nil, nil, ckError);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkErrorConnectionLost
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcVoucherWithArguments:[OCMArg any]
+                                     configuration:[OCMArg any]
+                                            peerID:[OCMArg any]
+                                     permanentInfo:[OCMArg any]
+                                  permanentInfoSig:[OCMArg any]
+                                        stableInfo:[OCMArg any]
+                                     stableInfoSig:[OCMArg any]
+                                     maxCapability:[OCMArg any]
+                                             reply:[OCMArg any]]).andCall(self, @selector(mockVoucherErrorUnderlyingNetworkConnectionLostWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:));
+    return mockOTControl;
+}
+
+
++ (void)mockVoucherWithRandomErrorWithArguments:(OTControlArguments*)arguments
+                                  configuration:(OTJoiningConfiguration*)config
+                                         peerID:(NSString*)peerID
+                                  permanentInfo:(NSData *)permanentInfo
+                               permanentInfoSig:(NSData *)permanentInfoSig
+                                     stableInfo:(NSData *)stableInfo
+                                  stableInfoSig:(NSData *)stableInfoSig
+                                  maxCapability:(NSString*)maxCapability
+                                          reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotSignedIn description:@"test not signed in error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithRandomError {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcVoucherWithArguments:[OCMArg any]
+                                     configuration:[OCMArg any]
+                                            peerID:[OCMArg any]
+                                     permanentInfo:[OCMArg any]
+                                  permanentInfoSig:[OCMArg any]
+                                        stableInfo:[OCMArg any]
+                                     stableInfoSig:[OCMArg any]
+                                     maxCapability:[OCMArg any]
+                                             reply:[OCMArg any]]).andCall(self, @selector(mockVoucherWithRandomErrorWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:));
+    
+    OCMStub([mockOTControl fetchTrustStatus:[OCMArg any] configuration:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockTrustStatusWithArguments:configuration:reply:));
+
+    return mockOTControl;
+}
+
++ (void)mockPrepareIdentityAsApplicantWithRandomErrorArguments:(OTControlArguments*)arguments
+                                                 configuration:(OTJoiningConfiguration*)config
+                                                         reply:(void (^)(NSString * _Nullable peerID,
+                                                                         NSData * _Nullable permanentInfo,
+                                                                         NSData * _Nullable permanentInfoSig,
+                                                                         NSData * _Nullable stableInfo,
+                                                                         NSData * _Nullable stableInfoSig,
+                                                                         NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, nil, nil, nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotSignedIn description:@"test not signed in error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithRandomError {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcPrepareIdentityAsApplicantWithArguments:[OCMArg any]
+                                                        configuration:[OCMArg any]
+                                                                reply:[OCMArg any]]).andCall(self, @selector(mockPrepareIdentityAsApplicantWithRandomErrorArguments:configuration:reply:));
+    return mockOTControl;
+}
+
++ (void)mockRPCPrepareIdentityAsApplicantWithXPCErrorArguments:(OTControlArguments*)arguments
+                                                 configuration:(OTJoiningConfiguration*)config
+                                                         reply:(void (^)(NSString * _Nullable peerID,
+                                                                         NSData * _Nullable permanentInfo,
+                                                                         NSData * _Nullable permanentInfoSig,
+                                                                         NSData * _Nullable stableInfo,
+                                                                         NSData * _Nullable stableInfoSig,
+                                                                         NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, nil, nil, nil, [NSError errorWithDomain:NSCocoaErrorDomain code:NSXPCConnectionInterrupted description:@"test xpc connection interrupted error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithXPCError {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcPrepareIdentityAsApplicantWithArguments:[OCMArg any]
+                                                        configuration:[OCMArg any]
+                                                                reply:[OCMArg any]]).andCall(self, @selector(mockRPCPrepareIdentityAsApplicantWithXPCErrorArguments:configuration:reply:));
+    return mockOTControl;
+}
+
++ (void)mockRPCPrepareIdentityAsApplicantWithOctagonErrorICloudAccountStateUnknownArguments:(OTControlArguments*)arguments
+                                                                              configuration:(OTJoiningConfiguration*)config
+                                                                                      reply:(void (^)(NSString * _Nullable peerID,
+                                                                                                      NSData * _Nullable permanentInfo,
+                                                                                                      NSData * _Nullable permanentInfoSig,
+                                                                                                      NSData * _Nullable stableInfo,
+                                                                                                      NSData * _Nullable stableInfoSig,
+                                                                                                      NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply(nil, nil, nil, nil, nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorICloudAccountStateUnknown description:@"test OctagonErrorICloudAccountStateUnknown error"]);
+}
+
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithOctagonErrorICloudAccountStateUnknown {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcPrepareIdentityAsApplicantWithArguments:[OCMArg any]
+                                                        configuration:[OCMArg any]
+                                                                reply:[OCMArg any]]).andCall(self, @selector(mockRPCPrepareIdentityAsApplicantWithOctagonErrorICloudAccountStateUnknownArguments:configuration:reply:));
+    return mockOTControl;
+}
+
++ (void)mockJoinWithXPCErrorWithArguments:(OTControlArguments*)arguments
+                            configuration:(OTJoiningConfiguration*)config
+                                vouchData:(NSData*)vouchData
+                                 vouchSig:(NSData*)vouchSig
+                                    reply:(void (^)(NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply([NSError errorWithDomain:NSCocoaErrorDomain code:NSXPCConnectionInterrupted description:@"test xpc connection interrupted error"]);
+}
+
+
++ (OTControl*)makeMockOTControlObjectWithFailingJoinWithXPCError {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcJoinWithArguments:[OCMArg any]
+                                  configuration:[OCMArg any]
+                                      vouchData:[OCMArg any]
+                                       vouchSig:[OCMArg any]
+                                          reply:[OCMArg any]]).andCall(self, @selector(mockJoinWithXPCErrorWithArguments:configuration:vouchData:vouchSig:reply:));
+    return mockOTControl;
+}
+
++ (void)mockJoinWithRandomErrorArguments:(OTControlArguments*)arguments
+                           configuration:(OTJoiningConfiguration*)config
+                               vouchData:(NSData*)vouchData
+                                vouchSig:(NSData*)vouchSig
+                                   reply:(void (^)(NSError * _Nullable error))reply
+{
+    invocationCount++;
+    reply([NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"test not in SOS error"]);
+}
+
+
++ (OTControl*)makeMockOTControlObjectWithFailingJoinWithRandomError {
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl rpcJoinWithArguments:[OCMArg any]
+                                  configuration:[OCMArg any]
+                                      vouchData:[OCMArg any]
+                                       vouchSig:[OCMArg any]
+                                          reply:[OCMArg any]]).andCall(self, @selector(mockJoinWithRandomErrorArguments:configuration:vouchData:vouchSig:reply:));
+    return mockOTControl;
+}
+
++ (void)mockFetchEgoPeerIDWithArguments:(OTControlArguments*)arguments
+                                  reply:(void (^)(NSString* peerID, NSError * _Nullable error))reply
+{
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecInteractionNotAllowed description:@"device is locked"]);
+}
+
++ (OTControl*)makeMockFetchEgoPeerID
+{
+    id mockOTControl = OCMClassMock([OTControl class]);
+    OCMStub([mockOTControl fetchEgoPeerID:[OCMArg any] reply:[OCMArg any]]).andCall(self, @selector(mockFetchEgoPeerIDWithArguments:reply:));
+
+    return mockOTControl;
+}
+
 @end
+

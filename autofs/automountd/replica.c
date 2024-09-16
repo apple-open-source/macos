@@ -62,10 +62,12 @@ free_replica(struct replica *list, int count)
 	int i;
 
 	for (i = 0; i < count; i++) {
-		if (list[i].host)
+		if (list[i].host) {
 			free(list[i].host);
-		if (list[i].path)
+		}
+		if (list[i].path) {
 			free(list[i].path);
+		}
 	}
 	free(list);
 }
@@ -88,7 +90,7 @@ parse_replica(char *special, int *count)
 	while (root) {
 		switch (*root) {
 		case '[':
-			if ((root != special2) && (*(root -1) != ',')) {
+			if ((root != special2) && (*(root - 1) != ',')) {
 				root++;
 				break;
 			}
@@ -110,13 +112,15 @@ parse_replica(char *special, int *count)
 			root = y + 1;
 			v6addr = 1;
 			if ((list = realloc(list, (*count + 1) *
-			    sizeof (struct replica))) == NULL)
+			    sizeof(struct replica))) == NULL) {
 				goto bad;
-			bzero(&list[(*count)++], sizeof (struct replica));
+			}
+			bzero(&list[(*count)++], sizeof(struct replica));
 			*y = '\0';
-			list[*count-1].host = strdup(proot);
-			if (!list[*count-1].host)
+			list[*count - 1].host = strdup(proot);
+			if (!list[*count - 1].host) {
 				goto bad;
+			}
 			break;
 		case ':':
 			*root = '\0';
@@ -139,28 +143,31 @@ parse_replica(char *special, int *count)
 			 * part" is already taken care of, skip to the "path
 			 * path" part.
 			 */
-			if (v6addr == 1)
+			if (v6addr == 1) {
 				v6addr = 0;
-			else {
+			} else {
 				if ((list = realloc(list, (*count + 1) *
-				    sizeof (struct replica))) == NULL)
+				    sizeof(struct replica))) == NULL) {
 					goto bad;
+				}
 				bzero(&list[(*count)++],
-				    sizeof (struct replica));
-				list[*count-1].host = strdup(proot);
-				if (!list[*count-1].host)
+				    sizeof(struct replica));
+				list[*count - 1].host = strdup(proot);
+				if (!list[*count - 1].host) {
 					goto bad;
-
+				}
 			}
 			for (i = scount; i < *count; i++) {
 				list[i].path = strdup(x);
-				if (!list[i].path)
+				if (!list[i].path) {
 					goto bad;
+				}
 			}
 			scount = i;
 			proot = root;
-			if (y)
+			if (y) {
 				*y = ',';
+			}
 			break;
 		case ',':
 			/*
@@ -175,33 +182,38 @@ parse_replica(char *special, int *count)
 				*root = '\0';
 				root++;
 				if ((list = realloc(list, (*count + 1) *
-				    sizeof (struct replica))) == NULL)
+				    sizeof(struct replica))) == NULL) {
 					goto bad;
+				}
 				bzero(&list[(*count)++],
-				    sizeof (struct replica));
-				list[*count-1].host = strdup(proot);
-				if (!list[*count-1].host)
+				    sizeof(struct replica));
+				list[*count - 1].host = strdup(proot);
+				if (!list[*count - 1].host) {
 					goto bad;
+				}
 				proot = root;
 				*(root - 1) = ',';
 			}
 			break;
 		default:
-			if (*root == '\0')
+			if (*root == '\0') {
 				root = NULL;
-			else
+			} else {
 				root++;
+			}
 		}
 	}
 	if (found_colon) {
 		free(special2);
-		return (list);
+		return list;
 	}
 bad:
-	if (list)
+	if (list) {
 		free_replica(list, *count);
-	if (!found_colon)
+	}
+	if (!found_colon) {
 		*count = -1;
+	}
 	free(special2);
-	return (NULL);
+	return NULL;
 }

@@ -111,18 +111,37 @@ int xar_gzip_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 	while( GZIP_CONTEXT(context)->z.avail_in != 0 ) {
 		size_t newlen = outlen * 2;
 		if (newlen > outlen)
+		{
 			outlen = newlen;
+		}
 		else
-			abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+		{
+			/* Overflow: Someone has somehow malloced over 2^64 bits of ram. */
+			xar_err_new(x);
+			xar_err_set_file(x, f);
+			xar_err_set_string(x, "Error decompressing file. Decompressor has overflowed.");
+			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			free(out);
+			out = NULL;
+			return -1;
+		}
 		
-		out = realloc(out, outlen);
-		if( out == NULL ) abort();
+		void *re_out = realloc(out, outlen);
+		if( re_out == NULL )
+		{
+			xar_err_new(x);
+			xar_err_set_file(x, f);
+			xar_err_set_string(x, "Error decompressing file. realloc failed");
+			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			free(out);
+			out = NULL;
+			return -1;
+		}
+		
+		out = re_out;
 
 		GZIP_CONTEXT(context)->z.next_out = ((unsigned char *)out) + offset;
 		GZIP_CONTEXT(context)->z.avail_out = outlen - offset;
-		
-		size_t start_avail_in = GZIP_CONTEXT(context)->z.avail_in;
-		size_t start_avail_out = GZIP_CONTEXT(context)->z.avail_out;
 
 		r = inflate(&(GZIP_CONTEXT(context)->z), Z_NO_FLUSH);
 		if( (r != Z_OK) && (r != Z_STREAM_END) ) {
@@ -130,6 +149,8 @@ int xar_gzip_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 			xar_err_set_file(x, f);
 			xar_err_set_string(x, "Error decompressing file");
 			xar_err_callback(x, XAR_SEVERITY_FATAL, XAR_ERR_ARCHIVE_EXTRACTION);
+			free(out);
+			out = NULL;
 			return -1;
 		}
 		

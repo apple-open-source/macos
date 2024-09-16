@@ -62,6 +62,7 @@
  *   kSCEntNetNAT64                                     "NAT64"                        CFDictionary
  *   kSCEntNetNAT64PrefixRequest                        "NAT64PrefixRequest"
  *   kSCEntNetOnDemand                                  "OnDemand"                     CFDictionary
+ *   kSCEntNetPvD                                       "PvD"                          CFDictionary
  *   kSCEntNetQoSMarkingPolicy                          "QoSMarkingPolicy"             CFDictionary
  *   kSCEntNetRefreshConfiguration                      "RefreshConfiguration"
  *   kSCEntNetService                                   "__SERVICE__"                  CFDictionary
@@ -146,6 +147,15 @@
  *   kSCPropNetIPv6RoutePrefixLength                    "PrefixLength"                 CFNumber
  *   kSCPropNetIPv6RouteGatewayAddress                  "GatewayAddress"               CFString
  *   kSCPropNetIPv6RouteInterfaceName                   "InterfaceName"                CFString
+ *
+ * kSCEntNetPvD Entity Keys
+ *
+ *   kSCPropNetPvDIdentifier                            "Identifier"                   CFString
+ *   kSCPropNetPvDSequenceNumber                        "SequenceNumber"               CFNumber
+ *   kSCPropNetPvDHTTPSupported                         "HTTPSupported"                CFNumber (0 or 1)
+ *   kSCPropNetPvDLegacy                                "Legacy"                       CFNumber (0 or 1)
+ *   kSCPropNetPvDDelay                                 "Delay"                        CFNumber
+ *   kSCPropNetPvDAdditionalInformation                 "AdditionalInformation"        CFDictionary
  *
  * kSCEntNetLink Entity Keys
  *
@@ -535,6 +545,13 @@ extern const CFStringRef kSCEntNetOnDemand                                  API_
 #define kSCEntNetOnDemand kSCEntNetOnDemand
 
 /*!
+  @const kSCEntNetPvD
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCEntNetPvD                                       API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCEntNetPvD kSCEntNetPvD
+
+/*!
   @const kSCEntNetQoSMarkingPolicy
   @discussion Value is a CFDictionary
  */
@@ -917,6 +934,52 @@ extern const CFStringRef kSCPropNetIPv6RouteGatewayAddress                  API_
  */
 extern const CFStringRef kSCPropNetIPv6RouteInterfaceName                   API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(8.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetIPv6RouteInterfaceName kSCPropNetIPv6RouteInterfaceName
+
+/*!
+  @group kSCEntNetPvD Entity Keys
+ */
+
+/*!
+  @const kSCPropNetPvDIdentifier
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetPvDIdentifier                            API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDIdentifier kSCPropNetPvDIdentifier
+
+/*!
+  @const kSCPropNetPvDSequenceNumber
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetPvDSequenceNumber                        API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDSequenceNumber kSCPropNetPvDSequenceNumber
+
+/*!
+  @const kSCPropNetPvDHTTPSupported
+  @discussion Value is a CFNumber (0 or 1)
+ */
+extern const CFStringRef kSCPropNetPvDHTTPSupported                         API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDHTTPSupported kSCPropNetPvDHTTPSupported
+
+/*!
+  @const kSCPropNetPvDLegacy
+  @discussion Value is a CFNumber (0 or 1)
+ */
+extern const CFStringRef kSCPropNetPvDLegacy                                API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDLegacy kSCPropNetPvDLegacy
+
+/*!
+  @const kSCPropNetPvDDelay
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetPvDDelay                                 API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDDelay kSCPropNetPvDDelay
+
+/*!
+  @const kSCPropNetPvDAdditionalInformation
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCPropNetPvDAdditionalInformation                 API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetPvDAdditionalInformation kSCPropNetPvDAdditionalInformation
 
 /*!
   @group kSCEntNetLink Entity Keys

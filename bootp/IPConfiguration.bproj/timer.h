@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,20 +39,21 @@
 #include <mach/boolean.h>
 #include "dynarray.h"
 #include "symbol_scope.h"
+#include <dispatch/dispatch.h>
 #include <CoreFoundation/CFDate.h>
 
-typedef long absolute_time_t;
+typedef CFAbsoluteTime absolute_time_t;
 
 typedef struct timer_callout timer_callout_t;
 
 typedef void (timer_func_t)(void * arg1, void * arg2, void * arg3);
 
-absolute_time_t		timer_current_secs();
+absolute_time_t		timer_get_current_time();
 
-INLINE CFAbsoluteTime
-timer_get_current_time(void)
+INLINE absolute_time_t
+timer_current_secs(void)
 {
-    return (CFAbsoluteTimeGetCurrent());
+	return timer_get_current_time();
 }
 
 /**
@@ -67,12 +68,12 @@ int			timer_set_relative(timer_callout_t * entry,
 					   void * arg1, void * arg2,
 					   void * arg3);
 int			timer_callout_set(timer_callout_t * callout,
-					  CFAbsoluteTime relative_time,
+					  absolute_time_t relative_time,
 					  timer_func_t * func,
 					  void * arg1, void * arg2,
 					  void * arg3);
 int			timer_callout_set_absolute(timer_callout_t * callout,
-						   CFAbsoluteTime wakeup_time,
+						   absolute_time_t wakeup_time,
 						   timer_func_t * func,
 						   void * arg1, void * arg2,
 						   void * arg3);

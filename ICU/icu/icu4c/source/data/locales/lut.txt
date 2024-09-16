@@ -1,0 +1,10 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+lut{
+    ExemplarCharacters{
+        "[ʔ a b c c̓ č {č̓} d {dᶻ} ə g {gʷ} h i ǰ k {k̓} {kʷ} {k̓ʷ} l {l̓} ł {ƛ̓} m n"
+        " p {p̓} q {q̓} {qʷ} {q̓ʷ} s {š} t {t́} u w {w̓} {xʷ} {x̌} {x̌ʷ} y {y̓}]"
+    }
+    ExemplarCharactersPunctuation{"[·]"}
+}

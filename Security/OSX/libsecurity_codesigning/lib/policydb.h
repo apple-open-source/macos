@@ -36,17 +36,20 @@ namespace CodeSigning {
 namespace SQLite = SQLite3;
 
 
-static const char defaultDatabase[] = "/private/var/db/SystemPolicy";
+static const char policyDatabase[] = "/private/var/db/SystemPolicyConfiguration/SystemPolicy";
+static const char oldPolicyDatabase[] = "/private/var/db/SystemPolicy";
+static const char oldDefaultPolicyDatabase[] = "/private/var/db/.SystemPolicy-default";
 static const char visibleSecurityFlagFile[] = "/var/db/.sp_visible"; /* old duchess/emir style configration */
-static const char prefsFile[] = "/var/db/SystemPolicy-prefs.plist";
-static const char lastRejectFile[] = "/var/db/.LastGKReject";
+static const char prefsFile[] = "/var/db/SystemPolicyConfiguration/SystemPolicy-prefs.plist";
+static const char oldPrefsFile[] = "/var/db/SystemPolicy-prefs.plist";
+static const char lastRejectFile[] = "/var/db/SystemPolicyConfiguration/.LastGKReject";
 static const char lastApprovedFile[] = "/var/db/.LastGKApp";
 static const char rearmTimerFile[] = "/var/db/.GKRearmTimer";
 
 static const char gkeAuthFile_old[] = "/private/var/db/gke.auth";
 static const char gkeSigsFile_old[] = "/private/var/db/gke.sigs";
-static const char gkeAuthFile[] = "/private/var/db/gke.bundle/Contents/Resources/gke.auth";
-static const char gkeSigsFile[] = "/private/var/db/gke.bundle/Contents/Resources/gke.sigs";
+static const char gkeAuthFile[] = "/private/var/db/SystemPolicyConfiguration/gke/gke.bundle/Contents/Resources/gke.auth";
+static const char gkeSigsFile[] = "/private/var/db/SystemPolicyConfiguration/gke/gke.bundle/Contents/Resources/gke.sigs";
 
 static const unsigned int gkeCheckInterval = 60;	// seconds
 

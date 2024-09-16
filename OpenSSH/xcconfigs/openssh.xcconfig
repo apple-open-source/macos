@@ -32,6 +32,7 @@ ssh_path = bin
 ssh_pkcs11_helper_path = libexec
 ssh_sk_helper_path = libexec
 sshd_path = sbin
+sshd_session_path = libexec
 
 // Installation: OpenSSH regression test suite
 check_perm_path = regress
@@ -42,7 +43,7 @@ setuid_allowed_path = regress
 timestamp_path = regress
 
 // OpenSSH version
-Semvers = 9.7.1
+Semvers = 9.8.1
 
 // Miscellaneous
 GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures) $(DebugFlagDefinition)

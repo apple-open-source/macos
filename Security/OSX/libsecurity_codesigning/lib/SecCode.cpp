@@ -265,11 +265,17 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 		| kSecCSEnforceRevocationChecks
 		| kSecCSAllowNetworkAccess
 		| kSecCSNoNetworkAccess
+		| kSecCSMatchGuestRequirementInKernel
 	);
 	SecPointer<SecCode> code = SecCode::required(codeRef);
 	code->checkValidity(flags);
-	if (const SecRequirement *req = SecRequirement::optional(requirementRef))
-		code->staticCode()->validateRequirement(req->requirement(), errSecCSReqFailed);
+	if (const SecRequirement *req = SecRequirement::optional(requirementRef)) {
+		if (flags & kSecCSMatchGuestRequirementInKernel) {
+			code->host()->guestMatchesLightweightCodeRequirement(code, req->requirement());
+		} else {
+			code->staticCode()->validateRequirement(req->requirement(), errSecCSReqFailed);
+		}
+	}
 
 	END_CSAPI_ERRORS
 }

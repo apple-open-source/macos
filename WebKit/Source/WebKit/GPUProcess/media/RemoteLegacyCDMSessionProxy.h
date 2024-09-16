@@ -55,7 +55,7 @@ public:
     RemoteLegacyCDMFactoryProxy* factory() const { return m_factory.get(); }
     WebCore::LegacyCDMSession* session() const { return m_session.get(); }
 
-    void setPlayer(WeakPtr<RemoteMediaPlayerProxy> player) { m_player = WTFMove(player); }
+    void setPlayer(WeakPtr<RemoteMediaPlayerProxy>);
 
     RefPtr<ArrayBuffer> getCachedKeyForKeyId(const String&);
 
@@ -74,7 +74,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const { return "RemoteLegacyCDMSessionProxy"; }
+    ASCIILiteral logClassName() const { return "RemoteLegacyCDMSessionProxy"_s; }
     WTFLogChannel& logChannel() const;
 #endif
 

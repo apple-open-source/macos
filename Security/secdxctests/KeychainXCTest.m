@@ -43,7 +43,7 @@
 #import <SecurityFoundation/SFKeychain.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 #include <corecrypto/ccpbkdf2.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccaes.h>
@@ -151,6 +151,8 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
 
 - (void)tearDown
 {
+    SecKeychainDelayAsyncBlocks(false);
+
     [self.mockSecDbKeychainItemV7 stopMocking];
     [self.mockSecAKSObjCWrappers stopMocking];
     [self resetEntitlements];

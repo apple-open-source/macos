@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.private.iokit.soc-limit</key>
+	<true/>
 	<key>com.apple.private.vfs.setsize</key>
 	<true/>
 	<key>com.apple.private.ppm.superclient</key>
@@ -28,6 +30,8 @@
 	</array>
 	<key>com.apple.PerfPowerTelemetry.data-donation</key>
 	<true/>
+	<key>com.apple.PerfPowerServices.data-donation</key>
+	<true/>
 	<key>com.apple.trial.client</key>
 	<array>
 		<string>253</string>
@@ -46,7 +50,7 @@
 	<key>com.apple.private.biome.read-only</key>
 	<array>
 		<string>ContextSync.LOI</string>
-		<string>SemanticLocation</string>
+		<string>Location.Semantic</string>
 		<string>Alarm</string>
 	</array>
 	<key>com.apple.private.biome.read-write</key>
@@ -58,12 +62,15 @@
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
 		<string>com.apple.powerui.bdcdata</string>
+		<string>com.apple.powerexperienced.resourceusage</string>
 	</array>
 	<key>com.apple.backlight.backlightaccess</key>
 	<true/>
 	<key>com.apple.locationd.motion_alarms</key>
 	<true/>
 	<key>com.apple.locationd.motion_alarms-system-client</key>
+	<true/>
+	<key>com.apple.powerexperienced.resourceusage</key>
 	<true/>
 </dict>
 </plist>

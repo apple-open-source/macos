@@ -1360,71 +1360,71 @@ const char* RequirementParser::tokenNames[] = {
 };
 
 const unsigned long RequirementParser::_tokenSet_0_data_[] = { 2UL, 0UL, 0UL, 0UL };
-// EOF 
-const antlr::BitSet RequirementParser::_tokenSet_0(_tokenSet_0_data_,4);
+// EOF
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_0(_tokenSet_0_data_,4);
 const unsigned long RequirementParser::_tokenSet_1_data_[] = { 992UL, 1048576UL, 0UL, 0UL };
-// "guest" "host" "designated" "library" "plugin" INTEGER 
-const antlr::BitSet RequirementParser::_tokenSet_1(_tokenSet_1_data_,4);
+// "guest" "host" "designated" "library" "plugin" INTEGER
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_1(_tokenSet_1_data_,4);
 const unsigned long RequirementParser::_tokenSet_2_data_[] = { 16UL, 0UL, 0UL, 0UL };
-// ARROW 
-const antlr::BitSet RequirementParser::_tokenSet_2(_tokenSet_2_data_,4);
+// ARROW
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_2(_tokenSet_2_data_,4);
 const unsigned long RequirementParser::_tokenSet_3_data_[] = { 994UL, 1048576UL, 0UL, 0UL };
-// EOF "guest" "host" "designated" "library" "plugin" INTEGER 
-const antlr::BitSet RequirementParser::_tokenSet_3(_tokenSet_3_data_,4);
+// EOF "guest" "host" "designated" "library" "plugin" INTEGER
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_3(_tokenSet_3_data_,4);
 const unsigned long RequirementParser::_tokenSet_4_data_[] = { 536883186UL, 6194188UL, 0UL, 0UL };
 // EOF ARROW "guest" "host" "designated" "library" "plugin" "or" "and" 
 // RPAREN "trusted" EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
 // INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_4(_tokenSet_4_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_4(_tokenSet_4_data_,4);
 const unsigned long RequirementParser::_tokenSet_5_data_[] = { 9186UL, 5242880UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" RPAREN INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_5(_tokenSet_5_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_5(_tokenSet_5_data_,4);
 const unsigned long RequirementParser::_tokenSet_6_data_[] = { 994UL, 5242880UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_6(_tokenSet_6_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_6(_tokenSet_6_data_,4);
 const unsigned long RequirementParser::_tokenSet_7_data_[] = { 10210UL, 5242880UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" RPAREN INTEGER 
 // SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_7(_tokenSet_7_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_7(_tokenSet_7_data_,4);
 const unsigned long RequirementParser::_tokenSet_8_data_[] = { 3657420800UL, 0UL, 0UL, 0UL };
 // LPAREN NOT "always" "true" "never" "false" "identifier" "cdhash" "platform" 
 // "notarized" "legacy" "anchor" "certificate" "cert" "info" "entitlement" 
-const antlr::BitSet RequirementParser::_tokenSet_8(_tokenSet_8_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_8(_tokenSet_8_data_,4);
 const unsigned long RequirementParser::_tokenSet_9_data_[] = { 12258UL, 5242880UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_9(_tokenSet_9_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_9(_tokenSet_9_data_,4);
 const unsigned long RequirementParser::_tokenSet_10_data_[] = { 0UL, 1077248UL, 0UL, 0UL };
 // NEG "leaf" "root" INTEGER 
-const antlr::BitSet RequirementParser::_tokenSet_10(_tokenSet_10_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_10(_tokenSet_10_data_,4);
 const unsigned long RequirementParser::_tokenSet_11_data_[] = { 0UL, 951308UL, 0UL, 0UL };
 // EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
-const antlr::BitSet RequirementParser::_tokenSet_11(_tokenSet_11_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_11(_tokenSet_11_data_,4);
 const unsigned long RequirementParser::_tokenSet_12_data_[] = { 0UL, 1998848UL, 0UL, 0UL };
 // HASHCONSTANT DOTKEY STRING PATHNAME INTEGER 
-const antlr::BitSet RequirementParser::_tokenSet_12(_tokenSet_12_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_12(_tokenSet_12_data_,4);
 const unsigned long RequirementParser::_tokenSet_13_data_[] = { 536870912UL, 951308UL, 0UL, 0UL };
 // "trusted" EQL EQQL LBRACK HASHCONSTANT DOTKEY STRING PATHNAME 
-const antlr::BitSet RequirementParser::_tokenSet_13(_tokenSet_13_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_13(_tokenSet_13_data_,4);
 const unsigned long RequirementParser::_tokenSet_14_data_[] = { 12258UL, 6193153UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // "exists" HASHCONSTANT DOTKEY STRING PATHNAME INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_14(_tokenSet_14_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_14(_tokenSet_14_data_,4);
 const unsigned long RequirementParser::_tokenSet_15_data_[] = { 12258UL, 5243887UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // "exists" "absent" EQL EQQL SUBS LESS GT LE GE INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_15(_tokenSet_15_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_15(_tokenSet_15_data_,4);
 const unsigned long RequirementParser::_tokenSet_16_data_[] = { 0UL, 458768UL, 0UL, 0UL };
 // STAR HEXCONSTANT DOTKEY STRING 
-const antlr::BitSet RequirementParser::_tokenSet_16(_tokenSet_16_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_16(_tokenSet_16_data_,4);
 const unsigned long RequirementParser::_tokenSet_17_data_[] = { 12258UL, 5242896UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // STAR INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_17(_tokenSet_17_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_17(_tokenSet_17_data_,4);
 const unsigned long RequirementParser::_tokenSet_18_data_[] = { 12258UL, 5244944UL, 0UL, 0UL };
 // EOF "guest" "host" "designated" "library" "plugin" "or" "and" RPAREN 
 // STAR RBRACK INTEGER SEMI 
-const antlr::BitSet RequirementParser::_tokenSet_18(_tokenSet_18_data_,4);
+[[clang::no_destroy]] const antlr::BitSet RequirementParser::_tokenSet_18(_tokenSet_18_data_,4);
 
 
 ANTLR_END_NAMESPACE

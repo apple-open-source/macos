@@ -26,6 +26,7 @@
 #pragma once
 
 #include <initializer_list>
+#include <optional>
 
 namespace WTF {
 class TextStream;
@@ -94,7 +95,7 @@ enum class PseudoId : uint32_t {
     After,
     Selection,
     Backdrop,
-    Scrollbar,
+    WebKitScrollbar,
     SpellingError,
     ViewTransition,
     ViewTransitionGroup,
@@ -103,19 +104,32 @@ enum class PseudoId : uint32_t {
     ViewTransitionNew,
 
     // Internal:
-    ScrollbarThumb,
-    ScrollbarButton,
-    ScrollbarTrack,
-    ScrollbarTrackPiece,
-    ScrollbarCorner,
-    Resizer,
+    WebKitScrollbarThumb,
+    WebKitScrollbarButton,
+    WebKitScrollbarTrack,
+    WebKitScrollbarTrackPiece,
+    WebKitScrollbarCorner,
+    WebKitResizer,
+    InternalWritingSuggestions,
 
     AfterLastInternalPseudoId,
 
     FirstPublicPseudoId = FirstLine,
-    FirstInternalPseudoId = ScrollbarThumb,
+    FirstInternalPseudoId = WebKitScrollbarThumb,
     PublicPseudoIdMask = ((1 << FirstInternalPseudoId) - 1) & ~((1 << FirstPublicPseudoId) - 1)
 };
+
+inline std::optional<PseudoId> parentPseudoElement(PseudoId pseudoId)
+{
+    switch (pseudoId) {
+    case PseudoId::FirstLetter: return PseudoId::FirstLine;
+    case PseudoId::ViewTransitionGroup: return PseudoId::ViewTransition;
+    case PseudoId::ViewTransitionImagePair: return PseudoId::ViewTransitionGroup;
+    case PseudoId::ViewTransitionNew: return PseudoId::ViewTransitionImagePair;
+    case PseudoId::ViewTransitionOld: return PseudoId::ViewTransitionImagePair;
+    default: return std::nullopt;
+    }
+}
 
 class PseudoIdSet {
 public:
@@ -176,7 +190,7 @@ public:
 
     unsigned data() const { return m_data; }
 
-    static ptrdiff_t dataMemoryOffset() { return OBJECT_OFFSETOF(PseudoIdSet, m_data); }
+    static constexpr ptrdiff_t dataMemoryOffset() { return OBJECT_OFFSETOF(PseudoIdSet, m_data); }
 
 private:
     explicit PseudoIdSet(unsigned rawPseudoIdSet)
@@ -1182,6 +1196,11 @@ enum class BlockStepInsert : bool {
     Padding
 };
 
+enum class FieldSizing : bool {
+    Fixed,
+    Content
+};
+
 CSSBoxType transformBoxToCSSBoxType(TransformBox);
 
 constexpr float defaultMiterLimit = 4;
@@ -1303,5 +1322,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpaceCollapse);
 WTF::TextStream& operator<<(WTF::TextStream&, WordBreak);
 WTF::TextStream& operator<<(WTF::TextStream&, MathStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, ContainIntrinsicSizeType);
+WTF::TextStream& operator<<(WTF::TextStream&, FieldSizing);
 
 } // namespace WebCore

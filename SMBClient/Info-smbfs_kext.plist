@@ -17,17 +17,19 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.1</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.1</string>
+	<string>6.0</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2004-2023 Apple Inc. All rights reserved.</string>
 	<key>OSBundleAllowUserLoad</key>
 	<true/>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.kec.Compression</key>
+		<string>1.0</string>
 		<key>com.apple.kec.corecrypto</key>
 		<string>1.0</string>
 		<key>com.apple.kext.triggers</key>

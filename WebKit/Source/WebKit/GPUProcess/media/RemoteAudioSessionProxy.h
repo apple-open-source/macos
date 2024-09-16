@@ -31,7 +31,18 @@
 #include "RemoteAudioSessionConfiguration.h"
 #include <WebCore/AudioSession.h>
 #include <WebCore/ProcessIdentifier.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/WeakRef.h>
+
+namespace WebKit {
+class RemoteAudioSessionProxy;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteAudioSessionProxy> : std::true_type { };
+}
 
 namespace IPC {
 class Connection;
@@ -63,11 +74,17 @@ public:
     void beginInterruption();
     void endInterruption(WebCore::AudioSession::MayResume);
 
+    const String& sceneIdentifier() const { return m_sceneIdentifier; }
+    void setSceneIdentifier(const String&);
+
+    WebCore::AudioSession::SoundStageSize soundStageSize() const { return m_soundStageSize; }
+    void setSoundStageSize(WebCore::AudioSession::SoundStageSize);
+
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
-    GPUConnectionToWebProcess& gpuConnectionToWebProcess() const { return m_gpuConnection; }
+    RefPtr<GPUConnectionToWebProcess> gpuConnectionToWebProcess() const;
 
 private:
     friend UniqueRef<RemoteAudioSessionProxy> WTF::makeUniqueRefWithoutFastMallocCheck<RemoteAudioSessionProxy>(GPUConnectionToWebProcess&);
@@ -90,10 +107,12 @@ private:
     RemoteAudioSessionProxyManager& audioSessionManager();
     IPC::Connection& connection();
 
-    GPUConnectionToWebProcess& m_gpuConnection;
+    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnection;
     WebCore::AudioSession::CategoryType m_category { WebCore::AudioSession::CategoryType::None };
     WebCore::AudioSession::Mode m_mode { WebCore::AudioSession::Mode::Default };
     WebCore::RouteSharingPolicy m_routeSharingPolicy { WebCore::RouteSharingPolicy::Default };
+    WebCore::AudioSession::SoundStageSize m_soundStageSize { WebCore::AudioSession::SoundStageSize::Automatic };
+    String m_sceneIdentifier;
     size_t m_preferredBufferSize { 0 };
     bool m_active { false };
     bool m_isInterrupted { false };

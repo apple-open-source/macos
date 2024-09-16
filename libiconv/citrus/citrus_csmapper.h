@@ -39,6 +39,9 @@
 #define _citrus_csmapper		_citrus_mapper
 #define _citrus_csmapper_close		_citrus_mapper_close
 #define _citrus_csmapper_convert	_citrus_mapper_convert
+#ifdef __APPLE__
+#define _citrus_csmapper_convert_ctx	_citrus_mapper_convert_ctx
+#endif
 #define _citrus_csmapper_init_state	_citrus_mapper_init_state
 #define _citrus_csmapper_get_state_size	_citrus_mapper_get_state_size
 #define _citrus_csmapper_get_src_max	_citrus_mapper_get_src_max

@@ -62,6 +62,11 @@
 
 #include "form.h"
 
+#ifdef __APPLE__
+/* TAPI */
+extern void _nc_fty_generic(void);
+#endif
+
 	/***********************
 	*   Default objects    *
 	***********************/

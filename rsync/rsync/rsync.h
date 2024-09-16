@@ -842,6 +842,35 @@ void rsyserr(enum logcode, int, const char *, ...)
      __attribute__((format (printf, 3, 4)))
      ;
 
+#ifdef __APPLE__
+#include <os/log.h>
+#include <os/variant_private.h>
+
+#define	RSYNC_SUBSYSTEM	"com.apple.rsync"
+
+/*
+ * This logging of errors as faults is unconventional!  For this application
+ * specifically, errors are being considered faults in the context of the whole
+ * rsync system (both the local end and the remote end, combined) as a rough
+ * debugging aide while the openrsync transition is taking place.
+ */
+#define	maybe_log_fault(lc, ...) do {				\
+	if (os_variant_has_internal_content(RSYNC_SUBSYSTEM) &&	\
+	    ((lc) == FSOCKERR || (lc) == FERROR))		\
+		os_log_fault(OS_LOG_DEFAULT, __VA_ARGS__);	\
+} while(0)
+
+#define	rprintf(lc, ...) do {			\
+	maybe_log_fault((lc),  __VA_ARGS__);	\
+	rprintf((lc), __VA_ARGS__);		\
+} while(0)
+
+#define	rsyserr(lc, errcode, ...) do {		\
+	maybe_log_fault((lc), __VA_ARGS__);	\
+	rsyserr((lc), (errcode), __VA_ARGS__);	\
+} while(0)
+#endif /* __APPLE__ */
+
 /* Make sure that the O_BINARY flag is defined. */
 #ifndef O_BINARY
 #define O_BINARY 0

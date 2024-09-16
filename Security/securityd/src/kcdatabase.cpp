@@ -49,6 +49,7 @@
 #include "notifications.h"
 #include "SecRandom.h"
 #include "keychainstasherinterface.h"
+#include "keybag_helpers.h"
 #include <vector>           // @@@  4003540 workaround
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_utilities/cssmendian.h>
@@ -60,7 +61,6 @@
 #include <securityd_client/dictionary.h>
 #include <security_utilities/endian.h>
 #include <security_utilities/errors.h>
-#include "securityd_service/securityd_service/securityd_service_client.h"
 #include <AssertMacros.h>
 #include <syslog.h>
 #include <sys/sysctl.h>
@@ -112,12 +112,12 @@ unlock_keybag(KeychainDatabase & db, const void * secret, int secret_len)
     // try to unlock first if not found then load/create or unlock
     // loading should happen when the kb common object is created
     // if it doesn't exist yet then the unlock will fail and we'll create everything
-    rc = service_client_kb_unlock(&context, secret, secret_len);
+    rc = kb_unlock(&context, secret, secret_len);
     if (rc == KB_BagNotLoaded) {
-        if (service_client_kb_load(&context) == KB_BagNotFound) {
-            rc = service_client_kb_create(&context, secret, secret_len);
+        if (kb_load(&context) == KB_BagNotFound) {
+            rc = kb_create(&context, secret, secret_len);
         } else {
-            rc = service_client_kb_unlock(&context, secret, secret_len);
+            rc = kb_unlock(&context, secret, secret_len);
         }
     }
 
@@ -125,16 +125,16 @@ unlock_keybag(KeychainDatabase & db, const void * secret, int secret_len)
         if (!db.common().session().keybagGetState(session_keybag_check_master_key)) {
             CssmAutoData encKey(Allocator::standard(Allocator::sensitive));
             db.common().get_encryption_key(encKey);
-            if ((rc = service_client_kb_unlock(&context, encKey.data(), (int)encKey.length())) == 0) {
-                rc = service_client_kb_change_secret(&context, encKey.data(), (int)encKey.length(), secret, secret_len);
+            if ((rc = kb_unlock(&context, encKey.data(), (int)encKey.length())) == 0) {
+                rc = kb_change_secret(&context, encKey.data(), (int)encKey.length(), secret, secret_len);
             }
 
             if (rc != 0) { // if a login.keychain password exists but doesnt on the keybag update it
                 bool no_pin = false;
-                if ((secret_len > 0) && service_client_kb_is_locked(&context, NULL, &no_pin) == 0) {
+                if ((secret_len > 0) && kb_is_locked(&context, NULL, &no_pin) == 0) {
                     if (no_pin) {
                         syslog(LOG_ERR, "Updating iCloud keychain passphrase for uid %d", context.s_uid);
-                        service_client_kb_change_secret(&context, NULL, 0, secret, secret_len);
+                        kb_change_secret(&context, NULL, 0, secret, secret_len);
                     }
                 }
             }
@@ -164,24 +164,24 @@ change_secret_on_keybag(KeychainDatabase & db, const void * secret, int secret_l
 
     // if a login.keychain doesn't exist yet it comes into securityd as a create then change_secret
     // we need to create the keybag in this case if it doesn't exist
-    int rc = service_client_kb_change_secret(&context, secret, secret_len, new_secret, new_secret_len);
+    int rc = kb_change_secret(&context, secret, secret_len, new_secret, new_secret_len);
     if (rc == KB_BagNotLoaded) {
-        if (service_client_kb_load(&context) == KB_BagNotFound) {
-            rc = service_client_kb_create(&context, new_secret, new_secret_len);
+        if (kb_load(&context) == KB_BagNotFound) {
+            rc = kb_create(&context, new_secret, new_secret_len);
         } else {
-            rc = service_client_kb_change_secret(&context, secret, secret_len, new_secret, new_secret_len);
+            rc = kb_change_secret(&context, secret, secret_len, new_secret, new_secret_len);
         }
     }
 
     // this makes it possible to restore a deleted keybag on condition it still exists in kernel
     if (rc != KB_Success) {
-        service_client_kb_save(&context);
+        kb_save(&context);
     }
 
     // if for some reason we are locked lets unlock so later we don't try and throw up SecurityAgent dialog
     bool locked = false;
-    if ((service_client_kb_is_locked(&context, &locked, NULL) == KB_Success) && locked) {
-        rc = service_client_kb_unlock(&context, new_secret, new_secret_len);
+    if ((kb_is_locked(&context, &locked, NULL) == KB_Success) && locked) {
+        rc = kb_unlock(&context, new_secret, new_secret_len);
         if (rc != KB_Success) {
             syslog(LOG_ERR, "Failed to unlock iCloud keychain for uid %d (%d)", context.s_uid, (int)rc);
         }
@@ -216,7 +216,7 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
                             bool locked = false;
                             query_success = false;
                             service_context_t context = db.common().session().get_current_service_context();
-                            if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+                            if ((kb_is_locked(&context, &locked, NULL) == 0) && locked) {
                                 QueryKeybagPassphrase keybagQuery(db.common().session(), 3);
                                 keybagQuery.inferHints(Server::process());
                                 if (keybagQuery.query() == SecurityAgent::noReason) {
@@ -229,7 +229,7 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
                         }   // StSyncLock goes out of scope, we have common lock again
                         bool locked = false;
                         service_context_t context = db.common().session().get_current_service_context();
-                        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && !locked) {
+                        if ((kb_is_locked(&context, &locked, NULL) == 0) && !locked) {
                             unlock_success = true;
                         }
                         if (looped) {
@@ -860,12 +860,12 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKe
             wrap(master, rawMaster);
             
             service_context_t context = common().session().get_current_service_context();
-            service_client_stash_load_key(&context, rawMaster.keyData(), (int)rawMaster.length());
+            kb_stash_load_key(&context, rawMaster.keyData(), (int)rawMaster.length());
         }
 	} else if (unlockKeybag && common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
-        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+        if ((kb_is_locked(&context, &locked, NULL) == 0) && locked) {
             if (!unlock_keybag_with_cred(*this, cred)) {
                 syslog(LOG_NOTICE, "failed to unlock iCloud keychain");
             }
@@ -895,7 +895,7 @@ void KeychainDatabase::stashDbCheck()
     size_t s_keylen = 0;
     service_context_t context = common().session().get_current_service_context();
     // SIDE EFFECT: loads the user's keybag
-    int servicerc = service_client_stash_get_key(&context, &s_key, &s_keylen);
+    int servicerc = kb_stash_get_key(&context, &s_key, &s_keylen);
     if (servicerc != KB_Success) {
         secerror("KCdb: failed to load stash from securityd_service: %d", servicerc);
     } else {
@@ -962,8 +962,8 @@ void KeychainDatabase::stashDbCheck()
 
     // when upgrading from pre-10.9 create a keybag if it doesn't exist with the encryption key
     // only do this after we have verified the master key unlocks the login.keychain
-    if (service_client_kb_load(&context) == KB_BagNotFound) {
-        service_client_kb_create(&context, encKey.data(), (int)encKey.length());
+    if (kb_load(&context) == KB_BagNotFound) {
+        kb_create(&context, encKey.data(), (int)encKey.length());
     }
 }
 
@@ -989,7 +989,7 @@ void KeychainDatabase::stashDb()
 
     // We're going to double-stash during transition
     service_context_t context = common().session().get_current_service_context();
-    int servicerc = service_client_stash_set_key(&context, data.data(), (int)data.length());
+    int servicerc = kb_stash_set_key(&context, data.data(), (int)data.length());
     if (servicerc != KB_Success) {
         secerror("KCdb: securityd_service stash failed: %d", servicerc);
     } else {
@@ -1035,7 +1035,7 @@ void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeyba
     if (unlockKeybag && common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
-        if (!common().session().keybagGetState(session_keybag_check_master_key) || ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked)) {
+        if (!common().session().keybagGetState(session_keybag_check_master_key) || ((kb_is_locked(&context, &locked, NULL) == 0) && locked)) {
             unlock_keybag(*this, passphrase.data(), (int)passphrase.length());
         }
     }
@@ -1269,7 +1269,7 @@ bool KeychainDatabase::interactiveUnlock()
     if (common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
-        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+        if ((kb_is_locked(&context, &locked, NULL) == 0) && locked) {
             QueryKeybagNewPassphrase keybagQuery(common().session());
             keybagQuery.inferHints(Server::process());
             CssmAutoData pass(Allocator::standard(Allocator::sensitive));
@@ -1278,10 +1278,10 @@ bool KeychainDatabase::interactiveUnlock()
             SecurityAgent::Reason queryReason = keybagQuery.query(oldPass, pass);
             uisync.unlock();
             if (queryReason == SecurityAgent::noReason) {
-                service_client_kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
+                kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
             } else if (queryReason == SecurityAgent::resettingPassword) {
                 query.retrievePassword(pass);
-                service_client_kb_reset(&context, pass.data(), (int)pass.length());
+                kb_reset(&context, pass.data(), (int)pass.length());
             }
 
         }
@@ -1584,7 +1584,7 @@ KeychainDatabase::keyFromKeybag(const TypedList &sample)
     CssmData &unlock_token = sample[2].data();
 
     context = common().session().get_current_service_context();
-    rc = service_client_kb_unwrap_key(&context, unlock_token.data(), session_key_wrapped_len, key_class_ak, (void **)&session_key, &session_key_size);
+    rc = kb_unwrap_key(&context, unlock_token.data(), session_key_wrapped_len, key_class_ak, (void **)&session_key, &session_key_size);
     if (rc != 0) {
         CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
     }
@@ -1910,7 +1910,7 @@ KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id, uint32 
 void KeychainDbCommon::initializeKeybag() {
     if (mLoginKeychain && !session().keybagGetState(session_keybag_loaded)) {
         service_context_t context = session().get_current_service_context();
-        if (service_client_kb_load(&context) == 0) {
+        if (kb_load(&context) == 0) {
             session().keybagSetState(session_keybag_loaded);
         }
     }

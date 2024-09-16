@@ -56,7 +56,7 @@ public:
     WEBCORE_EXPORT void requestImageResource();
 
 protected:
-    void notifyFinished(CachedResource&, const NetworkLoadMetrics&) override;
+    void notifyFinished(CachedResource&, const NetworkLoadMetrics&, LoadWillContinueInAnotherProcess) override;
 
 private:
     Document& m_document;
@@ -96,10 +96,19 @@ public:
 #endif
 
 private:
+    struct Pair {
+        float score;
+        String src;
+    };
+
     MediaMetadata();
     void setArtworkImage(Image*);
     void metadataUpdated();
     void refreshArtworkImage();
+    void tryNextArtworkImage(uint32_t, Vector<Pair>&&);
+
+    static constexpr int s_minimumSize = 128;
+    static constexpr int s_idealSize = 512;
 
     WeakPtr<MediaSession> m_session;
     MediaSessionMetadata m_metadata;

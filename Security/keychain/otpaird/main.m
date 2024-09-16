@@ -18,9 +18,8 @@ static void pairing_retry_register(bool checkin);
 static void pairing_retry_unregister(void);
 static void ids_retry_init(void);
 static void ids_retry_enable(bool);
-#endif /* TARGET_OS_WATCH */
-
 static _Atomic bool pairing_retry_is_scheduled = false;
+#endif /* TARGET_OS_WATCH */
 
 int
 main(void)

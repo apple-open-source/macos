@@ -40,14 +40,7 @@ static bool isMessageSecurityAllowedForCurrentBundleID(void) {
 }
 
 bool useMessageSecurityEnabled(void) {
-    static bool useMSEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        useMSEnabled = os_feature_enabled(Security, SecCMSMessageSecurityShim);
-        secnotice("SecCMS", "SecCMSMessageSecurityShim is %s (via feature flags)",
-                  useMSEnabled ? "enabled" : "disabled");
-    });
-    return useMSEnabled && isMessageSecurityAllowedForCurrentBundleID();
+    return isMessageSecurityAllowedForCurrentBundleID();
 }
 
 CFArrayRef MS_SecCMSCertificatesOnlyMessageCopyCertificates(CFDataRef message) {

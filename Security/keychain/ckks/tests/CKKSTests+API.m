@@ -1183,13 +1183,13 @@
     OCMExpect([self.suggestTLKUpload trigger]);
 
     self.nextModifyRecordZonesError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                       code:CKErrorZoneBusy
-                                                                   userInfo:@{
-                                                                              CKErrorRetryAfterKey: @(0.2),
-                                                                              NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                                                                                     code:2029
-                                                                                                                                 userInfo:nil],
-                                                                              }];
+                                                                 code:CKErrorZoneBusy
+                                                             userInfo:@{
+        CKErrorRetryAfterKey: @(0.2),
+        NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
+                                                         code:2029
+                                                     userInfo:nil],
+    }];
     self.silentZoneDeletesAllowed = true;
 
     // Test starts with nothing in database, but one in our fake CloudKit.
@@ -1389,7 +1389,7 @@
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:20*NSEC_PER_SEC], "CKKS entered 'waitfortlkcreation'");
-    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter waitfortrust");
 
     XCTAssertFalse(self.keychainZone.flag, "Zone was deleted at some point");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -1524,8 +1524,8 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'ready'");
 
     [self.keychainZone failNextFetchWith:[[NSError alloc] initWithDomain:CKErrorDomain
-                                                                          code:CKErrorRequestRateLimited
-                                                                      userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:30]}]];
+                                                                    code:CKErrorRequestRateLimited
+                                                                userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:30]}]];
 
     XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
     [self.ckksControl rpcFetchAndProcessChanges:nil reply:^(NSError * _Nullable error) {

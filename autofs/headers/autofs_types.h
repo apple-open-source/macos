@@ -25,15 +25,15 @@
 #define __AUTOFS_TYPES_H__
 
 #include <sys/syslimits.h>
-#include <sys/mount.h>		/* for fsid_t */
+#include <sys/mount.h>          /* for fsid_t */
 #include "autofs_defs.h"
 
 /*
  * Type definitions, C-style.
  */
-typedef char autofs_pathname[PATH_MAX+1];
-typedef char autofs_component[NAME_MAX];	/* not null-terminated! */
-typedef char autofs_fstype[NAME_MAX+1];
+typedef char autofs_pathname[PATH_MAX + 1];
+typedef char autofs_component[NAME_MAX];        /* not null-terminated! */
+typedef char autofs_fstype[NAME_MAX + 1];
 typedef char autofs_opts[AUTOFS_MAXOPTSLEN];
 typedef uint8_t *byte_buffer;
 

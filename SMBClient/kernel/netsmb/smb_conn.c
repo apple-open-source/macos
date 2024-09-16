@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2015 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -324,6 +324,9 @@ void smb_session_reset(struct smb_session *sessionp)
     
 	/* Reset the smb signing */
 	smb_reset_sig(sessionp);
+	
+	/* Reset whether compression is supported or not */
+    sessionp->server_compression_algorithms_map = 0;
 }
 
 void smb_session_ref(struct smb_session *sessionp)
@@ -710,6 +713,10 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
         sessionp->session_flags |= SMBV_MC_PREFER_WIRED;
     }
 
+    if (session_spec->ioc_extra_flags & SMB_MC_CLIENT_RSS_FORCE_ON) {
+        sessionp->session_misc_flags |= SMBV_MC_CLIENT_RSS_FORCE_ON;
+    }
+
     if (session_spec->ioc_extra_flags & SMB_DISABLE_311) {
         sessionp->session_flags |= SMBV_DISABLE_311;
     }
@@ -766,6 +773,14 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
         sessionp->session_misc_flags |= SMBV_FORCE_SHARE_ENCRYPT;
     }
 
+    /* Is chained compressions disabled? */
+    if (session_spec->ioc_extra_flags & SMB_COMPRESSION_CHAINING_OFF) {
+        sessionp->session_misc_flags |= SMBV_COMPRESSION_CHAINING_OFF;
+    }
+
+    /* Save which compression algorithms are enabled */
+    sessionp->client_compression_algorithms_map = session_spec->ioc_compression_algorithms_map;
+    
     /* Save client Guid */
 	memcpy(sessionp->session_client_guid, session_spec->ioc_client_guid, sizeof(sessionp->session_client_guid));
     
@@ -803,8 +818,12 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     sessionp->iod_writeQuantumSize = sessionp->iod_writeSizes[1];
     sessionp->iod_writeQuantumNumber = kQuantumMedNumber;
 
-    sessionp->rw_thread_control = 0;
+    sessionp->rw_max_check_time = 150000; /* default of 0.15 secs */
     
+    sessionp->active_channel_speed = 0;
+    sessionp->active_channel_count = 0;
+    sessionp->rw_gb_threshold = 0;
+
     lck_mtx_unlock(&sessionp->iod_quantum_lock);
 
     sessionp->session_gone_iod_total_tx_bytes = 0;
@@ -813,11 +832,18 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     sessionp->session_gone_iod_total_rx_packets = 0;
     sessionp->session_setup_time.tv_sec = 0;
     sessionp->session_reconnect_count = 0;
+    sessionp->max_channels = session_spec->ioc_mc_max_channel;
+    sessionp->srvr_rss_channels = session_spec->ioc_mc_srvr_rss_channel;
+    sessionp->clnt_rss_channels = session_spec->ioc_mc_clnt_rss_channel;
 
     /* Init Multi Channel Interfaces table*/
+    SMB_LOG_MC("Calling smb2_mc_init, max_channels %d srvr_rss_channels %d clnt_rss_channels %d \n",
+               sessionp->max_channels, sessionp->srvr_rss_channels, sessionp->clnt_rss_channels);
+
     smb2_mc_init(&sessionp->session_interface_table,
-                 session_spec->ioc_mc_max_channel,
-                 session_spec->ioc_mc_max_rss_channel,
+                 sessionp->max_channels,
+                 sessionp->srvr_rss_channels,
+                 sessionp->clnt_rss_channels,
                  session_spec->ioc_mc_client_if_ignorelist,
                  session_spec->ioc_mc_client_if_ignorelist_len,
                  (sessionp->session_flags & SMBV_MC_PREFER_WIRED));
@@ -1648,6 +1674,7 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
     struct smbiod *iod = NULL;
     int    error       = 0;
     struct nbpcb *parent_nbp = parent_iod->iod_tdata;
+    char str[128] = {0};
 
     if (!(sessionp->session_flags & SMBV_MULTICHANNEL_ON)) {
         /* MultiChannel is not enabled on this session */
@@ -1715,14 +1742,11 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
     memcpy(iod->iod_smb3_signing_key, sessionp->session_smb3_signing_key, SMB3_KEY_LEN);
     iod->iod_smb3_signing_key_len = sessionp->session_smb3_signing_key_len;
 
-#ifdef SMB_DEBUG
-    char str[128];
     smb2_sockaddr_to_str(iod->iod_saddr, str, sizeof(str));
     SMB_LOG_MC("id %d: Try from if %llu to %s.\n",
-             iod->iod_id,
-             iod->iod_conn_entry.client_if_idx,
-             str); 
-#endif
+               iod->iod_id,
+               iod->iod_conn_entry.client_if_idx,
+               str); 
 
     /* Invoke the new iod to establish a new channel */
     error = smb_iod_request(iod, SMBIOD_EV_ESTABLISH_ALT_CH, NULL);

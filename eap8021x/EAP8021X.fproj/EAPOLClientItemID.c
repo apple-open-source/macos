@@ -563,14 +563,14 @@ EAPOLClientItemIDCreateWithDictionary(EAPOLClientConfigurationRef cfg,
 #if TARGET_OS_IPHONE
 
 SecIdentityRef
-EAPOLClientItemIDCopyIdentity(EAPOLClientItemIDRef itemID, EAPOLClientDomain domain)
+EAPOLClientItemIDCopyIdentity(EAPOLClientItemIDRef itemID, __unused EAPOLClientDomain domain)
 {
     CFStringRef 	unique_string = NULL;
     CFDataRef 		id_ref = NULL;
     SecIdentityRef 	identity = NULL;
     OSStatus 		status = errSecSuccess;
 
-    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, FALSE);
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, kEAPOLClientDomainSystem, FALSE);
     EAPLOG(LOG_DEBUG, "looking for identity reference for [%@]", unique_string);
 
     status = EAPKeychainCopyIdentityReference(unique_string, &id_ref);
@@ -596,7 +596,7 @@ done:
 
 Boolean
 EAPOLClientItemIDSetIdentity(EAPOLClientItemIDRef itemID,
-			     EAPOLClientDomain domain,
+			     __unused EAPOLClientDomain domain,
 			     SecIdentityRef identity)
 {
     CFStringRef 		unique_string = NULL;
@@ -606,7 +606,7 @@ EAPOLClientItemIDSetIdentity(EAPOLClientItemIDRef itemID,
     CFDataRef 			current_id_ref = NULL;
     Boolean 			do_update = FALSE;
 
-    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, FALSE);
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, kEAPOLClientDomainSystem, FALSE);
     EAPLOG(LOG_DEBUG, "%s identity reference for key : [%@]",
 	   identity == NULL ? "deleting" : "adding/updating",
 	   unique_string);
@@ -665,7 +665,7 @@ done:
 
 Boolean
 EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
-				  EAPOLClientDomain domain,
+				  __unused EAPOLClientDomain domain,
 				  CFDataRef * username_p,
 				  CFDataRef * password_p)
 {
@@ -676,7 +676,7 @@ EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
     if (username_p == NULL && password_p == NULL) {
 	return FALSE;
     }
-    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, kEAPOLClientDomainSystem, TRUE);
     if (unique_string == NULL) {
 	goto done;
     }
@@ -695,13 +695,13 @@ done:
 
 Boolean
 EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
-				    EAPOLClientDomain domain)
+				    __unused EAPOLClientDomain domain)
 {
     OSStatus 			status = errSecSuccess;
     CFStringRef 		unique_string = NULL;
     Boolean 			ret = FALSE;
 
-    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, kEAPOLClientDomainSystem, TRUE);
     if (unique_string == NULL) {
 	goto done;
     }
@@ -721,7 +721,7 @@ done:
 
 Boolean
 EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
-				 EAPOLClientDomain domain,
+				 __unused EAPOLClientDomain domain,
 				 CFDataRef name, CFDataRef password)
 {
     OSStatus 		status = errSecSuccess;
@@ -737,7 +737,7 @@ EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
     if (name == NULL || password == NULL) {
 	return FALSE;
     }
-    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, domain, TRUE);
+    unique_string = EAPOLClientItemIDCopyUniqueString(itemID, kEAPOLClientDomainSystem, TRUE);
     if (unique_string == NULL) {
 	goto done;
     }

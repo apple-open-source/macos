@@ -26,6 +26,8 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/SecItemPriv.h>
+#include <Security/SecCertificateInternal.h>
 #include "OSX/utilities/SecCFWrappers.h"
 #include <libDER/oids.h>
 
@@ -184,8 +186,6 @@ errOut:
 }
 
 - (void)testEdDSA {
-    /* This leaf uses X25519, which we don't support for certificate keys, so we get a weak key size error for it.
-     * A better test would use a chain that's entirely Ed25519. */
     SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _ed25519_root, sizeof(_ed25519_root));
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _ed25519_leaf, sizeof(_ed25519_leaf));
     XCTAssertNotEqual(root, NULL);
@@ -202,17 +202,22 @@ errOut:
     XCTAssertNotEqual(error, NULL);
     NSArray *chain = CFBridgingRelease(SecTrustCopyCertificateChain(trust));
     XCTAssertNotNil(chain);
-#if LIBDER_HAS_EDDSA
-    // guard for rdar://106052612
     XCTAssertEqual(chain.count, 2); // If we support EdDSA, we should be able to find the root and verify the signature on the leaf
-#else
-    XCTAssertEqual(chain.count, 1);
-#endif
+
+    // rdar://126083306
+    SecCertificateRef ed448cert = SecCertificateCreateWithBytes(NULL, _openssl_ed448_cer, sizeof(_openssl_ed448_cer));
+    XCTAssertNotEqual(ed448cert, NULL);
+    NSMutableDictionary *minKeySize = [NSMutableDictionary dictionary];
+    minKeySize[(__bridge NSString*)kSecAttrKeyTypeEd448] = @1;
+    XCTAssert(SecCertificateIsAtLeastMinKeySize(ed448cert, (__bridge CFDictionaryRef)minKeySize));
+    minKeySize[(__bridge NSString*)kSecAttrKeyTypeEd448] = @1000;
+    XCTAssertFalse(SecCertificateIsAtLeastMinKeySize(ed448cert, (__bridge CFDictionaryRef)minKeySize));
 
     CFReleaseNull(root);
     CFReleaseNull(leaf);
     CFReleaseNull(trust);
     CFReleaseNull(error);
+    CFReleaseNull(ed448cert);
 }
 
 - (bool)runTrust:(NSArray *)certs

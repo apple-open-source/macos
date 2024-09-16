@@ -110,6 +110,7 @@
 #define	DWARF_VERSION	2
 #define	DWARF_VERSION3	3
 #define	DWARF_VERSION4	4
+#define	DWARF_VERSION5	5
 
 /*
  * We need to define a couple of our own intrinsics, to smooth out some of the
@@ -1934,6 +1935,7 @@ static const die_creator_t die_creators[] = {
 	{ DW_TAG_volatile_type,		0,		die_volatile_create },
 	{ DW_TAG_restrict_type,		0,		die_restrict_create },
 	{ DW_TAG_APPLE_ptrauth_type,	0,		die_ptrauth_create },
+	{ DW_TAG_atomic_type,	0,			die_typedef_create},
 	{ 0, NULL }
 };
 
@@ -2108,6 +2110,9 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 	}
 
 	/* First pass to find the compilation units we will process */
+	
+	/* Process the debug_str_offset section if it exists. */
+	dwarf_check_str_offset(dw->dw_dw);
 
 	while (1) {
 		dw->dw_cuname = ATOM_NULL;
@@ -2121,9 +2126,10 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 			terminate("file contains too many types\n");
 
 		debug(4, "DWARF version: %d\n", vers);
-		if (vers != DWARF_VERSION && vers != DWARF_VERSION3 && vers != DWARF_VERSION4) {
+		if (vers != DWARF_VERSION && vers != DWARF_VERSION3 && vers != DWARF_VERSION4
+			&& vers != DWARF_VERSION5) {
 			terminate("file contains incompatible version %d DWARF code "
-				"(version 2/3/4 required)\n", vers);
+				"(version 2/3/4/5 required)\n", vers);
 		}
 
 		Dwarf_Error error = NULL;

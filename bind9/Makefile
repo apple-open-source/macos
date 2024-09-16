@@ -1,7 +1,7 @@
 Project		= bind9
 UserType	= Developer
 ToolType	= Commands
-Extra_CC_Flags  = -g -std=gnu89
+Extra_CC_Flags  = -g -std=gnu89 -fno-typed-memory-operations-experimental -fno-typed-cxx-new-delete
 
 Extra_Configure_Flags = --prefix="/usr" --sysconfdir="/private/etc" --localstatedir="/private/var" --enable-atomic="no" \
                         --with-openssl=no --with-gssapi=yes --enable-symtable=none --with-libxml2=no

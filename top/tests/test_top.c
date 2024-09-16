@@ -1,12 +1,10 @@
+#include <TargetConditionals.h>
 #include <darwintest.h>
 #include <darwintest_utils.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <TargetConditionals.h>
 
-T_GLOBAL_META(
-		T_META_NAMESPACE("top")
-		);
+T_GLOBAL_META(T_META_NAMESPACE("top"));
 
 T_DECL(basic, "test that top launches")
 {
@@ -14,7 +12,8 @@ T_DECL(basic, "test that top launches")
 
 	char top_output_path[MAXPATHLEN] = "top-output.txt";
 	int ret = dt_resultfile(top_output_path, sizeof(top_output_path));
-	T_QUIET; T_ASSERT_POSIX_ZERO(ret, "got path for top output result file");
+	T_QUIET;
+	T_ASSERT_POSIX_ZERO(ret, "got path for top output result file");
 	T_LOG("writing top output to '%s'", top_output_path);
 
 	T_SETUPEND;
@@ -26,14 +25,17 @@ T_DECL(basic, "test that top launches")
 
 	int status = 0;
 	ret = waitpid(pid, &status, 0);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "waited on top");
+	T_QUIET;
+	T_ASSERT_POSIX_SUCCESS(ret, "waited on top");
 
-	T_QUIET; T_ASSERT_TRUE(WIFEXITED(status), "top exited");
+	T_QUIET;
+	T_ASSERT_TRUE(WIFEXITED(status), "top exited");
 	T_EXPECT_EQ(WEXITSTATUS(status), 0, "top exited cleanly");
 
 	struct stat sbuf;
 	ret = stat(top_output_path, &sbuf);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "ran stat on top output file");
+	T_QUIET;
+	T_ASSERT_POSIX_SUCCESS(ret, "ran stat on top output file");
 
 	T_EXPECT_GT(sbuf.st_size, (off_t)100, "top generated data");
 }
@@ -45,37 +47,35 @@ test_stats_option(char *key, char *colname)
 
 	dispatch_queue_t q = dispatch_queue_create("com.apple.top.test", DISPATCH_QUEUE_SERIAL);
 	dt_spawn_t spawn = dt_spawn_create(q);
-	T_QUIET; T_ASSERT_NOTNULL(spawn, "created spawn object");
+	T_QUIET;
+	T_ASSERT_NOTNULL(spawn, "created spawn object");
 
-	char *command_argv[] = {
-		"/usr/bin/top",
-		"-l", "1",
-		"-e",
-		"-i", "1",
-		"-stats", key,
-		NULL
-	};
+	char *command_argv[] = { "/usr/bin/top", "-l", "1", "-e", "-i", "1", "-stats", key, NULL };
 
 	T_SETUPEND;
 
 	T_LOG("testing top -stats %s", key);
 	__block bool found = false;
-	dt_spawn(spawn, command_argv, ^(char *line_out, size_t size) {
-			if (size > 0 && strncmp(line_out, colname, MIN(strlen(colname), size)) == 0) {
-				T_PASS("found line with %s", colname);
-				found = true;
-			}
-		}, ^(__unused char *line_err, __unused size_t size) {
-			T_FAIL("top wrote to stderr");
-		});
+	dt_spawn(
+			spawn, command_argv,
+			^(char *line_out, size_t size) {
+				if (size > 0 && strncmp(line_out, colname, MIN(strlen(colname), size)) == 0) {
+					T_PASS("found line with %s", colname);
+					found = true;
+				}
+			},
+			^(__unused char *line_err, __unused size_t size) { T_FAIL("top wrote to stderr"); });
 
 	bool exited = false, signaled = false;
 	int status = -1, term_signal = 0;
 	dt_spawn_wait(spawn, &exited, &signaled, &status, &term_signal);
-	T_QUIET; T_EXPECT_TRUE(exited, "top exited");
-	T_QUIET; T_EXPECT_EQ(status, 0, "top exited cleanly");
+	T_QUIET;
+	T_EXPECT_TRUE(exited, "top exited");
+	T_QUIET;
+	T_EXPECT_EQ(status, 0, "top exited cleanly");
 
-	T_QUIET; T_EXPECT_TRUE(found, "found %s in top output", colname);
+	T_QUIET;
+	T_EXPECT_TRUE(found, "found %s in top output", colname);
 
 	dispatch_release(q);
 }

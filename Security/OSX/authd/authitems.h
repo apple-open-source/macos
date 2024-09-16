@@ -46,7 +46,7 @@ auth_items_t auth_items_create_copy(auth_items_t);
 AUTH_WARN_RESULT AUTH_NONNULL_ALL
 size_t auth_items_get_count(auth_items_t);
 
-AUTH_WARN_RESULT AUTH_NONNULL_ALL
+AUTH_WARN_RESULT AUTH_NONNULL_ALL XPC_RETURNS_RETAINED
 xpc_object_t auth_items_export_xpc(auth_items_t);
 
 AUTH_NONNULL_ALL
@@ -171,7 +171,7 @@ auth_rights_t auth_rights_create(void);
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_RETURNS_RETAINED
 auth_rights_t auth_rights_create_with_xpc(const xpc_object_t data);
 
-AUTH_WARN_RESULT AUTH_NONNULL_ALL
+AUTH_WARN_RESULT AUTH_NONNULL_ALL XPC_RETURNS_RETAINED
 xpc_object_t auth_rights_export_xpc(auth_rights_t);
 
 AUTH_NONNULL_ALL

@@ -28,7 +28,7 @@
     [self.volumeUtils clearTestVolume];
 }
 
--(UVFSPluginInterfacesFactory *)getFactory:(id<FSTestOps>)fs
+-(FSPluginInterfacesFactory *)getFactory:(id<FSTestOps>)fs
 {
     return [[HFSFactory alloc] initWithFS:fs];
 }
@@ -73,9 +73,9 @@
 
 -(id<FSTestOps>)getFileSystem
 {
-    return [[FSKitTestOps alloc] initWithFSModule:[[HFSFileSystem alloc] init]
-                                       devicePath:self.volumeUtils.volumeName
-                                       volumeName:self.volumeUtils.newfsPath];
+    return [[FSTestModuleOps alloc] initWithFSModule:[[HFSFileSystem alloc] init]
+                                          devicePath:self.volumeUtils.volumeName
+                                          volumeName:self.volumeUtils.newfsPath];
 }
 @end
 

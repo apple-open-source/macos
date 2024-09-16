@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,30 +70,36 @@ STATIC link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
 
 #if !NO_SYSTEMCONFIGURATION
-STATIC boolean_t
-S_interface_is_tethered(const char * ifname)
+STATIC uint8_t
+S_interface_get_flags(const char * ifname)
 {
     CFStringRef			ifname_cf;
-    boolean_t			is_tethered = FALSE;
+    uint8_t			flags = 0;
     SCNetworkInterfaceRef	netif;
 
     ifname_cf = CFStringCreateWithCString(NULL, ifname,
 					  kCFStringEncodingUTF8);
     netif = _SCNetworkInterfaceCreateWithBSDName(NULL, ifname_cf, 0);
     if (netif != NULL) {
-	is_tethered = _SCNetworkInterfaceIsTetheredHotspot(netif);
+	if (_SCNetworkInterfaceIsTetheredHotspot(netif)) {
+	    flags |= kInterfaceTypeFlagIsTethered;
+	}
+	if (_SCNetworkInterfaceIsCarPlay(netif)) {
+	    flags |= kInterfaceTypeFlagIsCarPlay;
+	}
 	CFRelease(netif);
     }
     CFRelease(ifname_cf);
-    return (is_tethered);
+    return (flags);
 }
 
 #else /* !NO_SYSTEMCONFIGURATION */
 
-STATIC boolean_t
-S_interface_is_tethered(const char * ifname)
+STATIC uint8_t
+S_interface_get_flags(const char * ifname)
 {
-    return (FALSE);
+#pragma unused(ifname)
+    return (0);
 }
 #endif /* !NO_SYSTEMCONFIGURATION */
 
@@ -158,7 +164,7 @@ is_infra_wifi(const char * if_name)
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
-#include <Apple80211/Apple80211API.h>
+#include <IO80211/Apple80211API.h>
 #include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
 
 static boolean_t
@@ -443,8 +449,13 @@ S_build_interface_list(interface_list_t * interfaces)
 			      entry->type_flags |= kInterfaceTypeFlagIsWiFiInfra;
 			  }
 		      }
-		      else if (S_interface_is_tethered(name)) {
-			  entry->type_flags |= kInterfaceTypeFlagIsTethered;
+		      else {
+			  uint8_t	flags;
+
+			  flags = S_interface_get_flags(name);
+			  if (flags != 0) {
+			      entry->type_flags |= flags;
+			  }
 		      }
 		  }
 		  entry->link_status
@@ -899,6 +910,12 @@ if_is_tethered(interface_t * if_p)
 }
 
 PRIVATE_EXTERN boolean_t
+if_is_carplay(interface_t * if_p)
+{
+    return ((if_p->type_flags & kInterfaceTypeFlagIsCarPlay) != 0);
+}
+
+PRIVATE_EXTERN boolean_t
 if_is_expensive(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsExpensive) != 0);
@@ -1326,13 +1343,20 @@ ifl_print(interface_list_t * list_p)
 	       if_ift_type(if_p));
 	
 	for (j = 0; j < if_inet_count(if_p); j++) {
-	    inet_addrinfo_t * info = if_inet_addr_at(if_p, j);
+	    inet_addrinfo_t * 	info = if_inet_addr_at(if_p, j);
+	    char		ntopbuf[INET_ADDRSTRLEN];
 	    
-	    printf("inet: %s", inet_ntoa(info->addr));
-	    printf(" netmask %s", inet_ntoa(info->mask));
+	    printf("inet: %s",
+		   inet_ntop(AF_INET, &info->addr, ntopbuf, sizeof(ntopbuf)));
+	    printf(" netmask %s",
+		   inet_ntop(AF_INET, &info->mask, ntopbuf, sizeof(ntopbuf)));
 	    if (if_flags(if_p) & IFF_BROADCAST) {
-		printf(" broadcast %s", inet_ntoa(info->broadcast));
-		printf(" netaddr %s\n", inet_ntoa(info->netaddr));
+		printf(" broadcast %s",
+		       inet_ntop(AF_INET, &info->broadcast,
+				 ntopbuf, sizeof(ntopbuf)));
+		printf(" netaddr %s\n",
+		       inet_ntop(AF_INET, &info->netaddr,
+				 ntopbuf, sizeof(ntopbuf)));
 	    }
 	    else {
 		printf("\n");
@@ -1365,6 +1389,9 @@ ifl_print(interface_list_t * list_p)
 	    }
 	    if (if_is_expensive(if_p)) {
 		printf(" [expensive]");
+	    }
+	    if (if_is_carplay(if_p)) {
+		printf(" [carplay]");
 	    }
 	    printf("\n");
 	}

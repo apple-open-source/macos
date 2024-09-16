@@ -15,6 +15,7 @@
 #import <TrustedPeers/TPPBPolicyModelToCategory.h>
 #import <TrustedPeers/TPPBDisposition.h>
 #import <TrustedPeers/TPPBDispositionEntry.h>
+#import <TrustedPeers/TPPBPolicyRedaction.h>
 
 #import <TrustedPeers/SFKey+TPKey.h>
 #import <TrustedPeers/TPECPublicKeyFactory.h>
@@ -38,6 +39,7 @@
 #import "keychain/ot/proto/generated_source/OTEscrowRecord.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataClientMetadata.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataPasscodeGeneration.h"
 #import "keychain/ot/proto/generated_source/OTEscrowMoveRequestContext.h"
 #import "keychain/OctagonTrust/OTNotifications.h"
 

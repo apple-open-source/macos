@@ -83,6 +83,10 @@ if test -n "$FSF" && test -n "$ALL" && test -n "$ONE" ; then
 	fi
 fi
 
+#ifdef __APPLE__
+preprocessor="$preprocessor -DNCURSES_WANT_BASEABI"
+#endif
+
 PID=$$
 ED1=sed1_${PID}.sed
 ED2=sed2_${PID}.sed
@@ -474,6 +478,7 @@ cat >$TMP <<EOF
 #include <ncurses_cfg.h>
 #undef NCURSES_NOMACROS
 #define NCURSES_OPAQUE 0
+#define _NCURSES_LIBBUILD 1
 #include <curses.h>
 #include <term.h>
 #include <unctrl.h>

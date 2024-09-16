@@ -31,14 +31,15 @@ int
 sysctl_fsid(int op, fsid_t *fsid, void *oldp, size_t *oldlenp, void *newp,
     size_t newlen)
 {
-	int ctlname[CTL_MAXNAME+2];
+	int ctlname[CTL_MAXNAME + 2];
 	size_t ctllen;
 	const char *sysstr = "vfs.generic.ctlbyfsid";
 	struct vfsidctl vc;
 
-	ctllen = CTL_MAXNAME+2;
-	if (sysctlnametomib(sysstr, ctlname, &ctllen) == -1)
-		return (-1);
+	ctllen = CTL_MAXNAME + 2;
+	if (sysctlnametomib(sysstr, ctlname, &ctllen) == -1) {
+		return -1;
+	}
 	ctlname[ctllen] = op;
 
 	memset(&vc, 0, sizeof(vc));
@@ -46,6 +47,6 @@ sysctl_fsid(int op, fsid_t *fsid, void *oldp, size_t *oldlenp, void *newp,
 	vc.vc_fsid = *fsid;
 	vc.vc_ptr = newp;
 	vc.vc_len = newlen;
-	return (sysctl(ctlname, (u_int)ctllen + 1, oldp, oldlenp, &vc,
-	    sizeof(vc)));
+	return sysctl(ctlname, (u_int)ctllen + 1, oldp, oldlenp, &vc,
+	           sizeof(vc));
 }

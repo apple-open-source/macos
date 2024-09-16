@@ -30,6 +30,15 @@
 #include <WebCore/Timer.h>
 #include <wtf/CompletionHandler.h>
 
+namespace WebKit {
+class WebSWRegistrationStore;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::WebSWRegistrationStore> : std::true_type { };
+}
+
 namespace WebCore {
 class SWServer;
 }
@@ -54,6 +63,9 @@ private:
     void scheduleUpdateIfNecessary();
     void updateToStorage(CompletionHandler<void()>&&);
     void updateTimerFired() { updateToStorage([] { }); }
+
+    CheckedPtr<NetworkStorageManager> checkedManager() const;
+    RefPtr<WebCore::SWServer> protectedServer() const;
 
     WeakPtr<WebCore::SWServer> m_server;
     WeakPtr<NetworkStorageManager> m_manager;

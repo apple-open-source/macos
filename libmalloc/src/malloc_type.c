@@ -159,14 +159,16 @@ _malloc_type_outlined_set_tsd(malloc_type_id_t type_id)
 
 #if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOINLINE
-static void *
-_malloc_type_malloc_outlined(size_t size, malloc_type_id_t type_id)
+static void * __sized_by_or_null(size)
+_malloc_type_malloc_outlined(size_t size, malloc_type_id_t type_id,
+		bool do_interposition_compat)
 {
 	malloc_type_descriptor_t prev_type_desc = _malloc_type_outlined_set_tsd(
 			type_id);
 
 	void *ptr;
-	if (malloc_interposition_compat && !prev_type_desc.type_id) {
+	if (malloc_interposition_compat && !prev_type_desc.type_id &&
+			do_interposition_compat) {
 		// We're (potentially) interposed at the symbol level and aren't in a
 		// recursive call, so call through the external symbol
 		ptr = malloc(size);
@@ -179,7 +181,7 @@ _malloc_type_malloc_outlined(size_t size, malloc_type_id_t type_id)
 }
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(count * size)
 _malloc_type_calloc_outlined(size_t count, size_t size, malloc_type_id_t type_id)
 {
 	malloc_type_descriptor_t prev_type_desc = _malloc_type_outlined_set_tsd(
@@ -201,8 +203,9 @@ _malloc_type_calloc_outlined(size_t count, size_t size, malloc_type_id_t type_id
 
 // TODO: malloc_type_free_outlined
 
+#if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_realloc_outlined(void * __unsafe_indexable ptr, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -221,9 +224,10 @@ _malloc_type_realloc_outlined(void * __unsafe_indexable ptr, size_t size,
 	malloc_set_tsd_type_descriptor(prev_type_desc);
 	return new_ptr;
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_aligned_alloc_outlined(size_t alignment, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -269,7 +273,7 @@ _malloc_type_posix_memalign_outlined(void * __unsafe_indexable *memptr,
 
 #if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_zone_malloc_outlined(malloc_zone_t *zone, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -290,7 +294,7 @@ _malloc_type_zone_malloc_outlined(malloc_zone_t *zone, size_t size,
 }
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(count * size)
 _malloc_type_zone_calloc_outlined(malloc_zone_t *zone, size_t count, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -313,7 +317,7 @@ _malloc_type_zone_calloc_outlined(malloc_zone_t *zone, size_t count, size_t size
 // TODO: malloc_type_zone_free_outlined
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_zone_realloc_outlined(malloc_zone_t *zone, void *ptr, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -338,7 +342,7 @@ _malloc_type_zone_realloc_outlined(malloc_zone_t *zone, void *ptr, size_t size,
 #endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_zone_memalign_outlined(malloc_zone_t *zone, size_t alignment,
 		size_t size, malloc_type_id_t type_id)
 {
@@ -362,7 +366,7 @@ _malloc_type_zone_memalign_outlined(malloc_zone_t *zone, size_t alignment,
 }
 
 MALLOC_NOINLINE
-static void *
+static void * __sized_by_or_null(size)
 _malloc_type_zone_malloc_with_options_np_outlined(malloc_zone_t *zone,
 		size_t align, size_t size, malloc_options_np_t options,
 		malloc_type_id_t type_id)
@@ -381,33 +385,39 @@ _malloc_type_zone_malloc_with_options_np_outlined(malloc_zone_t *zone,
 	return ptr;
 }
 
-void *
+MALLOC_INLINE MALLOC_ALWAYS_INLINE
+static void * __sized_by_or_null(size)
+_malloc_type_malloc(malloc_zone_t *zone, size_t size, malloc_type_id_t type_id,
+		bool do_interposition_compat)
+{
+	if (zone->version >= 16) {
+		return zone->malloc_type_malloc(zone, size, type_id);
+	}
+
+#if !MALLOC_TARGET_EXCLAVES
+	if (zone->version < 13) {
+		return _malloc_type_malloc_outlined(size, type_id,
+				do_interposition_compat);
+	}
+#endif // !MALLOC_TARGET_EXCLAVES
+
+	return zone->malloc(zone, size);
+}
+
+void * __sized_by_or_null(size)
 malloc_type_malloc(size_t size, malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_too_large(size))) {
-		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
-		return NULL;
-	}
-
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
-		return _malloc_type_malloc_outlined(size, type_id);
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
+		return _malloc_type_malloc_outlined(size, type_id, true);
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
-	malloc_zone_t *zone0 = malloc_zones[0];
-
-
-#if !MALLOC_TARGET_EXCLAVES
-	if (zone0->version < 13) {
-		return _malloc_type_malloc_outlined(size, type_id);
-	}
-#endif // !MALLOC_TARGET_EXCLAVES
-
-	return zone0->malloc(zone0, size);
+	return _malloc_type_malloc(malloc_zones[0], size, type_id, true);
 }
 
-void *
+void * __sized_by_or_null(count * size)
 malloc_type_calloc(size_t count, size_t size, malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
@@ -417,6 +427,10 @@ malloc_type_calloc(size_t count, size_t size, malloc_type_id_t type_id)
 #endif // !MALLOC_TARGET_EXCLAVES
 
 	malloc_zone_t *zone0 = malloc_zones[0];
+
+	if (zone0->version >= 16) {
+		return zone0->malloc_type_calloc(zone0, count, size, type_id);
+	}
 
 #if !MALLOC_TARGET_EXCLAVES
 	if (zone0->version < 13) {
@@ -435,26 +449,50 @@ malloc_type_free(void * __unsafe_indexable ptr, malloc_type_id_t type_id)
 	return _free(ptr);
 }
 
-void *
-malloc_type_realloc(void * __unsafe_indexable ptr, size_t size, malloc_type_id_t type_id)
+void * __sized_by_or_null(size)
+malloc_type_realloc(void * __unsafe_indexable ptr, size_t size,
+		malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_realloc_outlined(ptr, size, type_id);
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
-	malloc_zone_t *zone0 = malloc_zones[0];
+	void * __malloc_bidi_indexable retval = NULL;
+	if (!ptr || size == 0) {
+		retval = _malloc_type_malloc(malloc_zones[0], size, type_id, false);
+	} else {
+		malloc_zone_t *zone = find_registered_zone(ptr, NULL, false);
+		if (!zone) {
+			// Let _realloc deal with this
+			return _realloc(ptr, size);
+		}
 
-	// We're okay with dropping the type information here because
-	// malloc_slowpath should cover most of the situations we'd want to preserve
-	// it for.  If we'd prefer to get more coverage we could go through
-	// _malloc_type_realloc_outlined(), at the expense of doing the TSD
-	// save/restore pointlessly sometimes.
-	return _realloc(ptr, size);
+#if !MALLOC_TARGET_EXCLAVES
+		if (zone == default_zone) {
+			zone = malloc_zones[0];
+		}
+#endif // !MALLOC_TARGET_EXCLAVES
+
+		if (zone->version >= 16) {
+			retval = zone->malloc_type_realloc(zone, ptr, size, type_id);
+		} else {
+			retval = zone->realloc(zone, ptr, size);
+		}
+	}
+
+	if (!retval) {
+		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
+	} else if (size == 0) {
+		_free(ptr);
+	}
+
+	return retval;
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_valloc(size_t size, malloc_type_id_t type_id)
 {
 	// valloc is not used often enough to warrant fastpath handling, so we'll
@@ -475,16 +513,27 @@ malloc_type_valloc(size_t size, malloc_type_id_t type_id)
 	return ptr;
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_aligned_alloc(size_t alignment, size_t size,
 		malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_aligned_alloc_outlined(alignment, size, type_id);
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	malloc_zone_t *zone0 = malloc_zones[0];
+	if (zone0->version >= 16 && alignment >= sizeof(void *) &&
+			powerof2(alignment) && !(size & (alignment - 1))) {
+		void * __malloc_bidi_indexable ptr = zone0->malloc_type_memalign(zone0,
+				alignment, size, type_id);
+		if (os_unlikely(!ptr)) {
+			malloc_set_errno_fast(MZ_POSIX, ENOMEM);
+		}
+		return ptr;
+	}
 
 	// Everything else takes the slower path
 	return _malloc_type_aligned_alloc_outlined(alignment, size, type_id);
@@ -495,28 +544,36 @@ malloc_type_posix_memalign(void * __unsafe_indexable *memptr, size_t alignment,
 		size_t size, malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_posix_memalign_outlined(memptr, alignment, size,
 				type_id);
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	malloc_zone_t *zone0 = malloc_zones[0];
+	if (zone0->version >= 16 && alignment >= sizeof(void *) &&
+			powerof2(alignment)) {
+		void * __malloc_bidi_indexable ptr = zone0->malloc_type_memalign(zone0,
+				alignment, size, type_id);
+		if (os_unlikely(!ptr)) {
+			return ENOMEM;
+		}
+		*memptr = ptr;
+		return 0;
+	}
 
 	return _malloc_type_posix_memalign_outlined(memptr, alignment, size,
 			type_id);
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_zone_malloc(malloc_zone_t *zone, size_t size,
 		malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_too_large(size))) {
-		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
-		return NULL;
-	}
-
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_zone_malloc_outlined(zone, size, type_id);
 	}
 
@@ -525,6 +582,9 @@ malloc_type_zone_malloc(malloc_zone_t *zone, size_t size,
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	if (zone->version >= 16) {
+		return zone->malloc_type_malloc(zone, size, type_id);
+	}
 
 #if !MALLOC_TARGET_EXCLAVES
 	if (zone->version < 13) {
@@ -535,7 +595,7 @@ malloc_type_zone_malloc(malloc_zone_t *zone, size_t size,
 	return zone->malloc(zone, size);
 }
 
-void *
+void * __sized_by_or_null(count * size)
 malloc_type_zone_calloc(malloc_zone_t *zone, size_t count, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -549,6 +609,9 @@ malloc_type_zone_calloc(malloc_zone_t *zone, size_t count, size_t size,
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	if (zone->version >= 16) {
+		return zone->malloc_type_calloc(zone, count, size, type_id);
+	}
 
 #if !MALLOC_TARGET_EXCLAVES
 	if (zone->version < 13) {
@@ -568,12 +631,13 @@ malloc_type_zone_free(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 	return malloc_zone_free(zone, ptr);
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 		size_t size, malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_zone_realloc_outlined(zone, ptr, size, type_id);
 	}
 
@@ -582,10 +646,12 @@ malloc_type_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
-	malloc_type_descriptor_t type_desc = { .type_id = type_id };
+	if (zone->version >= 16) {
+		return zone->malloc_type_realloc(zone, ptr, size, type_id);
+	}
 
-
-	return _malloc_zone_realloc(zone, ptr, size, type_desc);
+	return _malloc_zone_realloc(zone, ptr, size,
+			(malloc_type_descriptor_t) { .type_id = type_id, });
 }
 
 void *
@@ -610,28 +676,45 @@ malloc_type_zone_valloc(malloc_zone_t *zone, size_t size,
 	return ptr;
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 		malloc_type_id_t type_id)
 {
 #if !MALLOC_TARGET_EXCLAVES
-	if (os_unlikely(malloc_logger || malloc_slowpath)) {
+	if (os_unlikely(malloc_logger || malloc_slowpath ||
+			malloc_too_large(size))) {
 		return _malloc_type_zone_memalign_outlined(zone, alignment, size,
 				type_id);
 	}
+
+	if (zone == default_zone) {
+		zone = malloc_zones[0];
+	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	if (zone->version >= 16 && alignment >= sizeof(void *) &&
+			powerof2(alignment)) {
+		return zone->malloc_type_memalign(zone, alignment, size, type_id);
+	}
 
 	// Everything else takes the slower path
 	return _malloc_type_zone_memalign_outlined(zone, alignment, size, type_id);
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_options_np_t options, malloc_type_id_t type_id)
 {
+	return malloc_type_zone_malloc_with_options_internal(zone, align, size,
+			type_id, options);
+}
+
+void * __sized_by_or_null(size)
+malloc_type_zone_malloc_with_options_internal(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_type_id_t type_id, malloc_options_np_t options)
+{
 	if (os_unlikely((align != 0) && (!powerof2(align) ||
-			((size & (align-1)) != 0)))) { // equivalent to (size % align != 0)
+			((size & (align - 1)) != 0)))) { // equivalent to (size % align != 0)
 		return NULL;
 	}
 
@@ -640,15 +723,20 @@ malloc_type_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		return _malloc_type_zone_malloc_with_options_np_outlined(zone, align,
 				size, options, type_id);
 	}
-	if (zone == NULL || zone == default_zone) {
-		zone = malloc_zones[0];
-	}
-#else
-	if (zone == NULL) {
+
+	if (zone == default_zone) {
 		zone = malloc_zones[0];
 	}
 #endif // !MALLOC_TARGET_EXCLAVES
 
+	if (zone == NULL) {
+		zone = malloc_zones[0];
+	}
+
+	if (zone->version >= 16 && zone->malloc_type_malloc_with_options) {
+		return zone->malloc_type_malloc_with_options(zone, align, size, options,
+				type_id);
+	}
 
 	return _malloc_type_zone_malloc_with_options_np_outlined(zone, align, size,
 			options, type_id);

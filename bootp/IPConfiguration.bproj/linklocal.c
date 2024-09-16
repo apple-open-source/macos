@@ -93,7 +93,7 @@
 #define LINKLOCAL_RETRY_TIME_SECS	30
 
 typedef struct {
-    arp_client_t *	arp;
+    arp_client_t	arp;
     timer_callout_t *	timer;
     int			current;
     struct in_addr	our_ip;
@@ -486,7 +486,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  linklocal->arp = arp_client_init(G_arp_session, if_p);
+	  linklocal->arp = arp_client_init(if_p);
 	  if (linklocal->arp == NULL) {
 	      my_log(LOG_NOTICE, "LINKLOCAL %s: arp_client_init failed",
 		     if_name(if_p));

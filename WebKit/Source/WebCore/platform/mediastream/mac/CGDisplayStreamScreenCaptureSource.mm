@@ -39,6 +39,7 @@
 #import "RealtimeMediaSourceSettings.h"
 #import "RealtimeVideoUtilities.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/text/StringToIntegerConversion.h>
 
 #import "CoreVideoSoftLink.h"
@@ -176,7 +177,7 @@ void CGDisplayStreamScreenCaptureSource::screenCaptureDevices(Vector<CaptureDevi
 {
     auto screenID = displayID([NSScreen mainScreen]);
     if (CGDisplayIDToOpenGLDisplayMask(screenID)) {
-        CaptureDevice displayDevice(String::number(screenID), CaptureDevice::DeviceType::Screen, makeString("Screen 0"));
+        CaptureDevice displayDevice(String::number(screenID), CaptureDevice::DeviceType::Screen, "Screen 0"_str);
         displayDevice.setEnabled(true);
         displays.append(WTFMove(displayDevice));
         return;
@@ -203,7 +204,7 @@ void CGDisplayStreamScreenCaptureSource::screenCaptureDevices(Vector<CaptureDevi
 
     int count = 0;
     for (auto displayID : activeDisplays) {
-        CaptureDevice displayDevice(String::number(displayID), CaptureDevice::DeviceType::Screen, makeString("Screen ", String::number(count++)));
+        CaptureDevice displayDevice(String::number(displayID), CaptureDevice::DeviceType::Screen, makeString("Screen "_s, String::number(count++)));
         displayDevice.setEnabled(CGDisplayIDToOpenGLDisplayMask(displayID));
         displays.append(WTFMove(displayDevice));
     }
@@ -215,7 +216,7 @@ std::optional<CaptureDevice> CGDisplayStreamScreenCaptureSource::screenCaptureDe
     if (!CGDisplayIDToOpenGLDisplayMask(screenID))
         return std::nullopt;
 
-    CaptureDevice device(String::number(screenID), CaptureDevice::DeviceType::Screen, makeString("Screen 0"));
+    CaptureDevice device(String::number(screenID), CaptureDevice::DeviceType::Screen, "Screen 0"_str);
     device.setEnabled(true);
     return { WTFMove(device) };
 }

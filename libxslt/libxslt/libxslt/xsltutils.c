@@ -644,7 +644,7 @@ xsltSetGenericDebugFunc(void *ctx, xmlGenericErrorFunc handler) {
 void
 xsltPrintErrorContext(xsltTransformContextPtr ctxt,
 	              xsltStylesheetPtr style, xmlNodePtr node) {
-    int line = 0;
+    long line = 0;
     const xmlChar *file = NULL;
     const xmlChar *name = NULL;
     const char *type = "error";
@@ -691,12 +691,12 @@ xsltPrintErrorContext(xsltTransformContextPtr ctxt,
     }
 
     if ((file != NULL) && (line != 0) && (name != NULL))
-	error(errctx, "%s: file %s line %d element %s\n",
+	error(errctx, "%s: file %s line %ld element %s\n",
 	      type, file, line, name);
     else if ((file != NULL) && (name != NULL))
 	error(errctx, "%s: file %s element %s\n", type, file, name);
     else if ((file != NULL) && (line != 0))
-	error(errctx, "%s: file %s line %d\n", type, file, line);
+	error(errctx, "%s: file %s line %ld\n", type, file, line);
     else if (file != NULL)
 	error(errctx, "%s: file %s\n", type, file);
     else if (name != NULL)
@@ -1854,10 +1854,12 @@ xsltSaveResultToString(xmlChar **doc_txt_ptr, int * doc_txt_len,
     xsltSaveResultTo(buf, result, style);
 #ifdef LIBXML2_NEW_BUFFER
     if (buf->conv != NULL) {
-	*doc_txt_len = xmlBufUse(buf->conv);
+	size_t txt_len = xmlBufUse(buf->conv);
+	*doc_txt_len = CLAMP_TO_INT_MAX(txt_len);
 	*doc_txt_ptr = xmlStrndup(xmlBufContent(buf->conv), *doc_txt_len);
     } else {
-	*doc_txt_len = xmlBufUse(buf->buffer);
+	size_t txt_len = xmlBufUse(buf->buffer);
+	*doc_txt_len = CLAMP_TO_INT_MAX(txt_len);
 	*doc_txt_ptr = xmlStrndup(xmlBufContent(buf->buffer), *doc_txt_len);
     }
 #else

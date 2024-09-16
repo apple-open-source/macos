@@ -122,6 +122,8 @@ dwarf_get_abbrev(Dwarf_Debug dbg,
 
 	if (attr != 0)
 	    (labbr_count)++;
+	if (attr_form == DW_FORM_implicit_const)
+		DECODE_LEB128_UWORD(abbrev_ptr, utmp2)
 
     } while (abbrev_ptr < abbrev_section_end &&
 	     (attr != 0 || attr_form != 0));
@@ -229,6 +231,9 @@ dwarf_get_abbrev_entry(Dwarf_Abbrev abbrev,
 	    attr = (Dwarf_Half) utmp4;
 	DECODE_LEB128_UWORD(abbrev_ptr, utmp4)
 	    attr_form = (Dwarf_Half) utmp4;
+    if (attr_form == DW_FORM_implicit_const)
+        DECODE_LEB128_UWORD(abbrev_ptr, utmp4)
+    
     }
 
     if (abbrev_ptr >= abbrev_end) {

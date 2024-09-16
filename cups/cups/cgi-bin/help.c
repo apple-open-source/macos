@@ -171,7 +171,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (cgiGetVariable("CLEAR"))
     cgiSetVariable("QUERY", "");
 
-  query = cgiGetVariable("QUERY");
+  query = cgiGetTextfield("QUERY");
   si    = helpSearchIndex(hi, query, topic, helpfile);
 
   cgiClearVariables();

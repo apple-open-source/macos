@@ -710,13 +710,13 @@ CheckSingleResourceValidationAPIPolicy(void)
         goto done;
     }
 
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Speakable.plist"), kSecCSDefaultFlags, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Localizable.loctable"), kSecCSDefaultFlags, &error);
     if (status != errSecSuccess) {
         FAIL("Failed to validate app in ARV: %d", status);
         goto done;
     }
 
-    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Speakable.plist"), kSecCSSkipRootVolumeExceptions, &error);
+    status = SecStaticCodeValidateResourceWithErrors(codeRef, CFTempURL("/System/Applications/Calculator.app/Contents/Resources/Localizable.loctable"), kSecCSSkipRootVolumeExceptions, &error);
     if (status != errSecCSResourcesNotSealed) {
         FAIL("Failed to reject app in ARV with kSecCSSkipRootVolumeExceptions: %d", status);
         goto done;

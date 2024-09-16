@@ -55,10 +55,9 @@ Ref<MediaStream> MediaStream::create(Document& document, MediaStream& stream)
     return mediaStream;
 }
 
-Ref<MediaStream> MediaStream::create(Document& document, const Vector<RefPtr<MediaStreamTrack>>& tracks)
+Ref<MediaStream> MediaStream::create(Document& document, const Vector<Ref<MediaStreamTrack>>& tracks)
 {
-    auto nonNullTracks = map(tracks, [](auto& track) { return Ref { *track }; });
-    auto mediaStream = adoptRef(*new MediaStream(document, WTFMove(nonNullTracks)));
+    auto mediaStream = adoptRef(*new MediaStream(document, tracks));
     mediaStream->suspendIfNeeded();
     return mediaStream;
 }
@@ -118,13 +117,13 @@ RefPtr<MediaStream> MediaStream::clone()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    Vector<RefPtr<MediaStreamTrack>> clonedTracks;
+    Vector<Ref<MediaStreamTrack>> clonedTracks;
     clonedTracks.reserveInitialCapacity(m_trackMap.size());
     for (auto& track : m_trackMap.values()) {
         if (auto clone = track->clone())
-            clonedTracks.append(WTFMove(clone));
+            clonedTracks.append(clone.releaseNonNull());
     }
-    return MediaStream::create(*document(), clonedTracks);
+    return MediaStream::create(*document(), WTFMove(clonedTracks));
 }
 
 void MediaStream::addTrack(MediaStreamTrack& track)
@@ -370,14 +369,14 @@ void MediaStream::stop()
     m_isActive = false;
 }
 
-const char* MediaStream::activeDOMObjectName() const
-{
-    return "MediaStream";
-}
-
 bool MediaStream::virtualHasPendingActivity() const
 {
     return m_isActive;
+}
+
+Ref<MediaStreamPrivate> MediaStream::protectedPrivateStream()
+{
+    return m_private;
 }
 
 #if !RELEASE_LOG_DISABLED

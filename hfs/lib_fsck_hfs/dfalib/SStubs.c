@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2002-2003, 2005-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2002-2003, 2005-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,15 +43,20 @@
  * GetTimeUTC - get the GMT Mac OS time (in seconds since 1/1/1904)
  *
  */
-UInt32 GetTimeUTC(void)
+UInt32 GetTimeUTC(bool expanded)
 {
 	struct timeval time;
 	struct timezone zone;
 
 	(void) gettimeofday(&time, &zone);
 
-    // Value will be bigger than UIN32_MAX in 2040
-	return (UInt32)(time.tv_sec + MAC_GMT_FACTOR);
+	UInt32 mac_time = (UInt32)time.tv_sec;
+	if (!expanded) {
+		// Value will be bigger than UINT32_MAX in 2040
+		mac_time += MAC_GMT_FACTOR;
+	}
+
+	return mac_time;
 }
 
 /*

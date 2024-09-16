@@ -1,0 +1,9 @@
+[ explicit_handle ] 
+interface xctest_iface {
+
+    EchoUint8([comm_status, fault_status] status);
+    EchoUint16([comm_status, fault_status] status);
+    EchoUint32([comm_status, fault_status] status);
+    EchoUint64([comm_status, fault_status] status);
+    ReverseStrArr([comm_status, fault_status] status);
+}

@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -50,6 +50,7 @@
 #import "MBCEngine.h"
 #import "MBCBoardWin.h"
 #import "MBCDebug.h"
+#import "MBCBoardCommon.h"
 
 #import <OpenGL/glu.h>
 
@@ -154,17 +155,6 @@ MBCPosition MBCUnProjector::UnProject(GLfloat knownY)
                 fWinX, fWinY, knownY, pos[0], pos[1], pos[2]);
 
 	return pos;
-}
-
-MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
-{
-	MBCPosition	res;
-	
-	res[0]	= a[0]-b[0];
-	res[1]	= a[1]-b[1];
-	res[2]	= a[2]-b[2];
-
-	return res;
 }
 
 @implementation MBCBoardView ( Mouse )

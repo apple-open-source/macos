@@ -78,7 +78,7 @@ ANGLE_CHROMIUM_DEPS = [
     'third_party/r8',
     'third_party/r8/d8',
     'third_party/requests/src',
-    'third_party/siso',
+    'third_party/siso/cipd',
     'third_party/six',
     'third_party/turbine',
     'third_party/zlib',
@@ -310,6 +310,9 @@ def BuildDepsentryDict(deps_dict):
                 dep = {'url': dep}
             if dep.get('dep_type') == 'cipd':
                 result[path] = CipdDepsEntry(path, dep['packages'])
+            elif dep.get('dep_type') == 'gcs':
+                # Ignore GCS deps - there aren't any that we want to sync yet
+                continue
             else:
                 if '@' not in dep['url']:
                     continue

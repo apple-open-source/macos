@@ -69,6 +69,16 @@ static_assert(sizeof(TreeScope) == sizeof(SameSizeAsTreeScope), "treescope shoul
 
 using namespace HTMLNames;
 
+struct SVGResourcesMap {
+    WTF_MAKE_NONCOPYABLE(SVGResourcesMap);
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    SVGResourcesMap() = default;
+
+    MemoryCompactRobinHoodHashMap<AtomString, WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> pendingResources;
+    MemoryCompactRobinHoodHashMap<AtomString, WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> pendingResourcesForRemoval;
+    MemoryCompactRobinHoodHashMap<AtomString, LegacyRenderSVGResourceContainer*> legacyResources;
+};
+
 TreeScope::TreeScope(ShadowRoot& shadowRoot, Document& document)
     : m_rootNode(shadowRoot)
     , m_documentScope(document)
@@ -92,7 +102,7 @@ void TreeScope::ref() const
     if (auto* document = dynamicDowncast<Document>(m_rootNode))
         document->ref();
     else
-        checkedDowncast<ShadowRoot>(m_rootNode).ref();
+        downcast<ShadowRoot>(m_rootNode).ref();
 }
 
 void TreeScope::deref() const
@@ -100,7 +110,7 @@ void TreeScope::deref() const
     if (auto* document = dynamicDowncast<Document>(m_rootNode))
         document->deref();
     else
-        checkedDowncast<ShadowRoot>(m_rootNode).deref();
+        downcast<ShadowRoot>(m_rootNode).deref();
 }
 
 IdTargetObserverRegistry& TreeScope::ensureIdTargetObserverRegistry()
@@ -379,7 +389,7 @@ static std::optional<LayoutPoint> absolutePointIfNotClipped(Document& document, 
     return std::nullopt;
 }
 
-RefPtr<Node> TreeScope::nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoint* localPoint)
+RefPtr<Node> TreeScope::nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoint* localPoint, HitTestSource source)
 {
     Ref document = protectedDocumentScope();
     auto absolutePoint = absolutePointIfNotClipped(document, clientPoint);
@@ -387,18 +397,18 @@ RefPtr<Node> TreeScope::nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoin
         return nullptr;
 
     HitTestResult result(absolutePoint.value());
-    document->hitTest(HitTestRequest(), result);
+    document->hitTest({ source, HitTestRequest::defaultTypes }, result);
     if (localPoint)
         *localPoint = result.localPoint();
     return result.innerNode();
 }
 
-RefPtr<Element> TreeScope::elementFromPoint(double clientX, double clientY)
+RefPtr<Element> TreeScope::elementFromPoint(double clientX, double clientY, HitTestSource source)
 {
     if (!protectedDocumentScope()->hasLivingRenderTree())
         return nullptr;
 
-    auto node = nodeFromPoint(LayoutPoint { clientX, clientY }, nullptr);
+    auto node = nodeFromPoint(LayoutPoint { clientX, clientY }, nullptr, source);
     if (!node)
         return nullptr;
 
@@ -413,7 +423,7 @@ RefPtr<Element> TreeScope::elementFromPoint(double clientX, double clientY)
     return static_pointer_cast<Element>(WTFMove(node));
 }
 
-Vector<RefPtr<Element>> TreeScope::elementsFromPoint(double clientX, double clientY)
+Vector<RefPtr<Element>> TreeScope::elementsFromPoint(double clientX, double clientY, HitTestSource source)
 {
     Vector<RefPtr<Element>> elements;
 
@@ -425,9 +435,16 @@ Vector<RefPtr<Element>> TreeScope::elementsFromPoint(double clientX, double clie
     if (!absolutePoint)
         return elements;
 
-    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::CollectMultipleElements, HitTestRequest::Type::IncludeAllElementsUnderPoint };
+    static constexpr OptionSet hitTypes {
+        HitTestRequest::Type::ReadOnly,
+        HitTestRequest::Type::Active,
+        HitTestRequest::Type::DisallowUserAgentShadowContent,
+        HitTestRequest::Type::CollectMultipleElements,
+        HitTestRequest::Type::IncludeAllElementsUnderPoint
+    };
+
     HitTestResult result { absolutePoint.value() };
-    document->hitTest(hitType, result);
+    document->hitTest({ source, hitTypes }, result);
 
     RefPtr<Node> lastNode;
     auto& nodeSet = result.listBasedTestResult();
@@ -464,11 +481,6 @@ Vector<RefPtr<Element>> TreeScope::elementsFromPoint(double clientX, double clie
     }
 
     return elements;
-}
-
-Vector<RefPtr<Element>> TreeScope::elementsFromPoint(const FloatPoint& p)
-{
-    return elementsFromPoint(p.x(), p.y());
 }
 
 // FIXME: Would be nice to change this to take a StringView, since that's what callers have
@@ -584,9 +596,9 @@ CSSStyleSheetObservableArray& TreeScope::ensureAdoptedStyleSheets()
     return *m_adoptedStyleSheets;
 }
 
-std::span<const RefPtr<CSSStyleSheet>> TreeScope::adoptedStyleSheets() const
+std::span<const Ref<CSSStyleSheet>> TreeScope::adoptedStyleSheets() const
 {
-    return m_adoptedStyleSheets ? m_adoptedStyleSheets->sheets().span() : std::span<const RefPtr<CSSStyleSheet>> { };
+    return m_adoptedStyleSheets ? m_adoptedStyleSheets->sheets().span() : std::span<const Ref<CSSStyleSheet>> { };
 }
 
 JSC::JSValue TreeScope::adoptedStyleSheetWrapper(JSDOMGlobalObject& lexicalGlobalObject)
@@ -594,21 +606,12 @@ JSC::JSValue TreeScope::adoptedStyleSheetWrapper(JSDOMGlobalObject& lexicalGloba
     return JSC::JSObservableArray::create(&lexicalGlobalObject, ensureAdoptedStyleSheets());
 }
 
-ExceptionOr<void> TreeScope::setAdoptedStyleSheets(Vector<RefPtr<CSSStyleSheet>>&& sheets)
+ExceptionOr<void> TreeScope::setAdoptedStyleSheets(Vector<Ref<CSSStyleSheet>>&& sheets)
 {
     if (!m_adoptedStyleSheets && sheets.isEmpty())
         return { };
     return ensureAdoptedStyleSheets().setSheets(WTFMove(sheets));
 }
-
-struct SVGResourcesMap {
-    WTF_MAKE_NONCOPYABLE(SVGResourcesMap); WTF_MAKE_STRUCT_FAST_ALLOCATED;
-    SVGResourcesMap() = default;
-
-    MemoryCompactRobinHoodHashMap<AtomString, WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> pendingResources;
-    MemoryCompactRobinHoodHashMap<AtomString, WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> pendingResourcesForRemoval;
-    MemoryCompactRobinHoodHashMap<AtomString, LegacyRenderSVGResourceContainer*> legacyResources;
-};
 
 SVGResourcesMap& TreeScope::svgResourcesMap() const
 {

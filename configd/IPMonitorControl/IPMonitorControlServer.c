@@ -38,7 +38,6 @@
 #include <xpc/xpc.h>
 #include <xpc/private.h>
 #include <sys/queue.h>
-#include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <os/state_private.h>
@@ -255,25 +254,30 @@ AnyInterfaceHasAdvisories(void)
     return (FALSE);
 }
 
-STATIC CFRunLoopRef		S_runloop;
-STATIC CFRunLoopSourceRef	S_signal_source;
+STATIC dispatch_queue_t		S_queue;
+STATIC dispatch_block_t		S_handler;
 
-STATIC void
-SetNotificationInfo(CFRunLoopRef runloop, CFRunLoopSourceRef rls)
+STATIC Boolean
+SetNotificationInfo(dispatch_queue_t queue, dispatch_block_t handler)
 {
-    S_runloop = runloop;
-    S_signal_source = rls;
-    return;
+    if (S_queue != NULL) {
+	my_log(LOG_NOTICE, "%s: already called", __func__);
+	return (FALSE);
+    }
+    if (queue == NULL || handler == NULL) {
+	my_log(LOG_NOTICE, "%s: queue or handler are NULL", __func__);
+	return (FALSE);
+    }
+    S_queue = queue;
+    S_handler = Block_copy(handler);
+    return (TRUE);
 }
 
 STATIC void
 NotifyIPMonitor(void)
 {
-    if (S_signal_source != NULL) {
-	CFRunLoopSourceSignal(S_signal_source);
-	if (S_runloop != NULL) {
-	    CFRunLoopWakeUp(S_runloop);
-	}
+    if (S_queue != NULL && S_handler != NULL) {
+	dispatch_async(S_queue, S_handler);
     }
     return;
 }
@@ -1303,7 +1307,7 @@ IPMonitorControlCopyOSStateData(os_state_hints_t hints)
     state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
     if (state_data_size > MAX_STATEDUMP_SIZE) {
 	state_data = NULL;
-	my_log(LOG_NOTICE, "%s: state data too large (%zd > %d)",
+	my_log(LOG_NOTICE, "%s: state data too large (%zu > %d)",
 	       __func__, state_data_size, MAX_STATEDUMP_SIZE);
     }
     else {
@@ -1324,23 +1328,21 @@ IPMonitorControlServerAddStateHandler(void)
 {
     os_state_block_t	dump_state;
 
-    dump_state = ^os_state_data_t(os_state_hints_t hints)
-	{
-	 return (IPMonitorControlCopyOSStateData(hints));
-	};
-
+    dump_state = ^os_state_data_t(os_state_hints_t hints) {
+	return (IPMonitorControlCopyOSStateData(hints));
+    };
     (void) os_state_add_handler(IPMonitorControlServerGetQueue(), dump_state);
 }
 
 PRIVATE_EXTERN Boolean
-IPMonitorControlServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls,
-			    Boolean * verbose)
+IPMonitorControlServerStart(dispatch_queue_t queue, dispatch_block_t handler)
 {
-#pragma unused(verbose)
     dispatch_queue_t	q;
     xpc_connection_t	connection;
 
-    SetNotificationInfo(runloop, rls);
+    if (!SetNotificationInfo(queue, handler)) {
+	return (FALSE);
+    }
     q = dispatch_queue_create("IPMonitorControlServer", NULL);
     connection = IPMonitorControlServerCreate(q, kIPMonitorControlServerName);
     if (connection == NULL) {

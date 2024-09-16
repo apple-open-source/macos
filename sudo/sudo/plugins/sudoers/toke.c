@@ -5880,7 +5880,7 @@ push_include(const char *opath, bool isdir)
 	debug_return_bool(false);
     }
     if (mdmPath == NULL) {
-	os_log(OS_LOG_DEFAULT, "Using original path %s", mdmPath);
+	os_log(OS_LOG_DEFAULT, "Using original path %s", path);
     } else {
 	os_log(OS_LOG_DEFAULT, "Using managed path %s", mdmPath);
 	sudo_rcstr_delref(path);

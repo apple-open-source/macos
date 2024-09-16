@@ -33,8 +33,8 @@ else
     SSL_PATH := /usr/local/libressl-by-deployment-target/$(MACOSX_DEPLOYMENT_TARGET)
 endif
 
-# ruby_atomic.h
-Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS
+# ruby_atomic.h + radar://108794024
+Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS -fno-typed-memory-operations -fno-typed-cxx-new-delete
 # <rdar://problem/64900188> ruby needs to switch to using the modern libffi closure API as the legacy API is not supported on arm64
 Extra_CC_Flags += -DUSE_FFI_CLOSURE_ALLOC
 # don't use xcrun as xcrun_log will break configure -- keep it like this for rbconfig.rb

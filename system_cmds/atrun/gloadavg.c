@@ -25,10 +25,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __APPLE__
 #ifndef lint
 static const char rcsid[] =
   "$FreeBSD$";
 #endif /* not lint */
+#endif //__APPLE__
 
 #if !defined(__FreeBSD__) && !defined(__APPLE__)
 #define _POSIX_SOURCE 1

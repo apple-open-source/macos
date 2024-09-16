@@ -44,6 +44,7 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sys/mount.h>
+#import <sys/kdebug_private.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <dispatch/dispatch.h>
@@ -3055,6 +3056,11 @@ exit:
 bool smcSilentRunningSupport(void)
 {
    return false;
+}
+
+SR_SMCSupportType smcSilentRunningSupportType(void)
+{
+    return kSilentRunningSupportTypeNone;
 }
 
 

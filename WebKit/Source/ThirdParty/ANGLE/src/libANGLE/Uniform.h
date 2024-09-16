@@ -13,6 +13,7 @@
 #include "angle_gl.h"
 #include "common/MemoryBuffer.h"
 #include "common/debug.h"
+#include "common/uniform_type_info_autogen.h"
 #include "common/utilities.h"
 #include "compiler/translator/blocklayout.h"
 #include "libANGLE/angletypes.h"
@@ -90,12 +91,17 @@ struct LinkedUniform
                   const sh::BlockMemberInfo &blockInfoIn);
     LinkedUniform(const UsedUniform &usedUniform);
 
-    bool isSampler() const { return GetUniformTypeInfo(pod.type).isSampler; }
-    bool isImage() const { return GetUniformTypeInfo(pod.type).isImageType; }
-    bool isAtomicCounter() const { return IsAtomicCounterType(pod.type); }
+    const UniformTypeInfo &getUniformTypeInfo() const
+    {
+        return GetUniformTypeInfoFromIndex(pod.typeIndex);
+    }
+
+    bool isSampler() const { return getUniformTypeInfo().isSampler; }
+    bool isImage() const { return getUniformTypeInfo().isImageType; }
+    bool isAtomicCounter() const { return IsAtomicCounterType(getType()); }
     bool isInDefaultBlock() const { return pod.bufferIndex == -1; }
-    size_t getElementSize() const { return GetUniformTypeInfo(pod.type).externalSize; }
-    GLint getElementComponents() const { return GetUniformTypeInfo(pod.type).componentCount; }
+    size_t getElementSize() const { return getUniformTypeInfo().externalSize; }
+    GLint getElementComponents() const { return GetUniformElementComponents(pod.typeIndex); }
 
     bool isTexelFetchStaticUse() const { return pod.flagBits.texelFetchStaticUse; }
     bool isFragmentInOut() const { return pod.flagBits.isFragmentInOut; }
@@ -107,7 +113,7 @@ struct LinkedUniform
         return pod.arraySize;
     }
 
-    GLenum getType() const { return pod.type; }
+    GLenum getType() const { return getUniformTypeInfo().type; }
     uint16_t getOuterArrayOffset() const { return pod.outerArrayOffset; }
     uint16_t getOuterArraySizeProduct() const { return pod.outerArraySizeProduct; }
     int16_t getBinding() const { return pod.binding; }
@@ -120,7 +126,7 @@ struct LinkedUniform
 
     struct PODStruct
     {
-        uint16_t type;
+        UniformTypeIndex typeIndex;
         uint16_t precision;
 
         int32_t location;

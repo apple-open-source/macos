@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,10 +33,6 @@
  * - created
  */
 
-//#include <TargetConditionals.h>
-//#include <SystemConfiguration/SCPreferences.h>
-//#include <SystemConfiguration/SCPrivate.h>
-//#include <SystemConfiguration/scprefs_observer.h>
 #include "IPMonitorControlPrefs.h"
 
 /*
@@ -62,13 +58,11 @@ static _SCControlPrefsRef		S_control;
 
 __private_extern__
 _SCControlPrefsRef
-IPMonitorControlPrefsInit(CFRunLoopRef			runloop,
+IPMonitorControlPrefsInit(dispatch_queue_t queue,
 			  IPMonitorControlPrefsCallBack	callback)
 {
-	_SCControlPrefsRef	control;
-
-	control = _SCControlPrefsCreate(kIPMonitorControlPrefsIDStr, runloop, callback);
-	return control;
+	return _SCControlPrefsCreateWithQueue(kIPMonitorControlPrefsIDStr,
+					      queue, callback);
 }
 
 /*

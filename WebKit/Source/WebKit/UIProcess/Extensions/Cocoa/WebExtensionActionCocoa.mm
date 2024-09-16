@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,34 +38,57 @@
 #import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
+#import "WKWindowFeaturesPrivate.h"
 #import "WebExtensionContext.h"
 #import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionMenuItem.h"
 #import "WebExtensionMenuItemContextParameters.h"
 #import "WebExtensionMenuItemParameters.h"
+#import "WebExtensionTabParameters.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import "_WKWebExtensionActionInternal.h"
 #import "_WKWebExtensionControllerDelegatePrivate.h"
 #import <wtf/BlockPtr.h>
 
-#if USE(APPKIT)
-constexpr CGFloat popoverMaximumWidth = 800;
-constexpr CGFloat popoverMaximumHeight = 600;
+#if PLATFORM(IOS_FAMILY)
+#import "UIKitSPI.h"
 #endif
 
-constexpr CGFloat popoverMinimumWidth = 50;
-constexpr CGFloat popoverMinimumHeight = 50;
-constexpr NSTimeInterval popoverShowTimeout = 1;
+#if PLATFORM(MAC)
+#import "AppKitSPI.h"
+#endif
+
+#if PLATFORM(VISION)
+constexpr CGFloat maximumPopoverWidth = 734;
+constexpr CGFloat maximumPopoverHeight = 734;
+#else
+constexpr CGFloat maximumPopoverWidth = 800;
+constexpr CGFloat maximumPopoverHeight = 600;
+#endif
+
+constexpr CGFloat minimumPopoverWidth = 50;
+constexpr CGFloat minimumPopoverHeight = 50;
+
+#ifdef NDEBUG
+constexpr auto popoverShowTimeout = 250_ms;
+constexpr auto popoverStableSizeDuration = 75_ms;
+#else
+// Debug builds are about 3x slower, so give rendering more time.
+constexpr auto popoverShowTimeout = 750_ms;
+constexpr auto popoverStableSizeDuration = 225_ms;
+#endif
+
+using namespace WebKit;
 
 @interface _WKWebExtensionActionWebViewDelegate : NSObject <WKNavigationDelegatePrivate, WKUIDelegatePrivate>
 @end
 
 @implementation _WKWebExtensionActionWebViewDelegate {
-    WeakPtr<WebKit::WebExtensionAction> _webExtensionAction;
+    WeakPtr<WebExtensionAction> _webExtensionAction;
 }
 
-- (instancetype)initWithWebExtensionAction:(WebKit::WebExtensionAction&)action
+- (instancetype)initWithWebExtensionAction:(WebExtensionAction&)action
 {
     if (!(self = [super init]))
         return nil;
@@ -77,10 +100,31 @@ constexpr NSTimeInterval popoverShowTimeout = 1;
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 {
-    NSURL *targetURL = navigationAction.request.URL;
+    if (!_webExtensionAction || !_webExtensionAction->extensionContext()) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
 
-    if (!navigationAction.targetFrame) {
-        // FIXME: Handle new tab/window navigation.
+    NSURL *targetURL = navigationAction.request.URL;
+    bool isURLForThisExtension = _webExtensionAction->extensionContext()->isURLForThisExtension(targetURL);
+
+    // New window or main frame navigation to an external URL opens in a new tab.
+    if (!navigationAction.targetFrame || (navigationAction.targetFrame.isMainFrame && !isURLForThisExtension)) {
+        RefPtr currentWindow = _webExtensionAction->window();
+        RefPtr currentTab = _webExtensionAction->tab();
+        if (!currentWindow && currentTab)
+            currentWindow = currentTab->window();
+
+        WebExtensionTabParameters tabParameters;
+        tabParameters.url = targetURL;
+        tabParameters.windowIdentifier = currentWindow ? currentWindow->identifier() : WebExtensionWindowConstants::CurrentIdentifier;
+        tabParameters.index = currentTab ? std::optional(currentTab->index() + 1) : std::nullopt;
+        tabParameters.active = true;
+
+        _webExtensionAction->extensionContext()->openNewTab(tabParameters, [](auto newTab) {
+            // Nothing to do.
+        });
+
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }
@@ -91,82 +135,448 @@ constexpr NSTimeInterval popoverShowTimeout = 1;
         return;
     }
 
-    ASSERT(navigationAction.targetFrame.mainFrame);
-
     // Require an extension URL for the main frame.
-    if (!_webExtensionAction->extensionContext()->isURLForThisExtension(targetURL)) {
-        decisionHandler(WKNavigationActionPolicyCancel);
-        return;
-    }
+    ASSERT(navigationAction.targetFrame.isMainFrame);
+    ASSERT(isURLForThisExtension);
 
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
+{
+    // This can't return a web view because it must use the supplied configuration,
+    // or an exception will be thrown. Web extension URLs can't load in a web view
+    // configured for HTTP-family URLs, and vice versa, making it imposible to
+    // use the configuration for a new tab.
+
+    if (!_webExtensionAction || !_webExtensionAction->extensionContext())
+        return nil;
+
+    WebExtensionTabParameters tabParameters;
+    tabParameters.url = navigationAction.request.URL;
+
+    if (_webExtensionAction->extensionContext()->canOpenNewWindow()) {
+        WebExtensionWindowParameters windowParameters;
+        windowParameters.focused = true;
+        windowParameters.tabs = { WTFMove(tabParameters) };
+        windowParameters.type = windowFeatures._wantsPopup ? WebExtensionWindow::Type::Popup : WebExtensionWindow::Type::Normal;
+        windowParameters.state = windowFeatures._fullscreenDisplay.boolValue ? WebExtensionWindow::State::Fullscreen : WebExtensionWindow::State::Normal;
+
+        static constexpr CGFloat NaN = std::numeric_limits<CGFloat>::quiet_NaN();
+
+        CGRect frame;
+        frame.origin.x = windowFeatures.x ? windowFeatures.x.doubleValue : NaN;
+        frame.origin.y = windowFeatures.y ? windowFeatures.y.doubleValue : NaN;
+        frame.size.width = windowFeatures.width ? windowFeatures.width.doubleValue : NaN;
+        frame.size.height = windowFeatures.height ? windowFeatures.height.doubleValue : NaN;
+
+        windowParameters.frame = frame;
+
+        _webExtensionAction->extensionContext()->openNewWindow(windowParameters, [](auto newWindow) {
+            // Nothing to do.
+        });
+
+        return nil;
+    }
+
+    RefPtr currentWindow = _webExtensionAction->window();
+    RefPtr currentTab = _webExtensionAction->tab();
+    if (!currentWindow && currentTab)
+        currentWindow = currentTab->window();
+
+    tabParameters.windowIdentifier = currentWindow ? currentWindow->identifier() : WebExtensionWindowConstants::CurrentIdentifier;
+    tabParameters.index = currentTab ? std::optional(currentTab->index() + 1) : std::nullopt;
+    tabParameters.active = true;
+
+    _webExtensionAction->extensionContext()->openNewTab(tabParameters, [](auto newTab) {
+        // Nothing to do.
+    });
+
+    return nil;
+}
+
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
 {
-    _webExtensionAction->popupDidClose();
+    if (!_webExtensionAction)
+        return;
+
+    _webExtensionAction->closePopup();
 }
 
 - (void)webViewDidClose:(WKWebView *)webView
 {
-    _webExtensionAction->popupDidClose();
+    if (!_webExtensionAction)
+        return;
+
+    _webExtensionAction->closePopup();
 }
 
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+    if (!_webExtensionAction)
+        return;
+
+    RELEASE_LOG_ERROR(Extensions, "Popup provisional load failed: %{public}@", privacyPreservingDescription(error));
+
+    _webExtensionAction->closePopup();
+}
+
+- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+    if (!_webExtensionAction)
+        return;
+
+    RELEASE_LOG_ERROR(Extensions, "Popup load failed: %{public}@", privacyPreservingDescription(error));
+
+    _webExtensionAction->closePopup();
+}
+
+- (void)_webView:(WKWebView *)webView navigationDidFinishDocumentLoad:(WKNavigation *)navigation
+{
+    if (!_webExtensionAction)
+        return;
+
+    _webExtensionAction->popupDidFinishDocumentLoad();
+}
 @end
 
+#if PLATFORM(IOS_FAMILY)
+static void* kvoContext = &kvoContext;
+#endif
+
 @interface _WKWebExtensionActionWebView : WKWebView
+
+@property (nonatomic, readonly) CGSize contentSize;
+@property (nonatomic, readonly) BOOL contentSizeHasStabilized;
+
 @end
 
 @implementation _WKWebExtensionActionWebView {
-    WeakPtr<WebKit::WebExtensionAction> _webExtensionAction;
+    WeakPtr<WebExtensionAction> _webExtensionAction;
+    CGSize _previousContentSize;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration webExtensionAction:(WebKit::WebExtensionAction&)action
+- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration webExtensionAction:(WebExtensionAction&)action
 {
     if (!(self = [super initWithFrame:frame configuration:configuration]))
         return nil;
 
     _webExtensionAction = action;
 
+#if PLATFORM(IOS_FAMILY)
+    // macOS uses invalidateIntrinsicContentSize to track this.
+    [self.scrollView addObserver:self forKeyPath:@"contentSize" options:NSKeyValueObservingOptionNew context:kvoContext];
+#endif
+
     return self;
 }
 
+#if PLATFORM(IOS_FAMILY)
+- (void)dealloc
+{
+    [self.scrollView removeObserver:self forKeyPath:@"contentSize" context:kvoContext];
+}
+#endif
+
+#if PLATFORM(MAC)
 - (void)invalidateIntrinsicContentSize
 {
-    auto intrinsicContentSize = self.intrinsicContentSize;
-
     [super invalidateIntrinsicContentSize];
 
-    _webExtensionAction->popupSizeDidChange();
+    [self _contentSizeDidChange];
+}
+#endif // PLATFORM(MAC)
 
-    if (intrinsicContentSize.width >= popoverMinimumWidth && intrinsicContentSize.height >= popoverMinimumHeight && !self.loading)
-        _webExtensionAction->readyToPresentPopup();
+#if PLATFORM(IOS_FAMILY)
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *, id> *)change context:(void*)context
+{
+    if (context != kvoContext) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+
+    ASSERT(object == self.scrollView);
+
+    [self _contentSizeDidChange];
+}
+#endif // PLATFORM(IOS_FAMILY)
+
+- (CGSize)contentSize
+{
+#if PLATFORM(IOS_FAMILY)
+    return self.scrollView.contentSize;
+#else
+    return self.intrinsicContentSize;
+#endif
+}
+
+- (void)_contentSizeDidChange
+{
+    if (!_webExtensionAction)
+        return;
+
+    auto contentSize = self.contentSize;
+    if (CGSizeEqualToSize(contentSize, _previousContentSize))
+        return;
+
+    SEL contentSizeStabilizedSelector = @selector(_contentSizeHasStabilized);
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:contentSizeStabilizedSelector object:nil];
+    [self performSelector:contentSizeStabilizedSelector withObject:nil afterDelay:popoverStableSizeDuration.seconds()];
+
+    _previousContentSize = contentSize;
+}
+
+- (void)_contentSizeHasStabilized
+{
+    if (!_webExtensionAction || self.loading)
+        return;
+
+    auto contentSize = self.contentSize;
+    if (contentSize.width < minimumPopoverWidth || contentSize.height < minimumPopoverHeight)
+        return;
+
+    _contentSizeHasStabilized = YES;
+
+    _webExtensionAction->popupSizeDidChange();
 }
 
 @end
+
+#if PLATFORM(IOS_FAMILY)
+@interface _WKWebExtensionActionViewController : UIViewController <UIPopoverPresentationControllerDelegate>
+@end
+
+@implementation _WKWebExtensionActionViewController {
+    WeakPtr<WebExtensionAction> _webExtensionAction;
+    _WKWebExtensionActionWebView *_popupWebView;
+    BOOL _presentedAsSheet;
+}
+
+- (instancetype)initWithWebExtensionAction:(WebExtensionAction&)action
+{
+    if (!(self = [super init]))
+        return nil;
+
+    RefPtr extensionContext = action.extensionContext();
+    if (!extensionContext)
+        return nil;
+
+    _webExtensionAction = action;
+    _popupWebView = dynamic_objc_cast<_WKWebExtensionActionWebView>(action.popupWebView());
+
+    self.view = _popupWebView;
+    self.modalPresentationStyle = UIModalPresentationPopover;
+    self.popoverPresentationController.delegate = self;
+
+    UINavigationItem *navigationItem = self.navigationItem;
+    navigationItem.title = extensionContext->extension().displayName();
+    navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(_dismissPopup)];
+
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(_viewControllerDismissalTransitionDidEnd:) name:UIPresentationControllerDismissalTransitionDidEndNotification object:nil];
+
+    return self;
+}
+
+- (void)viewIsAppearing:(BOOL)animated
+{
+    [self _updatePopoverContentSize];
+}
+
+- (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)presentationController traitCollection:(UITraitCollection *)traitCollection
+{
+    return traitCollection.horizontalSizeClass == UIUserInterfaceSizeClassCompact ? UIModalPresentationFormSheet : UIModalPresentationPopover;
+}
+
+- (void)presentationController:(UIPresentationController *)presentationController prepareAdaptivePresentationController:(UIPresentationController *)adaptivePresentationController
+{
+    if (auto *sheetPresentationController = dynamic_objc_cast<UISheetPresentationController>(adaptivePresentationController))
+        [self _updateDetentForSheetPresentationController:sheetPresentationController];
+}
+
+- (UIViewController *)presentationController:(UIPresentationController *)presentationController viewControllerForAdaptivePresentationStyle:(UIModalPresentationStyle)style
+{
+    auto *presentedViewController = presentationController.presentedViewController;
+
+    if (style != UIModalPresentationFormSheet)
+        return presentedViewController;
+
+    auto *navigationController = [[UINavigationController alloc] initWithRootViewController:presentedViewController];
+    auto *navigationBar = navigationController.navigationBar;
+    navigationBar.scrollEdgeAppearance = navigationBar.standardAppearance;
+    return navigationController;
+}
+
+- (void)_viewControllerDismissalTransitionDidEnd:(NSNotification *)notification
+{
+    if (!_webExtensionAction || !objectForKey<NSNumber>(notification.userInfo, UIPresentationControllerDismissalTransitionDidEndCompletedKey).boolValue)
+        return;
+
+    auto *dismissedViewController = dynamic_objc_cast<UIViewController>(notification.object);
+    if (dismissedViewController != self && dismissedViewController != self.navigationController)
+        return;
+
+    _webExtensionAction->closePopup();
+}
+
+- (void)_updatePopoverContentSize
+{
+    auto *presentationController = [self _existingPresentationControllerImmediate:NO effective:YES];
+    if (!presentationController)
+        return;
+
+    BOOL wasPresentedAsSheet = _presentedAsSheet;
+    _presentedAsSheet = [presentationController isKindOfClass:UISheetPresentationController.class];
+
+    if (_presentedAsSheet != wasPresentedAsSheet)
+        [_popupWebView setNeedsLayout];
+
+    if (_presentedAsSheet) {
+        // Clear any overriding of layout parameters set as a popover.
+        [_popupWebView _clearOverrideLayoutParameters];
+
+        if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
+            CGFloat widthOfDeviceInPortrait = CGRectGetWidth(UIScreen.mainScreen._referenceBounds);
+
+            CGSize contentSize = self.preferredContentSize;
+            contentSize.width = std::max(contentSize.width, widthOfDeviceInPortrait);
+
+            self.preferredContentSize = contentSize;
+        }
+
+        [self _updateDetentForSheetPresentationController:dynamic_objc_cast<UISheetPresentationController>(presentationController)];
+    } else {
+        CGSize boundsSize = _popupWebView.bounds.size;
+        CGSize contentSize = _popupWebView.scrollView.contentSize;
+        CGSize desiredSize = CGSizeMake(std::min(contentSize.width, maximumPopoverWidth), std::min(contentSize.height, maximumPopoverHeight));
+
+        CGFloat minimumWidth = std::min(desiredSize.width, boundsSize.width);
+        CGFloat minimumHeight = _popupWebView.contentSizeHasStabilized ? std::min(desiredSize.height, boundsSize.height) : minimumPopoverHeight;
+        CGSize minimumLayoutSize = CGSizeMake(minimumWidth, minimumHeight);
+
+        [_popupWebView _overrideLayoutParametersWithMinimumLayoutSize:minimumLayoutSize minimumUnobscuredSizeOverride:minimumLayoutSize maximumUnobscuredSizeOverride:CGSizeZero];
+
+        self.preferredContentSize = desiredSize;
+    }
+}
+
+- (void)_updateDetentForSheetPresentationController:(UISheetPresentationController *)sheetPresentationController
+{
+    ASSERT(sheetPresentationController);
+
+    // FIXME: rdar://74753245 - This should choose either medium or large based on the desired height of the content.
+    sheetPresentationController.detents = @[ UISheetPresentationControllerDetent.mediumDetent, UISheetPresentationControllerDetent.largeDetent ];
+
+    sheetPresentationController.prefersEdgeAttachedInCompactHeight = YES;
+    sheetPresentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
+}
+
+- (void)_dismissPopup
+{
+    [self.presentingViewController dismissViewControllerAnimated:YES completion:nil];
+}
+
+@end
+#endif // PLATFORM(IOS_FAMILY)
+
+#if PLATFORM(MAC)
+@interface _WKWebExtensionActionPopover : NSPopover
+@end
+
+@implementation _WKWebExtensionActionPopover {
+    WeakPtr<WebExtensionAction> _webExtensionAction;
+    _WKWebExtensionActionWebView *_popupWebView;
+}
+
+- (instancetype)initWithWebExtensionAction:(WebExtensionAction&)action
+{
+    if (!(self = [super init]))
+        return nil;
+
+    RefPtr extensionContext = action.extensionContext();
+    if (!extensionContext)
+        return nil;
+
+    _webExtensionAction = action;
+    _popupWebView = dynamic_objc_cast<_WKWebExtensionActionWebView>(action.popupWebView());
+
+    _popupWebView.accessibilityRole = NSAccessibilityPopoverRole;
+
+    [_popupWebView setContentHuggingPriority:NSLayoutPriorityDefaultHigh forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [_popupWebView setContentHuggingPriority:NSLayoutPriorityDefaultHigh forOrientation:NSLayoutConstraintOrientationVertical];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [_popupWebView.widthAnchor constraintGreaterThanOrEqualToConstant:minimumPopoverWidth],
+        [_popupWebView.widthAnchor constraintLessThanOrEqualToConstant:maximumPopoverWidth],
+        [_popupWebView.heightAnchor constraintGreaterThanOrEqualToConstant:minimumPopoverHeight],
+        [_popupWebView.heightAnchor constraintLessThanOrEqualToConstant:maximumPopoverHeight]
+    ]];
+
+    auto *viewController = [[NSViewController alloc] init];
+    viewController.view = _popupWebView;
+    viewController.preferredContentSize = _popupWebView.contentSize;
+
+    self.contentViewController = viewController;
+    self.behavior = NSPopoverBehaviorSemitransient;
+
+    action.setPopupPopoverAppearance(action.popupPopoverAppearance());
+
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(_otherPopoverWillShow:) name:NSPopoverWillShowNotification object:nil];
+
+    return self;
+}
+
+- (void)popoverWillClose:(NSNotification *)notification
+{
+    ASSERT([self isEqual:notification.object]);
+
+    auto *parentWindow = self.positioningView.window;
+    [parentWindow makeFirstResponder:parentWindow.windowController];
+}
+
+- (void)popoverDidClose:(NSNotification *)notification
+{
+    ASSERT([self isEqual:notification.object]);
+
+    if (!_webExtensionAction)
+        return;
+
+    _webExtensionAction->closePopup();
+}
+
+- (void)_otherPopoverWillShow:(NSNotification *)notification
+{
+    if (!self.shown)
+        return;
+
+    // Close if another popover is about to show in the same window.
+    auto *incomingPopover = dynamic_objc_cast<NSPopover>(notification.object);
+    auto *incomingPopoverWindow = incomingPopover.positioningView.window;
+    if (![incomingPopoverWindow isEqual:self.positioningView.window])
+        return;
+
+    [self close];
+}
+
+@end
+#endif // PLATFORM(MAC)
 
 namespace WebKit {
 
 WebExtensionAction::WebExtensionAction(WebExtensionContext& extensionContext)
     : m_extensionContext(extensionContext)
 {
-    auto delegate = extensionContext.extensionController()->delegate();
-    m_respondsToPresentPopup = [delegate respondsToSelector:@selector(webExtensionController:presentPopupForAction:forExtensionContext:completionHandler:)];
-
-    if (!m_respondsToPresentPopup)
-        RELEASE_LOG_ERROR(Extensions, "%{public}@ does not implement the webExtensionController:presentPopupForAction:forExtensionContext:completionHandler: method", delegate.debugDescription);
 }
 
 WebExtensionAction::WebExtensionAction(WebExtensionContext& extensionContext, WebExtensionTab& tab)
-    : WebExtensionAction(extensionContext)
+    : m_extensionContext(extensionContext)
+    , m_tab(&tab)
 {
-    m_tab = &tab;
 }
 
 WebExtensionAction::WebExtensionAction(WebExtensionContext& extensionContext, WebExtensionWindow& window)
-    : WebExtensionAction(extensionContext)
+    : m_extensionContext(extensionContext)
+    , m_window(&window)
 {
-    m_window = &window;
 }
 
 bool WebExtensionAction::operator==(const WebExtensionAction& other) const
@@ -181,7 +591,7 @@ WebExtensionContext* WebExtensionAction::extensionContext() const
 
 void WebExtensionAction::clearCustomizations()
 {
-    if (!m_customIcons && !m_customPopupPath.isNull() && !m_customLabel.isNull() && !m_customBadgeText.isNull() && !m_customEnabled && !m_blockedResourceCount)
+    if (!m_customIcons && m_customPopupPath.isNull() && m_customLabel.isNull() && m_customBadgeText.isNull() && !m_customEnabled && !m_blockedResourceCount)
         return;
 
     m_customIcons = nil;
@@ -190,6 +600,11 @@ void WebExtensionAction::clearCustomizations()
     m_customBadgeText = nullString();
     m_customEnabled = std::nullopt;
     m_blockedResourceCount = 0;
+
+#if PLATFORM(MAC)
+    // Reset the popover appearance until the color-scheme CSS can be checked on the next load.
+    m_popoverAppearance = Appearance::Default;
+#endif
 
     propertiesDidChange();
 }
@@ -208,25 +623,47 @@ void WebExtensionAction::propertiesDidChange()
     }).get());
 }
 
+WebExtensionAction* WebExtensionAction::fallbackAction() const
+{
+    if (!extensionContext())
+        return nullptr;
+
+    // Tab actions fallback to the window action.
+    if (m_tab)
+        return extensionContext()->getAction(m_tab->window().get()).ptr();
+
+    // Window actions fallback to the default action.
+    if (m_window)
+        return &extensionContext()->defaultAction();
+
+    // Default actions have no fallback.
+    return nullptr;
+}
+
 CocoaImage *WebExtensionAction::icon(CGSize idealSize)
 {
     if (!extensionContext())
         return nil;
 
-    if (m_customIcons)
-        return extensionContext()->extension().bestImageInIconsDictionary(m_customIcons.get(), idealSize.width > idealSize.height ? idealSize.width : idealSize.height);
+    if (m_customIcons) {
+        if (CocoaImage *result = extensionContext()->extension().bestImageInIconsDictionary(m_customIcons.get(), idealSize.width > idealSize.height ? idealSize.width : idealSize.height))
+            return result;
 
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get())->icon(idealSize);
+        // If custom icons fail, fallback to the default icons.
+    }
 
-    if (m_window)
-        return extensionContext()->defaultAction().icon(idealSize);
+    if (RefPtr fallback = fallbackAction())
+        return fallback->icon(idealSize);
 
+    // Default
     return extensionContext()->extension().actionIcon(idealSize);
 }
 
 void WebExtensionAction::setIconsDictionary(NSDictionary *icons)
 {
+    if ([(m_customIcons ?: @{ }) isEqualToDictionary:(icons ?: @{ })])
+        return;
+
     m_customIcons = icons.count ? icons : nil;
 
     propertiesDidChange();
@@ -240,12 +677,10 @@ String WebExtensionAction::popupPath() const
     if (!m_customPopupPath.isNull())
         return m_customPopupPath;
 
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get())->popupPath();
+    if (RefPtr fallback = fallbackAction())
+        return fallback->popupPath();
 
-    if (m_window)
-        return extensionContext()->defaultAction().popupPath();
-
+    // Default
     return extensionContext()->extension().actionPopupPath();
 }
 
@@ -256,15 +691,143 @@ void WebExtensionAction::setPopupPath(String path)
 
     m_customPopupPath = path;
 
+#if PLATFORM(MAC)
+    // Reset the popover appearance until the color-scheme CSS can be checked on the next load.
+    m_popoverAppearance = Appearance::Default;
+#endif
+
     propertiesDidChange();
 }
 
-WKWebView *WebExtensionAction::popupWebView(LoadOnFirstAccess loadOnFirstAccess)
+NSString *WebExtensionAction::popupWebViewInspectionName()
+{
+    if (m_popupWebViewInspectionName.isEmpty())
+        m_popupWebViewInspectionName = WEB_UI_FORMAT_CFSTRING("%@ — Extension Popup Page", "Label for an inspectable Web Extension popup page", (__bridge CFStringRef)extensionContext()->extension().displayShortName());
+
+    return m_popupWebViewInspectionName;
+}
+
+void WebExtensionAction::setPopupWebViewInspectionName(const String& name)
+{
+    m_popupWebViewInspectionName = name;
+    m_popupWebView.get()._remoteInspectionNameOverride = name;
+}
+
+#if PLATFORM(IOS_FAMILY)
+UIViewController *WebExtensionAction::popupViewController()
 {
     if (!presentsPopup())
         return nil;
 
-    if (m_popupWebView || loadOnFirstAccess == LoadOnFirstAccess::No)
+    if (m_popupViewController)
+        return m_popupViewController.get();
+
+    m_popupViewController = [[_WKWebExtensionActionViewController alloc] initWithWebExtensionAction:*this];
+
+    return m_popupViewController.get();
+}
+#endif // PLATFORM(IOS_FAMILY)
+
+#if PLATFORM(MAC)
+NSPopover *WebExtensionAction::popupPopover()
+{
+    if (!presentsPopup())
+        return nil;
+
+    if (m_popupPopover)
+        return m_popupPopover.get();
+
+    m_popupPopover = [[_WKWebExtensionActionPopover alloc] initWithWebExtensionAction:*this];
+
+    return m_popupPopover.get();
+}
+
+void WebExtensionAction::setPopupPopoverAppearance(Appearance appearance)
+{
+    m_popoverAppearance = appearance;
+
+    if (!m_popupPopover)
+        return;
+
+    // Set the popover appearance to light when it is unknown. Dark mode support is checked in detectPopoverColorScheme().
+    // This maintains the best compatibility for extensions that only support light mode.
+
+    switch (appearance) {
+    case Appearance::Default:
+    case Appearance::Light:
+        m_popupPopover.get().appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
+        break;
+
+    case Appearance::Dark:
+        m_popupPopover.get().appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+        break;
+
+    case Appearance::Both:
+        m_popupPopover.get().appearance = nil;
+        break;
+    }
+}
+
+void WebExtensionAction::detectPopoverColorScheme()
+{
+    if (!m_popupPopover || !m_popupPopover.get().shown)
+        return;
+
+    static NSString * const checkColorSchemeScript = @"(function() {"
+    "  let computedStyle = window.getComputedStyle(document.body).colorScheme;"
+    "  if (computedStyle && computedStyle !== 'normal' && computedStyle !== 'auto') {"
+    "      let styleParts = computedStyle.split(/\\s+/);"
+    "      if (styleParts?.length)"
+    "        return styleParts;"
+    "  }"
+
+    "  let metaElements = document.querySelectorAll(`meta[name='color-scheme']`);"
+    "  if (!metaElements.length) metaElements = document.querySelectorAll(`meta[name='supported-color-schemes']`);"
+
+    "  let lastMetaElement = metaElements?.[metaElements.length - 1];"
+    "  if (lastMetaElement?.content) {"
+    "    let contentParts = lastMetaElement.content.toLowerCase().split(/\\s+/);"
+    "    if (contentParts?.length)"
+    "      return contentParts;"
+    "  }"
+
+    "  return null;"
+    "})()";
+
+    [m_popupWebView evaluateJavaScript:checkColorSchemeScript completionHandler:^(id result, NSError *error) {
+        if (error) {
+            RELEASE_LOG_ERROR(Extensions, "Error while checking popup color scheme: %{public}@", privacyPreservingDescription(error));
+            return;
+        }
+
+        bool forceLightPopoverAppearance = false;
+        bool forceDarkPopoverAppearance = false;
+
+        if (auto *colorSchemesArray = dynamic_objc_cast<NSArray>(result)) {
+            auto *supportedColorSchemes = [NSSet setWithArray:colorSchemesArray];
+            if (([supportedColorSchemes containsObject:@"light"] || [supportedColorSchemes containsObject:@"only"]) && ![supportedColorSchemes containsObject:@"dark"])
+                forceLightPopoverAppearance = true;
+            else if ([supportedColorSchemes containsObject:@"dark"] && ![supportedColorSchemes containsObject:@"light"])
+                forceDarkPopoverAppearance = true;
+        } else
+            forceLightPopoverAppearance = true;
+
+        if (forceLightPopoverAppearance)
+            setPopupPopoverAppearance(Appearance::Light);
+        else if (forceDarkPopoverAppearance)
+            setPopupPopoverAppearance(Appearance::Dark);
+        else
+            setPopupPopoverAppearance(Appearance::Both);
+    }];
+}
+#endif // PLATFORM(MAC)
+
+WKWebView *WebExtensionAction::popupWebView()
+{
+    if (!presentsPopup() || !extensionContext())
+        return nil;
+
+    if (m_popupWebView)
         return m_popupWebView.get();
 
     auto *webViewConfiguration = extensionContext()->webViewConfiguration(WebExtensionContext::WebViewPurpose::Popup);
@@ -275,32 +838,26 @@ WKWebView *WebExtensionAction::popupWebView(LoadOnFirstAccess loadOnFirstAccess)
     m_popupWebView = [[_WKWebExtensionActionWebView alloc] initWithFrame:CGRectZero configuration:webViewConfiguration webExtensionAction:*this];
     m_popupWebView.get().navigationDelegate = m_popupWebViewDelegate.get();
     m_popupWebView.get().UIDelegate = m_popupWebViewDelegate.get();
-
     m_popupWebView.get().inspectable = extensionContext()->isInspectable();
-
     m_popupWebView.get().accessibilityLabel = extensionContext()->extension().displayName();
+    m_popupWebView.get()._remoteInspectionNameOverride = popupWebViewInspectionName();
 
-#if USE(APPKIT)
-    m_popupWebView.get().accessibilityRole = NSAccessibilityPopoverRole;
-
-    m_popupWebView.get()._sizeToContentAutoSizeMaximumSize = CGSizeMake(popoverMaximumWidth, popoverMaximumHeight);
+#if PLATFORM(MAC)
+    m_popupWebView.get()._sizeToContentAutoSizeMaximumSize = CGSizeMake(maximumPopoverWidth, maximumPopoverHeight);
     m_popupWebView.get()._useSystemAppearance = YES;
 
-    [m_popupWebView setContentHuggingPriority:NSLayoutPriorityDefaultHigh forOrientation:NSLayoutConstraintOrientationHorizontal];
-    [m_popupWebView setContentHuggingPriority:NSLayoutPriorityDefaultHigh forOrientation:NSLayoutConstraintOrientationVertical];
+    // Add the web view temporarily to a window to force it to layout. The window does not need to be shown on screen.
+    auto *temporaryWindow = [[NSWindow alloc] initWithContentRect:NSZeroRect styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+    [temporaryWindow.contentView addSubview:m_popupWebView.get()];
+    [m_popupWebView removeFromSuperview];
+    temporaryWindow = nil;
+#endif
 
-    [NSLayoutConstraint activateConstraints:@[
-        [m_popupWebView.get().widthAnchor constraintGreaterThanOrEqualToConstant:popoverMinimumWidth],
-        [m_popupWebView.get().widthAnchor constraintLessThanOrEqualToConstant:popoverMaximumWidth],
-        [m_popupWebView.get().heightAnchor constraintGreaterThanOrEqualToConstant:popoverMinimumHeight],
-        [m_popupWebView.get().heightAnchor constraintLessThanOrEqualToConstant:popoverMaximumHeight]
-    ]];
-#endif // USE(APPKIT)
+#if PLATFORM(IOS_FAMILY)
+    [m_popupWebView _overrideViewportWithArguments:@{ @"width": @"device-width", @"initial-scale": @"1", @"minimum-scale": @"1", @"maximum-scale": @"1", @"user-scalable": @"no" }];
+#endif
 
-    auto popupPage = m_popupWebView.get()._page;
-    auto tabIdentifier = m_tab ? std::optional(m_tab->identifier()) : std::nullopt;
-    auto windowIdentifier = m_window ? std::optional(m_window->identifier()) : std::nullopt;
-    popupPage->process().send(Messages::WebExtensionContextProxy::AddPopupPageIdentifier(popupPage->webPageID(), tabIdentifier, windowIdentifier), extensionContext()->identifier());
+    extensionContext()->addPopupPage(*m_popupWebView.get()._page.get(), *this);
 
     auto url = URL { extensionContext()->baseURL(), popupPath() };
     [m_popupWebView loadRequest:[NSURLRequest requestWithURL:url]];
@@ -308,60 +865,154 @@ WKWebView *WebExtensionAction::popupWebView(LoadOnFirstAccess loadOnFirstAccess)
     return m_popupWebView.get();
 }
 
+bool WebExtensionAction::canProgrammaticallyPresentPopup() const
+{
+    if (!extensionContext())
+        return false;
+
+    RefPtr extensionController = extensionContext()->extensionController();
+    if (!extensionController)
+        return false;
+
+    return [extensionController->delegate() respondsToSelector:@selector(webExtensionController:presentPopupForAction:forExtensionContext:completionHandler:)];
+}
+
 void WebExtensionAction::presentPopupWhenReady()
 {
-    if (!extensionContext() || !m_respondsToPresentPopup)
+    if (!extensionContext())
         return;
 
-    m_popupPresented = false;
+    // The popup might have presented already or is already scheduled to present when ready.
+    if (popupPresented() || presentsPopupWhenReady())
+        return;
 
-    if (m_popupWebView) {
-        readyToPresentPopup();
+    if (!canProgrammaticallyPresentPopup()) {
+        RELEASE_LOG_ERROR(Extensions, "Delegate does not implement the webExtensionController:presentPopupForAction:forExtensionContext:completionHandler: method");
         return;
     }
 
+    RELEASE_LOG_DEBUG(Extensions, "Present popup when ready");
+
+    m_presentsPopupWhenReady = true;
+
+    // Access the web view to load it.
+    popupWebView();
+}
+
+void WebExtensionAction::popupDidFinishDocumentLoad()
+{
+    if (!extensionContext())
+        return;
+
+    // The popup might have presented or closed already.
+    if (popupPresented() || !hasPopupWebView() || !presentsPopupWhenReady())
+        return;
+
     // Delay showing the popup until a minimum size or a timeout is reached.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(popoverShowTimeout * NSEC_PER_SEC)), dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }] {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, popoverShowTimeout.nanosecondsAs<int64_t>()), dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }] {
+        if (popupPresented() || !hasPopupWebView() || !presentsPopupWhenReady() || !extensionContext())
+            return;
+
+        RELEASE_LOG_DEBUG(Extensions, "Presenting popup after %{public}.0fms timeout", popoverShowTimeout.milliseconds());
+
         readyToPresentPopup();
     }).get());
-
-    popupWebView(LoadOnFirstAccess::Yes);
 }
 
 void WebExtensionAction::readyToPresentPopup()
 {
-    if (m_popupPresented || !m_respondsToPresentPopup)
+    ASSERT(presentsPopupWhenReady());
+    ASSERT(canProgrammaticallyPresentPopup());
+
+    m_presentsPopupWhenReady = false;
+
+    if (!extensionContext())
         return;
 
+    // The popup might have presented or closed already.
+    if (popupPresented() || !hasPopupWebView())
+        return;
+
+    setHasUnreadBadgeText(false);
+
     m_popupPresented = true;
+    if (RefPtr extensionController = extensionContext()->extensionController())
+        extensionController->setShowingActionPopup(true);
 
     dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        auto* extensionController = extensionContext()->extensionController();
-        auto delegate = extensionController->delegate();
+        if (!extensionContext() || !popupPresented())
+            return;
+
+        ASSERT(hasPopupWebView());
+
+        RefPtr extensionController = extensionContext()->extensionController();
+        auto delegate = extensionController ? extensionController->delegate() : nil;
+
+        if (!delegate || ![delegate respondsToSelector:@selector(webExtensionController:presentPopupForAction:forExtensionContext:completionHandler:)]) {
+            closePopup();
+            return;
+        }
 
         [delegate webExtensionController:extensionController->wrapper() presentPopupForAction:wrapper() forExtensionContext:extensionContext()->wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }](NSError *error) {
-            if (error)
-                closePopupWebView();
+            if (error) {
+                closePopup();
+                return;
+            }
+
+#if PLATFORM(MAC)
+            // Perform the color scheme check after showing the popover, since this can cause a layout,
+            // which can cause the popover content to misrender the first time.
+            detectPopoverColorScheme();
+#endif
         }).get()];
     }).get());
 }
 
 void WebExtensionAction::popupSizeDidChange()
 {
-    [NSNotificationCenter.defaultCenter postNotificationName:_WKWebExtensionActionPopupWebViewContentSizeDidChangeNotification object:wrapper() userInfo:nil];
+    ASSERT(hasPopupWebView());
+
+#if PLATFORM(IOS_FAMILY)
+    [m_popupViewController _updatePopoverContentSize];
+#endif
+
+#if PLATFORM(MAC)
+    m_popupPopover.get().contentViewController.preferredContentSize = m_popupWebView.get().contentSize;
+#endif
+
+    if (!presentsPopupWhenReady())
+        return;
+
+    auto contentSize = m_popupWebView.get().contentSize;
+    RELEASE_LOG_DEBUG(Extensions, "Presenting popup with size { %{public}.0f, %{public}.0f }", contentSize.width, contentSize.height);
+
+    readyToPresentPopup();
 }
 
-void WebExtensionAction::popupDidClose()
+void WebExtensionAction::closePopup()
 {
-    m_popupWebView = nil;
+    ASSERT(hasPopupWebView());
+
+    RELEASE_LOG_DEBUG(Extensions, "Popup closed");
+
     m_popupPresented = false;
-}
+    m_presentsPopupWhenReady = false;
 
-void WebExtensionAction::closePopupWebView()
-{
+    if (RefPtr extensionController = extensionContext()->extensionController())
+        extensionController->setShowingActionPopup(false);
+
     [m_popupWebView _close];
     m_popupWebView = nil;
-    m_popupPresented = false;
+
+#if PLATFORM(IOS_FAMILY)
+    [m_popupViewController dismissViewControllerAnimated:YES completion:nil];
+    m_popupViewController = nil;
+#endif
+
+#if PLATFORM(MAC)
+    [m_popupPopover close];
+    m_popupPopover = nil;
+#endif
 }
 
 String WebExtensionAction::label(FallbackWhenEmpty fallback) const
@@ -376,12 +1027,10 @@ String WebExtensionAction::label(FallbackWhenEmpty fallback) const
         return extensionContext()->extension().displayName();
     }
 
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get())->label();
+    if (RefPtr fallback = fallbackAction())
+        return fallback->label();
 
-    if (m_window)
-        return extensionContext()->defaultAction().label();
-
+    // Default
     if (auto *defaultLabel = extensionContext()->extension().displayActionLabel(); defaultLabel.length || fallback == FallbackWhenEmpty::No)
         return defaultLabel;
 
@@ -409,12 +1058,10 @@ String WebExtensionAction::badgeText() const
     if (m_blockedResourceCount)
         return String::number(m_blockedResourceCount);
 
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get())->badgeText();
+    if (RefPtr fallback = fallbackAction())
+        return fallback->badgeText();
 
-    if (m_window)
-        return extensionContext()->defaultAction().badgeText();
-
+    // Default
     return emptyString();
 }
 
@@ -425,15 +1072,56 @@ void WebExtensionAction::setBadgeText(String badgeText)
 
     m_customBadgeText = badgeText;
 
+    if (!badgeText.isNull())
+        m_hasUnreadBadgeText = !badgeText.isEmpty();
+    else
+        m_hasUnreadBadgeText = std::nullopt;
+
+    propertiesDidChange();
+}
+
+bool WebExtensionAction::hasUnreadBadgeText() const
+{
+    if (!extensionContext())
+        return false;
+
+    if (m_hasUnreadBadgeText)
+        return m_hasUnreadBadgeText.value();
+
+    if (RefPtr fallback = fallbackAction())
+        return fallback->hasUnreadBadgeText();
+
+    // Default
+    return false;
+}
+
+void WebExtensionAction::setHasUnreadBadgeText(bool hasUnreadBadgeText)
+{
+    auto newValue = !badgeText().isEmpty() ? std::optional(hasUnreadBadgeText) : std::nullopt;
+    if (m_hasUnreadBadgeText == newValue)
+        return;
+
+    m_hasUnreadBadgeText = newValue;
+
+    // Only propagate the change if we're setting it to false.
+    if (RefPtr fallback = fallbackAction(); fallback && !hasUnreadBadgeText)
+        fallback->setHasUnreadBadgeText(false);
+
     propertiesDidChange();
 }
 
 void WebExtensionAction::incrementBlockedResourceCount(ssize_t amount)
 {
+    if (!amount)
+        return;
+
     m_blockedResourceCount += amount;
 
     if (m_blockedResourceCount < 0)
         m_blockedResourceCount = 0;
+
+    if (!badgeText().isEmpty())
+        m_hasUnreadBadgeText = true;
 
     propertiesDidChange();
 }
@@ -446,12 +1134,10 @@ bool WebExtensionAction::isEnabled() const
     if (m_customEnabled)
         return m_customEnabled.value();
 
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get())->isEnabled();
+    if (RefPtr fallback = fallbackAction())
+        return fallback->isEnabled();
 
-    if (m_window)
-        return extensionContext()->defaultAction().isEnabled();
-
+    // Default
     return true;
 }
 
@@ -470,9 +1156,14 @@ NSArray *WebExtensionAction::platformMenuItems() const
     if (!extensionContext())
         return @[ ];
 
+    RefPtr tab = m_tab;
+    if (!tab && m_window)
+        tab = m_window->activeTab();
+
     WebExtensionMenuItemContextParameters contextParameters;
     contextParameters.types = WebExtensionMenuItemContextType::Action;
-    contextParameters.tabIdentifier = m_tab ? std::optional { m_tab->identifier() } : std::nullopt;
+    contextParameters.tabIdentifier = tab ? std::optional(tab->identifier()) : std::nullopt;
+    contextParameters.frameURL = tab ? tab->url() : URL { };
 
     return WebExtensionMenuItem::matchingPlatformMenuItems(extensionContext()->mainMenuItems(), contextParameters, webExtensionActionMenuItemTopLevelLimit);
 }

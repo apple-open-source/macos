@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -180,8 +180,8 @@ copyio(int copy_type, user_addr_t user_addr, char *kernel_addr,
 #endif
 
 	if (__improbable(nbytes > copysize_limit_panic)) {
-		panic("%s(%p, %p, %lu) - transfer too large", __func__,
-		    (void *)user_addr, (void *)kernel_addr, nbytes);
+		error = EINVAL;
+		goto out;
 	}
 
 	COPYIO_TRACE(debug_type | DBG_FUNC_START,

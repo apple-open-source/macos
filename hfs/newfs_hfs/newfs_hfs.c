@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -111,6 +111,7 @@ int	gUserAttrInitialSize = FALSE;
 int	gUserCatInitialSize = FALSE;
 int	gUserExtInitialSize = FALSE;
 int gContentProtect = FALSE;
+int gExpandedTimes = FALSE;
 
 static UInt32	attrExtCount = 1, blkallocExtCount = 1, catExtCount = 1, extExtCount = 1;
 static UInt32	attrExtStart = 0, blkallocExtStart = 0, catExtStart = 0, extExtStart = 0;
@@ -212,8 +213,7 @@ main(argc, argv)
 		progname = *argv;
 
 // No semicolon at end of line deliberately!
-
-	static const char *options = "G:J:D:M:N:PU:hsb:c:i:I:n:v:"
+	static const char *options = "BG:J:D:M:N:PU:hsb:c:i:I:n:v:"
 #ifdef DEBUG_BUILD
 		"p:a:E:"
 #endif
@@ -221,6 +221,9 @@ main(argc, argv)
 
 	while ((ch = getopt(argc, argv, options)) != -1)
 		switch (ch) {
+		case 'B':
+			gExpandedTimes = TRUE;
+			break;
 		case 'G':
 			gGroupID = a_gid(optarg);
 			break;
@@ -1020,8 +1023,13 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	defaults->blockSize = gBlockSize;
 	defaults->fsStartBlock = gFSStartBlock;
 	defaults->nextFreeFileID = gNextCNID;
-    // Value will be bigger than UIN32_MAX in 2040
-	defaults->createDate = (uint32_t)(createtime + MAC_GMT_FACTOR);     /* Mac OS GMT time */
+    // Value will be bigger than UINT32_MAX in 2040, unless expanded times are used
+	if (gExpandedTimes) {
+		defaults->createDate = (uint32_t)(createtime); /* default to BSD time */
+	}
+	else {
+		defaults->createDate = (uint32_t)(createtime + MAC_GMT_FACTOR);     /* Mac OS GMT time */
+	}
 	defaults->hfsAlignment = 0;
 	defaults->journaledHFS = gJournaled;
 	defaults->journalDevice = gJournalDevice;
@@ -1311,6 +1319,10 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	
 	if (gContentProtect)
 		defaults->flags |= kMakeContentProtect;
+
+	if (gExpandedTimes) {
+		defaults->flags |= kMakeExpandedTimes;
+	}
 
 #ifdef DEBUG_BUILD
 	if (gProtectLevel) 

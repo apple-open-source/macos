@@ -34,7 +34,7 @@ class RemoteLayerBackingStore;
 class RemoteLayerBackingStoreProperties;
 
 enum class LayerChangeIndex : size_t {
-    EventRegionChanged = 39,
+    EventRegionChanged = 40,
 #if ENABLE(SCROLLING_THREAD)
     ScrollingNodeIDChanged,
 #endif
@@ -90,6 +90,7 @@ enum class LayerChange : uint64_t {
     ContentsHiddenChanged               = 1LLU << 36,
     UserInteractionEnabledChanged       = 1LLU << 37,
     BackdropRootChanged                 = 1LLU << 38,
+    BackdropRootIsOpaqueChanged         = 1LLU << 39,
     EventRegionChanged                  = 1LLU << static_cast<size_t>(LayerChangeIndex::EventRegionChanged),
 #if ENABLE(SCROLLING_THREAD)
     ScrollingNodeIDChanged              = 1LLU << static_cast<size_t>(LayerChangeIndex::ScrollingNodeIDChanged),
@@ -111,8 +112,7 @@ struct RemoteLayerBackingStoreOrProperties {
     ~RemoteLayerBackingStoreOrProperties();
     RemoteLayerBackingStoreOrProperties(RemoteLayerBackingStoreOrProperties&&) = default;
     RemoteLayerBackingStoreOrProperties& operator=(RemoteLayerBackingStoreOrProperties&&) = default;
-    RemoteLayerBackingStoreOrProperties(std::unique_ptr<RemoteLayerBackingStoreProperties>&& properties)
-        : properties(WTFMove(properties)) { }
+    RemoteLayerBackingStoreOrProperties(std::unique_ptr<RemoteLayerBackingStoreProperties>&&);
 
     // Used in the WebContent process.
     std::unique_ptr<RemoteLayerBackingStore> store;
@@ -186,10 +186,11 @@ struct LayerProperties {
     bool contentsHidden { false };
     bool userInteractionEnabled { true };
     bool backdropRoot { false };
+    bool backdropRootIsOpaque { false };
     WebCore::EventRegion eventRegion;
 
 #if ENABLE(SCROLLING_THREAD)
-    WebCore::ScrollingNodeID scrollingNodeID { 0 };
+    Markable<WebCore::ScrollingNodeID> scrollingNodeID;
 #endif
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     bool isSeparated { false };

@@ -43,6 +43,9 @@ bool engine_acquire_sheet_data(engine_t engine);
 AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
 CFTypeRef engine_copy_context(engine_t engine, auth_items_t source);
 
+AUTH_NONNULL_ALL
+bool engine_should_use_lw_session(engine_t engine);
+
 #if defined(__cplusplus)
 }
 #endif

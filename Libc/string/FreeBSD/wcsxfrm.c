@@ -46,7 +46,7 @@ wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len,
     locale_t loc)
 {
 	size_t slen;
-	wchar_t *xf[2];
+	wchar_t *xf[COLL_WEIGHTS_MAX];
 	int sverrno;
 
 	if (*src == L'\0') {
@@ -56,7 +56,7 @@ wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len,
 	}
 
 	NORMALIZE_LOCALE(loc);
-	if (loc->__collate_load_error) {
+	if (XLOCALE_COLLATE(loc)->__collate_load_error) {
 		slen = wcslen(src);
 		if (len > 0) {
 			if (slen < len)

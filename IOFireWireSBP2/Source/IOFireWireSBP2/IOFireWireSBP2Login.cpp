@@ -109,8 +109,10 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
     fUnsolicitedStatusNotifyCallback 	= NULL;
     fUnsolicitedStatusNotifyRefCon	 	= NULL;
 
+	fLoginORB						= NULL;
     fLoginORBAddressSpace 			= NULL;
 	fLoginResponseAddressSpace 		= NULL;
+	fLoginResponse 					= NULL;
 	fLoginTimeoutTimerSet			= false;
     fLoginWriteCommand 				= NULL;
     fLoginWriteCommandMemory 		= NULL;
@@ -119,7 +121,9 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
     fLoginCompletionRefCon 			= NULL;
 
     fReconnectORBAddressSpace 			= NULL;
+    fReconnectORB						= NULL;
     fReconnectStatusBlockAddressSpace 	= NULL;
+    fStatusBlockAddress					= NULL;
 	fReconnectTime						= 0;
 	fReconnectTimeoutTimerSet			= false;
 	fReconnectWriteCommand 				= NULL;
@@ -171,7 +175,7 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
 	
 	fARDMAMax = 0;
 	
-	fLastORBAddress = FWAddress(0,0);
+	// fLastORBAddress = FWAddress(0,0); ZZZ Now has to be done on the fly
 	
 	//
 	// set up command gate
@@ -323,37 +327,66 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
 IOReturn IOFireWireSBP2Login::allocateResources( void )
 {
     IOReturn					status = kIOReturnSuccess;
-
+    
     //
     // allocate and register an address space for the login ORB
     //
 
+ 	if( status == kIOReturnSuccess )
+    {
+		fLoginORB = IOMallocType( FWSBP2LoginORB );
+		if( NULL == fLoginORB )
+			status = kIOReturnNoMemory;
+	}
+
 	FWAddress host_address;
     if( status == kIOReturnSuccess )
     {
-        fLoginORBAddressSpace = IOFWSBP2PseudoAddressSpace::simpleRead( fControl, &host_address, sizeof(FWSBP2LoginORB), &fLoginORB );
+        fLoginORBAddressSpace = IOFWSBP2PseudoAddressSpace::simpleRead( fControl, &host_address, sizeof(FWSBP2LoginORB), fLoginORB );
     	if ( fLoginORBAddressSpace == NULL )
         	status = kIOReturnNoMemory;
     }
 
     if( status == kIOReturnSuccess )
     {
-		fLoginORBAddress.nodeID = OSSwapHostToBigInt16( host_address.nodeID );
-		fLoginORBAddress.addressHi = OSSwapHostToBigInt16( host_address.addressHi );
-		fLoginORBAddress.addressLo = OSSwapHostToBigInt32( host_address.addressLo );
-
-        status = fLoginORBAddressSpace->activate();
+		fLoginWriteCommandMemory = IOBufferMemoryDescriptor::withCapacity( 8, kIODirectionOut);
+		if( fLoginWriteCommandMemory == NULL )
+			status = kIOReturnNoMemory;
     }
+    
+    if( status == kIOReturnSuccess )
+    {
+		fLoginORBAddress = (FWAddress *)fLoginWriteCommandMemory->getBytesNoCopy();
+		
+		if( NULL == fLoginORBAddress )
+			status = kIOReturnNoMemory;
+    }
+
+    if( status == kIOReturnSuccess )
+    {
+		fLoginORBAddress->nodeID = OSSwapHostToBigInt16( host_address.nodeID );
+		fLoginORBAddress->addressHi = OSSwapHostToBigInt16( host_address.addressHi );
+		fLoginORBAddress->addressLo = OSSwapHostToBigInt32( host_address.addressLo );
+
+		status = fLoginORBAddressSpace->activate();
+	}
  
     //
     // allocate and register an address space for the login response
     //
 
+  	if( status == kIOReturnSuccess )
+    {
+		fLoginResponse = IOMallocType( FWSBP2LoginResponse );
+		if( NULL == fLoginResponse )
+			status = kIOReturnNoMemory;
+	}
+
     if( status == kIOReturnSuccess )
     {
         fLoginResponseAddressSpace = IOFWSBP2PseudoAddressSpace::simpleRW( 	fControl, &fLoginResponseAddress,
 																			sizeof(FWSBP2LoginResponse), 
-																			&fLoginResponse );
+																			fLoginResponse );
         if ( fLoginResponseAddressSpace == NULL )
             status = kIOReturnNoMemory;
     }
@@ -367,20 +400,44 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // allocate and register an address space for the reconnect ORB
     //
 
+  	if( status == kIOReturnSuccess )
+    {
+		fReconnectORB = IOMallocType( FWSBP2ReconnectORB );
+		if( NULL == fReconnectORB )
+			status = kIOReturnNoMemory;
+	}
+
     if( status == kIOReturnSuccess )
     {
         fReconnectORBAddressSpace = IOFWPseudoAddressSpace::simpleRead( fControl, &host_address, 
 																		sizeof(FWSBP2ReconnectORB),
-                                                                        &fReconnectORB );
+                                                                        fReconnectORB );
     	if ( fReconnectORBAddressSpace == NULL )
             status = kIOReturnNoMemory;
     }
 
     if( status == kIOReturnSuccess )
     {
-        fReconnectORBAddress.nodeID = OSSwapHostToBigInt16( host_address.nodeID );
-		fReconnectORBAddress.addressHi = OSSwapHostToBigInt16( host_address.addressHi );
-		fReconnectORBAddress.addressLo = OSSwapHostToBigInt32( host_address.addressLo );
+        fReconnectWriteCommandMemory = IOBufferMemoryDescriptor::withCapacity( 8, kIODirectionOut);
+    	if( fReconnectWriteCommandMemory == NULL )
+    		status = kIOReturnNoMemory;
+    }
+
+    if( status == kIOReturnSuccess )
+    {
+		fReconnectORBAddress = (FWAddress *)fReconnectWriteCommandMemory->getBytesNoCopy();
+		
+		if( NULL == fReconnectORBAddress )
+			status = kIOReturnNoMemory;
+    }
+
+
+
+    if( status == kIOReturnSuccess )
+    {
+        fReconnectORBAddress->nodeID = OSSwapHostToBigInt16( host_address.nodeID );
+		fReconnectORBAddress->addressHi = OSSwapHostToBigInt16( host_address.addressHi );
+		fReconnectORBAddress->addressLo = OSSwapHostToBigInt32( host_address.addressLo );
 
         status = fReconnectORBAddressSpace->activate();
     } 
@@ -389,9 +446,16 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // allocate and register an address space for the status block
     //
 
+  	if( status == kIOReturnSuccess )
+    {
+		fStatusBlockAddress = IOMallocType( FWAddress );
+		if( NULL == fStatusBlockAddress )
+			status = kIOReturnNoMemory;
+	}
+
     if( status == kIOReturnSuccess )
     {
-        fStatusBlockAddressSpace = fUnit->createPseudoAddressSpace(	&fStatusBlockAddress, 
+        fStatusBlockAddressSpace = fUnit->createPseudoAddressSpace(	fStatusBlockAddress, 
 																	sizeof(FWSBP2StatusBlock),
 																	NULL, 
 																	IOFireWireSBP2Login::statusBlockWriteStatic,
@@ -409,10 +473,17 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // allocate and register an address space for the reconnect status block
     //
 
+  	if( status == kIOReturnSuccess )
+    {
+		fReconnectStatusBlockAddress = IOMallocType( FWAddress );
+		if( NULL == fReconnectStatusBlockAddress )
+			status = kIOReturnNoMemory;
+	}
+
     if( status == kIOReturnSuccess )
     {
         fReconnectStatusBlockAddressSpace =
-            fUnit->createPseudoAddressSpace( &fReconnectStatusBlockAddress, sizeof(FWSBP2StatusBlock),
+            fUnit->createPseudoAddressSpace( fReconnectStatusBlockAddress, sizeof(FWSBP2StatusBlock),
                                              NULL, IOFireWireSBP2Login::reconnectStatusBlockWriteStatic, this );
         
         if ( fReconnectStatusBlockAddressSpace == NULL )
@@ -428,19 +499,41 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // allocate and register an address space for the logout ORB
     //
 
+  	if( status == kIOReturnSuccess )
+    {
+		fLogoutORB = IOMallocType( FWSBP2LogoutORB );
+		if( NULL == fLogoutORB )
+			status = kIOReturnNoMemory;
+	}
+
     if( status == kIOReturnSuccess )
     {
         fLogoutORBAddressSpace = IOFWPseudoAddressSpace::simpleRead( fControl, &host_address, sizeof(FWSBP2LogoutORB),
-                                                                     &fLogoutORB );
+                                                                     fLogoutORB );
     	if ( fLogoutORBAddressSpace == NULL )
         	status = kIOReturnNoMemory;
     }
   
     if( status == kIOReturnSuccess )
     {
-		fLogoutORBAddress.nodeID = OSSwapHostToBigInt16( host_address.nodeID );
-		fLogoutORBAddress.addressHi = OSSwapHostToBigInt16( host_address.addressHi );
-		fLogoutORBAddress.addressLo = OSSwapHostToBigInt32( host_address.addressLo );
+        fLogoutWriteCommandMemory = IOBufferMemoryDescriptor::withCapacity( 8, kIODirectionOut);
+    	if( fLogoutWriteCommandMemory == NULL )
+    		status = kIOReturnNoMemory;
+    }
+
+    if( status == kIOReturnSuccess )
+    {
+		fLogoutORBAddress = (FWAddress *)fLogoutWriteCommandMemory->getBytesNoCopy();
+		
+		if( NULL == fLogoutORBAddress )
+			status = kIOReturnNoMemory;
+    }
+
+    if( status == kIOReturnSuccess )
+    {
+		fLogoutORBAddress->nodeID = OSSwapHostToBigInt16( host_address.nodeID );
+		fLogoutORBAddress->addressHi = OSSwapHostToBigInt16( host_address.addressHi );
+		fLogoutORBAddress->addressLo = OSSwapHostToBigInt32( host_address.addressLo );
 
         status = fLogoutORBAddressSpace->activate();
     }
@@ -449,33 +542,26 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // prepare parts of the ORBs
     //
     
-    fLoginORB.loginResponseAddressHi = OSSwapHostToBigInt32((fLoginResponseAddress.nodeID << 16) | fLoginResponseAddress.addressHi);
-    fLoginORB.loginResponseAddressLo = OSSwapHostToBigInt32(fLoginResponseAddress.addressLo);
-    fLoginORB.loginResponseLength = OSSwapHostToBigInt16(sizeof( FWSBP2LoginResponse ));
-    fLoginORB.lun = OSSwapHostToBigInt16(fLUN->getLUNumber());
-    FWKLOG( ("IOFireWireSBP2Login<%p>::allocateResources lun number = %d\n", this, OSSwapBigToHostInt16(fLoginORB.lun)) );
-    fLoginORB.statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress.nodeID << 16) | fStatusBlockAddress.addressHi);
-    fLoginORB.statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress.addressLo);
+    fLoginORB->loginResponseAddressHi = OSSwapHostToBigInt32((fLoginResponseAddress.nodeID << 16) | fLoginResponseAddress.addressHi);
+    fLoginORB->loginResponseAddressLo = OSSwapHostToBigInt32(fLoginResponseAddress.addressLo);
+    fLoginORB->loginResponseLength = OSSwapHostToBigInt16(sizeof( FWSBP2LoginResponse ));
+    fLoginORB->lun = OSSwapHostToBigInt16(fLUN->getLUNumber());
+    FWKLOG( ("IOFireWireSBP2Login<%p>::allocateResources lun number = %d\n", this, OSSwapBigToHostInt16(fLoginORB->lun)) );
+    fLoginORB->statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress->nodeID << 16) | fStatusBlockAddress->addressHi);
+    fLoginORB->statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress->addressLo);
 
-    fReconnectORB.options = OSSwapHostToBigInt16(3 |  0x8000);   // reconnect | notify
-    fReconnectORB.statusFIFOAddressHi = OSSwapHostToBigInt32((fReconnectStatusBlockAddress.nodeID << 16) | fReconnectStatusBlockAddress.addressHi);
-    fReconnectORB.statusFIFOAddressLo = OSSwapHostToBigInt32(fReconnectStatusBlockAddress.addressLo);
+    fReconnectORB->options = OSSwapHostToBigInt16(3 |  0x8000);   // reconnect | notify
+    fReconnectORB->statusFIFOAddressHi = OSSwapHostToBigInt32((fReconnectStatusBlockAddress->nodeID << 16) | fReconnectStatusBlockAddress->addressHi);
+    fReconnectORB->statusFIFOAddressLo = OSSwapHostToBigInt32(fReconnectStatusBlockAddress->addressLo);
 
-    fLogoutORB.options = OSSwapHostToBigInt16(7 | 0x8000);  	// logout | notify
-    fLogoutORB.statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress.nodeID << 16) | fStatusBlockAddress.addressHi);
-    fLogoutORB.statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress.addressLo);
+    fLogoutORB->options = OSSwapHostToBigInt16(7 | 0x8000);  	// logout | notify
+    fLogoutORB->statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress->nodeID << 16) | fStatusBlockAddress->addressHi);
+    fLogoutORB->statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress->addressLo);
     
 	//
     // create command for writing the management agent
     //
     
-    if( status == kIOReturnSuccess )
-    {
-        fLoginWriteCommandMemory = IOMemoryDescriptor::withAddress( &fLoginORBAddress, 8, kIODirectionOut);
-    	if( fLoginWriteCommandMemory == NULL )
-    		status = kIOReturnNoMemory;
-    }
-
     if( status == kIOReturnSuccess )
     {
         fLoginWriteCommand = fUnit->createWriteCommand( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
@@ -510,13 +596,6 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     
     if( status == kIOReturnSuccess )
     {
-        fReconnectWriteCommandMemory = IOMemoryDescriptor::withAddress( &fReconnectORBAddress, 8, kIODirectionOut);
-    	if( fReconnectWriteCommandMemory == NULL )
-    		status = kIOReturnNoMemory;
-    }
-
-    if( status == kIOReturnSuccess )
-    {
         fReconnectWriteCommand = fUnit->createWriteCommand( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
                                                             fReconnectWriteCommandMemory,
                                                             IOFireWireSBP2Login::reconnectWriteCompleteStatic, this, true );
@@ -536,13 +615,6 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     // create command for writing the management agent during logout
     //
     
-    if( status == kIOReturnSuccess )
-    {
-        fLogoutWriteCommandMemory = IOMemoryDescriptor::withAddress( &fLogoutORBAddress, 8, kIODirectionOut);
-    	if( fLogoutWriteCommandMemory == NULL )
-    		status = kIOReturnNoMemory;
-    }
-
     if( status == kIOReturnSuccess )
     {
         fLogoutWriteCommand = fUnit->createWriteCommand( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
@@ -612,9 +684,19 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
 	{
 		if( status == kIOReturnSuccess )
 		{
-			fFetchAgentWriteCommandMemory = IOMemoryDescriptor::withAddress( &fLastORBAddress, 8, kIODirectionOut );
+			fFetchAgentWriteCommandMemory = IOBufferMemoryDescriptor::withCapacity( 8, kIODirectionOut );
 			if( fFetchAgentWriteCommandMemory == NULL )
 				status = kIOReturnNoMemory;
+		}
+		
+		if( status == kIOReturnSuccess )
+		{
+			fLastORBAddress = (FWAddress *)fFetchAgentWriteCommandMemory->getBytesNoCopy();
+		
+			if( NULL == fLastORBAddress )
+				status = kIOReturnNoMemory;
+			else
+				*fLastORBAddress = FWAddress(0,0);
 		}
 	
 		if( status == kIOReturnSuccess )
@@ -807,6 +889,13 @@ void IOFireWireSBP2Login::free( void )
     {
         fLoginORBAddressSpace->deactivate();
         fLoginORBAddressSpace->release();
+        fLoginORBAddress = NULL;
+        
+        if( fLoginORB ) 
+        {
+        	IOFreeType( fLoginORB, FWSBP2LoginORB);
+        	fLoginORB = NULL;
+        }
     }
 
     //
@@ -817,6 +906,12 @@ void IOFireWireSBP2Login::free( void )
     {
         fLoginResponseAddressSpace->deactivate();
         fLoginResponseAddressSpace->release();
+        
+        if( fLoginResponse )
+        {
+        	IOFreeType( fLoginResponse, FWSBP2LoginResponse );
+        	fLoginResponse = NULL;
+        }
     }
 
 	///////////////////////////////////////////
@@ -849,6 +944,13 @@ void IOFireWireSBP2Login::free( void )
     {
         fReconnectORBAddressSpace->deactivate();
         fReconnectORBAddressSpace->release();
+        fReconnectORBAddress = NULL;
+        
+        if( fReconnectORB )
+        {
+        	IOFreeType( fReconnectORB, FWSBP2ReconnectORB );
+        	fReconnectORB = NULL;
+        }
      }
 
     //
@@ -859,6 +961,13 @@ void IOFireWireSBP2Login::free( void )
     {
         fReconnectStatusBlockAddressSpace->deactivate();
         fReconnectStatusBlockAddressSpace->release();
+        
+        if( fReconnectStatusBlockAddress )
+        {
+        	IOFreeType( fReconnectStatusBlockAddress, FWAddress );
+        	fReconnectStatusBlockAddress = NULL;
+        }
+
     }
   
   	///////////////////////////////////////////
@@ -892,7 +1001,15 @@ void IOFireWireSBP2Login::free( void )
     {
         fLogoutORBAddressSpace->deactivate();
         fLogoutORBAddressSpace->release();
-     }
+        fLogoutORBAddress = NULL;
+        
+    	if( fLogoutORB )
+        {
+        	IOFreeType( fLogoutORB, FWSBP2LogoutORB );
+        	fLogoutORB = NULL;
+        }
+
+    }
 
 	///////////////////////////////////////////
 
@@ -924,6 +1041,7 @@ void IOFireWireSBP2Login::free( void )
     {
 	    fFetchAgentWriteCommandMemory->release();
 		fFetchAgentWriteCommandMemory = NULL;
+		fLastORBAddress = NULL;
     }
 	 
     //
@@ -934,6 +1052,12 @@ void IOFireWireSBP2Login::free( void )
     {
         fStatusBlockAddressSpace->deactivate();
         fStatusBlockAddressSpace->release();
+        
+        if( fStatusBlockAddress )
+        {
+        	IOFreeType( fStatusBlockAddress, FWAddress );
+        	fStatusBlockAddress = NULL;
+        }
     }
 
     //
@@ -1179,10 +1303,10 @@ IOReturn IOFireWireSBP2Login::setPassword( IOMemoryDescriptor * memory )
 	{	
 		if( len <= 8 )
 		{
-			fLoginORB.password[0] = 0;
-			fLoginORB.password[1] = 0;
-			fLoginORB.passwordLength = 0;			
-			memory->readBytes( 0, &(fLoginORB.password), len );
+			fLoginORB->password[0] = 0;
+			fLoginORB->password[1] = 0;
+			fLoginORB->passwordLength = 0;			
+			memory->readBytes( 0, &(fLoginORB->password), len );
 		}
 		else
 		{
@@ -1193,6 +1317,7 @@ IOReturn IOFireWireSBP2Login::setPassword( IOMemoryDescriptor * memory )
 			
 			if( status == kIOReturnSuccess )
 			{
+				// ZZZ Not sure if we need to address this for rdar://129201665 
 				fPasswordAddressSpace = IOFWPseudoAddressSpace::simpleRW( fControl, &fPasswordAddress, memory );
 				if( fPasswordAddressSpace == NULL )
 					status = kIOReturnNoMemory;
@@ -1205,9 +1330,9 @@ IOReturn IOFireWireSBP2Login::setPassword( IOMemoryDescriptor * memory )
 	
 			if( status == kIOReturnSuccess )
 			{
-				fLoginORB.passwordLength = OSSwapHostToBigInt16(len);
-				fLoginORB.password[0] = OSSwapHostToBigInt32(0x0000ffff & fPasswordAddress.addressHi);
-				fLoginORB.password[1] = OSSwapHostToBigInt32(fPasswordAddress.addressLo);
+				fLoginORB->passwordLength = OSSwapHostToBigInt16(len);
+				fLoginORB->password[0] = OSSwapHostToBigInt32(0x0000ffff & fPasswordAddress.addressHi);
+				fLoginORB->password[1] = OSSwapHostToBigInt32(fPasswordAddress.addressLo);
 			}
 			
 		}
@@ -1248,11 +1373,11 @@ IOReturn IOFireWireSBP2Login::setPassword( void * buf, UInt32 len )
         fPasswordBuf = buf;
         fPasswordLen = len;
 
-		fLoginORB.password[0] = 0;
-		fLoginORB.password[1] = 0;
+		fLoginORB->password[0] = 0;
+		fLoginORB->password[1] = 0;
 		
-        bcopy( buf, &(fLoginORB.password), len );
-        fLoginORB.passwordLength = 0;
+        bcopy( buf, &(fLoginORB->password), len );
+        fLoginORB->passwordLength = 0;
     }
     else
     {
@@ -1263,6 +1388,7 @@ IOReturn IOFireWireSBP2Login::setPassword( void * buf, UInt32 len )
 
         if( status == kIOReturnSuccess )
         {
+			// ZZZ Not sure if we need to address this for rdar://129201665 
 			fPasswordAddressSpace = IOFWPseudoAddressSpace::simpleRW( fControl, &fPasswordAddress, len, buf );
 			if( fPasswordAddressSpace == NULL )
 				status = kIOReturnNoMemory;
@@ -1277,9 +1403,9 @@ IOReturn IOFireWireSBP2Login::setPassword( void * buf, UInt32 len )
         {
             fPasswordBuf = buf;
             fPasswordLen = len;
-            fLoginORB.passwordLength = OSSwapHostToBigInt16(len);
-            fLoginORB.password[0] = OSSwapHostToBigInt32(0x0000ffff & fPasswordAddress.addressHi);
-            fLoginORB.password[1] = OSSwapHostToBigInt32(fPasswordAddress.addressLo);
+            fLoginORB->passwordLength = OSSwapHostToBigInt16(len);
+            fLoginORB->password[0] = OSSwapHostToBigInt32(0x0000ffff & fPasswordAddress.addressHi);
+            fLoginORB->password[1] = OSSwapHostToBigInt32(fPasswordAddress.addressLo);
         }
         
     }
@@ -1378,22 +1504,23 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
         fLastORB = NULL;
     }
 
-	fLastORBAddress = FWAddress(0,0);
+	if( NULL != fLastORBAddress )
+		*fLastORBAddress = FWAddress(0,0);
 	
 	// to quote sbp-2 : ... truncated login response data 
 	// shall be interpreted as if the omitted fields
 	// had been stored as zeros. ... 
 	
-    fLoginResponse.reserved = 0;
-    fLoginResponse.reconnectHold = 0;
+    fLoginResponse->reserved = 0;
+    fLoginResponse->reconnectHold = 0;
 
     // set options
     FWKLOG(( "IOFireWireSBP2Login<%p> : fLoginFlags : 0x%08lx\n", this, fLoginFlags ));
 
-    fLoginORB.options = OSSwapHostToBigInt16(0x0000 | 0x8000);		// login | notify
-    fLoginORB.options |= OSSwapHostToBigInt16(fReconnectTime << 4);
+    fLoginORB->options = OSSwapHostToBigInt16(0x0000 | 0x8000);		// login | notify
+    fLoginORB->options |= OSSwapHostToBigInt16(fReconnectTime << 4);
     if( fLoginFlags & kFWSBP2ExclusiveLogin )
-        fLoginORB.options |= OSSwapHostToBigInt16(0x1000);
+        fLoginORB->options |= OSSwapHostToBigInt16(0x1000);
 
     // set to correct generation
     fLoginWriteCommand->reinit( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
@@ -1803,7 +1930,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
 				fUnsolicitedStatusEnableRequested = false;
 				
                 // get login ID and fetch agent address
-                fLoginID = OSSwapBigToHostInt16(fLoginResponse.loginID);
+                fLoginID = OSSwapBigToHostInt16(fLoginResponse->loginID);
                 completeLogout( kIOReturnSuccess, client_status_block, len );
             }
             else
@@ -1841,17 +1968,17 @@ void IOFireWireSBP2Login::processLoginWrite( void )
 		FWKLOG( ( "IOFireWireSBP2Login<%p> : successful login\n", this ) );
 
 		// get login ID and fetch agent address
-		fLoginID = OSSwapBigToHostInt16(fLoginResponse.loginID);
-		fReconnectORB.loginID = OSSwapHostToBigInt16(fLoginID);  // set id for reconnect;
+		fLoginID = OSSwapBigToHostInt16(fLoginResponse->loginID);
+		fReconnectORB->loginID = OSSwapHostToBigInt16(fLoginID);  // set id for reconnect;
 
 		// set reconnect_hold, some devices indicate it
-		if( OSSwapBigToHostInt16(fLoginResponse.length) >= 16 )
-			fReconnectHold = (OSSwapBigToHostInt16(fLoginResponse.reconnectHold) & 0x7fff) + 1;
+		if( OSSwapBigToHostInt16(fLoginResponse->length) >= 16 )
+			fReconnectHold = (OSSwapBigToHostInt16(fLoginResponse->reconnectHold) & 0x7fff) + 1;
 		else
 			fReconnectHold = 1;
 
-		UInt32 commandBlockAgentAddressHi = OSSwapBigToHostInt32(fLoginResponse.commandBlockAgentAddressHi);
-		UInt32 commandBlockAgentAddressLo = OSSwapBigToHostInt32(fLoginResponse.commandBlockAgentAddressLo);
+		UInt32 commandBlockAgentAddressHi = OSSwapBigToHostInt32(fLoginResponse->commandBlockAgentAddressHi);
+		UInt32 commandBlockAgentAddressLo = OSSwapBigToHostInt32(fLoginResponse->commandBlockAgentAddressLo);
 		
 		// set fetch agent reset address
 		fFetchAgentResetAddress = FWAddress( commandBlockAgentAddressHi & 0x0000ffff,
@@ -2341,7 +2468,9 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
             fLastORB->release();
             fLastORB = NULL;
         }
-		fLastORBAddress = FWAddress(0,0);
+        
+        if( NULL != fLastORBAddress )
+			*fLastORBAddress = FWAddress(0,0);
         fLoginState = kLoginStateConnected;
 
         // set generation
@@ -2535,7 +2664,7 @@ IOReturn IOFireWireSBP2Login::executeLogout( void )
 	if( fLoginState == kLoginStateConnected )
 	{
 		fLoginState = kLoginStateLoggingOut;
-		fLogoutORB.loginID = OSSwapHostToBigInt16(fLoginID);
+		fLogoutORB->loginID = OSSwapHostToBigInt16(fLoginID);
 	
 		// set to correct generation
 		fLogoutWriteCommand->reinit( FWAddress(0x0000ffff, 0xf0000000 + (fManagementOffset << 2)),
@@ -2725,7 +2854,8 @@ void IOFireWireSBP2Login::clearAllTasksInSet( void )
         fLastORB->release();
         fLastORB = NULL;
     }
-	fLastORBAddress = FWAddress(0,0);
+	if( NULL != fLastORBAddress )
+		*fLastORBAddress = FWAddress(0,0);
 }
 
 #pragma mark -
@@ -2914,7 +3044,7 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 			}
 			else
 			{
-				orbAddress = fLastORBAddress;
+				orbAddress = *fLastORBAddress;	// ZZZ NULL check? What do we do if NULL?
 			}
 		
 			if( orbAddress.addressHi == 0 && orbAddress.addressLo == 0 )
@@ -2968,9 +3098,10 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 			FWAddress orbAddress(0,0);
 			orb->getORBAddress( &orbAddress );
 			
-			fLastORBAddress.nodeID = OSSwapHostToBigInt16(orbAddress.nodeID);
-			fLastORBAddress.addressHi = OSSwapHostToBigInt16(orbAddress.addressHi);
-			fLastORBAddress.addressLo = OSSwapHostToBigInt32(orbAddress.addressLo);
+			// ZZZ NULL check? What do we do if NULL?
+			fLastORBAddress->nodeID = OSSwapHostToBigInt16(orbAddress.nodeID);
+			fLastORBAddress->addressHi = OSSwapHostToBigInt16(orbAddress.addressHi);
+			fLastORBAddress->addressLo = OSSwapHostToBigInt32(orbAddress.addressLo);
             orb->retain();
 			fLastORB = orb;
 
@@ -3516,9 +3647,10 @@ IOReturn IOFireWireSBP2Login::appendORB( IOFireWireSBP2ORB * orb )
         orb->getORBAddress( &orb_address );
         setNextORBAddress( fLastORB, orb_address );
 		
-		fLastORBAddress.nodeID = OSSwapHostToBigInt16(orb_address.nodeID);
-		fLastORBAddress.addressHi = OSSwapHostToBigInt16(orb_address.addressHi);
-		fLastORBAddress.addressLo = OSSwapHostToBigInt32(orb_address.addressLo);
+		// ZZZ NULL check? What do we do if NULL?
+		fLastORBAddress->nodeID = OSSwapHostToBigInt16(orb_address.nodeID);
+		fLastORBAddress->addressHi = OSSwapHostToBigInt16(orb_address.addressHi);
+		fLastORBAddress->addressLo = OSSwapHostToBigInt32(orb_address.addressLo);
         orb->retain();
         
         if( fLastORB )
@@ -3582,15 +3714,19 @@ void IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse( UInt32 addressLoOR
 	space = OSDynamicCast( IOFWSBP2PseudoAddressSpace, fLoginORBAddressSpace );
 	if( space != NULL )
 	{
-		fLoginORBAddress.addressLo = OSSwapHostToBigInt32(addressLoORBMasked);
-		space->setAddressLo( addressLoORBMasked );
+		// Should never be NULL but check anyway. Not sure what to do if it isn't setup.
+		if( NULL != fLoginORBAddress )
+		{
+			fLoginORBAddress->addressLo = OSSwapHostToBigInt32(addressLoORBMasked);
+			space->setAddressLo( addressLoORBMasked );
+		}
 	}
 	
 	space = OSDynamicCast( IOFWSBP2PseudoAddressSpace, fLoginResponseAddressSpace );
 	if( space != NULL )
 	{
 		fLoginResponseAddress.addressLo = addressLoResponseMasked;
-		fLoginORB.loginResponseAddressLo = OSSwapHostToBigInt32(fLoginResponseAddress.addressLo);
+		fLoginORB->loginResponseAddressLo = OSSwapHostToBigInt32(fLoginResponseAddress.addressLo);
 		space->setAddressLo( addressLoResponseMasked );
 	}
 	

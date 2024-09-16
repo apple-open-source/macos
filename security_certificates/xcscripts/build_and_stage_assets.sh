@@ -1,4 +1,6 @@
 #!/bin/sh
+# -e: exit on error, -u: error on unset variables, -x: show commands
+set -e -u -x
 
 ASSET_DIR=${DSTROOT}/BuiltSupplementalAssets
 ASSET_DIR2=${DSTROOT}/BuiltSupplementalAssets2

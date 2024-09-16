@@ -31,6 +31,7 @@
 #include <mach/kern_return.h>
 
 #include "exclaves_boot.h"
+#include "exclaves_debug.h"
 #include "exclaves_resource.h"
 #include "exclaves_sensor.h"
 
@@ -93,8 +94,11 @@ exclaves_eic_init(void)
 {
 	exclaves_id_t eic_id = exclaves_service_lookup(EXCLAVES_DOMAIN_KERNEL,
 	    EXCLAVES_EIC);
-	if (eic_id == UINT64_C(~0)) {
-		return KERN_FAILURE;
+
+	if (eic_id == EXCLAVES_INVALID_ID) {
+		exclaves_requirement_assert(EXCLAVES_R_EIC,
+		    "exclaves indicator controller not found");
+		return KERN_SUCCESS;
 	}
 
 	tb_endpoint_t ep = tb_endpoint_create_with_value(

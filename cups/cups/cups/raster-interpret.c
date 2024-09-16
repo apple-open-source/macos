@@ -401,6 +401,7 @@ _cupsRasterInterpretPPD(
     case CUPS_CSPACE_GOLD :
     case CUPS_CSPACE_SILVER :
     case CUPS_CSPACE_SW :
+    case CUPS_CSPACE_GRAYE:
         h->cupsNumColors    = 1;
         h->cupsBitsPerPixel = h->cupsBitsPerColor;
 	break;

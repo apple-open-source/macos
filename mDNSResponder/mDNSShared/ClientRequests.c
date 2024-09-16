@@ -91,6 +91,7 @@ typedef struct
     mDNSBool                useFailover;
     mDNSBool                failoverMode;
     mDNSBool                prohibitEncryptedDNS;
+    mDNSBool                overrideDNSService;
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
     mdns_audit_token_t      peerToken;
@@ -338,6 +339,17 @@ mDNSexport mStatus QueryRecordClientRequestStart(QueryRecordClientRequest *inReq
     mDNSBool            appendSearchDomains;
     QueryRecordOpParams opParams;
 
+#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+    if (inParams->overrideDNSService)
+    {
+        const mdns_audit_token_t token = inParams->peerToken;
+        const mDNSBool entitled = token && mdns_audit_token_is_entitled(token, "com.apple.private.dnssd.resolver-override");
+        mdns_require_action_quiet(entitled, exit, err = mStatus_NoAuth);
+        mdns_require_action_quiet(inParams->resolverUUID, exit, err = mStatus_BadParamErr);
+
+        Querier_RegisterPathResolver(inParams->resolverUUID);
+    }
+#endif
     err = InterfaceIndexToInterfaceID(inParams->interfaceIndex, &interfaceID);
     if (err) goto exit;
 
@@ -376,6 +388,7 @@ mDNSexport mStatus QueryRecordClientRequestStart(QueryRecordClientRequest *inReq
     opParams.useFailover            = inParams->useFailover;
     opParams.failoverMode           = inParams->failoverMode;
     opParams.prohibitEncryptedDNS   = inParams->prohibitEncryptedDNS;
+    opParams.overrideDNSService     = inParams->overrideDNSService;
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
     opParams.peerToken              = inParams->peerToken;
@@ -487,6 +500,9 @@ mDNSlocal void QueryRecordOpEventHandler(DNSQuestion *const inQuestion, const mD
                 QueryRecordOpRestartUnicastQuestion(op, inQuestion, domain);
             }
             break;
+
+        MDNS_COVERED_SWITCH_DEFAULT:
+            break;
     }
 }
 
@@ -521,8 +537,9 @@ mDNSlocal mStatus QueryRecordOpStart(QueryRecordOp *inOp, const QueryRecordOpPar
     inOp->useFailover          = inParams->useFailover;
     inOp->failoverMode         = inParams->failoverMode;
     inOp->prohibitEncryptedDNS = inParams->prohibitEncryptedDNS;
+    inOp->overrideDNSService   = inParams->overrideDNSService;
     inOp->qtype                = inParams->qtype;
-    if (!inOp->prohibitEncryptedDNS && inParams->resolverUUID)
+    if ((!inOp->prohibitEncryptedDNS || inOp->overrideDNSService) && inParams->resolverUUID)
     {
         mDNSPlatformMemCopy(inOp->resolverUUID, inParams->resolverUUID, UUID_SIZE);
     }
@@ -566,6 +583,7 @@ mDNSlocal mStatus QueryRecordOpStart(QueryRecordOp *inOp, const QueryRecordOpPar
     q->RequireEncryption          = inParams->needEncryption;
     q->CustomID                   = inParams->customID;
     q->ProhibitEncryptedDNS       = inOp->prohibitEncryptedDNS;
+    q->OverrideDNSService         = inOp->overrideDNSService;
     if (inOp->failoverMode)
     {
         q->IsFailover = mDNStrue;
@@ -598,6 +616,20 @@ mDNSlocal mStatus QueryRecordOpStart(QueryRecordOp *inOp, const QueryRecordOpPar
     // them on the wire as a single label query. - Mohan
 
     if (q->AppendSearchDomains && DomainNameIsSingleLabel(inOp->qname)) q->InterfaceID = mDNSInterface_LocalOnly;
+
+#if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DOTLOCAL)
+    // Copy the original question to another question that can be used for the legacy unicast dotlocal query, before the
+    // the original question is started and initialized.
+    const mDNSBool startParallelLegacyUnicastDotLocal = ((RecordTypeIsAddress(q->qtype) || VALID_MSAD_SRV(&inOp->q)) &&
+        !q->ForceMCast && SameDomainLabel(LastLabel(&q->qname), (const mDNSu8 *)&localdomain));
+    if (startParallelLegacyUnicastDotLocal)
+    {
+        inOp->q2 = mDNSPlatformMemAllocateClear(sizeof(*inOp->q2));
+        mdns_require_action_quiet(inOp->q2, exit, err = mStatus_NoMemoryErr);
+        *inOp->q2 = *q;
+    }
+#endif
+
     err = QueryRecordOpStartQuestion(inOp, q);
     if (err) goto exit;
 
@@ -609,21 +641,10 @@ mDNSlocal mStatus QueryRecordOpStart(QueryRecordOp *inOp, const QueryRecordOpPar
 #endif
 
 #if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DOTLOCAL)
-    if ((RecordTypeIsAddress(q->qtype) || VALID_MSAD_SRV(&inOp->q)) && !q->ForceMCast &&
-        SameDomainLabel(LastLabel(&q->qname), (const mDNSu8 *)&localdomain))
+    if (startParallelLegacyUnicastDotLocal)
     {
-        DNSQuestion *       q2;
-
-        q2 = (DNSQuestion *) mDNSPlatformMemAllocate((mDNSu32)sizeof(*inOp->q2));
-        if (!q2)
-        {
-            err = mStatus_NoMemoryErr;
-            goto exit;
-        }
-        inOp->q2 = q2;
-
-        *q2 = *q;
-        q2->IsUnicastDotLocal = mDNStrue;
+        DNSQuestion *const q2 = inOp->q2;
+        mdns_require_action_quiet(q2, exit, err = mStatus_BadStateErr);
 
         if ((CountLabels(&q2->qname) == 2) && !SameDomainName(&q2->qname, &ActiveDirectoryPrimaryDomain)
             && !DomainNameIsInSearchList(&q2->qname, mDNSfalse))
@@ -636,11 +657,13 @@ mDNSlocal mStatus QueryRecordOpStart(QueryRecordOp *inOp, const QueryRecordOpPar
 
             AssignDomainName(&q2->qname, &localdomain);
             q2->qtype                   = kDNSType_SOA;
-            q2->LongLived               = mDNSfalse;
             q2->ReturnIntermed          = mDNStrue;
             q2->TimeoutQuestion         = mDNSfalse;
             q2->AppendSearchDomains     = mDNSfalse;
         }
+        q2->IsUnicastDotLocal = mDNStrue;
+        // We disable DNS push for this legacy unicast dotlocal query.
+        q2->LongLived = mDNSfalse;
 
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
                "[R%u] QueryRecordOpStart: starting parallel unicast query for " PRI_DM_NAME " " PUB_S,

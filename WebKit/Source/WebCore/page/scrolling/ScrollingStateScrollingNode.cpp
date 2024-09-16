@@ -329,7 +329,6 @@ void ScrollingStateScrollingNode::setVerticalScrollbarLayer(const LayerRepresent
 {
     if (layer == m_verticalScrollbarLayer)
         return;
-
     m_verticalScrollbarLayer = layer;
     setPropertyChanged(Property::VerticalScrollbarLayer);
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2015 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -171,8 +171,10 @@
 #define SMBV_FORCE_IPC_ENCRYPT      0x40000000  /* Force share level encryption on IPC$ */
 #define SMBV_FORCE_SHARE_ENCRYPT    0x20000000  /* Force share level encryption */
 #define SMBV_FORCE_IPC_ENCRYPT      0x40000000  /* Force share level encryption on IPC$ */
-#define SMBV_ENABLE_AES_128_CMAC    0x080000000  /* Enable SMB v3.1.1 AES_128_CMAC signing */
-#define SMBV_ENABLE_AES_128_GMAC    0x100000000  /* Enable SMB v3.1.1 AES_128_GMAC signing */
+#define SMBV_ENABLE_AES_128_CMAC        0x080000000  /* Enable SMB v3.1.1 AES_128_CMAC signing */
+#define SMBV_ENABLE_AES_128_GMAC        0x100000000  /* Enable SMB v3.1.1 AES_128_GMAC signing */
+#define SMBV_COMPRESSION_CHAINING_OFF   0x200000000  /* Chained compression is enabled */
+#define SMBV_MC_CLIENT_RSS_FORCE_ON     0x400000000  /* MultiChannel force client RSS on */
 
 #define SMBV_HAS_GUEST_ACCESS(sessionp)		(((sessionp)->session_flags & (SMBV_GUEST_ACCESS | SMBV_SFS_ACCESS)) != 0)
 #define SMBV_HAS_ANONYMOUS_ACCESS(sessionp)	(((sessionp)->session_flags & (SMBV_ANONYMOUS_ACCESS | SMBV_SFS_ACCESS)) != 0)
@@ -198,7 +200,12 @@
 #define SMBS_GOING_AWAY		0x0008
 #define	SMBS_GONE			SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
+/* Multichannel interfaces ignore list */
 #define kClientIfIgnorelistMaxLen 32 /* max len of client interface ignorelist */
+
+/* Compression */
+#define kClientCompressMaxEntries 64 /* max exclude/include for compression extensions */
+#define kClientCompressMaxExtLen 16  /* max extension string length */
 
 /*
  * Negotiated protocol parameters
@@ -358,7 +365,8 @@ struct session_network_interface_info {
     struct interface_info_list server_nic_info_list; /* list of the server's available NICs */
 
     uint32_t max_channels;
-    uint32_t max_rss_channels;
+    uint32_t srvr_rss_channels;
+    uint32_t clnt_rss_channels;
     uint32_t *client_if_ignorelist;
     uint32_t client_if_ignorelist_len;
     size_t client_if_ignorelist_allocsize; /* client_if_ignorelist alloc size, required when deallocating client_if_ignorelist */
@@ -470,12 +478,19 @@ struct smb_session {
 
     /* Adaptive Read/Write values */
     lck_mtx_t           iod_quantum_lock;
+    
     uint32_t            iod_readSizes[3];           /* [0] = min, [1] = med, [2] = max */
     uint32_t            iod_readCounts[3];          /* [0] = max, [1] = med, [2] = min */
+    uint32_t            iod_readTotalTime[3];       /* [0] = min, [1] = med, [2] = max */
+    uint64_t            iod_readTotalBytes[3];      /* [0] = min, [1] = med, [2] = max */
+
     uint32_t            iod_writeSizes[3];          /* [0] = min, [1] = med, [2] = max */
     uint32_t            iod_writeCounts[3];         /* [0] = max, [1] = med, [2] = min */
     uint64_t            iod_readBytePerSec[3];      /* [0] = min, [1] = med, [2] = max */
     uint64_t            iod_writeBytePerSec[3];     /* [0] = min, [1] = med, [2] = max */
+    uint32_t            iod_writeTotalTime[3];      /* [0] = min, [1] = med, [2] = max */
+    uint64_t            iod_writeTotalBytes[3];     /* [0] = min, [1] = med, [2] = max */
+
     struct timeval      iod_last_recheck_time;      /* Last time we checked speeds */
 
     uint32_t            iod_readQuantumSize;        /* current read quantum size */
@@ -483,7 +498,11 @@ struct smb_session {
     uint32_t            iod_writeQuantumSize;       /* current write quantum size */
     uint32_t            iod_writeQuantumNumber;     /* current write quantum number */
 
-    int32_t             rw_thread_control;
+    uint64_t            active_channel_speed;
+    uint32_t            active_channel_count;
+    uint32_t            rw_gb_threshold;
+
+    uint32_t            rw_max_check_time;
 
     /* SMB 3 signing key (Session.SessionKey) */
     uint8_t             session_smb3_signing_key[SMB3_KEY_LEN];
@@ -552,7 +571,9 @@ struct smb_session {
     struct timespec     session_setup_time;         // The local time at which the session has been established
     struct timespec     session_reconnect_time;     // The last time a reconnect took place
     lck_mtx_t           failover_lock;              // sync failovers
-
+    uint32_t            max_channels;
+    uint32_t            srvr_rss_channels;
+    uint32_t            clnt_rss_channels;
     struct session_network_interface_info session_interface_table;
 
     /* Lease break */
@@ -570,9 +591,32 @@ struct smb_session {
     time_t              snapshot_local_time;
     
     /* For DFS, if tree connect returns STATUS_SMB_BAD_CLUSTER_DIALECT */
-    uint32_t             session_max_dialect;
+    uint32_t            session_max_dialect;
 
     uint8_t             uuid[16];                   // session random ID to return to userspace
+
+    /*
+     * SMB Compression support
+     */
+    uint32_t            client_compression_algorithms_map;  /* What client supports */
+    uint32_t            server_compression_algorithms_map;  /* What server picked to use */
+    uint32_t            compression_io_threshold;           /* Min IO size to compress */
+    uint32_t            compression_chunk_len;
+    uint32_t            compression_max_fail_cnt;
+    /* Compression Counters */
+    uint64_t            write_compress_cnt;
+    uint64_t            write_cnt_LZ77Huff;
+    uint64_t            write_cnt_LZ77;
+    uint64_t            write_cnt_LZNT1;
+    uint64_t            write_cnt_fwd_pattern;
+    uint64_t            write_cnt_bwd_pattern;
+    
+    uint64_t            read_compress_cnt;
+    uint64_t            read_cnt_LZ77Huff;
+    uint64_t            read_cnt_LZ77;
+    uint64_t            read_cnt_LZNT1;
+    uint64_t            read_cnt_fwd_pattern;
+    uint64_t            read_cnt_bwd_pattern;
 };
 
 #define session_maxmux	session_sopt.sv_maxmux
@@ -786,6 +830,7 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
 #define SMBIOD_EV_MASK            0x00ff
 #define SMBIOD_EV_SYNC            0x0100
 #define SMBIOD_EV_PROCESSING      0x0200
+#define SMBIOD_EV_PROCESSED       0x0400
 
 
 struct smbiod_event {
@@ -838,7 +883,7 @@ struct smbiod {
     STAILQ_HEAD(,smbiod_event) iod_evlist;
     struct timespec     iod_lastrqsent;
     struct timespec     iod_lastrecv;
-    int                 iod_workflag;         /* should be protected with lock */
+    int                 iod_workflag;         /* protected with iod_flags mutex */
     struct timespec     reconnectStartTime;   /* Time when the reconnect was started */
     
     /* MultiChannel Support */

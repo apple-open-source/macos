@@ -28,7 +28,6 @@
 
 #include "AuthenticationChallengeDisposition.h"
 #include "AuthenticationManager.h"
-#include "DataReference.h"
 #include "Download.h"
 #include "NetworkLoad.h"
 #include "NetworkProcess.h"
@@ -41,7 +40,7 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/OriginAccessPatterns.h>
-#include <WebCore/PublicSuffix.h>
+#include <WebCore/PublicSuffixStore.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/SoupNetworkSession.h>
@@ -50,6 +49,7 @@
 #include <pal/text/TextEncoding.h>
 #include <wtf/MainThread.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -461,13 +461,12 @@ void NetworkDataTaskSoup::didSendRequest(GRefPtr<GInputStream>&& inputStream)
     m_networkLoadMetrics.responseStart = MonotonicTime::now();
 #endif
 
-    if (!m_networkLoadMetrics.failsTAOCheck) {
-        RefPtr<SecurityOrigin> origin = isTopLevelNavigation() ? SecurityOrigin::create(firstRequest().url()) : m_sourceOrigin;
-        if (origin)
-            m_networkLoadMetrics.failsTAOCheck = !passesTimingAllowOriginCheck(m_response, *origin);
-    }
-
     dispatchDidReceiveResponse();
+}
+
+void NetworkDataTaskSoup::setTimingAllowFailedFlag()
+{
+    m_networkLoadMetrics.failsTAOCheck = true;
 }
 
 void NetworkDataTaskSoup::dispatchDidReceiveResponse()
@@ -477,7 +476,7 @@ void NetworkDataTaskSoup::dispatchDidReceiveResponse()
     // FIXME: This cannot be eliminated until other code no longer relies on ResourceResponse's NetworkLoadMetrics.
     m_response.setDeprecatedNetworkLoadMetrics(Box<NetworkLoadMetrics>::create(m_networkLoadMetrics));
 
-    didReceiveResponse(ResourceResponse(m_response), NegotiatedLegacyTLS::No, PrivateRelayed::No, [this, protectedThis = Ref { *this }](PolicyAction policyAction) {
+    didReceiveResponse(ResourceResponse(m_response), NegotiatedLegacyTLS::No, PrivateRelayed::No, std::nullopt, [this, protectedThis = Ref { *this }](PolicyAction policyAction) {
         if (m_state == State::Canceling || m_state == State::Completed) {
             clearRequest();
             return;
@@ -1251,7 +1250,7 @@ void NetworkDataTaskSoup::didGetHeaders()
         auto* address = soup_message_get_remote_address(m_soupMessage.get());
         if (G_IS_INET_SOCKET_ADDRESS(address)) {
             GUniquePtr<char> ipAddress(g_inet_address_to_string(g_inet_socket_address_get_address(G_INET_SOCKET_ADDRESS(address))));
-            additionalMetrics.remoteAddress = makeString(ipAddress.get(), ':', g_inet_socket_address_get_port(G_INET_SOCKET_ADDRESS(address)));
+            additionalMetrics.remoteAddress = makeString(span(ipAddress.get()), ':', g_inet_socket_address_get_port(G_INET_SOCKET_ADDRESS(address)));
         }
         additionalMetrics.tlsProtocol = tlsProtocolVersionToString(soup_message_get_tls_protocol_version(m_soupMessage.get()));
         additionalMetrics.tlsCipher = String::fromUTF8(soup_message_get_tls_ciphersuite_name(m_soupMessage.get()));
@@ -1476,7 +1475,7 @@ void NetworkDataTaskSoup::didFailDownload(const ResourceError& error)
     else {
         auto* download = m_session->networkProcess().downloadManager().download(m_pendingDownloadID);
         ASSERT(download);
-        download->didFail(error, IPC::DataReference());
+        download->didFail(error, { });
     }
 }
 
@@ -1532,7 +1531,7 @@ void NetworkDataTaskSoup::networkEvent(GSocketClientEvent event, GIOStream* stre
             GRefPtr<GSocketAddress> address = adoptGRef(g_socket_connection_get_remote_address(G_SOCKET_CONNECTION(stream), nullptr));
             if (G_IS_INET_SOCKET_ADDRESS(address.get())) {
                 GUniquePtr<char> ipAddress(g_inet_address_to_string(g_inet_socket_address_get_address(G_INET_SOCKET_ADDRESS(address.get()))));
-                additionalNetworkLoadMetricsForWebInspector().remoteAddress = makeString(ipAddress.get(), ':', g_inet_socket_address_get_port(G_INET_SOCKET_ADDRESS(address.get())));
+                additionalNetworkLoadMetricsForWebInspector().remoteAddress = makeString(span(ipAddress.get()), ':', g_inet_socket_address_get_port(G_INET_SOCKET_ADDRESS(address.get())));
             }
         }
         // Web Timing considers that connection time involves dns, proxy & TLS negotiation...
@@ -1575,14 +1574,9 @@ bool NetworkDataTaskSoup::shouldAllowHSTSPolicySetting() const
 {
     // Follow Apple's HSTS abuse mitigation 1:
     //  "Limit HSTS State to the Hostname, or the Top Level Domain + 1"
-#if ENABLE(PUBLIC_SUFFIX_LIST)
     return isTopLevelNavigation()
         || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host()
-        || isPublicSuffix(m_currentRequest.url().host());
-#else
-    return isTopLevelNavigation()
-        || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host();
-#endif
+        || PublicSuffixStore::singleton().isPublicSuffix(m_currentRequest.url().host());
 }
 
 bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const
@@ -1705,10 +1699,10 @@ void NetworkDataTaskSoup::didGetFileInfo(GFileInfo* info)
         m_response.setExpectedContentLength(-1);
     } else {
         auto contentType = String::fromLatin1(g_file_info_get_content_type(info));
-        m_response.setMimeType(AtomString { extractMIMETypeFromMediaType(contentType) });
-        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType).toAtomString());
+        m_response.setMimeType(extractMIMETypeFromMediaType(contentType));
+        m_response.setTextEncodingName(extractCharsetFromMediaType(contentType).toString());
         if (m_response.mimeType().isEmpty())
-            m_response.setMimeType(AtomString { MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()) });
+            m_response.setMimeType(MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()));
         m_response.setExpectedContentLength(g_file_info_get_size(info));
     }
 }

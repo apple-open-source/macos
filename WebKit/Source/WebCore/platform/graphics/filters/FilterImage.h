@@ -37,6 +37,11 @@
 OBJC_CLASS CIImage;
 #endif
 
+#if USE(SKIA)
+#include <skia/core/SkPicture.h>
+#include <skia/core/SkPictureRecorder.h>
+#endif
+
 namespace WebCore {
 
 class Filter;

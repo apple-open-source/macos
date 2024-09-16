@@ -63,8 +63,7 @@ void GStreamerVideoCapturer::setSinkVideoFrameCallback(SinkVideoFrameCallback&& 
     m_sinkVideoFrameCallback.second = WTFMove(callback);
     m_sinkVideoFrameCallback.first = g_signal_connect_swapped(sink(), "new-sample", G_CALLBACK(+[](GStreamerVideoCapturer* capturer, GstElement* sink) -> GstFlowReturn {
         auto gstSample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
-        auto presentationTime = fromGstClockTime(GST_BUFFER_PTS(gst_sample_get_buffer(gstSample.get())));
-        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::create(WTFMove(gstSample), WebCore::FloatSize(), presentationTime));
+        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::createWrappedSample(gstSample));
         return GST_FLOW_OK;
     }), this);
 }
@@ -125,16 +124,7 @@ GstElement* GStreamerVideoCapturer::createConverter()
     return bin;
 }
 
-GstVideoInfo GStreamerVideoCapturer::getBestFormat()
-{
-    auto caps = adoptGRef(gst_caps_fixate(gst_device_get_caps(m_device->device())));
-    GstVideoInfo info;
-    gst_video_info_from_caps(&info, caps.get());
-
-    return info;
-}
-
-bool GStreamerVideoCapturer::setSize(int width, int height)
+bool GStreamerVideoCapturer::setSize(const IntSize& size)
 {
     if (isCapturingDisplay()) {
         // Pipewiresrc doesn't seem to support caps re-negotiation and framerate configuration properly.
@@ -142,6 +132,8 @@ bool GStreamerVideoCapturer::setSize(int width, int height)
         return true;
     }
 
+    int width = size.width();
+    int height = size.height();
     if (!width || !height)
         return false;
 
@@ -151,12 +143,13 @@ bool GStreamerVideoCapturer::setSize(int width, int height)
         return true;
     }
 
+    if (UNLIKELY(!m_capsfilter))
+        return false;
+
     GST_INFO_OBJECT(m_pipeline.get(), "Setting size to %dx%d", width, height);
+    m_size = size;
     m_caps = adoptGRef(gst_caps_copy(m_caps.get()));
     gst_caps_set_simple(m_caps.get(), "width", G_TYPE_INT, width, "height", G_TYPE_INT, height, nullptr);
-
-    if (!m_capsfilter)
-        return false;
 
     g_object_set(m_capsfilter.get(), "caps", m_caps.get(), nullptr);
     return true;
@@ -171,7 +164,6 @@ bool GStreamerVideoCapturer::setFrameRate(double frameRate)
     }
 
     int numerator, denominator;
-
     gst_util_double_to_fraction(frameRate, &numerator, &denominator);
 
     if (numerator < -G_MAXINT) {
@@ -184,15 +176,14 @@ bool GStreamerVideoCapturer::setFrameRate(double frameRate)
         return false;
     }
 
+    if (UNLIKELY(!m_capsfilter))
+        return false;
+
     m_caps = adoptGRef(gst_caps_copy(m_caps.get()));
     gst_caps_set_simple(m_caps.get(), "framerate", GST_TYPE_FRACTION, numerator, denominator, nullptr);
 
-    if (!m_capsfilter)
-        return false;
-
     GST_INFO_OBJECT(m_pipeline.get(), "Setting framerate to %f fps", frameRate);
     g_object_set(m_capsfilter.get(), "caps", m_caps.get(), nullptr);
-
     return true;
 }
 
@@ -302,11 +293,8 @@ void GStreamerVideoCapturer::reconfigure()
 
     // If nothing has been specified by the user, we target at least an arbitrary resolution of 1920x1080@24fps.
     const GstStructure* capsStruct = gst_caps_get_structure(m_caps.get(), 0);
-    if (!gst_structure_get_int(capsStruct, "width", &selector.stopCondition.width))
-        selector.stopCondition.width = 1920;
-
-    if (!gst_structure_get_int(capsStruct, "height", &selector.stopCondition.height))
-        selector.stopCondition.height = 1080;
+    selector.stopCondition.width = gstStructureGet<int>(capsStruct, "width"_s).value_or(1920);
+    selector.stopCondition.height = gstStructureGet<int>(capsStruct, "height"_s).value_or(1080);
 
     int numerator = 0;
     int denominator = 1;

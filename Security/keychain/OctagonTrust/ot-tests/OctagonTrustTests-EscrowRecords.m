@@ -48,7 +48,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "OctagonTrustTests.h"
-#import "keychain/categories/NSError+UsefulConstructors.h"
 
 @implementation ProxyXPCConnection
 
@@ -142,6 +141,17 @@
     return nil;
 }
 
+- (NSError*)getAccountInfoWithInfoWithoutPasscodeGeneration:(NSDictionary*)info
+                                                    results:(NSDictionary *__autoreleasing *)results {
+    NSError* localError = nil;
+    NSData *testVectorData = [accountInfoWithEmptyPasscodeGeneration dataUsingEncoding:kCFStringEncodingUTF8];
+    NSPropertyListFormat format;
+    NSDictionary *testVectorPlist = [NSPropertyListSerialization propertyListWithData:testVectorData options: NSPropertyListMutableContainersAndLeaves format:&format error:&localError];
+    *results = testVectorPlist;
+
+    return nil;
+}
+
 - (NSDictionary *)recoverSilentWithCDPContext:(OTICDPRecordContext *)cdpContext allRecords:(NSArray<OTEscrowRecord *> *)allRecords error:(NSError *__autoreleasing *)error {
     return nil;
 }
@@ -154,8 +164,10 @@
     return nil;
 }
 
+#ifndef __clang_analyzer__
 - (void)restoreKeychainAsyncWithPassword:(id)password keybagDigest:(NSData *)keybagDigest haveBottledPeer:(BOOL)haveBottledPeer viewsNotToBeRestored:(NSMutableSet<NSString *> *)viewsNotToBeRestored error:(NSError *__autoreleasing *)error {
 }
+#endif
 
 - (bool)isRecoveryKeySet:(NSError *__autoreleasing *)error {
     if (self.failRecoveryKeySet) {
@@ -252,6 +264,9 @@
     nonViableRecord.silentAttemptAllowed = 1;
     nonViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     nonViableRecord.escrowInformationMetadata.bottleValidity = @"invalid";
+    nonViableRecord.escrowInformationMetadata.build = @"18A214";
+    nonViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    nonViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     // It even has a bottleId! Not a useful one, though.
     nonViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
@@ -268,6 +283,9 @@
     partiallyViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     partiallyViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     partiallyViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    partiallyViableRecord.escrowInformationMetadata.build = @"18A214";
+    partiallyViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    partiallyViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     partiallyViableRecord.serialNumber =[[NSUUID UUID] UUIDString];
     partiallyViableRecord.silentAttemptAllowed = 1;
@@ -286,7 +304,10 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
-    
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
+
     octagonAndSOSViableRecord.serialNumber =[[NSUUID UUID] UUIDString];
     octagonAndSOSViableRecord.silentAttemptAllowed = 1;
     return octagonAndSOSViableRecord;
@@ -304,12 +325,41 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase = 1;
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength = 6;
     
     octagonAndSOSViableRecord.serialNumber =[[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.silentAttemptAllowed = 1;
+    return octagonAndSOSViableRecord;
+}
+
+- (OTEscrowRecord*)createOctagonViableSOSViableButPeerIsBadiOSRecord
+{
+    OTEscrowRecord *octagonAndSOSViableRecord = [[OTEscrowRecord alloc] init];
+    octagonAndSOSViableRecord.creationDate = [NSDate date].timeIntervalSince1970;
+    octagonAndSOSViableRecord.label = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.recordStatus = OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID;
+    octagonAndSOSViableRecord.recordViability = OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE;
+    octagonAndSOSViableRecord.viabilityStatus = OTEscrowRecord_SOSViability_SOS_VIABLE;
+
+    octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
+    octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
+    octagonAndSOSViableRecord.escrowInformationMetadata.peerInfo = [@"I'm a bad peer info" dataUsingEncoding:NSUTF8StringEncoding];
+    octagonAndSOSViableRecord.escrowInformationMetadata.serial = [NSUUID UUID].UUIDString;
+
+    octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase = 1;
+    octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength = 6;
+
     octagonAndSOSViableRecord.silentAttemptAllowed = 1;
     return octagonAndSOSViableRecord;
 }
@@ -326,6 +376,9 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase = 0;
@@ -349,6 +402,9 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase = 1;
@@ -371,6 +427,9 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"valid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase = 1;
@@ -393,6 +452,9 @@
     octagonAndSOSViableRecord.escrowInformationMetadata = [[OTEscrowRecordMetadata alloc] init];
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleValidity = @"invalid";
     octagonAndSOSViableRecord.escrowInformationMetadata.bottleId = [[NSUUID UUID] UUIDString];
+    octagonAndSOSViableRecord.escrowInformationMetadata.build = @"18A214";
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+    octagonAndSOSViableRecord.escrowInformationMetadata.passcodeGeneration.value = 50;
 
     octagonAndSOSViableRecord.serialNumber =[[NSUUID UUID] UUIDString];
     octagonAndSOSViableRecord.silentAttemptAllowed = 1;
@@ -413,6 +475,28 @@
         return nil;
     }
     
+    NSDictionary *testVectorRecord = testVectorICDPRecords[0];
+
+    OTEscrowRecord *record = [OTEscrowTranslation dictionaryToEscrowRecord:testVectorRecord];
+
+    NSArray *records = @[record.data];
+    return records;
+}
+
+- (NSArray<NSData*>* _Nullable)mockFetchEscrowRecordsInternalMissingPasscodeGeneration:(OTConfigurationContext*)data
+                                                                                 error:(NSError* __autoreleasing *)error
+{
+    NSError* localError = nil;
+    NSData *testVectorData = [accountInfoWithEmptyPasscodeGeneration dataUsingEncoding:kCFStringEncodingUTF8];
+    NSPropertyListFormat format;
+    NSDictionary *testVectorPlist = [NSPropertyListSerialization propertyListWithData:testVectorData options: NSPropertyListMutableContainersAndLeaves format:&format error:&localError];
+
+    NSArray *testVectorICDPRecords = testVectorPlist[@"SecureBackupAlliCDPRecords"];
+    XCTAssertNotNil(testVectorICDPRecords, "should not be nil");
+    if (testVectorICDPRecords == nil) {
+        return nil;
+    }
+
     NSDictionary *testVectorRecord = testVectorICDPRecords[0];
 
     OTEscrowRecord *record = [OTEscrowTranslation dictionaryToEscrowRecord:testVectorRecord];
@@ -494,6 +578,18 @@
     return @[[self createOctagonNotViableSOSViableRecord].data, [self createOctagonNotViableSOSViableRecord].data];
 }
 
+- (NSArray<NSData*>* _Nullable)mockFetchEscrowRecordsInternalReturnsNoRecords:(OTConfigurationContext*)data
+                                                                        error:(NSError* __autoreleasing *)error
+{
+    return [NSArray array];
+}
+
+- (NSArray<NSData*>* _Nullable)mockFetchEscrowRecordsInternalReturnBadPeerInfoRecords:(OTConfigurationContext*)data
+                                                                                error:(NSError* __autoreleasing *)error
+{
+    return @[[self createOctagonViableSOSViableButPeerIsBadiOSRecord].data, [self createOctagonViableSOSViableButPeerIsBadiOSRecord].data];
+}
+
 - (void)setUp
 {
     [super setUp];
@@ -528,6 +624,8 @@
     XCTAssertTrue([firstRecord.serialNumber isEqualToString:@"C39V209AJ9L5"], "serial number should be C39V209AJ9L5");
     XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
     XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertTrue(firstRecord.escrowInformationMetadata.passcodeGeneration.value == 50, "passcode generation should be 50");
 }
 
 - (void)testFetchTwoPartiallyViableEscrowRecords
@@ -547,10 +645,14 @@
     OTEscrowRecord *firstRecord = escrowRecords[0];
     XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
     XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_PARTIALLY_VIABLE, "record viability should be partial");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(firstRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *secondRecord = escrowRecords[1];
     XCTAssertTrue([secondRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
     XCTAssertEqual(secondRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_PARTIALLY_VIABLE, "record viability should be partial");
+    XCTAssertTrue([secondRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(secondRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 }
 
 - (void)testFetchViableAndLegacyEscrowRecords
@@ -571,6 +673,7 @@
     XCTAssertTrue([firstRecord.label isEqualToString:@"com.apple.icdp.record"], "label should be com.apple.icdp.record");
     XCTAssertTrue([firstRecord.serialNumber isEqualToString:@"C39V209AJ9L5"], "serial number should be C39V209AJ9L5");
     XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
     XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
 }
 
@@ -607,8 +710,10 @@
     XCTAssertTrue([firstRecord.label isEqualToString:@"com.apple.icdp.record"], "label should be com.apple.icdp.record");
     XCTAssertTrue([firstRecord.serialNumber isEqualToString:@"C39V209AJ9L5"], "serial number should be C39V209AJ9L5");
     XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
     XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
     XCTAssertEqual(firstRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE_UNKNOWN, "record SOS viability should be unknown");
+    XCTAssertTrue(firstRecord.escrowInformationMetadata.passcodeGeneration.value == 50, "passcode generation should be 50");
 }
 
 - (void)testFetchRecordsOctagonViableSOSViable
@@ -627,6 +732,9 @@
     XCTAssertEqual(escrowRecords.count, 2, "should only return 2 records");
     OTEscrowRecord *firstRecord = escrowRecords[0];
     XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(firstRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
+
     XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
     XCTAssertEqual(firstRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
 
@@ -634,6 +742,8 @@
     XCTAssertTrue([secondRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
     XCTAssertEqual(secondRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
     XCTAssertEqual(secondRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
+    XCTAssertTrue([secondRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(secondRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 }
 
 - (void)testFetchRecordsOctagonNotViableSOSViable
@@ -657,11 +767,15 @@
         XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"invalid"], "bottle validity should be invalid");
         XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY, "record viability should be set to legacy");
         XCTAssertEqual(firstRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
+        XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+        XCTAssertEqual(firstRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
         OTEscrowRecord *secondRecord = escrowRecords[1];
         XCTAssertTrue([secondRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"invalid"], "bottle validity should be invalid");
         XCTAssertEqual(secondRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_LEGACY, "record viability should be set to legacy");
         XCTAssertEqual(secondRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
+        XCTAssertTrue([secondRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+        XCTAssertEqual(secondRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
     } else {
         XCTAssertEqual(escrowRecords.count, 0, "should return 0 records");
 
@@ -812,6 +926,8 @@
     XCTAssertEqual(firstRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(firstRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 1, "uses numeric should be true");
     XCTAssertEqual(firstRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(firstRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *secondRecord = escrowRecords[1];
     XCTAssertTrue([secondRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
@@ -819,6 +935,8 @@
     XCTAssertEqual(secondRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(secondRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 1, "uses numeric should be true");
     XCTAssertEqual(secondRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([secondRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(secondRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *thirdRecord = escrowRecords[2];
     XCTAssertTrue([thirdRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
@@ -826,6 +944,8 @@
     XCTAssertEqual(thirdRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(thirdRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 1, "uses numeric should be true");
     XCTAssertEqual(thirdRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([thirdRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(thirdRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *fourthRecord = escrowRecords[3];
     XCTAssertTrue([fourthRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
@@ -833,6 +953,8 @@
     XCTAssertEqual(fourthRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(fourthRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 0, "uses numeric should be false");
     XCTAssertEqual(fourthRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([fourthRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(fourthRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *fifthRecord = escrowRecords[4];
     XCTAssertTrue([fifthRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
@@ -840,6 +962,8 @@
     XCTAssertEqual(fifthRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(fifthRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 0, "uses numeric should be false");
     XCTAssertEqual(fifthRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([fifthRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(fifthRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 
     OTEscrowRecord *sixthRecord = escrowRecords[5];
     XCTAssertTrue([sixthRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
@@ -847,6 +971,8 @@
     XCTAssertEqual(sixthRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(sixthRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 0, "uses numeric should be false");
     XCTAssertEqual(sixthRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+    XCTAssertTrue([sixthRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertEqual(sixthRecord.escrowInformationMetadata.passcodeGeneration.value, 50, "passcode generation should be 50");
 }
 
 - (void)testFetchRecordsOctagonViableSOSViableAlliOSRecords
@@ -975,6 +1101,71 @@
     XCTAssertEqual(seventhRecord.viabilityStatus, OTEscrowRecord_SOSViability_SOS_VIABLE, "record sos viability should be fully viable");
     XCTAssertEqual(seventhRecord.escrowInformationMetadata.clientMetadata.secureBackupUsesNumericPassphrase, 0, "uses numeric should be false");
     XCTAssertEqual(seventhRecord.escrowInformationMetadata.clientMetadata.secureBackupNumericPassphraseLength, 6, "length should be 6");
+}
+
+- (void)testFetchEscrowRecordWithoutPasscodeGeneration
+{
+    OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
+    cliqueContextConfiguration.context = OTDefaultContext;
+    cliqueContextConfiguration.altDSID = @"altdsid";
+    cliqueContextConfiguration.otControl = self.otControl;
+
+    OCMStub([self.mockClique fetchEscrowRecordsInternal:[OCMArg any] 
+                                                  error:[OCMArg anyObjectRef]]).andCall(self, @selector(mockFetchEscrowRecordsInternalMissingPasscodeGeneration:error:));
+
+    NSError* localErrror = nil;
+    NSArray* escrowRecords = [OTClique fetchEscrowRecords:cliqueContextConfiguration error:&localErrror];
+    XCTAssertNil(localErrror, "error should be nil");
+
+    XCTAssertEqual(escrowRecords.count, 1, "should only return 1 record");
+    OTEscrowRecord *firstRecord = escrowRecords[0];
+    XCTAssertTrue([firstRecord.label isEqualToString:@"com.apple.icdp.record"], "label should be com.apple.icdp.record");
+    XCTAssertTrue([firstRecord.serialNumber isEqualToString:@"C39V209AJ9L5"], "serial number should be C39V209AJ9L5");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.bottleValidity isEqualToString: @"valid"], "bottle validity should be valid");
+    XCTAssertEqual(firstRecord.recordViability, OTEscrowRecord_RecordViability_RECORD_VIABILITY_FULLY_VIABLE, "record viability should be fully viable");
+    XCTAssertTrue([firstRecord.escrowInformationMetadata.build isEqualToString: @"18A214"], "build should be 18A214");
+    XCTAssertNil(firstRecord.escrowInformationMetadata.passcodeGeneration, "passcode generation should be nil");
+    XCTAssertFalse(firstRecord.escrowInformationMetadata.hasPasscodeGeneration, "hasPasscodeGeneration should report NO");
+}
+
+- (void) testFetchEmptyEscrowRecords {
+    OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
+    cliqueContextConfiguration.context = OTDefaultContext;
+    cliqueContextConfiguration.altDSID = @"altdsid";
+    cliqueContextConfiguration.otControl = self.otControl;
+    
+    OCMStub([self.mockClique fetchEscrowRecordsInternal:[OCMArg any]
+                                                  error:[OCMArg anyObjectRef]]).andCall(self, @selector(mockFetchEscrowRecordsInternalReturnsNoRecords:error:));
+    
+    NSError* localErrror = nil;
+    NSArray* escrowRecords = [OTClique fetchEscrowRecords:cliqueContextConfiguration error:&localErrror];
+    XCTAssertNil(localErrror, "error should be nil");
+    
+    XCTAssertNotNil(escrowRecords, "should not be nil");
+    XCTAssertEqual(escrowRecords.count, 0, "should return 0 records");
+}
+
+- (void) testFetchEscrowRecordWithBadSOSPeer {
+    OTConfigurationContext *cliqueContextConfiguration = [[OTConfigurationContext alloc]init];
+    cliqueContextConfiguration.context = OTDefaultContext;
+    cliqueContextConfiguration.altDSID = @"altdsid";
+    cliqueContextConfiguration.otControl = self.otControl;
+
+    OCMStub([self.mockClique fetchEscrowRecordsInternal:[OCMArg any]
+                                                  error:[OCMArg anyObjectRef]]).andCall(self, @selector(mockFetchEscrowRecordsInternalReturnBadPeerInfoRecords:error:));
+
+    NSError* localErrror = nil;
+    NSArray* escrowRecords = [OTClique fetchEscrowRecords:cliqueContextConfiguration error:&localErrror];
+    XCTAssertNil(localErrror, "error should be nil");
+
+    XCTAssertNotNil(escrowRecords, "should not be nil");
+    XCTAssertEqual(escrowRecords.count, 2, "should return 2 records");
+ 
+    OTEscrowRecord *firstRecord = escrowRecords[0];
+    XCTAssertNotNil(firstRecord.serialNumber, "serialNumber should not be nil");
+
+    OTEscrowRecord *secondRecord = escrowRecords[1];
+    XCTAssertNotNil(secondRecord.serialNumber, "serialNumber should not be nil");
 }
 
 @end

@@ -39,7 +39,7 @@ mbrtowc_l(wchar_t * __restrict pwc, const char * __restrict s,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_mbrtowc;
-	return (loc->__lc_ctype->__mbrtowc(pwc, s, n, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__mbrtowc(pwc, s, n, ps, loc));
 }
 
 size_t

@@ -86,15 +86,7 @@ static void hashString(SHA1& sha1, const String& string)
     if (string.isNull())
         return;
 
-    if (string.is8Bit() && string.containsOnlyASCII()) {
-        const uint8_t nullByte = 0;
-        sha1.addBytes(string.characters8(), string.length());
-        sha1.addBytes(&nullByte, 1);
-        return;
-    }
-    auto cString = string.utf8();
-    // Include terminating null byte.
-    sha1.addBytes(cString.dataAsUInt8Ptr(), cString.length() + 1);
+    sha1.addUTF8Bytes(string);
 }
 
 Key::HashType Key::computeHash(const Salt& salt) const
@@ -102,7 +94,7 @@ Key::HashType Key::computeHash(const Salt& salt) const
     // We don't really need a cryptographic hash. The key is always verified against the entry header.
     // SHA1 just happens to be suitably sized, fast and available.
     SHA1 sha1;
-    sha1.addBytes(salt.data(), salt.size());
+    sha1.addBytes(salt);
 
     hashString(sha1, m_partition);
     hashString(sha1, m_type);
@@ -127,7 +119,7 @@ Key::HashType Key::computePartitionHash(const Salt& salt) const
 Key::HashType Key::partitionToPartitionHash(const String& partition, const Salt& salt)
 {
     SHA1 sha1;
-    sha1.addBytes(salt.data(), salt.size());
+    sha1.addBytes(salt);
 
     hashString(sha1, partition);
 
@@ -147,7 +139,7 @@ String Key::hashAsString(const HashType& hash)
     return builder.toString();
 }
 
-template <typename CharType> bool hexDigitsToHash(CharType* characters, Key::HashType& hash)
+template <typename CharType> bool hexDigitsToHash(std::span<const CharType> characters, Key::HashType& hash)
 {
     for (unsigned i = 0; i < sizeof(hash); ++i) {
         auto high = characters[2 * i];
@@ -164,8 +156,8 @@ bool Key::stringToHash(const String& string, HashType& hash)
     if (string.length() != hashStringLength())
         return false;
     if (string.is8Bit())
-        return hexDigitsToHash(string.characters8(), hash);
-    return hexDigitsToHash(string.characters16(), hash);
+        return hexDigitsToHash(string.span8(), hash);
+    return hexDigitsToHash(string.span16(), hash);
 }
 
 bool Key::operator==(const Key& other) const

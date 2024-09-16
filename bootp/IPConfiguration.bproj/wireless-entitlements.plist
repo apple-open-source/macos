@@ -6,9 +6,20 @@
 	<array>
 		<string>IO80211APIUserClient</string>
 		<string>IONetworkStackUserClient</string>
+		<string>IOUserUserClient</string>
 		<string>RootDomainUserClient</string>
 	</array>
+	<key>com.apple.wifi.manager-access</key>
+	<true/>
 	<key>com.apple.wlan.authentication</key>
 	<true/>
+	<key>com.apple.private.driverkit.driver-access</key>
+	<array>
+		<string>com.apple.private.wifi.driverkit</string>
+	</array>
+	<key>com.apple.developer.driverkit.userclient-access</key>
+	<array>
+		<string>com.apple.DriverKit-AppleBCMWLAN</string>
+	</array>
 </dict>
 </plist>

@@ -63,9 +63,6 @@ Platform/classifier/ResourceLoadStatisticsClassifier.cpp
 Platform/glib/ModuleGlib.cpp
 
 Platform/unix/LoggingUnix.cpp
-Platform/unix/SharedMemoryUnix.cpp
-
-Shared/API/c/cairo/WKImageCairo.cpp
 
 Shared/API/glib/WebKitContextMenu.cpp @no-unify
 Shared/API/glib/WebKitContextMenuActions.cpp @no-unify
@@ -80,8 +77,6 @@ Shared/CoordinatedGraphics/SimpleViewportController.cpp
 
 Shared/CoordinatedGraphics/threadedcompositor/CompositingRunLoop.cpp
 Shared/CoordinatedGraphics/threadedcompositor/ThreadedCompositor.cpp
-
-Shared/cairo/ShareableBitmapCairo.cpp
 
 Shared/freetype/WebCoreArgumentCodersFreeType.cpp
 
@@ -99,7 +94,6 @@ Shared/libwpe/WebEventFactory.cpp
 
 Shared/linux/WebMemorySamplerLinux.cpp
 
-Shared/soup/WebCoreArgumentCodersSoup.cpp
 Shared/soup/WebErrorsSoup.cpp
 
 Shared/unix/AuxiliaryProcessMain.cpp
@@ -208,6 +202,7 @@ UIProcess/API/wpe/InputMethodFilterWPE.cpp @no-unify
 UIProcess/API/wpe/PageClientImpl.cpp @no-unify
 UIProcess/API/wpe/WebKitColor.cpp @no-unify
 UIProcess/API/wpe/WebKitInputMethodContextWPE.cpp @no-unify
+UIProcess/API/wpe/WebKitInputMethodContextImplWPE.cpp @no-unify
 UIProcess/API/wpe/WebKitPopupMenu.cpp @no-unify
 UIProcess/API/wpe/WebKitRectangle.cpp @no-unify
 UIProcess/API/wpe/WebKitScriptDialogWPE.cpp @no-unify
@@ -216,10 +211,11 @@ UIProcess/API/wpe/WebKitWebViewWPE1.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE2.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE.cpp @no-unify
 UIProcess/API/wpe/WPEWebView.cpp @no-unify
-
-UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
+UIProcess/API/wpe/WPEWebViewLegacy.cpp @no-unify
+UIProcess/API/wpe/WPEWebViewPlatform.cpp @no-unify
 
 UIProcess/Automation/libwpe/WebAutomationSessionLibWPE.cpp
+UIProcess/Automation/libwpe/WebAutomationSessionWPE.cpp
 
 UIProcess/CoordinatedGraphics/DrawingAreaProxyCoordinatedGraphics.cpp
 
@@ -231,6 +227,7 @@ UIProcess/glib/DisplayLinkGLib.cpp
 UIProcess/glib/DisplayVBlankMonitor.cpp
 UIProcess/glib/DisplayVBlankMonitorDRM.cpp
 UIProcess/glib/DisplayVBlankMonitorTimer.cpp
+UIProcess/glib/ScreenManager.cpp
 UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
@@ -239,6 +236,8 @@ UIProcess/gstreamer/WebPageProxyGStreamer.cpp
 
 UIProcess/Inspector/glib/RemoteInspectorClient.cpp
 UIProcess/Inspector/glib/RemoteInspectorHTTPServer.cpp
+
+UIProcess/Inspector/wpe/WebInspectorUIProxyWPE.cpp
 
 UIProcess/Launcher/glib/BubblewrapLauncher.cpp
 UIProcess/Launcher/glib/FlatpakLauncher.cpp
@@ -260,12 +259,15 @@ UIProcess/linux/MemoryPressureMonitor.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
 
 UIProcess/wpe/AcceleratedBackingStoreDMABuf.cpp
+UIProcess/wpe/ScreenManagerWPE.cpp
 UIProcess/wpe/WebPageProxyWPE.cpp
+UIProcess/wpe/WebPreferencesWPE.cpp
 
 WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp
 
 WebProcess/GPU/media/gstreamer/VideoLayerRemoteGStreamer.cpp
 
+WebProcess/InjectedBundle/API/glib/WebKitConsoleMessage.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitFrame.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitScriptWorld.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebEditor.cpp @no-unify
@@ -275,6 +277,8 @@ WebProcess/InjectedBundle/API/glib/WebKitWebPage.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebProcessExtensionManager.cpp @no-unify
 
 WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp
+
+WebProcess/Inspector/wpe/WebInspectorUIWPE.cpp
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
 

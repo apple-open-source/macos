@@ -393,6 +393,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	
 	state.mApplicationData = get<CFDataRef>(kSecCodeSignerApplicationData);
 	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
+	state.mForceLibraryEntitlements = getBool(kSecCodeSignerForceLibraryEntitlements);
 	state.mLaunchConstraints.resize(3);
 	state.mLaunchConstraints[0] = get<CFDataRef>(kSecCodeSignerLaunchConstraintSelf);
 	state.mLaunchConstraints[1] = get<CFDataRef>(kSecCodeSignerLaunchConstraintParent);

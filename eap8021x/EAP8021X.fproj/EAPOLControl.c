@@ -389,8 +389,8 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     CFMutableDictionaryRef 	new_auth_info = NULL;
 #if ! TARGET_OS_IPHONE
     Boolean 			user_interaction_disabled= FALSE;
-    Boolean 			ignore_disable_user_interaction = FALSE;
 #endif /* ! TARGET_OS_IPHONE */
+    Boolean 			ignore_disable_user_interaction = FALSE;
     Boolean 			ret_failure = FALSE;
 
     if (EAPOLControlAuthInfoIsValid(&auth_info) == FALSE) {
@@ -414,14 +414,13 @@ EAPOLControlStartWithClientItemID(const char * if_name,
 	    ret_failure = TRUE;
 	}
     }
-
+#endif /* ! TARGET_OS_IPHONE */
     if (auth_info != NULL) {
 	new_auth_info = CFDictionaryCreateMutableCopy(NULL, 0, auth_info);
 	if (ignore_disable_user_interaction) {
 	    CFDictionaryRemoveValue(new_auth_info, kEAPClientPropDisableUserInteraction);
 	}
     }
-#endif /* ! TARGET_OS_IPHONE */
     keys[0] = (const void *)kEAPOLControlClientItemID;
     values[0] = (const void *)item_dict;
     count = 1;

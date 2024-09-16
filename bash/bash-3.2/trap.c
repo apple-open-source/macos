@@ -967,6 +967,15 @@ signal_is_ignored (sig)
   return (sigmodes[sig] & SIG_IGNORED);
 }
 
+#ifdef __APPLE__
+int
+signal_is_hard_ignored (sig)
+     int sig;
+{
+  return (sigmodes[sig] & SIG_HARD_IGNORE);
+}
+#endif
+
 void
 set_signal_ignored (sig)
      int sig;

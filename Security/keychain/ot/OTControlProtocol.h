@@ -74,6 +74,7 @@ NS_ASSUME_NONNULL_BEGIN
                permanentInfoSig:(NSData *)permanentInfoSig
                      stableInfo:(NSData *)stableInfo
                   stableInfoSig:(NSData *)stableInfoSig
+                  maxCapability:(NSString *)maxCapability
                           reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply;
 
 - (void)rpcJoinWithArguments:(OTControlArguments*)arguments
@@ -200,6 +201,17 @@ NS_ASSUME_NONNULL_BEGIN
                        uuid:(NSUUID *)uuid
                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
+- (void)recreateInheritanceKey:(OTControlArguments*)arguments
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey*)oldIK
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+
+- (void)createInheritanceKey:(OTControlArguments*)arguments
+                        uuid:(NSUUID *_Nullable)uuid
+              claimTokenData:(NSData *)claimTokenData
+             wrappingKeyData:(NSData *)wrappingKeyData
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
 -   (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                repair:(BOOL)repair
@@ -286,7 +298,7 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
-                   machineID:(NSString*)machineID
+                   machineID:(NSString* _Nullable)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
 
 - (void)isRecoveryKeySet:(OTControlArguments*)arguments

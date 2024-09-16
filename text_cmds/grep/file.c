@@ -349,8 +349,12 @@ grep_open(const char *path)
 		goto error2;
 
 	/* Check for binary stuff, if necessary */
+#ifdef __APPLE__
+	if (fileeol != '\0' && memchr(bufpos, '\0', bufrem) != NULL)
+#else
 	if (binbehave != BINFILE_TEXT && fileeol != '\0' &&
 	    memchr(bufpos, '\0', bufrem) != NULL)
+#endif
 		f->binary = true;
 
 	return (f);

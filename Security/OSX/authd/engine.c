@@ -15,6 +15,7 @@
 #include "ccaudit.h"
 #include "connection.h"
 #include "od.h"
+#include "PreloginUserDb.h"
 
 #include <pwd.h>
 #include <Security/checkpw.h>
@@ -96,6 +97,8 @@ struct _engine_s {
     rule_t authenticateRule;
     
     bool dismissed;
+    
+    bool shouldUseLwSession;
     
     uint64_t engine_index;
 };
@@ -198,7 +201,7 @@ engine_create(connection_t conn, auth_token_t auth)
 
     engine->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     engine->effectiveCredentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
-    
+    engine->shouldUseLwSession = false;
     session_credentials_iterate(auth_token_get_session(engine->auth), ^bool(credential_t cred) {
         CFSetAddValue(engine->effectiveCredentials, cred);
         return true;
@@ -527,6 +530,11 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
     
 	CFDictionaryRef laResult = NULL;
     CFStringRef unameCf = NULL;
+    
+    Boolean pssoAuthenticate = pssoEnabled();
+    if (pssoAuthenticate) {
+        pssoAuthenticate = (strcmp(engine->currentRightName, "system.login.filevault") == 0);
+    }
 
     CFIndex count = CFArrayGetCount(mechanisms);
 	bool sheet_evaluation = false;
@@ -592,7 +600,10 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
             result = _evaluate_builtin_mechanism(engine, mech);
         } else {
             bool shoud_run_agent = !(engine->credentialsProvided && strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0);     // evaluate comes from sheet -> we may not want to run standard SecurityAgent or authhost
-			if (engine->la_context) {
+            if (pssoAuthenticate && (strcmp(mechanism_get_string(mech), "builtin:authenticate,privileged") == 0)) {
+                os_log_debug(AUTHD_LOG, "engine %llu: using authenticate-platformsso", engine->engine_index);
+                mechanism_set_string(mech, "authenticate-platformsso");
+            } else if (engine->la_context) {
 				// sheet variant in progress
 				if (strcmp(mechanism_get_string(mech), "builtin:authenticate") == 0) {
 					// set the UID the same way as SecurityAgent would
@@ -615,7 +626,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 					}
 					shoud_run_agent = false; // SecurityAgent should not be run for builtin:authenticate
 				} else if (strcmp(mechanism_get_string(mech), "builtin:authenticate,privileged") == 0) {
-					if (sheet_evaluation) {
+                    if (sheet_evaluation) {
 						os_log_debug(AUTHD_LOG, "engine %llu: running builtin sheet privileged authenticate", engine->engine_index);
 						shoud_run_agent = false;
 						if (!laResult || TKGetSmartcardSettingForUser(kTKEnforceSmartcard, unameCf) != 0) {
@@ -1509,6 +1520,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             if ((strcmp(key, "system.login.screensaver") == 0) || (strcmp(key, "system.login.screensaver.unlock") == 0)) {
                 localFlags |= kAuthorizationFlagSkipInternalAuth;
             }
+            const char *procName = process_get_code_url(engine->proc);
+            if ((strcmp(key, "com.apple.ctk.pair") == 0) && (strcmp("/System/Library/Frameworks/CryptoTokenKit.framework/ctkahp.bundle", procName) == 0)) {
+                engine->shouldUseLwSession = true;
+                os_log_debug(AUTHD_LOG, "engine %llu: enforcing LW session", engine->engine_index);
+            }
             
             CFStringRef tmp = CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8);
             if (tmp) {
@@ -2155,4 +2171,10 @@ bool engine_acquire_sheet_data(engine_t engine)
 auth_token_t engine_get_auth_token(engine_t engine)
 {
     return engine->auth;
+}
+
+bool engine_should_use_lw_session(engine_t engine)
+{
+
+    return engine->shouldUseLwSession;
 }

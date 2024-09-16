@@ -29,7 +29,7 @@
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "Editing.h"
-#include "Element.h"
+#include "ElementInlines.h"
 #include "HTMLInputElement.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
@@ -39,6 +39,7 @@
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -690,8 +691,26 @@ Node* VisibleSelection::nonBoundaryShadowTreeRootNode() const
 
 bool VisibleSelection::isInPasswordField() const
 {
-    RefPtr textControl = enclosingTextFormControl(start());
-    return is<HTMLInputElement>(textControl) && downcast<HTMLInputElement>(*textControl).isPasswordField();
+    RefPtr textControl = dynamicDowncast<HTMLInputElement>(enclosingTextFormControl(start()));
+    return textControl && textControl->isPasswordField();
+}
+
+bool VisibleSelection::canEnableWritingSuggestions() const
+{
+    if (RefPtr formControl = enclosingTextFormControl(start()))
+        return formControl->isWritingSuggestionsEnabled();
+
+    RefPtr containerNode = start().containerNode();
+    if (!containerNode)
+        return false;
+
+    if (RefPtr element = dynamicDowncast<Element>(containerNode.get()))
+        return element->isWritingSuggestionsEnabled();
+
+    if (RefPtr element = containerNode->parentElement())
+        return element->isWritingSuggestionsEnabled();
+
+    return false;
 }
 
 bool VisibleSelection::isInAutoFilledAndViewableField() const
@@ -726,7 +745,7 @@ String VisibleSelection::debugDescription() const
 {
     if (isNone())
         return "<none>"_s;
-    return makeString("from ", start().debugDescription(), " to ", end().debugDescription());
+    return makeString("from "_s, start().debugDescription(), " to "_s, end().debugDescription());
 }
 
 void VisibleSelection::showTreeForThis() const

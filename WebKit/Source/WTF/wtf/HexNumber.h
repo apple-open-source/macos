@@ -21,8 +21,7 @@
 #pragma once
 
 #include <array>
-#include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenate.h>
+#include <wtf/text/StringImpl.h>
 
 namespace WTF {
 
@@ -54,6 +53,7 @@ struct HexNumberBuffer {
     unsigned length;
 
     const LChar* characters() const { return &*(buffer.end() - length); }
+    std::span<const LChar> span() const { return { characters(), length }; }
 };
 
 template<typename NumberType> HexNumberBuffer hex(NumberType number, unsigned minimumDigits = 0, HexConversionMode mode = Uppercase)
@@ -80,7 +80,7 @@ public:
 
     unsigned length() const { return m_buffer.length; }
     bool is8Bit() const { return true; }
-    template<typename CharacterType> void writeTo(CharacterType* destination) const { StringImpl::copyCharacters(destination, characters(), length()); }
+    template<typename CharacterType> void writeTo(CharacterType* destination) const { StringImpl::copyCharacters(destination, m_buffer.span()); }
 
 private:
     const LChar* characters() const { return m_buffer.characters(); }

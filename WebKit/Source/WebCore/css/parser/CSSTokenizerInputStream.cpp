@@ -44,11 +44,11 @@ void CSSTokenizerInputStream::advanceUntilNonWhitespace()
 {
     // Using ASCII whitespace here rather than CSS space since we don't do preprocessing
     if (m_string->is8Bit()) {
-        const LChar* characters = m_string->characters8();
+        auto characters = m_string->span8();
         while (m_offset < m_stringLength && isASCIIWhitespace(characters[m_offset]))
             ++m_offset;
     } else {
-        const UChar* characters = m_string->characters16();
+        auto characters = m_string->span16();
         while (m_offset < m_stringLength && isASCIIWhitespace(characters[m_offset]))
             ++m_offset;
     }
@@ -61,9 +61,9 @@ double CSSTokenizerInputStream::getDouble(unsigned start, unsigned end) const
     double result = 0.0;
     if (start < end) {
         if (m_string->is8Bit())
-            result = charactersToDouble(m_string->characters8() + m_offset + start, end - start, &isResultOK);
+            result = charactersToDouble(m_string->span8().subspan(m_offset + start, end - start), &isResultOK);
         else
-            result = charactersToDouble(m_string->characters16() + m_offset + start, end - start, &isResultOK);
+            result = charactersToDouble(m_string->span16().subspan(m_offset + start, end - start), &isResultOK);
     }
     // FIXME: It looks like callers ensure we have a valid number
     return isResultOK ? result : 0.0;

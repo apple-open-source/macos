@@ -80,6 +80,7 @@ static NSString* _utapath;
      componentName:(NSString*)componentName
   componentVersion:(NSString*)componentVersion
        componentID:(NSString*)componentID
+        attributes:(NSDictionary *_Nullable)attributes
 {
     [self.ttrExpectation fulfill];
 }
@@ -328,6 +329,7 @@ static NSString* modelID = nil;
 
 - (void)testAddingEventsWithNilName
 {
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     [_analytics logSuccessForEventNamed:nil];
@@ -342,6 +344,7 @@ static NSString* modelID = nil;
     [_analytics noteEventNamed:nil];
     [self assertNoEventsAnywhere];
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
 }
 
 - (void)testLogSuccess
@@ -589,6 +592,7 @@ static NSString* modelID = nil;
 
 - (void)testSamplerWithBadData
 {
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     NSString* samplerName = [NSString stringWithFormat:@"UnitTestSamplerWithBadData_%li", (long)_testnum];
@@ -605,6 +609,7 @@ static NSString* modelID = nil;
 
     XCTAssertNil([_analytics addMetricSamplerForName:samplerName withTimeInterval:2.0f block:nil]);
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
 }
 
 - (void)testSamplerOncePerReport
@@ -651,11 +656,13 @@ static NSString* modelID = nil;
 
 - (void)testSamplerLogBadSample
 {
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     [_analytics logMetric:nil withName:@"testsampler"];
     [self checkSamples:@[] name:@"testsampler" totalSamples:0 accuracy:0.01f];
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
 
     id badobj = [NSString stringWithUTF8String:"yolo!"];
     [_analytics logMetric:badobj withName:@"testSampler"];
@@ -805,6 +812,7 @@ static NSString* modelID = nil;
 
 - (void)testTrackerBadData
 {
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     // Inspect database to find out it's empty
@@ -816,6 +824,7 @@ static NSString* modelID = nil;
 
     [self assertNoEventsAnywhere];
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
 }
 
 // MARK: Miscellaneous
@@ -834,10 +843,12 @@ static NSString* modelID = nil;
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate dateWithTimeIntervalSinceNow:secondsPerDay * -77]], 30);
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate dateWithTimeIntervalSinceNow:secondsPerDay * -370]], 365);
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate distantPast]], 1000);
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:nil], -1);
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
 }
 
 - (void)testRingBuffer {

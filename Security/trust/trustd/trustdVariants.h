@@ -32,5 +32,6 @@ bool TrustdVariantAllowsMobileAsset(void);
 bool TrustdVariantAllowsNetwork(void);
 bool TrustdVariantHasCertificatesBundle(void);
 bool TrustdVariantLowMemoryDevice(void);
+bool TrustdVariantPrivateServerOS(void);
 
 #endif /* _SECURITY_TRUSTDVARIANTS_H_ */

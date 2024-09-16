@@ -27,10 +27,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)diff.1	8.1 (Berkeley) 6/30/93
-.\" $FreeBSD$
-.\"
-.Dd September 8, 2022
+.Dd February 26, 2024
 .Dt DIFF 1
 .Os
 .Sh NAME
@@ -492,6 +489,15 @@ Output at most
 .Ar number
 columns when using side by side format.
 The default value is 130.
+Note that unless
+.It Fl t
+was specified,
+.Nm
+will always align the second column to a tab stop, so values of
+.Fl -width
+smaller than approximately five times the value of
+.Fl -tabsize
+may yield surprising results.
 .It Fl -changed-group-format Ar GFMT
 Format input groups in the provided
 .Pp
@@ -505,7 +511,7 @@ lines from FILE2
 .It Fl -ignore-file-name-case
 ignore case when comparing file names
 .It Fl -no-ignore-file-name-case
-do not ignore case wen comparing file names (default)
+do not ignore case when comparing file names (default)
 .It Fl -normal
 default diff output
 .It Fl -speed-large-files
@@ -819,4 +825,4 @@ command appeared in
 .At v6 .
 .Pp
 libdiff was imported from the Game of Trees version control system and default
-algorithm was changed to Myers for FreeBSD 14.
+algorithm was changed to Myers for FreeBSD 15.

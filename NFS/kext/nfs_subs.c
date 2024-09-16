@@ -202,6 +202,16 @@ nfs_maperr(const char *func, int error)
 	}
 }
 
+vm_offset_t
+nfs_kernel_hideaddr(void *addr)
+{
+	vm_offset_t hide_addr = 0;
+	if (addr) {
+		vm_kernel_addrhide((vm_offset_t)addr, &hide_addr);
+	}
+	return hide_addr;
+}
+
 /*
  * functions to convert between NFS and VFS types
  */

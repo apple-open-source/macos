@@ -48,7 +48,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         Mac
         PlayStation
         WPE
-        WinCairo
+        Win
     )
     set(PORT "NOPORT" CACHE STRING "choose which WebKit port to build (one of ${ALL_PORTS})")
 
@@ -71,9 +71,14 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     endif ()
 
     if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "10.2.0")
-            message(FATAL_ERROR "GCC 10.2 or newer is required to build WebKit. Use a newer GCC version or Clang.")
+        if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "11.2.0")
+            message(FATAL_ERROR "GCC 11.2 or newer is required to build WebKit. Use a newer GCC version or Clang.")
         endif ()
+    endif ()
+
+    if (${CMAKE_CXX_COMPILER_ID} STREQUAL "QCC")
+        set(COMPILER_IS_QCC ON)
+        set(COMPILER_IS_GCC_OR_CLANG ON)
     endif ()
 
     if (CMAKE_COMPILER_IS_GNUCXX OR COMPILER_IS_CLANG)

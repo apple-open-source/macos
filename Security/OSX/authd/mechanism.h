@@ -45,6 +45,10 @@ uint64_t mechanism_get_type(mechanism_t);
   
 AUTH_NONNULL_ALL
 bool mechanism_is_privileged(mechanism_t);
+
+AUTH_NONNULL_ALL
+void mechanism_set_string(mechanism_t, const char *);
+
     
 #if defined(__cplusplus)
 }

@@ -19,6 +19,7 @@ else
 # it.
 BATS_PLISTS += $(SRCROOT)/FreeBSD/freebsd.plist
 endif
+BATS_PLISTS += $(SRCROOT)/regex/regex.plist
 
 FRAMEWORK_CFLAGS := $(patsubst %,-iframework %,$(SYSTEM_FRAMEWORK_SEARCH_PATHS))
 WARNING_CFLAGS := -Weverything \
@@ -56,7 +57,17 @@ os_variant: OTHER_CFLAGS += -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
 osvariantutil: OTHER_CFLAGS += -Wno-gnu-statement-expression -Wno-covered-switch-default -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
+ifeq ($(PLATFORM),MacOSX)
+include $(SRCROOT)/FreeBSD/gen/Makefile.targets
+endif
+include $(SRCROOT)/regex/Makefile.targets
+
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
+
+ifeq ($(PLATFORM),MacOSX)
+include $(SRCROOT)/FreeBSD/gen/Makefile
+endif
+include $(SRCROOT)/regex/Makefile
 
 OSVARIANTUTIL_INSTALLDIR = $(DSTROOT)/usr/local/bin
 

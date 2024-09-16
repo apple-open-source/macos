@@ -31,6 +31,7 @@ _dd_fatal_error(const char *message)
 	abort_with_reason(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, message, 0);
 }
 
+#if !TARGET_OS_OSX
 OS_ALWAYS_INLINE
 static inline uint32_t
 _dd_get_multiuser_config_flags(void)
@@ -56,6 +57,7 @@ _dd_get_foreground_uid(void)
 {
 	return _dd_get_multiuser_config_flags() & kMultiUserCurrentUserMask;
 }
+#endif // !TARGET_OS_OSX
 
 #pragma mark Appliers
 
@@ -141,6 +143,20 @@ _dd_foreach_record_with_uuid(darwin_directory_type_t type, _Nonnull const uuid_t
 	DarwinDirectoryRecordStoreApplyWithFilter(type, &filter, ^(darwin_directory_record_t record, bool *stop) {
 		applier(record, stop);
 	});
+}
+
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline bool
+_dd_user_is_member_of_group(const char *username, darwin_directory_record_t group)
+{
+	// Check the list of member names to see if the user is a member.
+	for (size_t i = 0; group->attributes.group.memberNames[i] != NULL; i++) {
+		if (strcmp(group->attributes.group.memberNames[i], username) == 0) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 OS_ASSUME_NONNULL_END

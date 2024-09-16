@@ -37,4 +37,6 @@
 @property NSDate *applicationDate;
 @property NSNumber *debugLeftReason;
 @property BOOL absentCircleWithNoReason;
+// the date when KCN prompted the user to approve another device
+@property NSDate* applicantNotificationTimestamp;
 @end

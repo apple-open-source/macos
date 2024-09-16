@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Test that a server-receiver doesn't crash if it receives an empty flist.  It
+# may be the case that all of the named files on the command-line were not
+# readable, in which case we still need to go through the motions.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+set +e
+rsync -av -- /tmp/not/existent/at/all dst
+rc=$?
+set -e
+
+if [ "$rc" -ne 23 ]; then
+	1>&2 echo "Non-existent source file should have resulted in partial transfer of 0 files"
+	exit 1
+fi

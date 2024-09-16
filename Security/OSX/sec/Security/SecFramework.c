@@ -45,8 +45,23 @@ CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
 CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.security");
 #endif
 
+static CFStringRef kSecurityFrameworkBundlePath = CFSTR("/System/Library/Frameworks/Security.framework");
+
 CFGiblisGetSingleton(CFBundleRef, SecFrameworkGetBundle, bundle,  ^{
-    *bundle = CFRetainSafe(CFBundleGetBundleWithIdentifier(kSecFrameworkBundleID));
+    CFStringRef bundlePath = NULL;
+#if TARGET_OS_SIMULATOR
+    char *simulatorRoot = getenv("SIMULATOR_ROOT");
+    if (simulatorRoot) {
+        bundlePath = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s%@"), simulatorRoot, kSecurityFrameworkBundlePath);
+    }
+#endif
+    if (!bundlePath) {
+        bundlePath = CFRetainSafe(kSecurityFrameworkBundlePath);
+    }
+    CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, bundlePath, kCFURLPOSIXPathStyle, true);
+    *bundle = (url) ? CFBundleCreate(kCFAllocatorDefault, url) : NULL;
+    CFReleaseSafe(url);
+    CFReleaseSafe(bundlePath);
 })
 
 CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,

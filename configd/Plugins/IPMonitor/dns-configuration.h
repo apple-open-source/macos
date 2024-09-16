@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011, 2012, 2015, 2018, 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,7 +27,7 @@
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
-
+#include <dispatch/dispatch.h>
 
 #define DNS_CONFIGURATION_SCOPED_QUERY_KEY	CFSTR("__SCOPED_QUERY__")
 
@@ -37,7 +37,8 @@ typedef void (*dns_change_callback)(void);
 void	dns_configuration_init		(CFBundleRef		bundle);
 
 
-void	dns_configuration_monitor	(dns_change_callback	callback);
+void	dns_configuration_monitor	(dispatch_queue_t queue,
+					 dns_change_callback	callback);
 
 Boolean	dns_configuration_set		(CFDictionaryRef	defaultResolver,
 					 CFDictionaryRef	services,

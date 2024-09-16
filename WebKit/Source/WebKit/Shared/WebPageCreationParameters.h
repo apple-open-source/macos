@@ -32,11 +32,13 @@
 #include "SessionState.h"
 #include "UserContentControllerParameters.h"
 #include "ViewWindowCoordinates.h"
+#include "VisitedLinkTableIdentifier.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
 #include "WebURLSchemeHandlerIdentifier.h"
+#include "WebsitePoliciesData.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/ContentSecurityPolicy.h>
@@ -74,12 +76,26 @@
 #include "DMABufRendererBufferFormat.h"
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+#include "HardwareKeyboardState.h"
+#endif
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+#include <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
+#endif
+
 namespace IPC {
 class Decoder;
 class Encoder;
 }
 
 namespace WebKit {
+
+struct RemotePageParameters {
+    URL initialMainDocumentURL;
+    FrameTreeCreationParameters frameTreeParameters;
+    std::optional<WebsitePoliciesData> websitePoliciesData;
+};
 
 struct WebPageCreationParameters {
     WebCore::IntSize viewSize;
@@ -105,6 +121,9 @@ struct WebPageCreationParameters {
 
     std::optional<WebCore::FloatRect> viewExposedRect;
 
+    std::optional<uint32_t> displayID;
+    std::optional<unsigned> nominalFramesPerSecond;
+
     bool alwaysShowsHorizontalScroller;
     bool alwaysShowsVerticalScroller;
 
@@ -120,7 +139,7 @@ struct WebPageCreationParameters {
     bool itemStatesWereRestoredByAPIRequest { false };
     Vector<BackForwardListItemState> itemStates;
 
-    uint64_t visitedLinkTableID;
+    VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
@@ -174,7 +193,7 @@ struct WebPageCreationParameters {
 #if ENABLE(META_VIEWPORT)
     bool ignoresViewportScaleLimits;
     WebCore::FloatSize viewportConfigurationViewLayoutSize;
-    double viewportConfigurationLayoutSizeScaleFactor;
+    double viewportConfigurationLayoutSizeScaleFactorFromClient;
     double viewportConfigurationMinimumEffectiveDeviceWidth;
     WebCore::FloatSize viewportConfigurationViewSize;
     std::optional<WebCore::ViewportArguments> overrideViewportArguments;
@@ -183,9 +202,10 @@ struct WebPageCreationParameters {
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
     WebCore::FloatSize overrideScreenSize;
+    WebCore::FloatSize overrideAvailableScreenSize;
     float textAutosizingWidth;
     WebCore::IntDegrees deviceOrientation { 0 };
-    bool keyboardIsAttached { false };
+    HardwareKeyboardState hardwareKeyboardState;
     bool canShowWhileLocked { false };
     bool isCapturingScreen { false };
     WebCore::Color insertionPointColor;
@@ -195,6 +215,9 @@ struct WebPageCreationParameters {
     Vector<String> additionalSupportedImageTypes;
     Vector<SandboxExtension::Handle> gpuIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuMachExtensionHandles;
+#endif
+#if PLATFORM(MAC)
+    SandboxExtension::Handle renderServerMachExtensionHandle;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
     Vector<SandboxExtension::Handle> fontMachExtensionHandles;
@@ -251,6 +274,7 @@ struct WebPageCreationParameters {
     bool userScriptsShouldWaitUntilNotification { true };
     bool loadsSubresources { true };
     std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> allowedNetworkHosts;
+    std::optional<std::pair<uint16_t, uint16_t>> portsForUpgradingInsecureSchemeForTesting;
 
     bool crossOriginAccessControlCheckEnabled { true };
     String processDisplayName;
@@ -269,7 +293,6 @@ struct WebPageCreationParameters {
 #endif
     bool shouldEnableVP8Decoder { false };
     bool shouldEnableVP9Decoder { false };
-    bool shouldEnableVP9SWDecoder { false };
 #if ENABLE(APP_BOUND_DOMAINS)
     bool limitsNavigationsToAppBoundDomains { false };
 #endif
@@ -296,11 +319,7 @@ struct WebPageCreationParameters {
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 
-    struct SubframeProcessPageParameters {
-        URL initialMainDocumentURL;
-        FrameTreeCreationParameters frameTreeParameters;
-    };
-    std::optional<SubframeProcessPageParameters> subframeProcessPageParameters;
+    std::optional<RemotePageParameters> remotePageParameters;
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier;
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;
 
@@ -315,6 +334,10 @@ struct WebPageCreationParameters {
 
 #if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
     Vector<DMABufRendererBufferFormat> preferredBufferFormats;
+#endif
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    WebCore::ShouldRequireExplicitConsentForGamepadAccess gamepadAccessRequiresExplicitConsent { WebCore::ShouldRequireExplicitConsentForGamepadAccess::No };
 #endif
 };
 

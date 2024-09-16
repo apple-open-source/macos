@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -365,6 +365,7 @@ ioc_negotiate_error:
 		}
         case SMBIOC_UPDATE_CLIENT_INTERFACES:
         {
+            uint32_t flags = 0;
             SMBDEBUG("SMBIOC_UPDATE_CLIENT_INTERFACES received.\n");
             lck_rw_lock_shared(&sdp->sd_rwlock);
             
@@ -374,7 +375,11 @@ ioc_negotiate_error:
             struct smbioc_client_interface* client_info = (struct smbioc_client_interface*)data;
             sessionp = sdp->sd_session;
             if (sessionp) {
-                error =  smb2_mc_parse_client_interface_array(&sessionp->session_interface_table, client_info);
+                if (sessionp->session_misc_flags & SMBV_MC_CLIENT_RSS_FORCE_ON) {
+                    flags |= CLIENT_RSS_FORCE_ON;
+                }
+                error =  smb2_mc_parse_client_interface_array(&sessionp->session_interface_table,
+                                                              client_info, flags);
             } else {
                 SMBERROR("Invalid sessionp.\n");
                 error = EINVAL;
@@ -412,6 +417,7 @@ ioc_negotiate_error:
         }
         case SMBIOC_NOTIFIER_UPDATE_INTERFACES:
         {
+            uint32_t flags = 0;
             SMB_LOG_MC("SMBIOC_NOTIFIER_UPDATE_INTERFACES received.\n");
             lck_rw_lock_shared(&sdp->sd_rwlock);
 
@@ -434,7 +440,15 @@ ioc_negotiate_error:
                     break;
                 }
 
-                error = smb2_mc_notifier_event(&sessionp->session_interface_table, client_info);
+                if (sessionp->session_misc_flags & SMBV_MC_CLIENT_RSS_FORCE_ON) {
+                    flags |= CLIENT_RSS_FORCE_ON;
+                }
+
+                error = smb2_mc_notifier_event(&sessionp->session_interface_table, client_info,
+                                               sessionp->max_channels,
+                                               sessionp->srvr_rss_channels,
+                                               sessionp->clnt_rss_channels,
+                                               flags);
 
                 if (!error) {
                     struct smbiod *iod = NULL;
@@ -760,7 +774,7 @@ ioc_convert_path_error:
 
                 struct smbiod *iod = TAILQ_FIRST(&sessionp->iod_tailq_head);
                 uint32_t u;
-                for(u=0; u<MAX_NUM_OF_IODS_IN_QUERY; u++) {
+                for(u = 0; u < MAX_NUM_OF_IODS_IN_QUERY; u++) {
 
                     if (!iod) {
                         break;
@@ -789,6 +803,7 @@ ioc_convert_path_error:
                             p->iod_prop_con_speed = iod->iod_conn_entry.con_entry->con_speed;
                             if (iod->iod_conn_entry.con_entry->con_client_nic) {
                                 p->iod_prop_c_if_type = iod->iod_conn_entry.con_entry->con_client_nic->nic_type;
+                                p->iod_prop_c_if_caps = iod->iod_conn_entry.con_entry->con_client_nic->nic_caps;
                             }
                             if (iod->iod_conn_entry.con_entry->con_server_nic) {
                                 p->iod_prop_s_if = iod->iod_conn_entry.con_entry->con_server_nic->nic_index;
@@ -1005,6 +1020,27 @@ ioc_convert_path_error:
 				properties->rxmax = sessionp->session_rxmax;
                 properties->wxmax = sessionp->session_wxmax;
                 
+                /* Compression */
+                properties->client_compression_algorithms_map = sessionp->client_compression_algorithms_map;
+                properties->server_compression_algorithms_map = sessionp->server_compression_algorithms_map;
+                properties->compression_io_threshold = sessionp->compression_io_threshold;
+                properties->compression_chunk_len = sessionp->compression_chunk_len;
+                properties->compression_max_fail_cnt = sessionp->compression_max_fail_cnt;
+
+                properties->write_compress_cnt = sessionp->write_compress_cnt;
+                properties->write_cnt_LZ77Huff = sessionp->write_cnt_LZ77Huff;
+                properties->write_cnt_LZ77 = sessionp->write_cnt_LZ77;
+                properties->write_cnt_LZNT1 = sessionp->write_cnt_LZNT1;
+                properties->write_cnt_fwd_pattern = sessionp->write_cnt_fwd_pattern;
+                properties->write_cnt_bwd_pattern = sessionp->write_cnt_bwd_pattern;
+
+                properties->read_compress_cnt = sessionp->read_compress_cnt;
+                properties->read_cnt_LZ77Huff = sessionp->read_cnt_LZ77Huff;
+                properties->read_cnt_LZ77 = sessionp->read_cnt_LZ77;
+                properties->read_cnt_LZNT1 = sessionp->read_cnt_LZNT1;
+                properties->read_cnt_fwd_pattern = sessionp->read_cnt_fwd_pattern;
+                properties->read_cnt_bwd_pattern = sessionp->read_cnt_bwd_pattern;
+
                 /*
                  * If we are currently using encryption, then return the
                  * cipher being used, else return 0.
@@ -1345,7 +1381,8 @@ ioc_rq_error:
 		case SMBIOC_WRITE: 
 		{
 			struct smbioc_rw *rwrq = (struct smbioc_rw *)data;
-			
+            uint32_t allow_compression = 0; /* No compression from user space */
+
 			lck_rw_lock_shared(&sdp->sd_rwlock);
             
             /* free global lock now since we now have sd_rwlock */
@@ -1391,11 +1428,13 @@ ioc_rq_error:
 
                 /* All calls from user maintain a reference on the share */
                 if (cmd == SMBIOC_READ) {
-                    error = smb_smb_read(sdp->sd_share, fid, auio, context);
+                    error = smb_smb_read(sdp->sd_share, fid, auio,
+                                         allow_compression, context);
                 }
                 else {
                     int ioFlags = (rwrq->ioc_writeMode & WritethroughMode) ? IO_SYNC : 0;
-                    error = smb_smb_write(sdp->sd_share, fid, auio, ioFlags, context);
+                    error = smb_smb_write(sdp->sd_share, fid, auio, ioFlags,
+                                          &allow_compression, context);
                 }
 
                 if ((error == 0) && (cmd == SMBIOC_READ)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -86,6 +86,13 @@ static const char	*notifyType[] = {
 	"inform w/dispatch"
 };
 
+
+static SCDynamicStorePrivateRef
+__SCDynamicStoreCreateInternal(CFAllocatorRef		allocator,
+			       const CFStringRef	name,
+			       SCDynamicStoreCallBack	callout,
+			       SCDynamicStoreContext	*context,
+			       Boolean			is_client);
 
 #pragma mark -
 #pragma mark SCDynamicStore state handler
@@ -186,7 +193,7 @@ add_state_handler(void)
 		state_len = (ok && (data != NULL)) ? CFDataGetLength(data) : 0;
 		state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
 		if (state_data_size > MAX_STATEDUMP_SIZE) {
-			SC_log(LOG_ERR, "SCDynamicStore/client sessions : state data too large (%zd > %zd)",
+			SC_log(LOG_ERR, "SCDynamicStore/client sessions : state data too large (%zu > %zu)",
 			       state_data_size,
 			       (size_t)MAX_STATEDUMP_SIZE);
 			if (data != NULL) CFRelease(data);
@@ -313,11 +320,13 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	if (storePrivate->dispatchSource != NULL) {
 		_SC_crash("SCDynamicStore OVER-RELEASED (notification still active)", NULL, NULL);
 	}
-
-	dispatch_sync(storeQueue(), ^{
-			// remove session tracking
-			CFSetRemoveValue(_sc_store_sessions, storePrivate);
-		});
+	if (storePrivate->queue != NULL) {
+		/* remove client session from session tracking set */
+		dispatch_sync(storeQueue(), ^{
+				CFSetRemoveValue(_sc_store_sessions,
+						 storePrivate);
+			});
+	}
 
 	/* Remove/cancel any outstanding notification requests. */
 	(void) SCDynamicStoreNotifyCancel(store);
@@ -358,7 +367,9 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 		_SCDynamicStoreCacheClose(store);
 	}
 
-	dispatch_release(storePrivate->queue);
+	if (storePrivate->queue != NULL) {
+		dispatch_release(storePrivate->queue);
+	}
 
 	return;
 }
@@ -376,7 +387,13 @@ static const CFRuntimeClass __SCDynamicStoreClass = {
 	NULL,				// equal
 	NULL,				// hash
 	NULL,				// copyFormattingDesc
-	__SCDynamicStoreCopyDescription	// copyDebugDesc
+	__SCDynamicStoreCopyDescription,// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -573,6 +590,18 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 			      SCDynamicStoreCallBack	callout,
 			      SCDynamicStoreContext	*context)
 {
+
+	return __SCDynamicStoreCreateInternal(allocator, name, callout,
+					      context, FALSE);
+}
+
+static SCDynamicStorePrivateRef
+__SCDynamicStoreCreateInternal(CFAllocatorRef		allocator,
+			       const CFStringRef	name,
+			       SCDynamicStoreCallBack	callout,
+			       SCDynamicStoreContext	*context,
+			       Boolean			is_client)
+{
 	uint32_t			size;
 	SCDynamicStorePrivateRef	storePrivate;
 
@@ -593,7 +622,9 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* initialize non-zero/NULL members */
 
 	/* dispatch queue protecting ->server, ... */
-	storePrivate->queue = dispatch_queue_create("SCDynamicStore object", NULL);
+	if (is_client) {
+		storePrivate->queue = dispatch_queue_create("SCDynamicStore object", NULL);
+	}
 
 	/* client side of the "configd" session */
 	storePrivate->name				= (name != NULL) ? CFRetain(name) : NULL;
@@ -613,7 +644,7 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* "server" information associated with SCDynamicStoreNotifyFileDescriptor(); */
 	storePrivate->notifyFile			= -1;
 
-	{
+	if (is_client) {
 		__block Boolean		tooManySessions	= FALSE;
 
 		/* watch for excessive SCDynamicStore usage */
@@ -656,7 +687,6 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	return storePrivate;
 }
 
-
 static void
 updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int *sc_status_p)
 {
@@ -682,7 +712,7 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 	});
 
 #ifdef	DEBUG
-	SC_log(LOG_DEBUG, "updateServerPort (%@): 0x%x (%d) --> 0x%x (%d)",
+	SC_log(LOG_DEBUG, "updateServerPort (%@): 0x%x (%u) --> 0x%x (%u)",
 	       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
 	       old_port, old_port,
 	       *server, *server);
@@ -859,11 +889,11 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 			 */
 			dispatch_sync(storePrivate->queue, ^{
 #ifdef	DEBUG
-				SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: 0x%x (%d) --> 0x%x (%d)",
+				SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: 0x%x (%u) --> 0x%x (%d)",
 				       log_str,
 				       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
 				       storePrivate->server, storePrivate->server,
-				       MACH_PORT_NULL, MACH_PORT_NULL);
+				       (unsigned int)MACH_PORT_NULL, MACH_PORT_NULL);
 #endif	// DEBUG
 				if (storePrivate->server != MACH_PORT_NULL) {
 					(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
@@ -882,7 +912,7 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 			break;
 
 		default :
-			;
+			break;
 	}
 
 	if (status == kSCStatusNoStoreServer) {
@@ -900,14 +930,14 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 	 */
 
 #ifdef	DEBUG
-	SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: unexpected status=%s (0x%x)",
+	SC_log(LOG_DEBUG, "__SCDynamicStoreCheckRetryAndHandleError(%s): %@: unexpected status=%s (%d)",
 	       log_str,
 	       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"),
 	       SCErrorString(status),
 	       status);
 #endif	// DEBUG
 
-	SC_log(LOG_NOTICE, "%s: %s (0x%x)", log_str, SCErrorString(status), status);
+	SC_log(LOG_NOTICE, "%s: %s (%d)", log_str, SCErrorString(status), status);
 	storePrivate->server = MACH_PORT_NULL;
 
 	{
@@ -916,7 +946,7 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 
 		err = CFStringCreateWithFormat(NULL,
 					       NULL,
-					       CFSTR("CheckRetryAndHandleError \"%s\" failed: %s (0x%x)"),
+					       CFSTR("CheckRetryAndHandleError \"%s\" failed: %s (%d)"),
 					       log_str,
 					       SCErrorString(status),
 					       status);
@@ -1130,7 +1160,7 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	SCDynamicStorePrivateRef	storePrivate;
 
 	// allocate and initialize a new session
-	storePrivate = __SCDynamicStoreCreatePrivate(allocator, NULL, callout, context);
+	storePrivate = __SCDynamicStoreCreateInternal(allocator, NULL, callout, context, TRUE);
 	if (storePrivate == NULL) {
 		return NULL;
 	}

@@ -1,6 +1,6 @@
 /* srpl-lease-time.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,8 +92,11 @@ test_srpl_lease_time_replication_evaluate(test_state_t *state, srp_server_t *ser
 }
 
 static void
-test_srpl_lease_time_replication_finished(test_state_t *state, srp_server_t *server)
+test_srpl_lease_time_replication_finished(srpl_connection_t *connection)
 {
+    test_state_t *state = connection->test_state;
+    srp_server_t *server = connection->instance->domain->server_state;
+
     INFO("reach test_srpl_lease_time_replication_finished");
     // Wait for another LEASE_TIME to verify that the registration has the updated lease time
     // and does not expire immediately.
@@ -234,9 +237,9 @@ test_srpl_lease_time(test_state_t *next_state)
     test_state_t *state = test_state_create(srp_servers, "Replication lease time test", NULL, description, NULL);
 
     srp_proxy_init("local");
-    state->primary->stub_router_enabled = true;
+    srp_test_enable_stub_router(state, srp_servers);
     state->primary->min_lease_time = LEASE_TIME;
-    state->srp_listener = srp_proxy_listen(NULL, 0, test_srpl_lease_time_ready, NULL, NULL, NULL, state->primary);
+    state->srp_listener = srp_proxy_listen(NULL, 0, NULL, test_srpl_lease_time_ready, NULL, NULL, NULL, state->primary);
     TEST_FAIL_CHECK(state, state->srp_listener != NULL, "listener create failed");
 
     state->next = next_state;

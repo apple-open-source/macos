@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -64,6 +64,8 @@
 #include "../TestMacroConversions.h"
 #include "../TrustEvaluationTestHelpers.h"
 #include "PolicyTests_data.h"
+#include "PolicyTests_BIMI_data.h"
+#include "PolicyTests_Parakeet_data.h"
 
 const NSString *kSecTrustTestPinningPolicyResources = @"si-20-sectrust-policies-data";
 const NSString *kSecTrustTestPinnningTest = @"PinningPolicyTrustTest";
@@ -229,14 +231,12 @@ errOut:
     is(policy != NULL, true);
     CFDictionaryRef policyOptions = SecPolicyGetOptions(policy);
     XCTAssert([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckLeafSPKISHA256]);
-    CFReleaseNull(policy);
 
     // NSPinnedCAIdentities
     nsAppTransportSecurityDict = [self getNSAppTransportSecurityFromDictionaryInfoFile:@"NSPinnedDomains_ca"];
     is(nsAppTransportSecurityDict != NULL, true);
 
-    policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.org"), nsAppTransportSecurityDict);
-    is(policy != NULL, true);
+    XCTAssert(SecPolicySetATSPinning(policy, nsAppTransportSecurityDict));
     policyOptions = SecPolicyGetOptions(policy);
     XCTAssert([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
     CFReleaseNull(policy);
@@ -246,12 +246,20 @@ errOut:
     XCTAssertNotEqual(policy, NULL);
     policyOptions = SecPolicyGetOptions(policy);
     XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+
+    // Change hostname to match and update ATS rules
+    XCTAssert(SecPolicySetSSLHostname(policy, CFSTR("example.org")));
+    XCTAssert(SecPolicySetATSPinning(policy, nsAppTransportSecurityDict));
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssert([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
     CFReleaseNull(policy);
 
     // No hostname
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     policy =  SecPolicyCreateSSLWithATSPinning(true, NULL, nsAppTransportSecurityDict);
+#endif
 #pragma clang diagnostic pop
     policyOptions = SecPolicyGetOptions(policy);
     XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
@@ -261,6 +269,11 @@ errOut:
     NSDictionary *nonPinningATSDict = @{ @"NSAppTransportSecurity" : @{} };
     policy = SecPolicyCreateSSLWithATSPinning(true, CFSTR("example.net"), (__bridge CFDictionaryRef)nonPinningATSDict);
     XCTAssertNotEqual(policy, NULL);
+    policyOptions = SecPolicyGetOptions(policy);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
+    XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckLeafSPKISHA256]);
+
+    XCTAssert(SecPolicySetATSPinning(policy, (__bridge CFDictionaryRef)nonPinningATSDict));
     policyOptions = SecPolicyGetOptions(policy);
     XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckCAspkiSHA256]);
     XCTAssertFalse([[(__bridge NSDictionary *)policyOptions allKeys] containsObject:(__bridge NSString*)kSecPolicyCheckLeafSPKISHA256]);
@@ -1289,6 +1302,504 @@ exit:
     CFReleaseSafe(certs);
     CFReleaseSafe(leaf);
     CFReleaseSafe(root);
+}
+
+- (void)testVerifiedMarkSHA1
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    CFDataRef svg = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(svg = CFDataCreate(kCFAllocatorDefault, _BIMITests_apple_svg, sizeof(_BIMITests_apple_svg)), NULL, "svg");
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Apple_Inc_VMC_cer, sizeof(_BIMITests_Apple_Inc_VMC_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_DigiCert_VMC_CA1_cer, sizeof(_BIMITests_DigiCert_VMC_CA1_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_DigiCert_VMC_Root_cer, sizeof(_BIMITests_DigiCert_VMC_Root_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // Verified Mark policy checks the given SVG data is verified
+    // (this certificate uses a SHA-1 digest)
+    isnt(policy = SecPolicyCreateVerifiedMark(CFSTR("apple.com"), svg), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Sep 4 2023
+    isnt(date = CFDateCreate(NULL, 715540000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    is(errcode, errSecSuccess, "check error code is success");
+    is(isTrusted, true, "check trust result is true");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+    CFReleaseSafe(svg);
+}
+
+- (void)testVerifiedMarkSHA1WithInvalidRepresentation
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    CFDataRef svg = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(svg = CFDataCreate(kCFAllocatorDefault, _BIMITests_apple_altered_svg, sizeof(_BIMITests_apple_altered_svg)), NULL, "svg");
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Apple_Inc_VMC_cer, sizeof(_BIMITests_Apple_Inc_VMC_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_DigiCert_VMC_CA1_cer, sizeof(_BIMITests_DigiCert_VMC_CA1_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_DigiCert_VMC_Root_cer, sizeof(_BIMITests_DigiCert_VMC_Root_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // Verified Mark policy checks the given SVG data is verified
+    // (this certificate uses a SHA-1 digest, and the input SVG has been modified to not match it)
+    isnt(policy = SecPolicyCreateVerifiedMark(CFSTR("apple.com"), svg), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Sep 4 2023
+    isnt(date = CFDateCreate(NULL, 715540000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    isnt(errcode, errSecSuccess, "check error code is NOT success");
+    is(isTrusted, false, "check trust result is false");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+    CFReleaseSafe(svg);
+}
+
+- (void)testVerifiedMarkSHA256
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    CFDataRef svg = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(svg = CFDataCreate(kCFAllocatorDefault, _BIMITests_boa_svg, sizeof(_BIMITests_boa_svg)), NULL, "svg");
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_BoA_VMC_cer, sizeof(_BIMITests_BoA_VMC_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Entrust_VMC2_cer, sizeof(_BIMITests_Entrust_VMC2_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Entrust_VMRC1_cer, sizeof(_BIMITests_Entrust_VMRC1_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // Verified Mark policy checks the given SVG data is verified
+    // (this certificate uses a SHA-256 digest)
+    isnt(policy = SecPolicyCreateVerifiedMark(CFSTR("bankofamerica.com"), svg), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Sep 4 2023
+    isnt(date = CFDateCreate(NULL, 715540000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    is(errcode, errSecSuccess, "check error code is success");
+    is(isTrusted, true, "check trust result is true");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+    CFReleaseSafe(svg);
+}
+
+- (void)testVerifiedMarkSHA256WithInvalidRepresentation
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    CFDataRef svg = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(svg = CFDataCreate(kCFAllocatorDefault, _BIMITests_boa_altered_svg, sizeof(_BIMITests_boa_altered_svg)), NULL, "svg");
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_BoA_VMC_cer, sizeof(_BIMITests_BoA_VMC_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Entrust_VMC2_cer, sizeof(_BIMITests_Entrust_VMC2_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _BIMITests_Entrust_VMRC1_cer, sizeof(_BIMITests_Entrust_VMRC1_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // Verified Mark policy checks the given SVG data is verified
+    // (this certificate uses a SHA-256 digest, and the input SVG has been modified to not match it)
+    isnt(policy = SecPolicyCreateVerifiedMark(CFSTR("apple.com"), svg), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Sep 4 2023
+    isnt(date = CFDateCreate(NULL, 715540000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    isnt(errcode, errSecSuccess, "check error code is NOT success");
+    is(isTrusted, false, "check trust result is false");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+    CFReleaseSafe(svg);
+}
+
+- (void)testParakeetSigning
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_leaf_cer, sizeof(_USAVZ_leaf_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_ca_cer, sizeof(_USAVZ_ca_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_root_cer, sizeof(_USAVZ_root_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // create policy
+    isnt(policy = SecPolicyCreateParakeetSigning(), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Nov 29 2023
+    isnt(date = CFDateCreate(NULL, 723000000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    is(errcode, errSecSuccess, "check error code is success");
+    is(isTrusted, true, "check trust result is true");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+}
+
+- (void)testParakeetSigningInvalidKeyUsage
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    SecPolicyRef policy = NULL;
+    CFDateRef date = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_leaf_cer_invalid, sizeof(_USAVZ_leaf_cer_invalid)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_ca_cer_invalid, sizeof(_USAVZ_ca_cer_invalid)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _USAVZ_root_cer_invalid, sizeof(_USAVZ_root_cer_invalid)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // create policy
+    isnt(policy = SecPolicyCreateParakeetSigning(), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date: Nov 29 2023
+    isnt(date = CFDateCreate(NULL, 723000000.0), NULL, "create verify date");
+    if (!date) { goto exit; }
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    isnt(errcode, errSecSuccess, "check error code is not success"); /* expect failure */
+    is(isTrusted, false, "check trust result is false");
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+}
+
+- (void)runParakeetService:(CFStringRef)hostname
+               withContext:(CFDictionaryRef __nullable)context
+                    onDate:(CFDateRef)date
+              expectSuccess:(BOOL)expectSuccess
+{
+    OSStatus err;
+    CFIndex errcode = errSecSuccess;
+    CFMutableArrayRef certs = NULL;
+    CFMutableArrayRef anchors = NULL;
+    SecCertificateRef leaf = NULL, ca = NULL, root = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFErrorRef error = NULL;
+    bool isTrusted = false;
+
+    isnt(leaf = SecCertificateCreateWithBytes(kCFAllocatorDefault, _Syn_leaf_cer, sizeof(_Syn_leaf_cer)), NULL, "leaf");
+    isnt(ca = SecCertificateCreateWithBytes(kCFAllocatorDefault, _Syn_ca_cer, sizeof(_Syn_ca_cer)), NULL, "ca");
+    isnt(root = SecCertificateCreateWithBytes(kCFAllocatorDefault, _Syn_root_cer, sizeof(_Syn_root_cer)), NULL, "root");
+    isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "certs");
+    if (!certs) { goto exit; }
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, ca);
+
+    // create policy
+    isnt(policy = SecPolicyCreateParakeetService(hostname, context), NULL, "policy");
+    if (!policy) { goto exit; }
+
+    is(err = SecTrustCreateWithCertificates(certs, policy, &trust), errSecSuccess, "trust");
+    if (err != errSecSuccess || trust == NULL) { goto exit; }
+
+    // set anchors
+    isnt(anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "anchors");
+    if (!anchors) { goto exit; }
+    CFArrayAppendValue(anchors, root);
+    is(err = SecTrustSetAnchorCertificates(trust, anchors), errSecSuccess, "set anchors");
+    if (err != errSecSuccess) { goto exit; }
+
+    // set verify date
+    is(err = SecTrustSetVerifyDate(trust, date), errSecSuccess, "set verify date");
+    if (err != errSecSuccess) { goto exit; }
+
+    isTrusted = SecTrustEvaluateWithError(trust, &error);
+    if (!isTrusted) {
+        if (error) {
+            errcode = CFErrorGetCode(error);
+        } else {
+            errcode = errSecInternalComponent;
+        }
+    }
+    if (expectSuccess) {
+        is(errcode, errSecSuccess, "check error code is success");
+        is(isTrusted, true, "check trust result is true");
+    } else {
+        isnt(errcode, errSecSuccess, "check error code is not success");
+        is(isTrusted, false, "check trust result is false");
+    }
+exit:
+    CFReleaseSafe(error);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(leaf);
+    CFReleaseSafe(ca);
+    CFReleaseSafe(root);
+}
+
+-(void)testParakeetService
+{
+    const CFStringRef validName = CFSTR("mccmnc310890.smh.syniverse.com");
+    const CFStringRef bogusName = CFSTR("mccxxx420420.smh.syniverse.com");
+    CFDateRef freshDate = CFDateCreate(NULL, 731600420.0); /* Mar 08 2024 */
+    CFDateRef staleDate = CFDateCreate(NULL, 735350420.0); /* Apr 20 2024 */
+    NSDictionary *fresh_context = @{
+        @"fresh": (id)kCFBooleanTrue,
+    };
+    NSDictionary *fresh_verify_context = @{
+        @"fresh": (id)kCFBooleanTrue,
+        @"verify": (__bridge NSDate*)freshDate,
+    };
+    NSDictionary *stale_verify_context = @{
+        @"fresh": (id)kCFBooleanTrue,
+        @"verify": (__bridge NSDate*)staleDate,
+    };
+
+    // hostname present in SAN, should succeed
+    [self runParakeetService:validName withContext:NULL onDate:freshDate expectSuccess:YES];
+    // hostname not present in SAN, should fail
+    [self runParakeetService:bogusName withContext:NULL onDate:freshDate expectSuccess:NO];
+
+    // perform fresh check for notBefore date less than 2 days old from freshDate
+    // (expect fail since default check is based on system time and our test cert is older than that)
+    [self runParakeetService:validName withContext:(__bridge CFDictionaryRef)fresh_context onDate:freshDate expectSuccess:NO];
+    // perform fresh check for notBefore date over 2 days old from staleDate, should fail
+    [self runParakeetService:validName withContext:(__bridge CFDictionaryRef)fresh_context onDate:staleDate expectSuccess:NO];
+    // perform fresh check with verify date less than 2 days old from notBefore date
+    [self runParakeetService:validName withContext:(__bridge CFDictionaryRef)fresh_verify_context onDate:freshDate expectSuccess:YES];
+    // perform fresh check with verify date over 2 days old from notBeforeDate
+    [self runParakeetService:validName withContext:(__bridge CFDictionaryRef)stale_verify_context onDate:staleDate expectSuccess:NO];
+
+    CFReleaseSafe(freshDate);
+    CFReleaseSafe(staleDate);
 }
 
 @end

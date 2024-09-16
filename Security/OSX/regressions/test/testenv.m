@@ -45,7 +45,7 @@
 
 #include <dispatch/dispatch.h>
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 #include "keychain/ckks/CKKS.h"
 
 int test_strict_bats = 1;

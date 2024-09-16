@@ -342,7 +342,16 @@ do_write(int devfd, char *tty, char *mytty, const char *login)
 		err(1, "%s%s", _PATH_DEV, tty);
 
 	(void)signal(SIGINT, done);
+#ifndef __APPLE__
+	/*
+	 * For conformance, we avoid installing a signal handler for SIGHUP in
+	 * the first place.  write(1) is only documented to handle SIGINT and
+	 * we don't have anything else useful to do for SIGHUP.  It seems
+	 * unlikely that done() can grow any functionality that will make this
+	 * problematic.
+	 */
 	(void)signal(SIGHUP, done);
+#endif
 
 	/* print greeting */
 	if (gethostname(host, sizeof(host)) < 0)

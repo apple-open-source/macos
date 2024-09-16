@@ -4,7 +4,7 @@ PHYS_VLAN=${PHYS_VLAN:=en8}
 MEMBER=${MEMBER:=en8}
 NETCONFIG=${NETCONFIG:=/usr/local/bin/netconfig}
 
-commands="add set remove disable enable show create destroy setvlan setbridge"
+commands="add set remove disable enable show sort create destroy setvlan setbridge setbond"
 for cmd in ${commands}
 do
 	echo $cmd
@@ -34,7 +34,9 @@ $NETCONFIG set -i feth0 -D -p ipv4 -c dhcp -C TestClientID -p ipv6 -c manual -A 
 $NETCONFIG disable -S RealFake || test_failed
 $NETCONFIG enable -S RealFake || test_failed
 $NETCONFIG remove -S RealFake || test_failed
+
 ifconfig feth0 destroy
+
 $NETCONFIG create -t vlan -I 1234 -P ${PHYS_VLAN} -N MyVLAN -a no || test_failed
 $NETCONFIG add -i vlan0 -N MyVLAN -D || test_failed
 $NETCONFIG show -S MyVLAN || test_failed
@@ -52,7 +54,14 @@ $NETCONFIG destroy -t bridge -i MyBridge || test_failed
 $NETCONFIG remove -i ${MEMBER} || test_failed
 $NETCONFIG create -t bridge -b ${MEMBER} -N MyBridge || test_failed
 $NETCONFIG set -i ${MEMBER} -D || test_failed
+$NETCONFIG show -i MyBridge || test_failed
 $NETCONFIG destroy -t bridge -i MyBridge || test_failed
+
+$NETCONFIG disable -i ${MEMBER} || test_failed
+$NETCONFIG create -t bond -b ${MEMBER} -N MyBond || test_failed
+$NETCONFIG show -i MyBond || test_failed
+$NETCONFIG destroy -t bond -i MyBond || test_failed
+$NETCONFIG enable -i ${MEMBER} || test_failed
 
 echo Test PASSED
 exit 0

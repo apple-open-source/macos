@@ -582,6 +582,8 @@ static bool IsCapBannedWithActivePLS(GLenum cap)
         case GL_DEBUG_OUTPUT_SYNCHRONOUS:
         case GL_DEPTH_CLAMP_EXT:
         case GL_DEPTH_TEST:
+        case GL_POLYGON_OFFSET_POINT_NV:
+        case GL_POLYGON_OFFSET_LINE_NV:  // = GL_POLYGON_OFFSET_LINE_ANGLE
         case GL_POLYGON_OFFSET_FILL:
         case GL_PRIMITIVE_RESTART_FIXED_INDEX:
         case GL_SCISSOR_TEST:
@@ -684,6 +686,13 @@ bool ValidCap(const PrivateState &state, ErrorSet *errors, GLenum cap, bool quer
 
         case GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM:
             return queryOnly && state.getExtensions().shaderFramebufferFetchARM;
+
+        case GL_BLEND_ADVANCED_COHERENT_KHR:
+            return state.getClientVersion() >= Version(2, 0) &&
+                   state.getExtensions().blendEquationAdvancedCoherentKHR;
+
+        case GL_VARIABLE_RASTERIZATION_RATE_ANGLE:
+            return state.getExtensions().variableRasterizationRateMetalANGLE;
 
         default:
             break;
@@ -2615,18 +2624,10 @@ bool ValidateClear(const Context *context, angle::EntryPoint entryPoint, GLbitfi
 
     if (extensions.webglCompatibilityANGLE && (mask & GL_COLOR_BUFFER_BIT) != 0)
     {
-        constexpr GLenum validComponentTypes[] = {GL_FLOAT, GL_UNSIGNED_NORMALIZED,
-                                                  GL_SIGNED_NORMALIZED};
-
-        for (GLuint drawBufferIdx = 0; drawBufferIdx < fbo->getDrawbufferStateCount();
-             drawBufferIdx++)
+        if (GetIntOrUnsignedIntDrawBufferMask(fbo->getDrawBufferTypeMask()).any())
         {
-            if (!ValidateWebGLFramebufferAttachmentClearType(context, entryPoint, drawBufferIdx,
-                                                             validComponentTypes,
-                                                             ArraySize(validComponentTypes)))
-            {
-                return false;
-            }
+            ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kNoDefinedClearConversion);
+            return false;
         }
     }
 
@@ -3534,7 +3535,7 @@ bool ValidateCreateShader(const Context *context, angle::EntryPoint entryPoint, 
             break;
 
         case ShaderType::TessControl:
-            if (!context->getExtensions().tessellationShaderEXT &&
+            if (!context->getExtensions().tessellationShaderAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidShaderType);
@@ -3543,7 +3544,7 @@ bool ValidateCreateShader(const Context *context, angle::EntryPoint entryPoint, 
             break;
 
         case ShaderType::TessEvaluation:
-            if (!context->getExtensions().tessellationShaderEXT &&
+            if (!context->getExtensions().tessellationShaderAny() &&
                 context->getClientVersion() < ES_3_2)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_ENUM, kInvalidShaderType);
@@ -6339,6 +6340,18 @@ bool ValidateMaxShaderCompilerThreadsKHR(const Context *context,
                                          GLuint count)
 {
     if (!context->getExtensions().parallelShaderCompileKHR)
+    {
+        ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+    return true;
+}
+
+bool ValidateBindMetalRasterizationRateMapANGLE(const Context *context,
+                                                angle::EntryPoint entryPoint,
+                                                GLMTLRasterizationRateMapANGLE map)
+{
+    if (!context->getExtensions().variableRasterizationRateMetalANGLE)
     {
         ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, kExtensionNotEnabled);
         return false;

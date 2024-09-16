@@ -26,6 +26,16 @@
 #include "FloatPoint.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/WeakPtr.h>
+
+namespace WebCore {
+class SVGPathConsumer;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SVGPathConsumer> : std::true_type { };
+}
 
 namespace WebCore {
 
@@ -39,7 +49,7 @@ enum PathParsingMode {
     UnalteredParsing
 };
 
-class SVGPathConsumer {
+class SVGPathConsumer : public CanMakeSingleThreadWeakPtr<SVGPathConsumer> {
     WTF_MAKE_NONCOPYABLE(SVGPathConsumer); WTF_MAKE_FAST_ALLOCATED;
 public:
     SVGPathConsumer() = default;

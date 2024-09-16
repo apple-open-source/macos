@@ -32,6 +32,7 @@
 #import "ApplePayShippingMethod.h"
 #import <unicode/ucurr.h>
 #import <unicode/uloc.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/unicode/icu/ICUHelpers.h>
 
 namespace WebCore {
@@ -105,8 +106,9 @@ ExceptionOr<void> PaymentRequestValidator::validateTotal(const ApplePayLineItem&
     if (amount < 0)
         return Exception { ExceptionCode::TypeError, "Total amount must not be negative."_s };
 
-    if (amount > 100000000)
-        return Exception { ExceptionCode::TypeError, "Total amount is too big."_s };
+    // We can safely defer a maximum amount check to the underlying payment system, instead.
+    // The downside is we lose an informative error mode and get an opaque payment sheet error for too large total amounts.
+    // FIXME: <https://webkit.org/b/276088> PaymentRequestValidator should adopt per-currency checks for total amounts.
 
     return { };
 }
@@ -121,7 +123,7 @@ static ExceptionOr<void> validateCountryCode(const String& countryCode)
             return { };
     }
 
-    return Exception { ExceptionCode::TypeError, makeString("\"" + countryCode, "\" is not a valid country code.") };
+    return Exception { ExceptionCode::TypeError, makeString("\""_s, countryCode, "\" is not a valid country code."_s) };
 }
 
 static ExceptionOr<void> validateCurrencyCode(const String& currencyCode)
@@ -138,7 +140,7 @@ static ExceptionOr<void> validateCurrencyCode(const String& currencyCode)
             return { };
     }
 
-    return Exception { ExceptionCode::TypeError, makeString("\"" + currencyCode, "\" is not a valid currency code.") };
+    return Exception { ExceptionCode::TypeError, makeString("\""_s, currencyCode, "\" is not a valid currency code."_s) };
 }
 
 static ExceptionOr<void> validateMerchantCapabilities(const ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)

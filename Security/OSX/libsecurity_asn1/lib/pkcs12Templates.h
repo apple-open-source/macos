@@ -84,9 +84,9 @@ extern "C" {
  * }
  */
 typedef struct {
-	NSS_P7_DigestInfo	mac;
-	SecAsn1Item			macSalt;
-	SecAsn1Item			iterations;	// optional
+    NSS_P7_DigestInfo	mac;
+    SecAsn1Item			macSalt;
+    SecAsn1Item			iterations;	// optional
 } NSS_P12_MacData;
 
 extern const SecAsn1Template NSS_P12_MacDataTemplate[];
@@ -98,14 +98,14 @@ extern const SecAsn1Template NSS_P12_MacDataTemplate[];
  *   	macData    	MacData OPTIONAL
  * }
  */
- 
-/* 
+
+/*
  * First the top level PFX with unparsed ContentInfo.content.
  */
 typedef struct {
-	SecAsn1Item				version;
-	NSS_P7_RawContentInfo	authSafe;
-	NSS_P12_MacData			*macData;
+    SecAsn1Item				version;
+    NSS_P7_RawContentInfo	authSafe;
+    NSS_P12_MacData			*macData;
 } NSS_P12_RawPFX;
 
 extern const SecAsn1Template NSS_P12_RawPFXTemplate[];
@@ -114,15 +114,15 @@ extern const SecAsn1Template NSS_P12_RawPFXTemplate[];
  * And a PFX with a decoded ContentInfo.content.
  */
 typedef struct {
-	SecAsn1Item					version;
-	NSS_P7_DecodedContentInfo	authSafe;
-	NSS_P12_MacData				*macData;
+    SecAsn1Item					version;
+    NSS_P7_DecodedContentInfo	authSafe;
+    NSS_P12_MacData				*macData;
 } NSS_P12_DecodedPFX;
 
 extern const SecAsn1Template NSS_P12_DecodedPFXTemplate[];
 
 /*
- * The CSSMOID_PKCS7_Data-style ContentInfo.content of a PFX 
+ * The CSSMOID_PKCS7_Data-style ContentInfo.content of a PFX
  * contains an encoded AuthenticatedSafe.
  *
  * AuthenticatedSafe ::= SEQUENCE OF ContentInfo
@@ -131,21 +131,21 @@ extern const SecAsn1Template NSS_P12_DecodedPFXTemplate[];
  * 		-- EnvelopedData if public key-encrypted
  */
 typedef struct {
-	NSS_P7_DecodedContentInfo		**info;
+    NSS_P7_DecodedContentInfo		**info;
 } NSS_P12_AuthenticatedSafe;
 
 extern const SecAsn1Template NSS_P12_AuthenticatedSafeTemplate[];
 
-/* 
- * Individual BagTypes. 
- * Code on demand. 
+/*
+ * Individual BagTypes.
+ * Code on demand.
  */
 typedef SecAsn1Item	NSS_P12_KeyBag;
 typedef NSS_EncryptedPrivateKeyInfo	NSS_P12_ShroudedKeyBag;
 typedef SecAsn1Item	NSS_P12_SecretBag;
 typedef SecAsn1Item	NSS_P12_SafeContentsBag;
 
-/* 
+/*
  * CertBag
  *
  * CertBag ::= SEQUENCE {
@@ -161,20 +161,20 @@ typedef SecAsn1Item	NSS_P12_SafeContentsBag;
  * 			-- Base64-encoded SDSI certificate stored in IA5String
  */
 typedef enum {
-	CT_Unknown,			// --> ASN_ANY
-	CT_X509,
-	CT_SDSI,
+    CT_Unknown,			// --> ASN_ANY
+    CT_X509,
+    CT_SDSI,
 } NSS_P12_CertBagType;
 
 typedef struct {
-	SecAsn1Oid			bagType;
-	NSS_P12_CertBagType	type;
-	SecAsn1Item			certValue;
+    SecAsn1Oid			bagType;
+    NSS_P12_CertBagType	type;
+    SecAsn1Item			certValue;
 } NSS_P12_CertBag;
 
 extern const SecAsn1Template NSS_P12_CertBagTemplate[];
 
-/* 
+/*
  * CRLBag
  *
  * CRLBag ::= SEQUENCE {
@@ -190,61 +190,61 @@ extern const SecAsn1Template NSS_P12_CertBagTemplate[];
  * 			-- Base64-encoded SDSI certificate stored in IA5String
  */
 typedef enum {
-	CRT_Unknown,			// --> ASN_ANY
-	CRT_X509,
+    CRT_Unknown,			// --> ASN_ANY
+    CRT_X509,
 } NSS_P12_CrlBagType;
 
 typedef struct {
-	SecAsn1Oid			bagType;
-	NSS_P12_CrlBagType	type;
-	SecAsn1Item			crlValue;
+    SecAsn1Oid			bagType;
+    NSS_P12_CrlBagType	type;
+    SecAsn1Item			crlValue;
 } NSS_P12_CrlBag;
 
 extern const SecAsn1Template NSS_P12_CrlBagTemplate[];
 
 /*
- * BagId OIDs map to one of these for convenience. Our dynamic 
+ * BagId OIDs map to one of these for convenience. Our dynamic
  * template chooser drops one of these into NSS_P12_SafeBag.type
- * on decode. 
+ * on decode.
  */
 typedef enum {
-	BT_None = 0,
-	BT_KeyBag,
-	BT_ShroudedKeyBag,
-	BT_CertBag,
-	BT_CrlBag,
-	BT_SecretBag,
-	BT_SafeContentsBag
+    BT_None = 0,
+    BT_KeyBag,
+    BT_ShroudedKeyBag,
+    BT_CertBag,
+    BT_CrlBag,
+    BT_SecretBag,
+    BT_SafeContentsBag
 } NSS_P12_SB_Type;
 
 /*
- * The ContentInfo.content values of each element in 
+ * The ContentInfo.content values of each element in
  * an AuthenticatedSafe map to a sequence of these - either directly
  * (contentType CSSMOID_PKCS7_Data, octet string contents are
- * the DER encoding of this) or indirectly (encrypted or 
+ * the DER encoding of this) or indirectly (encrypted or
  * shrouded, the decrypted content is the DER encoding of this).
  */
 typedef struct {
-	SecAsn1Oid					bagId;
-	NSS_P12_SB_Type				type;
-	union {
-		NSS_P12_KeyBag			*keyBag;
-		NSS_P12_ShroudedKeyBag	*shroudedKeyBag;
-		NSS_P12_CertBag			*certBag;
-		NSS_P12_CrlBag			*crlBag;
-		NSS_P12_SecretBag		*secretBag;
-		NSS_P12_SafeContentsBag	*safeContentsBag;
-	} bagValue;
-	NSS_Attribute				**bagAttrs;		// optional
+    SecAsn1Oid					bagId;
+    NSS_P12_SB_Type				type;
+    union {
+        NSS_P12_KeyBag			*keyBag;
+        NSS_P12_ShroudedKeyBag	*shroudedKeyBag;
+        NSS_P12_CertBag			*certBag;
+        NSS_P12_CrlBag			*crlBag;
+        NSS_P12_SecretBag		*secretBag;
+        NSS_P12_SafeContentsBag	*safeContentsBag;
+    } bagValue;
+    NSS_Attribute				**bagAttrs;		// optional
 } NSS_P12_SafeBag;
 
 extern const SecAsn1Template NSS_P12_SafeBagTemplate[];
 
-/* 
+/*
  * SafeContents, the contents of an element in an AuthenticatedSafe.
  */
 typedef struct {
-	NSS_P12_SafeBag				**bags;
+    NSS_P12_SafeBag				**bags;
 }
 NSS_P12_SafeContents;
 
@@ -252,9 +252,9 @@ extern const SecAsn1Template NSS_P12_SafeContentsTemplate[];
 
 /*
  * PKCS12-specific algorithm parameters.
- * A DER encoded version of this is the parameters value of 
- * a CSSM_X509_ALGORITHM_IDENTIFIER used in a 
- * NSS_P7_EncrContentInfo.encrAlg in P12 password privacy mode. 
+ * A DER encoded version of this is the parameters value of
+ * a CSSM_X509_ALGORITHM_IDENTIFIER used in a
+ * NSS_P7_EncrContentInfo.encrAlg in P12 password privacy mode.
  *
  * pkcs-12PbeParams ::= SEQUENCE {
  *		salt OCTET STRING,
@@ -262,19 +262,62 @@ extern const SecAsn1Template NSS_P12_SafeContentsTemplate[];
  * }
  *
  * NOTE the P12 spec does place a limit on the value of iterations.
- * I guess we have to assume in actual usage that it's 
- * restricted to (0..MAX), i.e., uint32-sized. 
+ * I guess we have to assume in actual usage that it's
+ * restricted to (0..MAX), i.e., uint32-sized.
  *
  * We're also assuming that it is explicitly an unsigned value,
  * so that the value bytes in the encoding of 0xff would be
- * (0, 255). 
+ * (0, 255).
  */
 typedef struct {
-	SecAsn1Item		salt;
-	SecAsn1Item		iterations;
+    SecAsn1Item		salt;
+    SecAsn1Item		iterations;
 } NSS_P12_PBE_Params;
 
 extern const SecAsn1Template NSS_P12_PBE_ParamsTemplate[];
+
+/*
+ * PBES2 support for PKCS12
+ *
+ * Handy TLA guide:
+ * PBE(S) = password-based encryption (scheme)
+ * PRF = pseudo-random function
+ * KDF = key derivation function
+ * PBKDF = password-based key derivation function
+ * ENC = encryption parameters
+ */
+typedef struct {
+    SecAsn1Oid              algOid;
+    SecAsn1Item             params;
+} NSS_P12_PBEPRF_Params;
+
+typedef struct {
+    SecAsn1Item             salt;
+    SecAsn1Item             iterations;
+    SecAsn1Item             keyLength;
+    NSS_P12_PBEPRF_Params   params;
+} NSS_P12_PBKDF2_Params;
+
+typedef struct {
+    SecAsn1Oid              algOid;
+    NSS_P12_PBKDF2_Params   params;
+} NSS_P12_PBEKDF_Params;
+
+typedef struct {
+    SecAsn1Oid              algOid;
+    SecAsn1Item             iv;
+} NSS_P12_PBEENC_Params;
+
+// Note: NSS_P12_PBE2_Params is NSS_P12_PBE_Params with extra fields appended.
+// It can be used instead of NSS_P12_PBE_Params for PBE1 or PBE2 decoding.
+typedef struct {
+    SecAsn1Item             salt;       // copied from kdf.params.salt
+    SecAsn1Item             iterations; // copied from kdf.params.iterations
+    NSS_P12_PBEKDF_Params   kdf;
+    NSS_P12_PBEENC_Params   enc;
+} NSS_P12_PBE2_Params;
+
+extern const SecAsn1Template NSS_P12_PBE2_ParamsTemplate[];
 
 #ifdef __cplusplus
 }

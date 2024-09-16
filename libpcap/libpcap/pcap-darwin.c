@@ -260,6 +260,21 @@ pcap_setup_pktap_interface(const char *device, char *ebuf)
 		 * Create a device instance when no unit number is specified
 		 */
 		sscanf(ifname, IPTAP_IFNAME "%d", &unit);
+	} else if (strncmp(device, DROPTAP_IFNAME, strlen(DROPTAP_IFNAME)) == 0) {
+		if_prefix = DROPTAP_IFNAME;
+
+		/*
+		 * Copy the interface name
+		 */
+		if (strlcpy(ifname, device, PKTAP_IFXNAMESIZE) >= PKTAP_IFXNAMESIZE) {
+			snprintf(ebuf, PCAP_ERRBUF_SIZE, "device name too long: %s",
+					 pcap_strerror(errno));
+			goto fail;
+		}
+		/*
+		 * Create a device instance when no unit number is specified
+		 */
+		sscanf(ifname, DROPTAP_IFNAME "%d", &unit);
 	} else {
 		snprintf(ebuf, PCAP_ERRBUF_SIZE, "bad device name: %s",
 				 pcap_strerror(errno));
@@ -505,6 +520,7 @@ pktap_create(const char *device, char *ebuf, int *is_ours)
 		device = "pktap";
 	if (strncmp(device, PKTAP_IFNAME, strlen(PKTAP_IFNAME)) != 0 &&
 		strncmp(device, IPTAP_IFNAME, strlen(IPTAP_IFNAME)) != 0 &&
+		strncmp(device, DROPTAP_IFNAME, strlen(DROPTAP_IFNAME)) != 0 &&
 		strcmp(device, "all") != 0 &&
 		strcmp(device, "any") != 0) {
 		*is_ours = 0;
@@ -923,7 +939,11 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	/*
 	 * The actual data packet is past the packet tap header
 	 */
-	pkt_data = sp + pktp_hdr->pth_length;
+	if (pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
+		pkt_data = sp + DROPTAP_HDR_SIZE((struct droptap_header *)sp);
+	} else {
+		pkt_data = sp + pktp_hdr->pth_length;
+	}
 	epb = pcap_ng_get_enhanced_packet_fields(block);
 	epb->caplen = h->caplen - pktp_hdr->pth_length;
 	epb->interface_id = if_info->if_dump_id;
@@ -957,6 +977,17 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	}
 	if (pktp_hdr->pth_trace_tag != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktp_hdr->pth_trace_tag, 2);
+	}
+	if (pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_DROP_REASON, &((struct droptap_header *)pktp_hdr)->dth_dropreason, 4);
+		/*
+		 * dth_dropfunc_size is 0 if we did not store function name and
+		 * line number.
+		 */
+		if (((struct droptap_header *)pktp_hdr)->dth_dropfunc_size > 0) {
+			pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_DROP_LINE, &((struct droptap_header *)pktp_hdr)->dth_dropline, 2);
+			pcap_ng_block_add_option_with_string(block, PCAPNG_EPB_DROP_FUNC, ((struct droptap_header *)pktp_hdr)->dth_dropfunc);
+		}
 	}
 	if (comment != NULL && *comment != 0) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
@@ -1542,72 +1573,46 @@ pcap_ng_dump_init_section_info(pcap_dumper_t *dumper)
 int
 pcap_set_max_write_size(pcap_t *pcap, u_int max_write_size)
 {
-#ifdef BIOCSWRITEMAX
 	if (ioctl(pcap->fd, BIOCSWRITEMAX, &max_write_size) != 0) {
 		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 			 "%s: BIOCSWRITEMAX errno %d", __func__, errno);
 		return PCAP_ERROR;
 	}
 	return 0;
-#else
-#pragma unused(max_write_size)
-	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-		 "%s: BIOCSWRITEMAX not defined", __func__);
-	return PCAP_ERROR;
-#endif /* BIOCSWRITEMAX */
 }
 
 int
 pcap_get_max_write_size(pcap_t *pcap, u_int *max_write_size_ptr)
 {
-#ifdef BIOCGWRITEMAX
 	if (ioctl(pcap->fd, BIOCGWRITEMAX, max_write_size_ptr) != 0) {
 		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 			 "%s: BIOCGWRITEMAX errno %d", __func__, errno);
 		return PCAP_ERROR;
 	}
 	return 0;
-#else
-#pragma unused(max_write_size_ptr)
-	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-		 "%s: BIOCGWRITEMAX not defined", __func__);
-	return PCAP_ERROR;
-#endif /* BIOCGWRITEMAX */
 }
 
 int
 pcap_set_send_multiple(pcap_t *pcap, int value)
 {
-#ifdef BIOCSBATCHWRITE
 	if (ioctl(pcap->fd, BIOCSBATCHWRITE, &value) != 0) {
-		if (errno != EINVAL) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-					 "%s: BIOCSBATCHWRITE errno %d", __func__, errno);
-			return PCAP_ERROR;
-		}
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: BIOCSBATCHWRITE errno %d", __func__, errno);
+		return PCAP_ERROR;
 	} else {
 		pcap->send_multiple = value == 0 ? 0 : 1;
 	}
-#endif /* BIOCSBATCHWRITE */
-
 	return 0;
 }
 
 int
 pcap_get_send_multiple(pcap_t *pcap, int *value_ptr)
 {
-#ifdef BIOCGBATCHWRITE
 	if (ioctl(pcap->fd, BIOCGBATCHWRITE, value_ptr) != 0) {
-		if (errno != EINVAL) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-					 "%s: BIOCGBATCHWRITE errno %d", __func__, errno);
-			return PCAP_ERROR;
-		}
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: BIOCGBATCHWRITE errno %d", __func__, errno);
+		return PCAP_ERROR;
 	}
-#else
-	*value_ptr = pcap->send_multiple;
-#endif /* BIOCGBATCHWRITE */
-
 	return 0;
 }
 
@@ -1652,7 +1657,6 @@ pcap_sendpacket_multiple(pcap_t *pcap, const u_int pkt_count, const struct pcap_
 		return PCAP_ERROR;
 	}
 
-#ifdef BIOCSBATCHWRITE
 	/*
 	 * Be lenient and allow the SPI to be called when send_multiple is not set
 	 */
@@ -1764,7 +1768,38 @@ pcap_sendpacket_multiple(pcap_t *pcap, const u_int pkt_count, const struct pcap_
 		return PCAP_ERROR;
 	}
 	return pkt_count;
-#else /* BIOCSBATCHWRITE */
-	return send_packets_one_by_one(pcap, pkt_count, pcap_pkt_array);
-#endif /* BIOCSBATCHWRITE */
+}
+
+int
+pcap_get_divert_input(pcap_t *pcap, int *value)
+{
+#ifdef BIOCGDVRTIN
+	if (ioctl(pcap->fd, BIOCGDVRTIN, &value) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: BIOCGDVRTIN errno %d", __func__, errno);
+		return PCAP_ERROR;
+	}
+	return 0;
+#else  /* BIOCGDVRTIN */
+	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+		 "%s: BIOCGDVRTIN not supported", __func__);
+	return PCAP_ERROR;
+#endif /* BIOCGDVRTIN */
+}
+
+int
+pcap_set_divert_input(pcap_t *pcap, int value)
+{
+#ifdef BIOCSDVRTIN
+	if (ioctl(pcap->fd, BIOCSDVRTIN, &value) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: BIOCSDVRTIN %d errno %d", __func__, value, errno);
+		return PCAP_ERROR;
+	}
+	return 0;
+#else  /* BIOCGDVRTIN */
+	snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+		 "%s: BIOCSDVRTIN not supported", __func__);
+	return PCAP_ERROR;
+#endif /* BIOCGDVRTIN */
 }

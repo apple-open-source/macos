@@ -4455,7 +4455,7 @@ SecItemValidateAppleApplicationGroupAccess(CFStringRef group)
 }
 
 static Mutex& gParentCertCacheLock() {
-    static Mutex fParentCertCacheLock;
+    [[clang::no_destroy]] static Mutex fParentCertCacheLock;
     return fParentCertCacheLock;
 }
 static CFMutableDictionaryRef gParentCertCache;

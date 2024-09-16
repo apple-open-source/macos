@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>zic</string>
 		<key>OpenSourceVersion</key>
-		<string>2023-01-25</string>
+		<string>2023-04-26</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/contrib/tzcode?id=a7b1b73935f21a3dcd6fc8d86a37b92f0c9ba93f</string>
+		<string>https://cgit.freebsd.org/src/tree/contrib/tzcode?id=75411d157232ee3b4789b92c9205453e7d59a3d2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2023-01-25</string>
+		<string>2023-08-03</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		</array>

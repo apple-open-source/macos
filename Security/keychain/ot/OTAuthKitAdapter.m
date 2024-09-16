@@ -158,6 +158,8 @@
 }
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID
+                                 flowID:(NSString*)flowID
+                        deviceSessionID:(NSString*)deviceSessionID
                                   reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs,
                                                   NSSet<NSString*>* _Nullable userInitiatedRemovals,
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
@@ -203,6 +205,18 @@
     [authController deviceListWithContext:context completion:^(AKDeviceListResponse *response, NSError *error) {
         if (error != nil) {
             [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+
+            AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:@{} 
+                                                                                                        altDSID:altDSID
+                                                                                                         flowID:flowID
+                                                                                                deviceSessionID:deviceSessionID
+                                                                                                      eventName:kSecurityRTCEventNameTrustedDeviceListFailure
+                                                                                                testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                                 canSendMetrics:YES
+                                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
+            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error: error];
+
             secnotice("authkit", "received no device list(%@): %@", altDSID, error);
             complete(nil, nil, nil, nil, nil, nil, nil, nil, error);
             return;

@@ -70,6 +70,12 @@ void VP9TestingOverrides::setVP9DecoderDisabled(std::optional<bool>&& disabled)
         m_configurationChangedCallback(false);
 }
 
+void VP9TestingOverrides::setSWVPDecodersAlwaysEnabled(bool enabled)
+{
+    m_swVPDecodersAlwaysEnabled = enabled;
+    // We don't call the configurationChangedCallback to prevent unnecessarily starting the GPU process.
+}
+
 void VP9TestingOverrides::setVP9ScreenSizeAndScale(std::optional<ScreenDataOverrides>&& overrides)
 {
     m_screenSizeAndScale = WTFMove(overrides);
@@ -138,10 +144,15 @@ void registerSupplementalVP9Decoder()
         softLink_VideoToolbox_VTRegisterSupplementalVideoDecoderIfAvailable(kCMVideoCodecType_VP9);
 }
 
+static bool isSWDecodersAlwaysEnabled()
+{
+    return VP9TestingOverrides::singleton().swVPDecodersAlwaysEnabled();
+}
+
 bool isVP9DecoderAvailable()
 {
-    if (auto disabledForTesting = VP9TestingOverrides::singleton().vp9DecoderDisabled())
-        return !*disabledForTesting;
+    if (isSWDecodersAlwaysEnabled())
+        return true;
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
     return canLoad_VideoToolbox_VTIsHardwareDecodeSupported() && VTIsHardwareDecodeSupported(kCMVideoCodecType_VP9);
@@ -154,6 +165,8 @@ bool isVP9DecoderAvailable()
 
 bool isVP8DecoderAvailable()
 {
+    if (isSWDecodersAlwaysEnabled())
+        return true;
     if (!VideoToolboxLibrary(true))
         return false;
     return noErr == VTSelectAndCreateVideoDecoderInstance('vp08', kCFAllocatorDefault, nullptr, nullptr);
@@ -187,6 +200,9 @@ static bool isVP9CodecConfigurationRecordSupported(const VPCodecConfigurationRec
     // HW & SW VP9 Decoders support up to Level 6:
     if (codecConfiguration.level > VPConfigurationLevel::Level_6)
         return false;
+
+    if (isSWDecodersAlwaysEnabled())
+        return true;
 
     // Hardware decoders are always available.
     if (vp9HardwareDecoderAvailable())
@@ -269,7 +285,7 @@ std::optional<MediaCapabilitiesInfo> validateVPParameters(const VPCodecConfigura
         if (*videoConfiguration.colorGamut == ColorGamut::Rec2020 && codecConfiguration.colorPrimaries != 9)
             return std::nullopt;
     }
-    return computeVPParameters(videoConfiguration);
+    return computeVPParameters(videoConfiguration, vp9HardwareDecoderAvailable());
 }
 
 bool isVPSoftwareDecoderSmooth(const VideoConfiguration& videoConfiguration)
@@ -283,11 +299,11 @@ bool isVPSoftwareDecoderSmooth(const VideoConfiguration& videoConfiguration)
     return true;
 }
 
-std::optional<MediaCapabilitiesInfo> computeVPParameters(const VideoConfiguration& videoConfiguration)
+std::optional<MediaCapabilitiesInfo> computeVPParameters(const VideoConfiguration& videoConfiguration, bool vp9HardwareDecoderAvailable)
 {
     MediaCapabilitiesInfo info;
 
-    if (vp9HardwareDecoderAvailable()) {
+    if (vp9HardwareDecoderAvailable) {
         // HW VP9 Decoder does not support alpha channel:
         if (videoConfiguration.alphaChannel && *videoConfiguration.alphaChannel)
             return std::nullopt;
@@ -314,6 +330,11 @@ std::optional<MediaCapabilitiesInfo> computeVPParameters(const VideoConfiguratio
     // FIXME: Add a lookup table for device-to-capabilities. For now, assume that the SW VP9
     // decoder can support 4K @ 30.
     info.smooth = isVPSoftwareDecoderSmooth(videoConfiguration);
+
+    if (isSWDecodersAlwaysEnabled()) {
+        info.supported = true;
+        return info;
+    }
 
     // For wall-powered devices, always report VP9 as supported, even if not powerEfficient.
     if (!systemHasBattery()) {
@@ -603,7 +624,7 @@ static Ref<VideoInfo> createVideoInfoFromVPCodecConfigurationRecord(const VPCode
     view->set(8, record.transferCharacteristics, false);
     view->set(9, record.matrixCoefficients, false);
     view->set(10, codecIntializationDataSize, false);
-    videoInfo->atomData = SharedBuffer::create(static_cast<uint8_t*>(view->data()), view->byteLength());
+    videoInfo->atomData = SharedBuffer::create(view->span());
     videoInfo->colorSpace.fullRange = record.videoFullRangeFlag == VPConfigurationRange::FullRange;
     videoInfo->colorSpace.primaries = convertToPlatformVideoColorPrimaries(record.colorPrimaries);
     videoInfo->colorSpace.transfer = convertToPlatformVideoTransferCharacteristics(record.transferCharacteristics);
@@ -712,18 +733,18 @@ Ref<VideoInfo> createVideoInfoFromVP9HeaderParser(const vp9_parser::Vp9HeaderPar
     return createVideoInfoFromVPCodecConfigurationRecord(record, parser.width(), parser.height());
 }
 
-std::optional<VP8FrameHeader> parseVP8FrameHeader(const uint8_t* frameData, size_t frameSize)
+std::optional<VP8FrameHeader> parseVP8FrameHeader(std::span<const uint8_t> frameData)
 {
     // VP8 frame headers are defined in RFC 6386: <https://tools.ietf.org/html/rfc6386>.
 
     // Bail if the header is below a minimum size
-    if (frameSize < 11)
+    if (frameData.size() < 11)
         return std::nullopt;
 
     VP8FrameHeader header;
     size_t headerSize = 11;
 
-    auto view = JSC::DataView::create(ArrayBuffer::create(frameData, headerSize), 0, headerSize);
+    auto view = JSC::DataView::create(ArrayBuffer::create(frameData.first(headerSize)), 0, headerSize);
     bool status = true;
 
     auto uncompressedChunk = view->get<uint32_t>(0, true, &status);
@@ -805,15 +826,6 @@ Ref<VideoInfo> createVideoInfoFromVP8Header(const VP8FrameHeader& header, const 
     }
 
     return createVideoInfoFromVPCodecConfigurationRecord(record, header.width, header.height);
-}
-
-bool hasVP9ExtensionSupport()
-{
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/VP9UtilitiesCocoaAdditions.mm>
-#endif
-
-    return false;
 }
 
 }

@@ -4678,6 +4678,11 @@ do_opt( char **cpp,
 						rv = 1;
 						goto out;
 					}
+					if (HEXTOC(cpu[0]) < 0) {
+						log(LOG_ERR, "failed to convert UUID bytes to UUID string: %s", cpoptarg);
+						rv = 1;
+						goto out;
+					}
 					fsuuid[i] = HEXSTRTOI(cpu);
 				}
 				*opt_flagsp |= OP_FSUUID;

@@ -46,6 +46,7 @@
 #include <os/lock_private.h>
 #include <os/reason_private.h>
 #include <os/variant_private.h>
+#include <os/log_simple_private.h>
 #include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 #include <Block.h>
@@ -85,6 +86,9 @@ static uint32_t _libnotify_debug = DEBUG_ALL;
 #define SELF_PREFIX_LEN 5
 
 #define COMMON_SELF_PORT_KEY "self.com.apple.system.notify.common"
+#define LOOPBACK_MODE_ENTITLEMENT "com.apple.developer.web-browser-engine.restrict.notifyd"
+#define INTROSPECTION_ENTITLEMENT "com.apple.private.darwin-notification.introspect"
+#define INTROSPECTION_NAME_PREFIX_CHAR '*'
 
 #define MULTIPLE_REGISTRATION_WARNING_TRIGGER 500
 
@@ -96,6 +100,34 @@ static uint32_t _libnotify_debug = DEBUG_ALL;
 // NOTIFY_SERVER_RETRY_WAIT_US microseconds.
 #define NOTIFY_SERVER_RETRY_WAIT_US 100000
 #define NOTIFY_SERVER_RETRY_NUMBER 50
+
+#define notification_name_is_self(name) \
+	(!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || notification_loopback_mode_enabled())
+#define assert_loopback_disabled() \
+if(os_unlikely(notification_loopback_mode_enabled())) \
+{ \
+	NOTIFY_CLIENT_CRASH(0, "loopback mode enabled but process wants to IPC to notifyd"); \
+}
+
+#define notification_introspection_expect_exempt(name) \
+if(os_unlikely(!_notification_introspection_is_exempt(name))) {\
+	simulate_crash("LIBNOTIFY INTROSPECT: registering for non-exempt notification %s", name);\
+}
+
+#define LIBNOTIFY_LOGGING_ENVVAR "DarwinNotificationLogging"
+#define __notify_log(fmt, lvl, ...) \
+os_log_simple_with_subsystem(OS_LOG_SIMPLE_TYPE_ ## lvl, "com.apple.libnotify", fmt, ##__VA_ARGS__)
+
+#define _notify_log_debug(fmt, ...) __notify_log(fmt, DEBUG, ##__VA_ARGS__)
+#define _notify_log(fmt, ...) __notify_log(fmt, DEFAULT, ##__VA_ARGS__)
+
+#define NOTIFY_LOG(name, fmt, ...) \
+{ \
+if (_notify_log_enabled(name)) { \
+	_notify_log("[%s] " fmt, name, ##__VA_ARGS__); \
+} \
+}
+
 
 /*
  * Details about registrations, tokens, dispatch (NOTIFY_OPT_DISPATCH), IPC versions, and etc.
@@ -222,6 +254,10 @@ static void registration_node_release_locked(notify_globals_t globals, registrat
 static void notify_release_file_descriptor_locked(notify_globals_t globals, int fd);
 static void notify_release_mach_port_locked(notify_globals_t globals, mach_port_t mp, uint32_t flags);
 static uint32_t notify_register_coalesced_registration(const char *name, int flags, int *out_token, notify_globals_t globals, mach_port_t extra_mp);
+static bool notification_loopback_mode_enabled(void);
+static bool _notification_introspection_is_exempt(const char *);
+static bool _notify_log_enabled(const char *);
+static registration_node_t * registration_node_find(uint32_t token);
 
 // TSAN doesn't know about os_unfair_lock_with_options
 #if defined(__has_feature)
@@ -313,38 +349,10 @@ _notify_client_log(int level, const char *fmt, ...)
 
 #if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
 
-static const uint32_t LAUNCHD_PID = 1;
-
-// do this so we don't have to link against libtrace
-__printflike(1, 2)
-static void
-simulate_crash(char *fmt, ...)
-{
-	char *desc = NULL;
-	va_list ap;
-	int len;
-
-	if (getpid() == LAUNCHD_PID) {
-		return;
-	}
-
-	va_start(ap, fmt);
-	len = vasprintf(&desc, fmt, ap);
-	va_end(ap);
-
-	if (desc == NULL) {
-		return;
-	}
-
-	os_fault_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT,
-			desc, len + 1, desc, 0);
-	free(desc);
-}
-
 #define REPORT_BAD_BEHAVIOR(...)							\
 	if(os_variant_has_internal_diagnostics("libnotify.simulate_crash"))		\
 	{										\
-		simulate_crash(__VA_ARGS__);						\
+		_simulate_crash(__VA_ARGS__);						\
 	} else {									\
 		_notify_client_log(ASL_LEVEL_ERR, __VA_ARGS__);				\
 	}										\
@@ -739,6 +747,8 @@ registration_node_free_locked(notify_globals_t globals, registration_node_t *r)
 
 	name_node_t *n = r->name_node;
 
+	NOTIFY_LOG(n->name, "canceling notification: token=%d flags=0x%x", r->token, r->flags);
+
 	if (r->flags & NOTIFY_FLAG_COALESCED)
 	{
 		name_node_remove_coalesced_registration_locked(globals, n, r);
@@ -806,6 +816,8 @@ registration_node_delete_locked(notify_globals_t globals, registration_node_t *r
 #endif
 		return;
 	}
+
+	assert_loopback_disabled();
 
 	if (reg_flags & NOTIFY_FLAG_COALESCE_BASE)
 	{
@@ -922,6 +934,78 @@ shm_detach(void)
 }
 #endif
 
+static void
+_notify_lib_set_common_port(notify_globals_t globals, mach_port_t mp)
+{
+	globals->notify_common_port = mp;
+
+	globals->notify_dispatch_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
+	dispatch_set_context(globals->notify_dispatch_source, globals);
+	dispatch_source_set_event_handler_f(globals->notify_dispatch_source, _notify_dispatch_handle);
+	dispatch_source_set_cancel_handler(globals->notify_dispatch_source, ^{
+		mach_port_destruct(mach_task_self(), mp, 0, 0);
+	});
+
+	dispatch_resume(globals->notify_dispatch_source);
+}
+
+static bool
+_notify_log_enabled(const char *name) {
+	notify_globals_t globals = _notify_globals();
+
+	if (!globals->logging) {
+		return false;
+	}
+
+	if (globals->logging->global) {
+		return true;
+	}
+
+	return os_set_find(&globals->logging->notifications, name) != NULL;
+}
+
+static struct _notify_logging_s _notify_logging_global =
+{
+	.global = true,
+	.notifications = NULL
+};
+
+static struct _notify_logging_s *
+_notify_lib_init_logging() {
+	if (!os_variant_has_internal_diagnostics("com.apple.libnotify")) {
+		return NULL;
+	}
+
+	const char *logging = getenv(LIBNOTIFY_LOGGING_ENVVAR);
+	if (logging == NULL) {
+		return NULL;
+	}
+
+	if (strcmp(logging, "1") == 0) {
+		_notify_log("enabled logging for all notifications");
+		return &_notify_logging_global;
+	} else {
+		struct _notify_logging_s *result = calloc(1, sizeof(struct _notify_logging_s));
+		result->global = false;
+		os_set_init(&result->notifications, NULL);
+
+		char *notification_str = strdup(logging);
+		for (char *lasts, *n = strtok_r(notification_str, ",", &lasts);
+		     n != NULL; n = strtok_r(NULL, ",", &lasts)) {
+			struct _str_container_s {
+				const char *str;
+			};
+			struct _str_container_s *strcntr = calloc(1, sizeof(struct _str_container_s));
+			strcntr->str = strdup(n);
+			os_set_insert(&result->notifications, (void *)&strcntr->str);
+			_notify_log("enabled logging for %s", n);
+		}
+		free(notification_str);
+
+		return result;
+	}
+}
+
 /*
  * _notify_lib_init is called for each new registration (event = EVENT_INIT).
  * It is also called to re-initialize when the library has detected that
@@ -939,7 +1023,37 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 	/* We need to hold the global lock here otherwise "first" is racy */
 	/* But then we don't need dispatch_once -- clean this up in 39829810 */
 	os_unfair_lock_assert_owner(&globals->notify_lock);
-	
+
+	globals->logging = _notify_lib_init_logging();
+
+	/*
+	 * _dispatch_is_multithreaded() tells us if it is safe to use dispatch queues for
+	 * a shared port for all registrations (NOTIFY_OPT_DISPATCH), and to watch for notifyd
+	 * exiting / restarting (NOTIFY_OPT_REGEN).
+	 */
+	if (_dispatch_is_multithreaded()) {
+		os_atomic_or(&globals->client_opts, NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN, relaxed);
+	}
+
+	/*
+	 * In loopback mode, the client never talks to notifyd. So we skip bootstrap lookups
+	 * and monitoring notifyd.
+	 */
+	if (notification_loopback_mode_enabled() && (client_opts(globals) & NOTIFY_OPT_DISPATCH)) {
+		if (MACH_PORT_VALID(globals->notify_common_port)) {
+			return NOTIFY_STATUS_OK;
+		}
+
+		mach_port_t mp = MACH_PORT_NULL;
+		kstatus = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
+		if (kstatus == KERN_SUCCESS) {
+			_notify_lib_set_common_port(globals, mp);
+			return NOTIFY_STATUS_OK;
+		} else {
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
 	/* Look up the notifyd server port just once. */
 	kstatus = KERN_SUCCESS;
 	dispatch_once(&globals->notify_server_port_once, ^{
@@ -949,15 +1063,6 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 	if ((kstatus != KERN_SUCCESS) || !(MACH_PORT_VALID(globals->notify_server_port)))
 	{
 		return NOTIFY_STATUS_SERVER_NOT_FOUND;
-	}
-
-	/*
-	 * _dispatch_is_multithreaded() tells us if it is safe to use dispatch queues for
-	 * a shared port for all registrations (NOTIFY_OPT_DISPATCH), and to watch for notifyd
-	 * exiting / restarting (NOTIFY_OPT_REGEN).
-	 */
-	if (_dispatch_is_multithreaded()) {
-		os_atomic_or(&globals->client_opts, NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN, relaxed);
 	}
 
 	/*
@@ -1065,16 +1170,7 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 			return status;
 		}
 
-		globals->notify_common_port = mp;
-
-		globals->notify_dispatch_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
-		dispatch_set_context(globals->notify_dispatch_source, globals);
-		dispatch_source_set_event_handler_f(globals->notify_dispatch_source, _notify_dispatch_handle);
-		dispatch_source_set_cancel_handler(globals->notify_dispatch_source, ^{
-			mach_port_destruct(mach_task_self(), mp, 0, 0);
-		});
-
-		dispatch_resume(globals->notify_dispatch_source);
+		_notify_lib_set_common_port(globals, mp);
 	}
 
 	return NOTIFY_STATUS_OK;
@@ -1224,6 +1320,8 @@ client_registration_create_base( __attribute__((nonnull)) const char * name, uin
 		REPORT_BAD_BEHAVIOR("notify name \"%s\" has been registered %d times - this may be a leak", name, warn_count);
 	}
 
+	NOTIFY_LOG(name_node->name, "registered for notification: token=%d flags=0x%x", reg_node->token, reg_node->flags);
+
 	mutex_unlock(name_node->name, &name_node->lock, __func__, __LINE__);
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 	return NOTIFY_STATUS_OK;
@@ -1300,6 +1398,8 @@ base_registration_create_locked(notify_globals_t globals, __attribute__((nonnull
 	name_node->coalesce_base_token = token;
 
 	_nc_table_insert_n(&globals->registration_table, &reg_node->token);
+
+	NOTIFY_LOG(name_node->name, "registered for notification token=%d flags=0x%x", reg_node->token, reg_node->flags);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -1732,6 +1832,114 @@ notify_set_options(uint32_t opts)
 	_notify_lib_init(globals, EVENT_INIT);
 }
 
+static bool
+check_entitlement(const char *entitlement, bool (^evaluate)(xpc_object_t))
+{
+	bool result = false;
+
+	xpc_object_t value = xpc_copy_entitlement_for_token(entitlement, NULL);
+	if (value) {
+		result = evaluate(value);
+		xpc_release(value);
+	}
+
+	return result;
+}
+
+static void
+_notification_introspection_init(notify_globals_t globals)
+{
+	__block struct _notify_introspect_exempt_s *exempt_notifications = NULL;
+	__block size_t num_exempt_notifications = 0;
+
+	bool enabled = check_entitlement(INTROSPECTION_ENTITLEMENT, ^bool (xpc_object_t entitlement){
+		if (xpc_get_type(entitlement) != XPC_TYPE_ARRAY) {
+			NOTIFY_CLIENT_CRASH(0, "entitlement " INTROSPECTION_ENTITLEMENT " must be a non-empty *array* of strings");
+			return false;
+		}
+
+		size_t num_notifications = xpc_array_get_count(entitlement);
+		if (!num_notifications) {
+			NOTIFY_CLIENT_CRASH(0, "entitlement " INTROSPECTION_ENTITLEMENT " must be a *non-empty* array of strings");
+			return false;
+		}
+
+		exempt_notifications = calloc(num_notifications, sizeof(struct _notify_introspect_exempt_s));
+		assert(exempt_notifications != NULL);
+		num_exempt_notifications = num_notifications;
+
+		return xpc_array_apply(entitlement, ^bool (size_t index, xpc_object_t value){
+			if (xpc_get_type(value) != XPC_TYPE_STRING) {
+				NOTIFY_CLIENT_CRASH(0, "entitlement " INTROSPECTION_ENTITLEMENT " must be a non-empty array of *strings*");
+				return false;
+			}
+
+
+			const char *str = xpc_string_get_string_ptr(value);
+			size_t len = xpc_string_get_length(value);
+			exempt_notifications[index].str = strdup(str);
+			exempt_notifications[index].len = len;
+
+			return true;
+		});
+	});
+
+	struct _notify_introspect_s *introspect = &globals->introspect;
+	introspect->enabled = enabled;
+	introspect->num_exempt_notifications = num_exempt_notifications;
+	introspect->exempt_notifications = exempt_notifications;
+}
+
+static bool
+_notification_introspection_is_exempt(const char *notification)
+{
+	static dispatch_once_t once;
+	notify_globals_t globals = _notify_globals();
+
+	dispatch_once(&once, ^{
+		// No locking needed within this function since all access
+		// to introspect has to go through dispatch_once
+		_notification_introspection_init(globals);
+	});
+
+	struct _notify_introspect_s *introspect = &globals->introspect;
+
+	if (!notification || !introspect->enabled) {
+		return true;
+	}
+
+	const struct _notify_introspect_exempt_s *exempt = introspect->exempt_notifications;
+
+	for (int i = 0; i < introspect->num_exempt_notifications; i++) {
+		if (exempt[i].str[exempt[i].len - 1] == INTROSPECTION_NAME_PREFIX_CHAR) {
+			if (strncmp(notification, exempt[i].str, exempt[i].len - 1) == 0) {
+				return true;
+			}
+		} else {
+			if (strcmp(notification, exempt[i].str) == 0) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static bool
+notification_loopback_mode_enabled(void)
+{
+	static dispatch_once_t once;
+	static bool cached_result;
+
+	dispatch_once(&once, ^{
+		cached_result = check_entitlement(LOOPBACK_MODE_ENTITLEMENT, ^bool (xpc_object_t entitlement){
+			return (entitlement == XPC_BOOL_TRUE);
+		});
+	});
+
+	return cached_result;
+}
+
 /**
  * Check if process has root access entitlement and should claim root access
  * from notifyd.
@@ -1740,13 +1948,15 @@ static bool
 should_claim_root_access(void)
 {
 	static dispatch_once_t once;
-	static bool has_root_entitlement;
+	static bool cached_result;
+
 	dispatch_once(&once, ^{
-		xpc_object_t entitlement = xpc_copy_entitlement_for_token(ROOT_ENTITLEMENT_KEY, NULL);
-		if (entitlement == XPC_BOOL_TRUE) has_root_entitlement = true;
-		if (entitlement) xpc_release(entitlement);
+		cached_result = check_entitlement(ROOT_ENTITLEMENT_KEY, ^bool (xpc_object_t entitlement){
+			return (entitlement == XPC_BOOL_TRUE);
+		});
 	});
-	return has_root_entitlement;
+
+	return cached_result;
 }
 
 /*
@@ -1829,7 +2039,7 @@ notify_post(const char *name)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 		_notify_lib_post(&globals->self_state, name, 0, 0);
 #ifdef DEBUG
@@ -2178,6 +2388,8 @@ _notify_register_dispatch_with_extra_mp(const char *name, int *out_token, dispat
 uint32_t
 notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
 {
+	notification_introspection_expect_exempt(name);
+
 	return _notify_register_dispatch_with_extra_mp(name, out_token, queue, handler, MACH_PORT_NULL);
 }
 
@@ -2234,6 +2446,8 @@ notify_register_check(const char *name, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
+	notification_introspection_expect_exempt(name);
+
 	status = regenerate_check(globals);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -2270,7 +2484,7 @@ notify_register_check(const char *name, int *out_token)
 
 	*out_token = -1;
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
@@ -2428,6 +2642,8 @@ notify_register_plain(const char *name, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
+	notification_introspection_expect_exempt(name);
+
 	status = regenerate_check(globals);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -2450,7 +2666,7 @@ notify_register_plain(const char *name, int *out_token)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
@@ -2562,6 +2778,8 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
+	notification_introspection_expect_exempt(name);
+
 	status = regenerate_check(globals);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -2584,7 +2802,7 @@ notify_register_signal(const char *name, int sig, int *out_token)
 		return NOTIFY_STATUS_INVALID_NAME;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_signal(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, sig, 0, 0, &nid);
@@ -2803,7 +3021,8 @@ notify_register_mach_port_no_dispatch(const char *name, mach_port_name_t *notify
 
 	assert(globals);
 	assert(name);
-	assert(strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) && !(client_opts(globals) & NOTIFY_OPT_LOOPBACK));
+	assert(strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN));
+	assert_loopback_disabled();
 
 	uint32_t token;
 	uint32_t cid;
@@ -2909,7 +3128,7 @@ notify_register_coalesced_registration(const char *name, int flags, int *out_tok
 	assert(globals);
 	assert(name);
 
-	if(!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK)) {
+	if(notification_name_is_self(name)) {
 		return notify_register_mach_port_self(name, &globals->notify_common_port, flags, out_token, globals);
 	}
 
@@ -3191,6 +3410,8 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 
 	notify_globals_t globals = _notify_globals();
 
+	notification_introspection_expect_exempt(name);
+
 	status = regenerate_check(globals);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -3221,7 +3442,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		return NOTIFY_STATUS_INVALID_PORT;
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -3258,6 +3479,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	kern_return_t kstatus;
 	uint32_t cid = -1;
 	notify_globals_t globals = _notify_globals();
+
+	notification_introspection_expect_exempt(name);
 
 	status = regenerate_check(globals);
 	if (status != NOTIFY_STATUS_OK)
@@ -3331,7 +3554,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		fdpair[1] = globals->fd_srv[i];
 	}
 
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN) || (client_opts(globals) & NOTIFY_OPT_LOOPBACK))
+	if (notification_name_is_self(name))
 	{
 		token = atomic_increment32(&globals->token_id);
 		status = _notify_lib_register_file_descriptor(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, fdpair[1], 0, 0, &nid);
@@ -3555,6 +3778,8 @@ notify_check(int token, int *check)
 		goto release_and_return;
 	}
 
+	assert_loopback_disabled();
+
 	if (notify_is_type(r->flags, NOTIFY_TYPE_MEMORY))
 	{
 		if (globals->shm_base == NULL)
@@ -3675,6 +3900,8 @@ notify_peek(int token, uint32_t *val)
 		goto release_and_return;
 	}
 
+	assert_loopback_disabled();
+
 	status = NOTIFY_STATUS_INVALID_REQUEST;
 
 	if (notify_is_type(r->flags, NOTIFY_TYPE_MEMORY))
@@ -3757,6 +3984,8 @@ notify_monitor_file(int token, char *path, int flags)
 #endif
 		return NOTIFY_STATUS_INVALID_REQUEST;
 	}
+
+	assert_loopback_disabled();
 
 	/* can only monitor one path with a token */
 	if (r->path != NULL)
@@ -3915,6 +4144,8 @@ notify_get_state(int token, uint64_t *state)
 		return status;
 	}
 
+	assert_loopback_disabled();
+
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
@@ -4035,6 +4266,8 @@ notify_set_state(int token, uint64_t state)
 #endif
 		return status;
 	}
+
+	assert_loopback_disabled();
 
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
@@ -4201,6 +4434,8 @@ notify_suspend(int token)
 		return NOTIFY_STATUS_OK;
 	}
 
+	assert_loopback_disabled();
+
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
@@ -4291,6 +4526,8 @@ notify_resume(int token)
 #endif
 		return NOTIFY_STATUS_OK;
 	}
+
+	assert_loopback_disabled();
 
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{

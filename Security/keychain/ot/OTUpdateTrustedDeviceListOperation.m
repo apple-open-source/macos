@@ -33,8 +33,6 @@
 
 @property OctagonState* stateIfListUpdates;
 
-@property OctagonState* stateIfAuthenticationError;
-
 @property (nullable) OctagonFlag* retryFlag;
 
 // Since we're making callback based async calls, use this operation trick to hold off the ending of this operation
@@ -48,7 +46,6 @@
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                     listUpdatesState:(OctagonState*)stateIfListUpdates
-            authenticationErrorState:(OctagonState*)stateIfNotAuthenticated
                           errorState:(OctagonState*)errorState
                            retryFlag:(OctagonFlag*)retryFlag
 
@@ -59,7 +56,6 @@
         _intendedState = intendedState;
         _nextState = errorState;
         _stateIfListUpdates = stateIfListUpdates;
-        _stateIfAuthenticationError = stateIfNotAuthenticated;
 
         _retryFlag = retryFlag;
     }
@@ -130,7 +126,10 @@
         secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
     }
 
-    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID reply:^(NSSet<NSString *> * _Nullable machineIDs,
+    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:altDSID 
+                                                       flowID:self.deps.flowID
+                                              deviceSessionID:self.deps.deviceSessionID
+                                                        reply:^(NSSet<NSString *> * _Nullable machineIDs,
                                                                               NSSet<NSString*>* _Nullable userInitiatedRemovals,
                                                                               NSSet<NSString*>* _Nullable evictedRemovals,
                                                                               NSSet<NSString*>* _Nullable unknownReasonRemovals,
@@ -159,11 +158,17 @@
             }
             self.error = error;
 
-            if([AKAppleIDAuthenticationErrorDomain isEqualToString:error.domain] && error.code == AKAuthenticationErrorNotPermitted) {
-                self.nextState = self.stateIfAuthenticationError;
-            }
+            [self.deps.cuttlefishXPCWrapper markTrustedDeviceListFetchFailed:self.deps.activeAccount
+                                                                       reply:^(NSError * _Nullable error) {
+                if(error) {
+                    secnotice("octagon-authkit", "Unable to mark machineID list as out of date: %@", error);
+                    self.error = error;
+                } else {
+                    secnotice("octagon-authkit", "Successfully marked machineID list as out of date");
+                }
+                [self runBeforeGroupFinished:self.finishedOp];
+            }];
 
-            [self runBeforeGroupFinished:self.finishedOp];
 
         } else if (!machineIDs) {
             secerror("octagon-authkit: empty machine id list");

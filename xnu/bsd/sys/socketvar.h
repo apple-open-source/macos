@@ -111,7 +111,13 @@ extern  char netio[], netcon[], netcls[];
 #endif /* KERNEL_PRIVATE */
 
 #ifdef PRIVATE
+/*
+ * Note: We stopped accumulating stats per traffic class as it's not really useful
+ */
 #define SO_TC_STATS_MAX 4
+
+#define SO_STATS_DATA        0
+#define SO_STATS_SBNOSPACE   1
 
 struct data_stats {
 	u_int64_t       rxpackets;
@@ -370,14 +376,14 @@ struct socket {
 	((char *)(m) != (char *)0L &&                                   \
 	(size_t)(m)->m_len >= sizeof (struct cmsghdr) &&                \
 	(socklen_t)(m)->m_len >=                                        \
-	__DARWIN_ALIGN32(((struct cmsghdr *)(void *)(m)->m_data)->cmsg_len) ? \
-	(struct cmsghdr *)(void *)(m)->m_data :	(struct cmsghdr *)0L)
+	__DARWIN_ALIGN32(((struct cmsghdr *)(void *)m_mtod_current(m))->cmsg_len) ? \
+	(struct cmsghdr *)(void *)m_mtod_current(m) : (struct cmsghdr * __header_bidi_indexable)0L)
 
 #define M_NXT_CMSGHDR(m, cmsg)                                          \
 	((char *)(cmsg) == (char *)0L ? M_FIRST_CMSGHDR(m) :            \
 	_MIN_NXT_CMSGHDR_PTR(cmsg) > ((char *)(m)->m_data) + (m)->m_len ||  \
 	_MIN_NXT_CMSGHDR_PTR(cmsg) < (char *)(m)->m_data ?              \
-	(struct cmsghdr *)0L /* NULL */ :                               \
+	(struct cmsghdr * __header_bidi_indexable)0L /* NULL */ :              \
 	(struct cmsghdr *)(void *)((unsigned char *)(cmsg) +            \
 	__DARWIN_ALIGN32((__uint32_t)(cmsg)->cmsg_len)))
 
@@ -779,7 +785,7 @@ __ASSUME_PTR_ABI_SINGLE_BEGIN
 /* Exported */
 extern int sbappendaddr(struct sockbuf *sb, struct sockaddr *asa,
     struct mbuf *m0, struct mbuf *control, int *error_out);
-extern int sbappendchain(struct sockbuf *sb, struct mbuf *m, int space);
+extern int sbappendchain(struct sockbuf *sb, struct mbuf *m);
 extern int sbappendrecord(struct sockbuf *sb, struct mbuf *m0);
 extern int sbappendrecord_nodrop(struct sockbuf *sb, struct mbuf *m0);
 extern void sbflush(struct sockbuf *sb);
@@ -801,8 +807,9 @@ extern int sopoll(struct socket *so, int events, struct ucred *cred, void *wql);
 extern int sooptcopyin(struct sockopt *sopt, void * __sized_by(len), size_t len,
     size_t minlen)
 __attribute__ ((warn_unused_result));
-extern int sooptcopyout(struct sockopt *sopt, void *data, size_t len)
+extern int sooptcopyout(struct sockopt *sopt, void *__sized_by(len) data, size_t len)
 __attribute__ ((warn_unused_result));
+extern int sooptcopyin_bindtodevice(struct sockopt *sopt, char * __sized_by(bufsize) buf, size_t bufsize);
 extern int soopt_cred_check(struct socket *so, int priv, boolean_t allow_root,
     boolean_t ignore_delegate);
 extern int soreceive(struct socket *so, struct sockaddr **paddr,
@@ -857,8 +864,8 @@ extern int sbappendmptcpstream_rcv(struct sockbuf *sb, struct mbuf *m);
 extern void sbcheck(struct sockbuf *sb);
 extern void sblastmbufchk(struct sockbuf *, const char *);
 extern void sblastrecordchk(struct sockbuf *, const char *);
-extern struct mbuf *sbcreatecontrol(caddr_t p, int size, int type, int level);
-extern struct mbuf **sbcreatecontrol_mbuf(caddr_t p, int size, int type,
+extern struct mbuf *sbcreatecontrol(caddr_t __sized_by(size) p, int size, int type, int level);
+extern struct mbuf **sbcreatecontrol_mbuf(caddr_t __sized_by(size) p, int size, int type,
     int level, struct mbuf **m);
 extern void sbdrop(struct sockbuf *sb, int len);
 extern void sbdroprecord(struct sockbuf *sb);
@@ -873,7 +880,24 @@ extern void sballoc(struct sockbuf *sb, struct mbuf *m);
 extern void sbfree(struct sockbuf *sb, struct mbuf *m);
 
 /* Note: zero out the buffer and set sa_len to size */
-extern void * __header_indexable alloc_sockaddr(size_t size, zalloc_flags_t flags);
+static inline void *
+__sized_by_or_null(size)
+alloc_sockaddr(size_t size, zalloc_flags_t flags)
+{
+	if (__improbable(size > UINT8_MAX)) {
+		panic("invalid size");
+	}
+	__typed_allocators_ignore_push
+	void * buf = kheap_alloc(KHEAP_SONAME, size, flags | Z_ZERO);
+	__typed_allocators_ignore_pop
+	if (buf != NULL) {
+		struct sockaddr *sa = __unsafe_forge_bidi_indexable(struct sockaddr *,
+		    buf, sizeof(struct sockaddr));
+		sa->sa_len = (uint8_t)size;
+	}
+
+	return buf;
+}
 
 #if XNU_TARGET_OS_OSX
 #define free_sockaddr(sa) do {                                  \
@@ -957,7 +981,8 @@ extern void soevent(struct socket *so, uint32_t hint);
 extern void sorflush(struct socket *so);
 extern void sowflush(struct socket *so);
 extern void sowakeup(struct socket *so, struct sockbuf *sb, struct socket *so2);
-extern int soioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p);
+extern int soioctl(struct socket *so, u_long cmd,
+    caddr_t __sized_by(IOCPARM_LEN(cmd)) data, struct proc *p);
 extern int sogetoptlock(struct socket *so, struct sockopt *sopt, int);
 extern int sosetoptlock(struct socket *so, struct sockopt *sopt, int);
 extern int soshutdown(struct socket *so, int how);
@@ -974,7 +999,8 @@ extern void sowwakeup(struct socket *so);
 extern int sosendcheck(struct socket *, struct sockaddr *, user_ssize_t,
     int32_t, int32_t, int, int *);
 
-extern int soo_ioctl(struct fileproc *, u_long, caddr_t, vfs_context_t);
+extern int soo_ioctl(struct fileproc *, u_long cmd,
+    caddr_t __sized_by(IOCPARM_LEN(cmd)), vfs_context_t);
 extern int soo_stat(struct socket *, void *, int);
 extern int soo_select(struct fileproc *, int, void *, vfs_context_t);
 extern int soo_kqfilter(struct fileproc *, struct knote *, struct kevent_qos_s *);
@@ -1024,10 +1050,10 @@ extern void soflow_detach(struct socket *);
 #define PKT_SCF_TCP_ACK         0x00000002      /* Pure TCP ACK */
 #define PKT_SCF_TCP_SYN         0x00000004      /* TCP SYN */
 
+extern void so_update_tx_data_stats(struct socket *, uint32_t, uint32_t);
+
 extern void set_packet_service_class(struct mbuf *, struct socket *,
     mbuf_svc_class_t, u_int32_t);
-extern void so_tc_update_stats(struct mbuf *, struct socket *,
-    mbuf_svc_class_t);
 extern int so_tos_from_control(struct mbuf *);
 extern int so_tc_from_control(struct mbuf *, int *);
 extern mbuf_svc_class_t so_tc2msc(int);
@@ -1053,7 +1079,7 @@ extern int sogetopt_tcdbg(struct socket *, struct sockopt *);
 
 extern int so_isdstlocal(struct socket *);
 extern void so_recv_data_stat(struct socket *, struct mbuf *, size_t);
-extern void so_inc_recv_data_stat(struct socket *, size_t, size_t, uint32_t);
+extern void so_inc_recv_data_stat(struct socket *, size_t, size_t);
 extern int so_wait_for_if_feedback(struct socket *);
 extern int soopt_getm(struct sockopt *sopt, struct mbuf **mp);
 extern int soopt_mcopyin(struct sockopt *sopt, struct mbuf *m);

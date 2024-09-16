@@ -50,12 +50,13 @@
 #include "WorkerInitializationData.h"
 #include "WorkerThread.h"
 #include <JavaScriptCore/IdentifiersFactory.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-static HashMap<ScriptExecutionContextIdentifier, SharedWorkerThreadProxy*>& allSharedWorkerThreadProxies()
+static HashMap<ScriptExecutionContextIdentifier, WeakRef<SharedWorkerThreadProxy>>& allSharedWorkerThreadProxies()
 {
-    static MainThreadNeverDestroyed<HashMap<ScriptExecutionContextIdentifier, SharedWorkerThreadProxy*>> map;
+    static MainThreadNeverDestroyed<HashMap<ScriptExecutionContextIdentifier, WeakRef<SharedWorkerThreadProxy>>> map;
     return map;
 }
 
@@ -66,7 +67,7 @@ static WorkerParameters generateWorkerParameters(const WorkerFetchResult& worker
         workerFetchResult.responseURL,
         document.url(),
         workerOptions.name,
-        "sharedworker:" + Inspector::IdentifiersFactory::createIdentifier(),
+        makeString("sharedworker:"_s, Inspector::IdentifiersFactory::createIdentifier()),
         WTFMove(initializationData.userAgent),
         platformStrategies()->loaderStrategy()->isOnLine(),
         workerFetchResult.contentSecurityPolicy,
@@ -105,7 +106,7 @@ SharedWorkerThreadProxy::SharedWorkerThreadProxy(Ref<Page>&& page, SharedWorkerI
     , m_clientOrigin(clientOrigin)
 {
     ASSERT(!allSharedWorkerThreadProxies().contains(m_contextIdentifier));
-    allSharedWorkerThreadProxies().add(m_contextIdentifier, this);
+    allSharedWorkerThreadProxies().add(m_contextIdentifier, *this);
 
     static bool addedListener;
     if (!addedListener) {
@@ -215,7 +216,7 @@ void SharedWorkerThreadProxy::setResourceCachingDisabledByWebInspector(bool)
 
 void SharedWorkerThreadProxy::networkStateChanged(bool isOnLine)
 {
-    for (auto* proxy : allSharedWorkerThreadProxies().values())
+    for (auto& proxy : allSharedWorkerThreadProxies().values())
         proxy->notifyNetworkStateChange(isOnLine);
 }
 

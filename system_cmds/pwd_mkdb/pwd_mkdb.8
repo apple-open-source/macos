@@ -1,5 +1,3 @@
-.\"	$OpenBSD: pwd_mkdb.8,v 1.17 2003/06/12 12:59:52 jmc Exp $
-.\"
 .\" Copyright (c) 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -27,10 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)pwd_mkdb.8	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD$
-.\"
-.Dd June 6, 1993
+.Dd December 20, 2023
 .Dt PWD_MKDB 8
 .Os
 .Sh NAME
@@ -38,12 +33,30 @@
 .Nd "generate the password databases"
 .Sh SYNOPSIS
 .Nm
-.Op Fl c
+.Op Fl ciN
 .Op Fl p | Fl s
 .Op Fl d Ar directory
+.Op Fl S Ar cachesize
 .Op Fl u Ar username
 .Ar file
 .Sh DESCRIPTION
+The
+.Nm
+utility serves no purpose in macOS and is included solely for backward
+compatibility.
+The
+.Fl c
+and
+.Fl p
+flags, and options which modify the behavior of those flags, still work.
+The
+.Fl s
+flag has no effect.
+.Pp
+See
+.Xr DirectoryService 8
+for information on identity management in macOS.
+.Sh LEGACY DESCRIPTION
 The
 .Nm
 utility creates
@@ -62,37 +75,55 @@ It is important to note that the format used in this system is
 different from the historic Version 7 style format.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width flag
 .It Fl c
 Check if the password file is in the correct format.
 Do not
 change, add, or remove any files.
-.It Fl d Ar directory
-Operate in a base directory other than the default of
+.It Fl d Ar directoryO
+Store databases into specified destination directory instead of
 .Pa /etc .
-All absolute paths (including
-.Ar file )
-will be made relative to
-.Ar directory .
-Any directories specified as a part of
-.Ar file
-will be stripped off.
-This option is used to create password databases in directories
-other than
-.Pa etc ;
-for instance in a
-.Xr chroot 8
-jail.
+.It Fl i
+Ignore locking failure of the
+.Pa master.passwd
+file.
+This option is intended to be used to build password files in
+the release process over NFS where no contention can happen.
+A non-default directory must also be specified with the
+.Fl d
+option for locking to be ignored.
+Other use of this option is strongly discouraged.
+.It Fl N
+Tell
+.Nm
+to exit with an error if it cannot obtain a lock on the file.
+By default,
+we block waiting for a lock on the source file.
+The lock is held through
+the rebuilding of the database.
 .It Fl p
 Create a Version 7 style password file and install it into
 .Pa /etc/passwd .
+Cannot be used in conjunction with the
+.Fl s
+flag.
+.It Fl S Ar cachesize
+Specify in megabytes the size of the memory cache used by the
+hashing library.
+On systems with a large user base, a small cache
+size can lead to prohibitively long database file rebuild times.
+As a rough guide, the memory usage of
+.Nm
+in megabytes will be a little bit more than twice the figure
+specified here.
+The default is 2 megabytes.
 .It Fl s
 Only update the secure version of the database.
 This is most commonly used in conjunction with the
 .Fl u
 flag during a password change.
-Because the insecure database doesn't contain the password there
-is no reason to update it if the only change is in the password field.
+Because the insecure database doesn't contain the password there is no
+reason to update it if the only change is in the password field.
 Cannot be used in conjunction with the
 .Fl p
 flag.
@@ -101,14 +132,6 @@ Only update the record for the specified user.
 Utilities that
 operate on a single user can use this option to avoid the
 overhead of rebuilding the entire database.
-This option must never be used if the line number of the user's record in
-.Pa /etc/master.passwd
-has changed.
-.It Ar file
-The absolute path to a file in
-.Ar master.passwd
-format, as described in
-.Xr passwd 5 .
 .El
 .Pp
 The two databases differ in that the secure version contains the user's
@@ -120,6 +143,15 @@ The databases are used by the C library password routines (see
 The
 .Nm
 utility exits zero on success, non-zero on failure.
+.Sh ENVIRONMENT
+If the
+.Ev PW_SCAN_BIG_IDS
+environment variable is set,
+.Nm
+will suppress the warning messages that are
+normally generated for large user and group IDs.
+Such IDs can cause serious problems with software
+that makes assumptions about the values of IDs.
 .Sh FILES
 .Bl -tag -width Pa -compact
 .It Pa /etc/pwd.db
@@ -135,6 +167,12 @@ The current password file.
 .It Pa /etc/passwd
 A Version 7 format password file.
 .El
+.Sh EXAMPLES
+Regenerate the password database after manually editing or replacing
+the password file:
+.Bd -literal -offset -indent
+/usr/sbin/pwd_mkdb -p /etc/master.passwd
+.Ed
 .Sh COMPATIBILITY
 Previous versions of the system had a program similar to
 .Nm ,

@@ -14,7 +14,6 @@
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
-#import "keychain/ckks/CKKSZoneModifier.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
@@ -76,8 +75,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) id<CKKSDatabaseProviderProtocol> databaseProvider;
 
-@property CKKSZoneModifier* zoneModifier;
-
 @property (readonly) CKKSNearFutureScheduler* savedTLKNotifier;
 
 // Trigger this to request that the syncing policy be rechecked and reasserted.
@@ -89,10 +86,12 @@ NS_ASSUME_NONNULL_BEGIN
 // Use this to track whether we should send metrics in the event of initial sign-in
 @property bool sendMetric;
 
+// For rate-limiting zone modifications
+@property (readonly) CKKSNearFutureScheduler* cloudkitRetryAfter;
+
 - (instancetype)initWithViewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
                          contextID:(NSString*)contextID
                      activeAccount:(TPSpecificUser* _Nullable)activeAccount
-                      zoneModifier:(CKKSZoneModifier*)zoneModifier
                         ckdatabase:(CKDatabase*)ckdatabase
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
@@ -150,6 +149,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool)intransactionCKWriteFailed:(NSError*)ckerror attemptedRecordsChanged:(NSDictionary<CKRecordID*, CKRecord*>*)savedRecords;
 
 - (NSData*)keychainMusrForCurrentAccount;
+
+// Send CKError from zone modification operations here
+- (void)inspectErrorForRetryAfter:(NSError*)ckerror;
+
 @end
 
 NS_ASSUME_NONNULL_END

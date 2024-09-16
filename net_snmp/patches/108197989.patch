@@ -1,0 +1,44 @@
+diff --git a/agent/mibgroup/hardware/memory/memory_freebsd.c b/agent/mibgroup/hardware/memory/memory_freebsd.c
+index c5007d5..053883c 100644
+--- a/agent/mibgroup/hardware/memory/memory_freebsd.c
++++ b/agent/mibgroup/hardware/memory/memory_freebsd.c
+@@ -3,13 +3,17 @@
+ #include <net-snmp/agent/net-snmp-agent-includes.h>
+ #include <net-snmp/agent/auto_nlist.h>
+ #include <net-snmp/agent/hardware/memory.h>
++#include <util_funcs.h>
++#include <struct.h>
+ 
+ #include <unistd.h>
+ #include <sys/param.h>
+ #include <sys/fcntl.h>
+ #include <sys/sysctl.h>
+ #include <sys/vmmeter.h>
++#ifdef HAVE_KVM_H
+ #include <kvm.h>
++#endif
+ 
+ #if HAVE_SYS_VMPARAM_H
+ #include <sys/vmparam.h>
+@@ -26,6 +30,8 @@ quad_t    swapFree;
+ 
+ int swapmode(long);
+ 
++void wait_on_exec __P((struct extensible *));
++
+ 
+     /*
+      * Load the latest memory usage statistics
+diff --git a/agent/mibgroup/host/data_access/swinst_darwin.c b/agent/mibgroup/host/data_access/swinst_darwin.c
+index bbf5a2f..13d62e3 100644
+--- a/agent/mibgroup/host/data_access/swinst_darwin.c
++++ b/agent/mibgroup/host/data_access/swinst_darwin.c
+@@ -13,6 +13,8 @@
+ #include <net-snmp/library/dir_utils.h>
+ #include <net-snmp/library/snmp_debug.h>
+ #include <net-snmp/data_access/swinst.h>
++#include <net-snmp/system/darwin.h>
++#include <net-snmp/system/darwin23.h>
+ 
+ #include <stdlib.h>
+ #include <unistd.h>

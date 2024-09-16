@@ -36,6 +36,11 @@ struct lc_numeric_T {
 	const char	*thousands_sep;
 	const char	*grouping;
 };
+struct xlocale_numeric {
+	struct xlocale_component header;
+	char *buffer;
+	struct lc_numeric_T locale;
+};
 
 struct lc_numeric_T *__get_current_numeric_locale(locale_t);
 int	__numeric_load_locale(const char *, locale_t);

@@ -136,7 +136,7 @@ SyncHelper::SyncHelper() {}
 
 SyncHelper::~SyncHelper() {}
 
-void SyncHelper::releaseToRenderer(RendererVk *renderer) {}
+void SyncHelper::releaseToRenderer(Renderer *renderer) {}
 
 angle::Result SyncHelper::initialize(ContextVk *contextVk, SyncFenceScope scope)
 {
@@ -198,7 +198,7 @@ angle::Result SyncHelper::clientWait(Context *context,
         return angle::Result::Continue;
     }
 
-    RendererVk *renderer = context->getRenderer();
+    Renderer *renderer = context->getRenderer();
 
     // If we need to perform a CPU wait don't set the resultOut parameter passed into the
     // method, instead set the parameter passed into the unlocked tail call.
@@ -254,7 +254,7 @@ angle::Result SyncHelper::getStatus(Context *context, ContextVk *contextVk, bool
     // Submit commands if it was deferred on the context that issued the sync object
     ANGLE_TRY(submitSyncIfDeferred(contextVk, RenderPassClosureReason::SyncObjectClientWait));
     ASSERT(mUse.valid());
-    RendererVk *renderer = context->getRenderer();
+    Renderer *renderer = context->getRenderer();
     if (renderer->hasResourceUseFinished(mUse))
     {
         *signaledOut = true;
@@ -285,8 +285,7 @@ angle::Result SyncHelper::submitSyncIfDeferred(ContextVk *contextVk, RenderPassC
     // render pass before a submission happens for another reason.  If the sync object is being
     // waited on by the current context, the application must have used GL_SYNC_FLUSH_COMMANDS_BIT.
     // However, when waited on by other contexts, the application must have ensured the original
-    // context is flushed.  Due to the deferFlushUntilEndRenderPass feature, a glFlush is not
-    // sufficient to guarantee this.
+    // context is flushed.  Due to deferred flushes, a glFlush is not sufficient to guarantee this.
     //
     // Deferring the submission is restricted to non-EGL sync objects, so it's sufficient to ensure
     // that the contexts in the share group issue their deferred flushes.
@@ -372,7 +371,7 @@ SyncHelperNativeFence::SyncHelperNativeFence()
 
 SyncHelperNativeFence::~SyncHelperNativeFence() {}
 
-void SyncHelperNativeFence::releaseToRenderer(RendererVk *renderer)
+void SyncHelperNativeFence::releaseToRenderer(Renderer *renderer)
 {
     mExternalFence.reset();
 }
@@ -394,8 +393,8 @@ angle::Result SyncHelperNativeFence::initializeWithFd(ContextVk *contextVk, int 
         return angle::Result::Continue;
     }
 
-    RendererVk *renderer = contextVk->getRenderer();
-    VkDevice device      = renderer->getDevice();
+    Renderer *renderer = contextVk->getRenderer();
+    VkDevice device    = renderer->getDevice();
 
     VkExportFenceCreateInfo exportCreateInfo = {};
     exportCreateInfo.sType                   = VK_STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO;
@@ -485,7 +484,7 @@ angle::Result SyncHelperNativeFence::clientWait(Context *context,
         return angle::Result::Continue;
     }
 
-    RendererVk *renderer = context->getRenderer();
+    Renderer *renderer = context->getRenderer();
 
     auto clientWaitUnlocked = [device = renderer->getDevice(), fence = mExternalFence,
                                mappingFunction, timeout](void *resultOut) {
@@ -502,7 +501,7 @@ angle::Result SyncHelperNativeFence::clientWait(Context *context,
 
 angle::Result SyncHelperNativeFence::serverWait(ContextVk *contextVk)
 {
-    RendererVk *renderer = contextVk->getRenderer();
+    Renderer *renderer = contextVk->getRenderer();
 
     // If already signaled, no need to wait
     bool alreadySignaled = false;

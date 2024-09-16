@@ -49,10 +49,21 @@ OBJC_CLASS WebCoreScreenCaptureKitHelper;
 using CMSampleBufferRef = struct opaqueCMSampleBuffer*;
 
 namespace WebCore {
+class ScreenCaptureKitCaptureSource;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ScreenCaptureKitCaptureSource> : std::true_type { };
+}
+
+namespace WebCore {
+
+class ImageTransferSessionVT;
 
 class ScreenCaptureKitCaptureSource final
     : public DisplayCaptureSourceCocoa::Capturer
-    , public ScreenCaptureSessionSource::Observer {
+    , public ScreenCaptureSessionSourceObserver {
 public:
     static Expected<UniqueRef<DisplayCaptureSourceCocoa::Capturer>, CaptureSourceError> create(const CaptureDevice&, const MediaConstraints*);
 
@@ -67,12 +78,15 @@ public:
     using Content = std::variant<RetainPtr<SCWindow>, RetainPtr<SCDisplay>>;
     void streamDidOutputVideoSampleBuffer(RetainPtr<CMSampleBufferRef>);
     void sessionFailedWithError(RetainPtr<NSError>&&, const String&);
+    void outputVideoEffectDidStartForStream() { m_isVideoEffectEnabled = true; }
+    void outputVideoEffectDidStopForStream() { m_isVideoEffectEnabled = false; }
 
 private:
 
     // DisplayCaptureSourceCocoa::Capturer
     bool start() final;
     void stop() final;
+    void end() final;
     DisplayCaptureSourceCocoa::DisplayFrameType generateFrame() final;
     CaptureDevice::DeviceType deviceType() const final;
     DisplaySurfaceType surfaceType() const final;
@@ -80,7 +94,7 @@ private:
     IntSize intrinsicSize() const final;
 
     // LoggerHelper
-    const char* logClassName() const final { return "ScreenCaptureKitCaptureSource"; }
+    ASCIILiteral logClassName() const final { return "ScreenCaptureKitCaptureSource"_s; }
 
     // ScreenCaptureKitSharingSessionManager::Observer
     void sessionFilterDidChange(SCContentFilter*) final;
@@ -96,8 +110,11 @@ private:
     SCStream* contentStream() const { return m_sessionSource ? m_sessionSource->stream() : nullptr; }
     SCContentFilter* contentFilter() const { return m_sessionSource ? m_sessionSource->contentFilter() : nullptr; }
 
+    void clearSharingSession();
+
     std::optional<Content> m_content;
     RetainPtr<WebCoreScreenCaptureKitHelper> m_captureHelper;
+    RetainPtr<SCContentSharingSession> m_sharingSession;
     RetainPtr<SCContentFilter> m_contentFilter;
     RetainPtr<CMSampleBufferRef> m_currentFrame;
     RefPtr<ScreenCaptureSessionSource> m_sessionSource;
@@ -106,11 +123,14 @@ private:
     CaptureDevice m_captureDevice;
     uint32_t m_deviceID { 0 };
     mutable std::optional<IntSize> m_intrinsicSize;
+    std::unique_ptr<ImageTransferSessionVT> m_transferSession;
 
+    FloatSize m_contentSize;
     uint32_t m_width { 0 };
     uint32_t m_height { 0 };
     float m_frameRate { 0 };
     bool m_isRunning { false };
+    bool m_isVideoEffectEnabled { false };
 };
 
 } // namespace WebCore

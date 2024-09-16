@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1346,7 +1346,7 @@ NodesAreContiguous(	SFCB		*fcb,
 
 
 
-UInt32 GetTimeUTC(void);
+UInt32 GetTimeUTC(bool expanded);
 UInt32 GetTimeLocal(Boolean forHFS);
 
 OSErr FlushVolumeControlBlock( SVCB *vcb );

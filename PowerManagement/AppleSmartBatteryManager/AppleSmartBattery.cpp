@@ -153,9 +153,13 @@ struct SMCAdapterParamHelper {
             }
         }
     }
-    
+     
+    SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt64 _val) : valid (_valid), keyObj (_key) {
+        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val));
+    }
+   
     SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt32 _val) : valid (_valid), keyObj (_key) {
-        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val)); \
+        valObj = OSNumber::withNumber((unsigned long long)_val, 8*sizeof(_val));
     }
     
     SMCAdapterParamHelper (uint32_t _valid, const OSSymbol *_key, UInt16 _val) : valid (_valid), keyObj (_key) {
@@ -231,22 +235,25 @@ static void populateAdapterParams0Dict (const PwrPortTelemetryLogParams0_t &para
     } 
    
     SMCAdapterParamHelper params [] = {
-        SMCAdapterParamHelper (mask.pdo                ,_kAsbPortControllerPortPDO            ,params0.pdo,     ARRAY_SIZE (params0.pdo)),
-        SMCAdapterParamHelper (mask.portMode           ,_kAsbPortControllerPortMode           ,(UInt32) params0.portMode), // portMode is an enum. Help the compiler choose the constructor.
-        SMCAdapterParamHelper (mask.fwVersion          ,_kAsbPortControllerFwVersion          ,params0.fwVersion),
-        SMCAdapterParamHelper (mask.electionFailReason ,_kAsbPortControllerElectionFailReason ,params0.electionFailReason),
-        SMCAdapterParamHelper (mask.activeContractRdo  ,_kAsbPortControllerActiveContractRdo  ,params0.activeContractRdo),
-        SMCAdapterParamHelper (mask.dnSt               ,_kAsbPortControllerDnSt               ,params0.dnSt),
-        SMCAdapterParamHelper (mask.fetStatus          ,_kAsbPortControllerFetStatus          ,params0.fetStatus),
-        SMCAdapterParamHelper (mask.powerState         ,_kAsbPortControllerPowerState         ,params0.powerState),
-        SMCAdapterParamHelper (mask.uvdmStatus         ,_kAsbPortControllerUvdmStatus         ,params0.uvdmStatus),
-        SMCAdapterParamHelper (mask.srcTypes           ,_kAsbPortControllerSrcTypes           ,params0.srcTypes),
-        SMCAdapterParamHelper (mask.loserReason        ,_kAsbPortControllerLoserReason        ,params0.loserReason),
-        SMCAdapterParamHelper (mask.nPDOs              ,_kAsbPortControllerNPDOs              ,params0.nPDOs),
-        SMCAdapterParamHelper (mask.nEprPDOs           ,_kAsbPortControllerNEprPDOs           ,params0.nEprPDOs),
-        SMCAdapterParamHelper (mask.pdst               ,_kAsbPortControllerPDst               ,params0.pdst),
-        SMCAdapterParamHelper (mask.capMismatch        ,_kAsbPortControllerCapMismatch        ,params0.capMismatch),
-        SMCAdapterParamHelper (mask.bootFlags          ,_kAsbPortControllerBootFlags          ,params0.bootFlags),
+        SMCAdapterParamHelper (mask.pdo                ,_kAsbPortControllerPortPDOSym            ,params0.pdo,     ARRAY_SIZE (params0.pdo)),
+        SMCAdapterParamHelper (mask.portMode           ,_kAsbPortControllerPortModeSym           ,(UInt32) params0.portMode), // portMode is an enum. Help the compiler choose the constructor.
+        SMCAdapterParamHelper (mask.fwVersion          ,_kAsbPortControllerFwVersionSym          ,params0.fwVersion),
+        SMCAdapterParamHelper (mask.electionFailReason ,_kAsbPortControllerElectionFailReasonSym ,params0.electionFailReason),
+        SMCAdapterParamHelper (mask.activeContractRdo  ,_kAsbPortControllerActiveContractRdoSym  ,params0.activeContractRdo),
+        SMCAdapterParamHelper (mask.dnSt               ,_kAsbPortControllerDnStSym               ,params0.dnSt),
+        SMCAdapterParamHelper (mask.fetStatus          ,_kAsbPortControllerFetStatusSym          ,params0.fetStatus),
+        SMCAdapterParamHelper (mask.powerState         ,_kAsbPortControllerPowerStateSym         ,params0.powerState),
+        SMCAdapterParamHelper (mask.uvdmStatus         ,_kAsbPortControllerUvdmStatusSym         ,params0.uvdmStatus),
+        SMCAdapterParamHelper (mask.srcTypes           ,_kAsbPortControllerSrcTypesSym           ,params0.srcTypes),
+        SMCAdapterParamHelper (mask.loserReason        ,_kAsbPortControllerLoserReasonSym        ,params0.loserReason),
+        SMCAdapterParamHelper (mask.nPDOs              ,_kAsbPortControllerNPDOsSym              ,params0.nPDOs),
+        SMCAdapterParamHelper (mask.nEprPDOs           ,_kAsbPortControllerNEprPDOsSym           ,params0.nEprPDOs),
+        SMCAdapterParamHelper (mask.pdst               ,_kAsbPortControllerPDstSym               ,params0.pdst),
+        SMCAdapterParamHelper (mask.capMismatch        ,_kAsbPortControllerCapMismatchSym        ,params0.capMismatch),
+        SMCAdapterParamHelper (mask.bootFlags          ,_kAsbPortControllerBootFlagsSym          ,params0.bootFlags),
+        SMCAdapterParamHelper (mask.sleepWakeInfo      ,_kAsbPortControllerSleepWakeDisTimeSym   ,params0.sleepWakeInfo.sleepDisabledTime),
+        SMCAdapterParamHelper (mask.sleepWakeInfo      ,_kAsbPortControllerSleepWakeDisCauseSym  ,params0.sleepWakeInfo.cause),
+        SMCAdapterParamHelper (mask.sleepWakeInfo      ,_kAsbPortControllerSleepWakeEnabledSym   ,params0.sleepWakeInfo.sleepEnabled),
     };
 
     for (int i = 0; i < ARRAY_SIZE(params); ++i) {
@@ -278,7 +285,7 @@ static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buff
         const OSData *valObj = OSData::withBytes(buffer, bufSize); 
         
         if (valObj) {
-            outDict->setObject (_kAsbPortControllerEvtBuffer, valObj); 
+            outDict->setObject (_kAsbPortControllerEvtBufferSym, valObj); 
             OSSafeReleaseNULL(valObj);
         }
         // All done, just go!
@@ -292,7 +299,7 @@ static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buff
         valObj->appendBytes (&buffer [bufIdx], bufSize - bufIdx); 
         valObj->appendBytes (&buffer [0], bufIdx);
         
-        outDict->setObject (_kAsbPortControllerEvtBuffer, valObj); 
+        outDict->setObject (_kAsbPortControllerEvtBufferSym, valObj); 
         OSSafeReleaseNULL(valObj);
     }
 
@@ -315,26 +322,29 @@ static void populateAdapterParams1Dict (const PwrPortTelemetryLogParams1_t &para
     } 
 
     SMCAdapterParamHelper params [] = {
-        SMCAdapterParamHelper (mask.srdoCount            ,_kAsbPortControllerSrdoCount               ,params1.srdoCount),            
-        SMCAdapterParamHelper (mask.srdoRetryCount       ,_kAsbPortControllerSrdoRetryCount          ,params1.srdoRetryCount),
-        SMCAdapterParamHelper (mask.srdyCount            ,_kAsbPortControllerSrdyCount               ,params1.srdyCount),     
-        SMCAdapterParamHelper (mask.srdyRejectCount      ,_kAsbPortControllerSrdyRejectCount         ,params1.srdyRejectCount),      
-        SMCAdapterParamHelper (mask.shortDetectCount     ,_kAsbPortControllerShortDetectCount        ,params1.shortDetectCount),     
-        SMCAdapterParamHelper (mask.srdoRejectCount      ,_kAsbPortControllerSrdoRejectCount         ,params1.srdoRejectCount),      
-        SMCAdapterParamHelper (mask.vdoFailCount         ,_kAsbPortControllerVdoFailCount            ,params1.vdoFailCount),    
-        SMCAdapterParamHelper (mask.i2cErrCount          ,_kAsbPortControllerI2cErrCount             ,params1.i2cErrCount),            
-        SMCAdapterParamHelper (mask.surpriseAckCount     ,_kAsbPortControllerSurpriseAckCount        ,params1.surpriseAckCount),
-        SMCAdapterParamHelper (mask.surpriseNackCount    ,_kAsbPortControllerSurpriseNackCount       ,params1.surpriseNackCount),   
-        SMCAdapterParamHelper (mask.stuckCmdCount        ,_kAsbPortControllerStuckCmdCount           ,params1.stuckCmdCount),     
-        SMCAdapterParamHelper (mask.wakeFailCount        ,_kAsbPortControllerWakeFailCount           ,params1.wakeFailCount),         
-        SMCAdapterParamHelper (mask.attachCount          ,_kAsbPortControllerAttachCount             ,params1.attachCount),           
-        SMCAdapterParamHelper (mask.detachCount          ,_kAsbPortControllerDetachCount             ,params1.detachCount),             
-        SMCAdapterParamHelper (mask.pwrRoleSwapFailCount ,_kAsbPortControllerPwrRoleSwapFailCount    ,params1.pwrRoleSwapFailCount),
-        SMCAdapterParamHelper (mask.pwrRoleSwapCount     ,_kAsbPortControllerPwrRoleSwapCount        ,params1.pwrRoleSwapCount),
-        SMCAdapterParamHelper (mask.dataRoleSwapFailCount,_kAsbPortControllerDataRoleSwapFailCount   ,params1.dataRoleSwapFailCount),
-        SMCAdapterParamHelper (mask.dataRoleSwapCount    ,_kAsbPortControllerDataRoleSwapCount       ,params1.dataRoleSwapCount),
-        SMCAdapterParamHelper (mask.inpFetEnFailCount    ,_kAsbPortControllerInpFetEnFailCount       ,params1.inpFetEnFailCount),
-        SMCAdapterParamHelper (mask.hardResetCount       ,_kAsbPortControllerHardResetCount          ,params1.hardResetCount),
+        SMCAdapterParamHelper (mask.srdoCount            ,_kAsbPortControllerSrdoCountSym               ,params1.srdoCount),            
+        SMCAdapterParamHelper (mask.srdoRetryCount       ,_kAsbPortControllerSrdoRetryCountSym          ,params1.srdoRetryCount),
+        SMCAdapterParamHelper (mask.srdyCount            ,_kAsbPortControllerSrdyCountSym               ,params1.srdyCount),     
+        SMCAdapterParamHelper (mask.srdyRejectCount      ,_kAsbPortControllerSrdyRejectCountSym         ,params1.srdyRejectCount),      
+        SMCAdapterParamHelper (mask.shortDetectCount     ,_kAsbPortControllerShortDetectCountSym        ,params1.shortDetectCount),     
+        SMCAdapterParamHelper (mask.srdoRejectCount      ,_kAsbPortControllerSrdoRejectCountSym         ,params1.srdoRejectCount),      
+        SMCAdapterParamHelper (mask.vdoFailCount         ,_kAsbPortControllerVdoFailCountSym            ,params1.vdoFailCount),    
+        SMCAdapterParamHelper (mask.i2cErrCount          ,_kAsbPortControllerI2cErrCountSym             ,params1.i2cErrCount),            
+        SMCAdapterParamHelper (mask.surpriseAckCount     ,_kAsbPortControllerSurpriseAckCountSym        ,params1.surpriseAckCount),
+        SMCAdapterParamHelper (mask.surpriseNackCount    ,_kAsbPortControllerSurpriseNackCountSym       ,params1.surpriseNackCount),   
+        SMCAdapterParamHelper (mask.stuckCmdCount        ,_kAsbPortControllerStuckCmdCountSym           ,params1.stuckCmdCount),     
+        SMCAdapterParamHelper (mask.wakeFailCount        ,_kAsbPortControllerWakeFailCountSym           ,params1.wakeFailCount),         
+        SMCAdapterParamHelper (mask.attachCount          ,_kAsbPortControllerAttachCountSym             ,params1.attachCount),           
+        SMCAdapterParamHelper (mask.detachCount          ,_kAsbPortControllerDetachCountSym             ,params1.detachCount),             
+        SMCAdapterParamHelper (mask.pwrRoleSwapFailCount ,_kAsbPortControllerPwrRoleSwapFailCountSym    ,params1.pwrRoleSwapFailCount),
+        SMCAdapterParamHelper (mask.pwrRoleSwapCount     ,_kAsbPortControllerPwrRoleSwapCountSym        ,params1.pwrRoleSwapCount),
+        SMCAdapterParamHelper (mask.dataRoleSwapFailCount,_kAsbPortControllerDataRoleSwapFailCountSym   ,params1.dataRoleSwapFailCount),
+        SMCAdapterParamHelper (mask.dataRoleSwapCount    ,_kAsbPortControllerDataRoleSwapCountSym       ,params1.dataRoleSwapCount),
+        SMCAdapterParamHelper (mask.inpFetEnFailCount    ,_kAsbPortControllerInpFetEnFailCountSym       ,params1.inpFetEnFailCount),
+        SMCAdapterParamHelper (mask.hardResetCount       ,_kAsbPortControllerHardResetCountSym          ,params1.hardResetCount),
+        SMCAdapterParamHelper (mask.wakeCmdFailCount     ,_kAsbPortControllerWakeCmdFailCountSym        ,params1.wakeCmdFailCount),
+        SMCAdapterParamHelper (mask.sleepCmdFailCount    ,_kAsbPortControllerSleepCmdFailCountSym       ,params1.sleepCmdFailCount),
+        SMCAdapterParamHelper (mask.wakeTimeoutCount     ,_kAsbPortControllerWakeTimeoutCountSym        ,params1.wakeTimeoutCount),
     };
   
     for (int i = 0; i < ARRAY_SIZE(params); ++i) {
@@ -362,23 +372,24 @@ static void populateAdapterParams2Dict (const PwrPortTelemetryLogParams2_t &para
   }
 
   SMCAdapterParamHelper params [] = {
-      SMCAdapterParamHelper (mask.irqCntAppLd        ,_kAsbPortControllerIrqCntAppLd       ,params2.irqCntAppLd),         
-      SMCAdapterParamHelper (mask.irqCntHrdRst       ,_kAsbPortControllerIrqCntHrdRst      ,params2.irqCntHrdRst),       
-      SMCAdapterParamHelper (mask.irqCntPlg          ,_kAsbPortControllerIrqCntPlg         ,params2.irqCntPlg),           
-      SMCAdapterParamHelper (mask.irqCntStsUpd       ,_kAsbPortControllerIrqCntStsUpd      ,params2.irqCntStsUpd),        
-      SMCAdapterParamHelper (mask.irqCntPwrStsUpd    ,_kAsbPortControllerIrqCntPwrStsUpd   ,params2.irqCntPwrStsUpd),     
-      SMCAdapterParamHelper (mask.irqCntRxSrcCap     ,_kAsbPortControllerIrqCntRxSrcCap    ,params2.irqCntRxSrcCap),      
-      SMCAdapterParamHelper (mask.irqCntPdStsUpd     ,_kAsbPortControllerIrqCntPdStsUpd    ,params2.irqCntPdStsUpd),      
-      SMCAdapterParamHelper (mask.irqCntRxIdSop      ,_kAsbPortControllerIrqCntRxIdSop     ,params2.irqCntRxIdSop),       
-      SMCAdapterParamHelper (mask.irqCntUvdmEnum     ,_kAsbPortControllerIrqCntUvdmEnum    ,params2.irqCntUvdmEnum),      
-      SMCAdapterParamHelper (mask.irqCntUvdmStsUpd   ,_kAsbPortControllerIrqCntUvdmStsUpd  ,params2.irqCntUvdmStsUpd),    
-      SMCAdapterParamHelper (mask.irqCntUsb2Plg      ,_kAsbPortControllerIrqCntUsb2Plg     ,params2.irqCntUsb2Plg),     
-      SMCAdapterParamHelper (mask.irqCntUsb2Wak      ,_kAsbPortControllerIrqCntUsb2Wak     ,params2.irqCntUsb2Wak),       
-      SMCAdapterParamHelper (mask.irqCntConSrc       ,_kAsbPortControllerIrqCntConSrc      ,params2.irqCntConSrc),        
-      SMCAdapterParamHelper (mask.irqCntRxSnkCap     ,_kAsbPortControllerIrqCntRxSnkCap    ,params2.irqCntRxSnkCap),      
-      SMCAdapterParamHelper (mask.irqCntRxRdo        ,_kAsbPortControllerIrqCntRxRdo       ,params2.irqCntRxRdo),         
-      SMCAdapterParamHelper (mask.irqCntAlert        ,_kAsbPortControllerIrqCntAlert       ,params2.irqCntAlert),         
-      SMCAdapterParamHelper (mask.irqCntldcm         ,_kAsbPortControllerIrqCntldcm        ,params2.irqCntldcm),         
+      SMCAdapterParamHelper (mask.irqCntAppLd        ,_kAsbPortControllerIrqCntAppLdSym       ,params2.irqCntAppLd),         
+      SMCAdapterParamHelper (mask.irqCntHrdRst       ,_kAsbPortControllerIrqCntHrdRstSym      ,params2.irqCntHrdRst),       
+      SMCAdapterParamHelper (mask.irqCntPlg          ,_kAsbPortControllerIrqCntPlgSym         ,params2.irqCntPlg),           
+      SMCAdapterParamHelper (mask.irqCntStsUpd       ,_kAsbPortControllerIrqCntStsUpdSym      ,params2.irqCntStsUpd),        
+      SMCAdapterParamHelper (mask.irqCntPwrStsUpd    ,_kAsbPortControllerIrqCntPwrStsUpdSym   ,params2.irqCntPwrStsUpd),     
+      SMCAdapterParamHelper (mask.irqCntRxSrcCap     ,_kAsbPortControllerIrqCntRxSrcCapSym    ,params2.irqCntRxSrcCap),      
+      SMCAdapterParamHelper (mask.irqCntPdStsUpd     ,_kAsbPortControllerIrqCntPdStsUpdSym    ,params2.irqCntPdStsUpd),      
+      SMCAdapterParamHelper (mask.irqCntRxIdSop      ,_kAsbPortControllerIrqCntRxIdSopSym     ,params2.irqCntRxIdSop),       
+      SMCAdapterParamHelper (mask.irqCntUvdmEnum     ,_kAsbPortControllerIrqCntUvdmEnumSym    ,params2.irqCntUvdmEnum),      
+      SMCAdapterParamHelper (mask.irqCntUvdmStsUpd   ,_kAsbPortControllerIrqCntUvdmStsUpdSym  ,params2.irqCntUvdmStsUpd),    
+      SMCAdapterParamHelper (mask.irqCntUsb2Plg      ,_kAsbPortControllerIrqCntUsb2PlgSym     ,params2.irqCntUsb2Plg),     
+      SMCAdapterParamHelper (mask.irqCntUsb2Wak      ,_kAsbPortControllerIrqCntUsb2WakSym     ,params2.irqCntUsb2Wak),       
+      SMCAdapterParamHelper (mask.irqCntConSrc       ,_kAsbPortControllerIrqCntConSrcSym      ,params2.irqCntConSrc),        
+      SMCAdapterParamHelper (mask.irqCntRxSnkCap     ,_kAsbPortControllerIrqCntRxSnkCapSym    ,params2.irqCntRxSnkCap),      
+      SMCAdapterParamHelper (mask.irqCntRxRdo        ,_kAsbPortControllerIrqCntRxRdoSym       ,params2.irqCntRxRdo),         
+      SMCAdapterParamHelper (mask.irqCntAlert        ,_kAsbPortControllerIrqCntAlertSym       ,params2.irqCntAlert),         
+      SMCAdapterParamHelper (mask.irqCntldcm         ,_kAsbPortControllerIrqCntldcmSym        ,params2.irqCntldcm),         
+      SMCAdapterParamHelper (mask.irqCntWakeAck      ,_kAsbPortControllerIrqCntWakeAckSym     ,params2.irqCntWakeAck),         
   };
 
 
@@ -1036,7 +1047,14 @@ static void applyOverrideDictTo(OSDictionary *overrides, OSDictionary *dst)
             OSDictionary *d = OSDynamicCast(OSDictionary, o);
             if (d) {
                 // merge override dict into existing dict
-                applyOverrideDictTo(tmp, d);
+                OSDictionary *copy = OSDictionary::withDictionary(d);
+                if (!copy) {
+                    continue;
+                }
+
+                applyOverrideDictTo(tmp, copy);
+                dst->setObject(key, copy);
+                OSSafeReleaseNULL(copy);
             } else {
                 // overridden key does not exist or is not a dictionary
                 dst->setObject(key, obj);
@@ -1467,17 +1485,18 @@ IOReturn AppleSmartBattery::transactionCompletionGated(struct transactionComplet
     case kBAverageTimeToEmptyCmd:
         SET_INTEGER_IN_PROPERTIES(_AvgTimeToEmptySym, val, inCount);
 
-        // Always use TTE when no AC is attached. Any positive current that may
-        // still be present is guaranteed to go away.
-        if (!fACConnected || fInstantCurrent < 0) {
+        // if there is no AC power then we publish Time to Empty
+        // The value from GG already takes into account the AVG current
+        if (!fACConnected) {
             setTimeRemaining(val);
         }
         break;
 
     case kBAverageTimeToFullCmd:
         SET_INTEGER_IN_PROPERTIES(_AvgTimeToFullSym, val, inCount);
-        // Require AC power and positive curren tinto the battery to report TTF
-        if (fACConnected && fInstantCurrent > 0) {
+        // if there is AC power then we publish Time to Full
+        // The value from GG already takes into account the AVG current
+        if (fACConnected) {
             setTimeRemaining(val);
         }
         break;

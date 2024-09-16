@@ -199,7 +199,7 @@ void RenderTreeBuilder::MultiColumn::restoreColumnSpannersForContainer(const Ren
         // Move the spanner back to its original position.
         auto& spannerOriginalParent = *placeholder->parent();
         // Detaching the spanner takes care of removing the placeholder (and merges the RenderMultiColumnSets).
-        auto spannerToReInsert = m_builder.detach(*spanner->parent(), *spanner);
+        auto spannerToReInsert = m_builder.detach(*spanner->parent(), *spanner, WillBeDestroyed::No);
         auto restoreColumnSpannersScope = SetForScope { gRestoringColumnSpannersForContainer, true };
         m_builder.attach(spannerOriginalParent, WTFMove(spannerToReInsert));
     }
@@ -222,7 +222,7 @@ void RenderTreeBuilder::MultiColumn::destroyFragmentedFlow(RenderBlockFlow& flow
             spannerOriginalParent = &flow;
         // Detaching the spanner takes care of removing the placeholder (and merges the RenderMultiColumnSets).
         auto* spanner = placeholder->spanner();
-        parentAndSpannerList.append(std::make_pair(spannerOriginalParent, m_builder.detach(*spanner->parent(), *spanner, CanCollapseAnonymousBlock::No, WillBeDestroyed::No)));
+        parentAndSpannerList.append(std::make_pair(spannerOriginalParent, m_builder.detach(*spanner->parent(), *spanner, WillBeDestroyed::No, CanCollapseAnonymousBlock::No)));
     }
     while (auto* columnSet = multiColumnFlow.firstMultiColumnSet())
         m_builder.destroy(*columnSet);
@@ -300,7 +300,7 @@ void RenderTreeBuilder::MultiColumn::multiColumnDescendantInserted(RenderMultiCo
             // where it would otherwise occur (if it weren't a spanner) to becoming a sibling of the
             // column sets.
             ASSERT(!flow.spannerMap().get(placeholder->spanner()));
-            flow.spannerMap().add(placeholder->spanner(), placeholder);
+            flow.spannerMap().add(*placeholder->spanner(), placeholder);
             ASSERT(!placeholder->firstChild()); // There should be no children here, but if there are, we ought to skip them.
         } else
             descendant = processPossibleSpannerDescendant(flow, subtreeRoot, *descendant);
@@ -343,7 +343,7 @@ RenderObject* RenderTreeBuilder::MultiColumn::processPossibleSpannerDescendant(R
         auto newPlaceholder = RenderMultiColumnSpannerPlaceholder::createAnonymous(flow, downcast<RenderBox>(descendant), container->style());
         auto& placeholder = *newPlaceholder;
         m_builder.attach(*container, WTFMove(newPlaceholder), descendant.nextSibling());
-        auto takenDescendant = m_builder.detach(*container, descendant);
+        auto takenDescendant = m_builder.detach(*container, descendant, WillBeDestroyed::No);
 
         // This is a guard to stop an ancestor flow thread from processing the spanner.
         auto shiftingSpannerScope = SetForScope { gShiftingSpanner, true };

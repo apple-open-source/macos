@@ -39,7 +39,7 @@ namespace WebCore {
 enum class DOMAudioSessionType : uint8_t { Auto, Playback, Transient, TransientSolo, Ambient, PlayAndRecord };
 enum class DOMAudioSessionState : uint8_t { Inactive, Active, Interrupted };
 
-class DOMAudioSession final : public RefCounted<DOMAudioSession>, public ActiveDOMObject, public EventTarget, public AudioSession::InterruptionObserver {
+class DOMAudioSession final : public RefCounted<DOMAudioSession>, public ActiveDOMObject, public EventTarget, public AudioSessionInterruptionObserver {
     WTF_MAKE_ISO_ALLOCATED(DOMAudioSession);
 public:
     static Ref<DOMAudioSession> create(ScriptExecutionContext*);
@@ -52,21 +52,21 @@ public:
     Type type() const;
     State state() const;
 
-    using RefCounted<DOMAudioSession>::ref;
-    using RefCounted<DOMAudioSession>::deref;
+    // ActiveDOMObject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
 private:
     explicit DOMAudioSession(ScriptExecutionContext*);
 
     // EventTarget
-    EventTargetInterface eventTargetInterface() const final { return DOMAudioSessionEventTargetInterfaceType; }
+    enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::DOMAudioSession; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
     // ActiveDOMObject
     void stop() final;
-    const char* activeDOMObjectName() const final;
     bool virtualHasPendingActivity() const final;
 
     // InterruptionObserver

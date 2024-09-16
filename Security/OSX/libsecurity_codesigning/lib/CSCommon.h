@@ -31,12 +31,11 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
 
 /*
  * Some macOS API's use the old style defined name CSSM_DATA and CSSM_OID.
@@ -245,6 +244,7 @@ typedef CF_OPTIONS(uint32_t, SecCSFlags) {
 	kSecCSQuickCheck = 1 << 26,		/* (internal) */
 	kSecCSApplyEmbeddedPolicy = 1 << 25, /* Apply Embedded (iPhone) policy regardless of the platform we're running on */
 	kSecCSStripDisallowedXattrs = 1 << 24, /* Strip disallowed xattrs, such as com.apple.FinderInfo and com.apple.ResourceFork */
+    kSecCSMatchGuestRequirementInKernel = 1 << 23, /* Request matching the provided requirement in kernel against the running guest rather than on disk*/
 };
 
 

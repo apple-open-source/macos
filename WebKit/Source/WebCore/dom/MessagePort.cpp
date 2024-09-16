@@ -69,20 +69,17 @@ void MessagePort::notifyMessageAvailable(const MessagePortIdentifier& identifier
 {
     ASSERT(isMainThread());
     ScriptExecutionContextIdentifier scriptExecutionContextIdentifier;
+    ThreadSafeWeakPtr<MessagePort> weakPort;
     {
         Locker locker { allMessagePortsLock };
         scriptExecutionContextIdentifier = portToContextIdentifier().get(identifier);
+        weakPort = allMessagePorts().get(identifier);
     }
     if (!scriptExecutionContextIdentifier)
         return;
 
-    ScriptExecutionContext::ensureOnContextThread(scriptExecutionContextIdentifier, [identifier](auto&) {
-        RefPtr<MessagePort> port;
-        {
-            Locker locker { allMessagePortsLock };
-            port = allMessagePorts().get(identifier).get();
-        }
-        if (port)
+    ScriptExecutionContext::ensureOnContextThread(scriptExecutionContextIdentifier, [weakPort = WTFMove(weakPort)](auto&) {
+        if (RefPtr port = weakPort.get())
             port->messageAvailable();
     });
 }
@@ -145,7 +142,7 @@ ExceptionOr<void> MessagePort::postMessage(JSC::JSGlobalObject& state, JSC::JSVa
 {
     LOG(MessagePorts, "Attempting to post message to port %s (to be received by port %s)", m_identifier.logString().utf8().data(), m_remoteIdentifier.logString().utf8().data());
 
-    Vector<RefPtr<MessagePort>> ports;
+    Vector<Ref<MessagePort>> ports;
     auto messageData = SerializedScriptValue::create(state, messageValue, WTFMove(options.transfer), ports, SerializationForStorage::No, SerializationContext::WorkerPostMessage);
     if (messageData.hasException())
         return messageData.releaseException();
@@ -257,8 +254,7 @@ void MessagePort::dispatchMessages()
 
         LOG(MessagePorts, "MessagePort %s (%p) dispatching %zu messages", m_identifier.logString().utf8().data(), this, messages.size());
 
-        // Unable to protect the script execution context as it may have started destruction.
-        auto* context = scriptExecutionContext();
+        RefPtrAllowingPartiallyDestroyed<ScriptExecutionContext> context = scriptExecutionContext();
         if (!context || !context->globalObject())
             return;
 
@@ -326,7 +322,7 @@ MessagePort* MessagePort::locallyEntangledPort() const
     return nullptr;
 }
 
-ExceptionOr<Vector<TransferredMessagePort>> MessagePort::disentanglePorts(Vector<RefPtr<MessagePort>>&& ports)
+ExceptionOr<Vector<TransferredMessagePort>> MessagePort::disentanglePorts(Vector<Ref<MessagePort>>&& ports)
 {
     if (ports.isEmpty())
         return Vector<TransferredMessagePort> { };
@@ -334,7 +330,7 @@ ExceptionOr<Vector<TransferredMessagePort>> MessagePort::disentanglePorts(Vector
     // Walk the incoming array - if there are any duplicate ports, or null ports or cloned ports, throw an error (per section 8.3.3 of the HTML5 spec).
     HashSet<Ref<MessagePort>> portSet;
     for (auto& port : ports) {
-        if (!port || !port->m_entangled || !portSet.add(*port).isNewEntry)
+        if (!port->m_entangled || !portSet.add(port).isNewEntry)
             return Exception { ExceptionCode::DataCloneError };
     }
 
@@ -344,14 +340,14 @@ ExceptionOr<Vector<TransferredMessagePort>> MessagePort::disentanglePorts(Vector
     });
 }
 
-Vector<RefPtr<MessagePort>> MessagePort::entanglePorts(ScriptExecutionContext& context, Vector<TransferredMessagePort>&& transferredPorts)
+Vector<Ref<MessagePort>> MessagePort::entanglePorts(ScriptExecutionContext& context, Vector<TransferredMessagePort>&& transferredPorts)
 {
     LOG(MessagePorts, "Entangling %zu transferred ports to ScriptExecutionContext %s (%p)", transferredPorts.size(), context.url().string().utf8().data(), &context);
 
     if (transferredPorts.isEmpty())
         return { };
 
-    return WTF::map(transferredPorts, [&](auto& port) -> RefPtr<MessagePort> {
+    return WTF::map(WTFMove(transferredPorts), [&](auto&& port) -> Ref<MessagePort> {
         return MessagePort::entangle(context, WTFMove(port));
     });
 }
@@ -382,11 +378,6 @@ bool MessagePort::removeEventListener(const AtomString& eventType, EventListener
         m_hasMessageEventListener = false;
 
     return result;
-}
-
-const char* MessagePort::activeDOMObjectName() const
-{
-    return "MessagePort";
 }
 
 WebCoreOpaqueRoot root(MessagePort* port)

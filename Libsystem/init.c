@@ -271,7 +271,7 @@ libSystem_initializer(int argc,
 		.atfork_parent_v2 = libSystem_atfork_parent,
 		.atfork_child_v2 = libSystem_atfork_child,
 	};
-	
+
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_START);
 
 	__libkernel_init(&libkernel_funcs, envp, apple, vars);
@@ -366,13 +366,13 @@ libSystem_initializer(int argc,
 	}
 #endif
 
-#if (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
+#if TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
 	bool enable_system_version_compat = false;
 	bool enable_ios_version_compat = false;
 	bool enable_posix_spawn_filtering = false;
-#endif // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
+#endif // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
 
-#if TARGET_OS_OSX && !defined(__i386__)
+#if TARGET_OS_OSX
 	char *system_version_compat_override = getenv("SYSTEM_VERSION_COMPAT");
 	if (system_version_compat_override != NULL) {
 		long override = strtol(system_version_compat_override, NULL, 0);
@@ -390,10 +390,10 @@ libSystem_initializer(int argc,
 	} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
 		enable_system_version_compat = true;
 	}
-#endif // TARGET_OS_OSX && !defined(__i386__)
+#endif // TARGET_OS_OSX
 
 #if POSIX_SPAWN_FILTERING_ENABLED
-	/* 
+	/*
 	 * In launchd (pid 1), feature flags are not available here because the data
 	 * volume is not mounted yet. We'll query posix_spawn_filtering via the
 	 * libSystem_init_after_boot_tasks_4launchd call below instead.
@@ -403,7 +403,7 @@ libSystem_initializer(int argc,
 	}
 #endif // POSIX_SPAWN_FILTERING_ENABLED
 
-#if (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
+#if TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
 	if (enable_system_version_compat || enable_ios_version_compat || enable_posix_spawn_filtering) {
 		struct _libkernel_late_init_config config = {
 			.version = 3,
@@ -413,9 +413,9 @@ libSystem_initializer(int argc,
 		};
 		__libkernel_init_late(&config);
 	}
-#else // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
-#endif // (TARGET_OS_OSX && !defined(__i386__)) || POSIX_SPAWN_FILTERING_ENABLED
-	
+#else // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+#endif // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+
 	__end_prewarm(envp);
 
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_END);
@@ -470,8 +470,8 @@ libSystem_atfork_prepare(unsigned int flags, ...)
 #endif // !TARGET_OS_DRIVERKIT
 	dispatch_atfork_prepare();
 	_dyld_atfork_prepare();
-	cc_atfork_prepare();
 	_malloc_fork_prepare();
+	cc_atfork_prepare();
 	_libc_fork_prepare();
 	_pthread_atfork_prepare();
 }
@@ -482,8 +482,8 @@ libSystem_atfork_parent(unsigned int flags, ...)
 	// first call hardwired fork parent handlers for Libsystem components
 	// in the order of library initalization above
 	_pthread_atfork_parent();
-	_malloc_fork_parent();
 	cc_atfork_parent();
+	_malloc_fork_parent();
 	_libc_fork_parent();
 	_dyld_atfork_parent();
 	dispatch_atfork_parent();
@@ -512,8 +512,8 @@ libSystem_atfork_child(unsigned int flags, ...)
 	// in the order of library initalization above
 	_mach_fork_child();
 	_pthread_atfork_child();
-	_malloc_fork_child();
 	cc_atfork_child();
+	_malloc_fork_child();
 	_libc_fork_child(); // _arc4_fork_child calls malloc
 	_dyld_fork_child();
 	dispatch_atfork_child();

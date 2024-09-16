@@ -301,8 +301,29 @@ pdfjs-editor-ink-button-label = Σχέδιο
 pdfjs-editor-stamp-button =
     .title = Προσθήκη ή επεξεργασία εικόνων
 pdfjs-editor-stamp-button-label = Προσθήκη ή επεξεργασία εικόνων
-pdfjs-editor-remove-button =
-    .title = Αφαίρεση
+pdfjs-editor-highlight-button =
+    .title = Επισήμανση
+pdfjs-editor-highlight-button-label = Επισήμανση
+pdfjs-highlight-floating-button =
+    .title = Επισήμανση
+pdfjs-highlight-floating-button1 =
+    .title = Επισήμανση
+    .aria-label = Επισήμανση
+pdfjs-highlight-floating-button-label = Επισήμανση
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Αφαίρεση σχεδίου
+pdfjs-editor-remove-freetext-button =
+    .title = Αφαίρεση κειμένου
+pdfjs-editor-remove-stamp-button =
+    .title = Αφαίρεση εικόνας
+pdfjs-editor-remove-highlight-button =
+    .title = Αφαίρεση επισήμανσης
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Χρώμα
 pdfjs-editor-free-text-size-input = Μέγεθος
@@ -312,6 +333,10 @@ pdfjs-editor-ink-opacity-input = Αδιαφάνεια
 pdfjs-editor-stamp-add-image-button =
     .title = Προσθήκη εικόνας
 pdfjs-editor-stamp-add-image-button-label = Προσθήκη εικόνας
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Πάχος
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Αλλαγή πάχους κατά την επισήμανση στοιχείων εκτός κειμένου
 pdfjs-free-text =
     .aria-label = Επεξεργασία κειμένου
 pdfjs-free-text-default-content = Ξεκινήστε να πληκτρολογείτε…
@@ -349,3 +374,29 @@ pdfjs-editor-resizer-label-bottom-right = Κάτω δεξιά γωνία — α�
 pdfjs-editor-resizer-label-bottom-middle = Μέσο κάτω πλευράς — αλλαγή μεγέθους
 pdfjs-editor-resizer-label-bottom-left = Κάτω αριστερή γωνία — αλλαγή μεγέθους
 pdfjs-editor-resizer-label-middle-left = Μέσο αριστερής πλευράς — αλλαγή μεγέθους
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Χρώμα επισήμανσης
+pdfjs-editor-colorpicker-button =
+    .title = Αλλαγή χρώματος
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Επιλογές χρωμάτων
+pdfjs-editor-colorpicker-yellow =
+    .title = Κίτρινο
+pdfjs-editor-colorpicker-green =
+    .title = Πράσινο
+pdfjs-editor-colorpicker-blue =
+    .title = Μπλε
+pdfjs-editor-colorpicker-pink =
+    .title = Ροζ
+pdfjs-editor-colorpicker-red =
+    .title = Κόκκινο
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Εμφάνιση όλων
+pdfjs-editor-highlight-show-all-button =
+    .title = Εμφάνιση όλων

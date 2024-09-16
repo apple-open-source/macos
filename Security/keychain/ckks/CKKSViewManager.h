@@ -40,7 +40,6 @@
 #import "keychain/ckks/CKKSRateLimiter.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
-#import "keychain/ckks/CKKSZoneModifier.h"
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 
 #import "keychain/ot/OTSOSAdapter.h"
@@ -107,6 +106,14 @@ NS_ASSUME_NONNULL_BEGIN
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^)(CKKSCurrentItemData* data, NSError* operror))complete;
+
+- (void)getCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*) currentItemRequests
+                     forceFetch:(bool)forceFetch
+                       complete:(void(^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* error))complete;
+
+- (void)fetchPCSIdentityOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*) pcsServices
+                       forceFetch:(bool)forceFetch
+                         complete:(void(^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* error))complete;
 
 - (void)registerSyncStatusCallback:(NSString*)uuid callback:(SecBoolNSErrorCallback)callback;
 

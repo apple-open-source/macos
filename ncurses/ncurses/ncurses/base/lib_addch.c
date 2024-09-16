@@ -212,7 +212,12 @@ _nc_build_wch(WINDOW *win, ARG_CH_T ch)
 			     (size_t) WINDOW_EXT(win, addch_used),
 			     &state)) > 0) {
 	attr_t attrs = AttrOf(CHDEREF(ch));
+#ifdef __APPLE__
+	int pair;
+	if_EXT_COLORS(pair = GetPair(CHDEREF(ch)));
+#else
 	if_EXT_COLORS(int pair = GetPair(CHDEREF(ch)));
+#endif
 	SetChar(CHDEREF(ch), result, attrs);
 	if_EXT_COLORS(SetPair(CHDEREF(ch), pair));
 	WINDOW_EXT(win, addch_used) = 0;

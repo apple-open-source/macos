@@ -48,7 +48,7 @@ __SCDynamicStoreCopyValue(SCDynamicStoreRef	store,
 
 	if (key_controls == NULL) {
 		// if we already know we have read access to the key
-		SC_trace("%s : %5d : %@",
+		SC_trace("%s : %5u : %@",
 			 internal ? "*copy  " : "copy   ",
 			 storePrivate->server,
 			 key);
@@ -117,7 +117,7 @@ _configget(mach_port_t			server,
 		break;
 	default:
 #ifdef DEBUG
-		SC_trace("!copy   : %5d : %@",
+		SC_trace("!copy   : %5u : %@",
 			 mySession->store->server,
 			 key);
 #endif	// DEBUG
@@ -180,7 +180,7 @@ addSpecificKey(const void *value, void *context)
 			// that will be passed back to the caller.
 			SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)addContext->store;
 
-			SC_trace("*copy   : %5d : %@",
+			SC_trace("*copy   : %5u : %@",
 				 storePrivate->server,
 				 key);
 		} else {
@@ -232,7 +232,7 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 {
 	addSpecific			addContext;
 
-	SC_trace("copy m  : %5d : %ld keys, %ld patterns",
+	SC_trace("copy m  : %5u : %ld keys, %ld patterns",
 		 store->server,
 		 keys     ? CFArrayGetCount(keys)     : 0,
 		 patterns ? CFArrayGetCount(patterns) : 0);
@@ -292,7 +292,7 @@ update_multiple(const void *key, const void *value, void *context)
 	case kSCStatusOK:
 	case kSCStatusOK_MissingReadEntitlement:
 		/* read is allowed */
-		SC_trace("*copy   : %5d : %@",
+		SC_trace("*copy   : %5u : %@",
 			 update->mySession->store->server,
 			 key);
 		return;
@@ -303,7 +303,7 @@ update_multiple(const void *key, const void *value, void *context)
 #ifdef	DEBUG
 	/* entitlement protected key */
 	storePrivate = (SCDynamicStorePrivateRef)update->mySession->store;
-	SC_trace("!copy   : %5d : %@",
+	SC_trace("!copy   : %5u : %@",
 		 storePrivate->server,
 		 key);
 #endif	// DEBUG

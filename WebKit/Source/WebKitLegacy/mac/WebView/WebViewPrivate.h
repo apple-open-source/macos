@@ -92,7 +92,7 @@ extern NSString *WebQuickLookFileNameKey;
 extern NSString *WebQuickLookUTIKey;
 #endif
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || (defined(TARGET_OS_VISION) && TARGET_OS_VISION)
 @protocol UIDropSession;
 #endif
 
@@ -846,6 +846,8 @@ Could be worth adding to the API.
     @param enabled The new HTTP pipelining status.
  */
 + (void)_setHTTPPipeliningEnabled:(BOOL)enabled;
+
+- (void)_setPortsForUpgradingInsecureSchemeForTesting:(uint16_t)insecureUpgradePort withSecurePort:(uint16_t)secureUpgradePort;
 
 @property (nonatomic, copy, getter=_sourceApplicationAuditData, setter=_setSourceApplicationAuditData:) NSData *sourceApplicationAuditData;
 

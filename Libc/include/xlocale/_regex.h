@@ -24,10 +24,8 @@
 #ifndef _XLOCALE__REGEX_H_
 #define _XLOCALE__REGEX_H_
 
-#ifndef _REGEX_H_
 #include <_regex.h>
-#endif // _REGEX_H_
-#include <_xlocale.h>
+#include <__xlocale.h>
 
 __BEGIN_DECLS
 

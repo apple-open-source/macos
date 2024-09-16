@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2023 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2024 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -214,6 +214,7 @@
         "hw.product"
         "hw.target"
         "hw.vectorunit"
+        "kern.bootargs"
         "kern.hostname"
         "kern.hv_vmm_present"
         "kern.iossupportversion"
@@ -221,7 +222,9 @@
         "kern.osproductversion"
         "kern.osrelease"
         "kern.ostype"
+        "kern.osversion"
         "kern.version"
+        "kern.willshutdown"
         "vm.malloc_ranges") ;; <rdar://problem/105161083>
     (sysctl-name-prefix "hw.optional.") ;; <rdar://problem/71462790>
     (sysctl-name-prefix "hw.perflevel") ;; <rdar://problem/76783596>
@@ -230,6 +233,8 @@
 (deny sysctl-read (with no-report)
     (sysctl-name
         "security.mac.amfi.qa_root_certs_allowed"
+        "sysctl.proc_translated"
+        "vm.page_wire_count"
         "vm.task_no_footprint_for_debug"))
 
 (deny iokit-get-properties)
@@ -735,6 +740,11 @@
 (allow mach-lookup
     (global-name "com.apple.audio.AudioSession"))
 
+#if HAVE(AUDIO_CONVERTER_SERVICE)
+;; See <rdar://118049196>
+(allow mach-lookup (xpc-service-name "com.apple.audio.AudioConverterService"))
+#endif
+
 #if !ENABLE(CFPREFS_DIRECT_MODE)
 (allow mach-lookup
     (global-name "com.apple.cfprefsd.agent"))
@@ -868,7 +878,6 @@
 (allow mach-lookup
     (global-name "com.apple.coremedia.routingcontext.xpc"))
 (allow mach-lookup
-    (global-name "com.apple.coremedia.endpoint.xpc")
     (global-name "com.apple.coremedia.endpointstream.xpc")
     (global-name "com.apple.coremedia.endpointstreamaudioengine.xpc") ;; <rdar://76029596>
     (global-name "com.apple.coremedia.endpointplaybacksession.xpc")
@@ -888,6 +897,8 @@
 #if HAVE(REFACTORED_MEDIASERVERD)
     (global-name "com.apple.airplay.endpoint.xpc")
     (global-name "com.apple.mediaexperience.endpoint.xpc")
+#else
+    (global-name "com.apple.coremedia.endpoint.xpc")
 #endif
 )
 
@@ -1092,6 +1103,9 @@
                 mach_vm_remap_external
                 semaphore_create
                 semaphore_destroy
+#if HAVE(AUDIO_CONVERTER_SERVICE)
+                task_create_identity_token
+#endif
                 task_get_special_port_from_user
                 task_info_from_user
                 task_policy_set
@@ -1234,6 +1248,7 @@
         SYS_munmap
         SYS_necp_client_action
         SYS_necp_open
+        SYS_open_dprotected_np
         SYS_open_nocancel
         SYS_pathconf
         SYS_pread

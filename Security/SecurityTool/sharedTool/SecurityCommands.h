@@ -74,7 +74,7 @@ SECURITY_COMMAND_IOS("show-certificates", keychain_show_certificates,
                  "    -k Show all certificates in keychain.\n"
                  "    -q Query for certificates matching (implies -k)\n"
                  "    -p Output cert in PEM format.\n"
-                 "    -f Show fingerprint (SHA1 digest of octects inside the public key bit string.)\n"
+                 "    -f Show fingerprint (SHA1 digest of octets inside the public key bit string.)\n"
                  "    -s Show subject.\n"
                  "    -v Show entire certificate in text form.\n"
                  "    -t Evaluate trust.",
@@ -216,15 +216,26 @@ SECURITY_COMMAND_IOS("verify-cert", verify_cert,
                  "                   and require a positive response, use \"-R ocsp -R require\".\n",
                  "Verify certificate(s).")
 
-SECURITY_COMMAND_IOS("trust-store", trust_store_show_certificates,
+SECURITY_COMMAND("trust-store", trust_store_show_certificates,
                  "[-p][-f][-s][-v][-t][-k]\n"
-                 "    -p Output cert in PEM format.\n"
-                 "    -f Show fingerprint (SHA1 digest certificate.)\n"
+                 "    -p Output cert in PEM format\n"
+                 "    -f Show fingerprint (SHA1 digest of certificate.)\n"
                  "    -s Show subject.\n"
                  "    -v Show entire certificate in text form.\n"
                  "    -t Show trust settings for certificates.\n"
-                 "    -k Show keyid (SHA1 digest of public key)",
+                 "    -k Show keyid (SHA1 digest of public key.)",
                  "Display user trust store certificates and trust settings.")
+
+SECURITY_COMMAND("system-trust-store", trust_store_show_pki_certificates,
+                 "[-p][-f][-s][-v][-t][-k][-j]\n"
+                 "    -p Output cert in PEM format.\n"
+                 "    -f Show fingerprint (SHA256 digest of certificate.)\n"
+                 "    -s Show subject.\n"
+                 "    -v Show entire certificate in text form.\n"
+                 "    -t Show trust settings for certificates.\n"
+                 "    -k Show keyid (SHA256 digest of public key.)\n"
+                 "    -j Output results in json format.",
+                 "Display system trust store certificates and trust settings.")
 
 SECURITY_COMMAND("check-trust-update", check_trust_update,
                  "[-s][-e]\n"
@@ -308,6 +319,19 @@ SECURITY_COMMAND("show-trust-config", show_trust_config,
                  "   -c             Output certificate exceptions (as SPKI hash).\n"
                  "                      Default is both domains and certs.\n",
                  "Display trust evaluation configuration in json.")
+
+SECURITY_COMMAND("reset-trust-settings", reset_trust_settings,
+                 "[options]\n"
+                 "   -A            Reset all trust-related settings to defaults.\n"
+                 "                 Consider using the following targeted options instead.\n"
+                 "                 Multiple options may be specified.\n"
+                 "   -U            Reset user trust settings\n"
+                 "   -X            Reset trust exceptions\n"
+                 "   -O            Reset OCSP response cache\n"
+                 "   -I            Reset CA issuers cache (intermediate certificates)\n"
+                 "   -V            Reset Valid revocation database\n"
+                 "   -C            Reset trust data caches (equivalent to -O -I -V)\n",
+                 "Reset trust settings to defaults")
 
 SECURITY_COMMAND("stuff-keychain", stuff_keychain,
                  "[-y | -Y passcode] [-c count] [-a accountPrefix] [-e seed] [-s] [-D]\n"

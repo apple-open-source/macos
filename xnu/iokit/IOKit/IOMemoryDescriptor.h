@@ -208,6 +208,9 @@ enum{
 // Options used by IOMapper. example IOMappers are DART and VT-d
 enum {
 	kIOMapperUncached      = 0x0001,
+#ifdef KERNEL_PRIVATE
+	kIOMapperTransient     = 0x0002,
+#endif
 };
 
 #ifdef KERNEL_PRIVATE

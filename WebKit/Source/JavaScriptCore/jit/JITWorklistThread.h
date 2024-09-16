@@ -50,9 +50,10 @@ class JITWorklistThread final : public AutomaticThread {
 public:
     JITWorklistThread(const AbstractLocker&, JITWorklist&);
 
-    const char* name() const final;
+    ASCIILiteral name() const final;
 
     State state() const { return m_state; }
+    const Safepoint* safepoint() const { return m_safepoint; }
 
 private:
     PollResult poll(const AbstractLocker&) final;

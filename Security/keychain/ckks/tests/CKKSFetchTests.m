@@ -40,7 +40,7 @@
 
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
 
@@ -50,8 +50,8 @@
     [self expectCKFetch];
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -91,10 +91,12 @@
 
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    XCTAssert(ck1.forward == YES);
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
-    CKServerChangeToken* ck2 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck2 = ckzone.currentChangeToken;
+    XCTAssert(ck2.forward == YES);
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D04" withAccount:@"account4"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D05" withAccount:@"account5"]];
 
@@ -111,8 +113,8 @@
     // This fetch will return up to ck2.
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -122,8 +124,8 @@
     // This fetch will return the final two items.
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck2]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck2.token]) {
             return YES;
         } else {
             return NO;
@@ -168,7 +170,7 @@
 
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
 
@@ -180,8 +182,8 @@
     [self expectCKFetch];
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -219,7 +221,7 @@
 
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
 
@@ -249,8 +251,8 @@
 
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -293,7 +295,7 @@
 
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
 
     // Allow CKKS to fetch fully, then fake on-disk that it received MoreComing.
     // (It's very hard to tear down the retry logic in-process)
@@ -342,8 +344,8 @@
         XCTAssertEqual(frzco.qualityOfService, NSQualityOfServiceUserInitiated, "QoS should be user-initiated");
 
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -375,7 +377,7 @@
 
     [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
     [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
-    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = ckzone.currentChangeToken;
     [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
     [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
 
@@ -392,8 +394,8 @@
         XCTAssertEqual(frzco.qualityOfService, NSQualityOfServiceUserInitiated, "QoS should be user-initiated");
 
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;

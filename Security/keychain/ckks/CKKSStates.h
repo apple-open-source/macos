@@ -25,6 +25,7 @@ extern CKKSState* const CKKSStateLoseTrust;
 extern CKKSState* const CKKSStateInitializing;
 extern CKKSState* const CKKSStateInitialized;
 extern CKKSState* const CKKSStateZoneCreationFailed;
+extern CKKSState* const CKKSStateZoneCreationFailedDueToNetworkError;
 
 extern CKKSState* const CKKSStateFixupRefetchCurrentItemPointers;
 extern CKKSState* const CKKSStateFixupFetchTLKShares;
@@ -55,6 +56,7 @@ extern CKKSState* const CKKSStateUnhealthy;
 
 extern CKKSState* const CKKSStateResettingZone;
 extern CKKSState* const CKKSStateResettingLocalData;
+extern CKKSState* const CKKSStateZoneDeletionFailedDueToNetworkError;
 
 extern CKKSState* const CKKSStateBecomeReady;
 extern CKKSState* const CKKSStateReady;
@@ -111,6 +113,9 @@ extern CKKSFlag* const CKKSFlagOutgoingQueueOperationRateToken;
 extern CKKSFlag* const CKKSFlagNewPriorityViews;
 
 extern CKKSFlag* const CKKSFlag24hrNotification;
+
+extern CKKSFlag* const CKKSFlagZoneCreation;
+extern CKKSFlag* const CKKSFlagZoneDeletion;
 
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void);
 

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -87,6 +87,7 @@ public:
     void setValueForUser(const String& value) { setValue(value, DispatchInputAndChangeEvent); }
     WEBCORE_EXPORT WallTime valueAsDate() const;
     WEBCORE_EXPORT ExceptionOr<void> setValueAsDate(WallTime);
+    WallTime accessibilityValueAsDate() const;
     WEBCORE_EXPORT double valueAsNumber() const;
     WEBCORE_EXPORT ExceptionOr<void> setValueAsNumber(double, TextFieldEventBehavior = DispatchNoEvent);
     WEBCORE_EXPORT ExceptionOr<void> stepUp(int = 1);
@@ -157,6 +158,7 @@ public:
     // isTextField && !isPasswordField.
     WEBCORE_EXPORT bool isText() const;
     bool isTextType() const;
+    bool supportsWritingSuggestions() const;
     WEBCORE_EXPORT bool isEmailField() const;
     WEBCORE_EXPORT bool isFileUpload() const;
     bool isImageButton() const;
@@ -342,7 +344,8 @@ public:
 
     float switchAnimationVisuallyOnProgress() const;
     bool isSwitchVisuallyOn() const;
-    float switchAnimationPressedProgress() const;
+    float switchAnimationHeldProgress() const;
+    bool isSwitchHeld() const;
 
     void initializeInputTypeAfterParsingOrCloning();
 

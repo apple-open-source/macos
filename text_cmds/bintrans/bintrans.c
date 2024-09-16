@@ -121,11 +121,11 @@ usage_base64(bool failure)
 #ifdef __APPLE__
 	(void)fputs(
 "Usage:	base64 [-Ddh] [-b num] [-i in_file] [-o out_file]\n"
-"  -b, --break    break encoded string into num character lines\n"
-"  -Dd, --decode   decodes input\n"
-"  -h, --help     display this message\n"
-"  -i, --input    input file (default: \"-\" for stdin)\n"
-"  -o, --output   output file (default: \"-\" for stdout)\n",
+"  -b, --break       break encoded output up into lines of length num\n"
+"  -D, -d, --decode  decode input\n"
+"  -h, --help        display this message\n"
+"  -i, --input       input file (default: \"-\" for stdin)\n"
+"  -o, --output      output file (default: \"-\" for stdout)\n",
 	    failure ? stderr : stdout);
 	exit(failure ? EX_USAGE : EX_OK);
 #else
@@ -167,15 +167,15 @@ base64_encode_or_decode(int argc, char *argv[])
 		{"output",	required_argument,	NULL, 'o'},
 #else
 		{"ignore-garbage",no_argument,		NULL, 'i'},
-		{"wrap",	required_argument,	NULL, 'w'},
 #endif
+		{"wrap",	required_argument,	NULL, 'w'},
 		{"help",	no_argument,		NULL, HELP},
 		{"version",	no_argument,		NULL, VERSION},
 		{NULL,		no_argument,		NULL, 0}
 	};
 
 #ifdef __APPLE__
-	while ((ch = getopt_long(argc, argv, "b:Ddhi:o:", opts, NULL)) != -1)
+	while ((ch = getopt_long(argc, argv, "b:Ddhi:o:w:", opts, NULL)) != -1)
 #else
 	while ((ch = getopt_long(argc, argv, "diw:", opts, NULL)) != -1)
 #endif
@@ -188,9 +188,8 @@ base64_encode_or_decode(int argc, char *argv[])
 			break;
 #ifdef __APPLE__
 		case 'b':
-#else
-		case 'w':
 #endif
+		case 'w':
 			w = optarg;
 			break;
 		case 'i':

@@ -76,22 +76,21 @@
  * large enough to make the I/O efficient, without occupying too much memory.
  */
 #define FAT_CHUNK_SIZE (64*1024)
-	
+#define DEBLOCK_SIZE 		(MAXPHYSIO>>2)
 
 ssize_t	deblock_read(int d, void *buf, size_t nbytes);
 ssize_t	deblock_write(int d, void *buf, size_t nbytes);
 
-static cl_t fat32_get(cl_t cluster);
-static int fat32_set(cl_t cluster, cl_t value);
-static cl_t fat16_get(cl_t cluster);
-static int fat16_set(cl_t cluster, cl_t value);
-static cl_t fat12_get(cl_t cluster);
-static int fat12_set(cl_t cluster, cl_t value);
+static cl_t fat32_get(cl_t cluster, check_context *context);
+static int fat32_set(cl_t cluster, cl_t value, check_context *context);
+static cl_t fat16_get(cl_t cluster, check_context *context);
+static int fat16_set(cl_t cluster, cl_t value, check_context *context);
+static cl_t fat12_get(cl_t cluster, check_context *context);
+static int fat12_set(cl_t cluster, cl_t value, check_context *context);
 
-cl_t (*fat_get)(cl_t cluster);
-int (*fat_set)(cl_t cluster, cl_t value);
+cl_t (*fat_get)(cl_t cluster, check_context *context);
+int (*fat_set)(cl_t cluster, cl_t value, check_context *context);
 
-static int gFS;		/* File descriptor to read/write the volume */
 static struct bootblock *gBoot;
 static size_t gUseMapBytes;
 static size_t gNumCacheBlocks;
@@ -118,13 +117,13 @@ static struct fat_cache_block *fat_cache_mru;
  * Should we use a global, or return a structure to be passed
  * back into other routines?
  */
-int fat_init(int fs, struct bootblock *boot)
+int fat_init(struct bootblock *boot, check_context *context)
 {
 	int mod = 0;
 	int i;
 	cl_t temp;
 	cl_t value;
-	
+
 	/*
 	 * We can get called multiple times if a first
 	 * repair didn't work.  Be prepared to re-use
@@ -132,7 +131,6 @@ int fat_init(int fs, struct bootblock *boot)
 	 */
 	fat_uninit();
 	
-	gFS = fs;
 	gBoot = boot;
 	
 	/*
@@ -158,8 +156,9 @@ int fat_init(int fs, struct bootblock *boot)
 			return FSFATAL;
 	}
 	
-	if (initUseMap(boot))
+	if (initUseMap(boot)) {
 		return FSFATAL;
+	}
 
 	/*
 	 * Allocate space for the FAT cache structures
@@ -218,7 +217,7 @@ int fat_init(int fs, struct bootblock *boot)
 	 * is a valid media type, and is less than CLUST_RSRVD, so won't get
 	 * sign extended.
 	 */
-	value = fat_get(0);
+	value = fat_get(0, context);
 	if (value == CLUST_ERROR)
 		return FSFATAL;
 	value &= boot->ClustMask;
@@ -226,14 +225,13 @@ int fat_init(int fs, struct bootblock *boot)
 	if (value != temp)
 	{
 		fsck_print(fsck_ctx, LOG_INFO, "Warning: FAT[0] is incorrect (is 0x%X; should be 0x%X)\n", value, temp);
-		if (fsck_ask(fsck_ctx, 1, "Correct"))
-		{
-			mod = fat_set(0, temp);
-			if (!mod)
+		if (fsck_ask(fsck_ctx, 1, "Correct")) {
+			mod = fat_set(0, temp, context);
+			if (!mod) {
 				mod = FSFATMOD;
+			}
 		}
-		else
-		{
+		else {
 			mod = FSERROR;
 		}
 	}
@@ -247,9 +245,10 @@ int fat_init(int fs, struct bootblock *boot)
 	 * Also check the "clean" bit.  If it is not set (i.e., the volume is dirty),
 	 * set the FSDIRTY status.
 	 */
-	value = fat_get(1);
-	if (value == CLUST_ERROR)
+	value = fat_get(1, context);
+	if (value == CLUST_ERROR) {
 		return FSFATAL;
+	}
 	switch (boot->ClustMask)
 	{
 		case CLUST16_MASK:
@@ -289,7 +288,7 @@ int fat_init(int fs, struct bootblock *boot)
 			 * FAT[1] entry (in the upper two significant bits of
 			 * value).
 			 */
-			i = fat_set(1, value | temp);
+			i = fat_set(1, value | temp, context);
 			if (i)
 				mod |= i;
 			else
@@ -314,24 +313,24 @@ int fat_init(int fs, struct bootblock *boot)
  * Returns NULL on I/O error
  */
 static struct fat_cache_block *
-fat_cache_find(uint32_t offset)
+fat_cache_find(uint32_t offset, check_context *context)
 {
 	struct fat_cache_block *found;
 	struct fat_cache_block *prev;
-	uint32_t chunk;
 	uint32_t length;
-	
+	uint32_t chunk;
+
 	/* Figure out which chunk we're looking for */
 	chunk = offset / FAT_CHUNK_SIZE;
 	length = (gBoot->FATsecs * gBoot->BytesPerSec) - (chunk * FAT_CHUNK_SIZE);
-	if (length > FAT_CHUNK_SIZE)
+	if (length > FAT_CHUNK_SIZE) {
 		length = FAT_CHUNK_SIZE;
+	}
 
 	/* Find the matching buffer, else LRU buffer */
 	prev = NULL;
 	found = fat_cache_mru;
-	while (found->chunk != chunk && found->next != NULL)
-	{
+	while (found->chunk != chunk && found->next != NULL) {
 		prev = found;
 		found = found->next;
 	}
@@ -340,61 +339,57 @@ fat_cache_find(uint32_t offset)
 	 * If we didn't find the desired sector in the cache, recycle
 	 * the least recently used buffer.
 	 */
-	if (found->chunk != chunk)
-	{
+	if (found->chunk != chunk) {
 		int activeFAT;
 		off_t io_offset;
 
 		activeFAT = gBoot->ValidFat >= 0 ? gBoot->ValidFat : 0;
 
-		if (found->dirty)
-		{
-//			fsck_print(ctx, LOG_ERR, "Writing FAT sector %u\n", found->sector);
-			
+		if (found->dirty) {
 			/* Byte offset of start of active FAT */
 			io_offset = (gBoot->ResSectors + activeFAT * gBoot->FATsecs) * gBoot->BytesPerSec;
-			
+
 			/* Byte offset of current chunk */
 			io_offset += found->chunk * FAT_CHUNK_SIZE;
-			
-			if (lseek(gFS, io_offset, SEEK_SET) != io_offset)
-			{
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to seek FAT", strerror(errno));
-				return NULL;
+
+			size_t nbytes = found->length;
+			size_t totalWritten = 0;
+			while (nbytes > 0) {
+                size_t length = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
+				if (context->writeHelper(context->resource, found->buffer + totalWritten, length, io_offset + totalWritten) != length) {
+					fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FAT", strerror(errno));
+					return NULL;
+				}
+				nbytes -= length;
+				totalWritten += length;
 			}
-			if (deblock_write(gFS, found->buffer, found->length) != found->length)
-			{
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FAT", strerror(errno));
-				return NULL;
-			}
-			
 			found->dirty = 0;
 		}
-		
+
 		/* Figure out where the desired chunk is on disk */
 		found->chunk = chunk;
 		found->length = length;
-		
+
 		/* Byte offset of start of active FAT */
 		io_offset = (gBoot->ResSectors + activeFAT * gBoot->FATsecs) * gBoot->BytesPerSec;
-		
+
 		/* Byte offset of desired chunk */
 		io_offset += chunk * FAT_CHUNK_SIZE;
-		
+
 		/* Read in the sector */
-//		fsck_print(ctx, LOG_ERR, "Reading FAT sector %u\n", found->sector);
-		if (lseek(gFS, io_offset, SEEK_SET) != io_offset)
-		{
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to seek FAT", strerror(errno));
-			return NULL;
-		}
-		if (deblock_read(gFS, found->buffer, length) != length)
-		{
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
-			return NULL;
+		size_t nbytes = found->length;
+	    size_t totalRead = 0;
+		while (nbytes > 0) {
+			size_t length = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
+			if (context->readHelper(context->resource, found->buffer + totalRead, length, io_offset + totalRead) != length) {
+				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
+				return NULL;
+			}
+			nbytes -= length;
+            totalRead += length;
 		}
 	}
-	
+
 	/*
 	 * Move the found buffer to the head of the MRU list.
 	 */
@@ -405,10 +400,9 @@ fat_cache_find(uint32_t offset)
 		found->next = fat_cache_mru;
 		fat_cache_mru = found;
 	}
-	
+
 	return found;
 }
-
 
 void fat_uninit(void)
 {
@@ -430,28 +424,28 @@ void fat_uninit(void)
  * Returns the entry for cluster @cluster in @*value.
  * The function result is the error, if any.
  */
-static cl_t fat32_get(cl_t cluster)
+static cl_t fat32_get(cl_t cluster, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
 	cl_t value;
-	
+
 	if (cluster >= gBoot->NumClusters)
 	{
 		fsck_print(fsck_ctx, LOG_ERR, "fat32_get: invalid cluster (%u)\n", cluster);
 		return CLUST_ERROR;
 	}
-	
-	block = fat_cache_find(cluster*4);
+
+	block = fat_cache_find(cluster*4, context);
 	if (block == NULL)
 		return CLUST_ERROR;
-	
+
 	/* Point to the @cluster'th entry. */
 	p = block->buffer + (cluster * 4) % FAT_CHUNK_SIZE;
-	
+
 	/* Extract the raw value, ignoring the reserved bits. */
 	value = (p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24)) & CLUST32_MASK;
-	
+
 	/* Sign extended the special values for consistency. */
 	if (value >= (CLUST_RSRVD & CLUST32_MASK))
 		value |= ~CLUST32_MASK;
@@ -459,28 +453,28 @@ static cl_t fat32_get(cl_t cluster)
 	return value;
 }
 
-static cl_t fat16_get(cl_t cluster)
+static cl_t fat16_get(cl_t cluster, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
 	cl_t value;
-	
+
 	if (cluster >= gBoot->NumClusters)
 	{
 		fsck_print(fsck_ctx, LOG_ERR, "fat16_get: invalid cluster (%u)\n", cluster);
 		return CLUST_ERROR;
 	}
-	
-	block = fat_cache_find(cluster*2);
+
+	block = fat_cache_find(cluster*2, context);
 	if (block == NULL)
 		return CLUST_ERROR;
-	
+
 	/* Point to the @cluster'th entry. */
 	p = block->buffer + (cluster * 2) % FAT_CHUNK_SIZE;
-	
+
 	/* Extract the value. */
 	value = p[0] + (p[1] << 8);
-	
+
 	/* Sign extended the special values for consistency. */
 	if (value >= (CLUST_RSRVD & CLUST16_MASK))
 		value |= ~CLUST16_MASK;
@@ -488,7 +482,7 @@ static cl_t fat16_get(cl_t cluster)
 	return value;
 }
 
-static cl_t fat12_get(cl_t cluster)
+static cl_t fat12_get(cl_t cluster, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
@@ -496,24 +490,24 @@ static cl_t fat12_get(cl_t cluster)
 
 	if (cluster >= gBoot->NumClusters)
 	{
-		fsck_print(fsck_ctx, LOG_ERR, "fat16_get: invalid cluster (%u)\n", cluster);
+		fsck_print(fsck_ctx, LOG_ERR, "fat12_get: invalid cluster (%u)\n", cluster);
 		return CLUST_ERROR;
 	}
-	
-	block = fat_cache_find(cluster + cluster/2);
+
+	block = fat_cache_find(cluster + cluster/2, context);
 	if (block == NULL)
 		return CLUST_ERROR;
-	
+
 	/* Point to the @cluster'th entry. */
 	p = block->buffer + (cluster + cluster/2) % FAT_CHUNK_SIZE;
-	
+
 	/* Extract the value. */
 	value = p[0] + (p[1] << 8);
 	if (cluster & 1)
 		value >>= 4;
 	else
 		value &= 0x0FFF;
-	
+
 	/* Sign extended the special values for consistency. */
 	if (value >= (CLUST_RSRVD & CLUST12_MASK))
 		value |= ~CLUST12_MASK;
@@ -528,7 +522,7 @@ static cl_t fat12_get(cl_t cluster)
  *
  * For now, this is FAT32-only.
  */
-static int fat32_set(cl_t cluster, cl_t value)
+static int fat32_set(cl_t cluster, cl_t value, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
@@ -539,7 +533,7 @@ static int fat32_set(cl_t cluster, cl_t value)
 		return FSFATAL;
 	}
 
-	block = fat_cache_find(cluster*4);
+	block = fat_cache_find(cluster*4, context);
 	if (block == NULL)
 		return FSFATAL;
 	
@@ -565,7 +559,7 @@ static int fat32_set(cl_t cluster, cl_t value)
 	return 0;
 }
 
-static int fat16_set(cl_t cluster, cl_t value)
+static int fat16_set(cl_t cluster, cl_t value, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
@@ -576,9 +570,10 @@ static int fat16_set(cl_t cluster, cl_t value)
 		return FSFATAL;
 	}
 	
-	block = fat_cache_find(cluster*2);
-	if (block == NULL)
+	block = fat_cache_find(cluster*2, context);
+	if (block == NULL) {
 		return FSFATAL;
+	}
 	
 	/* Point to the @cluster'th entry in the FAT. */
 	p = block->buffer + (cluster * 2) % FAT_CHUNK_SIZE;
@@ -599,7 +594,7 @@ static int fat16_set(cl_t cluster, cl_t value)
 	return 0;
 }
 
-static int fat12_set(cl_t cluster, cl_t value)
+static int fat12_set(cl_t cluster, cl_t value, check_context *context)
 {
 	struct fat_cache_block *block;
 	uint8_t *p;
@@ -610,7 +605,7 @@ static int fat12_set(cl_t cluster, cl_t value)
 		return FSFATAL;
 	}
 	
-	block = fat_cache_find(cluster + cluster/2);
+	block = fat_cache_find(cluster + cluster/2, context);
 	if (block == NULL)
 		return FSFATAL;
 	
@@ -643,36 +638,33 @@ static int fat12_set(cl_t cluster, cl_t value)
 /*
  * If the FAT has been modified, write it back to disk.
  */
-int fat_flush(void)
+int fat_flush(check_context *context)
 {
 	int i;
 	int activeFAT;
 	off_t offset;
-	
+
 	activeFAT = gBoot->ValidFat >= 0 ? gBoot->ValidFat : 0;
-	
-	for (i=0; i<gNumCacheBlocks; ++i)
-	{
-		if (fat_cache[i].dirty)
-		{
+
+	for (i=0; i<gNumCacheBlocks; ++i) {
+		if (fat_cache[i].dirty) {
+			size_t nbytes = fat_cache[i].length;
 			/* Byte offset of start of active FAT */
 			offset = (gBoot->ResSectors + activeFAT * gBoot->FATsecs) * gBoot->BytesPerSec;
 			
 			/* Byte offset of current chunk */
 			offset += fat_cache[i].chunk * FAT_CHUNK_SIZE;
-			
-//			fsck_print(ctx, LOG_ERR, "Flushing FAT sector %u\n", fat_cache[i].sector);
-			if (lseek(gFS, offset, SEEK_SET) != offset)
-			{
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to seek FAT", strerror(errno));
-				return FSFATAL;
+
+			size_t totalWritten = 0;
+			while (nbytes > 0) {
+				size_t length = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
+				if (context->writeHelper(context->resource, fat_cache[i].buffer + totalWritten, length , offset + totalWritten) != length) {
+					fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FAT", strerror(errno));
+					return FSFATAL;
+				}
+				totalWritten += length;
+				nbytes -= length;
 			}
-			if (deblock_write(gFS, fat_cache[i].buffer, fat_cache[i].length) != fat_cache[i].length)
-			{
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FAT", strerror(errno));
-				return FSFATAL;
-			}
-			
 			fat_cache[i].dirty = 0;
 		}
 	}
@@ -685,7 +677,7 @@ int fat_flush(void)
  * Mark all unreferenced clusters as CLUST_FREE.  Also calculate
  * the number of free clusters.
  */
-int fat_free_unused(void)
+int fat_free_unused(check_context *context)
 {
 	int err = 0;
 	cl_t cluster, value;
@@ -694,7 +686,7 @@ int fat_free_unused(void)
 	
 	for (cluster = CLUST_FIRST; cluster < gBoot->NumClusters; ++cluster)
 	{
-		value = fat_get(cluster);
+		value = fat_get(cluster, context);
 		if (value == CLUST_ERROR)
 			break;
 		if (!isUsed(cluster))
@@ -715,9 +707,8 @@ int fat_free_unused(void)
 					fix = fsck_ask(fsck_ctx, 1, "Fix");
 				}
 				++count;
-				if (fix)
-				{
-					err = fat_set(cluster, CLUST_FREE);
+				if (fix) {// >0)
+					err = fat_set(cluster, CLUST_FREE, context);
 					if (err)
 						break;
 					gBoot->NumFree++;
@@ -728,8 +719,7 @@ int fat_free_unused(void)
 
 	if (count)
 	{
-		if (fix)
-		{
+		if (fix) {//} > 0)
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: Marked %u clusters as free\n", count);
 			err |= FSFATMOD;
 		}
@@ -761,7 +751,7 @@ int fat_free_unused(void)
 			}
 		}
 		if (fix)
-			err |= writefsinfo(gFS, gBoot);
+			err |= writefsinfo(gBoot, context);
 	}
 
 	return err;
@@ -771,60 +761,63 @@ int fat_free_unused(void)
 /*
  * Determine whether a volume is dirty, without reading the entire FAT.
  */
-int isdirty(int fs, struct bootblock *boot, int fat)
+int isdirty(struct bootblock *boot, int fat, check_context *context)
 {
-       int             result;
-       u_char  *buffer;
-       off_t   offset;
+	int		result;
+	u_char 	*buffer;
+	off_t	offset;
 
-       result = 1;             /* In case of error, assume volume was dirty */
+	result = 1;             /* In case of error, assume volume was dirty */
 
-       /* FAT12 volumes don't have a "clean" bit, so always assume they are dirty */
-       if (boot->ClustMask == CLUST12_MASK)
-               return 1;
+	/* FAT12 volumes don't have a "clean" bit, so always assume they are dirty */
+	if (boot->ClustMask == CLUST12_MASK)
+		return 1;
 
-       buffer = malloc(boot->BytesPerSec);
-       if (buffer == NULL) {
-               fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "No space for FAT sector", strerror(errno));
-               return 1;               /* Assume it was dirty */
-       }
+	buffer = malloc(boot->BytesPerSec);
+	if (buffer == NULL) {
+		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "No space for FAT sector", strerror(errno));
+		return 1;               /* Assume it was dirty */
+	}
 
-       offset = boot->ResSectors + fat * boot->FATsecs;
-       offset *= boot->BytesPerSec;
+	offset = boot->ResSectors + fat * boot->FATsecs;
+	offset *= boot->BytesPerSec;
 
-       if (lseek(fs, offset, SEEK_SET) != offset) {
-               fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
-               goto ERROR;
-       }
+	size_t totalRead = 0;
+	size_t nbytes = boot->BytesPerSec;
+	while (nbytes > 0) {
+		size_t length = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
+		if (context->readHelper(context->resource, buffer + totalRead, length, offset + totalRead) != length) {
+			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
+			goto ERROR;
+		}
+		totalRead += length;
+		nbytes -= length;
+	}
 
-       if (deblock_read(fs, buffer, boot->BytesPerSec) != boot->BytesPerSec) {
-               fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read FAT", strerror(errno));
-               goto ERROR;
-       }
-
-       switch (boot->ClustMask) {
-       case CLUST32_MASK:
-               /* FAT32 uses bit 27 of FAT[1] */
-               if ((buffer[7] & 0x08) != 0)
-                       result = 0;             /* It's clean */
-               break;
-       case CLUST16_MASK:
-               /* FAT16 uses bit 15 of FAT[1] */
-               if ((buffer[3] & 0x80) != 0)
-                       result = 0;             /* It's clean */
-               break;
-       }
+	switch (boot->ClustMask) {
+	case CLUST32_MASK:
+		/* FAT32 uses bit 27 of FAT[1] */
+			if ((buffer[7] & 0x08) != 0) {
+				result = 0;             /* It's clean */
+			}
+			break;
+	case CLUST16_MASK:
+		/* FAT16 uses bit 15 of FAT[1] */
+		if ((buffer[3] & 0x80) != 0)
+			result = 0;             /* It's clean */
+			break;
+	}
 
 ERROR:
-       free(buffer);
-       return result;
+	free(buffer);
+	return result;
 }
 
 
 /*
  * Mark a FAT16 or FAT32 volume "clean."  Ignored for FAT12.
  */
-int fat_mark_clean(void)
+int fat_mark_clean(check_context *context)
 {
 	cl_t value;
 	
@@ -834,7 +827,7 @@ int fat_mark_clean(void)
 	if (gBoot->ClustMask == CLUST12_MASK)
 		return 0;
 	
-	value = fat_get(1);
+	value = fat_get(1, context);
 	if (value == CLUST_ERROR)
 		return FSERROR;
 	
@@ -842,7 +835,7 @@ int fat_mark_clean(void)
 		value |= 0x8000;
 	else
 		value |= 0x08000000;
-	return fat_set(1, value);
+	return fat_set(1, value, context);
 }
 
 
@@ -860,50 +853,6 @@ rsrvdcltype(cl_t cl)
 		return "as EOF";
 	return "bad";
 }
-
-#define DEBLOCK_SIZE 		(MAXPHYSIO>>2)
-ssize_t	deblock_read(int d, void *buf, size_t nbytes) {
-    ssize_t		totbytes = 0, readbytes;
-    char		*b = buf;
-
-    while (nbytes > 0) {
-        size_t 		rbytes = nbytes < DEBLOCK_SIZE? nbytes : DEBLOCK_SIZE;
-        readbytes = read(d, b, rbytes);
-        if (readbytes < 0)
-            return readbytes;
-        else if (readbytes == 0)
-            break;
-        else {
-            nbytes-=readbytes;
-            totbytes += readbytes;
-            b += readbytes;
-        }
-    }
-
-    return totbytes;
-}
-
-ssize_t	deblock_write(int d, void *buf, size_t nbytes) {
-    ssize_t		totbytes = 0, writebytes;
-    char		*b = buf;
-
-    while (nbytes > 0) {
-        size_t 		wbytes = nbytes < DEBLOCK_SIZE ? nbytes : DEBLOCK_SIZE;
-        writebytes = write(d, b, wbytes);
-        if (writebytes < 0)
-            return writebytes;
-        else if (writebytes == 0)
-            break;
-        else {
-            nbytes-=writebytes;
-            totbytes += writebytes;
-            b += writebytes;
-        }
-    }
-
-    return totbytes;
-}
-
 
 /*======================================================================
 	Cluster Use Map Routines

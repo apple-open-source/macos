@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,11 +32,14 @@ typedef enum _SMB2_CMD_FLAGS
 
 
 /* smb_rq sr_extflags values */
-#define SMB2_REQUEST		0x0001	/* smb_rq is for SMB 2/3 request */
-#define SMB2_RESPONSE		0x0002	/* smb_rq received SMB 2/3 response */
-#define SMB2_REQ_SENT		0x0004	/* smb_rq is for SMB 2/3 request */
-#define SMB2_NON_IDEMPOTENT	0x0008	/* smb_rq is a non replayable request */
-#define SMB2_REQ_NO_BLOCK	0x80000000	/* dont block waiting for credits */
+#define SMB2_REQUEST		        0x0001	/* smb_rq is for SMB 2/3 request */
+#define SMB2_RESPONSE		        0x0002	/* smb_rq received SMB 2/3 response */
+#define SMB2_REQ_SENT		        0x0004	/* smb_rq is for SMB 2/3 request */
+#define SMB2_NON_IDEMPOTENT         0x0008  /* smb_rq is a non replayable request */
+#define SMB2_NO_COMPRESS_WRITE      0x0010  /* Compressed writes not allowed */
+#define SMB2_FAILED_COMPRESS_WRITE  0x0020  /* Failed to compress this write */
+#define SMB2_HDR_PREPARSED          0x0040  /* SMB2 header has been parsed already */
+#define SMB2_REQ_NO_BLOCK	    0x80000000	/* dont block waiting for credits */
 
 
 /*
@@ -386,14 +389,17 @@ void smb_rq_bend32(struct smb_rq *rqp);
 void smb2_rq_bstart(struct smb_rq *rqp, uint16_t *len_ptr);
 void smb2_rq_bstart32(struct smb_rq *rqp, uint32_t *len_ptr);
 void smb2_rq_align8(struct smb_rq *rqp);
-int smb2_rq_credit_increment(struct smb_rq *rqp);
+
 uint32_t smb2_rq_credit_check(struct smb_rq *rqp, uint32_t len);
+int smb2_rq_credit_increment(struct smb_rq *rqp);
+void smb2_rq_credit_preprocess_reply(struct smb_rq *rqp);
 void smb2_rq_credit_start(struct smbiod *iod, uint16_t credits);
+
 int smb2_rq_message_id_increment(struct smb_rq *rqp);
 int smb2_rq_next_command(struct smb_rq *rqp, size_t *next_cmd_offset,
                          struct mdchain *mdp);
 uint32_t smb2_rq_length(struct smb_rq *rqp);
-uint32_t smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp);
+uint32_t smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp, uint32_t parse_for_credits);
 int smb_rq_getenv(struct smb_connobj *obj, struct smb_session **sessionp, 
                   struct smb_share **share);
 int smb2_rq_update_cmpd_hdr(struct smb_rq *rqp, uint32_t position_flag);

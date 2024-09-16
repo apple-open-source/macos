@@ -90,6 +90,7 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                                       CFSTR("com.apple.sbd"),
                                                       CFSTR("com.apple.lakitu"),
                                                       CFSTR("com.apple.security.securityd"),
+                                                      CFSTR("com.apple.ProtectedCloudStorage"),
                                                       NULL);
     if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
         CFMutableArrayRef mutableGroups = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, accessGroups);
@@ -181,6 +182,7 @@ SecSecurityClientGet(void)
 
     static __thread dispatch_once_t onceTokenThreadLocalClient;
     dispatch_once(&onceTokenThreadLocalClient, ^{
+        secnotice("thread-local-client-debug", "SecSecurityClientGet new thread!");
         memcpy(&threadLocalClient, &gClient, sizeof(struct SecurityClient));
         // `memcpy`-ing CF objects doesn't adjust their reference counts, so do
         // that manually to avoid overreleases in the testing functions.
@@ -211,12 +213,16 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 
 // Only for testing.
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
+    secnotice("thread-local-client-debug", "SecAccessGroupsSetCurrent begin! Setting access groups: %@", accessGroups);
     // Not thread safe at all, but OK because it is meant to be used only by tests.
     (void)SecSecurityClientGet(); // Initializes `gClient` and `threadLocalClient` as a side effect.
+    secnotice("thread-local-client-debug", "SecAccessGroupsSetCurrent releasing gClient access groups");
     CFReleaseNull(gClient.accessGroups);
+    secnotice("thread-local-client-debug", "SecAccessGroupsSetCurrent releasing threadLocalClient access groups");
     CFReleaseNull(threadLocalClient.accessGroups);
     gClient.accessGroups = CFRetainSafe(accessGroups);
     threadLocalClient.accessGroups = CFRetainSafe(accessGroups);
+    secnotice("thread-local-client-debug", "SecAccessGroupsSetCurrent end!");
 }
 
 // Testing
@@ -321,6 +327,8 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_trust_store_copy_all_id:
         case sec_trust_store_copy_usage_constraints_id:
         case sec_ocsp_cache_flush_id:
+        case sec_ota_pki_trust_store_asset_version_id:
+        case sec_ota_pki_trust_store_content_digest_id:
         case sec_ota_pki_trust_store_version_id:
         case sec_ota_pki_asset_version_id:
         case kSecXPCOpOTAPKIGetNewAsset:

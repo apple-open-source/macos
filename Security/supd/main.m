@@ -114,7 +114,7 @@ int main(int argc, const char *argv[])
     [NSError _setFileNameLocalizationEnabled:NO];
     securityuploadd_sandbox();
 
-    ServiceDelegate *delegate = [ServiceDelegate new];
+    ServiceDelegate *delegate = [[ServiceDelegate alloc] init];
 
     // Always create a supd instance to register for the background activity that doesn't check entitlements
     static supd *activity_supd = nil;

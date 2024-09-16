@@ -48,7 +48,7 @@ public:
         return adoptRef(*new RemoteScrollingCoordinator(page));
     }
 
-    RemoteScrollingCoordinatorTransaction buildTransaction();
+    RemoteScrollingCoordinatorTransaction buildTransaction(WebCore::FrameIdentifier);
 
     void scrollingStateInUIProcessChanged(const RemoteScrollingUIState&);
 
@@ -58,7 +58,7 @@ public:
     void setCurrentWheelEventWillStartSwipe(std::optional<bool> value) { m_currentWheelEventWillStartSwipe = value; }
 
     struct NodeAndGestureState {
-        WebCore::ScrollingNodeID wheelGestureNode { 0 };
+        std::optional<WebCore::ScrollingNodeID> wheelGestureNode;
         std::optional<WebCore::WheelScrollGestureState> wheelGestureState;
     };
 

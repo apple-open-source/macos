@@ -1,0 +1,18 @@
+#! /bin/sh
+
+# Test >4G files for 64-to-32 bit shortening issues.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -f bigfile bigfile.out
+
+dd if=/dev/random of=bigfile bs=1M count=$((1024 * 4 + 128))
+if [ -z "$RSYNC_DEBUG" ]; then
+	trap 'rm -f bigfile bigfile.out' EXIT
+fi
+
+rsync -- bigfile bigfile.out

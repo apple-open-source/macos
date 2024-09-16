@@ -264,7 +264,9 @@ _dwarf_get_abbrev_for_code(Dwarf_CU_Context cu_context,
 int _dwarf_string_valid(void *startptr, void *endptr);
 
 Dwarf_Unsigned _dwarf_length_of_cu_header(Dwarf_Debug,
-					  Dwarf_Unsigned offset);
+										  Dwarf_Unsigned offset,
+										  Dwarf_Half Version);
+
 Dwarf_Unsigned _dwarf_length_of_cu_header_simple(Dwarf_Debug);
 
 int _dwarf_load_debug_info(Dwarf_Debug dbg, Dwarf_Error *error);

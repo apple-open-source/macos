@@ -231,6 +231,32 @@ class OctagonInheritanceTests: OctagonTestsBase {
         XCTAssertEqual(72, ik.wrappedKeyData.count, "wrapped key data wrong size")
     }
 
+    func testIKRecreate() throws {
+        let uuid1 = UUID()
+        let ik1 = try OTInheritanceKey(uuid: uuid1)
+        let uuid2 = UUID()
+        let ik2 = try OTInheritanceKey(uuid: uuid2, oldIK: ik1)
+        XCTAssertTrue(ik1.isKeyEquals(ik2), "should have same keys")
+    }
+
+    func testIKRecreateBadUUID() throws {
+        let uuid1 = UUID()
+        let ik1 = try OTInheritanceKey(uuid: uuid1)
+        let uuid2 = uuid1
+        XCTAssertThrowsError(try OTInheritanceKey(uuid: uuid2, oldIK: ik1),
+                             "recreate with same UUID should fail")
+    }
+
+    func testIKCreateWithClaimWrappingKey() throws {
+        let uuid1 = UUID()
+        let ik1 = try OTInheritanceKey(uuid: uuid1)
+        let uuid2 = UUID()
+        let ik2 = try OTInheritanceKey(uuid: uuid2, claimTokenData: ik1.claimTokenData!, wrappingKeyData: ik1.wrappingKeyData)
+        XCTAssertEqual(ik1.claimTokenData, ik2.claimTokenData, "should have the same claim token")
+        XCTAssertEqual(ik1.wrappingKeyData, ik2.wrappingKeyData, "should have the same wrapping key data")
+        XCTAssertEqual(ik1.wrappingKeyString, ik2.wrappingKeyString, "should have the same wrapping key string")
+    }
+
     func createEstablishContext(contextID: String) -> OTCuttlefishContext {
         return self.manager.context(forContainerName: OTCKContainerName,
                                     contextID: contextID,
@@ -243,7 +269,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-IK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
 
-    @discardableResult
     func createAndSetInheritanceKey(context: OTCuttlefishContext) throws -> (OTInheritanceKey, InheritanceKey) {
         var retirk: OTInheritanceKey?
         let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
@@ -256,6 +281,62 @@ class OctagonInheritanceTests: OctagonTestsBase {
             createInheritanceKeyExpectation.fulfill()
         }
         self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
+
+        let otirk = try XCTUnwrap(retirk)
+
+        self.assertEnters(context: context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
+        let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: otirk.uuid))
+
+        let irkWithKeys = try InheritanceKey(tpInheritance: custodian,
+                                             recoveryKeyData: otirk.recoveryKeyData,
+                                             recoverySalt: "")
+
+        return (otirk, irkWithKeys)
+    }
+
+    func recreateAndSetInheritanceKey(context: OTCuttlefishContext, oldIK: OTInheritanceKey) throws -> (OTInheritanceKey, InheritanceKey) {
+        var retirk: OTInheritanceKey?
+        let recreateInheritanceKeyExpectation = self.expectation(description: "recreateInheritanceKey returns")
+
+        self.manager.recreateInheritanceKey(self.otcontrolArgumentsFor(context: context), uuid: nil, oldIK: oldIK) { irk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(irk, "irk should be non-nil")
+            XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
+            retirk = irk
+            recreateInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [recreateInheritanceKeyExpectation], timeout: 10)
+
+        let otirk = try XCTUnwrap(retirk)
+
+        self.assertEnters(context: context, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
+        let custodian = try XCTUnwrap(container.model.findCustodianRecoveryKey(with: otirk.uuid))
+
+        let irkWithKeys = try InheritanceKey(tpInheritance: custodian,
+                                             recoveryKeyData: otirk.recoveryKeyData,
+                                             recoverySalt: "")
+
+        return (otirk, irkWithKeys)
+    }
+
+    func createWithClaimTokenAndWrappingKeyAndSetInheritanceKey(context: OTCuttlefishContext,
+                                                                claimToken: Data,
+                                                                wrappingKey: Data) throws -> (OTInheritanceKey, InheritanceKey) {
+        var retirk: OTInheritanceKey?
+        let createInheritanceKeyWithClaimTokenAndWrappingKeyExpectation = self.expectation(description: "createInheritanceKeyWithClaimTokenAndWrappingKeyExpectation returns")
+
+        self.manager.createInheritanceKey(self.otcontrolArgumentsFor(context: context), uuid: nil, claimTokenData: claimToken, wrappingKeyData: wrappingKey) { irk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(irk, "irk should be non-nil")
+            XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
+            retirk = irk
+            createInheritanceKeyWithClaimTokenAndWrappingKeyExpectation.fulfill()
+        }
+        self.wait(for: [createInheritanceKeyWithClaimTokenAndWrappingKeyExpectation], timeout: 10)
 
         let otirk = try XCTUnwrap(retirk)
 
@@ -305,10 +386,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -429,10 +509,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -515,7 +594,7 @@ class OctagonInheritanceTests: OctagonTestsBase {
             XCTFail("error loading account state: \(error)")
         }
 
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
@@ -920,10 +999,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1019,10 +1097,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1120,10 +1197,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1215,10 +1291,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1310,10 +1385,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1407,10 +1481,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1523,10 +1596,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1617,10 +1689,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1710,10 +1781,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1889,10 +1959,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1928,6 +1997,223 @@ class OctagonInheritanceTests: OctagonTestsBase {
         let (otirk2, irk2) = try self.createAndSetInheritanceKey(context: establishContext)
         XCTAssertNotNil(otirk2, "otirk should not be nil")
         XCTAssertNotNil(irk2, "irk should not be nil")
+    }
+
+    func testReuseKeys() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        let establishedPeerID = self.fetchEgoPeerID(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otirk1, irk1) = try self.createAndSetInheritanceKey(context: establishContext)
+
+        self.putInheritanceTLKSharesInCloudKit(irk: irk1)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Remove the IK
+        let removeInheritanceKeyExpectation = self.expectation(description: "removeInheritanceKey returns")
+        OTClique.removeInheritanceKey(bottlerotcliqueContext, inheritanceKeyUUID: otirk1.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeInheritanceKeyExpectation], timeout: 20)
+
+        let (otirk2, irk2) = try self.recreateAndSetInheritanceKey(context: establishContext, oldIK: otirk1)
+
+        XCTAssertNotEqual(irk1.peerID, irk2.peerID, "recreate should give new peerID")
+        XCTAssertNotEqual(otirk1.uuid, otirk2.uuid, "recreate should give new UUID")
+        XCTAssertTrue(otirk1.isKeyEquals(otirk2), "keys should compare equal")
+
+        self.putInheritanceTLKSharesInCloudKit(irk: irk2)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Now, join from a new device
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
+
+        let trustedNotification = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: "com.apple.security.octagon.trust-status-change"))
+        let joinWithInheritanceKeyExpectation = self.expectation(description: "joinWithInheritanceKey callback occurs")
+        self.cuttlefishContext.join(with: otirk2) {error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithInheritanceKeyExpectation], timeout: 20)
+
+        // Ensure CKKS has a read only policy
+        XCTAssertNotNil(self.defaultCKKS.syncingPolicy, "Should have given CKKS a TPPolicy during initialization")
+        XCTAssertEqual(self.defaultCKKS.syncingPolicy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
+        XCTAssertTrue(self.defaultCKKS.syncingPolicy!.isInheritedAccount, "Syncing policy should be read only")
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateInherited, within: 10 * NSEC_PER_SEC)
+        self.wait(for: [trustedNotification], timeout: 10)
+
+        let otOperationConfiguration = OTOperationConfiguration()
+        self.cuttlefishContext.rpcTrustStatus(otOperationConfiguration) { status, _, _, _, _, _ in
+            XCTAssertEqual(status, .in, "Self peer should be trusted")
+        }
+
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        // And check the current state of the world
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinedPeerID, opinion: .trusts, target: joinedPeerID)),
+                      "joined peer should not trust itself")
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinedPeerID, opinion: .trusts, target: establishedPeerID)),
+                      "joined peer should not trust establish peer")
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishedPeerID, opinion: .trusts, target: establishedPeerID)),
+                      "establish peer should trust itself")
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishedPeerID, opinion: .trusts, target: joinedPeerID)),
+                      "establish peer should not trust joined peer")
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: irk2.peerID, senderPeerID: joinedPeerID), "Should be no shares to the irk; it already has some")
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: joinedPeerID, senderPeerID: irk2.peerID), "Should be no shares from a irk to a peer")
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: establishedPeerID, senderPeerID: irk2.peerID), "Should be no shares from a irk to a peer")
+    }
+
+    func testCreateKeysFromClaimTokenAndWrappingKey() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+        establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+        do {
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        let establishedPeerID = self.fetchEgoPeerID(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        let (otirk1, irk1) = try self.createAndSetInheritanceKey(context: establishContext)
+
+        self.putInheritanceTLKSharesInCloudKit(irk: irk1)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Remove the IK
+        let removeInheritanceKeyExpectation = self.expectation(description: "removeInheritanceKey returns")
+        OTClique.removeInheritanceKey(bottlerotcliqueContext, inheritanceKeyUUID: otirk1.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeInheritanceKeyExpectation], timeout: 20)
+
+        let (otirk2, irk2) = try self.createWithClaimTokenAndWrappingKeyAndSetInheritanceKey(context: establishContext, claimToken: otirk1.claimTokenData!, wrappingKey: otirk1.wrappingKeyData)
+
+        XCTAssertNotEqual(irk1.peerID, irk2.peerID, "createWithClaimTokenAndWrappingKey should give new peerID")
+        XCTAssertNotEqual(otirk1.uuid, otirk2.uuid, "createWithClaimTokenAndWrappingKey should give new UUID")
+        XCTAssertEqual(otirk1.claimTokenData, otirk2.claimTokenData, "claim token data should be equal")
+        XCTAssertEqual(otirk1.claimTokenString, otirk2.claimTokenString, "claim token string should be equal")
+        XCTAssertEqual(otirk1.wrappingKeyData, otirk2.wrappingKeyData, "wrapping key data should be equal")
+        XCTAssertEqual(otirk1.wrappingKeyString, otirk2.wrappingKeyString, "wrapping key string should be equal")
+
+        self.putInheritanceTLKSharesInCloudKit(irk: irk2)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
+
+        // Now, join from a new device
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
+
+        let trustedNotification = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: "com.apple.security.octagon.trust-status-change"))
+        let joinWithInheritanceKeyExpectation = self.expectation(description: "joinWithInheritanceKey callback occurs")
+        self.cuttlefishContext.join(with: otirk2) {error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithInheritanceKeyExpectation], timeout: 20)
+
+        // Ensure CKKS has a read only policy
+        XCTAssertNotNil(self.defaultCKKS.syncingPolicy, "Should have given CKKS a TPPolicy during initialization")
+        XCTAssertEqual(self.defaultCKKS.syncingPolicy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
+        XCTAssertTrue(self.defaultCKKS.syncingPolicy!.isInheritedAccount, "Syncing policy should be read only")
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateInherited, within: 10 * NSEC_PER_SEC)
+        self.wait(for: [trustedNotification], timeout: 10)
+
+        let otOperationConfiguration = OTOperationConfiguration()
+        self.cuttlefishContext.rpcTrustStatus(otOperationConfiguration) { status, _, _, _, _, _ in
+            XCTAssertEqual(status, .in, "Self peer should be trusted")
+        }
+
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        // And check the current state of the world
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinedPeerID, opinion: .trusts, target: joinedPeerID)),
+                      "joined peer should not trust itself")
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: joinedPeerID, opinion: .trusts, target: establishedPeerID)),
+                      "joined peer should not trust establish peer")
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishedPeerID, opinion: .trusts, target: establishedPeerID)),
+                      "establish peer should trust itself")
+        XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: establishedPeerID, opinion: .trusts, target: joinedPeerID)),
+                      "establish peer should not trust joined peer")
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: irk2.peerID, senderPeerID: joinedPeerID), "Should be no shares to the irk; it already has some")
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: joinedPeerID, senderPeerID: irk2.peerID), "Should be no shares from a irk to a peer")
+        XCTAssertFalse(self.tlkSharesInCloudKit(receiverPeerID: establishedPeerID, senderPeerID: irk2.peerID), "Should be no shares from a irk to a peer")
     }
 }
 #endif

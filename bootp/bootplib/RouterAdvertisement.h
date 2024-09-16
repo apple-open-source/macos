@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,7 @@
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFString.h>
 #include "symbol_scope.h"
+#include "ipconfig_types.h"
 
 #ifndef ND_OPT_ALIGN
 #define ND_OPT_ALIGN			8
@@ -55,6 +56,13 @@
 #define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
 
 typedef struct __RouterAdvertisement * RouterAdvertisementRef;
+
+typedef struct {
+	bool            http;
+	bool            legacy;
+	bool            ra;
+	uint16_t        delay;
+} RA_PvDFlagsDelay, * RA_PvDFlagsDelayRef;
 
 RouterAdvertisementRef
 RouterAdvertisementCreate(const struct nd_router_advert * ndra,
@@ -83,6 +91,9 @@ RouterAdvertisementGetRouterLifetime(RouterAdvertisementRef ra);
 const uint8_t *
 RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 					int * ret_len);
+
+CFArrayRef
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra);
 
 uint32_t
 RouterAdvertisementGetPrefixLifetimes(RouterAdvertisementRef ra,
@@ -114,6 +125,12 @@ const uint8_t *
 RouterAdvertisementGetDNSSL(RouterAdvertisementRef ra,
 			    int * domains_length_p,
 			    uint32_t * lifetime_p);
+
+const uint8_t *
+RouterAdvertisementGetPvD(RouterAdvertisementRef ra,
+                          size_t * pvd_id_length,
+                          uint16_t * sequence,
+                          RA_PvDFlagsDelayRef flags);
 
 CFAbsoluteTime
 RouterAdvertisementGetDNSExpirationTime(RouterAdvertisementRef ra,

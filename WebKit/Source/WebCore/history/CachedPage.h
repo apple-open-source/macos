@@ -28,6 +28,7 @@
 #include "CachedFrame.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/WeakRef.h>
 
 namespace WebCore {
 
@@ -35,8 +36,9 @@ class Document;
 class DocumentLoader;
 class Page;
 
-class CachedPage : public CanMakeCheckedPtr {
+class CachedPage final : public CanMakeCheckedPtr<CachedPage> {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CachedPage);
 public:
     explicit CachedPage(Page&);
     WEBCORE_EXPORT ~CachedPage();
@@ -44,7 +46,7 @@ public:
     WEBCORE_EXPORT void restore(Page&);
     void clear();
 
-    Page& page() const { return m_page; }
+    Page& page() const { return m_page.get(); }
     Document* document() const { return m_cachedMainFrame->document(); }
     DocumentLoader* documentLoader() const { return m_cachedMainFrame->documentLoader(); }
     RefPtr<DocumentLoader> protectedDocumentLoader() const;
@@ -62,7 +64,7 @@ public:
     void markForContentsSizeChanged() { m_needsUpdateContentsSize = true; }
 
 private:
-    Page& m_page;
+    WeakRef<Page> m_page;
     MonotonicTime m_expirationTime;
     std::unique_ptr<CachedFrame> m_cachedMainFrame;
 #if ENABLE(VIDEO)

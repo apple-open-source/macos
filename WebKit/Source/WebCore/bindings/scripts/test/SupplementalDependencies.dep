@@ -1,10 +1,10 @@
 # Supplemental dependencies
+JSDOMWindow.h: DOMWindowConstructors.idl
+DOMWindowConstructors.idl:
 JSDedicatedWorkerGlobalScope.h: DedicatedWorkerGlobalScopeConstructors.idl
 DedicatedWorkerGlobalScopeConstructors.idl:
 JSExposedStar.h: 
 JSExposedToWorkerAndWindow.h: 
-JSLocalDOMWindow.h: LocalDOMWindowConstructors.idl
-LocalDOMWindowConstructors.idl:
 JSPaintWorkletGlobalScope.h: PaintWorkletGlobalScopeConstructors.idl
 PaintWorkletGlobalScopeConstructors.idl:
 JSServiceWorkerGlobalScope.h: ServiceWorkerGlobalScopeConstructors.idl
@@ -19,9 +19,11 @@ JSTestCEReactions.h:
 JSTestCEReactionsStringifier.h: 
 JSTestCallTracer.h: 
 JSTestCallbackFunction.h: 
+JSTestCallbackFunctionGenerateIsReachable.h: 
 JSTestCallbackFunctionRethrow.h: 
 JSTestCallbackFunctionWithThisObject.h: 
 JSTestCallbackFunctionWithTypedefs.h: 
+JSTestCallbackFunctionWithVariadic.h: 
 JSTestCallbackInterface.h: 
 JSTestClassWithJSBuiltinConstructor.h: 
 JSTestConditionalIncludes.h: TestMixinInterface.idl
@@ -38,6 +40,7 @@ JSTestDelegateToSharedSyntheticAttribute.h:
 JSTestDerivedDictionary.h: 
 JSTestDerivedDictionary2.h: 
 JSTestDictionary.h: 
+JSTestDictionaryNoToNative.h: 
 JSTestDictionaryWithOnlyConditionalMembers.h: 
 JSTestDomainSecurity.h: 
 JSTestEmptyDictionary.h: 
@@ -102,6 +105,7 @@ JSTestPromiseRejectionEvent.h:
 JSTestReadOnlyMapLike.h: 
 JSTestReadOnlySetLike.h: 
 JSTestReportExtraMemoryCost.h: 
+JSTestScheduledAction.h: 
 JSTestSerializedScriptValueInterface.h: 
 JSTestSetLike.h: 
 JSTestSetLikeWithOverriddenOperations.h: 

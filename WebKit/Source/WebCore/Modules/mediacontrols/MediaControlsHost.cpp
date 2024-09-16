@@ -116,8 +116,10 @@ String MediaControlsHost::layoutTraitsClassName() const
 {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     return "MacOSLayoutTraits"_s;
-#elif PLATFORM(IOS) || PLATFORM(APPLETV)
+#elif PLATFORM(IOS)
     return "IOSLayoutTraits"_s;
+#elif PLATFORM(APPLETV)
+    return "TVOSLayoutTraits"_s;
 #elif PLATFORM(VISION)
     return "VisionLayoutTraits"_s;
 #elif PLATFORM(WATCHOS)
@@ -228,10 +230,23 @@ void MediaControlsHost::updateTextTrackContainer()
         m_textTrackContainer->updateDisplay();
 }
 
+TextTrackRepresentation* MediaControlsHost::textTrackRepresentation() const
+{
+    if (m_textTrackContainer)
+        return m_textTrackContainer->textTrackRepresentation();
+    return nullptr;
+}
+
 void MediaControlsHost::updateTextTrackRepresentationImageIfNeeded()
 {
     if (m_textTrackContainer)
         m_textTrackContainer->updateTextTrackRepresentationImageIfNeeded();
+}
+
+void MediaControlsHost::requiresTextTrackRepresentationChanged()
+{
+    if (m_textTrackContainer)
+        m_textTrackContainer->requiresTextTrackRepresentationChanged();
 }
 
 void MediaControlsHost::enteredFullscreen()
@@ -282,13 +297,40 @@ bool MediaControlsHost::shouldForceControlsDisplay() const
     return m_mediaElement && m_mediaElement->shouldForceControlsDisplay();
 }
 
+bool MediaControlsHost::supportsSeeking() const
+{
+    return m_mediaElement && m_mediaElement->supportsSeeking();
+}
+
+bool MediaControlsHost::inWindowFullscreen() const
+{
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    if (!m_mediaElement)
+        return false;
+
+    auto& mediaElement = *m_mediaElement;
+    if (is<HTMLVideoElement>(mediaElement))
+        return downcast<HTMLVideoElement>(mediaElement).webkitPresentationMode() == HTMLVideoElement::VideoPresentationMode::InWindow;
+#endif
+    return false;
+}
+
+bool MediaControlsHost::supportsRewind() const
+{
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+    if (auto sourceType = this->sourceType())
+        return *sourceType == SourceType::HLS || *sourceType == SourceType::File;
+#endif
+    return false;
+}
+
 String MediaControlsHost::externalDeviceDisplayName() const
 {
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     if (!m_mediaElement)
         return emptyString();
 
-    auto player = m_mediaElement->player();
+    RefPtr player = m_mediaElement->player();
     if (!player) {
         LOG(Media, "MediaControlsHost::externalDeviceDisplayName - returning \"\" because player is NULL");
         return emptyString();
@@ -310,7 +352,7 @@ auto MediaControlsHost::externalDeviceType() const -> DeviceType
     if (!m_mediaElement)
         return DeviceType::None;
 
-    auto player = m_mediaElement->player();
+    RefPtr player = m_mediaElement->player();
     if (!player) {
         LOG(Media, "MediaControlsHost::externalDeviceType - returning \"none\" because player is NULL");
         return DeviceType::None;
@@ -692,6 +734,7 @@ bool MediaControlsHost::showMediaControlsContextMenu(HTMLElement& target, String
                 }
             },
             [&] (RefPtr<TextTrack>& selectedTextTrack) {
+                protectedThis->savePreviouslySelectedTextTrackIfNecessary();
                 for (auto& track : idMap.values()) {
                     if (auto* textTrack = std::get_if<RefPtr<TextTrack>>(&track))
                         (*textTrack)->setMode(TextTrack::Mode::Disabled);
@@ -756,33 +799,85 @@ bool MediaControlsHost::showMediaControlsContextMenu(HTMLElement& target, String
 
 auto MediaControlsHost::sourceType() const -> std::optional<SourceType>
 {
-    if (!m_mediaElement)
-        return std::nullopt;
-
-    if (m_mediaElement->hasMediaStreamSource())
-        return SourceType::MediaStream;
-
-#if ENABLE(MEDIA_SOURCE)
-    if (m_mediaElement->hasManagedMediaSource())
-        return SourceType::ManagedMediaSource;
-
-    if (m_mediaElement->hasMediaSource())
-        return SourceType::MediaSource;
-#endif
-
-    switch (m_mediaElement->movieLoadType()) {
-    case HTMLMediaElement::MovieLoadType::Unknown: return std::nullopt;
-    case HTMLMediaElement::MovieLoadType::Download: return SourceType::File;
-    case HTMLMediaElement::MovieLoadType::StoredStream: return SourceType::LiveStream;
-    case HTMLMediaElement::MovieLoadType::LiveStream: return SourceType::StoredStream;
-    case HTMLMediaElement::MovieLoadType::HttpLiveStream: return SourceType::HLS;
-    }
-
-    ASSERT_NOT_REACHED();
+    if (m_mediaElement)
+        return m_mediaElement->sourceType();
     return std::nullopt;
 }
 
 #endif // ENABLE(MODERN_MEDIA_CONTROLS)
+
+
+void MediaControlsHost::presentationModeChanged()
+{
+    restorePreviouslySelectedTextTrackIfNecessary();
+}
+
+void MediaControlsHost::savePreviouslySelectedTextTrackIfNecessary()
+{
+    if (!inWindowFullscreen())
+        return;
+
+    if (m_previouslySelectedTextTrack)
+        return;
+
+    auto mediaElement = RefPtr { m_mediaElement.get() };
+    if (!mediaElement)
+        return;
+
+    Page* page = mediaElement->document().page();
+    if (!page)
+        return;
+
+    RefPtr textTracks = mediaElement->textTracks();
+    for (unsigned i = 0; textTracks && i < textTracks->length(); ++i) {
+        auto* textTrack = textTracks->item(i);
+        ASSERT(textTrack);
+        if (!textTrack)
+            continue;
+
+        if (textTrack->mode() == TextTrack::Mode::Showing) {
+            m_previouslySelectedTextTrack = textTrack;
+            return;
+        }
+    }
+
+    switch (page->group().ensureCaptionPreferences().captionDisplayMode()) {
+    case CaptionUserPreferences::CaptionDisplayMode::Automatic:
+        m_previouslySelectedTextTrack = &TextTrack::captionMenuAutomaticItem();
+        return;
+    case CaptionUserPreferences::CaptionDisplayMode::ForcedOnly:
+    case CaptionUserPreferences::CaptionDisplayMode::Manual:
+    case CaptionUserPreferences::CaptionDisplayMode::AlwaysOn:
+        m_previouslySelectedTextTrack = &TextTrack::captionMenuOffItem();
+        return;
+    }
+}
+
+void MediaControlsHost::restorePreviouslySelectedTextTrackIfNecessary()
+{
+    if (inWindowFullscreen())
+        return;
+
+    if (!m_previouslySelectedTextTrack)
+        return;
+
+    auto mediaElement = RefPtr { m_mediaElement.get() };
+    if (!mediaElement)
+        return;
+
+    RefPtr textTracks = mediaElement->textTracks();
+    for (unsigned i = 0; textTracks && i < textTracks->length(); ++i) {
+        auto* textTrack = textTracks->item(i);
+        ASSERT(textTrack);
+        if (!textTrack)
+            continue;
+
+        if (m_previouslySelectedTextTrack != textTrack)
+            textTrack->setMode(TextTrack::Mode::Disabled);
+    }
+    m_previouslySelectedTextTrack->setMode(TextTrack::Mode::Showing);
+    m_previouslySelectedTextTrack = nullptr;
+}
 
 } // namespace WebCore
 

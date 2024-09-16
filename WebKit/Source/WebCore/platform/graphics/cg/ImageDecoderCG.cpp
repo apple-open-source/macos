@@ -29,6 +29,7 @@
 #if USE(CG)
 
 #include "FourCC.h"
+#include "ImageFrame.h"
 #include "ImageOrientation.h"
 #include "ImageResolution.h"
 #include "IntPoint.h"
@@ -88,7 +89,7 @@ static RetainPtr<CFMutableDictionaryRef> createImageSourceMetadataOptions()
     CFDictionarySetValue(options.get(), kCGImageSourceSkipMetadata, kCFBooleanFalse);
     return options;
 }
-    
+
 static RetainPtr<CFMutableDictionaryRef> createImageSourceThumbnailOptions()
 {
     RetainPtr<CFMutableDictionaryRef> options = createImageSourceOptions();
@@ -113,7 +114,7 @@ static RetainPtr<CFMutableDictionaryRef> appendImageSourceOption(RetainPtr<CFMut
     CFDictionarySetValue(options.get(), kCGImageSourceThumbnailMaxPixelSize, maxDimensionNumber.get());
     return WTFMove(options);
 }
-    
+
 static RetainPtr<CFMutableDictionaryRef> appendImageSourceOptions(RetainPtr<CFMutableDictionaryRef>&& options, SubsamplingLevel subsamplingLevel, const IntSize& sizeForDrawing)
 {
     if (subsamplingLevel != SubsamplingLevel::Default)
@@ -122,7 +123,7 @@ static RetainPtr<CFMutableDictionaryRef> appendImageSourceOptions(RetainPtr<CFMu
     options = appendImageSourceOption(WTFMove(options), sizeForDrawing);
     return WTFMove(options);
 }
-    
+
 static RetainPtr<CFDictionaryRef> imageSourceOptions(SubsamplingLevel subsamplingLevel = SubsamplingLevel::Default)
 {
     static const auto options = createImageSourceOptions().leakRef();
@@ -141,6 +142,21 @@ static RetainPtr<CFDictionaryRef> imageSourceThumbnailOptions(SubsamplingLevel s
     return appendImageSourceOptions(adoptCF(CFDictionaryCreateMutableCopy(nullptr, 0, options)), subsamplingLevel, sizeForDrawing);
 }
 
+static IntSize frameSizeFromProperties(CFDictionaryRef properties)
+{
+    if (!properties)
+        return { };
+
+    auto dimension = [&](const void *key) -> int {
+        int value = 0;
+        if (auto num = (CFNumberRef)CFDictionaryGetValue(properties, key))
+            CFNumberGetValue(num, kCFNumberIntType, &value);
+        return value;
+    };
+
+    return { dimension(kCGImagePropertyPixelWidth), dimension(kCGImagePropertyPixelHeight) };
+}
+
 static CFDictionaryRef animationPropertiesFromProperties(CFDictionaryRef properties)
 {
     if (!properties)
@@ -148,10 +164,8 @@ static CFDictionaryRef animationPropertiesFromProperties(CFDictionaryRef propert
 
     if (auto animationProperties = (CFDictionaryRef)CFDictionaryGetValue(properties, kCGImagePropertyGIFDictionary))
         return animationProperties;
-#if HAVE(WEBP)
     if (auto animationProperties = (CFDictionaryRef)CFDictionaryGetValue(properties, kCGImagePropertyWebPDictionary))
         return animationProperties;
-#endif
     if (auto animationProperties = (CFDictionaryRef)CFDictionaryGetValue(properties, kCGImagePropertyPNGDictionary))
         return animationProperties;
 
@@ -275,7 +289,7 @@ size_t ImageDecoderCG::bytesDecodedToDetermineProperties() const
     // behavior is unchanged.
     return 13088;
 }
-    
+
 String ImageDecoderCG::filenameExtension() const
 {
     return WebCore::preferredExtensionForImageType(uti());
@@ -341,7 +355,7 @@ EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
         break;
     }
 
-    return m_encodedDataStatus; 
+    return m_encodedDataStatus;
 }
 
 size_t ImageDecoderCG::frameCount() const
@@ -409,24 +423,25 @@ std::optional<IntPoint> ImageDecoderCG::hotSpot() const
     return IntPoint(x, y);
 }
 
+bool ImageDecoderCG::hasAlpha() const
+{
+    String uti = this->uti();
+    
+    // Return false if there is no image type or the image type is JPEG, because
+    // JPEG does not support alpha transparency.
+    if (uti.isEmpty() || uti == "public.jpeg"_s)
+        return false;
+    
+    // FIXME: Could return false for other non-transparent image formats.
+    // FIXME: Could maybe return false for a GIF Frame if we have enough info in the GIF properties dictionary
+    // to determine whether or not a transparent color was defined.
+    return true;
+}
+
 IntSize ImageDecoderCG::frameSizeAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const
 {
-    RetainPtr<CFDictionaryRef> properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions(subsamplingLevel).get()));
-    
-    if (!properties)
-        return { };
-    
-    int width = 0;
-    int height = 0;
-    CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyPixelWidth);
-    if (num)
-        CFNumberGetValue(num, kCFNumberIntType, &width);
-    
-    num = (CFNumberRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyPixelHeight);
-    if (num)
-        CFNumberGetValue(num, kCFNumberIntType, &height);
-    
-    return IntSize(width, height);
+    auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions(subsamplingLevel).get()));
+    return frameSizeFromProperties(properties.get());
 }
 
 bool ImageDecoderCG::frameIsCompleteAtIndex(size_t index) const
@@ -441,21 +456,29 @@ bool ImageDecoderCG::frameIsCompleteAtIndex(size_t index) const
     return CGImageSourceGetStatusAtIndex(m_nativeDecoder.get(), index) == kCGImageStatusComplete;
 }
 
-ImageDecoder::FrameMetadata ImageDecoderCG::frameMetadataAtIndex(size_t index) const
+ImageOrientation ImageDecoderCG::frameOrientationAtIndex(size_t index) const
 {
-    RetainPtr<CFDictionaryRef> properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions().get()));
+    auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions().get()));
     if (!properties)
-        return { };
-    
-    auto orientation = orientationFromProperties(properties.get());
+        return ImageOrientation::Orientation::None;
+
+    return orientationFromProperties(properties.get());
+}
+
+std::optional<IntSize> ImageDecoderCG::frameDensityCorrectedSizeAtIndex(size_t index) const
+{
+    auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions().get()));
+    if (!properties)
+        return std::nullopt;
+
     if (!mayHaveDensityCorrectedSize(properties.get()))
-        return { orientation, std::nullopt };
+        return std::nullopt;
 
     auto propertiesWithMetadata = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, createImageSourceMetadataOptions().get()));
     if (!propertiesWithMetadata)
-        return { orientation, std::nullopt };
+        return std::nullopt;
     
-    return { orientation, densityCorrectedSizeFromProperties(propertiesWithMetadata.get()) };
+    return densityCorrectedSizeFromProperties(propertiesWithMetadata.get());
 }
 
 Seconds ImageDecoderCG::frameDurationAtIndex(size_t index) const
@@ -491,32 +514,43 @@ Seconds ImageDecoderCG::frameDurationAtIndex(size_t index) const
     return duration;
 }
 
-bool ImageDecoderCG::frameAllowSubsamplingAtIndex(size_t) const
-{
-    return true;
-}
-
 bool ImageDecoderCG::frameHasAlphaAtIndex(size_t index) const
 {
-    if (!frameIsCompleteAtIndex(index))
-        return true;
-    
-    String uti = this->uti();
-    
-    // Return false if there is no image type or the image type is JPEG, because
-    // JPEG does not support alpha transparency.
-    if (uti.isEmpty() || uti == "public.jpeg"_s)
-        return false;
-    
-    // FIXME: Could return false for other non-transparent image formats.
-    // FIXME: Could maybe return false for a GIF Frame if we have enough info in the GIF properties dictionary
-    // to determine whether or not a transparent color was defined.
-    return true;
+    return !frameIsCompleteAtIndex(index) || hasAlpha();
 }
 
 unsigned ImageDecoderCG::frameBytesAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const
 {
     return frameSizeAtIndex(index, subsamplingLevel).area() * 4;
+}
+
+bool ImageDecoderCG::fetchFrameMetaDataAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options, ImageFrame& frame) const
+{
+    auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions(subsamplingLevel).get()));
+    if (!properties)
+        return false;
+
+    if (options.hasSizeForDrawing()) {
+        ASSERT(frame.hasNativeImage());
+        frame.m_size = frame.nativeImage()->size();
+    } else
+        frame.m_size = frameSizeFromProperties(properties.get());
+
+    if (!mayHaveDensityCorrectedSize(properties.get()))
+        frame.m_densityCorrectedSize = std::nullopt;
+    else if (auto propertiesWithMetadata = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, createImageSourceMetadataOptions().get())))
+        frame.m_densityCorrectedSize = densityCorrectedSizeFromProperties(propertiesWithMetadata.get());
+    else
+        frame.m_densityCorrectedSize = std::nullopt;
+
+    bool frameIsComplete = frameIsCompleteAtIndex(index);
+
+    frame.m_subsamplingLevel = subsamplingLevel;
+    frame.m_decodingOptions = options;
+    frame.m_hasAlpha = !frameIsComplete || hasAlpha();
+    frame.m_orientation = orientationFromProperties(properties.get());
+    frame.m_decodingStatus = frameIsComplete ? DecodingStatus::Complete : DecodingStatus::Partial;
+    return true;
 }
 
 PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions& decodingOptions)
@@ -554,9 +588,8 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     CGImageSetCachingFlags(image.get(), kCGImageCachingTemporary);
 ALLOW_DEPRECATED_DECLARATIONS_END
 #endif // PLATFORM(IOS_FAMILY)
-    
-    String uti = this->uti();
-    if (uti.isEmpty() || uti != "public.xbitmap-image"_s)
+
+    if (!m_isXBitmapImage)
         return image;
     
     // If it is an xbm image, mask out all the white areas to render them transparent.
@@ -584,10 +617,10 @@ String ImageDecoderCG::decodeUTI(CGImageSourceRef imageSource, const SharedBuffe
     static constexpr auto ftypSignature = FourCC("ftyp");
     static constexpr auto avifBrand = FourCC("avif");
     static constexpr auto avisBrand = FourCC("avis");
-    
-    auto boxUnsigned = [&data](unsigned index) -> unsigned {
-        static constexpr bool isLittleEndian = false;
-        const unsigned* boxBytes = reinterpret_cast<const unsigned*>(data.data());
+
+    auto boxUnsigned = [span = data.span()](unsigned index) -> unsigned {
+        constexpr bool isLittleEndian = false;
+        const unsigned* boxBytes = reinterpret_cast<const unsigned*>(span.data());
         // Numbers in the file are BigEndian.
         return flipBytesIfLittleEndian(boxBytes[index], isLittleEndian);
     };
@@ -659,6 +692,7 @@ void ImageDecoderCG::setData(const FragmentedSharedBuffer& data, bool allDataRec
     CGImageSourceUpdateData(m_nativeDecoder.get(), contiguousData->createCFData().get(), allDataReceived);
     
     m_uti = decodeUTI(contiguousData.get());
+    m_isXBitmapImage = m_uti == "public.xbitmap-image"_s;
 }
 
 bool ImageDecoderCG::canDecodeType(const String& mimeType)
@@ -666,6 +700,21 @@ bool ImageDecoderCG::canDecodeType(const String& mimeType)
     return MIMETypeRegistry::isSupportedImageMIMEType(mimeType);
 }
 
+} // namespace WebCore
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/ImageDecoderCGAdditions.cpp>)
+#include <WebKitAdditions/ImageDecoderCGAdditions.cpp>
+#else
+namespace WebCore {
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+bool ImageDecoderCG::shouldUseQuickLookForFullscreen() const
+{
+    return false;
 }
+#endif // ENABLE(QUICKLOOK_FULLSCREEN)
+
+} // namespace WebCore
+#endif
 
 #endif // USE(CG)

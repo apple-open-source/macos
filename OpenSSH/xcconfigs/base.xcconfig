@@ -55,6 +55,7 @@ ssh_keygen_entitlements = YES
 ssh_pkcs11_helper_entitlements = YES
 ssh_sk_helper_entitlements = YES
 sshd_entitlements = YES
+sshd_session_entitlements = YES
 sshd_keygen_wrapper_path = libexec
 
 // Warnings and safety

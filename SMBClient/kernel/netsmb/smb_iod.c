@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2019 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -252,6 +252,10 @@ static int smb_iod_check_non_idempotent(struct smbiod *iod)
 static __inline void
 smb_iod_rqprocessed(struct smb_rq *rqp, int error, int flags)
 {
+    uint64_t messageid = rqp->sr_messageid;
+    
+    SMB_LOG_KTRACE(SMB_DBG_IOD_RQPROCESSED | DBG_FUNC_START, smb_hideaddr(rqp), messageid, 0, 0, 0);
+
 	SMBRQ_SLOCK(rqp);
 	rqp->sr_flags |= flags;
 	rqp->sr_lerror = error;
@@ -269,6 +273,8 @@ smb_iod_rqprocessed(struct smb_rq *rqp, int error, int flags)
         }
     }
 	SMBRQ_SUNLOCK(rqp);
+    
+    SMB_LOG_KTRACE(SMB_DBG_IOD_RQPROCESSED | DBG_FUNC_END, 0, messageid, 0, 0, 0);
 }
 
 /*
@@ -930,6 +936,8 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
     struct smb_rq *tmp_rqp;
 	struct mbchain *mbp;
     size_t len = 0;
+    
+    SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_START, smb_hideaddr(rqp), rqp->sr_messageid, iod->iod_id, iod->iod_state, 0);
 
 	SMBIODEBUG("id %d iod_state = %d\n", iod->iod_id, iod->iod_state);
 	switch (iod->iod_state) {
@@ -1117,6 +1125,33 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
              * then send "m"
              */
             m = mb_detach(mbp);
+            
+            if (rqp->sr_flags & SMBR_COMPRESSED) {
+                if (rqp->sr_command != SMB2_WRITE) {
+                    /* Sanity check */
+                    SMBERROR("Found compressed req <%d> that is not a write? \n",
+                             rqp->sr_command);
+                    /* Just send non compressed request */
+                }
+                else {
+                    /* Get compressed mbuf chain */
+                    mbp = &rqp->sr_rq_compressed;
+                    m2 = mb_detach(mbp);
+                    
+                    if (m2 == NULL) {
+                        /* Sanity checks */
+                        SMBERROR("Compressed write missing mbuf? \n");
+                        /* Just send non compressed write */
+                    }
+                    else {
+                        /* Free the original write mbuf chain */
+                        mbuf_freem(m);
+                        
+                        /* Set the compressed write mbuf chain */
+                        m = m2;
+                    }
+                }
+            }
 
             /* Do we need to do pre auth integrity hash? */
             if ((rqp->sr_command == SMB2_NEGOTIATE) &&
@@ -1194,6 +1229,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
     /* Record the current thread for VFS_CTL_NSTATUS */
     rqp->sr_threadId = thread_tid(current_thread());
 
+    SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_NONE, 0xabc001, iod->iod_id, rqp->sr_messageid, m, 0);
     
     /* Call SMB_TRAN_SEND to send the mbufs in "m" */
     error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(iod, m);
@@ -1220,13 +1256,15 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
             rqp->sr_extflags |= SMB2_REQ_SENT;
         }
         
-		return 0;
+		error = 0;
+        goto exit;
 	}
     
 	/* Did the connection go down, we may need to reconnect. */
 	if (SMB_TRAN_FATAL(iod, error)) {
         SMBERROR("id %d: SMB_TRAN_FATAL returned error. Reconnect.\n", iod->iod_id);
-		return ENOTCONN;
+		error = ENOTCONN;
+        goto exit;
     }
 	else if (error) {	
 		/* 
@@ -1240,7 +1278,8 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
                      iod->iod_id,error, rqp->sr_command);
             error = EIO; /* Couldn't send not much else we can do */
             smb_iod_rqprocessed(rqp, error, 0);
-            return ENOTCONN;    /* go into reconnect */
+            error = ENOTCONN;    /* go into reconnect */
+            goto exit;
         }
         else {
             /* SMB v1 */
@@ -1250,11 +1289,14 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
             smb_iod_rqprocessed(rqp, error, 0);
         }
 	}
-	return 0;
+    
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_END, error, iod->iod_id, iod->iod_state, 0, 0);
+	return error;
 }
 
 /*
- *  smb_iod_est_alt_ch_event
+ * smb_iod_est_alt_ch_event()
  * This function attempts to establish an alternate channel between a specific Client NIC and a specific Server NIC.
  *
  * The function loops through all of the IP addresses of the given NICs (the Server NIC IP address is selected from
@@ -1276,7 +1318,8 @@ smb_iod_est_alt_ch_event(struct smbiod *iod)
     bool used_445 = false, used_139 = false;
     kern_return_t result;
     thread_t thread;
-    
+    char str[128] = {0};
+
 retry:
     SMB_LOG_MC("iod id %d state %d\n", iod->iod_id, iod->iod_state);
     if (iod->iod_state != SMBIOD_ST_NOTCONN) {
@@ -1412,12 +1455,10 @@ exit:
                 if (port != 0) {
                     smb2_set_port_in_sockaddr(iod->iod_saddr, port);
                 }
-                // Try to connect with with the new address
-#ifdef SMB_DEBUG
-                char str[128];
+                // Try to connect with the new address
                 smb2_sockaddr_to_str(iod->iod_saddr, str, sizeof(str));
                 SMB_LOG_MC("id %d next_addr %s.\n", iod->iod_id, str);
-#endif
+
                 iod->iod_state = SMBIOD_ST_NOTCONN;
                 goto retry;
 
@@ -1630,6 +1671,7 @@ smb_iod_recvall(struct smbiod *iod)
 			SMBERROR("id %d: SMB_TRAN_RECV returned NULL without error\n", iod->iod_id);
 			continue;
 		}
+
         OSAddAtomic64(mbuf_get_chain_len(m), &iod->iod_total_rx_bytes);
         OSIncrementAtomic64(&iod->iod_total_rx_packets);
 
@@ -1663,19 +1705,28 @@ smb_iod_recvall(struct smbiod *iod)
 
         m_dumpm(m);
         hp = mbuf_data(m);
-        if (*hp == 0xfe) {
+        
+        if ((*hp == 0xfe) || (*hp == 0xfc)) {
             /* 
              * SMB 2/3 Response packet
+             *
+             * 0xfe = regular reply
+             * 0xfc = compressed reply
+             *
+             * Note that if the reply was encrypted, by this time, it has
+             * already been decrypted
              */
 
             /* Wait for entire header to be read in */
-            if (mbuf_pullup(&m, SMB2_HDRLEN))
+            if (mbuf_pullup(&m, SMB2_HDRLEN)) {
                 continue;
+            }
             
             hp = mbuf_data(m);
 
             /* Verify SMB 2/3 signature */
-            if (bcmp(hp, SMB2_SIGNATURE, SMB2_SIGLEN) != 0) {
+            if ((bcmp(hp, SMB2_SIGNATURE, SMB2_SIGLEN) != 0) &&
+                (bcmp(hp, SMB2_SIGNATURE_COMPRESSION, SMB2_SIGLEN_COMPRESSION) != 0)) {
                 SMBERROR("dumping non SMB 2/3 packet\n");
                 mbuf_freem(m);
                 continue;
@@ -1687,8 +1738,22 @@ smb_iod_recvall(struct smbiod *iod)
             /* 
              * Once using SMB 2/3, ignore any more SMB 1 responses
              */
-            if (smb1_allowed)
+            if (smb1_allowed) {
                 smb1_allowed = false;
+            }
+            
+            /* Does the reply need to be decompressed? */
+            if (SMBV_SMB3_OR_LATER(sessionp) &&
+                (sessionp->server_compression_algorithms_map != 0) && 
+                (bcmp(hp, SMB2_SIGNATURE_COMPRESSION, SMB2_SIGLEN_COMPRESSION) == 0)) {
+                /* Need to decompress the mbuf m */
+                error = smb2_rq_decompress_read(sessionp, &m);
+                if (error) {
+                    SMBERROR("smb2_rq_decompress_read() failed, dumping SMB 2/3 packet\n");
+                    mbuf_freem(m);
+                    continue;
+                }
+            }            
             
             /*
              * At this point we have the SMB 2/3 Header and packet data read in
@@ -1746,6 +1811,8 @@ smb_iod_recvall(struct smbiod *iod)
          * Otherwise we search all rqp's, not find any matches, and exit the
          * TAILQ_FOREACH_SAFE loop with rqp = null.
          */
+        SMB_LOG_KTRACE(SMB_DBG_IOD_RECVALL | DBG_FUNC_START, iod->iod_id, message_id, 0, 0, 0);
+
         SMB_IOD_RQLOCK(iod);
         drop_req_lock = 1;
         nanouptime(&iod->iod_lastrecv);
@@ -1837,6 +1904,7 @@ smb_iod_recvall(struct smbiod *iod)
                         continue;
                     }
                 }
+                
                 /* Verify that found smb_rq is a SMB 2/3 request */
                 if (!(rqp->sr_extflags & SMB2_REQUEST) &&
                     (cmd != SMB2_NEGOTIATE)) {
@@ -1996,6 +2064,8 @@ smb_iod_recvall(struct smbiod *iod)
                 }
             }
             
+            SMB_LOG_KTRACE(SMB_DBG_IOD_RECVALL | DBG_FUNC_NONE, 0xabc001, iod->iod_id, message_id, 0, 0);
+
             /*
              * We received a packet on the session, make sure main iod thread
              * is awake and ready to go. This improves read performance on
@@ -2014,6 +2084,7 @@ smb_iod_recvall(struct smbiod *iod)
 					rqp->sr_share->ss_up(rqp->sr_share, FALSE);
 				lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 			}
+
             if (smb2_packet) {
                 /* 
                  * Check for Async and STATUS_PENDING responses.
@@ -2034,7 +2105,8 @@ smb_iod_recvall(struct smbiod *iod)
                     rqp = NULL;
                     break;
                 }
-            } 
+            }
+
             /*
              * For compound replies received,
              * ONLY the first rqp in the chain will have ALL the reply data
@@ -2063,6 +2135,10 @@ smb_iod_recvall(struct smbiod *iod)
                     break;
                 }
             }
+
+            /* Can we get granted credits now? */
+            smb2_rq_credit_preprocess_reply(rqp);
+            
             /*
              * <14227703> For servers that do not support compound replies, 
              * check to see if entire reply has arrived.
@@ -2089,9 +2165,11 @@ smb_iod_recvall(struct smbiod *iod)
                      * <14227703> Have to wake up the head of the compound 
                      * chain 
                      */
+                    SMB_LOG_KTRACE(SMB_DBG_IOD_RECVALL | DBG_FUNC_NONE, 0xabc002, iod->iod_id, smb_hideaddr(cmpd_rqp), message_id, 0);
                     smb_iod_rqprocessed(cmpd_rqp, 0, 0);
                 }
                 else {
+                    SMB_LOG_KTRACE(SMB_DBG_IOD_RECVALL | DBG_FUNC_NONE, 0xabc002, iod->iod_id, smb_hideaddr(rqp), message_id, 0);
                     smb_iod_rqprocessed(rqp, 0, 0);
                 }
 
@@ -2103,9 +2181,13 @@ smb_iod_recvall(struct smbiod *iod)
             /* Fall out of the TAILQ_FOREACH_SAFE loop */
             break;
 		}
+
         if (drop_req_lock) {
             SMB_IOD_RQUNLOCK(iod);
         }
+
+        SMB_LOG_KTRACE(SMB_DBG_IOD_RECVALL | DBG_FUNC_END, 0, iod->iod_id, message_id, 0, 0);
+
         if (rqp == NULL) {
             if (smb2_packet) {
                 /*
@@ -2145,8 +2227,9 @@ smb_iod_recvall(struct smbiod *iod)
 int
 smb_iod_request(struct smbiod *iod, int event, void *ident)
 {
-	struct smbiod_event *evp;
-	int error;
+	struct smbiod_event *evp = NULL;
+	int error = 0;
+    struct timespec ts = {.tv_sec = 1, .tv_nsec = 0};
 
     if (iod == NULL) {
         SMBERROR("iod is null\n");
@@ -2174,10 +2257,56 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
 	}
 
     smb_iod_wakeup(iod);
-	msleep(evp, SMB_IOD_EVLOCKPTR(iod), PWAIT | PDROP, "iod-ev", 0);
-	error = evp->ev_error;
-    SMB_FREE_TYPE(struct smbiod_event, evp);
-	return error;
+    /*
+     * rdar://112223206
+     * Prevent a deadlock between smb_iod_thread and smb_iod_read_thread
+     * happening when we fail a reconnect while handling a lease break
+     */
+    while (((evp->ev_type & SMBIOD_EV_PROCESSED) == 0) &&
+           (iod->iod_state != SMBIOD_ST_DEAD)) {
+        msleep(evp, SMB_IOD_EVLOCKPTR(iod), PWAIT, "iod-ev", &ts);
+    }
+
+    /* Has the event been processed?  If so then done waiting */
+    if ((evp->ev_type & SMBIOD_EV_PROCESSED) == 0) {
+        /* Event not yet processed, check to see if iod is still alive */
+        if (iod->iod_state == SMBIOD_ST_DEAD) {
+            /*
+             * iod died while we were waiting fail the request and finish
+             */
+            SMBERROR("iod %d is dead, give up on request 0x%x", iod->iod_id, evp->ev_type);
+            error = EPIPE;
+            if (evp->ev_type & SMBIOD_EV_PROCESSING) {
+                /*
+                 * event started processing, remove SMBIOD_EV_SYNC
+                 * so smb_iod_main() knows we're not waiting to free it
+                 */
+                evp->ev_type &= ~SMBIOD_EV_SYNC;
+            } else {
+                /*
+                 * event didn't start processing, remove from event list
+                 */
+                STAILQ_REMOVE(&iod->iod_evlist, evp, smbiod_event, ev_link);
+            }
+        }
+        else {
+            /*
+             * Should not ever get here
+             * iod is not dead and event not processed?
+             */
+            SMBERROR("Something is wrong: iod %d is not dead (0x%x) and event not processed request 0x%x",
+                     iod->iod_id, iod->iod_state, evp->ev_type);
+        }
+    }
+
+    SMB_IOD_EVUNLOCK(iod);
+    if (!error) {
+        error = evp->ev_error;
+    }
+    if (evp->ev_type & SMBIOD_EV_SYNC) {
+        SMB_FREE_TYPE(struct smbiod_event, evp);
+    }
+    return error;
 }
 
 static int
@@ -2187,6 +2316,8 @@ smb_iod_rq_sign(struct smb_rq *rqp)
     uint32_t do_encrypt;
     struct mbchain *mbp;
     int error = 0;
+
+    SMB_LOG_KTRACE(SMB_DBG_IOD_RQ_SIGN | DBG_FUNC_START, smb_hideaddr(rqp), rqp->sr_command, 0, 0, 0);
 
     smb_rq_getrequest(rqp, &mbp);
     mb_fixhdr(mbp);
@@ -2241,15 +2372,39 @@ smb_iod_rq_sign(struct smb_rq *rqp)
         }
     }
 
+    /*
+     * Do any compression after signing but before encrypting
+     * 1. Only SMB 3 or later can compress
+     * 2. Server must support compression
+     * 3. Only compress non compound requests
+     * 4. Only compress Write requests.
+     *
+     * Note Read requests just have a flag set
+     */
+    if (SMBV_SMB3_OR_LATER(sessionp) &&
+        (sessionp->server_compression_algorithms_map != 0) &&
+        !(rqp->sr_flags & SMBR_COMPOUND_RQ) &&
+        (rqp->sr_command == SMB2_WRITE) &&
+        !(rqp->sr_extflags & SMB2_NO_COMPRESS_WRITE)) {
+        error = smb2_rq_compress_write(rqp);
+        if (error) {
+            /* Should never happen */
+            SMBERROR("smb2_rq_compress_write failed %d\n", error);
+            goto exit;
+        }
+    }
+
     if (do_encrypt) {
         error = smb3_rq_encrypt(rqp);
         if (error) {
             /* Should never happen */
             SMBERROR("SMB3 transform failed, error: %d\n", error);
-            return error;
+            goto exit;
         }
     }
 
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_IOD_RQ_SIGN | DBG_FUNC_END, error, rqp->sr_messageid, rqp->sr_command, 0, 0);
     return(error);
 }
 
@@ -2267,6 +2422,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
     int return_error = 0;
     int error = 0;
 
+    SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_START, smb_hideaddr(rqp), iod->iod_id, 0, 0, 0);
+
     if (rqp->sr_context == iod->iod_context) {
         /*
          * This is a special request like reconnect or Echo.
@@ -2275,6 +2432,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 		DBG_ASSERT((rqp->sr_flags & SMBR_ASYNC) != SMBR_ASYNC);
 		rqp->sr_flags |= SMBR_INTERNAL;
 		
+        SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_NONE, 0xabc001, smb_hideaddr(rqp), iod->iod_id, 0, 0);
+
         /* Hold RQ lock while we assign the Message ID and sign/seal */
 		SMB_IOD_RQLOCK(iod);
 
@@ -2283,7 +2442,7 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
             if (error) {
                 SMBERROR("smb_iod_rq_sign failed %d \n", error);
                 SMB_IOD_RQUNLOCK(iod);
-                return(error);
+                goto exit;
             }
         }
 
@@ -2315,9 +2474,15 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 			ts.tv_nsec = 0;
 			msleep(&iod->iod_flags, 0, PWAIT, "90sndw", &ts);
 		}
-		if (rqp->sr_lerror)
-			smb_iod_removerq(rqp);
-		return rqp->sr_lerror;
+        
+        SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_NONE, 0xabc002, smb_hideaddr(rqp), iod->iod_id, 0, 0);
+
+        if (rqp->sr_lerror) {
+            smb_iod_removerq(rqp);
+        }
+
+        error = rqp->sr_lerror;
+        goto exit;
 	}
 
 	switch (iod->iod_state) {
@@ -2357,7 +2522,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
                              * Dont have to clear SMB2_REQ_SENT because at this
                              * time, it has not been sent.
                              */
-                            return ETIMEDOUT;
+                            error = ETIMEDOUT;
+                            goto exit;
+
                         }
                         else {
                             /*
@@ -2378,7 +2545,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
                                               rqp->sr_share->ss_soft_timer)) {
                         SMBDEBUG("Soft Mount timed out! cmd = 0x%x\n",
                                  (UInt32) rqp->sr_cmd);
-                        return ETIMEDOUT;
+                        error = ETIMEDOUT;
+                        goto exit;
+
                     }
                 }
             }
@@ -2397,7 +2566,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
              * that got to here and fix it.
              */
             SMBERROR("SMB 1 not allowed on SMB 2/3 connection. cmd = %x\n", rqp->sr_cmd);
-            return ERPCMISMATCH;
+            error = ERPCMISMATCH;
+            goto exit;
+
         }
 
         /* SMB 1 Flow Control */
@@ -2431,7 +2602,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
         }
 
         if (return_error == 1) {
-            return (EAGAIN);
+            error = EAGAIN;
+            goto exit;
+
         }
     }
     
@@ -2451,7 +2624,8 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
             /* SMB 1 Flow Control */
             if (iod->iod_asynccnt >= ((sessionp->session_maxmux / 3) * 2)) {
                 SMBWARNING("Max out on session async notify request %d\n", iod->iod_asynccnt);
-                return EWOULDBLOCK;
+                error = EWOULDBLOCK;
+                goto exit;
             }
         }
         
@@ -2465,8 +2639,7 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
     /* Number of pending requests (sync and async) */
     OSAddAtomic(1, &iod->iod_muxcnt);
     
-    SMB_LOG_KTRACE(SMB_DBG_IOD_MUXCNT | DBG_FUNC_NONE,
-                   iod->iod_id, iod->iod_muxcnt, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_NONE, 0xabc001, smb_hideaddr(rqp), iod->iod_id, 0, 0);
 
     /* Hold RQ lock while we assign the Message ID and sign/seal */
     SMB_IOD_RQLOCK(iod);
@@ -2474,7 +2647,9 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
     if (iod->iod_flags & SMBIOD_SHUTDOWN) {
         SMBERROR("id %u iod is shutting down, can't add to queue.\n", iod->iod_id);
         SMB_IOD_RQUNLOCK(iod);
-        return(EAGAIN);
+        error = EAGAIN;
+        goto exit;
+
     }
     
     if (rqp->sr_extflags & SMB2_REQUEST) {
@@ -2482,7 +2657,7 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
         if (error) {
             SMBERROR("smb_iod_rq_sign failed %d \n", error);
             SMB_IOD_RQUNLOCK(iod);
-            return(error);
+            goto exit;
         }
     }
 
@@ -2491,9 +2666,20 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
     
 	SMB_IOD_RQUNLOCK(iod);
 
-	iod->iod_workflag = 1;
-	smb_iod_wakeup(iod);
-	return 0;
+    SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_NONE, 0xabc002, iod->iod_id, 0, 0, 0);
+
+    /* iod_flags mutex protects the iod_workflag */
+    SMB_IOD_FLAGSLOCK(iod);
+
+    iod->iod_workflag = 1;
+    smb_iod_wakeup(iod);
+
+    SMB_IOD_FLAGSUNLOCK(iod);
+	
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_IOD_ENQUEUE | DBG_FUNC_END, error, iod->iod_id, 0, 0, 0);
+
+    return error;
 }
 
 int
@@ -2528,9 +2714,6 @@ smb_iod_removerq(struct smb_rq *rqp)
          * at that time should not decrement muxcnt else it will go negative
          */
         OSAddAtomic(-1, &iod->iod_muxcnt);
-        
-        SMB_LOG_KTRACE(SMB_DBG_IOD_MUXCNT | DBG_FUNC_NONE,
-                       iod->iod_id, iod->iod_muxcnt, 0, 0, 0);
     }
     
     if (!(rqp->sr_extflags & SMB2_REQUEST)) {
@@ -2548,9 +2731,12 @@ int
 smb_iod_waitrq(struct smb_rq *rqp)
 {
 	struct smbiod *iod = rqp->sr_iod;
-	int error;
-	struct timespec ts;
+	int error = 0;
+    struct timespec ts = {0};
+    uint64_t messageid = rqp->sr_messageid;
 
+    SMB_LOG_KTRACE(SMB_DBG_IOD_WAITRQ | DBG_FUNC_START, smb_hideaddr(rqp), messageid, 0, 0, 0);
+    
 	if (rqp->sr_flags & SMBR_INTERNAL) {
 		for (;;) {
 			smb_iod_sendall(iod);
@@ -2583,7 +2769,8 @@ smb_iod_waitrq(struct smb_rq *rqp)
         SMBRQ_SUNLOCK(rqp);
 
 		smb_iod_removerq(rqp);
-		return rqp->sr_lerror;
+		error = rqp->sr_lerror;
+        goto exit;
 	}
 
 	SMBRQ_SLOCK(rqp);
@@ -2629,6 +2816,9 @@ smb_iod_waitrq(struct smb_rq *rqp)
 		SMB_IOD_RQUNLOCK(iod);
 	} else
 		smb_iod_removerq(rqp);
+    
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_IOD_WAITRQ | DBG_FUNC_END, error, messageid, 0, 0, 0);
 	return error;
 }
 
@@ -2671,6 +2861,8 @@ smb_iod_sendall(struct smbiod *iod)
 	herror = 0;
 	echo = 0;
     
+    SMB_LOG_KTRACE(SMB_DBG_IOD_SENDALL | DBG_FUNC_START, iod->iod_id, 0, 0, 0, 0);
+
 	/*
 	 * Loop through the list of requests and send them if possible
 	 */
@@ -2778,6 +2970,7 @@ smb_iod_sendall(struct smbiod *iod)
                  * <71776833> Hold iod_rqlock here to keep receive thread from
                  * processing the reply and freeing the rqp before we return.
                  */
+                SMB_LOG_KTRACE(SMB_DBG_IOD_SENDALL | DBG_FUNC_NONE, 0xabc001, iod->iod_id, smb_hideaddr(rqp), 0, 0);
 				herror = smb_iod_sendrq(iod, rqp);
 				break;
 
@@ -2976,6 +3169,8 @@ smb_iod_sendall(struct smbiod *iod)
         SMBC_CREDIT_UNLOCK(iod);
     }
 
+    SMB_LOG_KTRACE(SMB_DBG_IOD_SENDALL | DBG_FUNC_END, 0, iod->iod_id, 0, 0, 0);
+
 	return 0;
 }
 
@@ -3102,11 +3297,13 @@ static void smb_iod_reconnect(struct smbiod *iod)
         SMB_IOD_FLAGSLOCK(iod);
 		iod->iod_flags &= ~SMBIOD_RECONNECT;
         SMB_IOD_FLAGSUNLOCK(iod);
+
         /* Wake anyone waiting for reconnect to finish */
-        wakeup(&iod->iod_flags);
+        smb_iod_wakeup(iod);
 
         /* This function is called by smb_iod_thread so no need for wakeup */
 		iod->iod_workflag = 1;
+
         SMBWARNING("id %d The session is going aways while we are in reconnect?\n",
                    iod->iod_id);
 		return;
@@ -3563,7 +3760,7 @@ exit:
 	iod->iod_workflag = 1;
 
     SMB_LOG_KTRACE(SMB_DBG_IOD_RECONNECT | DBG_FUNC_END,
-                   iod->iod_id, error, 0, 0, 0);
+                   error, iod->iod_id, 0, 0, 0);
 }
 
 /*
@@ -3574,6 +3771,8 @@ smb_iod_main(struct smbiod *iod)
 {
 	struct smbiod_event *evp;
     int result = 0;
+
+    SMB_LOG_KTRACE(SMB_DBG_IOD_MAIN | DBG_FUNC_START, iod->iod_id, 0, 0, 0, 0);
 
     SMB_LOG_MC_REF("id %d flags 0x%x ref_cnt %u\n",
                    iod->iod_id, iod->iod_flags, iod->iod_ref_cnt);
@@ -3593,6 +3792,9 @@ smb_iod_main(struct smbiod *iod)
 		    SMB_IOD_EVUNLOCK(iod);
 		    break;
 		}
+        
+        SMB_LOG_KTRACE(SMB_DBG_IOD_MAIN | DBG_FUNC_NONE, 0xabc001, iod->iod_id, evp->ev_type, 0, 0);
+        
 		STAILQ_REMOVE_HEAD(&iod->iod_evlist, ev_link);
 		evp->ev_type |= SMBIOD_EV_PROCESSING;
 		SMB_IOD_EVUNLOCK(iod);
@@ -3655,17 +3857,20 @@ smb_iod_main(struct smbiod *iod)
 			default:
 				break;
 		}
+        SMB_IOD_EVLOCK(iod);
+        evp->ev_type |= SMBIOD_EV_PROCESSED;
+        evp->ev_type &= ~SMBIOD_EV_PROCESSING;
 		if (evp->ev_type & SMBIOD_EV_SYNC) {
-			SMB_IOD_EVLOCK(iod);
 			wakeup(evp);
-			SMB_IOD_EVUNLOCK(iod);
-		}
-        else {
+		} else {
             SMB_FREE_TYPE(struct smbiod_event, evp);
         }
+        SMB_IOD_EVUNLOCK(iod);
 	}
 	smb_iod_sendall(iod);
     /* iod_read_thread calls smb_iod_recvall() */
+    
+    SMB_LOG_KTRACE(SMB_DBG_IOD_MAIN | DBG_FUNC_END, 0, iod->iod_id, 0, 0, 0);
 	return;
 }
 
@@ -3697,10 +3902,12 @@ static void smb_iod_thread(void *arg)
 	 * the mutex to protect testing it.
 	 */
 	while ((iod->iod_flags & SMBIOD_SHUTDOWN) == 0) {
-		iod->iod_workflag = 0;
+        SMB_LOG_KTRACE(SMB_DBG_IOD_THREAD | DBG_FUNC_START, iod->iod_id, iod->iod_flags, iod->iod_workflag, 0, 0);
+
 		smb_iod_main(iod);
 
         if (iod->iod_flags & SMBIOD_SHUTDOWN) {
+            SMB_LOG_KTRACE(SMB_DBG_IOD_THREAD | DBG_FUNC_END, 0, iod->iod_id, 0xabc001, 0, 0);
 			break;
         }
 
@@ -3715,24 +3922,27 @@ static void smb_iod_thread(void *arg)
 			smb_iod_reconnect(iod);
         }
 
-		/*
-		 * In order to prevent a race here, this should really be locked
-		 * with a mutex on which we would subsequently msleep, and
-		 * which should be acquired before changing the flag.
-		 * Or should this be another flag in iod_flags, using its
-		 * mutex?
-		 */
+        /* iod_flags mutex protects the iod_workflag */
+        SMB_IOD_FLAGSLOCK(iod);
+
+        /* Any more work to do? */
         if (iod->iod_workflag) {
+            /* Yep, loop around and do more work */
+            SMB_LOG_KTRACE(SMB_DBG_IOD_THREAD | DBG_FUNC_END, 0, iod->iod_id, 0xabc002, 0, 0);
+ 
+            iod->iod_workflag = 0;
+            SMB_IOD_FLAGSUNLOCK(iod);
 			continue;
         }
 
-#if 0
-        SMBERROR("going to sleep for %ld secs %ld nsecs\n",
-                 iod->iod_sleeptimespec.tv_sec,
-                 iod->iod_sleeptimespec.tv_nsec);
-#endif
-		msleep(&iod->iod_flags, 0, PWAIT, "iod thread idle",
+        msleep(&iod->iod_flags, SMB_IOD_FLAGSLOCKPTR(iod), PWAIT, "iod thread idle",
                &iod->iod_sleeptimespec);
+
+        iod->iod_workflag = 0;
+
+        SMB_IOD_FLAGSUNLOCK(iod);
+
+        SMB_LOG_KTRACE(SMB_DBG_IOD_THREAD | DBG_FUNC_END, 0, iod->iod_id, 0xabc003, 0, 0);
 	}
 
     SMB_LOG_MC("id %d is terminating\n", iod_id);
@@ -3746,7 +3956,7 @@ static void smb_iod_thread(void *arg)
         STAILQ_FOREACH_SAFE(evp, &iod->iod_evlist, ev_link, tevp) {
             SMB_LOG_MC("id %d: in shutdown, remove event 0x%x. \n",
                        iod->iod_id, evp->ev_type);
-            evp->ev_type |= SMBIOD_EV_PROCESSING;
+            evp->ev_type |= SMBIOD_EV_PROCESSED;
             evp->ev_error = EINVAL;
             
             STAILQ_REMOVE(&iod->iod_evlist, evp, smbiod_event, ev_link);
@@ -4380,15 +4590,9 @@ int smb_iod_rel(struct smbiod *iod, struct smb_rq *rqp, const char *function)
     iod->iod_ref_cnt--;
 
     if (rqp != NULL) {
-#ifdef SMB_DEBUG
-        SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
-                       iod->iod_id, function, rqp, rqp->sr_command,
+        SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
+                       iod->iod_id, function, smb_hideaddr(rqp), rqp->sr_command,
                        rqp->sr_messageid, iod->iod_flags, iod->iod_ref_cnt);
-#else
-        SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d mid %llu flags 0x%x, ref_cnt %u.\n",
-                       iod->iod_id, function, rqp->sr_command,
-                       rqp->sr_messageid, iod->iod_flags, iod->iod_ref_cnt);
-#endif
     }
     else {
         SMB_LOG_MC_REF("id %u function %s flags 0x%x, ref_cnt %u.\n",
@@ -4429,20 +4633,18 @@ smb_iod_establish_alt_ch(struct smbiod *iod)
         SMB_LOG_MC("id %d no alt ch for guest account (session flags 0x%x).\n", iod->iod_id, sessionp->session_flags);
         return(0);
     }
-    
-#ifdef SMB_DEBUG
-    smb2_mc_print_all_connections(&sessionp->session_interface_table);
-#endif
 
     do {
-        num_of_cons_to_try = smb2_mc_return_excess_connections(&sessionp->session_interface_table, con_entry, con_entry_len);
+        num_of_cons_to_try = smb2_mc_return_excess_connections(&sessionp->session_interface_table, 
+                                                               con_entry, con_entry_len,
+                                                               &sessionp->active_channel_count, &sessionp->active_channel_speed);
 
-        for(uint32_t u=0; u<num_of_cons_to_try; u++) {
+        for (uint32_t u = 0; u < num_of_cons_to_try; u++) {
 
             SMB_LOG_MC("Going to remove connection %u from %u [c-%02llu s-%02llu (RSS %llu)].\n",
                      u, num_of_cons_to_try,
-                     con_entry[u]->con_client_nic->nic_index,
-                     con_entry[u]->con_server_nic->nic_index &  SMB2_IF_INDEX_MASK,
+                     con_entry[u]->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
+                     con_entry[u]->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
                      con_entry[u]->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT);
 
             smb_request_iod_disconnect_and_shutdown(con_entry[u]->iod);
@@ -4458,13 +4660,13 @@ smb_iod_establish_alt_ch(struct smbiod *iod)
     }
 #endif
 
-    for(uint32_t u=0; u<num_of_cons_to_try; u++) {
+    for (uint32_t u = 0; u < num_of_cons_to_try; u++) {
     
         SMB_LOG_MC("Trying to establish connection %u from %u [c-%02llu(%u) s-%02llu (RSS %llu)(%u)].\n",
                  u, num_of_cons_to_try,
-                 con_entry[u]->con_client_nic->nic_index,
+                 con_entry[u]->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
                  con_entry[u]->con_client_nic->nic_state,
-                 con_entry[u]->con_server_nic->nic_index &  SMB2_IF_INDEX_MASK,
+                 con_entry[u]->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
                  con_entry[u]->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
                  con_entry[u]->con_server_nic->nic_state);
         

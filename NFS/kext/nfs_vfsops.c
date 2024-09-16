@@ -2580,6 +2580,7 @@ mountnfs(
 		nmp->nm_auth = RPCAUTH_SYS;
 		nmp->nm_iodlink.tqe_next = NFSNOLIST;
 		nmp->nm_readlink_nocache = nfs_readlink_nocache;
+		nmp->nm_accesscache = NFS_ACCESS_CACHE_SIZE_DEFAULT;
 		nmp->nm_deadtimeout = 0;
 		nmp->nm_curdeadtimeout = 0;
 		NFS_BITMAP_SET(nmp->nm_flags, NFS_MFLAG_RDIRPLUS); /* enable RDIRPLUS by default. It will be reverted later in case NFSv2 is used */
@@ -3149,6 +3150,12 @@ mountnfs(
 		xb_get_32(error, &xb, nmp->nm_acrootdirmax);
 		xb_skip(error, &xb, XDRWORD);
 	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		xb_get_32(error, &xb, val);
+		if (!error && (val > 0)) {
+			nmp->nm_accesscache = val;
+		}
+	}
 
 	/*
 	 * Sanity check/finalize settings.
@@ -3177,6 +3184,9 @@ mountnfs(
 	}
 	if (nmp->nm_acrootdirmin > nmp->nm_acrootdirmax) {
 		nmp->nm_acrootdirmin = nmp->nm_acrootdirmax;
+	}
+	if (nmp->nm_accesscache > NFS_ACCESS_CACHE_SIZE_MAX) {
+		nmp->nm_accesscache = NFS_ACCESS_CACHE_SIZE_MAX;
 	}
 
 	/* need at least one fs location */
@@ -3826,6 +3836,9 @@ nfs_mirror_mount_domount(vnode_t dvp, vnode_t vp, __nfs4_unused vfs_context_t ct
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_ROOTDIR_MAX)) {
 		xb_copy_32(error, &xb, &xbnew, val);
 		xb_copy_32(error, &xb, &xbnew, val);
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		xb_add_32(error, &xbnew, nmp->nm_accesscache);
 	}
 	xb_build_done(error, &xbnew);
 
@@ -5535,6 +5548,7 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 		NFS_BITMAP_SET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT);
 	}
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_READLINK_NOCACHE);
+	NFS_BITMAP_SET(mattrs, NFS_MATTR_ACCESS_CACHE);
 
 	/* set up current mount flags bitmap */
 	/* first set the flags that we will be setting - either on OR off */
@@ -5792,6 +5806,9 @@ nfs_mountinfo_assemble(struct nfsmount *nmp, struct xdrbuf *xb)
 	xb_add_32(error, &xbinfo, 0);                       /* ATTRCACHE_ROOTDIR_MIN */
 	xb_add_32(error, &xbinfo, nmp->nm_acrootdirmax);    /* ATTRCACHE_ROOTDIR_MAX */
 	xb_add_32(error, &xbinfo, 0);                       /* ATTRCACHE_ROOTDIR_MAX */
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		xb_add_32(error, &xbinfo, nmp->nm_accesscache);
+	}
 	curargs_end_offset = xb_offset(&xbinfo);
 
 	/* NFS_MIATTR_CUR_LOC_INDEX */

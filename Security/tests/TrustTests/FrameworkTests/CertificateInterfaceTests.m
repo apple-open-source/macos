@@ -101,6 +101,60 @@
     CFReleaseNull(cert4);
 }
 
+- (void)testCreateWithPEM {
+    SecCertificateRef cert = NULL;
+    CFDataRef cert4data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+                                                      pem, sizeof(pem), kCFAllocatorNull);
+    ok(cert = SecCertificateCreateWithPEM(NULL, cert4data), "create cert from pem");
+    CFReleaseNull(cert4data);
+
+    // Store the base64 of the raw cert data for later tests
+    NSData *certData = CFBridgingRelease(SecCertificateCopyData(cert));
+    NSDataBase64EncodingOptions options = NSDataBase64Encoding64CharacterLineLength | NSDataBase64EncodingEndLineWithLineFeed;
+    NSString *b64Cert = [certData base64EncodedStringWithOptions:options];
+    CFReleaseNull(cert);
+
+    uint8_t random[32];
+    (void)SecRandomCopyBytes(kSecRandomDefault, sizeof(random), random);
+    NSData *randomData = [[NSData alloc] initWithBytes:random length:sizeof(random)];
+    XCTAssert(NULL == SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)randomData));
+
+    // CR instead of LF, and some extra whitespace and characters thrown in
+    NSMutableString *pemString = [@"a\rs\n\t df-----BEGIN CERTIFICATE-----" mutableCopy]; // string in front
+    [pemString appendString:@"\r"];
+    [pemString appendString:b64Cert];
+    [pemString appendString:@"\t\r"];
+    [pemString appendString:@"-----END CERTIFICATE-----"];
+    NSData *pemData = [pemString dataUsingEncoding:NSUTF8StringEncoding];
+    ok(cert = SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)pemData));
+    CFReleaseNull(cert);
+
+    // CRLF instead of LF, and some extra whitespace thrown in
+    pemString = [@"-----BEGIN CERTIFICATE-----" mutableCopy];
+    [pemString appendString:@"  \t \t \r\n"];
+    [pemString appendString:b64Cert];
+    [pemString appendString:@"\r\n"];
+    [pemString appendString:@"-----END CERTIFICATE-----"];
+    [pemString appendString:@"  \t \t \r\n"];
+    pemData = [pemString dataUsingEncoding:NSUTF8StringEncoding];
+    ok(cert = SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)pemData));
+    CFReleaseNull(cert);
+
+    // No EOL after begin
+    pemString = [@"-----BEGIN CERTIFICATE-----" mutableCopy];
+    [pemString appendString:b64Cert];
+    [pemString appendString:@"\r\n"];
+    [pemString appendString:@"-----END CERTIFICATE-----"];
+    pemData = [pemString dataUsingEncoding:NSUTF8StringEncoding];
+    is(NULL, SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)pemData));
+
+    // No content
+    pemString = [@"-----BEGIN CERTIFICATE-----\n" mutableCopy];
+    [pemString appendString:@"-----END CERTIFICATE-----"];
+    pemData = [pemString dataUsingEncoding:NSUTF8StringEncoding];
+    is(NULL, SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)pemData));
+}
+
 - (void)testSelfSignedCA {
     SecCertificateRef cert0 = NULL, cert1 = NULL, cert5 = NULL;
     isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
@@ -161,6 +215,21 @@
     CFReleaseNull(cert1);
     CFReleaseNull(cert3);
     CFReleaseNull(cert4);
+}
+
+- (void)testSummaryWithoutCN {
+    SecCertificateRef cert = NULL;
+    CFStringRef subjectSummary = NULL;
+
+    isnt(cert = SecCertificateCreateWithBytes(NULL, _email_cert_without_cn, sizeof(_email_cert_without_cn)),
+         NULL, "create cert without common name");
+    isnt(subjectSummary = SecCertificateCopySubjectSummary(cert), NULL,
+         "cert without cn has a subject summary");
+    ok(subjectSummary && CFEqual(subjectSummary, CFSTR("adam_toews@apple.com")),
+       "subject summary is email address");
+
+    CFReleaseNull(subjectSummary);
+    CFReleaseNull(cert);
 }
 
 - (void)testNTPrincipalName {
@@ -318,6 +387,25 @@
     CFReleaseNull(c1_serial);
     CFReleaseNull(cert1);
 }
+
+- (void)testCopyValidAfterBefore
+{
+    SecCertificateRef cert1 = NULL;
+    CFDateRef validAfter = NULL, validBefore = NULL;
+
+    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
+         NULL, "create cert1");
+
+    validAfter = SecCertificateCopyNotValidAfterDate(cert1);
+    validBefore = SecCertificateCopyNotValidBeforeDate(cert1);
+    CFAbsoluteTime after = 341193599.0;
+    CFAbsoluteTime before = -117072000.0;
+    XCTAssertEqual(after, CFDateGetAbsoluteTime(validAfter));
+    XCTAssertEqual(before, CFDateGetAbsoluteTime(validBefore));
+    CFReleaseNull(validAfter);
+    CFReleaseNull(validBefore);
+}
+
 
 -(void)testCopyTrustedCTLogs {
 #if TARGET_OS_BRIDGE // bridgeOS doesn't have a CT log list

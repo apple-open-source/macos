@@ -1,0 +1,259 @@
+3.2.4:
+------
+
+Fix incorrect rejection of large block sizes.
+
+Fixes from Jimmy Olgeni.
+
+Fixes from Hans Ulrich Niedermann.
+
+3.2.3:
+------
+
+Fix bug when invoking with no arguments.
+
+3.2.2:
+------
+
+Move throughput measuring end to after close(2).
+
+3.2.1:
+------
+
+print throughput after fsync, if requested.
+
+3.2.0:
+------
+
+-O F option (do an fsync at the end of the output file).
+
+When closing files fails, exit with an error code.
+
+3.1.1:
+------
+
+-n <nbytes_to_stream> was not clear to use numbers > 2 GB.  I didn't
+notice since it worked fine if you used suffixes "K/M/G" as long as
+the number was < 2 G.  Sorry about that.
+
+3.1.0:
+------
+
+O_DIRECT supported for input.
+
+3.0.0:
+------
+
+IPV6 support for IPV6 day 2011.
+
+The IPV6 support shouldn't break anything after hostname lookup
+succeeds.  Issues might be building on older platforms if I screwed up
+the autoconf mechanism to not compile it in.
+
+Having said that, assorted little code cleanups are in this release,
+too.  They shouldn't break anything but non-IPV6 things were touched.
+
+
+Aftermath for 2.7.4 - 2.7.6:
+----------------------------
+
+ATTENTION:
+I'm afraid that support for the '-B <size_of_buffer>' was clobbered in
+2.7.4 or whereabouts.  This one allowed you do have a reader do
+multiple reads before the writer could write or vice versa.
+
+Change reverted in 2.7.6.
+
+2.7.4 and 2.7.5 do not have working -B.
+
+2.8.0:
+------
+
+Support platforms that do not have open(2) with O_DIRECT.
+Such as MacOS X.
+
+2.7.6:
+------
+
+Revert 2.7.3 which broke -B
+
+2.7.5:
+------
+
+NetBSD and general pkgsrc compatibility.  Should get rid of the only
+patch used in pkgsrc.
+
+2.7.4:
+------
+
+Print the message that we switch to normal from O_DIRECT only when
+verbose > 0.
+
+SEE ABOVE, broke -B.
+
+CHANGE reverted
+
+2.7.3:
+------
+
+More c flags changes for more portability.
+
+2.7.2:
+------
+
+Fix compilation under Redhat-7.3.
+
+2.7.1:
+------
+
+Support for $CSTREAM_AUDIO_BITRATE.
+
+2.7.0:
+------
+
+Support for O_SYNC and O_DIRECT, but only on the output side for now.
+
+Please send mail if you want this for input.
+
+2.6.1:
+------
+
+Timer-based throughput reports from -T<n> will now also print what the
+throughput since the last report was.  Useful when performance changes
+during runtime.
+
+2.6.0:
+------
+
+Bandwidth limiting was not > 4 GB clean on platforms with 32 bit
+integers.  I had lost an already existing fix here.
+
+
+2.5.2:
+------
+
+Commandline options, options to -O and -I:
+-ON
+-IN
+
+which prevents cstream from interpreting filenames with ":" in them as
+TCP specifications.  By default the presense of a colon means host:port.
+
+2.5.1:
+------
+
+Add option -T <interval> which will print the statistics every
+<interval> seconds.
+
+2.5:
+----
+
+There was a 4 GB limitation on 32 bit machines when you used bandwith
+limiting.  Thanks to Sergey M. Serov for reporting!
+
+2.4.1b:
+-------
+
+Use SO_REUSEADDR on serving socket.
+
+2.4:
+----
+
+Bandwidth limiting is not not only as a strict maximum at any point in
+time but now you can also limit for the session as a whole.  Do so by
+giving a negative bandwidth limit.  To make it clear: if the session
+was running below the limit for some time for other bottlenecks in the
+chain, then it will run above the limit to make good for it at other
+times when it can.
+
+2.3:
+----
+
+Identical to 2.3b3, sigchld handling is assumed to be correct now and
+works with various versions of the Linux kernel.
+
+Version 2.3 has sound support, see e.g. `cstream -Oa -o /dev/dsp`.
+
+2.3b3:
+------
+
+Further SIGCHLD fixes.
+
+2.3b2:
+------
+
+Fix SIGCHLD handling so that stopping and continuing the child in a
+concurrent mode would not terminate.
+
+2.3b1:
+------
+
+Version 2.3 has sound support, see e.g. `cstream -Oa -o /dev/dsp`
+
+version 2.2:
+------------
+
+TCP/IP socket support.
+
+Linux glibc 64 bit files.
+
+Version 2.1:
+------------
+
+- Add audio mode: -O a/-I a try to switch output file into CD-quality
+  16bit 44100Hz stereo mode.  If input is just generated, a sine wave
+  of 440 Hz will be played.
+- Add tee-fd mode.  -O t will copy the stream to file descriptor 3
+  (which must already be opened by parent process).
+
+Version 2.0:
+------------
+- Add -c flag for concurrent mode.
+- Add -B flag (buffering of multiple input blocks before output
+  blocks are written).
+- Add -l flag (statistics will include line count).
+- If input data is just 'generated', use a buffer that remotely
+  resembles ASCII text with a line length of 76 chars and has a
+  newline at the end of data.
+- Number of bytes transferred is also displayed in GB/MB/KB, if
+  appriopriate. 
+- Change throughput report to be shorter.
+- Add automatic tests `make check`.
+- Througput reporting on signals got the wrong time when cstream was
+  not called with -v > 0.
+- Use SIGINFO for throughput report.
+- Use more values from configure script.
+- Throughput report is now asynchronous, not after next read() or write().
+- Throughput report will report buffer fillage if -B is in use.
+
+Version 1.4:
+------------
+
+- Fix Linux compilation problems.
+- The -b and -t options now also recognize 'k', 'm', 'g' for kilo-,
+  mega-, gigabyte like the -n option did.
+- The signal for shutdown is now SIGUSR2, not SIGHUP.
+
+Version 1.3:
+------------
+
+- Fix permissions of created files
+- You can now specify the input file without using a switch (if it is
+  the last argument)
+- Improve messages
+
+Version 1.2:
+------------
+
+- Argument checking for -v was broken, fixed.
+
+Version 1.1:
+------------ 
+
+- Fix version number reporting, introduce -V switch.
+- Fix usage() typos.
+
+Version 1.0:
+------------
+
+- Initial version.

@@ -44,18 +44,18 @@ Ref<WebImage> WebImage::create(const IntSize& size, ImageOptions options, const 
         auto purpose = (options & ImageOptionsShareable) ? RenderingPurpose::ShareableSnapshot : RenderingPurpose::Snapshot;
         purpose = (options & ImageOptionsLocal) ? RenderingPurpose::ShareableLocalSnapshot : purpose;
         
-        if (auto buffer = client->createImageBuffer(size, purpose, 1, colorSpace, PixelFormat::BGRA8, { }))
+        if (auto buffer = client->createImageBuffer(size, purpose, 1, colorSpace, ImageBufferPixelFormat::BGRA8, { }))
             return WebImage::create(buffer.releaseNonNull());
     }
 
     if (options & ImageOptionsShareable) {
-        auto buffer = ImageBuffer::create<ImageBufferShareableBitmapBackend>(size, 1, colorSpace, PixelFormat::BGRA8, RenderingPurpose::ShareableSnapshot, { });
+        auto buffer = ImageBuffer::create<ImageBufferShareableBitmapBackend>(size, 1, colorSpace, ImageBufferPixelFormat::BGRA8, RenderingPurpose::ShareableSnapshot, { });
         if (!buffer)
             return createEmpty();
         return WebImage::create(buffer.releaseNonNull());
     }
 
-    auto buffer = ImageBuffer::create(size, RenderingPurpose::Snapshot, 1, colorSpace, PixelFormat::BGRA8);
+    auto buffer = ImageBuffer::create(size, RenderingPurpose::Snapshot, 1, colorSpace, ImageBufferPixelFormat::BGRA8);
     if (!buffer)
         return createEmpty();
     return WebImage::create(buffer.releaseNonNull());
@@ -137,11 +137,8 @@ RefPtr<ShareableBitmap> WebImage::bitmap() const
         return nullptr;
     const_cast<ImageBuffer&>(*m_buffer).flushDrawingContext();
 
-    auto* sharing = m_buffer->toBackendSharing();
-    if (!is<ImageBufferBackendHandleSharing>(sharing))
-        return nullptr;
-
-    return downcast<ImageBufferBackendHandleSharing>(*sharing).bitmap();
+    auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(m_buffer->toBackendSharing());
+    return sharing ? sharing->bitmap() : nullptr;
 }
 
 #if USE(CAIRO)
@@ -156,16 +153,16 @@ RefPtr<cairo_surface_t> WebImage::createCairoSurface()
 std::optional<ShareableBitmap::Handle> WebImage::createHandle(SharedMemory::Protection protection) const
 {
     if (!m_buffer)
-        return std::nullopt;
+        return { };
     const_cast<ImageBuffer&>(*m_buffer).flushDrawingContext();
 
-    auto* sharing = m_buffer->toBackendSharing();
-    if (!is<ImageBufferBackendHandleSharing>(sharing))
-        return std::nullopt;
+    auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(m_buffer->toBackendSharing());
+    if (!sharing)
+        return { };
 
-    auto backendHandle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle(protection);
+    auto backendHandle = sharing->createBackendHandle(protection);
     if (!backendHandle)
-        return std::nullopt;
+        return { };
 
     return std::get<ShareableBitmap::Handle>(WTFMove(*backendHandle));
 }

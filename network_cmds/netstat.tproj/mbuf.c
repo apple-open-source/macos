@@ -432,12 +432,7 @@ mbpr_getdata(void)
 	if (mflag > 3) {
 		errno = 0;
 		len = sizeof (table);
-		if (sysctlbyname(KERN_IPC_MLEAK_TABLE, &table, &len, 0, 0) ==
-		    -1 && errno != ENXIO) {
-			(void) fprintf(stderr, "error %d getting %s\n", errno,
-			    KERN_IPC_MLEAK_TABLE);
-			goto done;
-		} else if (errno == ENXIO) {
+		if (sysctlbyname(KERN_IPC_MLEAK_TABLE, &table, &len, 0, 0) == -1) {
 			(void) fprintf(stderr, "mbuf leak detection is not "
 			    "enabled in the kernel.\n");
 			goto skip;

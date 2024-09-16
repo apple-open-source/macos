@@ -27,7 +27,6 @@
 
 #include "Document.h"
 #include "ScriptDisallowedScope.h"
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 

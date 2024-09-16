@@ -42,12 +42,6 @@ i inFileName [options]
 d inFileName [options]
 .PP
 .B certtool
-I inFileName [options]
-.PP
-.B certtool
-D inFileName [options]
-.PP
-.B certtool
 y [options]
 .SH CERTTOOL COMMAND SUMMARY
 .B c
@@ -68,17 +62,8 @@ Import Certificate
 .B d
 Display Certificate
 .PP
-.B I
-Import CRL
-.PP
-.B D
-Display CRL
-.PP
-.B I
-Import a CRL
-.PP
 .B y
-Display all certs and CRLs in keychain
+Display all certs in keychain
 .SH "CERTTOOL OPTION SUMMARY"
 .TP
 .B c
@@ -120,8 +105,7 @@ Execute in verbose mode.
 .B Certtool
 is a UNIX command-line program which is used to create key pairs, certificates,
 and certificate signing requests; to import externally generated certificates
-and Certificate Revocation Lists (CRLs) into a Keychain, and to display the 
-contents of certificates and CRLs. 
+into a Keychain, and to display the contents of certificates.
 .SH EXAMPLES
 .B "Generating a Self-Signed Certificate"
 .PP
@@ -395,44 +379,9 @@ The format of this command is
 The cert to display is obtained from "inFileName". 
 The only available option is the 'd' flag, specifying DER format as described above. The default is PEM format. Actually, in the absence of this option, certtool will correctly determine the format of the certificate (PEM or DER). 
 .PP
-.B "Importing a CRL"
+.B "Displaying Certificates in a keychain"
 .PP
-This command is used to add a Certificate Revocation List (CRL) to a keychain. 
-The format of this command is 
-.EX
-# CertTool I inFileName [options] 
-.EE
-The CRL to import is obtained from "inFileName".  The available options are: 
-.EX
-k=keyChainName 
-.EE
-Where "KeyChainName" is the name of the keychain to which the CRL will be added.
-If no keychain is specified, the cert is added to the default keychain.  If the
-keychain is not open when this command is executed, you will be prompted by the
-Keychain system for its passphrase.
-.EX
- d 
-.EE
-Specifies DER format as described above. The default is PEM format.
-.EX
- c 
-.EE
-Specifies that the designated keychain is to be created.
-.PP
-.B "Displaying a CRL"
-.PP
-This displays the contents of an existing Certificate Revocation List (CRL),
-obtained from a file. The format of this command is 
-.EX
-# CertTool D inFileName [options] 
-.EE
-The cert to display is obtained from "inFileName". 
-The only available option is the 'd' flag, specifying DER format as described
-above. The default is PEM format.
-.PP
-.B "Displaying Certificates and CRLs in a keychain"
-.PP
-This displays the contents of all certificates and CRLs in a keychain. The format of this command is 
+This displays the contents of all certificates in a keychain. The format of this command is
 .EX
 # CertTool y [options] 
 .EE

@@ -86,6 +86,12 @@
 	} \
 } while (0)
 
+#define NFS_KDBG_FILE_IO_RETURN do { \
+    if (!NFSCLNT_IS_DBG(NFSCLNT_FAC_KDBG, 12)) { \
+	return; \
+    } \
+} while (0);
+
 /*
  * DBG_FSYSTEM (Class) = 0x3 and DBG_NFS (Subclass) = 0x15
  */
@@ -204,7 +210,6 @@
 #define NFSDBG_OP_SEND_SNDLOCK_LOCK   NFSDBG_CODE(217)   /* 0x3150364 */
 #define NFSDBG_OP_SEND_SENDMBUF       NFSDBG_CODE(218)   /* 0x3150368 */
 
-
 #else   /* !NFS_ENABLE_KDBG_TRACING */
 
 #define NFS_KDBG_ENTRY(code, ...)  do {} while (0)
@@ -212,5 +217,8 @@
 #define NFS_KDBG_INFO(code, ...)   do {} while (0)
 
 #endif /* NFS_ENABLE_KDBG_TRACING */
+
+void nfs_kdebug_io_start(mount_t, void *, size_t, uint32_t, int64_t);
+void nfs_kdebug_io_end(vnode_t, void *, int64_t, int);
 
 #endif  /* _NFS_KDEBUG_H_ */

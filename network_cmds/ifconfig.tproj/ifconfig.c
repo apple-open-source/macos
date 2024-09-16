@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1679,6 +1679,17 @@ setmanagement(const char *vname, int value, int s, const struct afswtch *afp)
 #endif /* SIOCSIFMANAGEMENT */
 }
 
+void
+setdisableinput(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_intval = value;
+#ifdef SIOCSIFDISABLEINPUT
+	if (ioctl(s, SIOCSIFDISABLEINPUT, (caddr_t)&ifr) < 0)
+		Perror(vname);
+#endif /* SIOCSIFDISABLEINPUT */
+}
+
 struct str2num {
 	const char *str;
 	uint32_t num;
@@ -1838,12 +1849,12 @@ done:
 #define	IFXFBITS \
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
 "\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING" \
-"\17MANAGEMENT"
+"\17MANAGEMENT\20ULTRA_CONSTRAINED\21IS_VPN\22DELAYWAKEPKTEVENT\23DISABLE_INPUT"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
 "\6TSO4\7TSO6\10LRO\11AV\12TXSTATUS\13CHANNEL_IO\14HW_TIMESTAMP\15SW_TIMESTAMP" \
-"\16PARTIAL_CSUM\17ZEROINVERT_CSUM"
+"\16PARTIAL_CSUM\17ZEROINVERT_CSUM\20LRO_NUM_SEG"
 
 #define	IFRLOGF_BITS \
 "\020\1DLIL\21FAMILY\31DRIVER\35FIRMWARE"
@@ -2637,6 +2648,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-noshaping", 0,      setnoshaping),
 	DEF_CMD("management", 1,      setmanagement),
 	DEF_CMD("-management", 0,      setmanagement),
+	DEF_CMD("disableinput", 1,      setdisableinput),
+	DEF_CMD("-disableinput", 0,      setdisableinput),
 };
 
 static __constructor void

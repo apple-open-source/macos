@@ -30,9 +30,9 @@
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "JSDOMExceptionHandling.h"
+#include "JSDOMWindow.h"
 #include "JSExecState.h"
 #include "JSExecStateInstrumentation.h"
-#include "JSLocalDOMWindow.h"
 #include "JSWorkerGlobalScope.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
@@ -109,6 +109,7 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
     JSGlobalObject* lexicalGlobalObject = globalObject;
 
     MarkedArgumentBuffer arguments;
+    arguments.ensureCapacity(m_arguments.size());
     for (auto& argument : m_arguments)
         arguments.append(argument.get());
     if (UNLIKELY(arguments.hasOverflowed())) {
@@ -130,11 +131,11 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
 
 void ScheduledAction::execute(Document& document)
 {
-    auto* window = toJSLocalDOMWindow(document.frame(), m_isolatedWorld);
+    auto* window = toJSDOMWindow(document.frame(), m_isolatedWorld);
     if (!window)
         return;
 
-    RefPtr frame = window->wrapped().frame();
+    RefPtr frame = dynamicDowncast<LocalFrame>(window->wrapped().frame());
     if (!frame || !frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::AboutToExecuteScript))
         return;
 

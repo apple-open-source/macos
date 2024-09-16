@@ -96,6 +96,15 @@ __private_extern__ void DADiskClaimCommon ( DADiskRef                  disk,
                                            bool                       block );
 __private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block );
 
+#ifdef DA_FSKIT
+__private_extern__ void DADiskSetFSKitAdditionsCommon( DADiskRef                             disk,
+                                                        CFDictionaryRef __nullable             additions,
+                                                        DADiskSetFSKitAdditionsCallbackBlock   callback );
+
+__private_extern__ void DADiskProbeWithBlockCommon ( DADiskRef                             disk,
+                                                     DADiskProbeCallbackBlock __nullable   callback );
+
+#endif /* DA_FSKIT */
 
 
 
@@ -2792,3 +2801,23 @@ void DADiskClaimWithBlock( DADiskRef                             disk,
 {
     DADiskClaimCommon( disk, options, (void *) Block_copy ( release ), NULL, (void *) Block_copy ( callback ), NULL, true );
 }
+
+#ifdef DA_FSKIT
+
+void DADiskSetFSKitAdditions( DADiskRef                             disk,
+                               CFDictionaryRef __nullable             additions,
+                               DADiskSetFSKitAdditionsCallbackBlock   callback )
+{
+    DADiskSetFSKitAdditionsCommon(disk, additions, (void *) Block_copy(callback));
+}
+
+void DADiskProbeWithBlock( DADiskRef                             disk,
+                           DADiskProbeCallbackBlock __nullable   callback )
+{
+    if (callback) {
+        callback = (void *) Block_copy(callback);
+    }
+    DADiskProbeWithBlockCommon(disk, callback);
+}
+
+#endif /* DA_FSKIT */

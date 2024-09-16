@@ -91,8 +91,7 @@ static int
 /*ARGSUSED*/
 #ifdef __APPLE__
 _citrus_mapper_none_mapper_convert(struct _citrus_mapper * __restrict cm __unused,
-    _citrus_index_t * __restrict dst, _citrus_index_t * __restrict src,
-    int * __restrict cnt, void * __restrict ps __unused)
+    struct _citrus_mapper_convert_ctx * __restrict ctx)
 #else
 _citrus_mapper_none_mapper_convert(struct _citrus_mapper * __restrict cm __unused,
     _citrus_index_t * __restrict dst, _citrus_index_t src,
@@ -101,8 +100,8 @@ _citrus_mapper_none_mapper_convert(struct _citrus_mapper * __restrict cm __unuse
 {
 
 #ifdef __APPLE__
-	for (int i = 0; i < *cnt; i++) {
-		dst[i] = src[i];
+	for (int i = 0; i < *ctx->cnt; i++) {
+		ctx->dst[i] = ctx->src[i];
 	}
 #else
 	*dst = src;

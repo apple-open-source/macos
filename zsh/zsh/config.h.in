@@ -230,6 +230,9 @@
 /* Define to 1 if system has working FIFOs. */
 #undef HAVE_FIFOS
 
+/* Define to 1 if you have the `fpurge' function. */
+#undef HAVE_FPURGE
+
 /* Define to 1 if you have the `fseeko' function. */
 #undef HAVE_FSEEKO
 

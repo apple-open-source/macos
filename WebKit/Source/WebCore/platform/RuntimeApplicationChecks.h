@@ -40,13 +40,16 @@ enum class AuxiliaryProcessType : uint8_t {
 #if ENABLE(GPU_PROCESS)
     GPU,
 #endif
+#if ENABLE(MODEL_PROCESS)
+    Model,
+#endif
 };
 
 WEBCORE_EXPORT void setAuxiliaryProcessType(AuxiliaryProcessType);
 WEBCORE_EXPORT void setAuxiliaryProcessTypeForTesting(std::optional<AuxiliaryProcessType>);
 WEBCORE_EXPORT bool checkAuxiliaryProcessType(AuxiliaryProcessType);
 WEBCORE_EXPORT std::optional<AuxiliaryProcessType> processType();
-WEBCORE_EXPORT const char* processTypeDescription(std::optional<AuxiliaryProcessType>);
+WEBCORE_EXPORT ASCIILiteral processTypeDescription(std::optional<AuxiliaryProcessType>);
 
 WEBCORE_EXPORT bool isInAuxiliaryProcess();
 inline bool isInWebProcess() { return checkAuxiliaryProcessType(AuxiliaryProcessType::WebContent); }
@@ -89,7 +92,6 @@ WEBCORE_EXPORT bool isSafari();
 bool isSolidStateNetworksDownloader();
 WEBCORE_EXPORT bool isVersions();
 WEBCORE_EXPORT bool isHRBlock();
-WEBCORE_EXPORT bool isIAdProducer();
 WEBCORE_EXPORT bool isEpsonSoftwareUpdater();
 WEBCORE_EXPORT bool isMimeoPhotoProject();
 

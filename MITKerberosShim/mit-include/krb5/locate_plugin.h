@@ -56,6 +56,6 @@ typedef struct __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UN
 			      int socktype, int family,
 			      int (*cbfunc)(void *,int,struct sockaddr *),
 			      void *cbdata);
-} krb5plugin_service_locate_ftable;
+} krb5plugin_service_locate_ftable __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 /* extern krb5plugin_service_locate_ftable service_locator; */
 #endif

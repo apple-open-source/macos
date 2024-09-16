@@ -103,6 +103,8 @@ typedef CF_OPTIONS(uint32_t, CTFontDescriptorOptions) {
 typedef CF_ENUM(uint32_t, CTFontTextStylePlatform)
 {
     kCTFontTextStylePlatformDefault = (CTFontTextStylePlatform)-1,
+    kCTFontTextStylePlatformPhone = (CTFontTextStylePlatform)0,
+    kCTFontTextStylePlatformVision = (CTFontTextStylePlatform)5,
 };
 
 #endif
@@ -157,13 +159,19 @@ CGFloat CTFontGetAccessibilityBoldWeightOfWeight(CGFloat);
 
 extern const CFStringRef kCTFontCSSWeightAttribute;
 extern const CFStringRef kCTFontCSSWidthAttribute;
+extern const CFStringRef kCTFontDescriptorLanguageAttribute;
 extern const CFStringRef kCTFontDescriptorTextStyleAttribute;
-extern const CFStringRef kCTFontUIFontDesignTrait;
+extern const CFStringRef kCTFontGradeTrait;
+extern const CFStringRef kCTFontIgnoreLegibilityWeightAttribute;
+extern const CFStringRef kCTFontSizeCategoryAttribute;
+extern const CFStringRef kCTFontTrackAttribute;
+extern const CFStringRef kCTFontUnscaledTrackingAttribute;
 
 extern const CFStringRef kCTFontUIFontDesignDefault;
-extern const CFStringRef kCTFontUIFontDesignSerif;
 extern const CFStringRef kCTFontUIFontDesignMonospaced;
 extern const CFStringRef kCTFontUIFontDesignRounded;
+extern const CFStringRef kCTFontUIFontDesignSerif;
+extern const CFStringRef kCTFontUIFontDesignTrait;
 
 extern const CFStringRef kCTFontPaletteAttribute;
 extern const CFStringRef kCTFontPaletteColorsAttribute;
@@ -178,7 +186,6 @@ CTFontRef CTFontCreateForCharactersWithLanguage(CTFontRef currentFont, const UTF
 CTFontRef CTFontCreateForCharactersWithLanguageAndOption(CTFontRef currentFont, const UTF16Char *characters, CFIndex length, CFStringRef language, CTFontFallbackOption, CFIndex *coveredLength);
 CTFontRef CTFontCopyPhysicalFont(CTFontRef);
 CTFontSymbolicTraits CTFontGetPhysicalSymbolicTraits(CTFontRef);
-CFArrayRef CTFontCopyVariationAxesInternal(CTFontRef);
 
 extern const CFStringRef kCTUIFontTextStyleShortHeadline;
 extern const CFStringRef kCTUIFontTextStyleShortBody;

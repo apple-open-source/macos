@@ -115,8 +115,7 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 - (int)changes;
 
 // Execute one-or-more queries. Use prepared statements for anything performance critical.
-- (BOOL)executeSQL:(NSString *)format, ... NS_FORMAT_FUNCTION(1, 2);
-- (BOOL)executeSQL:(NSString *)format arguments:(va_list)args NS_FORMAT_FUNCTION(1, 0);
+- (BOOL)executeSQL:(NSString *)SQL;
 
 // Prepared statement pool accessors. Statements must be reset after they're used.
 - (SFSQLiteStatement *)statementForSQL:(NSString *)SQL;

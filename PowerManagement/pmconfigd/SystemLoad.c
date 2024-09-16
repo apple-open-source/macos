@@ -73,6 +73,7 @@ static bool   thermalWarningLevel       = FALSE;
 static bool   displayIsOff                = FALSE;
 static bool   displaySleepEnabled       = FALSE;
 static bool   gDominoIsOn               = FALSE;
+static bool   gOnenessMode              = FALSE;
 
 static int    gNotifyToken              = 0;
 
@@ -266,7 +267,7 @@ uint32_t updateUserActivityLevels(void)
 
     // check for all passive levels
     uint64_t passive_levels = 0;
-    if (!displayIsOff) {
+    if (!displayIsOff && !isA_NotificationDisplayWake()) {
         /*
          PresentPassiveWithDisplay scenarios
          */
@@ -291,7 +292,10 @@ uint32_t updateUserActivityLevels(void)
 
     if (!displayIsOff && gUserActive.userActive) {
         levels |= kIOPMUserPresentActive;
-    } else {
+    } else if (gOnenessMode) {
+        levels |= kIOPMUserPresentActive;
+    }
+    else {
         levels |= passive_levels;
     }
 
@@ -902,6 +906,34 @@ __private_extern__ void updateDominoState(xpc_object_t connection, xpc_object_t 
     bool main_display = xpc_dictionary_get_bool(msg, kDominoMainDisplay);
     INFO_LOG("Domino set to %d on main display %d", domino_state, main_display);
     SystemLoadDominoStateHasChanged(domino_state);
+}
+
+__private_extern__ void SystemLoadOnenessStateHasChanged(bool _onenessState)
+{
+    if (_onenessState) {
+        INFO_LOG("Oneness mode is on");
+        gOnenessMode = true;
+    } else {
+        INFO_LOG("Oneness mode is off");
+        gOnenessMode = false;
+    }
+    evaluateHidIdleNotification();
+}
+
+__private_extern__ void updateOnenessState(xpc_object_t connection, xpc_object_t msg)
+{
+    if (!connection || !msg) {
+        ERROR_LOG("Invalid args for updating oneness state(%p, %p)", connection, msg);
+        return;
+    }
+    if (!xpcConnectionHasEntitlement(connection, kIOPMOnenessServiceEntitlement)) {
+        ERROR_LOG("Not entitled to oneness mode");
+        return;
+    }
+
+    bool oneness_state = xpc_dictionary_get_bool(msg, kOnenessState);
+    INFO_LOG("Oneness mode set to %d", oneness_state);
+    SystemLoadOnenessStateHasChanged(oneness_state);
 }
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

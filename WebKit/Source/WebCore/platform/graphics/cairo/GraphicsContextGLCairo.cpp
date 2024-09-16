@@ -30,11 +30,10 @@
 
 #if ENABLE(WEBGL) && USE(CAIRO)
 
+#include "BitmapImage.h"
 #include "CairoUtilities.h"
 #include "GraphicsContext.h"
 #include "GraphicsContextGLImageExtractor.h"
-#include "Image.h"
-#include "ImageSource.h"
 #include "PixelBuffer.h"
 #include "RefPtrCairo.h"
 #include <cairo.h>
@@ -50,16 +49,16 @@ bool GraphicsContextGLImageExtractor::extractImage(bool premultiplyAlpha, bool i
     // We need this to stay in scope because the native image is just a shallow copy of the data.
     AlphaOption alphaOption = premultiplyAlpha ? AlphaOption::Premultiplied : AlphaOption::NotPremultiplied;
     GammaAndColorProfileOption gammaAndColorProfileOption = ignoreGammaAndColorProfile ? GammaAndColorProfileOption::Ignored : GammaAndColorProfileOption::Applied;
-    auto source = ImageSource::create(nullptr, alphaOption, gammaAndColorProfileOption);
+    auto image = BitmapImage::create(nullptr, alphaOption, gammaAndColorProfileOption);
     m_alphaOp = AlphaOp::DoNothing;
 
     if (m_image->data()) {
-        source->setData(m_image->data(), true);
-        if (!source->frameCount())
+        image->setData(m_image->data(), true);
+        if (!image->frameCount())
             return false;
-        m_imageSurface = source->createFrameImageAtIndex(0)->platformImage();
+        m_imageSurface = image->currentNativeImage()->platformImage();
     } else {
-        m_imageSurface = m_image->nativeImageForCurrentFrame()->platformImage();
+        m_imageSurface = m_image->currentNativeImage()->platformImage();
         // 1. For texImage2D with HTMLVideoElment input, assume no PremultiplyAlpha had been applied and the alpha value is 0xFF for each pixel,
         // which is true at present and may be changed in the future and needs adjustment accordingly.
         // 2. For texImage2D with HTMLCanvasElement input in which Alpha is already Premultiplied in this port, 
@@ -112,8 +111,8 @@ RefPtr<NativeImage> GraphicsContextGL::createNativeImageFromPixelBuffer(const Gr
 
     // Convert RGBA to BGRA. BGRA is CAIRO_FORMAT_ARGB32 on little-endian architectures.
     Ref protectedPixelBuffer = pixelBuffer;
-    size_t totalBytes = pixelBuffer->sizeInBytes();
-    uint8_t* pixels = pixelBuffer->bytes();
+    size_t totalBytes = pixelBuffer->bytes().size();
+    uint8_t* pixels = pixelBuffer->bytes().data();
     for (size_t i = 0; i < totalBytes; i += 4)
         std::swap(pixels[i], pixels[i + 2]);
 
@@ -127,7 +126,7 @@ RefPtr<NativeImage> GraphicsContextGL::createNativeImageFromPixelBuffer(const Gr
 
     auto imageSize = pixelBuffer->size();
     RefPtr<cairo_surface_t> imageSurface = adoptRef(cairo_image_surface_create_for_data(
-        pixelBuffer->bytes(), CAIRO_FORMAT_ARGB32, imageSize.width(), imageSize.height(), imageSize.width() * 4));
+        pixels, CAIRO_FORMAT_ARGB32, imageSize.width(), imageSize.height(), imageSize.width() * 4));
     static cairo_user_data_key_t dataKey;
     cairo_surface_set_user_data(imageSurface.get(), &dataKey, &protectedPixelBuffer.leakRef(), [](void* buffer) {
         static_cast<PixelBuffer*>(buffer)->deref();

@@ -723,7 +723,7 @@ filt_portattach(struct knote *kn, ipc_port_t port)
 	if (send_turnstile) {
 		turnstile_update_inheritor_complete(send_turnstile,
 		    TURNSTILE_INTERLOCK_NOT_HELD);
-		turnstile_deallocate_safe(send_turnstile);
+		turnstile_deallocate(send_turnstile);
 	}
 
 	return result;

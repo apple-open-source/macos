@@ -41,7 +41,9 @@
 #include "ScriptController.h"
 #include "ScriptableDocumentParser.h"
 #include "Settings.h"
+#include "TrustedType.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -119,18 +121,17 @@ void HTMLIFrameElement::attributeChanged(const QualifiedName& name, const AtomSt
     switch (name.nodeName()) {
     case AttributeNames::sandboxAttr: {
         if (m_sandbox)
-            m_sandbox->associatedAttributeValueChanged(newValue);
+            m_sandbox->associatedAttributeValueChanged();
 
         String invalidTokens;
         setSandboxFlags(newValue.isNull() ? SandboxNone : SecurityContext::parseSandboxPolicy(newValue, invalidTokens));
         if (!invalidTokens.isNull())
-            document().addConsoleMessage(MessageSource::Other, MessageLevel::Error, "Error while parsing the 'sandbox' attribute: " + invalidTokens);
+            document().addConsoleMessage(MessageSource::Other, MessageLevel::Error, makeString("Error while parsing the 'sandbox' attribute: "_s, invalidTokens));
         break;
     }
     case AttributeNames::allowAttr:
     case AttributeNames::allowfullscreenAttr:
     case AttributeNames::webkitallowfullscreenAttr:
-        m_featurePolicy = std::nullopt;
         break;
     case AttributeNames::loadingAttr:
         // Allow loading=eager to load the frame immediately if the lazy load was started, but
@@ -140,6 +141,9 @@ void HTMLIFrameElement::attributeChanged(const QualifiedName& name, const AtomSt
             loadDeferredFrame();
         }
         break;
+    case AttributeNames::srcdocAttr:
+    case AttributeNames::srcAttr:
+        FALLTHROUGH;
     default:
         HTMLFrameElementBase::attributeChanged(name, oldValue, newValue, attributeModificationReason);
         break;
@@ -173,13 +177,6 @@ ReferrerPolicy HTMLIFrameElement::referrerPolicy() const
     return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
 }
 
-const FeaturePolicy& HTMLIFrameElement::featurePolicy() const
-{
-    if (!m_featurePolicy)
-        m_featurePolicy = FeaturePolicy::parse(document(), *this, attributeWithoutSynchronization(allowAttr));
-    return *m_featurePolicy;
-}
-
 const AtomString& HTMLIFrameElement::loadingForBindings() const
 {
     return equalLettersIgnoringASCIICase(attributeWithoutSynchronization(HTMLNames::loadingAttr), "lazy"_s) ? lazyAtom() : eagerAtom();
@@ -188,6 +185,22 @@ const AtomString& HTMLIFrameElement::loadingForBindings() const
 void HTMLIFrameElement::setLoadingForBindings(const AtomString& value)
 {
     setAttributeWithoutSynchronization(loadingAttr, value);
+}
+
+String HTMLIFrameElement::srcdoc() const
+{
+    return attributeWithoutSynchronization(srcdocAttr);
+}
+
+ExceptionOr<void> HTMLIFrameElement::setSrcdoc(std::variant<RefPtr<TrustedHTML>, String>&& value)
+{
+    auto stringValueHolder = trustedTypeCompliantString(*document().scriptExecutionContext(), WTFMove(value), "HTMLIFrameElement srcdoc"_s);
+
+    if (stringValueHolder.hasException())
+        return stringValueHolder.releaseException();
+
+    setAttributeWithoutSynchronization(srcdocAttr, AtomString { stringValueHolder.releaseReturnValue() });
+    return { };
 }
 
 static bool isFrameLazyLoadable(const Document& document, const URL& url, const AtomString& loadingAttributeValue)

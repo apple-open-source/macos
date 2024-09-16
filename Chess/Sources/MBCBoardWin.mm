@@ -1,7 +1,7 @@
 /*
     File:		MBCBoardWin.mm
     Contains:	Manage the board window
-    Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+    Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
     IMPORTANT: This Apple software is supplied to you by Apple Computer,
     Inc.  ("Apple") in consideration of your agreement to the following
@@ -45,6 +45,7 @@
 
 #import "MBCBoardWin.h"
 #import "MBCBoardView.h"
+#import "MBCBoardMTLView.h"
 #import "MBCPlayer.h"
 #import "MBCEngine.h"
 #import "MBCDocument.h"
@@ -55,14 +56,19 @@
 #import "MBCRemotePlayer.h"
 #import "MBCUserDefaults.h"
 #import "MBCController.h"
+#import "MBCMetalRenderer.h"
 
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <UserNotifications/UserNotifications.h>
+#import <Metal/Metal.h>
+#import <sys/sysctl.h>
+
+#define MAIN_WINDOW_CONTENT_ASPECT_RATIO 4.f / 3.f
 
 @implementation MBCBoardWin
 
-@synthesize gameView, gameNewSheet, logContainer, logView, board, engine, interactive, playersPopupMenu;
+@synthesize gameView, gameMTLView, gameNewSheet, logContainer, logView, board, engine, interactive, playersPopupMenu;
 @synthesize gameInfo, remote, logViewRightEdgeConstraint, dialogController;
 @synthesize primarySynth, alternateSynth, primaryLocalization, alternateLocalization;
 
@@ -99,7 +105,17 @@
     [fObservers release];
     [primaryLocalization release];
     [alternateLocalization release];
+    [fMetalRenderer release];
     [super dealloc];
+}
+
+- (NSView<MBCBoardViewInterface> *)renderView
+{
+    if ([MBCBoardWin isRenderingWithMetal]) {
+        return (NSView<MBCBoardViewInterface> *)gameMTLView;
+    }
+    
+    return (NSView<MBCBoardViewInterface> *)gameView;
 }
 
 - (void)endAnimation
@@ -110,6 +126,21 @@
 - (void)windowDidLoad
 {
     [super windowDidLoad];
+    
+    if ([MBCBoardWin isRenderingWithMetal]) {
+        // Constrainig aspect ratio to avoid Metal drawable stretching during resize.
+        self.window.contentAspectRatio = NSMakeSize(MAIN_WINDOW_CONTENT_ASPECT_RATIO, 1.f);
+        
+        // Remove the OpenGL view and release.
+        [gameView removeFromSuperview];
+        gameView = nil;
+        
+        [self initializeForMetalRendering];
+    } else {
+        // Using OpenGL, remove the MTKView and release
+        [gameMTLView removeFromSuperview];
+        gameMTLView = nil;
+    }
 
     if (!fObservers)
         fObservers = [[NSMutableArray alloc] init];
@@ -142,7 +173,7 @@
          queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
              MBCVariant     variant  = [document variant];
              NSLog(@"MBCGameStartNotfication with variant %d", variant);
-             [gameView startGame:variant playing:[document humanSide]];
+             [[self renderView] startGame:variant playing:[document humanSide]];
              [engine setSearchTime:[document integerForKey:kMBCSearchTime]];
              [engine startGame:variant playing:[document engineSide]];
              [interactive startGame:variant playing:[document humanSide]];	
@@ -154,8 +185,8 @@
         [notificationCenter
          addObserverForName:MBCTakebackNotification object:document 
          queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
-             [gameView unselectPiece];
-             [gameView hideMoves];
+             [[self renderView] unselectPiece];
+             [[self renderView] hideMoves];
              [board undoMoves:2];
          }]];  
 	[notificationCenter
@@ -184,10 +215,14 @@
     [document addObserver:self forKeyPath:kMBCPieceStyle options:NSKeyValueObservingOptionNew context:nil];
     [document addObserver:self forKeyPath:kMBCListenForMoves options:NSKeyValueObservingOptionNew context:nil];
     
-	gameView->fElevation            = [document floatForKey:kMBCBoardAngle];
-	gameView->fAzimuth              = [document floatForKey:kMBCBoardSpin];
-    
-    [gameView setStyleForBoard:[document objectForKey:kMBCBoardStyle] pieces:[document objectForKey:kMBCPieceStyle]];
+    if (![MBCBoardWin isRenderingWithMetal]) {
+        // If rendering with Metal, the following has already been done in initializeForMetalRendering
+        [self renderView].elevation            = [document floatForKey:kMBCBoardAngle];
+        [self renderView].azimuth              = [document floatForKey:kMBCBoardSpin];
+        
+        [[self renderView] setStyleForBoard:[document objectForKey:kMBCBoardStyle]
+                                     pieces:[document objectForKey:kMBCPieceStyle]];
+    }
     
     [self setShouldCascadeWindows:NO];
     NSWindow * window = [self window];
@@ -196,7 +231,7 @@
     if (![document boolForKey:kMBCShowGameLog])
         [self hideLogContainer:self];
     [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
-	[window makeFirstResponder:gameView];
+	[window makeFirstResponder:[self renderView]];
 	[window makeKeyAndOrderFront:self];
     [fObservers addObject:
         [notificationCenter
@@ -216,8 +251,17 @@
              [interactive removeController];
              [remote removeChessObservers];
              [self removeChessObservers];
-             [gameView setNeedsDisplay:NO];
-             [gameView removeFromSuperview];
+             [self stopRecordingIfNeeded];
+             if (gameView.superview) {
+                 [gameView setNeedsDisplay:NO];
+                 [gameView removeFromSuperview];
+                 gameView = nil;
+             }
+             if (gameMTLView.superview) {
+                 gameMTLView.delegate = nil;
+                 [gameMTLView removeFromSuperview];
+                 gameMTLView = nil;
+             }
          }]];
     if ([document needNewGameSheet]) {
         usleep(500000);
@@ -229,7 +273,7 @@
 - (void)windowWillLoad {
     //SharePlay
     currentSharePlayMoveStringCount = 0;
-    if ([self getSharePlayEnabledDefaultsProperty] == YES) {
+    if ([MBCUserDefaults isSharePlayEnabled] == YES) {
         //Setting the shareplay message delegate to this new window
         if ([[MBCSharePlayManager sharedInstance] connected] == NO) {
             NSLog(@"MBCSharePlayManager set BoardWindowDelegate to Self");
@@ -250,15 +294,17 @@
 
 - (void)windowDidBecomeMain:(NSNotification *)notification
 {
-    if ([self listenForMoves])
+    if ([self listenForMoves]) {
         [interactive allowedToListen:YES];
-	[gameView setNeedsDisplay:YES];
+    }
+	[[self renderView] needsUpdate];
 }
 
 - (void)windowDidResignMain:(NSNotification *)notification
 {
-    if ([self listenForMoves])
+    if ([self listenForMoves]) {
         [interactive allowedToListen:NO];
+    }
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
@@ -272,8 +318,8 @@
     } else if ([keyPath isEqual:kMBCListenForMoves]) {
         [interactive allowedToListen:[self listenForMoves]];
     } else {
-        [gameView setStyleForBoard:[[self document] objectForKey:kMBCBoardStyle] 
-                            pieces:[[self document] objectForKey:kMBCPieceStyle]];        
+        [[self renderView] setStyleForBoard:[[self document] objectForKey:kMBCBoardStyle]
+                                     pieces:[[self document] objectForKey:kMBCPieceStyle]];
     }
 }
 
@@ -284,9 +330,11 @@
     } else if ([menuItem action] == @selector(toggleLogView:)) {
         BOOL logViewVisible = ! [logView isHiddenOrHasHiddenAncestor];
         [menuItem setState:(logViewVisible ? NSOnState : NSOffState)];
-        return YES;
-    } else
-        return YES;
+    } else if ([menuItem action] == @selector(toggleEdgeNotation:)) {
+        BOOL edgeNotationVisible = gameMTLView.drawEdgeNotationLabels;
+        [menuItem setState:(edgeNotationVisible ? NSOnState : NSOffState)];
+    }
+    return YES;
 }
 
 - (NSString *)windowTitleForDocumentDisplayName:(NSString *)displayName
@@ -471,6 +519,12 @@ uint32_t sAttributesForSides[] = {
     [self didChangeValueForKey:@"hideSpeakHumanMoves"];
     [self didChangeValueForKey:@"hideEngineProperties"];
     [self didChangeValueForKey:@"hideRemoteProperties"];
+    
+    // The way new documents are created in Chess will give consecutive new games
+    // the same draft name if no moves are made. Setting the display name to nil
+    // will force the name to be updated with incremented numbers in draft name.
+    [[self document] setDisplayName:nil];
+    [self synchronizeWindowTitleWithDocumentName];
 }
 
 - (IBAction)cancelNewGame:(id)sender
@@ -488,13 +542,13 @@ uint32_t sAttributesForSides[] = {
 
 - (IBAction) showHint:(id)sender
 {
-	[gameView showMoveAsHint:[engine lastPonder]];
+	[[self renderView] showMoveAsHint:[engine lastPonder]];
 	[interactive announceHint:[engine lastPonder]];
 }
 
 - (IBAction) showLastMove:(id)sender
 {
-	[gameView showMoveAsLast:[board lastMove]];
+	[[self renderView] showMoveAsLast:[board lastMove]];
 	[interactive announceLastMove:[board lastMove]];
 }
 
@@ -525,7 +579,7 @@ uint32_t sAttributesForSides[] = {
     }
 }
 
-- (void) adjustLogView
+- (void)adjustLogViewForReusedWindow
 {
     //
     // Show or hide game log if necessary if window was reused
@@ -653,14 +707,14 @@ uint32_t sAttributesForSides[] = {
 	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification userInfo]);
 
 	[board makeMove:move];
-	[gameView unselectPiece];
-	[gameView hideMoves];
+	[[self renderView] unselectPiece];
+	[[self renderView] hideMoves];
 	[[self document] updateChangeCount:NSChangeDone];
     [self updateAchievementsForMove:move];
     
     if (move->fAnimate){
         NSLog(@"Move Animation");
-		fCurAnimation = [MBCMoveAnimation moveAnimation:move board:board view:gameView];
+		fCurAnimation = [MBCMoveAnimation moveAnimation:move board:board view:[self renderView]];
         
     } else {
         NSLog(@"Posting EndMoveNotification");
@@ -692,16 +746,16 @@ uint32_t sAttributesForSides[] = {
         [MBCSharePlayManager sharedInstance].totalMoves++;
     }
 	[board commitMove];
-	[gameView hideMoves];
+	[[self renderView] hideMoves];
 	[[self document] updateChangeCount:NSChangeDone];
     
-    if ([[self document] humanSide] == kBothSides && [gameView facing] != kNeitherSide
+    if ([[self document] humanSide] == kBothSides && [[self renderView] facing] != kNeitherSide
         && ([[MBCSharePlayManager sharedInstance] boardWindowDelegate] != self || [[MBCSharePlayManager sharedInstance] connected] == NO)) {
 		//
 		// Rotate board
 		//
         NSLog(@"MBCBoardWin CommitMove Rotate Board");
-		fCurAnimation = [MBCBoardAnimation boardAnimation:gameView];
+		fCurAnimation = [MBCBoardAnimation boardAnimation:[self renderView]];
 	}
 }
 
@@ -899,7 +953,7 @@ uint32_t sAttributesForSides[] = {
 
 - (IBAction)showPreferences:(id)sender
 {
-    [gameInfo editPreferencesForWindow:[self window]];
+    [gameInfo editPreferencesForWindow:[self window] hidePiecesStyle:[MBCBoardWin isRenderingWithMetal]];
 }
 
 - (void)setAngle:(float)angle spin:(float)spin
@@ -914,7 +968,7 @@ uint32_t sAttributesForSides[] = {
     gettimeofday(&startTime, NULL);
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         timeval endTime;
-        [gameView profileDraw];
+        [[self renderView] profileDraw];
         gettimeofday(&endTime, NULL);
         double elapsed = endTime.tv_sec-startTime.tv_sec
         +0.000001*(endTime.tv_usec-startTime.tv_usec);
@@ -924,13 +978,27 @@ uint32_t sAttributesForSides[] = {
 }
 
 - (BOOL) hideSharePlayProperties {
-    return ![self getSharePlayEnabledDefaultsProperty];
+    return ![MBCUserDefaults isSharePlayEnabled];
 }
 
-- (BOOL) getSharePlayEnabledDefaultsProperty {
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"Defaults" ofType:@"plist"];
-    NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:path];
-    return [[dict objectForKey:@"SharePlayEnabled"] boolValue];
+- (void)checkEdgeNotationVisibilityForReusedWindow {
+    MBCDocument *document = [self document];
+    if ([document boolForKey:kMBCShowEdgeNotation] != gameMTLView.drawEdgeNotationLabels) {
+        // Stored value from document not equal to what is shown in view, update the view.
+        gameMTLView.drawEdgeNotationLabels = [document boolForKey:kMBCShowEdgeNotation];
+    }
+}
+
+- (IBAction)toggleEdgeNotation:(id)sender {
+    MBCDocument * document = [self document];
+    BOOL currentlyShowing = [document boolForKey:kMBCShowEdgeNotation];
+    [document setValue:[NSNumber numberWithBool:!currentlyShowing] forKey:kMBCShowEdgeNotation];
+    
+    // Enable or disable rendering of the edge notation labels
+    gameMTLView.drawEdgeNotationLabels = !currentlyShowing;
+    
+    // Need to redraw to update labels.
+    [gameMTLView needsUpdate];
 }
 
 #pragma mark -
@@ -1091,4 +1159,102 @@ uint32_t sAttributesForSides[] = {
     NSLog(@"UNNotificationCenterDelegate callback");
     completionHandler(UNNotificationPresentationOptionBanner);
 }
+
+#pragma mark - Screen Recording
+
+- (void)stopRecordingIfNeeded {
+    MBCController *controller = (MBCController *)[NSApp delegate];
+    [controller stopRecordingForWindow:self.window];
+}
+
+#pragma mark - Metal Rendering
+
+/*!
+ @abstract isRunningTranslatedWithRosetta
+ @discussion This method returns the value 0 for a native process, 1 for a translated process, and -1 when an error occurs.
+ */
++ (int)isRunningTranslatedWithRosetta {
+    int ret = 0;
+    size_t size = sizeof(ret);
+    if (sysctlbyname("sysctl.proc_translated", &ret, &size, NULL, 0) == -1) {
+        if (errno == ENOENT) {
+            return 0;
+        }
+        return -1;
+    }
+    return ret;
+}
+
+/*!
+ @abstract isRenderingWithMetal
+ @discussion Will determine whether or not Metal is enabled, running on Apple Silicon device, and running native (not translated with Rosetta).
+ @return Yes if Metal render is enabled, running on Apple Silicon device, and running native.
+ */
++ (BOOL)isRenderingWithMetal {
+    static dispatch_once_t onceToken;
+    static BOOL sRenderingWithMetal;
+    dispatch_once(&onceToken, ^{
+        BOOL isAppleSiliconDevice = [MBCMetalRenderer.defaultMTLDevice supportsFamily:MTLGPUFamilyApple2];
+        BOOL isNativeProcess = ([self isRunningTranslatedWithRosetta] == 0);
+        sRenderingWithMetal = [MBCUserDefaults isMetalRenderingEnabled] && isAppleSiliconDevice && isNativeProcess;
+    });
+    return sRenderingWithMetal;
+}
+
+- (void)initializeForMetalRendering {
+    // Black bars to be displayed above/below Metal view when game view
+    // does not fill window height while maintaining view aspect ratio.
+    self.mtlBackingView.layer.backgroundColor = [NSColor.blackColor CGColor];
+    
+    id<MTLDevice> device = MBCMetalRenderer.defaultMTLDevice;
+    gameMTLView.device = device;
+    
+    fMetalRenderer = [[MBCMetalRenderer alloc] initWithDevice:device mtkView:gameMTLView];
+    [fMetalRenderer drawableSizeWillChange:gameMTLView.preferredDrawableSize];
+    gameMTLView.renderer = fMetalRenderer;
+    
+    MBCDocument *document = [self document];
+    gameMTLView.elevation = [document floatForKey:kMBCBoardAngle];
+    gameMTLView.azimuth = [document floatForKey:kMBCBoardSpin];
+    gameMTLView.drawEdgeNotationLabels = [document boolForKey:kMBCShowEdgeNotation];
+    gameMTLView.aspectConstraint.constant = MAIN_WINDOW_CONTENT_ASPECT_RATIO;
+    [gameMTLView setStyleForBoard:[document objectForKey:kMBCBoardStyle]
+                           pieces:[document objectForKey:kMBCPieceStyle]];
+    
+    gameMTLView.delegate = self;
+    
+    // By default the View menu item is hidden.
+    NSMenuItem *viewMenu = [[NSApp mainMenu] itemAtIndex:3];
+    viewMenu.hidden = NO;
+    
+    // Remove the default "Show Tab Bar" and "Show All Tabs" menu items from View menu.
+    NSWindow.allowsAutomaticWindowTabbing = NO;
+}
+
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+    // Stopped live resize, need to update the Metal renderer's textures
+    if (gameMTLView) {
+        [self mtkView:gameMTLView drawableSizeWillChange:gameMTLView.drawableSize];
+    }
+}
+
+- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
+    if (self.window.inLiveResize) {
+        // Do not call drawableSizeWillChange on renderer until live resize is completed by user.
+        // Will do a lot of unneccessary MTLTexture generation during all the calls made while
+        // resizing the window
+        return;
+    }
+    [fMetalRenderer drawableSizeWillChange:size];
+}
+
+- (void)drawInMTKView:(MTKView *)view {
+    if (self.window.inLiveResize) {
+        // Do not redraw metal content until live resize is completed by user. This leads
+        // to a lot of memory usage which may result in app using too much memory.
+        return;
+    }
+    [gameMTLView drawMetalContent];
+}
+
 @end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 - 2020 Apple Inc. All rights reserved
+ * Copyright (c) 2012 - 2023 Apple Inc. All rights reserved
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -302,6 +302,70 @@ interpret_and_display(char *share, SMBShareAttributes *sattrs)
             break;
     }
 
+    /* Compression algorithms */
+    print_if_attr(stdout, sattrs->session_misc_flags,
+                  SMBV_COMPRESSION_CHAINING_OFF, "COMPRESSION_CHAINING_OFF",
+                  "TRUE", &ret);
+    
+    print_if_attr(stdout, sattrs->client_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZNT1_ENABLED, "CLIENT_COMPRESSION_ALGORITHMS",
+                  "LZNT1_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->client_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZ77_ENABLED, "CLIENT_COMPRESSION_ALGORITHMS",
+                  "LZ77_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->client_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED, "CLIENT_COMPRESSION_ALGORITHMS",
+                  "LZ77_HUFFMAN_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->client_compression_algorithms_map,
+                  SMB2_COMPRESSION_PATTERN_V1_ENABLED, "CLIENT_COMPRESSION_ALGORITHMS",
+                  "PATTERN_V1_ENABLED", &ret);
+
+    print_if_attr(stdout, sattrs->server_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZNT1_ENABLED, "SERVER_COMPRESSION_ALGORITHMS",
+                  "LZNT1_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->server_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZ77_ENABLED, "SERVER_COMPRESSION_ALGORITHMS",
+                  "LZ77_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->server_compression_algorithms_map,
+                  SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED, "SERVER_COMPRESSION_ALGORITHMS",
+                  "LZ77_HUFFMAN_ENABLED", &ret);
+    print_if_attr(stdout, sattrs->server_compression_algorithms_map,
+                  SMB2_COMPRESSION_PATTERN_V1_ENABLED, "SERVER_COMPRESSION_ALGORITHMS",
+                  "PATTERN_V1_ENABLED", &ret);
+
+    fprintf(stdout, "%-30s%-30s%d\n", "", "COMPRESSION_IO_THRESHOLD",
+            sattrs->compression_io_threshold);
+    fprintf(stdout, "%-30s%-30s%d\n", "", "COMPRESSION_CHUNK_LEN",
+            sattrs->compression_chunk_len);
+    fprintf(stdout, "%-30s%-30s%d\n", "", "COMPRESSION_MAX_FAIL_CNT",
+            sattrs->compression_max_fail_cnt);
+
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_COMPRESSION_CNT",
+            sattrs->write_compress_cnt);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_CNT_LZ77Huff",
+            sattrs->write_cnt_LZ77Huff);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_CNT_LZ77",
+            sattrs->write_cnt_LZ77);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_CNT_LZNT1",
+            sattrs->write_cnt_LZNT1);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_CNT_FWD_PATTERN",
+            sattrs->write_cnt_fwd_pattern);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "WRITE_CNT_BWD_PATTERN",
+            sattrs->write_cnt_bwd_pattern);
+
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_COMPRESSION_CNT",
+            sattrs->read_compress_cnt);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_CNT_LZ77Huff",
+            sattrs->read_cnt_LZ77Huff);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_CNT_LZ77",
+            sattrs->read_cnt_LZ77);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_CNT_LZNT1",
+            sattrs->read_cnt_LZNT1);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_CNT_FWD_PATTERN",
+            sattrs->read_cnt_fwd_pattern);
+    fprintf(stdout, "%-30s%-30s%llu\n", "", "READ_CNT_BWD_PATTERN",
+            sattrs->read_cnt_bwd_pattern);
+    
    /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display
@@ -475,6 +539,16 @@ display_json(char *share, SMBShareAttributes *sattrs)
         fprintf(stderr, "CFArrayCreateMutable failed\n");
         return NULL;
     }
+    CFMutableArrayRef clientCompMapArray = CFArrayCreateMutable(NULL, 10, &kCFTypeArrayCallBacks);
+    if (clientCompMapArray == NULL) {
+        fprintf(stderr, "CFArrayCreateMutable failed\n");
+        return NULL;
+    }
+    CFMutableArrayRef srvrCompMapArray = CFArrayCreateMutable(NULL, 10, &kCFTypeArrayCallBacks);
+    if (srvrCompMapArray == NULL) {
+        fprintf(stderr, "CFArrayCreateMutable failed\n");
+        return NULL;
+    }
 
     /* share name and server */
     json_add_str(dict, "share_name", share);
@@ -616,6 +690,71 @@ display_json(char *share, SMBShareAttributes *sattrs)
                                  CFSTR("UNKNOWN"));
             break;
     }
+
+    /* Compression */
+    json_add_bool(dict, "COMPRESSION_CHAINING_OFF", sattrs->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF);
+
+    if (sattrs->client_compression_algorithms_map & SMB2_COMPRESSION_LZNT1_ENABLED) {
+        CFArrayAppendValue(clientCompMapArray, CFSTR("LZNT1_ENABLED"));
+    }
+    if (sattrs->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_ENABLED) {
+        CFArrayAppendValue(clientCompMapArray, CFSTR("LZ77_ENABLED"));
+    }
+    if (sattrs->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED) {
+        CFArrayAppendValue(clientCompMapArray, CFSTR("LZ77_HUFFMAN_ENABLED"));
+    }
+    if (sattrs->client_compression_algorithms_map & SMB2_COMPRESSION_PATTERN_V1_ENABLED) {
+        CFArrayAppendValue(clientCompMapArray, CFSTR("PATTERN_V1_ENABLED"));
+    }
+    CFDictionarySetValue(dict, CFSTR("CLIENT_COMPRESSION_ALGORITHMS"), clientCompMapArray);
+
+    if (sattrs->server_compression_algorithms_map & SMB2_COMPRESSION_LZNT1_ENABLED) {
+        CFArrayAppendValue(srvrCompMapArray, CFSTR("LZNT1_ENABLED"));
+    }
+    if (sattrs->server_compression_algorithms_map & SMB2_COMPRESSION_LZ77_ENABLED) {
+        CFArrayAppendValue(srvrCompMapArray, CFSTR("LZ77_ENABLED"));
+    }
+    if (sattrs->server_compression_algorithms_map & SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED) {
+        CFArrayAppendValue(srvrCompMapArray, CFSTR("LZ77_HUFFMAN_ENABLED"));
+    }
+    if (sattrs->server_compression_algorithms_map & SMB2_COMPRESSION_PATTERN_V1_ENABLED) {
+        CFArrayAppendValue(srvrCompMapArray, CFSTR("PATTERN_V1_ENABLED"));
+    }
+    CFDictionarySetValue(dict, CFSTR("SERVER_COMPRESSION_ALGORITHMS"), srvrCompMapArray);
+
+    json_add_num(dict, "COMPRESSION_IO_THRESHOLD", &sattrs->compression_io_threshold,
+                 sizeof(sattrs->compression_io_threshold));
+    json_add_num(dict, "COMPRESSION_CHUNK_LEN", &sattrs->compression_chunk_len,
+                 sizeof(sattrs->compression_chunk_len));
+    json_add_num(dict, "COMPRESSION_MAX_FAIL_CNT", &sattrs->compression_max_fail_cnt,
+                 sizeof(sattrs->compression_max_fail_cnt));
+
+    json_add_num(dict, "WRITE_COMPRESSION_CNT", &sattrs->write_compress_cnt,
+                 sizeof(sattrs->write_compress_cnt));
+    json_add_num(dict, "WRITE_CNT_LZ77Huff", &sattrs->write_cnt_LZ77Huff,
+                 sizeof(sattrs->write_cnt_LZ77Huff));
+    json_add_num(dict, "WRITE_CNT_LZ77", &sattrs->write_cnt_LZ77,
+                 sizeof(sattrs->write_cnt_LZ77));
+    json_add_num(dict, "WRITE_CNT_LZNT1", &sattrs->write_cnt_LZNT1,
+                 sizeof(sattrs->write_cnt_LZNT1));
+    json_add_num(dict, "WRITE_CNT_FWD_PATTERN", &sattrs->write_cnt_fwd_pattern,
+                 sizeof(sattrs->write_cnt_fwd_pattern));
+    json_add_num(dict, "WRITE_CNT_BWD_PATTERN", &sattrs->write_cnt_bwd_pattern,
+                 sizeof(sattrs->write_cnt_bwd_pattern));
+
+    json_add_num(dict, "READ_COMPRESSION_CNT", &sattrs->read_compress_cnt,
+                 sizeof(sattrs->read_compress_cnt));
+    json_add_num(dict, "READ_CNT_LZ77Huff", &sattrs->read_cnt_LZ77Huff,
+                 sizeof(sattrs->read_cnt_LZ77Huff));
+    json_add_num(dict, "READ_CNT_LZ77", &sattrs->read_cnt_LZ77,
+                 sizeof(sattrs->read_cnt_LZ77));
+    json_add_num(dict, "READ_CNT_LZNT1", &sattrs->read_cnt_LZNT1,
+                 sizeof(sattrs->read_cnt_LZNT1));
+    json_add_num(dict, "READ_CNT_FWD_PATTERN", &sattrs->read_cnt_fwd_pattern,
+                 sizeof(sattrs->read_cnt_fwd_pattern));
+    json_add_num(dict, "READ_CNT_BWD_PATTERN", &sattrs->read_cnt_bwd_pattern,
+                 sizeof(sattrs->read_cnt_bwd_pattern));
+
     /*
      * Note: No way to get file system type since the type is determined at
      * mount time and not just by a Tree Connect.  If we ever wanted to display

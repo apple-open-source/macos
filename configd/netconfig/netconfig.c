@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,6 +54,12 @@
 #include <SystemConfiguration/SCNetworkCategory.h>
 #include <SystemConfiguration/SCNetworkSettingsManager.h>
 
+#if TARGET_OS_OSX
+#define BOND_INTERFACE_AVAILABLE	1
+#else /*  TARGET_OS_OSX */
+#define BOND_INTERFACE_AVAILABLE	0
+#endif /* TARGET_OS_OSX */
+
 static void command_specific_help(void) __dead2;
 
 static void
@@ -61,6 +67,9 @@ help_create_vlan(void) __dead2;
 
 static void
 help_create_bridge(void) __dead2;
+
+static void
+help_create_bond(void) __dead2;
 
 #define countof(array)	(sizeof(array) / sizeof(array[0]))
 
@@ -72,6 +81,10 @@ help_create_bridge(void) __dead2;
 
 #define kOptAddress		"address"
 #define OPT_ADDRESS		'A'
+
+#define kOptBridgeMember	"bridge-member"
+#define kOptBondMember		"bond-member"
+#define OPT_BOND_BRIDGE_MEMBER	'b'
 
 #define kOptCategory		"category"
 #define OPT_CATEGORY		0
@@ -97,23 +110,20 @@ help_create_bridge(void) __dead2;
 #define kOptFile		"file"
 #define OPT_FILE		'f'
 
+#define kOptFirst		"first"
+#define OPT_FIRST		0
+
 #define kOptHelp		"help"
 #define OPT_HELP		'h'
 
 #define kOptInterface		"interface"
 #define OPT_INTERFACE		'i'
 
-#define kOptBridgeMember	"bridge-member"
-#define OPT_BRIDGE_MEMBER	'b'
-
 #define kOptInterfaceType	"interface-type"
 #define OPT_INTERFACE_TYPE	't'
 
-#define kOptRouter		"router"
-#define OPT_ROUTER		'r'
-
-#define kOptSubnetMask		"subnet-mask"
-#define OPT_SUBNET_MASK		'm'
+#define kOptLast		"last"
+#define OPT_LAST		0
 
 #define kOptName		"name"
 #define OPT_NAME		'N'
@@ -130,6 +140,9 @@ help_create_bridge(void) __dead2;
 #define kOptQoSMarkingAppID	"qos-marking-app-id"
 #define OPT_QOS_MARKING_APP_ID	0
 
+#define kOptRouter		"router"
+#define OPT_ROUTER		'r'
+
 #define kOptService		"service"
 #define OPT_SERVICE		'S'
 
@@ -138,6 +151,12 @@ help_create_bridge(void) __dead2;
 
 #define kOptSSID		"ssid"
 #define OPT_SSID		0
+
+#define kOptSubnetMask		"subnet-mask"
+#define OPT_SUBNET_MASK		'm'
+
+#define kOptSwap		"swap"
+#define OPT_SWAP		0
 
 #define kOptUseSettingsManager	"use-settings-manager"
 #define OPT_USE_SETTINGS_MANAGER 0
@@ -154,20 +173,27 @@ help_create_bridge(void) __dead2;
 static struct option longopts[] = {
 	{ kOptActiveState,	no_argument,	   NULL, OPT_ACTIVE_STATE },
 	{ kOptAddress,		required_argument, NULL, OPT_ADDRESS },
+	{ kOptBridgeMember,	required_argument, NULL,
+	  OPT_BOND_BRIDGE_MEMBER },
+#if BOND_INTERFACE_AVAILABLE
+	{ kOptBondMember,	required_argument, NULL,
+	  OPT_BOND_BRIDGE_MEMBER },
+#endif /* BOND_INTERFACE_AVAILABLE */
 	{ kOptCategory,		required_argument, NULL, OPT_CATEGORY },
 	{ kOptCategoryValue,	required_argument, NULL, OPT_CATEGORY_VALUE },
 	{ kOptConfigMethod,	required_argument, NULL, OPT_CONFIG_METHOD },
 	{ kOptDHCPClientID, 	required_argument, NULL, OPT_DHCP_CLIENT_ID },
 	{ kOptDNSDomainName,	required_argument, NULL, OPT_DNS_DOMAIN_NAME },
-	{ kOptDNSSearchDomains,	required_argument, NULL, OPT_DNS_SEARCH_DOMAINS},
+	{ kOptDNSSearchDomains,	required_argument, NULL,
+	  OPT_DNS_SEARCH_DOMAINS},
 	{ kOptDefaultConfig,	no_argument,       NULL, OPT_DEFAULT_CONFIG },
 	{ kOptFile,		required_argument, NULL, OPT_FILE },
-	{ kOptInterface,	required_argument, NULL, OPT_INTERFACE },
+	{ kOptFirst,		no_argument,       NULL, OPT_FIRST },
 	{ kOptHelp,		no_argument, 	   NULL, OPT_HELP },
+	{ kOptInterface,	required_argument, NULL, OPT_INTERFACE },
 	{ kOptInterfaceType,	required_argument, NULL, OPT_INTERFACE_TYPE },
+	{ kOptLast,		no_argument, 	   NULL, OPT_LAST },
 	{ kOptName,		required_argument, NULL, OPT_NAME },
-	{ kOptRouter,		required_argument, NULL, OPT_ROUTER },
-	{ kOptSubnetMask,	required_argument, NULL, OPT_SUBNET_MASK },
 	{ kOptProtocol,		required_argument, NULL, OPT_PROTOCOL },
 	{ kOptQoSMarkingEnable,	required_argument, NULL,
 	  OPT_QOS_MARKING_ENABLE },
@@ -175,9 +201,12 @@ static struct option longopts[] = {
 	  OPT_QOS_MARKING_APPLE_AV },
 	{ kOptQoSMarkingAppID,	required_argument, NULL,
 	  OPT_QOS_MARKING_APP_ID },
+	{ kOptRouter,		required_argument, NULL, OPT_ROUTER },
+	{ kOptSubnetMask,	required_argument, NULL, OPT_SUBNET_MASK },
 	{ kOptSet,		required_argument, NULL, OPT_SET},
 	{ kOptService,		required_argument, NULL, OPT_SERVICE },
 	{ kOptSSID,		required_argument, NULL, OPT_SSID },
+	{ kOptSwap,		no_argument,	   NULL, OPT_SWAP },
 	{ kOptUseSettingsManager,no_argument,	   NULL,
 	  OPT_USE_SETTINGS_MANAGER },
 	{ kOptVerbose,		no_argument, 	   NULL, OPT_VERBOSE },
@@ -190,6 +219,9 @@ static const char * 	G_argv0;
 
 static SCPreferencesRef
 prefs_create(void);
+
+static SCPreferencesRef
+prefs_create_with_file(CFStringRef file);
 
 static SCNetworkInterfaceRef
 copy_available_interface(CFStringRef name_cf, const char * name);
@@ -476,6 +508,12 @@ categoryOptionsAreValid(categoryOptionsRef opt)
 	return (valid);
 }
 
+static Boolean
+categoryOptionsAreSpecified(categoryOptionsRef opt)
+{
+	return (opt->category_id != NULL || opt->category_value != NULL);
+}
+
 static void
 categoryOptionsInit(categoryOptionsRef opt)
 {
@@ -515,6 +553,7 @@ typedef struct {
 		prefsService	prefs;
 	};
 	SCNetworkInterfaceRef	netif;
+	Boolean			initialized;
 } networkSetup, *networkSetupRef;
 
 static void
@@ -524,16 +563,37 @@ networkSetupClear(networkSetupRef settings)
 }
 
 static void
-networkSetupInitialize(networkSetupRef setup, Boolean use_manager)
+networkSetupInitializeWithFile(networkSetupRef setup, CFStringRef file,
+			       Boolean use_manager)
 {
 	setup->use_manager = use_manager;
 	if (use_manager) {
 		setup->manager.manager = manager_create();
 	}
 	else {
-		setup->prefs.prefs = prefs_create();
+		if (file != NULL) {
+			setup->prefs.prefs = prefs_create_with_file(file);
+		}
+		else {
+			setup->prefs.prefs = prefs_create();
+		}
 	}
+	setup->initialized = TRUE;
 }
+
+static void
+networkSetupInitialize(networkSetupRef setup, Boolean use_manager)
+{
+	networkSetupInitializeWithFile(setup, NULL, use_manager);
+}
+
+
+static Boolean
+networkSetupIsInitialized(networkSetupRef setup)
+{
+	return (setup->initialized);
+}
+
 
 static void
 networkSetupRelease(networkSetupRef setup)
@@ -826,11 +886,17 @@ typedef enum {
       kInterfaceTypeNone = 0,
       kInterfaceTypeVLAN = 1,
       kInterfaceTypeBridge = 2,
+#if BOND_INTERFACE_AVAILABLE
+      kInterfaceTypeBond = 3,
+#endif /* BOND_INTERFACE_AVAILABLE */
 } InterfaceType;
 
 static const char * interface_type_strings[] = {
 	"vlan",
 	"bridge",
+#if BOND_INTERFACE_AVAILABLE
+	"bond",
+#endif /* BOND_INTERFACE_AVAILABLE */
 };
 
 static InterfaceType
@@ -855,21 +921,31 @@ InterfaceTypeFromPrefix(const char * str)
 	return (type);
 }
 
+static const char *
+InterfaceTypeGetString(InterfaceType type)
+{
+	return STRING_ARRAY_GET(interface_type_strings, type - 1);
+}
+
 /*
  * Commands
  */
 typedef enum {
-	kCommandNone		= 0,
-	kCommandAdd		= 1,	/* add a service */
-	kCommandSet		= 2,	/* set service configuration */
-	kCommandRemove		= 3,	/* remove service/protocol */
-	kCommandEnable		= 4,	/* enable service/protocol */
-	kCommandDisable		= 5,	/* disable service/protocol */
-	kCommandShow		= 6,	/* show information */
-	kCommandCreate		= 7,	/* create an interface */
-	kCommandDestroy 	= 8,	/* destroy an interface */
-	kCommandSetVLAN		= 9,	/* set VLAN params */
-	kCommandSetBridge	= 10,	/* set bridge params */
+	kCommandNone = 0,
+	kCommandAdd,		/* add a service */
+	kCommandSet,		/* set service configuration */
+	kCommandRemove,		/* remove service/protocol */
+	kCommandEnable,		/* enable service/protocol */
+	kCommandDisable,	/* disable service/protocol */
+	kCommandShow,		/* show information */
+	kCommandCreate,		/* create an interface */
+	kCommandDestroy, 	/* destroy an interface */
+	kCommandSetVLAN,	/* set VLAN params */
+	kCommandSetBridge,	/* set bridge params */
+#if BOND_INTERFACE_AVAILABLE
+	kCommandSetBond,	/* set bond params */
+#endif /* BOND_INTERFACE_AVAILABLE */
+	kCommandSort,		/* sort services */
 } Command;
 
 static Command 		G_command;
@@ -885,6 +961,10 @@ static const char * command_strings[] = {
 	"destroy",
 	"setvlan",
 	"setbridge",
+#if BOND_INTERFACE_AVAILABLE
+	"setbond",
+#endif /* BOND_INTERFACE_AVAILABLE */
+	"sort",
 };
 
 static const char *
@@ -1068,8 +1148,96 @@ prefs_create(void)
 	return (prefs_create_with_file(NULL));
 }
 
+static CFArrayRef
+interface_list_copy_name_list(CFArrayRef list)
+{
+	CFIndex			count = 0;
+	CFMutableArrayRef	names = array_create();
+
+	if (list != NULL) {
+		count = CFArrayGetCount(list);
+	}
+	for (CFIndex i = 0; i < count; i++) {
+		SCNetworkInterfaceRef	netif = CFArrayGetValueAtIndex(list, i);
+
+		CFArrayAppendValue(names,
+				   SCNetworkInterfaceGetBSDName(netif));
+	}
+	return (names);
+}
+
 static CFStringRef
-interface_copy_summary(SCNetworkInterfaceRef netif)
+interface_list_copy_names(CFArrayRef list)
+{
+	CFIndex			count = 0;
+	CFMutableStringRef	str;
+
+
+	str = CFStringCreateMutable(NULL, 0);
+	if (list != NULL) {
+		count = CFArrayGetCount(list);
+	}
+	for (CFIndex i = 0; i < count; i++) {
+		SCNetworkInterfaceRef	netif = CFArrayGetValueAtIndex(list, i);
+
+		CFStringAppendFormat(str, NULL, CFSTR("%s%@"),
+				     (i == 0) ? "" : ", ",
+				     SCNetworkInterfaceGetBSDName(netif));
+	}
+	return (str);
+}
+
+static void
+append_interface_type_details(CFMutableStringRef str,
+			      SCNetworkInterfaceRef netif,
+			      CFStringRef type)
+{
+	CFArrayRef		members;
+	CFStringRef		names;
+	SCNetworkInterfaceRef	phys;
+	int			tag;
+	CFNumberRef		tag_cf;
+
+	type = SCNetworkInterfaceGetInterfaceType(netif);
+	if (type == kSCNetworkInterfaceTypeBridge) {
+		members = SCBridgeInterfaceGetMemberInterfaces(netif);
+		names = interface_list_copy_names(members);
+		CFStringAppendFormat(str, NULL,
+				     CFSTR(", members: %@"),
+				     names);
+		__SC_CFRELEASE(names);
+	}
+	else if (type == kSCNetworkInterfaceTypeVLAN) {
+		phys = SCVLANInterfaceGetPhysicalInterface(netif);
+		tag_cf = SCVLANInterfaceGetTag(netif);
+		if (phys == NULL || tag_cf == NULL) {
+			CFStringAppendFormat(str, NULL,
+					     CFSTR(", physical <none>"));
+		}
+		else {
+			CFNumberGetValue(tag_cf, kCFNumberIntType, &tag);
+			CFStringAppendFormat(str, NULL,
+					     CFSTR(", physical %@ tag %d"),
+					     SCNetworkInterfaceGetBSDName(phys),
+					     tag);
+		}
+	}
+#if BOND_INTERFACE_AVAILABLE
+	else if (type == kSCNetworkInterfaceTypeBond) {
+		members = SCBondInterfaceGetMemberInterfaces(netif);
+		names = interface_list_copy_names(members);
+		CFStringAppendFormat(str, NULL,
+				     CFSTR(", members: %@"),
+				     names);
+		__SC_CFRELEASE(names);
+	}
+#endif /* BOND_INTERFACE_AVAILABLE */
+
+	return;
+}
+
+static CFStringRef
+interface_copy_summary_common(SCNetworkInterfaceRef netif, Boolean verbose)
 {
 	CFStringRef		bsd_name;
 	SCNetworkInterfaceRef	child;
@@ -1102,7 +1270,16 @@ interface_copy_summary(SCNetworkInterfaceRef netif)
 			CFStringAppendFormat(str, NULL, CFSTR(" %@"), name);
 		}
 	}
+	if (verbose) {
+		append_interface_type_details(str, netif, type);
+	}
 	return (str);
+}
+
+static CFStringRef
+interface_copy_summary(SCNetworkInterfaceRef netif)
+{
+	return interface_copy_summary_common(netif, FALSE);
 }
 
 static Boolean
@@ -1579,13 +1756,12 @@ matchService(SCNetworkServiceRef service, SCNetworkInterfaceRef netif,
 	return (match);
 }
 
-static SCNetworkServiceRef
-copy_configured_service_in_list(CFArrayRef services,
-				CFStringRef name,
-				Boolean is_bsd_name)
-{
-	SCNetworkServiceRef	service = NULL;
+typedef Boolean (^services_iterator_t)(SCNetworkServiceRef service);
 
+static void
+services_iterate(CFArrayRef services, CFStringRef name,	Boolean is_bsd_name,
+		 services_iterator_t iter)
+{
 	for (CFIndex i = 0, count = CFArrayGetCount(services);
 	     i < count; i++) {
 		Boolean			found = FALSE;
@@ -1604,14 +1780,49 @@ copy_configured_service_in_list(CFArrayRef services,
 			found = matchService(s, netif, name);
 		}
 		if (found) {
-			CFRetain(s);
-			service = s;
-			break;
+			if (!(iter)(s)) {
+				break;
+			}
 		}
 	}
+}
+
+static SCNetworkServiceRef
+copy_configured_service_in_list(CFArrayRef services,
+				CFStringRef name,
+				Boolean is_bsd_name)
+{
+	services_iterator_t		iter;
+	__block SCNetworkServiceRef	service = NULL;
+
+
+	iter = ^Boolean(SCNetworkServiceRef s) {
+		CFRetain(s);
+		service = s;
+		return (FALSE);
+	};
+	services_iterate(services, name, is_bsd_name, iter);
 	return (service);
 }
 
+static CFArrayRef
+copy_configured_services_in_list(CFArrayRef services,
+				 CFStringRef name,
+				 Boolean is_bsd_name)
+{
+	__block CFMutableArrayRef	array = NULL;
+	services_iterator_t		iter;
+
+	iter = ^Boolean(SCNetworkServiceRef s) {
+		if (array == NULL) {
+			array = array_create();
+		}
+		CFArrayAppendValue(array, s);
+		return (TRUE);
+	};
+	services_iterate(services, name, is_bsd_name, iter);
+	return (array);
+}
 
 static SCNetworkServiceRef
 copy_configured_service_in_set(SCNetworkSetRef set,
@@ -2002,9 +2213,26 @@ copy_bridge_interface(SCPreferencesRef prefs, CFStringRef bridge_name)
 	return (ret_netif);
 }
 
+#if BOND_INTERFACE_AVAILABLE
+static SCNetworkInterfaceRef
+copy_bond_interface(SCPreferencesRef prefs, CFStringRef bond_name)
+{
+	CFArrayRef		list;
+	SCNetworkInterfaceRef	ret_netif = NULL;
+
+	list = SCBondInterfaceCopyAll(prefs);
+	if (list != NULL) {
+		ret_netif = array_copy_netif_with_name(list, bond_name,
+						       FALSE);
+		CFRelease(list);
+	}
+	return (ret_netif);
+}
+#endif /* BOND_INTERFACE_AVAILABLE */
+
 static void
 report_unavailable_interface(CFStringRef name_cf, CFArrayRef available,
-			     const char * msg)
+			     InterfaceType type)
 {
 	unsigned int 	index;
 	char		name[IFNAMSIZ];
@@ -2012,7 +2240,8 @@ report_unavailable_interface(CFStringRef name_cf, CFArrayRef available,
 	CFStringGetCString(name_cf, name, sizeof(name),
 			   kCFStringEncodingUTF8);
 	if (available == NULL) {
-		fprintf(stderr,	"'%s' is unavailable for %s\n", name, msg);
+		fprintf(stderr,	"'%s' is unavailable for %s\n", name,
+			InterfaceTypeGetString(type));
 		return;
 	}
 	index = if_nametoindex(name);
@@ -2020,7 +2249,8 @@ report_unavailable_interface(CFStringRef name_cf, CFArrayRef available,
 		fprintf(stderr, "'%s' does not exist", name);
 	}
 	else {
-		fprintf(stderr,	"'%s' is unavailable for %s", name, msg);
+		fprintf(stderr,	"'%s' is unavailable for %s", name,
+			InterfaceTypeGetString(type));
 	}
 	fprintf(stderr, ", available interfaces are: ");
 	for (CFIndex i = 0, count = CFArrayGetCount(available);
@@ -2037,24 +2267,11 @@ report_unavailable_interface(CFStringRef name_cf, CFArrayRef available,
 }
 
 static CFArrayRef
-copy_bridge_member_interfaces(SCBridgeInterfaceRef bridge_netif,
-			      SCPreferencesRef prefs, CFArrayRef members)
+copy_available_members(InterfaceType type, CFArrayRef members,
+		       CFArrayRef current, CFArrayRef available)
 {
-	CFArrayRef		available;
-	CFArrayRef		current = NULL;
 	CFMutableArrayRef	netif_members = NULL;
 
-	available = SCBridgeInterfaceCopyAvailableMemberInterfaces(prefs);
-	if (available != NULL && CFArrayGetCount(available) == 0) {
-		__SC_CFRELEASE(available);
-	}
-	if (bridge_netif != NULL) {
-		current = SCBridgeInterfaceGetMemberInterfaces(bridge_netif);
-	}
-	if (available == NULL && current == NULL) {
-		fprintf(stderr, "No available member interfaces for bridge\n");
-		goto done;
-	}
 	for (CFIndex i = 0, count = CFArrayGetCount(members); i < count; i++) {
 		CFStringRef		name;
 		SCNetworkInterfaceRef	netif = NULL;
@@ -2069,7 +2286,7 @@ copy_bridge_member_interfaces(SCBridgeInterfaceRef bridge_netif,
 							   name, TRUE);
 		}
 		if (netif == NULL) {
-			report_unavailable_interface(name, available, "bridge");
+			report_unavailable_interface(name, available, type);
 			__SC_CFRELEASE(netif_members);
 			goto done;
 		}
@@ -2080,9 +2297,62 @@ copy_bridge_member_interfaces(SCBridgeInterfaceRef bridge_netif,
 		CFRelease(netif);
 	}
  done:
+	return netif_members;
+}
+
+static CFArrayRef
+copy_bridge_member_interfaces(SCBridgeInterfaceRef bridge_netif,
+			      SCPreferencesRef prefs, CFArrayRef members)
+{
+	CFArrayRef		available;
+	CFArrayRef		current = NULL;
+	CFArrayRef		netif_members = NULL;
+
+	available = SCBridgeInterfaceCopyAvailableMemberInterfaces(prefs);
+	if (available != NULL && CFArrayGetCount(available) == 0) {
+		__SC_CFRELEASE(available);
+	}
+	if (bridge_netif != NULL) {
+		current = SCBridgeInterfaceGetMemberInterfaces(bridge_netif);
+	}
+	if (available == NULL && current == NULL) {
+		fprintf(stderr, "No available member interfaces for bridge\n");
+		goto done;
+	}
+	netif_members = copy_available_members(kInterfaceTypeBridge,
+					       members, current, available);
+ done:
 	__SC_CFRELEASE(available);
 	return (netif_members);
 }
+
+#if BOND_INTERFACE_AVAILABLE
+static CFArrayRef
+copy_bond_member_interfaces(SCBondInterfaceRef bond_netif,
+			    SCPreferencesRef prefs, CFArrayRef members)
+{
+	CFArrayRef		available;
+	CFArrayRef		current = NULL;
+	CFArrayRef		netif_members = NULL;
+
+	available = SCBondInterfaceCopyAvailableMemberInterfaces(prefs);
+	if (available != NULL && CFArrayGetCount(available) == 0) {
+		__SC_CFRELEASE(available);
+	}
+	if (bond_netif != NULL) {
+		current = SCBondInterfaceGetMemberInterfaces(bond_netif);
+	}
+	if (available == NULL && current == NULL) {
+		fprintf(stderr, "No available member interfaces for bond\n");
+		goto done;
+	}
+	netif_members = copy_available_members(kInterfaceTypeBond,
+					       members, current, available);
+ done:
+	__SC_CFRELEASE(available);
+	return (netif_members);
+}
+#endif /* BOND_INTERFACE_AVAILABLE */
 
 static SCNetworkInterfaceRef
 copy_vlan_interface(SCPreferencesRef prefs, CFStringRef vlan_name)
@@ -2622,6 +2892,12 @@ ProtocolParamsValidateIPv4(ProtocolParamsRef params)
 	IPv4ConfigMethod 	method = params->ipv4.config_method;
 	Boolean			success = FALSE;
 
+	if (method == kIPv4ConfigMethodNone) {
+		fprintf(stderr,
+			"%s must be specified\n",
+			kOptConfigMethod);
+		goto done;
+	}
 	if (method != kIPv4ConfigMethodDHCP
 	    && params->ipv4.dhcp_client_id != NULL) {
 		fprintf(stderr,
@@ -2640,9 +2916,6 @@ ProtocolParamsValidateIPv4(ProtocolParamsRef params)
 	}
 	switch (method) {
 	case kIPv4ConfigMethodNone:
-		fprintf(stderr,
-			"%s must be specified\n",
-			kOptConfigMethod);
 		break;
 	case kIPv4ConfigMethodInform:
 	case kIPv4ConfigMethodManual:
@@ -2685,6 +2958,12 @@ ProtocolParamsValidateIPv6(ProtocolParamsRef params)
 	IPv6ConfigMethod 	method = params->ipv6.config_method;
 	Boolean			success = FALSE;
 
+	if (params->ipv6.config_method == kIPv6ConfigMethodNone) {
+		fprintf(stderr,
+			"%s must be specified\n",
+			kOptConfigMethod);
+		goto done;
+	}
 	if (method != kIPv6ConfigMethodManual
 	    && !IN6_IS_ADDR_UNSPECIFIED(&params->ipv6.router)) {
 		fprintf(stderr,
@@ -2695,9 +2974,6 @@ ProtocolParamsValidateIPv6(ProtocolParamsRef params)
 	}
 	switch (params->ipv6.config_method) {
 	case kIPv6ConfigMethodNone:
-		fprintf(stderr,
-			"%s must be specified\n",
-			kOptConfigMethod);
 		break;
 	case kIPv6ConfigMethodManual:
 		if (IN6_IS_ADDR_UNSPECIFIED(&params->ipv6.address)) {
@@ -3094,7 +3370,7 @@ do_add_set(int argc, char * argv[])
 			break;
 		case OPT_HELP:
 			command_specific_help();
-			
+
 		case OPT_INTERFACE:
 		case OPT_SERVICE:
 			if (!categoryOptionsAreValid(&cat_opt)) {
@@ -3219,7 +3495,7 @@ do_add_set(int argc, char * argv[])
  ** Remove
  **/
 
-#define REMOVE_ENABLE_DISABLE_OPTSTRING	"hi:p:S:"
+#define REMOVE_ENABLE_DISABLE_OPTSTRING	"f:hi:p:S:"
 
 /*
  * Function: do_remove_enable_disable
@@ -3234,6 +3510,7 @@ do_remove_enable_disable(int argc, char * argv[])
 	Boolean			by_interface = FALSE;
 	Boolean			changed = FALSE;
 	int			ch;
+	CFStringRef		filename;
 	Boolean			have_service = FALSE;
 	Boolean			have_S_or_i = FALSE;
 	CFStringRef		name;
@@ -3278,6 +3555,14 @@ do_remove_enable_disable(int argc, char * argv[])
 						kOptUseSettingsManager);
 					command_specific_help();
 				}
+				if (networkSetupIsInitialized(&setup)) {
+					fprintf(stderr,
+						"-%c and --%s don't make "
+						"sense together\n",
+						OPT_FILE,
+						kOptUseSettingsManager);
+					command_specific_help();
+				}
 				networkSetupInitialize(&setup, TRUE);
 			}
 			else if (categoryOptionsAdd(&cat_opt, optname,
@@ -3292,6 +3577,40 @@ do_remove_enable_disable(int argc, char * argv[])
 					optname);
 				command_specific_help();
 			}
+			break;
+
+		case OPT_FILE:
+			if (categoryOptionsAreSpecified(&cat_opt)) {
+				fprintf(stderr,
+					"-%c and --%s don't make "
+					"sense together\n",
+					OPT_FILE, kOptCategory);
+				command_specific_help();
+			}
+			if (setup.manager.manager != NULL) {
+				fprintf(stderr,
+					"-%c and --%s don't make "
+					"sense together\n",
+					OPT_FILE, kOptUseSettingsManager);
+				command_specific_help();
+			}
+			if (networkSetupIsInitialized(&setup)) {
+				fprintf(stderr,
+					"-%c specified multiple times, or "
+					" not specified first\n",
+					OPT_FILE);
+				command_specific_help();
+			}
+			if (!file_exists(optarg)) {
+				exit(EX_SOFTWARE);
+			}
+			filename = createPath(optarg);
+			if (filename == NULL) {
+				exit(EX_SOFTWARE);
+			}
+			networkSetupInitializeWithFile(&setup, filename,
+						       FALSE);
+			CFRelease(filename);
 			break;
 		case OPT_HELP:
 			command_specific_help();
@@ -3343,6 +3662,12 @@ do_remove_enable_disable(int argc, char * argv[])
 			break;
 		}
 		switch (ch) {
+		case OPT_FILE:
+			fprintf(stderr,
+				"-%c must be specified first\n",
+				OPT_FILE);
+			exit(EX_SOFTWARE);
+
 		case OPT_INTERFACE:
 		case OPT_SERVICE:
 			fprintf(stderr,
@@ -3478,6 +3803,42 @@ interface_populate_summary_dictionary(SCNetworkInterfaceRef netif,
 	}
 	type = SCNetworkInterfaceGetInterfaceType(netif);
 	CFDictionarySetValue(dict, CFSTR("type"), type);
+	if (type == kSCNetworkInterfaceTypeBridge) {
+		CFArrayRef	members;
+		CFArrayRef	names;
+
+		members = SCBridgeInterfaceGetMemberInterfaces(netif);
+		names = interface_list_copy_name_list(members);
+		CFDictionarySetValue(dict, CFSTR("members"), names);
+		__SC_CFRELEASE(names);
+	}
+	else if (type == kSCNetworkInterfaceTypeVLAN) {
+		SCNetworkInterfaceRef	phys;
+		CFNumberRef		tag;
+
+		phys = SCVLANInterfaceGetPhysicalInterface(netif);
+		tag = SCVLANInterfaceGetTag(netif);
+		if (phys != NULL && tag != NULL) {
+			CFStringRef		name;
+
+			name = SCNetworkInterfaceGetBSDName(phys);
+			CFDictionarySetValue(dict, CFSTR("vlan-device"),
+					     name);
+			CFDictionarySetValue(dict, CFSTR("vlan-id"),
+					     tag);
+		}
+	}
+#if BOND_INTERFACE_AVAILABLE
+	else if (type == kSCNetworkInterfaceTypeBond) {
+		CFArrayRef	members;
+		CFArrayRef	names;
+
+		members = SCBondInterfaceGetMemberInterfaces(netif);
+		names = interface_list_copy_name_list(members);
+		CFDictionarySetValue(dict, CFSTR("members"), names);
+		__SC_CFRELEASE(names);
+	}
+#endif /* BOND_INTERFACE_AVAILABLE */
 }
 
 static void
@@ -3548,7 +3909,8 @@ show_interface(SCNetworkInterfaceRef netif, Boolean verbose)
 		interface_populate_summary_dictionary(netif, dict);
 	}
 	else {
-		descr = (CFTypeRef)interface_copy_summary(netif);
+		descr = (CFTypeRef)
+			interface_copy_summary_common(netif, TRUE);
 	}
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), descr);
 	CFRelease(descr);
@@ -4433,6 +4795,10 @@ show_manager_services(SCNSManagerRef manager, const char * name,
 		CFMutableStringRef	str = NULL;
 
 		netif = copy_available_interface(name_cf, name);
+		if (netif == NULL) {
+			fprintf(stderr, "Can't find %s\n", name);
+			exit(EX_UNAVAILABLE);
+		}
 		service = SCNSManagerCopyService(manager, netif,
 						 cat_opt->category_id,
 						 cat_opt->category_value);
@@ -4793,16 +5159,118 @@ do_show(int argc, char * argv[])
  **/
 #define CREATE_OPTSTRING	"a:b:hI:N:P:t:"
 
+static void
+help_create_bond_bridge(InterfaceType type) __dead2;
+
+static void
+help_create_bond_bridge(InterfaceType type)
+{
+	if (type == kInterfaceTypeBridge) {
+		help_create_bridge();
+	}
+	else {
+		help_create_bond();
+	}
+}
+
 static SCNetworkInterfaceRef
-create_bridge(SCPreferencesRef prefs, int argc, char * argv[])
+create_bridge(SCPreferencesRef prefs, CFArrayRef members, CFStringRef name,
+	      Boolean auto_configure)
+{
+	SCNetworkInterfaceRef	bridge_netif;
+	CFArrayRef		netif_members;
+
+	netif_members = copy_bridge_member_interfaces(NULL, prefs, members);
+	if (netif_members == NULL) {
+		exit(EX_USAGE);
+	}
+	bridge_netif = SCBridgeInterfaceCreate(prefs);
+	if (bridge_netif == NULL) {
+		fprintf(stderr, "Failed to create bridge interface: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+
+	if (!auto_configure) {
+		/* don't auto-configure */
+		SCNetworkInterfaceSetAutoConfigure(bridge_netif, FALSE);
+
+		/* allow members to have configured services */
+		SCBridgeInterfaceSetAllowConfiguredMembers(bridge_netif, TRUE);
+	}
+
+	/* set members */
+	if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
+						  netif_members)) {
+		fprintf(stderr, "Failed to set member list: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	__SC_CFRELEASE(netif_members);
+
+	/* set display name if specified */
+	if (name != NULL
+	    && !SCBridgeInterfaceSetLocalizedDisplayName(bridge_netif, name)) {
+		SCPrint(TRUE, stderr,
+			CFSTR("Failed to set bridge name to '%@', %s\n"),
+			name, SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	return (bridge_netif);
+}
+
+#if BOND_INTERFACE_AVAILABLE
+
+static SCNetworkInterfaceRef
+create_bond(SCPreferencesRef prefs, CFArrayRef members, CFStringRef name)
+{
+	SCNetworkInterfaceRef	bond_netif;
+	CFArrayRef		netif_members;
+
+	netif_members = copy_bond_member_interfaces(NULL, prefs, members);
+	if (netif_members == NULL) {
+		exit(EX_USAGE);
+	}
+	bond_netif = SCBondInterfaceCreate(prefs);
+	if (bond_netif == NULL) {
+		fprintf(stderr, "Failed to create bond interface: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+
+	/* set members */
+	if (netif_members != NULL) {
+		if (!SCBondInterfaceSetMemberInterfaces(bond_netif,
+							netif_members)) {
+			fprintf(stderr, "Failed to set member list: %s\n",
+				SCErrorString(SCError()));
+			exit(EX_SOFTWARE);
+		}
+		CFRelease(netif_members);
+	}
+
+	/* set display name if specified */
+	if (name != NULL
+	    && !SCBondInterfaceSetLocalizedDisplayName(bond_netif, name)) {
+		SCPrint(TRUE, stderr,
+			CFSTR("Failed to set bond name to '%@', %s\n"),
+			name, SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	return (bond_netif);
+}
+#endif /* BOND_INTERFACE_AVAILABLE */
+
+static SCNetworkInterfaceRef
+create_bond_bridge(SCPreferencesRef prefs, int argc, char * argv[],
+		   InterfaceType type)
 {
 	Boolean			auto_configure = FALSE;
-	SCBridgeInterfaceRef	bridge_netif;
 	int			ch;
 	CFStringRef		member_name;
 	CFMutableArrayRef	members = NULL;
 	CFStringRef		name = NULL;
-	CFArrayRef		netif_members;
+	SCBridgeInterfaceRef	netif = NULL;
 
 	while (TRUE) {
 		Boolean	success = FALSE;
@@ -4813,10 +5281,18 @@ create_bridge(SCPreferencesRef prefs, int argc, char * argv[])
 		}
 		switch (ch) {
 		case OPT_AUTO_CONFIGURE:
+#if BOND_INTERFACE_AVAILABLE
+			if (type == kInterfaceTypeBond) {
+				fprintf(stderr,
+					"%c not valid with bond\n",
+					OPT_AUTO_CONFIGURE);
+				help_create_bond_bridge(type);
+			}
+#endif /* BOND_INTERFACE_AVAILABLE */
 			if (!get_bool_from_string(optarg, &auto_configure,
 						  OPT_AUTO_CONFIGURE,
 						  kOptAutoConfigure)) {
-				help_create_bridge();
+				help_create_bond_bridge(type);
 			}
 			success = TRUE;
 			break;
@@ -4834,7 +5310,7 @@ create_bridge(SCPreferencesRef prefs, int argc, char * argv[])
 				"%s may only be specified once\n",
 				kOptInterfaceType);
 			break;
-		case OPT_BRIDGE_MEMBER:
+		case OPT_BOND_BRIDGE_MEMBER:
 			member_name = my_CFStringCreate(optarg);
 			if (members == NULL) {
 				members = array_create();
@@ -4862,53 +5338,21 @@ create_bridge(SCPreferencesRef prefs, int argc, char * argv[])
 		exit(EX_USAGE);
 	}
 	if (members == NULL) {
-		fprintf(stderr, "-%c/--%s must be specified at least once\n",
-			OPT_BRIDGE_MEMBER, kOptBridgeMember);
-		help_create_bridge();
+		fprintf(stderr, "-%c must be specified at least once\n",
+			OPT_BOND_BRIDGE_MEMBER);
+		help_create_bond_bridge(type);
 	}
-	netif_members = copy_bridge_member_interfaces(NULL, prefs, members);
+	if (type == kInterfaceTypeBridge) {
+		netif = create_bridge(prefs, members, name, auto_configure);
+	}
+#if BOND_INTERFACE_AVAILABLE
+	else {
+		netif = create_bond(prefs, members, name);
+	}
+#endif /* BOND_INTERFACE_AVAILABLE */
 	__SC_CFRELEASE(members);
-	if (netif_members == NULL) {
-		exit(EX_USAGE);
-	}
-	bridge_netif = SCBridgeInterfaceCreate(prefs);
-	if (bridge_netif == NULL) {
-		fprintf(stderr, "Failed to create bridge interface: %s\n",
-			SCErrorString(SCError()));
-		exit(EX_SOFTWARE);
-	}
-
-	if (!auto_configure) {
-		/* don't auto-configure */
-		SCNetworkInterfaceSetAutoConfigure(bridge_netif, FALSE);
-
-		/* allow members to have configured services */
-		SCBridgeInterfaceSetAllowConfiguredMembers(bridge_netif, TRUE);
-	}
-
-	/* set members */
-	if (netif_members != NULL) {
-		if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
-							  netif_members)) {
-			fprintf(stderr, "Failed to set member list: %s\n",
-				SCErrorString(SCError()));
-			exit(EX_SOFTWARE);
-		}
-		CFRelease(netif_members);
-	}
-
-	/* set display name if specified */
-	if (name != NULL) {
-		if (!SCBridgeInterfaceSetLocalizedDisplayName(bridge_netif,
-							      name)) {
-			SCPrint(TRUE, stderr,
-				CFSTR("Failed to set bridge name to '%@', %s\n"),
-				name, SCErrorString(SCError()));
-			exit(EX_SOFTWARE);
-		}
-		CFRelease(name);
-	}
-	return (bridge_netif);
+	__SC_CFRELEASE(name);
+	return (netif);
 }
 
 static SCNetworkInterfaceRef
@@ -5047,7 +5491,10 @@ do_create(int argc, char * argv[])
 		netif = create_vlan(prefs, argc, argv);
 		break;
 	case kInterfaceTypeBridge:
-		netif = create_bridge(prefs, argc, argv);
+#if BOND_INTERFACE_AVAILABLE
+	case kInterfaceTypeBond:
+#endif /* BOND_INTERFACE_AVAILABLE */
+		netif = create_bond_bridge(prefs, argc, argv, type);
 		break;
 	case kInterfaceTypeNone:
 		print_invalid_interface_type(optarg);
@@ -5178,6 +5625,23 @@ do_destroy(int argc, char * argv[])
 			exit(EX_USAGE);
 		}
 		break;
+#if BOND_INTERFACE_AVAILABLE
+	case kInterfaceTypeBond:
+		netif = copy_bond_interface(prefs, ifname);
+		if (netif == NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find bond %@\n"),
+				ifname);
+			exit(EX_SOFTWARE);
+		}
+		if (!SCBondInterfaceRemove(netif)) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Failed to remove %@: %s\n"),
+				ifname, SCErrorString(SCError()));
+			exit(EX_USAGE);
+		}
+		break;
+#endif /* BOND_INTERFACE_AVAILABLE */
 	}
 	commit_apply(prefs);
 	__SC_CFRELEASE(ifname);
@@ -5321,34 +5785,78 @@ do_set_vlan(int argc, char * argv[])
 	CFRelease(vlan_netif);
 }
 
+
 /**
- ** SetBridge
+ ** SetBond, SetBridge
  **/
 
-#define SET_BRIDGE_OPTSTRING	"b:hi:N:"
+#define SET_BOND_BRIDGE_OPTSTRING	"b:hi:N:"
+
+
+static void
+set_bridge_members(SCPreferencesRef prefs, SCNetworkInterfaceRef bridge_netif,
+		   CFArrayRef members)
+{
+	CFArrayRef	netif_members;
+
+	netif_members = copy_bridge_member_interfaces(bridge_netif,
+						      prefs, members);
+	if (netif_members == NULL) {
+		exit(EX_USAGE);
+	}
+	if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
+						  netif_members)) {
+		fprintf(stderr, "Failed to set member list: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	CFRelease(netif_members);
+}
+
+#if BOND_INTERFACE_AVAILABLE
+static void
+set_bond_members(SCPreferencesRef prefs, SCNetworkInterfaceRef bond_netif,
+		   CFArrayRef members)
+{
+	CFArrayRef	netif_members;
+
+	netif_members = copy_bond_member_interfaces(bond_netif,
+						    prefs, members);
+	if (netif_members == NULL) {
+		exit(EX_USAGE);
+	}
+	if (!SCBondInterfaceSetMemberInterfaces(bond_netif,
+						netif_members)) {
+		fprintf(stderr, "Failed to set member list: %s\n",
+			SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	CFRelease(netif_members);
+}
+#endif /* BOND_INTERFACE_AVAILABLE */
 
 /*
- * Function: do_set_bridge
+ * Function: do_set_bond_bridge
  * Purpose:
- *   Enables setting the bridge members and/or the bridge name.
+ *   Enables setting the bond/bridge members and/or the bond/bridge name.
  */
 
 static void
-do_set_bridge(int argc, char * argv[])
+do_set_bond_bridge(int argc, char * argv[], InterfaceType type)
 {
-	CFStringRef		bridge_name = NULL;
-	SCNetworkInterfaceRef	bridge_netif = NULL;
 	int			ch;
+	CFStringRef		ifname = NULL;
 	CFStringRef		member_name;
 	CFMutableArrayRef	members = NULL;
 	CFStringRef		name = NULL;
+	SCNetworkInterfaceRef	netif = NULL;
 	SCPreferencesRef	prefs = prefs_create();
 
 	while (TRUE) {
 		Boolean		success = FALSE;
 
 		ch = getopt_long(argc, argv,
-				 SET_BRIDGE_OPTSTRING, longopts, NULL);
+				 SET_BOND_BRIDGE_OPTSTRING, longopts, NULL);
 		if (ch == -1) {
 			break;
 		}
@@ -5366,24 +5874,31 @@ do_set_bridge(int argc, char * argv[])
 			command_specific_help();
 
 		case OPT_INTERFACE:
-			if (bridge_netif != NULL) {
+			if (netif != NULL) {
 				fprintf(stderr, "%s specified multiple times\n",
 					kOptInterface);
 				break;
 			}
-			bridge_name = my_CFStringCreate(optarg);
-			bridge_netif = copy_bridge_interface(prefs, bridge_name);
-			if (bridge_netif == NULL) {
+			ifname = my_CFStringCreate(optarg);
+			if (type == kInterfaceTypeBridge) {
+				netif = copy_bridge_interface(prefs, ifname);
+			}
+#if BOND_INTERFACE_AVAILABLE
+			else {
+				netif = copy_bond_interface(prefs, ifname);
+			}
+#endif /* BOND_INTERFACE_AVAILABLE */
+			if (netif == NULL) {
 				SCPrint(TRUE, stderr,
-					CFSTR("Can't find bridge %@\n"),
-					bridge_name);
+					CFSTR("Can't find %s %@\n"),
+					InterfaceTypeGetString(type),
+					ifname);
 				exit(EX_SOFTWARE);
 			}
-			CFRelease(bridge_name);
-			bridge_name = NULL;
+			__SC_CFRELEASE(ifname);
 			success = TRUE;
 			break;
-		case OPT_BRIDGE_MEMBER:
+		case OPT_BOND_BRIDGE_MEMBER:
 			member_name = my_CFStringCreate(optarg);
 			if (members == NULL) {
 				members = array_create();
@@ -5410,50 +5925,494 @@ do_set_bridge(int argc, char * argv[])
 		fprintf(stderr, "Extra command-line arguments\n");
 		exit(EX_USAGE);
 	}
-	if (bridge_netif == NULL ) {
+	if (netif == NULL ) {
 		fprintf(stderr, "-%c must be specified\n", OPT_INTERFACE);
 		command_specific_help();
 	}
 	if (members == NULL && name == NULL) {
 		fprintf(stderr, "Must specify -%c and/or -%c\n",
-			OPT_BRIDGE_MEMBER, OPT_NAME);
+			OPT_BOND_BRIDGE_MEMBER, OPT_NAME);
 		command_specific_help();
 	}
 
 	/* set members */
 	if (members != NULL) {
-		CFArrayRef	netif_members;
-
-		netif_members = copy_bridge_member_interfaces(bridge_netif,
-							      prefs, members);
-		CFRelease(members);
-		if (netif_members == NULL) {
-			exit(EX_USAGE);
+		if (type == kInterfaceTypeBridge) {
+			set_bridge_members(prefs, netif, members);
 		}
-		if (!SCBridgeInterfaceSetMemberInterfaces(bridge_netif,
-							  netif_members)) {
-			fprintf(stderr, "Failed to set member list: %s\n",
-				SCErrorString(SCError()));
-			exit(EX_SOFTWARE);
+#if BOND_INTERFACE_AVAILABLE
+		else {
+			set_bond_members(prefs, netif, members);
 		}
-		CFRelease(netif_members);
+#endif /* BOND_INTERFACE_AVAILABLE */
+		__SC_CFRELEASE(members);
 	}
 
 	/* set display name if specified */
 	if (name != NULL) {
-		if (!SCBridgeInterfaceSetLocalizedDisplayName(bridge_netif,
-							      name)) {
+		Boolean	ok = false;
+
+		if (type == kInterfaceTypeBridge) {
+			ok = SCBridgeInterfaceSetLocalizedDisplayName(netif,
+								      name);
+		}
+#if BOND_INTERFACE_AVAILABLE
+		else {
+			ok = SCBondInterfaceSetLocalizedDisplayName(netif,
+								    name);
+		}
+#endif /* BOND_INTERFACE_AVAILABLE */
+		if (!ok) {
 			SCPrint(TRUE, stderr,
-				CFSTR("Failed to set bridge name to '%@', %s\n"),
+				CFSTR("Failed to set %s name to '%@', %s\n"),
+				InterfaceTypeGetString(type),
 				name, SCErrorString(SCError()));
 			exit(EX_SOFTWARE);
 		}
-		CFRelease(name);
+		__SC_CFRELEASE(name);
 	}
 	commit_apply(prefs);
 	CFRelease(prefs);
-	CFRelease(bridge_netif);
+	CFRelease(netif);
 }
+
+/**
+ ** Sort
+ **/
+
+#define SORT_OPTSTRING	"hf:i:S:"
+
+typedef enum {
+	kSortOptionsNone		= 0,
+	kSortOptionsFirst		= 1,
+	kSortOptionsLast		= 2,
+	kSortOptionsSwap		= 3,
+} SortOptions;
+
+typedef struct {
+	CFMutableArrayRef	new_order;
+	SortOptions		options;
+	CFArrayRef		list_one;
+	CFRange			list_one_range;
+	CFArrayRef		list_two;
+	CFRange			list_two_range;
+	Boolean			one_found;
+	Boolean			two_found;
+} SortContext, * SortContextRef;
+
+
+static CFArrayRef
+copy_serviceIDs(CFArrayRef services)
+{
+	CFMutableArrayRef	serviceIDs;
+
+	serviceIDs = array_create();
+	for (CFIndex i = 0, count = CFArrayGetCount(services); i < count; i++) {
+		SCNetworkServiceRef	s;
+
+		s = (SCNetworkServiceRef)CFArrayGetValueAtIndex(services, i);
+		CFArrayAppendValue(serviceIDs, SCNetworkServiceGetServiceID(s));
+	}
+	return (serviceIDs);
+}
+
+static void
+sort_services_applier(const void * value, void * context)
+{
+	Boolean		add_serviceID = TRUE;
+	SortContextRef	ctx = (SortContextRef)context;
+	CFStringRef	serviceID = (CFStringRef)value;
+
+	switch (ctx->options) {
+	case kSortOptionsFirst:
+	case kSortOptionsLast:
+		if (CFArrayContainsValue(ctx->list_one, ctx->list_one_range,
+					 serviceID)) {
+			add_serviceID = FALSE;
+		}
+		break;
+	case kSortOptionsSwap:
+		if (CFArrayContainsValue(ctx->list_one,
+					 ctx->list_one_range,
+					 serviceID)) {
+			add_serviceID = FALSE;
+			if (!ctx->one_found) {
+				CFArrayAppendArray(ctx->new_order,
+						   ctx->list_two,
+						   ctx->list_two_range);
+			}
+			ctx->one_found = TRUE;
+		}
+		else if (CFArrayContainsValue(ctx->list_two,
+					      ctx->list_two_range,
+					      serviceID)) {
+			add_serviceID = FALSE;
+			if (!ctx->two_found) {
+				CFArrayAppendArray(ctx->new_order,
+						   ctx->list_one,
+						   ctx->list_one_range);
+			}
+			ctx->two_found = TRUE;
+		}
+		break;
+	case kSortOptionsNone:
+		if (CFArrayContainsValue(ctx->list_one,
+					 ctx->list_one_range,
+					 serviceID)) {
+			add_serviceID = FALSE;
+			if (ctx->one_found) {
+				break;
+			}
+			CFArrayAppendArray(ctx->new_order,
+					   ctx->list_one,
+					   ctx->list_one_range);
+			ctx->one_found = TRUE;
+		}
+		break;
+	}
+	if (add_serviceID) {
+		CFArrayAppendValue(ctx->new_order, serviceID);
+	}
+	return;
+}
+
+static CFArrayRef
+copy_sorted_serviceIDs(SortOptions options,
+		       CFStringRef one_name, CFArrayRef one,
+		       CFStringRef two_name, CFArrayRef two,
+		       CFArrayRef order)
+{
+	SortContext		ctx;
+	CFRange			r;
+
+	bzero(&ctx, sizeof(ctx));
+	ctx.options = options;
+	ctx.list_one = one;
+	ctx.list_one_range = CFRangeMake(0, CFArrayGetCount(one));
+	if (two != NULL) {
+		ctx.list_two = two;
+		ctx.list_two_range = CFRangeMake(0, CFArrayGetCount(two));
+	}
+	ctx.new_order = array_create();
+	if (options == kSortOptionsFirst) {
+		CFArrayAppendArray(ctx.new_order, ctx.list_one,
+				   ctx.list_one_range);
+	}
+	if (order != NULL) {
+		r = CFRangeMake(0, CFArrayGetCount(order));
+		CFArrayApplyFunction(order, r, sort_services_applier, &ctx);
+	}
+	switch (options) {
+	case kSortOptionsLast:
+		CFArrayAppendArray(ctx.new_order, ctx.list_one,
+				   ctx.list_one_range);
+		break;
+	case kSortOptionsSwap:
+		if (!ctx.one_found) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find serviceID(s) for %@\n"),
+				one_name);
+			exit(EX_SOFTWARE);
+		}
+		if (!ctx.two_found) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find serviceID(s) for %@\n"),
+				two_name);
+			exit(EX_SOFTWARE);
+		}
+		break;
+	default:
+		break;
+	}
+	return (ctx.new_order);
+}
+
+static CFArrayRef
+copy_configured_serviceIDs(CFArrayRef all_services, CFStringRef name,
+			   Boolean by_interface)
+{
+	CFArrayRef	serviceIDs = NULL;
+	CFArrayRef	services = NULL;
+
+	services = copy_configured_services_in_list(all_services, name,
+						    by_interface);
+	if (services == NULL) {
+		goto done;
+	}
+	serviceIDs = copy_serviceIDs(services);
+	if (serviceIDs == NULL) {
+		SCPrint(TRUE, stderr,
+			CFSTR("Can't copy serviceID(s) for %@\n"),
+			name);
+		exit(EX_SOFTWARE);
+	}
+ done:
+	__SC_CFRELEASE(services);
+	return (serviceIDs);
+}
+
+static void
+sort_by_options(SCPreferencesRef prefs, CFStringRef one, CFStringRef two,
+		SortOptions options, Boolean by_interface)
+{
+	CFArrayRef		all_services = NULL;
+	CFIndex			count;
+	SCNetworkSetRef		current_set;
+	CFArrayRef		new_order = NULL;
+	CFArrayRef		order;
+	CFArrayRef		one_serviceIDs = NULL;
+	CFArrayRef		two_serviceIDs = NULL;
+
+	current_set = SCNetworkSetCopyCurrent(prefs);
+	if (current_set == NULL) {
+		goto done;
+	}
+	all_services = SCNetworkSetCopyServices(current_set);
+	if (all_services == NULL) {
+		goto done;
+	}
+	count = CFArrayGetCount(all_services);
+	if (count == 0) {
+		goto done;
+	}
+	one_serviceIDs = copy_configured_serviceIDs(all_services, one,
+						    by_interface);
+	if (one_serviceIDs == NULL) {
+		SCPrint(TRUE, stderr,
+			CFSTR("Can't find service(s) for %@\n"),
+			one);
+		exit(EX_SOFTWARE);
+	}
+
+	if (two != NULL) {
+		two_serviceIDs = copy_configured_serviceIDs(all_services, two,
+							    by_interface);
+		if (two_serviceIDs == NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find service(s) for %@\n"),
+				two);
+			exit(EX_SOFTWARE);
+		}
+	}
+	order = SCNetworkSetGetServiceOrder(current_set);
+	new_order = copy_sorted_serviceIDs(options, one, one_serviceIDs,
+					   two, two_serviceIDs, order);
+	if (!SCNetworkSetSetServiceOrder(current_set, new_order)) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCNetworkSetSetServiceOrder() failed: "
+			      "%s\n"), SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	commit_apply(prefs);
+
+ done:
+	__SC_CFRELEASE(new_order);
+	__SC_CFRELEASE(current_set);
+	__SC_CFRELEASE(all_services);
+	__SC_CFRELEASE(one_serviceIDs);
+	__SC_CFRELEASE(two_serviceIDs);
+}
+
+static void
+sort_list(SCPreferencesRef prefs, CFArrayRef list, Boolean by_interface)
+{
+	CFArrayRef		all_services = NULL;
+	SCNetworkSetRef		current_set;
+	CFArrayRef		new_order = NULL;
+	CFArrayRef		order;
+	CFMutableArrayRef	sort_serviceIDs = NULL;
+
+	current_set = SCNetworkSetCopyCurrent(prefs);
+	if (current_set == NULL) {
+		goto done;
+	}
+	all_services = SCNetworkSetCopyServices(current_set);
+	if (all_services == NULL) {
+		goto done;
+	}
+	if (CFArrayGetCount(all_services) == 0) {
+		goto done;
+	}
+	sort_serviceIDs = array_create();
+	for (CFIndex i = 0, count = CFArrayGetCount(list); i < count; i++) {
+		CFStringRef	name;
+		CFRange		r;
+		CFArrayRef	serviceIDs;
+
+		name = (CFStringRef)CFArrayGetValueAtIndex(list, i);
+		serviceIDs = copy_configured_serviceIDs(all_services, name,
+							by_interface);
+		if (serviceIDs == NULL) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Can't find service(s) for %@\n"),
+				name);
+			exit(EX_SOFTWARE);
+		}
+		r = CFRangeMake(0, CFArrayGetCount(serviceIDs));
+		CFArrayAppendArray(sort_serviceIDs, serviceIDs, r);
+		CFRelease(serviceIDs);
+	}
+	order = SCNetworkSetGetServiceOrder(current_set);
+	new_order = copy_sorted_serviceIDs(kSortOptionsNone, CFSTR("multi"),
+					   sort_serviceIDs, NULL, NULL, order);
+	if (!SCNetworkSetSetServiceOrder(current_set, new_order)) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCNetworkSetSetServiceOrder() failed: "
+			      "%s\n"), SCErrorString(SCError()));
+		exit(EX_SOFTWARE);
+	}
+	commit_apply(prefs);
+
+ done:
+	__SC_CFRELEASE(new_order);
+	__SC_CFRELEASE(current_set);
+	__SC_CFRELEASE(all_services);
+	__SC_CFRELEASE(sort_serviceIDs);
+}
+
+/*
+ * Function: do_sort
+ * Purpose:
+ *   Sort services based on either interface name or service.
+ */
+static void
+do_sort(int argc, char * argv[])
+{
+	int			ch;
+	CFStringRef		filename;
+	CFMutableArrayRef	list = NULL;
+	CFStringRef		name;
+	int			opti;
+	const char *		optname;
+	SortOptions		options = kSortOptionsNone;
+	SCPreferencesRef	prefs = NULL;
+	int			which = -1;
+
+	while (TRUE) {
+		ch = getopt_long(argc, argv, SORT_OPTSTRING, longopts, &opti);
+		if (ch == -1) {
+			break;
+		}
+		switch (ch) {
+		case 0:
+			optname = longopts[opti].name;
+			if (options != kSortOptionsNone) {
+				fprintf(stderr,
+					"only one of --%s, --%s, or --%s, "
+					"may be specified\n",
+					kOptLast, kOptFirst, kOptSwap);
+				command_specific_help();
+			}
+			if (strcasecmp(optname, kOptLast) == 0) {
+				options = kSortOptionsLast;
+			}
+			else if (strcasecmp(optname, kOptFirst) == 0) {
+				options = kSortOptionsFirst;
+			}
+			else if (strcasecmp(optname, kOptSwap) == 0) {
+				options = kSortOptionsSwap;
+			}
+			else {
+				fprintf(stderr,
+					"--%s not supported\n",
+					optname);
+				command_specific_help();
+			}
+			break;
+		case OPT_FILE:
+			if (prefs != NULL) {
+				fprintf(stderr,
+					"-%c specified multiple times\n",
+					OPT_FILE);
+				command_specific_help();
+			}
+			if (!file_exists(optarg)) {
+				exit(EX_SOFTWARE);
+			}
+			filename = createPath(optarg);
+			if (filename == NULL) {
+				exit(EX_SOFTWARE);
+			}
+			prefs = prefs_create_with_file(filename);
+			CFRelease(filename);
+			break;
+		case OPT_HELP:
+			command_specific_help();
+
+		case OPT_INTERFACE:
+		case OPT_SERVICE:
+			name = my_CFStringCreate(optarg);
+			if (list == NULL) {
+				list = array_create();
+				which = ch;
+			}
+			else if (array_contains_value(list, name)) {
+				CFRelease(name);
+				fprintf(stderr,
+					"'%s' already specified\n",
+					optarg);
+				command_specific_help();
+			}
+			else if (which != ch) {
+				fprintf(stderr,
+					"Can't mix -%c and -%c\n",
+					OPT_INTERFACE, OPT_SERVICE);
+				command_specific_help();
+			}
+			CFArrayAppendValue(list, name);
+			CFRelease(name);
+			break;
+		default:
+			command_specific_help();
+		}
+	}
+	if (list == NULL) {
+		fprintf(stderr,
+			"Either -%c or -%c must be specified\n",
+			OPT_INTERFACE, OPT_SERVICE);
+		command_specific_help();
+	}
+	if (prefs == NULL) {
+		prefs = prefs_create();
+	}
+	switch (options) {
+	case kSortOptionsFirst:
+	case kSortOptionsLast:
+		if (CFArrayGetCount(list) > 1) {
+			fprintf(stderr,
+				"--%s can't be used with multiple "
+				"services/interfaces\n",
+				options == kSortOptionsFirst
+				? kOptFirst : kOptLast);
+			command_specific_help();
+		}
+		sort_by_options(prefs, CFArrayGetValueAtIndex(list, 0), NULL,
+				options, (which == OPT_INTERFACE));
+		break;
+	case kSortOptionsSwap:
+		if (CFArrayGetCount(list) != 2) {
+			fprintf(stderr,
+				"--%s requires two services/interfaces\n",
+				kOptSwap);
+			command_specific_help();
+		}
+		sort_by_options(prefs, CFArrayGetValueAtIndex(list, 0),
+				CFArrayGetValueAtIndex(list, 1),
+				options, (which == OPT_INTERFACE));
+		break;
+	case kSortOptionsNone:
+		if (CFArrayGetCount(list) == 1) {
+			fprintf(stderr,
+				"specify more than one service/interface\n");
+			command_specific_help();
+		}
+		sort_list(prefs, list, (which == OPT_INTERFACE));
+		break;
+	}
+	__SC_CFRELEASE(prefs);
+	return;
+}
+
 
 /**
  ** Help/usage
@@ -5486,7 +6445,10 @@ static void
 help_setvlan(const char * command_str) __dead2;
 
 static void
-help_setbridge(const char * command_str) __dead2;
+help_setbond_setbridge(const char * command_str) __dead2;
+
+static void
+help_sort(const char * command_str) __dead2;
 
 static void
 help_add_set(const char * command_str)
@@ -5498,7 +6460,8 @@ help_add_set(const char * command_str)
 		"%s %s " _SET_ADD_OPT " -p ipv4 -c dhcp\n",
 		G_argv0, command_str);
 	fprintf(stderr,
-		"%s %s " _SET_ADD_OPT " -p ipv4 -c manual -A <ip> -m <mask>\n",
+		"%s %s " _SET_ADD_OPT
+		" -p ipv4 -c manual -A <ip> -m <mask> [ -r <router> ]\n",
 		G_argv0, command_str);
 	fprintf(stderr,
 		"%s %s " _SET_ADD_OPT " -p ipv6 -c automatic\n",
@@ -5518,9 +6481,10 @@ static void
 help_remove(const char * command_str)
 {
 	fprintf(stderr,
-		"%s %s [ category-options ] ( -%c <interface> | -%c <service> ) "
+		"%s %s [ category-options | -%c <filename> ] "
+		"( -%c <interface> | -%c <service> ) "
 		"[ -p ( ipv4 | ipv6 | dns ) ]\n",
-		G_argv0, command_str,
+		G_argv0, command_str, OPT_FILE,
 		OPT_INTERFACE, OPT_SERVICE);
 	fprintf(stderr, "\tcategory-options: " _CATEGORY "\n");
 	exit(EX_USAGE);
@@ -5530,9 +6494,9 @@ static void
 help_enable_disable(const char * command_str)
 {
 	fprintf(stderr,
-		"%s %s ( -%c <interface> | -%c <service> ) "
+		"%s %s [ -%c <filename> ] ( -%c <interface> | -%c <service> ) "
 		"[ -p ( ipv4 | ipv6 | dns ) ]\n",
-		G_argv0, command_str,
+		G_argv0, command_str, OPT_FILE,
 		OPT_INTERFACE, OPT_SERVICE);
 	exit(EX_USAGE);
 }
@@ -5577,7 +6541,7 @@ help_create_bridge_no_exit(const char * command_str)
 		"%s %s -t bridge -%c <member> [ -%c <member> ... ] "
 		"[ -N <name> ] [ -a " BOOL_OPT_STRING " )]\n",
 		G_argv0, command_str,
-		OPT_BRIDGE_MEMBER, OPT_BRIDGE_MEMBER);
+		OPT_BOND_BRIDGE_MEMBER, OPT_BOND_BRIDGE_MEMBER);
 }
 
 static void
@@ -5590,10 +6554,32 @@ help_create_bridge(void)
 }
 
 static void
+help_create_bond_no_exit(const char * command_str)
+{
+	fprintf(stderr,
+		"%s %s -t bond -%c <member> [ -%c <member> ... ] "
+		"[ -N <name> ]\n",
+		G_argv0, command_str,
+		OPT_BOND_BRIDGE_MEMBER, OPT_BOND_BRIDGE_MEMBER);
+}
+
+static void
+help_create_bond(void)
+{
+	const char *	str = CommandGetString(G_command);
+
+	help_create_bond_no_exit(str);
+	exit(EX_USAGE);
+}
+
+static void
 help_create(const char * command_str)
 {
 	help_create_vlan_no_exit(command_str);
 	help_create_bridge_no_exit(command_str);
+#if BOND_INTERFACE_AVAILABLE
+	help_create_bond_no_exit(command_str);
+#endif /* BOND_INTERFACE_AVAILABLE */
 	exit(EX_USAGE);
 }
 
@@ -5618,13 +6604,41 @@ help_setvlan(const char * command_str)
 }
 
 static void
-help_setbridge(const char * command_str)
+help_setbond_setbridge(const char * command_str)
 {
 	fprintf(stderr,
 		"%s %s -%c <interface> [ -%c <member> [ -%c <member> ... ] ] "
 		"[ -%c <name> ]\n",
 		G_argv0, command_str,
-		OPT_INTERFACE, OPT_BRIDGE_MEMBER, OPT_BRIDGE_MEMBER, OPT_NAME);
+		OPT_INTERFACE, OPT_BOND_BRIDGE_MEMBER, OPT_BOND_BRIDGE_MEMBER,
+		OPT_NAME);
+	exit(EX_USAGE);
+}
+
+static void
+help_sort(const char * command_str)
+{
+	fprintf(stderr,
+		"%s %s ( --%s | --%s ) "
+		"( -%c <interface> | -%c <service> )\n",
+		G_argv0, command_str, kOptFirst, kOptLast,
+		OPT_INTERFACE, OPT_SERVICE);
+	fprintf(stderr,
+		"%s %s --%s -%c <interface1> -%c <interface2>\n",
+		G_argv0, command_str, kOptSwap,
+		OPT_INTERFACE, OPT_INTERFACE);
+	fprintf(stderr,
+		"%s %s --%s -%c <interface1> -%c <interface2>\n",
+		G_argv0, command_str, kOptSwap,
+		OPT_SERVICE, OPT_SERVICE);
+	fprintf(stderr,
+		"%s %s -%c <interface1> -%c <interface2> ...\n",
+		G_argv0, command_str,
+		OPT_INTERFACE, OPT_INTERFACE);
+	fprintf(stderr,
+		"%s %s -%c <service1> -%c <service2> ...\n",
+		G_argv0, command_str,
+		OPT_SERVICE, OPT_SERVICE);
 	exit(EX_USAGE);
 }
 
@@ -5643,34 +6657,44 @@ usage(void)
 		"\tdisable\n"
 		"\tenable\n"
 		"\tshow\n"
+		"\tsort\n"
 		"\tcreate\n"
 		"\tdestroy\n"
 		"\tsetvlan\n"
 		"\tsetbridge\n"
+#if BOND_INTERFACE_AVAILABLE
+		"\tsetbond\n"
+#endif /* BOND_INTERFACE_AVAILABLE */
 		"\n<options>:\n"
 		"\t--active-state            show active state\n"
 		"\t--auto-config, -a         auto-configure\n"
 		"\t--address, -A             IP address\n"
 		"\t--bridge-member, -b       bridge member\n"
+#if BOND_INTERFACE_AVAILABLE
+		"\t--bond-member, -b         bond member\n"
+#endif /* BOND_INTERFACE_AVAILABLE */
 		"\t--category                category identifier\n"
 		"\t--category-value          category value\n"
 		"\t--config-method, -c       configuration method\n"
 		"\t--dhcp-client-id, -C      DHCP client identifier\n"
 		"\t--default-config, -D      establish default configuration\n"
-		"\t--file, -f                filename\n"
-		"\t--help, -h                get help\n"
 		"\t--dns-domain-name, -n     DNS domain name\n"
 		"\t--dns-search-domains, -S  DNS search domains\n"
+		"\t--file, -f                filename\n"
+		"\t--first                   sort first\n"
+		"\t--last                    sort last\n"
+		"\t--help, -h                get help\n"
 		"\t--interface, -i           interface name e.g. en0\n"
 		"\t--interface-type, -t      interface type e.g. vlan\n"
 		"\t--new-name, -N            new name\n"
-		"\t--subnet-mask, -m         subnet mask e.g. 255.255.255.0\n"
 		"\t--protocol, -p            protocol e.g. ipv4, ipv6, dns\n"
+		"\t--router, -r              router\n"
 		"\t--service, -s             service name/identifier\n"
 		"\t--ssid                    Wi-Fi SSID\n"
+		"\t--subnet-mask, -m         subnet mask e.g. 255.255.255.0\n"
 		"\t--verbose, -v             be verbose\n"
-		"\t--vlan-id, -I             VLAN identifier (1..4096)\n"
-		"\t--vlan-device, -P         VLAN physical device e.g. en0\n",
+		"\t--vlan-device, -P         VLAN physical device e.g. en0\n"
+		"\t--vlan-id, -I             VLAN identifier (1..4096)\n",
 		G_argv0);
 	exit(EX_USAGE);
 }
@@ -5705,7 +6729,15 @@ command_specific_help(void)
 		help_setvlan(str);
 
 	case kCommandSetBridge:
-		help_setbridge(str);
+		help_setbond_setbridge(str);
+
+#if BOND_INTERFACE_AVAILABLE
+	case kCommandSetBond:
+		help_setbond_setbridge(str);
+#endif /* BOND_INTERFACE_AVAILABLE */
+
+	case kCommandSort:
+		help_sort(str);
 
 	case kCommandNone:
 		break;
@@ -5753,8 +6785,17 @@ main(int argc, char *argv[])
 		do_set_vlan(argc - 1, argv + 1);
 		break;
 	case kCommandSetBridge:
-		do_set_bridge(argc - 1, argv + 1);
+		do_set_bond_bridge(argc - 1, argv + 1,
+				   kInterfaceTypeBridge);
 		break;
+#if BOND_INTERFACE_AVAILABLE
+	case kCommandSetBond:
+		do_set_bond_bridge(argc - 1, argv + 1,
+				   kInterfaceTypeBond);
+		break;
+#endif /* BOND_INTERFACE_AVAILABLE */
+	case kCommandSort:
+		do_sort(argc - 1, argv + 1);
 	case kCommandNone:
 		break;
 	}

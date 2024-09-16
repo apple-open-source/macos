@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2004,2011,2014 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2003-2004,2011,2014,2023 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
- 
+
 /*
- * pkcs12Decode.h - P12Coder decoding engine.
+ * pkcs12Decode.cpp - P12Coder decoding engine.
  */
- 
+
 #include "pkcs12Coder.h"
 #include "pkcs12Templates.h"
 #include "pkcs12Utils.h"
@@ -41,11 +41,12 @@ void P12Coder::decode(
 	SecNssCoder localCdr;
 	NSS_P12_DecodedPFX pfx;
 
+	p12EventLog("==== PKCS12 Decode START ====");
 	p12DecodeLog("decode");
 	memset(&pfx, 0, sizeof(pfx));
 	const CSSM_DATA rawBlob = {int_cast<CFIndex, CSSM_SIZE>(CFDataGetLength(cdpfx)),
 		(uint8 *)CFDataGetBytePtr(cdpfx)};
-		
+
 	if(localCdr.decodeItem(rawBlob, NSS_P12_DecodedPFXTemplate, &pfx)) {
 		p12ErrorLog("Error on top-level decode of NSS_P12_DecodedPFX\n");
 		P12_THROW_DECODE;
@@ -71,13 +72,13 @@ void P12Coder::decode(
 		p12ErrorLog("no passphrase set\n");
 		CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_PASSPHRASE);
 	}
-	CSSM_RETURN crtn = p12VerifyMac(pfx, mCspHand, macPhrase, 
+	CSSM_RETURN crtn = p12VerifyMac(pfx, mCspHand, macPhrase,
 		macPassKey, localCdr);
 	if(crtn) {
 		p12LogCssmError("p12VerifyMac", crtn);
 		CssmError::throwMe(errSecPkcs12VerifyFailure);
 	}
-	
+
 	authSafeParse(*dci.content.data, localCdr);
 
 	/*
@@ -108,7 +109,7 @@ void P12Coder::encryptedDataDecrypt(
 	CSSM_PADDING		padding;		// CSSM_PADDING_PKCS7, etc.
 	CSSM_ENCRYPT_MODE	mode;			// CSSM_ALGMODE_CBCPadIV8, etc.
 	PKCS_Which			pkcs;
-	
+
 	bool found = pkcsOidToParams(&edata.contentInfo.encrAlg.algorithm,
 		keyAlg, encrAlg, pbeHashAlg, keySizeInBits, blockSizeInBytes,
 		padding, mode, pkcs);
@@ -116,7 +117,7 @@ void P12Coder::encryptedDataDecrypt(
 		p12ErrorLog("EncryptedData encrAlg not understood\n");
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
-		
+
 	uint32 iterCount;
 	if(!p12DataToInt(pbep->iterations, iterCount)) {
 		p12ErrorLog("encryptedDataDecrypt: badly formed iterCount\n");
@@ -128,7 +129,7 @@ void P12Coder::encryptedDataDecrypt(
 		p12ErrorLog("no passphrase set\n");
 		CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_PASSPHRASE);
 	}
-	
+
 	/* go */
 	CSSM_RETURN crtn = p12Decrypt(mCspHand,
 		edata.contentInfo.encrContent,
@@ -137,8 +138,8 @@ void P12Coder::encryptedDataDecrypt(
 		padding, mode,
 		iterCount, pbep->salt,
 		pwd,
-		passKey, 
-		localCdr, 
+		passKey,
+		localCdr,
 		ptext);
 	if(crtn) {
 		CssmError::throwMe(crtn);
@@ -148,7 +149,7 @@ void P12Coder::encryptedDataDecrypt(
 
 /*
  * Parse an CSSM_X509_ALGORITHM_IDENTIFIER specific to P12.
- * Decode the alg params as a NSS_P12_PBE_Params and parse and 
+ * Decode the alg params as a NSS_P12_PBE_Params and parse and
  * return the result if the pbeParams is non-NULL.
  */
 void P12Coder::algIdParse(
@@ -163,14 +164,14 @@ void P12Coder::algIdParse(
 		/* alg params are uninterpreted */
 		return;
 	}
-	
+
 	if(param.Length == 0) {
 		p12ErrorLog("algIdParse: no alg parameters\n");
 		P12_THROW_DECODE;
 	}
-	
+
 	memset(pbeParams, 0, sizeof(*pbeParams));
-	if(localCdr.decodeItem(param, 
+	if(localCdr.decodeItem(param,
 			NSS_P12_PBE_ParamsTemplate, pbeParams)) {
 		p12ErrorLog("Error decoding NSS_P12_PBE_Params\n");
 		P12_THROW_DECODE;
@@ -181,7 +182,7 @@ void P12Coder::algIdParse(
  * Parse a NSS_P7_EncryptedData - specifically in the context
  * of a P12 in password privacy mode. (The latter assumption is
  * to enable us to infer CSSM_X509_ALGORITHM_IDENTIFIER.parameters
- * format). 
+ * format).
  */
 void P12Coder::encryptedDataParse(
 	const NSS_P7_EncryptedData &edata,
@@ -208,7 +209,7 @@ void P12Coder::shroudedKeyBagParse(
 {
 	p12DecodeLog("Found shrouded key bag");
 	if(mPrivKeyImportState == PKIS_NoMore) {
-		CssmError::throwMe(errSecMultiplePrivKeys);	
+		CssmError::throwMe(errSecMultiplePrivKeys);
 	}
 
 	const NSS_P12_ShroudedKeyBag *keyBag = safeBag.bagValue.shroudedKeyBag;
@@ -227,7 +228,7 @@ void P12Coder::shroudedKeyBagParse(
 	CSSM_PADDING		padding;		// CSSM_PADDING_PKCS7, etc.
 	CSSM_ENCRYPT_MODE	mode;			// CSSM_ALGMODE_CBCPadIV8, etc.
 	PKCS_Which			pkcs;
-	
+
 	bool found = pkcsOidToParams(&algId.algorithm,
 		keyAlg, encrAlg, pbeHashAlg, keySizeInBits, blockSizeInBytes,
 		padding, mode, pkcs);
@@ -247,14 +248,14 @@ void P12Coder::shroudedKeyBagParse(
 		p12ErrorLog("no passphrase set\n");
 		CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_PASSPHRASE);
 	}
-	
+
 	/* We'll own the actual CSSM_KEY memory */
 	CSSM_KEY_PTR privKey = (CSSM_KEY_PTR)mCoder.alloc(sizeof(CSSM_KEY));
 	memset(privKey, 0, sizeof(CSSM_KEY));
-	
+
 	CSSM_DATA labelData;
-	p12GenLabel(labelData, localCdr);	
-	
+	p12GenLabel(labelData, localCdr);
+
 	CSSM_RETURN crtn = p12UnwrapKey(mCspHand,
 		mDlDbHand.DLHandle ? &mDlDbHand : NULL,
 		mImportFlags & kSecImportKeys,
@@ -265,7 +266,7 @@ void P12Coder::shroudedKeyBagParse(
 		iterCount, pbep.salt,
 		encrPhrase,
 		passKey,
-		localCdr, 
+		localCdr,
 		labelData,
 		mAccess,
 		mNoAcl,
@@ -281,9 +282,9 @@ void P12Coder::shroudedKeyBagParse(
 	P12KeyBag *p12bag = new P12KeyBag(privKey, mCspHand,
 		safeBag.bagAttrs, labelData, mCoder);
 	addKey(p12bag);
-	
+
 	if(mPrivKeyImportState == PKIS_AllowOne) {
-		mPrivKeyImportState = PKIS_NoMore;	
+		mPrivKeyImportState = PKIS_NoMore;
 	}
 }
 
@@ -295,15 +296,15 @@ void P12Coder::keyBagParse(
 	SecNssCoder &localCdr)
 {
 	if(mPrivKeyImportState == PKIS_NoMore) {
-		CssmError::throwMe(errSecMultiplePrivKeys);	
+		CssmError::throwMe(errSecMultiplePrivKeys);
 	}
-	
+
 	/* FIXME - should be able to parse and handle this.... */
 	p12DecodeLog("found keyBag");
 	NSS_P12_KeyBag *keyBag = safeBag.bagValue.keyBag;
-	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId, 
+	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId,
 		/* this breaks when NSS_P12_KeyBag is not a CSSM_DATA */
-		*keyBag,			
+		*keyBag,
 		safeBag.bagAttrs,
 		mCoder);
 	addOpaque(p12Bag);
@@ -326,7 +327,7 @@ void P12Coder::certBagParse(
 			p12ErrorLog("certBagParse: unknown cert type\n");
 			P12_THROW_DECODE;
 	}
-	P12CertBag *p12Bag = new P12CertBag(certBag->type, 
+	P12CertBag *p12Bag = new P12CertBag(certBag->type,
 		certBag->certValue,
 		safeBag.bagAttrs,
 		mCoder);
@@ -349,7 +350,7 @@ void P12Coder::crlBagParse(
 			p12ErrorLog("crlBagParse: unknown CRL type\n");
 			P12_THROW_DECODE;
 	}
-	P12CrlBag *p12Bag = new P12CrlBag(crlBag->type, 
+	P12CrlBag *p12Bag = new P12CrlBag(crlBag->type,
 		crlBag->crlValue,
 		safeBag.bagAttrs,
 		mCoder);
@@ -365,9 +366,9 @@ void P12Coder::secretBagParse(
 {
 	p12DecodeLog("found secretBag");
 	NSS_P12_SecretBag *secretBag = safeBag.bagValue.secretBag;
-	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId, 
+	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId,
 		/* this breaks when NSS_P12_SecretBag is not a CSSM_DATA */
-		*secretBag,			
+		*secretBag,
 		safeBag.bagAttrs,
 		mCoder);
 	addOpaque(p12Bag);
@@ -382,17 +383,17 @@ void P12Coder::safeContentsBagParse(
 {
 	p12DecodeLog("found SafeContents safe bag");
 	NSS_P12_SafeContentsBag *scBag = safeBag.bagValue.safeContentsBag;
-	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId, 
+	P12OpaqueBag *p12Bag = new P12OpaqueBag(safeBag.bagId,
 		/* this breaks when NSS_P12_SafeContentsBag is not a CSSM_DATA */
-		*scBag,			
+		*scBag,
 		safeBag.bagAttrs,
 		mCoder);
 	addOpaque(p12Bag);
 }
 
 /*
- * Parse an encoded NSS_P12_SafeContents. This could be either 
- * present as plaintext in an AuthSafe or decrypted. 
+ * Parse an encoded NSS_P12_SafeContents. This could be either
+ * present as plaintext in an AuthSafe or decrypted.
  */
 void P12Coder::safeContentsParse(
 	const CSSM_DATA &contentsBlob,
@@ -411,13 +412,13 @@ void P12Coder::safeContentsParse(
 	for(unsigned dex=0; dex<numBags; dex++) {
 		NSS_P12_SafeBag *bag = sc.bags[dex];
 		assert(bag != NULL);
-		
+
 		/* ensure that *something* is there */
 		if(bag->bagValue.keyBag == NULL) {
 			p12ErrorLog("safeContentsParse: Empty SafeBag\n");
 			P12_THROW_DECODE;
 		}
-		
+
 		/*
 		 * Break out to individual bag type
 		 */
@@ -462,13 +463,13 @@ void P12Coder::authSafeElementParse(
 			/* unencrypted SafeContents */
 			safeContentsParse(*info->content.data, localCdr);
 			break;
-			
+
 		case CT_EncryptedData:
 		{
 			NSS_P12_PBE_Params pbep;
 			encryptedDataParse(*info->content.encryptData, localCdr, &pbep);
 
-			/* 
+			/*
 			 * Decrypt contents to get a SafeContents and
 			 * then parse that.
 			 */
@@ -477,11 +478,11 @@ void P12Coder::authSafeElementParse(
 				localCdr, &pbep, ptext);
 			safeContentsParse(ptext, localCdr);
 			break;
-		}	
+		}
 		default:
 			p12ErrorLog("authSafeElementParse: unknown sage type (%u)\n",
 				(unsigned)info->type);
-				
+
 			/* well, save it as an opaque bag for now */
 			P12OpaqueBag *opaque = new P12OpaqueBag(
 				info->contentType, *info->content.data,
@@ -502,7 +503,7 @@ void P12Coder::authSafeParse(
 	p12DecodeLog("authSafeParse");
 
 	NSS_P12_AuthenticatedSafe authSafe;
-	
+
 	memset(&authSafe, 0, sizeof(authSafe));
 	if(localCdr.decodeItem(authSafeBlob,
 			NSS_P12_AuthenticatedSafeTemplate,
@@ -518,7 +519,7 @@ void P12Coder::authSafeParse(
 }
 
 void P12Coder::macParse(
-	const NSS_P12_MacData &macData, 
+	const NSS_P12_MacData &macData,
 	SecNssCoder &localCdr)
 {
 	p12DecodeLog("macParse");

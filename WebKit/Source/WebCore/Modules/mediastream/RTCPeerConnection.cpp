@@ -36,6 +36,7 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "DNS.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -408,7 +409,7 @@ ExceptionOr<Vector<MediaEndpointConfiguration::IceServerInfo>> RTCPeerConnection
 
             urls.removeAllMatching([&](auto& urlString) {
                 URL url { URL { }, urlString };
-                if (url.path().endsWithIgnoringASCIICase(".local"_s) || !portAllowed(url)) {
+                if (url.path().endsWithIgnoringASCIICase(".local"_s) || !portAllowed(url) || isIPAddressDisallowed(url)) {
                     queueTaskToDispatchEvent(*this, TaskSource::MediaElement, RTCPeerConnectionIceErrorEvent::create(Event::CanBubble::No, Event::IsCancelable::No, { }, { }, WTFMove(urlString), 701, "URL is not allowed"_s));
                     return true;
                 }
@@ -497,7 +498,7 @@ ExceptionOr<void> RTCPeerConnection::setConfiguration(RTCConfiguration&& configu
 
         for (auto& certificate : configuration.certificates) {
             bool isThere = m_configuration.certificates.findIf([&certificate](const auto& item) {
-                return item.get() == certificate.get();
+                return item == certificate;
             }) != notFound;
             if (!isThere)
                 return Exception { ExceptionCode::InvalidModificationError, "A certificate given in constructor is not present"_s };
@@ -630,11 +631,6 @@ void RTCPeerConnection::unregisterFromController()
 {
     if (m_controller)
         m_controller->remove(*this);
-}
-
-const char* RTCPeerConnection::activeDOMObjectName() const
-{
-    return "RTCPeerConnection";
 }
 
 void RTCPeerConnection::suspend(ReasonForSuspension reason)
@@ -875,11 +871,12 @@ static inline ExceptionOr<PeerConnectionBackend::CertificateInformation> certifi
     JSC::VM& vm = lexicalGlobalObject.vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    auto parameters = convertDictionary<RTCPeerConnection::CertificateParameters>(lexicalGlobalObject, value.get());
-    if (UNLIKELY(scope.exception())) {
+    auto parametersConversionResult = convertDictionary<RTCPeerConnection::CertificateParameters>(lexicalGlobalObject, value.get());
+    if (UNLIKELY(parametersConversionResult.hasException(scope))) {
         scope.clearException();
         return Exception { ExceptionCode::TypeError, "Unable to read certificate parameters"_s };
     }
+    auto parameters = parametersConversionResult.releaseReturnValue();
 
     if (parameters.expires && *parameters.expires < 0)
         return Exception { ExceptionCode::TypeError, "Expire value is invalid"_s };
@@ -1063,24 +1060,25 @@ void RTCPeerConnection::updateTransceiversAfterSuccessfulRemoteDescription()
     updateTransceiverTransports();
 }
 
-void RTCPeerConnection::updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&& sctpBackend)
+void RTCPeerConnection::updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&& sctpBackend, std::optional<double> maxMessageSize)
 {
     if (!sctpBackend) {
         m_sctpTransport = nullptr;
         return;
     }
-    if (m_sctpTransport && m_sctpTransport->backend() == *sctpBackend) {
-        m_sctpTransport->update();
-        return;
-    }
-    RefPtr context = scriptExecutionContext();
-    if (!context)
-        return;
 
-    auto dtlsTransport = getOrCreateDtlsTransport(sctpBackend->dtlsTransportBackend().moveToUniquePtr());
-    if (!dtlsTransport)
-        return;
-    m_sctpTransport = RTCSctpTransport::create(*context, makeUniqueRefFromNonNullUniquePtr(WTFMove(sctpBackend)), dtlsTransport.releaseNonNull());
+    if (!m_sctpTransport || m_sctpTransport->backend() != *sctpBackend) {
+        RefPtr context = scriptExecutionContext();
+        if (!context)
+            return;
+
+        auto dtlsTransport = getOrCreateDtlsTransport(sctpBackend->dtlsTransportBackend().moveToUniquePtr());
+        if (!dtlsTransport)
+            return;
+        m_sctpTransport = RTCSctpTransport::create(*context, makeUniqueRefFromNonNullUniquePtr(WTFMove(sctpBackend)), dtlsTransport.releaseNonNull());
+    }
+
+    m_sctpTransport->updateMaxMessageSize(maxMessageSize);
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -1089,6 +1087,16 @@ WTFLogChannel& RTCPeerConnection::logChannel() const
     return LogWebRTC;
 }
 #endif
+
+void RTCPeerConnection::startGatheringStatLogs(Function<void(String&&)>&& callback)
+{
+    m_backend->startGatheringStatLogs(WTFMove(callback));
+}
+
+void RTCPeerConnection::stopGatheringStatLogs()
+{
+    m_backend->stopGatheringStatLogs();
+}
 
 } // namespace WebCore
 

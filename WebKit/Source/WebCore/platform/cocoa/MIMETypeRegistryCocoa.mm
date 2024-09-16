@@ -32,6 +32,7 @@
 #import <wtf/RobinHoodHashMap.h>
 #import <wtf/RobinHoodHashSet.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -198,7 +199,7 @@ bool MIMETypeRegistry::isApplicationPluginMIMEType(const String& MIMEType)
     // but we only know that in WebKit2 at the moment. This is not a problem
     // in practice because if we don't have PDFPlugin and we go to instantiate the
     // plugin, there won't exist an application plugin supporting these MIME types.
-    if (isPDFOrPostScriptMIMEType(MIMEType))
+    if (isPDFMIMEType(MIMEType))
         return true;
 #else
     UNUSED_PARAM(MIMEType);

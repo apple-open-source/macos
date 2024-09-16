@@ -32,18 +32,32 @@ t_aligned_alloc(size_t alignment, size_t size)
 	return ptr;
 }
 
-T_DECL(aligned_alloc_free, "aligned_alloc all power of two alignments <= 256kb")
+T_DECL(aligned_alloc_free, "aligned_alloc all power of two alignments <= 64kb",
+		T_META_TAG_VM_NOT_PREFERRED)
 {
-	for (size_t alignment = sizeof(void*); alignment < 4096; alignment *= 2) {
+#if TARGET_OS_WATCH
+	const size_t max_alignment = 4096;
+#else
+	const size_t max_alignment = 64 * 1024;
+#endif // TARGET_OS_WATCH
+	for (size_t alignment = sizeof(void*); alignment < max_alignment;
+			alignment *= 2) {
 		// test several sizes that are multiples of the alignment
-		for (size_t size = alignment; size <= 512*alignment; size += alignment) {
-			void* ptr = t_aligned_alloc(alignment, size);
-			free(ptr);
+		for (size_t size = alignment; size <= 256*alignment; size += alignment) {
+			const int num_ptrs = 10;
+			void *ptrs[num_ptrs];
+			for (int i = 0; i < num_ptrs; i++) {
+				ptrs[i] = t_aligned_alloc(alignment, size);
+			}
+			for (int i = 0; i < num_ptrs; i++) {
+				free(ptrs[i]);
+			}
 		}
 	}
 }
 
-T_DECL(aligned_alloc_alignment_not_multiple_of_size, "aligned_alloc should set errno to EINVAL if size is not a multiple of alignment")
+T_DECL(aligned_alloc_alignment_not_multiple_of_size, "aligned_alloc should set errno to EINVAL if size is not a multiple of alignment",
+		T_META_TAG_VM_PREFERRED)
 {
 	{
 		void *ptr = aligned_alloc(8, 12);
@@ -58,7 +72,8 @@ T_DECL(aligned_alloc_alignment_not_multiple_of_size, "aligned_alloc should set e
 	}
 }
 
-T_DECL(aligned_alloc_alignment_not_power_of_two, "aligned_alloc should set errno to EINVAL if alignment is not a power of two (implementation constraint)")
+T_DECL(aligned_alloc_alignment_not_power_of_two, "aligned_alloc should set errno to EINVAL if alignment is not a power of two (implementation constraint)",
+		T_META_TAG_VM_PREFERRED)
 {
 	{
 		void *ptr = aligned_alloc(24, 48); // alignment is even, but not a power of two
@@ -73,7 +88,8 @@ T_DECL(aligned_alloc_alignment_not_power_of_two, "aligned_alloc should set errno
 	}
 }
 
-T_DECL(aligned_alloc_alignment_not_a_multiple_of_voidstar, "aligned_alloc should set errno to EINVAL if alignment is not a multiple of sizeof(void*) (implementation constraint)")
+T_DECL(aligned_alloc_alignment_not_a_multiple_of_voidstar, "aligned_alloc should set errno to EINVAL if alignment is not a multiple of sizeof(void*) (implementation constraint)",
+		T_META_TAG_VM_PREFERRED)
 {
 	const size_t alignment = sizeof(void*)+1;
 	void *ptr = aligned_alloc(alignment, alignment * 2);

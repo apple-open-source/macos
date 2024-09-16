@@ -146,6 +146,7 @@ struct nfs_conf_client config =
 #define ALTF_FH                 0x00400000
 #define ALTF_NETID              0x00800000
 #define ALTF_READLINK_NOCACHE   0x01000000
+#define ALTF_ACCESS_CACHE       0x02000000
 
 /* switches */
 #define ALTF_ATTRCACHE          0x00000001
@@ -215,6 +216,7 @@ struct mntopt mopts[] = {
 	{ "vers", 0, ALTF_VERS, 1 },
 	{ "wsize", 0, ALTF_WSIZE, 1 },
 	{ "readlink_nocache", 0, ALTF_READLINK_NOCACHE, 1 },
+	{ "accesscache", 0, ALTF_ACCESS_CACHE, 1 },
 	/**/
 	{ "nfsv2", 0, ALTF_VERS2, 1 }, /* deprecated, use vers=# */
 	{ "nfsv3", 0, ALTF_VERS3, 1 }, /* deprecated, use vers=# */
@@ -1126,6 +1128,10 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, options.acrootdirmax.tv_nsec);
 	}
 
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		xb_add_32(error, &xb, options.access_cache);
+	}
+
 	xb_build_done(error, &xb);
 
 	/* update opaque counts */
@@ -1856,6 +1862,17 @@ handle_mntopts(char *opts)
 			} else {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_READLINK_NOCACHE);
 				options.readlink_nocache = (int)num;
+			}
+		}
+	}
+	if (altflags & ALTF_ACCESS_CACHE) {
+		if ((p2 = getmntoptstr(mop, "accesscache"))) {
+			num = getmntoptnum(mop, "accesscache");
+			if (num < 0) {
+				warnx("illegal accesscache value -- %s", p2);
+			} else {
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ACCESS_CACHE);
+				options.access_cache = (int)num;
 			}
 		}
 	}
@@ -3171,6 +3188,9 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READLINK_NOCACHE) || (verbose > 1)) {
 		printf(",readlink_nocache=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READLINK_NOCACHE) ? options.readlink_nocache : 0);
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		printf(",accesscache=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ACCESS_CACHE) ? options.access_cache : 0);
 	}
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1)) {
 		printf(",%sopaque_auth", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOOPAQUE_AUTH) ? "no" : "");

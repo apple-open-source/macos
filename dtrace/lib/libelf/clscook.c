@@ -75,6 +75,7 @@ xTab[] =
 	{"__debug_weaknames", ".debug_weaknames", 0  },
 	{"__debug_macinfo", ".debug_macinfo", 0  },
 	{"__eh_frame", ".eh_frame", 0 },
+	{"__debug_str_offsets", ".debug_str_offsets", 0},
 	{"__dir_str_table", ".dir_str_table", 0 } /* Directly addressed Mach-o string table. */
 };
 #define SIZE_XTAB (sizeof(xTab)/sizeof(xTab[0]))

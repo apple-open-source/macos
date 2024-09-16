@@ -13,6 +13,8 @@
 // This value is a guess that will be refined over time.
 #define PERFCHECK_THRESHOLD_PCT	10.0
 
+T_GLOBAL_META(T_META_TAG_VM_NOT_PREFERRED);
+
 static uint32_t
 ncpu(void)
 {

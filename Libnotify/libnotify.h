@@ -31,6 +31,7 @@
 #include <dispatch/dispatch.h>
 #include <xpc/private.h>
 #include "table.h"
+#include <os/variant_private.h>
 
 #include <TargetConditionals.h>
 
@@ -105,6 +106,7 @@ extern const char *_notify_shm_id(void);
 #define NOTIFY_CLIENT_STATE_SUSPENDED 0x00000020
 #define NOTIFY_CLIENT_STATE_PENDING   0x00000040
 #define NOTIFY_CLIENT_STATE_TIMEOUT   0x00000080
+#define NOTIFY_CLIENT_STATE_THROTTLED 0x00000100
 
 /* port_data_t::flags and proc_data_t::flags */
 #define PORT_PROC_FLAGS_NONE			0x00000000
@@ -167,6 +169,7 @@ typedef struct client_s
 	uint16_t service_index;
 	uint8_t suspend_count;
 	uint8_t state_and_type;
+	bool simulated_crash;
 } client_t;
 
 typedef struct
@@ -246,5 +249,13 @@ uint32_t _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uid
 
 uint64_t make_client_id(pid_t pid, int token);
 
+/* NOTE: Calls to _simulate_crash must be gated behind a check for internal builds. */
+__printflike(1, 2) void _simulate_crash(char *fmt, ...);
+
+#define simulate_crash(fmt, ...) \
+if(os_variant_has_internal_diagnostics("libnotify.simulate_crash")) \
+{ \
+	_simulate_crash(fmt, ##__VA_ARGS__); \
+}
 
 #endif /* _LIBNOTIFY_H_ */

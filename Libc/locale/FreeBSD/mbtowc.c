@@ -46,7 +46,7 @@ mbtowc_l(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 		loc->__mbs_mbtowc = initial;
 		return (0);
 	}
-	rval = loc->__lc_ctype->__mbrtowc(pwc, s, n, &loc->__mbs_mbtowc, loc);
+	rval = XLOCALE_CTYPE(loc)->__mbrtowc(pwc, s, n, &loc->__mbs_mbtowc, loc);
 	if (rval == (size_t)-1 || rval == (size_t)-2)
 		return (-1);
 	return ((int)rval);

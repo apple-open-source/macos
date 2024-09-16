@@ -59,11 +59,13 @@ static void tests(void)
     CFReleaseNull(acl);
 
     // ACL with flags only (not allowed)
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     // NULL passed as 'protection' newly generates a warning, we need to suppress it in order to compile
     acl = SecAccessControlCreateWithFlags(allocator, NULL, kSecAccessControlUserPresence, &error);
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
     ok(acl == NULL, "SecAccessControlCreateWithFlags");
     CFReleaseNull(error);
     CFReleaseNull(acl);
@@ -88,7 +90,7 @@ static void tests(void)
 
     // ACL with protection and flags
 #if TARGET_OS_OSX
-    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlWatch | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlCompanion | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
 #else
     acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
 #endif
@@ -156,10 +158,10 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(policy);
 
-    // Watch constraint
-    aclConstraint = SecAccessConstraintCreateWatch(allocator);
-    ok(aclConstraint != NULL && isDictionary(aclConstraint), "SecAccessConstraintCreateWatch");
-    is(CFDictionaryGetValue(aclConstraint, CFSTR(kACMKeyAclConstraintWatch)), kCFBooleanTrue, "SecAccessConstraintCreateWatch");
+    // Companion constraint
+    aclConstraint = SecAccessConstraintCreateCompanion(allocator);
+    ok(aclConstraint != NULL && isDictionary(aclConstraint), "SecAccessConstraintCreateCompanion");
+    is(CFDictionaryGetValue(aclConstraint, CFSTR(kACMKeyAclConstraintWatch)), kCFBooleanTrue, "SecAccessConstraintCreateCompanion");
     CFReleaseNull(aclConstraint);
 
     // Passcode constraint
@@ -267,6 +269,9 @@ static void tests(void)
 
     CFReleaseNull(acl);
 
+// Remove this when libaks_acl_cf_keys.h starts providing this symbol.
+#define kAKSKeyOpKEMDecapsulate ((CFTypeRef)CFSTR("okd"))
+
     // kSecAccessControlPrivateKeyUsage
     acl = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlPrivateKeyUsage | kSecAccessControlDevicePasscode, NULL);
     ok(acl, "kSecAccessControlPrivateKeyUsage ACL create with constraint");
@@ -276,6 +281,10 @@ static void tests(void)
     is(constraint, kCFBooleanTrue, "kAKSKeyOpDelete constraint value");
     ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpSign), "kAKSKeyOpSign constraint");
     ok(constraint && isDictionary(constraint), "kAKSKeyOpSign constraint value");
+    ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpComputeKey), "kAKSKeyOpCompute constraint");
+    ok(constraint && isDictionary(constraint), "kAKSKeyOpComputeKey constraint value");
+    ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpKEMDecapsulate), "kAKSKeyOpKEMDecapsulate constraint");
+    ok(constraint && isDictionary(constraint), "kAKSKeyOpKEMDecapsulate constraint value");
     CFReleaseNull(acl);
 
     acl = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlPrivateKeyUsage, NULL);
@@ -286,6 +295,10 @@ static void tests(void)
     is(constraint, kCFBooleanTrue, "kAKSKeyOpDelete constraint value");
     ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpSign), "kAKSKeyOpSign constraint");
     is(constraint, kCFBooleanTrue, "kAKSKeyOpSign constraint value");
+    ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpComputeKey), "kAKSKeyOpComputeKey constraint");
+    is(constraint, kCFBooleanTrue, "kAKSKeyOpComputeKey constraint value");
+    ok(constraint = SecAccessControlGetConstraint(acl, kAKSKeyOpKEMDecapsulate), "kAKSKeyOpKEMDecapsulate constraint");
+    is(constraint, kCFBooleanTrue, "kAKSKeyOpKEMDecapsulate constraint value");
     CFReleaseNull(acl);
 }
 

@@ -26,7 +26,10 @@
 #include "config.h"
 #include "WebAutomationSession.h"
 
+#if USE(CAIRO)
+
 #include "ViewSnapshotStore.h"
+#include <WebCore/NotImplemented.h>
 #include <WebCore/RefPtrCairo.h>
 #include <cairo.h>
 #include <wtf/text/Base64.h>
@@ -39,10 +42,10 @@ static std::optional<String> base64EncodedPNGData(cairo_surface_t* surface)
     if (!surface)
         return std::nullopt;
 
-    Vector<unsigned char> pngData;
+    Vector<uint8_t> pngData;
     cairo_surface_write_to_png_stream(surface, [](void* userData, const unsigned char* data, unsigned length) -> cairo_status_t {
-        auto* pngData = static_cast<Vector<unsigned char>*>(userData);
-        pngData->append(data, length);
+        auto* pngData = static_cast<Vector<uint8_t>*>(userData);
+        pngData->append(std::span { reinterpret_cast<const uint8_t*>(data), length });
         return CAIRO_STATUS_SUCCESS;
     }, &pngData);
 
@@ -62,14 +65,14 @@ std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(Shar
     return base64EncodedPNGData(surface.get());
 }
 
-std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(const ViewSnapshot& snapshot)
+#if !PLATFORM(GTK)
+std::optional<String> WebAutomationSession::platformGetBase64EncodedPNGData(const ViewSnapshot&)
 {
-#if PLATFORM(GTK) && !USE(GTK4)
-    return base64EncodedPNGData(snapshot.surface());
-#else
+    notImplemented();
     return std::nullopt;
-#endif
 }
+#endif
 
 } // namespace WebKit
 
+#endif // USE(CAIRO)

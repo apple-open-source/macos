@@ -134,6 +134,15 @@ static void print_json(NSDictionary* dict)
     }
 }
 
+static void print_unjson(const char *title, NSString *key, NSDictionary *dict)
+{
+    printf("%s %s\n", title, [dict[key] UTF8String]);
+    for (NSString *k in dict) {
+        if (![k isEqualToString:key]) {
+            printf("\t%s: %s\n", [k UTF8String], [dict[k] UTF8String]);
+        }
+    }
+}
 
 @implementation OTControlCLI
 
@@ -1055,20 +1064,12 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 }
             } else {
                 ret = 0;
+                NSDictionary *d = [crk dictionary];
+
                 if (json) {
-                    NSDictionary *d = @{
-                        @"uuid": [crk.uuid description],
-                        @"recoveryString": crk.recoveryString,
-                        @"wrappingKey": [crk.wrappingKey base64EncodedStringWithOptions:0],
-                        @"wrappedKey": [crk.wrappedKey base64EncodedStringWithOptions:0],
-                    };
                     print_json(d);
                 } else {
-                    printf("Created custodian key %s, string: %s, wrapping key: %s, wrapped key: %s\n",
-                           [[crk.uuid description] UTF8String],
-                           [crk.recoveryString UTF8String],
-                           [[crk.wrappingKey base64EncodedStringWithOptions:0] UTF8String],
-                           [[crk.wrappedKey base64EncodedStringWithOptions:0] UTF8String]);
+                    print_unjson("Created custodian key", @"uuid", d);
                 }
             }
         }];
@@ -1352,6 +1353,52 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+- (int)checkRecoveryKeyWithArguments:(OTControlArguments*)arguments
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    OTConfigurationContext* context = [arguments makeConfigurationContext];
+    NSError *error = nil;
+    BOOL isSet = [OTClique isRecoveryKeySet:context error:&error];
+    if (error != nil) {
+        fprintf(stderr, "check recovery key failed: %s\n", [[error description] UTF8String]);
+    } else {
+        printf("recovery key is %s\n", isSet ? "set": "not set");
+        if (isSet) {
+            ret = 0;
+        }
+    }
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)preflightJoinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    [self.control preflightRecoverOctagonUsingRecoveryKey:arguments recoveryKey:recoveryKey reply:^(BOOL correct, NSError *error) {
+        if (error) {
+            fprintf(stderr, "preflight join with recovery key failed: %s\n", [[error description] UTF8String]);
+        } else {
+            printf("preflight joined using recovery key %s, in octagon: %s\n", [recoveryKey UTF8String], correct ? "success": "failure");
+            if (correct) {
+                ret = 0;
+            }
+        }
+    }];
+
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)arguments
                               uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
@@ -1383,36 +1430,12 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 }
             } else {
                 ret = 0;
+                NSDictionary* d = [ik dictionary];
+
                 if (json) {
-                    NSDictionary *d = @{
-                        @"uuid": [ik.uuid description],
-                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
-                        @"wrappingKeyString": ik.wrappingKeyString,
-                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
-                        @"wrappedKeyString": ik.wrappedKeyString,
-                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
-                        @"claimTokenString": ik.claimTokenString,
-                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
-                    };
                     print_json(d);
                 } else {
-                    printf("Created inheritance key %s\n"
-                           "\twrappingKeyData: %s\n"
-                           "\twrappingKeyString: %s\n"
-                           "\twrappedKeyData: %s\n"
-                           "\twrappedKeyString: %s\n"
-                           "\tclaimTokenData: %s\n"
-                           "\tclaimTokenString: %s\n"
-                           "\trecoveryKeyData: %s\n",
-                           [[ik.uuid description] UTF8String],
-                           [[ik.wrappingKeyData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.wrappingKeyString UTF8String],
-                           [[ik.wrappedKeyData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.wrappedKeyString UTF8String],
-                           [[ik.claimTokenData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.claimTokenString UTF8String],
-                           [[ik.recoveryKeyData base64EncodedStringWithOptions:0] UTF8String]
-                           );
+                    print_unjson("Created inheritance key", @"uuid", d);
                 }
             }
         }];
@@ -1445,36 +1468,12 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                 }
             } else {
                 ret = 0;
+                NSDictionary* d = [ik dictionary];
+
                 if (json) {
-                    NSDictionary *d = @{
-                        @"uuid": [ik.uuid description],
-                        @"wrappingKeyData": [ik.wrappingKeyData base64EncodedStringWithOptions:0],
-                        @"wrappingKeyString": ik.wrappingKeyString,
-                        @"wrappedKeyData": [ik.wrappedKeyData base64EncodedStringWithOptions:0],
-                        @"wrappedKeyString": ik.wrappedKeyString,
-                        @"claimTokenData": [ik.claimTokenData base64EncodedStringWithOptions:0],
-                        @"claimTokenString": ik.claimTokenString,
-                        @"recoveryKeyData": [ik.recoveryKeyData base64EncodedStringWithOptions:0],
-                    };
                     print_json(d);
                 } else {
-                    printf("Generated inheritance key %s\n"
-                           "\twrappingKeyData: %s\n"
-                           "\twrappingKeyString: %s\n"
-                           "\twrappedKeyData: %s\n"
-                           "\twrappedKeyString: %s\n"
-                           "\tclaimTokenData: %s\n"
-                           "\tclaimTokenString: %s\n"
-                           "\trecoveryKeyData: %s\n",
-                           [[ik.uuid description] UTF8String],
-                           [[ik.wrappingKeyData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.wrappingKeyString UTF8String],
-                           [[ik.wrappedKeyData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.wrappedKeyString UTF8String],
-                           [[ik.claimTokenData base64EncodedStringWithOptions:0] UTF8String],
-                           [ik.claimTokenString UTF8String],
-                           [[ik.recoveryKeyData base64EncodedStringWithOptions:0] UTF8String]
-                           );
+                    print_unjson("Generated inheritance key", @"uuid", d);
                 }
             }
         }];
@@ -1738,6 +1737,151 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                     ret = 0;
                 } else {
                     ret = 1;
+                }
+            }
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)recreateInheritanceKeyWithArguments:(OTControlArguments*)arguments
+                                uuidString:(NSString*_Nullable)uuidString
+                               wrappingKey:(NSString*)wrappingKey
+                                wrappedKey:(NSString*)wrappedKey
+                                claimToken:(NSString*)claimToken
+                                      json:(bool)json
+                                   timeout:(NSTimeInterval)timeout
+{
+#if OCTAGON
+    NSUUID *uuid = nil;
+    if (uuidString != nil) {
+        uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+        if (uuid == nil) {
+            fprintf(stderr, "bad format for inheritanceUUID\n");
+            return 1;
+        }
+    }
+
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    __block int ret = 1;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *wrappedKeyData = [[NSData alloc] initWithBase64EncodedString:wrappedKey options:0];
+    if (wrappedKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappedKey\n");
+        return 1;
+    }
+
+    NSData *claimTokenData = [[NSData alloc] initWithBase64EncodedString:claimToken options:0];
+    if (claimTokenData == nil) {
+        fprintf(stderr, "bad base64 data for claimToken\n");
+        return 1;
+    }
+
+    NSUUID *dummyUuid = [[NSUUID alloc] init];
+
+    NSError *initError;
+    OTInheritanceKey *oldIK = [[OTInheritanceKey alloc] initWithWrappedKeyData:wrappedKeyData
+                                                               wrappingKeyData:wrappingKeyData
+                                                                claimTokenData:claimTokenData
+                                                                          uuid:dummyUuid
+                                                                         error:&initError];
+    if (oldIK == nil) {
+        fprintf(stderr, "failed to create OTInheritanceKey: %s\n", [[initError description] UTF8String]);
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control recreateInheritanceKey:arguments
+                                        uuid:uuid
+                                       oldIK:oldIK
+                                       reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if (error) {
+                fprintf(stderr, "recreateInheritanceKey failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
+                }
+            } else {
+                ret = 0;
+                NSDictionary* d = [ik dictionary];
+                if (json) {
+                    print_json(d);
+                } else {
+                    print_unjson("Recreated inheritance key", @"uuid", d);
+                }
+            }
+        }];
+    } while (retry);
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)createInheritanceKeyWithClaimTokenAndWrappingKey:(OTControlArguments*)arguments
+                                             uuidString:(NSString*_Nullable)uuidString
+                                             claimToken:(NSString*)claimToken
+                                            wrappingKey:(NSString*)wrappingKey
+                                                   json:(bool)json
+                                                timeout:(NSTimeInterval)timeout
+{
+#if OCTAGON
+    NSUUID *uuid = nil;
+    if (uuidString != nil) {
+        uuid = [[NSUUID alloc] initWithUUIDString:uuidString];
+        if (uuid == nil) {
+            fprintf(stderr, "bad format for inheritanceUUID\n");
+            return 1;
+        }
+    }
+
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    __block int ret = 1;
+    __block bool retry;
+
+    NSData *wrappingKeyData = [[NSData alloc] initWithBase64EncodedString:wrappingKey options:0];
+    if (wrappingKeyData == nil) {
+        fprintf(stderr, "bad base64 data for wrappingKey\n");
+        return 1;
+    }
+    NSData *claimTokenData = [[NSData alloc] initWithBase64EncodedString:claimToken options:0];
+    if (claimTokenData == nil) {
+        fprintf(stderr, "bad base64 data for claimToken\n");
+        return 1;
+    }
+
+    do {
+        retry = false;
+        [self.control createInheritanceKey:arguments
+                                      uuid:uuid
+                            claimTokenData:claimTokenData
+                           wrappingKeyData:wrappingKeyData
+                                     reply:^(OTInheritanceKey *_Nullable ik, NSError *_Nullable error) {
+            if (error) {
+                fprintf(stderr, "createInheritanceKeyWithClaimTokenAndWrappingKey failed: %s\n", [[error description] UTF8String]);
+                if ([deadline timeIntervalSinceNow] > 0 && [error isRetryable]) {
+                    retry = true;
+                    sleep([error retryInterval]);
+                }
+            } else {
+                ret = 0;
+                NSDictionary* d = [ik dictionary];
+                if (json) {
+                    print_json(d);
+                } else {
+                    print_unjson("Created inheritance key with claim+wrappingkey", @"uuid", d);
                 }
             }
         }];

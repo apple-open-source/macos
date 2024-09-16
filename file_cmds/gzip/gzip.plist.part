@@ -14,6 +14,7 @@
 		<string>gzip.c, gzip.1: zcat conformance (3675040)</string>
 		<string>zmore: work as zless or zmore</string>
 		<string>gzip.c: don't ignore errors on stdout (89147045)</string>
+		<string>gzip.c: re-raise signal to propagate correct exit status to caller (128143055)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>gzip</string>

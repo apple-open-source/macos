@@ -204,11 +204,64 @@ is_restore(void)
 	return is_restore;
 }
 
+static bool
+dt_string_is_equal(DTEntry *entry, const char *name, const char *str)
+{
+	const void       *value;
+	unsigned         size;
+	size_t           str_size;
+
+	str_size = strlen(str) + 1;
+	return entry != NULL &&
+	       SecureDTGetProperty(*entry, name, &value, &size) == kSuccess &&
+	       value != NULL &&
+	       size == str_size &&
+	       strncmp(str, value, str_size) == 0;
+}
+
+static bool
+is_recovery_environment(void)
+{
+	DTEntry chosen;
+
+#if defined(XNU_TARGET_OS_OSX)
+	const char * environment = "recoveryos";
+#else
+	const char * environment = "recovery";
+#endif
+
+	return SecureDTLookupEntry(0, "/chosen", &chosen) == kSuccess &&
+	       dt_string_is_equal(&chosen, "osenvironment", environment);
+}
+
 static exclaves_resource_t *storage_resource = NULL;
+static int use_shared_mem_vers = 0;
+
 static kern_return_t
 exclaves_storage_init(void)
 {
-	kern_return_t kr = exclaves_named_buffer_map(
+	const char *v2_seg_name = "com.apple.storage.backend";
+
+	kern_return_t kr = exclaves_resource_shared_memory_map(
+		EXCLAVES_DOMAIN_KERNEL, v2_seg_name,
+		STORAGE_EXCLAVE_BUF_SIZE,
+		EXCLAVES_BUFFER_PERM_WRITE,
+		&storage_resource);
+
+	if (kr == KERN_SUCCESS) {
+		use_shared_mem_vers = 2;
+		exclaves_debug_printf(show_storage_upcalls,
+		    "[storage_upcalls] Using SharedMemory V2 segment for IO");
+		return kr;
+	}
+
+	if (kr != KERN_NOT_FOUND) {
+		exclaves_debug_printf(show_errors,
+		    "[storage_upcalls] Cannot map shared memory segment '%s': failed with %d\n",
+		    v2_seg_name, kr);
+	}
+
+	kr = exclaves_named_buffer_map(
 		EXCLAVES_DOMAIN_KERNEL, STORAGE_EXCLAVE_BUF_ID,
 		STORAGE_EXCLAVE_BUF_SIZE,
 		EXCLAVES_BUFFER_PERM_READ | EXCLAVES_BUFFER_PERM_WRITE,
@@ -216,18 +269,40 @@ exclaves_storage_init(void)
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
 		    "[storage_upcalls] exclaves_named_buffer_map failed with %d\n", kr);
-		if (is_restore() || bsd_rooted_ramdisk()) {
+		if (is_restore() || bsd_rooted_ramdisk() || is_recovery_environment()) {
 			// Don't fail boot here. Fail the upcalls that try to use the sharemem buffer instead.
 			// This is to prevent panic during boot-time when xnu-proxy was initialized before StorageExclave
 			// This can be reverted once Storage switched to V2
 			storage_resource = NULL;
-		} else {
-			return kr;
+			kr = KERN_SUCCESS;
 		}
+	} else {
+		use_shared_mem_vers = 1;
+		exclaves_debug_printf(show_storage_upcalls,
+		    "[storage_upcalls] Using legacy SharedMemory segment for IO");
 	}
-	return KERN_SUCCESS;
+
+	return kr;
 }
 EXCLAVES_BOOT_TASK(exclaves_storage_init, EXCLAVES_BOOT_RANK_SECOND);
+
+static int
+storage_resource_io(exclaves_resource_t *resource, off_t offset,
+    size_t len, int (^cb)(char *, size_t))
+{
+	if (resource == NULL) {
+		return ENOMEM;
+	}
+
+	switch (use_shared_mem_vers) {
+	case 1:
+		return exclaves_named_buffer_io(resource, offset, len, cb);
+	case 2:
+		return exclaves_resource_shared_memory_io(resource, offset, len, cb);
+	default:
+		return ENOMEM;
+	}
+}
 
 tb_error_t
 exclaves_storage_upcall_read(const enum xnuupcalls_fstag_s fstag,
@@ -255,7 +330,7 @@ exclaves_storage_upcall_read(const enum xnuupcalls_fstag_s fstag,
 	}
 
 	__block uint64_t off = descriptor->fileoffset;
-	error = exclaves_named_buffer_io(storage_resource, descriptor->buf,
+	error = storage_resource_io(storage_resource, descriptor->buf,
 	    descriptor->length, ^(char *buffer, size_t size) {
 		int ret = vfs_exclave_fs_read((uint32_t)fstag,
 		fileid, off, size, buffer);
@@ -264,9 +339,10 @@ exclaves_storage_upcall_read(const enum xnuupcalls_fstag_s fstag,
 	});
 
 	if (error) {
-		exclaves_debug_printf(show_errors,
-		    "[storage_upcalls_server] vfs_exclave_fs_read "
-		    "failed with %d\n", error);
+		exclaves_debug_printf(show_errors, "[storage_upcalls_server] "
+		    "read %d %lld %lld %lld %lld failed with errno %d",
+		    fstag, fileid, descriptor->buf,
+		    descriptor->fileoffset, descriptor->length, error);
 		xnuupcalls_xnuupcalls_read__result_init_failure(&result, error);
 	} else {
 		exclaves_debug_printf(show_storage_upcalls,
@@ -304,7 +380,7 @@ exclaves_storage_upcall_write(const enum xnuupcalls_fstag_s fstag,
 
 
 	__block uint64_t off = descriptor->fileoffset;
-	error = exclaves_named_buffer_io(storage_resource, descriptor->buf,
+	error = storage_resource_io(storage_resource, descriptor->buf,
 	    descriptor->length, ^(char *buffer, size_t size) {
 		int ret = vfs_exclave_fs_write((uint32_t)fstag,
 		fileid, off, size, buffer);
@@ -313,9 +389,10 @@ exclaves_storage_upcall_write(const enum xnuupcalls_fstag_s fstag,
 	});
 
 	if (error) {
-		exclaves_debug_printf(show_errors,
-		    "[storage_upcalls_server] vfs_exclave_fs_write "
-		    "failed with %d\n", error);
+		exclaves_debug_printf(show_errors, "[storage_upcalls_server] "
+		    "write %d %lld %lld %lld %lld failed with errno %d\n",
+		    fstag, fileid, descriptor->buf, descriptor->fileoffset,
+		    descriptor->length, error);
 		xnuupcalls_xnuupcalls_write__result_init_failure(&result, error);
 	} else {
 		exclaves_debug_printf(show_storage_upcalls,
@@ -417,7 +494,7 @@ exclaves_storage_upcall_readdir(const enum xnuupcalls_fstag_s fstag,
 	assert3u(error, ==, 0);
 
 	__block char *p = tmpbuf;
-	error = exclaves_named_buffer_io(storage_resource, buf, length,
+	error = storage_resource_io(storage_resource, buf, length,
 	    ^(char *buffer, size_t size) {
 		memcpy(buffer, p, size);
 		p += size;
@@ -427,9 +504,9 @@ exclaves_storage_upcall_readdir(const enum xnuupcalls_fstag_s fstag,
 	kfree_data(tmpbuf, length);
 
 	if (error) {
-		exclaves_debug_printf(show_errors,
-		    "[storage_upcalls_server] vfs_exclave_fs_readdir "
-		    "failed with %d\n", error);
+		exclaves_debug_printf(show_errors, "[storage_upcalls_server] "
+		    "readdir %d %lld %lld %d failed with errno %d\n",
+		    fstag, fileid, buf, length, error);
 		xnuupcalls_xnuupcalls_readdir__result_init_failure(&result, error);
 	} else {
 		exclaves_debug_printf(show_storage_upcalls,

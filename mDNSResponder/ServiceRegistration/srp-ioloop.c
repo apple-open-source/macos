@@ -1,6 +1,6 @@
 /* srp-ioloop.c
  *
- * Copyright (c) 2019-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,11 @@ static bool expecting_second_add = true;
 static int num_clients = 1;
 static int bogusify_signatures = false;
 static int bogus_remove = false;
+static int push_hardwired = false;
 static int push_query = false;
 static int push_unsubscribe = false;
+static bool push_subscribe_sent = false;
+static uint16_t dns_push_subscribe_xid;
 static int push_send_bogus_keepalive = false;
 static int push_exhaust = false;
 static bool test_subtypes = false;
@@ -63,6 +66,7 @@ static bool host_only = false;
 extern bool zero_addresses;
 static bool expire_instance = false;
 static bool test_bad_sig_time = false;
+static bool do_srp = true;
 
 const uint64_t thread_enterprise_number = 52627;
 
@@ -95,6 +99,8 @@ typedef struct srp_client {
 } srp_client_t;
 
 static void start_push_query(void);
+static void send_push_unsubscribe(void);
+static void send_push_subscribe(void);
 
 static int
 validate_io_context(io_context_t **dest, void *src)
@@ -327,7 +333,7 @@ srp_timenow(void)
 }
 
 static void
-interface_callback(void *context, const char *NONNULL name,
+interface_callback(srp_server_t *UNUSED NULLABLE server_state, void *context, const char *NONNULL name,
                    const addr_t *NONNULL address, const addr_t *NONNULL netmask,
                    uint32_t flags, enum interface_address_change event_type)
 {
@@ -583,9 +589,7 @@ send_push_unsubscribe(void)
         towire.message = &dns_message;
         dns_u16_to_wire(&towire, kDSOType_DNSPushUnsubscribe);
         dns_rdlength_begin(&towire);
-        dns_full_name_to_wire(NULL, &towire, "_airplay._tcp.openthread.thread.home.arpa");
-        dns_u16_to_wire(&towire, dns_rrtype_ptr);
-        dns_u16_to_wire(&towire, dns_qclass_in);
+        dns_u16_to_wire(&towire, dns_push_subscribe_xid);
         dns_rdlength_end(&towire);
 
         memset(&iov, 0, sizeof(iov));
@@ -665,6 +669,10 @@ dso_message(message_t *message, dso_state_t *dso, bool response)
             exit(0);
         } else {
             INFO("Keepalive from server");
+        }
+        if (!push_subscribe_sent) {
+            send_push_subscribe();
+            push_subscribe_sent = true;
         }
         break;
 
@@ -803,6 +811,10 @@ dso_event_callback(void *UNUSED context, void *event_context, dso_state_t *dso, 
         INFO("should send a keepalive now.");
         break;
     case kDSOEventType_KeepaliveRcvd:
+        if (!push_subscribe_sent) {
+            send_push_subscribe();
+            push_subscribe_sent = true;
+        }
         INFO("keepalive received.");
         break;
     case kDSOEventType_RetryDelay:
@@ -811,6 +823,40 @@ dso_event_callback(void *UNUSED context, void *event_context, dso_state_t *dso, 
         handle_retry_delay(dso, disconnect_context->reconnect_delay);
         break;
     }
+}
+
+static void
+send_push_subscribe(void)
+{
+    struct iovec iov;
+    INFO("have session");
+    dns_wire_t dns_message;
+    uint8_t *buffer = (uint8_t *)&dns_message;
+    dns_towire_state_t towire;
+    dso_message_t message;
+    dso_make_message(&message, buffer, sizeof(dns_message), dso_connection->dso, false, false, 0, 0, NULL);
+    dns_push_subscribe_xid = ntohs(dns_message.id);
+    memset(&towire, 0, sizeof(towire));
+    towire.p = &buffer[DNS_HEADER_SIZE];
+    towire.lim = towire.p + (sizeof(dns_message) - DNS_HEADER_SIZE);
+    towire.message = &dns_message;
+    dns_u16_to_wire(&towire, kDSOType_DNSPushSubscribe);
+    dns_rdlength_begin(&towire);
+    if (push_hardwired) {
+        dns_full_name_to_wire(NULL, &towire, "default.service.arpa");
+        dns_u16_to_wire(&towire, dns_rrtype_soa);
+    } else {
+        dns_full_name_to_wire(NULL, &towire, "_airplay._tcp.default.service.arpa");
+        dns_u16_to_wire(&towire, dns_rrtype_ptr);
+    }
+    dns_u16_to_wire(&towire, dns_qclass_in);
+    dns_rdlength_end(&towire);
+
+    memset(&iov, 0, sizeof(iov));
+    iov.iov_len = towire.p - buffer;
+    iov.iov_base = buffer;
+    ioloop_send_message(dso_connection, NULL, &iov, 1);
+    subscribe_xid = dns_message.id; // We need this to identify the response.
 }
 
 static void
@@ -833,18 +879,16 @@ dso_connected(comm_t *connection, void *UNUSED context)
     towire.p = &buffer[DNS_HEADER_SIZE];
     towire.lim = towire.p + (sizeof(dns_message) - DNS_HEADER_SIZE);
     towire.message = &dns_message;
-    dns_u16_to_wire(&towire, kDSOType_DNSPushSubscribe);
+    dns_u16_to_wire(&towire, kDSOType_Keepalive);
     dns_rdlength_begin(&towire);
-    dns_full_name_to_wire(NULL, &towire, "_airplay._tcp.openthread.thread.home.arpa");
-    dns_u16_to_wire(&towire, dns_rrtype_ptr);
-    dns_u16_to_wire(&towire, dns_qclass_in);
+    dns_u32_to_wire(&towire, 100); // Inactivity timeout
+    dns_u32_to_wire(&towire, 100); // Keepalive interval
     dns_rdlength_end(&towire);
 
     memset(&iov, 0, sizeof(iov));
     iov.iov_len = towire.p - buffer;
     iov.iov_base = buffer;
     ioloop_send_message(dso_connection, NULL, &iov, 1);
-    subscribe_xid = dns_message.id; // We need this to identify the response.
 }
 
 static void
@@ -928,7 +972,7 @@ cti_service_list_callback(void *UNUSED context, cti_service_vec_t *services, cti
 
     if (!new_ip_dup && !zero_addresses) {
         srp_start_address_refresh();
-        ioloop_map_interface_addresses(interface_name, services, interface_callback);
+        ioloop_map_interface_addresses(NULL, interface_name, services, interface_callback);
     }
     for (i = 0; i < services->num; i++) {
         cti_service_t *cti_service = services->services[i];
@@ -1051,14 +1095,24 @@ main(int argc, char **argv)
             bogus_remove = true;
         } else if (!strcmp(argv[i], "--push-query")) {
             push_query = true;
-        } else if (!strcmp(argv[i], "--push-unsubscribe")) {
+            do_srp = false;
+        } else if (!strcmp(argv[i], "--push-hardwired")) {
+            push_query = true;
+            push_hardwired = true;
             push_unsubscribe = true;
+            do_srp = false;
+        } else if (!strcmp(argv[i], "--push-unsubscribe")) {
+            push_query = true;
+            push_unsubscribe = true;
+            do_srp = false;
         } else if (!strcmp(argv[i], "--push-send-bogus-keepalive")) {
             push_query = true;
             push_unsubscribe = true;
             push_send_bogus_keepalive = true;
+            do_srp = false;
         } else if (!strcmp(argv[i], "--push-exhaust")) {
             push_exhaust = true;
+            do_srp = false;
         } else if (!strcmp(argv[i], "--test-subtypes")) {
             test_subtypes = true;
         } else if (!strcmp(argv[i], "--test-diff-subtypes")) {
@@ -1110,7 +1164,7 @@ main(int argc, char **argv)
     }
 
     if (!use_thread_services && !new_ip_dup && !zero_addresses) {
-        ioloop_map_interface_addresses(interface_name, NULL, interface_callback);
+        ioloop_map_interface_addresses(NULL, interface_name, NULL, interface_callback);
     }
 
     if (!have_server_address && !use_thread_services) {
@@ -1245,10 +1299,12 @@ main(int argc, char **argv)
         }
     }
 
-    if (use_thread_services) {
-        cti_get_service_list(NULL, &thread_service_context, NULL, cti_service_list_callback, NULL);
-    } else {
-        srp_network_state_stable(NULL);
+    if (do_srp) {
+        if (use_thread_services) {
+            cti_get_service_list(NULL, &thread_service_context, NULL, cti_service_list_callback, NULL);
+        } else {
+            srp_network_state_stable(NULL);
+        }
     }
     ioloop();
 }

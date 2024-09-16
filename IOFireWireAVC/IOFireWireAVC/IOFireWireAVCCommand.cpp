@@ -215,6 +215,12 @@ void IOFireWireAVCCommand::free()
         fMem->release();
 		fMem = NULL;
 	}
+	
+	if( fCommand )
+	{
+		IOFreeData( (void *) fCommand, fCmdLen );
+		fCommand = NULL;
+	}
 
 	IOFreeType ( fIOFireWireAVCCommandExpansion, ExpansionData );
 
@@ -325,18 +331,22 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
 	if( fIOFireWireAVCCommandExpansion == NULL )
 		return false;
     
-    // create command
+	fCommand = (UInt8 *)IOMallocData( cmdLen );
+	if( NULL == fCommand )
+		return false;
+	
+	bcopy( (void *)command, (void *)fCommand, cmdLen );
+
+  	// create command
     if(cmdLen == 4 || cmdLen == 8) {
         fMem = NULL;
-        fCommand = command;
-        fWriteCmd = device->createWriteQuadCommand(addr,(UInt32 *)command, cmdLen/4, writeDone, this);
+        fWriteCmd = device->createWriteQuadCommand(addr,(UInt32 *)fCommand, cmdLen/4, writeDone, this);
         if(!fWriteCmd) {
             return false;
         }
     }
     else {
-        fCommand = NULL;
-        fMem = IOMemoryDescriptor::withAddress((void *)command, cmdLen,
+        fMem = IOMemoryDescriptor::withAddress((void *)fCommand, cmdLen,
                     kIODirectionOutIn);
         if(!fMem) {
             return false;
@@ -493,20 +503,24 @@ bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
 	if( fIOFireWireAVCCommandExpansion == NULL )
 		return false;
 	
-    // create command
+	fCommand = (UInt8 *)IOMallocData( cmdLen );
+	if( NULL == fCommand )
+		return false;
+	
+	bcopy( (void *)command, (void *)fCommand, cmdLen );
+	
+   // create command
     if(cmdLen == 4 || cmdLen == 8) {
         fMem = NULL;
-        fCommand = command;
         fWriteCmd = new IOFWWriteQuadCommand;
         if(!fWriteCmd) {
             return false;
         }
         ((IOFWWriteQuadCommand *)fWriteCmd)->initAll(control, generation, addr,
-                                            (UInt32 *)command, cmdLen/4, writeDone, this);
+                                            (UInt32 *)fCommand, cmdLen/4, writeDone, this);
     }
     else {
-        fCommand = NULL;
-        fMem = IOMemoryDescriptor::withAddress((void *)command, cmdLen,
+        fMem = IOMemoryDescriptor::withAddress((void *)fCommand, cmdLen,
                     kIODirectionOutIn);
         if(!fMem) {
             return false;

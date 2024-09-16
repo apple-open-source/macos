@@ -2201,6 +2201,7 @@ IOHIDLibUserClient::handleEnqueue(void *queueData, UInt32 dataSize, IOHIDReportE
     }
 
     if (status == false && !canDropReport() && fClientOpened && !fClientSeized) {
+        HIDLibUserClientLog("Wait for space available in queue");
         assert(fWL->inGate());
         queue->setPendingReports();
         IOHIDBlockedReport reportStruct;
@@ -2212,7 +2213,8 @@ IOHIDLibUserClient::handleEnqueue(void *queueData, UInt32 dataSize, IOHIDReportE
             if (status == true) {
                 break;
             }
-
+            
+            HIDLibUserClientLog("Wait for space available in queue");
             fGate->commandSleep(&reportStruct);
         }
         queue_remove(&fBlockedReports, &reportStruct, IOHIDBlockedReport *, qc);
@@ -2288,6 +2290,7 @@ void
 IOHIDLibUserClient::resumeReports()
 {
     if (!queue_empty(&fBlockedReports)) {
+        HIDLibUserClientLog("Waking due to space available in queue");
         fGate->commandWakeup(queue_first(&fBlockedReports));
     }
 }

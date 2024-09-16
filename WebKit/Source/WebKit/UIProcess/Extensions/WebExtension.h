@@ -29,12 +29,15 @@
 
 #include "APIObject.h"
 #include "CocoaImage.h"
+#include "WebExtensionContentWorldType.h"
 #include "WebExtensionMatchPattern.h"
+#include <WebCore/UserStyleSheetTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/spi/cocoa/SecuritySPI.h>
 
 OBJC_CLASS NSArray;
 OBJC_CLASS NSBundle;
@@ -50,10 +53,6 @@ OBJC_CLASS UTType;
 OBJC_CLASS _WKWebExtension;
 OBJC_CLASS _WKWebExtensionLocalization;
 OBJC_CLASS _WKWebExtensionMatchPattern;
-
-#if PLATFORM(MAC)
-#include <Security/CSCommon.h>
-#endif
 
 #ifdef __OBJC__
 #include "_WKWebExtensionPermission.h"
@@ -108,13 +107,17 @@ public:
         InvalidURLOverrides,
         InvalidVersion,
         InvalidWebAccessibleResources,
-        BackgroundContentFailedToLoad,
     };
 
     enum class InjectionTime : uint8_t {
         DocumentIdle,
         DocumentStart,
         DocumentEnd,
+    };
+
+    enum class Environment : bool {
+        Document,
+        ServiceWorker,
     };
 
     using PermissionsSet = HashSet<String>;
@@ -155,7 +158,8 @@ public:
 
         bool matchesAboutBlank { false };
         bool injectsIntoAllFrames { false };
-        bool forMainWorld { false };
+        WebExtensionContentWorldType contentWorldType { WebExtensionContentWorldType::ContentScript };
+        WebCore::UserStyleLevel styleLevel { WebCore::UserStyleLevel::Author };
 
         RetainPtr<NSArray> scriptPaths;
         RetainPtr<NSArray> styleSheetPaths;
@@ -174,7 +178,7 @@ public:
 
     struct DeclarativeNetRequestRulesetData {
         String rulesetID;
-        bool enabled;
+        bool enabled { false };
         String jsonPath;
     };
 
@@ -196,8 +200,10 @@ public:
 
     Ref<API::Data> serializeLocalization();
 
+    SecStaticCodeRef bundleStaticCode() const;
+    NSData *bundleHash() const;
+
 #if PLATFORM(MAC)
-    SecStaticCodeRef bundleStaticCode();
     bool validateResourceData(NSURL *, NSData *, NSError **);
 #endif
 
@@ -245,6 +251,9 @@ public:
     NSString *backgroundContentPath();
     NSString *generatedBackgroundContent();
 
+    bool hasInspectorBackgroundPage();
+    NSString *inspectorBackgroundPagePath();
+
     bool hasOptionsPage();
     bool hasOverrideNewTabPage();
 
@@ -254,7 +263,8 @@ public:
     const CommandsVector& commands();
     bool hasCommands();
 
-    DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
+    const DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
+    std::optional<DeclarativeNetRequestRulesetData> declarativeNetRequestRuleset(const String&);
     bool hasContentModificationRules() { return !declarativeNetRequestRulesets().isEmpty(); }
 
     const InjectedContentVector& staticInjectedContents();
@@ -268,10 +278,14 @@ public:
 
     bool hasRequestedPermission(NSString *) const;
 
-    // Permission patterns requested by the extension in their manifest.
+    // Match patterns requested by the extension in their manifest.
     // These are not the currently allowed permission patterns.
     const MatchPatternSet& requestedPermissionMatchPatterns();
     const MatchPatternSet& optionalPermissionMatchPatterns();
+
+    // Permission patterns requested by the extension in their manifest.
+    // These determine which websites the extension can communicate with.
+    const MatchPatternSet& externallyConnectableMatchPatterns();
 
     // Combined pattern set that includes permission patterns and injected content patterns from the manifest.
     MatchPatternSet allRequestedMatchPatterns();
@@ -295,6 +309,7 @@ private:
     void populateDisplayStringsIfNeeded();
     void populateActionPropertiesIfNeeded();
     void populateBackgroundPropertiesIfNeeded();
+    void populateInspectorPropertiesIfNeeded();
     void populateContentScriptPropertiesIfNeeded();
     void populatePermissionsPropertiesIfNeeded();
     void populatePagePropertiesIfNeeded();
@@ -302,6 +317,7 @@ private:
     void populateWebAccessibleResourcesIfNeeded();
     void populateCommandsIfNeeded();
     void populateDeclarativeNetRequestPropertiesIfNeeded();
+    void populateExternallyConnectableIfNeeded();
 
     std::optional<WebExtension::DeclarativeNetRequestRulesetData> parseDeclarativeNetRequestRulesetDictionary(NSDictionary *, NSError **);
 
@@ -316,11 +332,10 @@ private:
     PermissionsSet m_permissions;
     PermissionsSet m_optionalPermissions;
 
-#if PLATFORM(MAC)
-    RetainPtr<SecStaticCodeRef> m_bundleStaticCode;
-#endif
+    MatchPatternSet m_externallyConnectableMatchPatterns;
 
     RetainPtr<NSBundle> m_bundle;
+    mutable RetainPtr<SecStaticCodeRef> m_bundleStaticCode;
     RetainPtr<NSURL> m_resourceBaseURL;
     RetainPtr<NSDictionary> m_manifest;
     RetainPtr<NSMutableDictionary> m_resources;
@@ -349,44 +364,28 @@ private:
     RetainPtr<NSString> m_backgroundPagePath;
     RetainPtr<NSString> m_backgroundServiceWorkerPath;
     RetainPtr<NSString> m_generatedBackgroundContent;
+    Environment m_backgroundContentEnvironment { Environment::Document };
+
+    RetainPtr<NSString> m_inspectorBackgroundPagePath;
 
     RetainPtr<NSString> m_optionsPagePath;
     RetainPtr<NSString> m_overrideNewTabPagePath;
 
     bool m_backgroundContentIsPersistent : 1 { false };
-    bool m_backgroundPageUsesModules : 1 { false };
+    bool m_backgroundContentUsesModules : 1 { false };
     bool m_parsedManifest : 1 { false };
     bool m_parsedManifestDisplayStrings : 1 { false };
     bool m_parsedManifestContentSecurityPolicyStrings : 1 { false };
     bool m_parsedManifestActionProperties : 1 { false };
     bool m_parsedManifestBackgroundProperties : 1 { false };
+    bool m_parsedManifestInspectorProperties : 1 { false };
     bool m_parsedManifestContentScriptProperties : 1 { false };
     bool m_parsedManifestPermissionProperties : 1 { false };
     bool m_parsedManifestPageProperties : 1 { false };
     bool m_parsedManifestWebAccessibleResources : 1 { false };
     bool m_parsedManifestCommands : 1 { false };
     bool m_parsedManifestDeclarativeNetRequestRulesets : 1 { false };
-};
-
-#ifdef __OBJC__
-
-NSSet<_WKWebExtensionPermission> *toAPI(const WebExtension::PermissionsSet&);
-NSSet<_WKWebExtensionMatchPattern *> *toAPI(const WebExtension::MatchPatternSet&);
-
-#endif
-
-} // namespace WebKit
-
-namespace WTF {
-
-template<> struct EnumTraits<WebKit::WebExtension::ModifierFlags> {
-    using values = EnumValues<
-        WebKit::WebExtension::ModifierFlags,
-        WebKit::WebExtension::ModifierFlags::Shift,
-        WebKit::WebExtension::ModifierFlags::Control,
-        WebKit::WebExtension::ModifierFlags::Option,
-        WebKit::WebExtension::ModifierFlags::Command
-    >;
+    bool m_parsedExternallyConnectable : 1 { false };
 };
 
 } // namespace WebKit

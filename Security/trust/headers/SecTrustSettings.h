@@ -65,7 +65,7 @@ CF_ASSUME_NONNULL_BEGIN
  * -- Locally administered, system-wide. Administrator privileges are required
  *    to make changes to this domain.
  * -- System. These Trust Settings are immutable and comprise the set of trusted
- *    root certificates supplied in Mac OS X.
+ *    root certificates supplied in macOS.
  *
  * Per-user Trust Settings override locally administered Trust Settings, which
  * in turn override the System Trust Settings.
@@ -75,7 +75,7 @@ CF_ASSUME_NONNULL_BEGIN
  * Usage Constraints. Each Usage Constraints dictionary contains zero or one of
  * each the following components:
  *
- * key = kSecTrustSettingsPolicy        On OSX, value = SecPolicyRef
+ * key = kSecTrustSettingsPolicy        On macOS, value = SecPolicyRef
                                         On iOS, value = policy OID as CFString
  *
  * key = kSecTrustSettingsApplication           value = SecTrustedApplicationRef

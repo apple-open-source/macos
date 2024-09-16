@@ -117,7 +117,7 @@ static bool writeCachesList(const String& cachesListDirectoryPath, const Vector<
         encoder << caches[index]->uniqueName();
     }
 
-    FileSystem::overwriteEntireFile(cachesListFilePath, std::span(const_cast<uint8_t*>(encoder.buffer()), encoder.bufferSize()));
+    FileSystem::overwriteEntireFile(cachesListFilePath, encoder.span());
     return true;
 }
 
@@ -134,7 +134,7 @@ static std::optional<uint64_t> readSizeFile(const String& sizeDirectoryPath)
     if (!buffer)
         return std::nullopt;
 
-    return parseInteger<uint64_t>({ buffer->data(), static_cast<unsigned>(buffer->size()) });
+    return parseInteger<uint64_t>(buffer->span());
 }
 
 static bool writeSizeFile(const String& sizeDirectoryPath, uint64_t size)
@@ -144,7 +144,7 @@ static bool writeSizeFile(const String& sizeDirectoryPath, uint64_t size)
 
     auto sizeFilePath = FileSystem::pathByAppendingComponent(sizeDirectoryPath, sizeFileName);
     auto value = String::number(size).utf8();
-    return FileSystem::overwriteEntireFile(sizeFilePath, std::span(reinterpret_cast<uint8_t*>(const_cast<char*>(value.data())), value.length())) != -1;
+    return FileSystem::overwriteEntireFile(sizeFilePath, value.span()) != -1;
 }
 
 static String saltFilePath(const String& saltDirectory)
@@ -255,14 +255,29 @@ CacheStorageManager::CacheStorageManager(const String& path, CacheStorageRegistr
 
 CacheStorageManager::~CacheStorageManager()
 {
-    for (auto& request : m_pendingSpaceRequests)
+    reset();
+}
+
+void CacheStorageManager::reset()
+{
+    while (!m_pendingSpaceRequests.isEmpty()) {
+        auto request = m_pendingSpaceRequests.takeFirst();
         request.second(false);
+    }
 
     for (auto& cache : m_caches)
         m_registry.unregisterCache(cache->identifier());
+    m_caches.clear();
 
     for (auto& identifier : m_removedCaches.keys())
         m_registry.unregisterCache(identifier);
+    m_removedCaches.clear();
+
+    m_cacheRefConnections.clear();
+    m_size = std::nullopt;
+    m_pendingSize = { 0, { } };
+    m_isInitialized = false;
+    makeDirty();
 }
 
 bool CacheStorageManager::initializeCaches()
@@ -342,12 +357,15 @@ void CacheStorageManager::allCaches(uint64_t updateCounter, WebCore::DOMCacheEng
 
 void CacheStorageManager::initializeCacheSize(CacheStorageCache& cache)
 {
-    cache.getSize([this, weakThis = WeakPtr { *this }](auto size) mutable {
+    cache.getSize([this, weakThis = WeakPtr { *this }, cacheIdentifier = cache.identifier()](auto size) mutable {
         if (!weakThis)
             return;
 
+        if (!m_pendingSize.second.remove(cacheIdentifier))
+            return;
+
         m_pendingSize.first += size;
-        if (!--m_pendingSize.second)
+        if (m_pendingSize.second.isEmpty())
             finishInitializingSize();
     });
 }
@@ -372,7 +390,13 @@ void CacheStorageManager::requestSpaceAfterInitializingSize(uint64_t spaceReques
     if (m_pendingSpaceRequests.size() > 1)
         return;
 
-    m_pendingSize = { 0, m_caches.size() + m_removedCaches.size() };
+    m_pendingSize = { 0, { } };
+    for (auto& cache : m_caches)
+        m_pendingSize.second.add(cache->identifier());
+
+    for (auto& identifier : m_removedCaches.keys())
+        m_pendingSize.second.add(identifier);
+
     for (auto& cache : m_caches)
         initializeCacheSize(*cache);
 
@@ -495,29 +519,25 @@ bool CacheStorageManager::isActive()
 String CacheStorageManager::representationString()
 {
     StringBuilder builder;
-    builder.append("{ \"persistent\": [");
+    builder.append("{ \"persistent\": ["_s);
 
     bool isFirst = true;
     for (auto& cache : m_caches) {
         if (!isFirst)
-            builder.append(", ");
+            builder.append(", "_s);
         isFirst = false;
-        builder.append("\"");
-        builder.append(cache->name());
-        builder.append("\"");
+        builder.append('"', cache->name(), '"');
     }
 
-    builder.append("], \"removed\": [");
+    builder.append("], \"removed\": ["_s);
     isFirst = true;
     for (auto& cache : m_removedCaches.values()) {
         if (!isFirst)
-            builder.append(", ");
+            builder.append(", "_s);
         isFirst = false;
-        builder.append("\"");
-        builder.append(cache->name());
-        builder.append("\"");
+        builder.append('"', cache->name(), '"');
     }
-    builder.append("]}\n");
+    builder.append("]}\n"_s);
     return builder.toString();
 }
 

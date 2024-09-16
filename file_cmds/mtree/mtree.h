@@ -69,39 +69,40 @@ typedef struct _node {
 	char	*acldigest;			/* digest of access control list */
 	u_quad_t  sibling_id;			/* sibling id */
 	u_quad_t  nxattr;			/* xattr count */
+	uint	protection_class;		/* data protection class */
 
-#define	F_CKSUM		0x00000001		/* check sum */
-#define	F_DONE		0x00000002		/* directory done */
-#define	F_GID		0x00000004		/* gid */
-#define	F_GNAME		0x00000008		/* group name */
-#define	F_IGN		0x00000010		/* ignore */
-#define	F_MAGIC		0x00000020		/* name has magic chars */
-#define	F_MODE		0x00000040		/* mode */
-#define	F_NLINK		0x00000080		/* number of links */
-#define	F_SIZE		0x00000100		/* size */
-#define	F_SLINK		0x00000200		/* The file the symbolic link is expected to reference */
-#define	F_TIME		0x00000400		/* modification time (mtime) */
-#define	F_TYPE		0x00000800		/* file type */
-#define	F_UID		0x00001000		/* uid */
-#define	F_UNAME		0x00002000		/* user name */
-#define	F_VISIT		0x00004000		/* file visited */
-#define F_MD5		0x00008000		/* MD5 digest */
-#define F_NOCHANGE	0x00010000		/* If owner/mode "wrong", do */
-						/* not change */
-#define	F_SHA1		0x00020000		/* SHA-1 digest */
-#define	F_RMD160	0x00040000		/* RIPEMD160 digest */
-#define	F_FLAGS		0x00080000		/* file flags */
-#define	F_SHA256	0x00100000		/* SHA-256 digest */
-#define F_BTIME		0x00200000		/* creation time */
-#define F_ATIME		0x00400000		/* access time */
-#define F_CTIME		0x00800000		/* metadata modification time (ctime) */
-#define F_PTIME		0x01000000		/* time added to parent folder */
-#define F_XATTRS	0x02000000		/* digest of extended attributes */
-#define F_INODE		0x04000000		/* inode */
-#define F_ACL		0x08000000		/* digest of access control list */
-#define F_SIBLINGID	0x10000000		/* sibling id */
-#define F_NXATTR	0x20000000		/* number of xattrs (includes decmpfs or not depending on the -D flag)*/
-#define F_DATALESS	0x40000000		/* dataless */
+#define	F_CKSUM			0x00000001	/* check sum */
+#define	F_DONE			0x00000002	/* directory done */
+#define	F_GID			0x00000004	/* gid */
+#define	F_GNAME			0x00000008	/* group name */
+#define	F_IGN			0x00000010	/* ignore */
+#define	F_MAGIC			0x00000020	/* name has magic chars */
+#define	F_MODE			0x00000040	/* mode */
+#define	F_NLINK			0x00000080	/* number of links */
+#define	F_SIZE			0x00000100	/* size */
+#define	F_SLINK			0x00000200	/* The file the symbolic link is expected to reference */
+#define	F_TIME			0x00000400	/* modification time (mtime) */
+#define	F_TYPE			0x00000800	/* file type */
+#define	F_UID			0x00001000	/* uid */
+#define	F_UNAME			0x00002000	/* user name */
+#define	F_VISIT			0x00004000	/* file visited */
+#define	F_MD5			0x00008000	/* MD5 digest */
+#define	F_NOCHANGE		0x00010000	/* If owner/mode "wrong", do not change */
+#define	F_SHA1			0x00020000	/* SHA-1 digest */
+#define	F_RMD160		0x00040000	/* RIPEMD160 digest */
+#define	F_FLAGS			0x00080000	/* file flags */
+#define	F_SHA256		0x00100000	/* SHA-256 digest */
+#define	F_BTIME			0x00200000	/* creation time */
+#define	F_ATIME			0x00400000	/* access time */
+#define	F_CTIME			0x00800000	/* metadata modification time (ctime) */
+#define	F_PTIME			0x01000000	/* time added to parent folder */
+#define	F_XATTRS		0x02000000	/* digest of extended attributes */
+#define	F_INODE			0x04000000	/* inode */
+#define	F_ACL			0x08000000	/* digest of access control list */
+#define	F_SIBLINGID		0x10000000	/* sibling id */
+#define	F_NXATTR		0x20000000	/* number of xattrs (includes decmpfs or not depending on the -D flag)*/
+#define	F_DATALESS		0x40000000	/* dataless */
+#define	F_PROTECTION_CLASS	0x80000000	/* data protection class */
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */

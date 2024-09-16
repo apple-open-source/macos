@@ -1,0 +1,114 @@
+#! /bin/sh
+
+# Test that the --chmod option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+sudo chmod a+rwx src dst ref >/dev/null 2>&1 || true
+sudo chmod -R =rw,+X src dst ref >/dev/null 2>&1 || true
+rm -rf src dst ref
+
+# Create the source tree:
+#
+mkdir src
+date > src/file1
+date > src/file2
+chmod a=r src/file2
+date > src/file3
+chmod a=rx src/file3
+date > src/file4
+chmod a=rw src/file4
+date > src/file5
+sudo chmod u+s src/file5
+
+mkdir src/dir1
+mkdir src/dir2
+chmod a=rwx src/dir2
+mkdir src/dir3
+sudo chmod g+s src/dir3
+
+ln -s file1 src/sym1
+ln -s file2 src/sym2
+chmod -h go-rwx src/sym2
+
+# XXX We can't diff a fifo, so exclude that for now pending further
+# investigation.
+#mkfifo src/fifo
+
+sudo cp -a src ref
+# bug in `cp -a`, follows symlink `sym2` and sets wrong permissions on `file2`
+chmod a=r ref/file2
+sudo chmod g+s ref/dir3
+
+echo testing reference dir ... 1>&2
+compare_trees -t src ref
+
+# Test various chmod args that should succeed:
+#
+rsync -a --delete -- ref/ src/
+for arg in 'a+w' 'go-w' 'go-r' 'go+r' 'ugo-w' 'ugo+w' 'a+rw' 'a+x' ; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/
+	compare_trees -t src dst
+done
+
+
+rsync -a --delete -- ref/ src/
+for arg in 'g+rrrwww' 'ggooo-rwrwrw' 'uuu+srsw' 'u+rw,go=r'; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/
+	compare_trees -t src dst
+done
+
+
+# Test dubious chmod args that should succeed:
+#
+rsync -a --delete -- ref/ src/
+for arg in 'a+' 'go-' 'go-' 'go+' 'ugo-' 'ugo+' 'a+r' 'a+' ; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/
+	compare_trees -t src dst
+done
+
+
+# Test chmod args from rsync man page that should succeed:
+#
+sudo chmod -R =rw,+X src >/dev/null 2>&1 || true
+rsync -a --delete -- ref/ src/
+for arg in 'g+s' 'u+s' 'g-s' 'u-s' '=rw,+X' '+X' 'u=rwx,go=rx' 'go=' ; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/
+	compare_trees -t src dst
+done
+
+
+# Test chmod args from rsync man page that should succeed:
+#
+sudo chmod -R =rw,+X src >/dev/null 2>&1 || true
+rsync -a --delete -- ref/ src/
+for arg in '=rw,+X' '+X' 'u=rwx,go=rx' 'go=' ; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/
+	compare_trees -t src dst
+done
+
+
+# Test chmod args from rsync man page that chmod accepts,
+# but that rsync rejects:
+#
+sudo chmod -R =rw,+X src >/dev/null 2>&1 || true
+rsync -a --delete -- ref/ src/
+for arg in 'u=rwx,go=u-w' 'g=u-w' ; do
+	echo testing ${arg} ... 1>&2
+	sudo chmod -R ${arg} src
+	rsync -a --chmod=${arg} -- src/ dst/ 2>&1 |grep -iq invalid
+done

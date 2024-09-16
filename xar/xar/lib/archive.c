@@ -223,32 +223,21 @@ xar_t xar_open(const char *file, int32_t flags)
  * file descriptor to the target xar file.  If the xarchive is opened
  * for writing, the file is created, and a heap file is opened.
  */
-xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len)
+static xar_t
+_xar_open_digest_verify_impl(xar_t xar, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len)
 {
-	xar_t ret;
-
-	ret = xar_new();
-	if( !ret ) return NULL;
-	if( !file )
-		file = "-";
-	XAR(ret)->filename = strdup(file);
+	xar_t ret = xar;
+	
 	if( flags ) { // writing
 		char *tmp1, *tmp2, *tmp4;
-		tmp1 = tmp2 = strdup(file);
+		tmp1 = tmp2 = strdup(xar->filename);
 		XAR(ret)->dirname = xar_safe_dirname(tmp2);
 		/* Create the heap file in the directory which will contain
 		 * the target archive.  /tmp or elsewhere may fill up.
 		 */
 		asprintf(&tmp4, "%s/xar.heap.XXXXXX", XAR(ret)->dirname);
 		free(tmp1);
-		if( strcmp(file, "-") == 0 )
-			XAR(ret)->fd = 1;
-		else{
-			XAR(ret)->fd = open(file, O_WRONLY | O_CREAT | O_TRUNC | O_EXLOCK, 0644);
-			if( (-1 == XAR(ret)->fd ) && (ENOTSUP == errno) ){
-				XAR(ret)->fd = open(file, O_WRONLY | O_CREAT | O_TRUNC , 0644);				
-			}
-		}
+		
 		XAR(ret)->heap_fd = mkstemp(tmp4);
 		if( XAR(ret)->heap_fd < 0 ) {
 			close(XAR(ret)->fd);
@@ -276,16 +265,6 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 		xar_opt_set(ret, XAR_OPT_FILECKSUM, XAR_OPT_VAL_SHA1);
 		xar_opt_set(ret, XAR_OPT_TOCCKSUM, XAR_OPT_VAL_SHA1);
 	} else {
-		if( strcmp(file, "-") == 0 )
-			XAR(ret)->fd = 0;
-		else{
-			XAR(ret)->fd = open(file, O_RDONLY | O_SHLOCK);
-			
-			if( (-1 == XAR(ret)->fd ) && (ENOTSUP == errno) ){
-				XAR(ret)->fd = open(file, O_RDONLY);
-			}
-
-		}
 		
 		XAR(ret)->heap_fd = -1;
 		inflateInit(&XAR(ret)->zs);
@@ -512,6 +491,84 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 	}
 
 	return ret;
+}
+
+xar_t xar_fdopen_digest_verify(int fd, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len)
+{
+	// Dup the descriptor vended to us so that we don't take ownership
+	int new_fd = dup(fd);
+	fd = new_fd;
+	
+	if (fd < 0) {
+		return NULL;
+	}
+	
+	// xar requires the path to the file, so we'll grab a random path
+	// If there are hardlinks, the path we pick is the most recently opened by
+	// the filesystem; which is effectively random.
+	char path_buff[PATH_MAX];
+	if (fcntl(fd, F_GETPATH, path_buff) < 0) {
+		close(fd);
+		return NULL;
+	}
+	
+	// Don't trust the position of the descriptor we were given, reset it back to 0
+	if (lseek(fd, 0, SEEK_SET) != 0) {
+		close(fd);
+		return NULL;
+	}
+	
+	// Writing
+	if (flags) {
+		// Ensure the file is empty before writing
+		if (ftruncate(fd, 0) != 0) {
+			close(fd);
+			return NULL;
+		}
+	}
+	
+	xar_t xar = xar_new();
+	if( !xar ) {
+		close(fd);
+		return NULL;
+	}
+	
+	XAR(xar)->fd = fd;
+	XAR(xar)->filename = strdup(path_buff);
+	return _xar_open_digest_verify_impl(xar, flags, expected_toc_digest, expected_toc_digest_len);
+}
+
+
+xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len)
+{
+	xar_t xar = xar_new();
+	if( !xar ) return NULL;
+	if( !file )
+		file = "-";
+	XAR(xar)->filename = strdup(file);
+	
+	if (flags) {
+		if( strcmp(file, "-") == 0 )
+			XAR(xar)->fd = 1;
+		else{
+			XAR(xar)->fd = open(file, O_WRONLY | O_CREAT | O_TRUNC | O_EXLOCK, 0644);
+			if( (-1 == XAR(xar)->fd ) && (ENOTSUP == errno) ){
+				XAR(xar)->fd = open(file, O_WRONLY | O_CREAT | O_TRUNC , 0644);
+			}
+		}
+	} else {
+		if( strcmp(file, "-") == 0 )
+			XAR(xar)->fd = 0;
+		else{
+			XAR(xar)->fd = open(file, O_RDONLY | O_SHLOCK);
+			
+			if( (-1 == XAR(xar)->fd ) && (ENOTSUP == errno) ){
+				XAR(xar)->fd = open(file, O_RDONLY);
+			}
+		}
+	}
+	
+	return _xar_open_digest_verify_impl(xar, flags, expected_toc_digest, expected_toc_digest_len);
 }
 
 void* xar_get_toc_checksum(xar_t x, size_t* buffer_size)

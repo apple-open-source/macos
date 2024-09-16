@@ -44,20 +44,19 @@ RemotePresentationContextProxy::RemotePresentationContextProxy(RemoteGPUProxy& p
 
 RemotePresentationContextProxy::~RemotePresentationContextProxy() = default;
 
-void RemotePresentationContextProxy::configure(const WebCore::WebGPU::CanvasConfiguration& canvasConfiguration)
+bool RemotePresentationContextProxy::configure(const WebCore::WebGPU::CanvasConfiguration& canvasConfiguration)
 {
     auto convertedConfiguration = m_convertToBackingContext->convertToBacking(canvasConfiguration);
-    if (!convertedConfiguration) {
-        // FIXME: Implement error handling.
-        return;
-    }
+    if (!convertedConfiguration)
+        return false;
 
     auto sendResult = send(Messages::RemotePresentationContext::Configure(*convertedConfiguration));
-    UNUSED_VARIABLE(sendResult);
+    return sendResult == IPC::Error::NoError;
 }
 
 void RemotePresentationContextProxy::unconfigure()
 {
+    m_currentTexture = nullptr;
     auto sendResult = send(Messages::RemotePresentationContext::Unconfigure());
     UNUSED_VARIABLE(sendResult);
 }
@@ -67,7 +66,8 @@ RefPtr<WebCore::WebGPU::Texture> RemotePresentationContextProxy::getCurrentTextu
     if (!m_currentTexture) {
         auto identifier = WebGPUIdentifier::generate();
         auto sendResult = send(Messages::RemotePresentationContext::GetCurrentTexture(identifier));
-        UNUSED_VARIABLE(sendResult);
+        if (sendResult != IPC::Error::NoError)
+            return nullptr;
 
         m_currentTexture = RemoteTextureProxy::create(root(), m_convertToBackingContext, identifier);
     }
@@ -75,9 +75,18 @@ RefPtr<WebCore::WebGPU::Texture> RemotePresentationContextProxy::getCurrentTextu
     return m_currentTexture;
 }
 
-void RemotePresentationContextProxy::present()
+void RemotePresentationContextProxy::present(bool presentToGPUProcess)
 {
     m_currentTexture = nullptr;
+    if (presentToGPUProcess) {
+        auto sendResult = send(Messages::RemotePresentationContext::Present());
+        UNUSED_VARIABLE(sendResult);
+    }
+}
+
+RefPtr<WebCore::NativeImage> RemotePresentationContextProxy::getMetalTextureAsNativeImage(uint32_t)
+{
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WebKit::WebGPU

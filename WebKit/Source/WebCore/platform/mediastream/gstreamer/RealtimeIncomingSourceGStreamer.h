@@ -34,14 +34,24 @@ public:
 
     GstElement* bin() { return m_bin.get(); }
 
-    int registerClient(GRefPtr<GstElement>&&);
+    virtual void setUpstreamBin(const GRefPtr<GstElement>&);
+
+    bool hasClient(const GRefPtr<GstElement>&);
+    std::optional<int> registerClient(GRefPtr<GstElement>&&);
     void unregisterClient(int);
 
     void handleUpstreamEvent(GRefPtr<GstEvent>&&, int clientId);
     bool handleUpstreamQuery(GstQuery*, int clientId);
 
+    void tearDown();
+
+    void setIsUpstreamDecoding(bool isUpstreamDecoding) { m_isUpstreamDecoding = isUpstreamDecoding; };
+
 protected:
     RealtimeIncomingSourceGStreamer(const CaptureDevice&);
+
+    GRefPtr<GstElement> m_upstreamBin;
+    GRefPtr<GstElement> m_tee;
 
 private:
     // RealtimeMediaSource API
@@ -49,13 +59,20 @@ private:
     void stopProducingData() final;
     const RealtimeMediaSourceCapabilities& capabilities() final;
 
+    void configureAppSink(GstElement*);
+    void configureFakeVideoSink(GstElement*);
+    void handleDownstreamEvent(GstElement*, GRefPtr<GstEvent>&&);
+
     virtual void dispatchSample(GRefPtr<GstSample>&&) { }
 
+    void unregisterClientLocked(int);
+
     GRefPtr<GstElement> m_bin;
-    GRefPtr<GstElement> m_valve;
-    GRefPtr<GstElement> m_tee;
     GQuark m_clientQuark { 0 };
-    HashMap<int, GRefPtr<GstElement>> m_clients;
+    Lock m_clientLock;
+    HashMap<int, GRefPtr<GstElement>> m_clients WTF_GUARDED_BY_LOCK(m_clientLock);
+    bool m_isStarted { true };
+    bool m_isUpstreamDecoding { false };
 };
 
 } // namespace WebCore

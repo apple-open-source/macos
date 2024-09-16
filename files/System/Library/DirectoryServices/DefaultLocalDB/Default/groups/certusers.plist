@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>generateduid</key>
@@ -17,6 +17,7 @@
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000001B</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000004D</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005D</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000D6</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000062</string>
 	</array>
 	<key>name</key>
@@ -39,6 +40,7 @@
 		<string>_cyrus</string>
 		<string>_calendar</string>
 		<string>_dovecot</string>
+		<string>_ftp</string>
 	</array>
 </dict>
 </plist>

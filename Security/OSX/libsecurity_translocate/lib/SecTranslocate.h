@@ -71,6 +71,9 @@ __OSX_AVAILABLE(10.12);
     @discussion 
         Calls to this function and SecTranslocateDeleteSecureDirectory are serialized to ensure only one call to either
         is operating at a time.
+
+        Requires entitlement "com.apple.private.app-translocation.create"
+
         Translocations will be created in the calling users's DARWIN_USER_TEMPDIR/AppTranslocation/<UUID>
  
         pathToTranslocated is expected to be of the form /some/dir/myApp.app
@@ -112,6 +115,9 @@ __OSX_AVAILABLE(10.12);
     @discussion
         Calls to this function, and the others dealng with creation / deletion of mounts are serialized to ensure only one call to either
         is operating at a time.
+
+        Requires entitlement "com.apple.private.app-translocation.create"
+
         Translocations will be created in specified destinationPath
  
         pathToTranslocated is expected to be a folder

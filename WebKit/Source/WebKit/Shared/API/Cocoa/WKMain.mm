@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,18 @@
 #import "WKMain.h"
 
 #import "PCMDaemonEntryPoint.h"
+#import "RegisterTZoneTypes.h"
 #import "WebPushDaemonMain.h"
 #import "WebPushToolMain.h"
+#import <JavaScriptCore/TZoneInit.h>
 #import "XPCServiceEntryPoint.h"
 
-int WKXPCServiceMain(int argc, const char** argv)
+int WKXPCServiceMain(int argc, const char** argv, const char**, const char** darwinEnvp)
 {
+    TZoneInit(darwinEnvp);
+    WebKit::registerTZoneTypes();
+    TZoneRegistrationDone();
+
     return WebKit::XPCServiceMain(argc, argv);
 }
 
@@ -43,7 +49,7 @@ int WKAdAttributionDaemonMain(int argc, const char** argv)
 
 int WKWebPushDaemonMain(int argc, char** argv)
 {
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
     return WebKit::WebPushDaemonMain(argc, argv);
 #else
     return -1;
@@ -52,7 +58,7 @@ int WKWebPushDaemonMain(int argc, char** argv)
 
 int WKWebPushToolMain(int argc, char** argv)
 {
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
     return WebKit::WebPushToolMain(argc, argv);
 #else
     return -1;

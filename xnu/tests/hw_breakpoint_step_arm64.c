@@ -151,7 +151,7 @@ step_thread(mach_port_name_t task, thread_t thread)
 }
 
 T_DECL(hw_breakpoint_step, "Ensures that a process can be single-stepped using thread_set_state / ARM_DEBUG_STATE64", T_META_ASROOT(true),
-    T_META_OWNER("Samuel Lepetit <slepetit@apple.com>"))
+    T_META_OWNER("Samuel Lepetit <slepetit@apple.com>"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	kern_return_t kr;
 	pthread_t handle_thread;

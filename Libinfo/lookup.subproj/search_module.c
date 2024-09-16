@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #include <dispatch/dispatch.h>
 #include "si_module.h"
+#include "darwin_directory_enabled.h"
 
 #define _PATH_SI_CONF "/etc/sysinfo.conf"
 
@@ -283,6 +284,22 @@ search_list(si_mod_t *si, int cat, si_list_t *(*call)(si_mod_t *))
 	while (NULL != (src = search_get_module(pp, cat, &i)))
 	{
 		if (src == pp->cache) continue;
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+		// DarwinDirectory handles all local user/group listing.
+		// If it is enabled, we need to skip the 'file' module or else this
+		// function will concatenate its results as well, resulting in many
+		// duplicates. Once DarwinDirectory is on every platform and we no
+		// longer need the feature flag, this can likely be removed and
+		// we can make specific module lists for CATEGORY_USER and
+		// CATEGORY_GROUP that do not have the 'file' module present.
+		if ((cat == CATEGORY_USER || cat == CATEGORY_GROUP) &&
+			_darwin_directory_enabled() &&
+			strcmp(src->name, "file") == 0)
+		{
+			continue;
+		}
+#endif
 
 		list = call(src);
 		if (list == NULL)

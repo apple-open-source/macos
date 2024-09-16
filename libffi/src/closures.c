@@ -192,6 +192,12 @@ struct ffi_trampoline_table
 struct ffi_trampoline_table_entry
 {
   void *(*trampoline) (void);
+#if defined(__ILP32__) && defined(__arm64__)
+/* For arm64_32 only: */
+/* Pad table entry to 16 bytes for 32 bit pointers, since each pointer is only 4 bytes.*/
+  void *(*trampoline2) (void);
+  void *(*trampoline3) (void);
+#endif
   ffi_trampoline_table_entry *next;
 };
 

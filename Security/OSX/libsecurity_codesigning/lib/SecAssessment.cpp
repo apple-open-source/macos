@@ -106,7 +106,7 @@ CFStringRef kSecAssessmentOperationTypeOpenDocument = CFSTR("operation:lsopen");
 //
 class ReadPolicy : public PolicyDatabase {
 public:
-	ReadPolicy() : PolicyDatabase(defaultDatabase) { }
+	ReadPolicy() : PolicyDatabase(policyDatabase) { }
 };
 ModuleNexus<ReadPolicy> gDatabase;
 
@@ -115,7 +115,6 @@ ModuleNexus<ReadPolicy> gDatabase;
 // An on-demand instance of the policy engine
 //
 ModuleNexus<PolicyEngine> gEngine;
-
 
 //
 // Policy evaluation ("assessment") operations
@@ -446,6 +445,80 @@ updateAuthority(const char *authority, bool enable, CFErrorRef *errors)
 	return SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
 }
 
+static Boolean
+updateAuthorityLocal(const char *authority, bool enable, CFErrorRef *errors)
+{
+	CFDictionaryRef result = NULL;
+	CFTemp<CFDictionaryRef> ctx("{%O=%s}", kSecAssessmentUpdateKeyLabel, authority);
+	if (enable) {
+		result = gEngine().enable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx, false);
+	} else {
+		result = gEngine().disable(NULL, kAuthorityInvalid, kSecCSDefaultFlags, ctx, false);
+	}
+	if (result) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static Boolean
+migrateSystemPolicy(void)
+{
+	CFErrorRef *errors = NULL;
+	
+	if (pathExists(oldPolicyDatabase)) {
+		PolicyEngine oldEngine = PolicyEngine(oldPolicyDatabase);
+		bool isDevIDAllowed = !(oldEngine.value<int>("SELECT disabled FROM authority WHERE label = 'Developer ID';", true));
+		bool isNotarizedAllowed = !(oldEngine.value<int>("SELECT disabled FROM authority WHERE label = 'Notarized Developer ID';", true));
+		
+		updateAuthorityLocal("Developer ID", isDevIDAllowed, errors);
+		updateAuthorityLocal("Testflight", isDevIDAllowed, errors);
+		if (isDevIDAllowed) {
+			updateAuthorityLocal("Notarized Developer ID", true, errors);
+		}
+		if (errors) {
+			secerror("Unable to migrate developer ID app policy");
+			return false;
+		}
+		
+		updateAuthorityLocal("Notarized Developer ID", isNotarizedAllowed, errors);
+		updateAuthorityLocal("Unnotarized Developer ID", isNotarizedAllowed, errors);
+		if (errors) {
+			secerror("Failed to migrate notarized app policy");
+			return false;
+		}
+		
+		oldEngine.close();
+		// Perform best-effort cleanup
+		unlink(oldPolicyDatabase);
+	}
+	
+	// Perform best-effort cleanup
+	if (pathExists(oldDefaultPolicyDatabase)) {
+		unlink(oldDefaultPolicyDatabase);
+	}
+
+	if (pathExists(oldPrefsFile)) {
+		if (copyfile(oldPrefsFile, prefsFile, NULL, COPYFILE_ALL) != 0) {
+			secerror("Failed to copy %s to %s to reset system policy: errno=%d", oldPrefsFile, prefsFile, errno);
+			return false;
+		}
+		if (chown(prefsFile, 0, 0)) {
+			secerror("Failed to set root ownership on %s: %d", prefsFile, errno);
+			return false;
+		}
+		if (chmod(prefsFile, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) {
+			secerror("Failed to set set permissions on %s: %d", prefsFile, errno);
+			return false;
+		}
+		
+		// Perform best-effort cleanup
+		unlink(oldPrefsFile);
+	}
+
+	return true;
+}
 
 //
 // The fcntl of System Policies.
@@ -456,11 +529,17 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 	BEGIN_CSAPI
 	
 	if (CFEqual(control, CFSTR("ui-enable"))) {
+		xpcEngineEnable();
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-enable-local"))) {
 		setAssessment(true);
 		MessageTrace trace("com.apple.security.assessment.state", "enable");
 		trace.send("enable assessment outcomes");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable"))) {
+		xpcEngineDisable();
+		return true;
+	} else if (CFEqual(control, CFSTR("ui-disable-local"))) {
 		setAssessment(false);
 		MessageTrace trace("com.apple.security.assessment.state", "disable");
 		trace.send("disable assessment outcomes");
@@ -539,6 +618,8 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 		if (!queryRearmTimer(result))
 			result = 0;
 		return true;
+	} else if (CFEqual(control, CFSTR("migrate"))) {
+		return migrateSystemPolicy();
 	} else
 		MacOSError::throwMe(errSecCSInvalidAttributeValues);
 

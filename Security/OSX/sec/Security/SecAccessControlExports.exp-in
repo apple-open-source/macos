@@ -4,6 +4,7 @@
 
 _SecAccessConstraintCreateBiometryAny
 _SecAccessConstraintCreateBiometryCurrentSet
+_SecAccessConstraintCreateCompanion
 _SecAccessConstraintCreateKofN
 _SecAccessConstraintCreatePasscode
 _SecAccessConstraintCreatePolicy

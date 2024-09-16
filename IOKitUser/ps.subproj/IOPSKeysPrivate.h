@@ -74,6 +74,20 @@
 #define kIOPSCycleCount             "Cycle count"
 
 /*
+ * These are the extracted parameters from the trusted battery nonce.
+ * Devices that support trusted battery data will have this data published.
+ */
+#define kIOPSTrustedBatteryData             "Trusted Battery Data"
+#define kIOPSTrustedMaximumCapacity         "Trusted Maximum Capacity"
+#define kIOPSTrustedCycleCount              "Trusted Cycle Count"
+#define kIOPSTrustedLifetimeMaxWRdc         "Trusted LifeTime Max WRdc"
+#define kIOPSTrustedDateOfFirstUse          "Trusted Date Of First Use"
+#define kIOPSTrustedTimeStamp               "Trusted Data Timestamp"
+#define kIOPSTrustedDataEnabled             "Trusted Data Enabled"
+#define kIOPSTrustedDataFailedCount         "Trusted Data Failed Count"
+#define kIOPSTrustedDataFailedTimestamp     "Trusted Data Failed Timestamp"
+
+/*
  * kIOPSAccessoryIdentifierKey -
  * Accessory Identifier key. This key holds identifier key for each accessory power source.
  * This could be different for each part of an accessory with multiple parts.

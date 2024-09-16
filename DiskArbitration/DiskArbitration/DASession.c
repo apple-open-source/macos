@@ -1003,18 +1003,20 @@ __private_extern__ DAReturn _DASessionRecreate( DASessionRef session )
 
 DAReturn DASessionKeepAlive( DASessionRef session , dispatch_queue_t queue)
 {
-    DAReturn status;
-    
-    session->_keepAlive = true;
-    session->_queue = queue;
-    session->_token = notify_register_dispatch("com.apple.diskarbitrationd.launched", &session->_token, queue, ^(__unused int token){
-         os_log(OS_LOG_DEFAULT, "diskarbitrationd relaunched");
-        if ( session->_server == NULL )
-        {
-           _DASessionRecreate( session );
-        }
-    });
-    status = _DAServerSessionSetKeepAlive(session->_server);
+    DAReturn status = kDAReturnBadArgument;
+    if ( session )
+    {
+        session->_keepAlive = true;
+        session->_queue = queue;
+        session->_token = notify_register_dispatch("com.apple.diskarbitrationd.launched", &session->_token, queue, ^(__unused int token){
+            os_log(OS_LOG_DEFAULT, "diskarbitrationd relaunched");
+            if ( session->_server == NULL )
+            {
+                _DASessionRecreate( session );
+            }
+        });
+        status = _DAServerSessionSetKeepAlive(session->_server);
+    }
     return status;
 }
 

@@ -29,6 +29,7 @@
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
 
 #import "FullscreenTouchSecheuristic.h"
+#import "LinearMediaKitExtras.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "UIKitUtilities.h"
 #import "VideoPresentationManagerProxy.h"
@@ -39,8 +40,11 @@
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/VideoFullscreenInterfaceAVKit.h>
+#import <WebCore/PlaybackSessionInterfaceAVKit.h>
+#import <WebCore/VideoPresentationInterfaceAVKit.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
+#import <wtf/CheckedRef.h>
+#import <wtf/FastMalloc.h>
 #import <wtf/MonotonicTime.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
@@ -49,18 +53,19 @@
 #import "MRUIKitSPI.h"
 #endif
 
-namespace WebCore {
-class PlaybackSessionInterfaceAVKit;
-}
-
 static const NSTimeInterval showHideAnimationDuration = 0.1;
 static const NSTimeInterval pipHideAnimationDuration = 0.2;
 static const NSTimeInterval autoHideDelay = 4.0;
+
+#if ENABLE(FULLSCREEN_DISMISSAL_GESTURES)
 static const Seconds bannerMinimumHideDelay = 1_s;
+#endif
 
 @class WKFullscreenStackView;
 
-class WKFullScreenViewControllerPlaybackSessionModelClient : WebCore::PlaybackSessionModelClient {
+class WKFullScreenViewControllerPlaybackSessionModelClient final : WebCore::PlaybackSessionModelClient, public CanMakeCheckedPtr<WKFullScreenViewControllerPlaybackSessionModelClient> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WKFullScreenViewControllerPlaybackSessionModelClient);
 public:
     void setParent(WKFullScreenViewController *parent) { m_parent = parent; }
 
@@ -80,7 +85,7 @@ public:
             controller.pictureInPictureActive = active;
     }
 
-    void setInterface(WebCore::PlaybackSessionInterfaceAVKit* interface)
+    void setInterface(WebCore::PlaybackSessionInterfaceIOS* interface)
     {
         if (m_interface == interface)
             return;
@@ -93,8 +98,14 @@ public:
     }
 
 private:
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+
     WeakObjCPtr<WKFullScreenViewController> m_parent;
-    RefPtr<WebCore::PlaybackSessionInterfaceAVKit> m_interface;
+    RefPtr<WebCore::PlaybackSessionInterfaceIOS> m_interface;
 };
 
 #pragma mark - _WKInsetLabel
@@ -149,10 +160,15 @@ private:
     CGFloat _nonZeroStatusBarHeight;
     std::optional<UIInterfaceOrientationMask> _supportedOrientations;
     BOOL _isShowingMenu;
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
+    BOOL _shouldHideCustomControls;
+#endif
 #if PLATFORM(VISION)
     RetainPtr<WKExtrinsicButton> _moreActionsButton;
-    BOOL _shouldHideCustomControls;
     BOOL _isInteractingWithSystemChrome;
+#endif
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    RetainPtr<UIViewController> _environmentPickerButtonViewController;
 #endif
 }
 
@@ -186,8 +202,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _playbackClient.setParent(self);
     _valid = YES;
     _isShowingMenu = NO;
-#if PLATFORM(VISION)
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
     _shouldHideCustomControls = NO;
+#endif
+#if PLATFORM(VISION)
     _isInteractingWithSystemChrome = NO;
 #endif
 
@@ -264,8 +282,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [NSLayoutConstraint deactivateConstraints:@[_topConstraint.get()]];
         _topConstraint = [[_topGuide topAnchor] constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor];
         [_topConstraint setActive:YES];
-        if (auto* manager = self._manager)
-            manager->setFullscreenControlsHidden(false);
     }];
 }
 
@@ -291,8 +307,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_stackView setAlpha:0];
         self.prefersStatusBarHidden = YES;
         self.prefersHomeIndicatorAutoHidden = YES;
-        if (auto* manager = self._manager)
-            manager->setFullscreenControlsHidden(true);
     } completion:^(BOOL finished) {
         if (!finished)
             return;
@@ -351,11 +365,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     ASSERT(_valid);
     auto page = [self._webView _page];
-    auto* videoPresentationManager = page ? page->videoPresentationManager() : nullptr;
-    auto* videoFullscreenInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
-    auto* playbackSessionInterface = videoFullscreenInterface ? &videoFullscreenInterface->playbackSessionInterface() : nullptr;
+    RefPtr videoPresentationManager = page ? page->videoPresentationManager() : nullptr;
+    RefPtr videoPresentationInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
+    RefPtr playbackSessionInterface = videoPresentationInterface ? &videoPresentationInterface->playbackSessionInterface() : nullptr;
 
-    _playbackClient.setInterface(playbackSessionInterface);
+    _playbackClient.setInterface(playbackSessionInterface.get());
 
     WebCore::PlaybackSessionModel* playbackSessionModel = playbackSessionInterface ? playbackSessionInterface->playbackSessionModel() : nullptr;
     self.playing = playbackSessionModel ? playbackSessionModel->isPlaying() : NO;
@@ -363,9 +377,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (auto page = [self._webView _page])
         isPiPEnabled = page->preferences().pictureInPictureAPIEnabled() && page->preferences().allowsPictureInPictureMediaPlayback();
     bool isPiPSupported = playbackSessionModel && playbackSessionModel->isPictureInPictureSupported();
-#if PLATFORM(VISION)
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
     [_cancelButton setHidden:_shouldHideCustomControls];
+#endif
 
+#if PLATFORM(VISION)
     bool isDimmingEnabled = false;
     if (auto page = [self._webView _page])
         isDimmingEnabled = page->preferences().fullscreenSceneDimmingEnabled();
@@ -374,7 +390,69 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     isPiPEnabled = !_shouldHideCustomControls && isPiPEnabled;
 #endif
     [_pipButton setHidden:!isPiPEnabled || !isPiPSupported];
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    [self configureEnvironmentPickerButtonView];
+#endif
 }
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+- (void)configureEnvironmentPickerButtonView
+{
+    ASSERT(_valid);
+
+    RefPtr page = self._webView._page.get();
+    if (!page || !page->preferences().linearMediaPlayerEnabled()) {
+        [self _removeEnvironmentPickerButtonView];
+        return;
+    }
+
+    RefPtr playbackSessionManager = page->playbackSessionManager();
+    RefPtr playbackSessionInterface = playbackSessionManager ? playbackSessionManager->controlsManagerInterface() : nullptr;
+    auto* playbackSessionModel = playbackSessionInterface ? playbackSessionInterface->playbackSessionModel() : nullptr;
+    if (!playbackSessionModel || !playbackSessionModel->supportsLinearMediaPlayer()) {
+        [self _removeEnvironmentPickerButtonView];
+        return;
+    }
+
+    RefPtr videoPresentationManager = page->videoPresentationManager();
+    RefPtr videoPresentationInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
+    LMPlayableViewController *playableViewController = videoPresentationInterface ? videoPresentationInterface->playableViewController() : nil;
+    UIViewController *environmentPickerButtonViewController = playableViewController.wks_environmentPickerButtonViewController;
+
+    if (_environmentPickerButtonViewController == environmentPickerButtonViewController) {
+        ASSERT(!environmentPickerButtonViewController || [[_stackView arrangedSubviews] containsObject:environmentPickerButtonViewController.view]);
+        return;
+    }
+
+    [self _removeEnvironmentPickerButtonView];
+    if (!environmentPickerButtonViewController)
+        return;
+
+    playableViewController.wks_automaticallyDockOnFullScreenPresentation = YES;
+    playableViewController.wks_dismissFullScreenOnExitingDocking = YES;
+
+    [self addChildViewController:environmentPickerButtonViewController];
+    [_stackView insertArrangedSubview:environmentPickerButtonViewController.view atIndex:1];
+    [environmentPickerButtonViewController didMoveToParentViewController:self];
+    _environmentPickerButtonViewController = environmentPickerButtonViewController;
+}
+
+- (void)_removeEnvironmentPickerButtonView
+{
+    if (!_environmentPickerButtonViewController)
+        return;
+
+    UIView *environmentPickerButtonView = [_environmentPickerButtonViewController view];
+
+    [_environmentPickerButtonViewController willMoveToParentViewController:nil];
+    [_stackView removeArrangedSubview:environmentPickerButtonView];
+    [environmentPickerButtonView removeFromSuperview];
+    [self removeChildViewController:_environmentPickerButtonViewController.get()];
+
+    _environmentPickerButtonViewController = nil;
+}
+#endif // ENABLE(LINEAR_MEDIA_PLAYER)
 
 - (void)setAnimatingViewAlpha:(CGFloat)alpha
 {
@@ -384,7 +462,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }];
 }
 
-#if PLATFORM(VISION)
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
 
 - (void)hideCustomControls:(BOOL)hidden
 {
@@ -394,6 +472,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _shouldHideCustomControls = hidden;
     [self videoControlsManagerDidChange];
 }
+
+#endif
+
+#if PLATFORM(VISION)
 
 - (void)_didBeginInteractionWithSystemChrome:(NSNotificationCenter *)notification
 {
@@ -411,6 +493,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif // PLATFORM(VISION)
 
++ (NSSet<NSString *> *)keyPathsForValuesAffectingAdditionalSafeAreaInsets
+{
+    return [NSSet setWithObjects:@"prefersStatusBarHidden", @"view.window.windowScene.statusBarManager.statusBarHidden", @"view.window.safeAreaInsets", nil];
+}
+
 - (UIEdgeInsets)additionalSafeAreaInsets
 {
     // When the status bar hides, the resulting changes to safeAreaInsets cause
@@ -418,6 +505,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Do not add additional insets if the status bar is not hidden.
     if (!self.view.window.windowScene.statusBarManager.statusBarHidden)
+        return UIEdgeInsetsZero;
+
+    // If the status bar is hidden while would would prefer it not be,
+    // we should not reserve space as it likely won't re-appear.
+    if (!self.prefersStatusBarHidden)
         return UIEdgeInsetsZero;
 
     // Additionally, hiding the status bar does not reduce safeAreaInsets when
@@ -524,7 +616,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     auto alternateFullScreenControlDesignEnabled = self._webView._page->preferences().alternateFullScreenControlDesignEnabled();
     
     if (alternateFullScreenControlDesignEnabled) {
-        buttonSize = CGSizeMake(48.0, 48.0);
+        buttonSize = CGSizeMake(44.0, 44.0);
         doneImage = [UIImage systemImageNamed:@"arrow.down.right.and.arrow.up.left"];
         startPiPImage = nil;
         stopPiPImage = nil;
@@ -548,11 +640,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_cancelButton setImage:[doneImage imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
     [_cancelButton sizeToFit];
     [_cancelButton addTarget:self action:@selector(_cancelAction:) forControlEvents:UIControlEventTouchUpInside];
+#if PLATFORM(APPLETV)
+    [_cancelButton setConfiguration:UIButtonConfiguration.filledButtonConfiguration];
+#endif
 
     if (alternateFullScreenControlDesignEnabled) {
         UIButtonConfiguration *cancelButtonConfiguration = [UIButtonConfiguration filledButtonConfiguration];
-        // FIXME: this color specification should not be necessary.
-        cancelButtonConfiguration.baseBackgroundColor = [UIColor colorWithWhite:1.0 alpha:0.15];
         [_cancelButton setConfiguration:cancelButtonConfiguration];
 
 #if PLATFORM(VISION)
@@ -580,7 +673,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         
         RetainPtr<WKFullscreenStackView> stackView = adoptNS([[WKFullscreenStackView alloc] init]);
 #if PLATFORM(APPLETV)
-        [stackView addArrangedSubviewForTV:_cancelButton.get()];
+        [stackView addArrangedSubview:_cancelButton.get()];
 #else
         [stackView addArrangedSubview:_cancelButton.get() applyingMaterialStyle:AVBackgroundViewMaterialStyleSecondary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
         [stackView addArrangedSubview:_pipButton.get() applyingMaterialStyle:AVBackgroundViewMaterialStylePrimary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
@@ -601,11 +694,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_bannerLabel setText:[NSString stringWithFormat:WEB_UI_NSSTRING(@"”%@” is in full screen.\nSwipe down to exit.", "Full Screen Warning Banner Content Text"), (NSString *)self.location]];
 
     auto banner = adoptNS([[WKFullscreenStackView alloc] init]);
-#if PLATFORM(APPLETV)
-    [banner addArrangedSubviewForTV:_bannerLabel.get()];
-#else
     [banner addArrangedSubview:_bannerLabel.get() applyingMaterialStyle:AVBackgroundViewMaterialStyleSecondary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
-#endif
     _banner = WTFMove(banner);
 
     _bannerTapToDismissRecognizer = adoptNS([[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(_bannerDismissalRecognized:)]);
@@ -765,15 +854,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!playbackSessionManager)
         return;
 
-    WebCore::PlatformPlaybackSessionInterface* playbackSessionInterface = playbackSessionManager->controlsManagerInterface();
+    RefPtr playbackSessionInterface = playbackSessionManager->controlsManagerInterface();
     if (!playbackSessionInterface)
         return;
 
-    WebCore::PlaybackSessionModel* playbackSessionModel = playbackSessionInterface->playbackSessionModel();
-    if (!playbackSessionModel)
-        return;
-
-    playbackSessionModel->togglePictureInPicture();
+    if (auto* playbackSessionModel = playbackSessionInterface->playbackSessionModel())
+        playbackSessionModel->togglePictureInPicture();
 }
 
 - (void)_touchDetected:(id)sender

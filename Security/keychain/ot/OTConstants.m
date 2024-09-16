@@ -50,14 +50,12 @@ NSString* const CuttlefishErrorRetryAfterKey = @"retryafter";
 
 NSString* OTEscrowRecordPrefix = @"com.apple.icdp.record.";
 
+NSString* const TrustedPeersHelperRecoveryKeySetErrorDomain = @"com.apple.security.trustedpeers.RecoveryKeySetError";
+NSString* const TrustedPeersHelperErrorDomain = @"com.apple.security.trustedpeers.container";
+
 static bool OctagonSOSFeatureIsEnabledOverrideSet = false;
 static bool OctagonSOSFeatureIsEnabledOverride = false;
 
-static bool SecErrorNestedErrorCappingIsEnabledOverrideSet = false;
-static bool SecErrorNestedErrorCappingIsEnabledOverride = false;
-
-static bool SecKeychainStaticPersistentRefsEnabledOverrideSet = false;
-static bool SecKeychainStaticPersistentRefsEnabledOverride = false;
 
 bool OctagonIsSOSFeatureEnabled(void)
 {
@@ -86,56 +84,6 @@ void OctagonSetSOSFeatureEnabled(bool value)
     OctagonSOSFeatureIsEnabledOverrideSet = true;
     OctagonSOSFeatureIsEnabledOverride = value;
 }
-
-//feature flag for checking whether or not we should cap the number of nested errors
-bool SecErrorIsNestedErrorCappingEnabled(void)
-{
-    if(SecErrorNestedErrorCappingIsEnabledOverrideSet) {
-        secnotice("octagon", "SecError Nested Error Capping is %@ (overridden)", SecErrorNestedErrorCappingIsEnabledOverride ? @"enabled" : @"disabled");
-        return SecErrorNestedErrorCappingIsEnabledOverride;
-    }
-
-    static bool errorCappingEnabled = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        errorCappingEnabled = os_feature_enabled(Security, SecErrorNestedErrorCapping);
-        secnotice("octagon", "SecError Nested Error Capping is %@ (via feature flags)", errorCappingEnabled ? @"enabled" : @"disabled");
-    });
-
-    return errorCappingEnabled;
-}
-
-void SecErrorSetOverrideNestedErrorCappingIsEnabled(bool value)
-{
-    SecErrorNestedErrorCappingIsEnabledOverrideSet = true;
-    SecErrorNestedErrorCappingIsEnabledOverride = value;
-}
-
-
-//feature flag for checking if static persistent refs are enabled
-bool SecKeychainIsStaticPersistentRefsEnabled(void)
-{
-    if(SecKeychainStaticPersistentRefsEnabledOverrideSet) {
-        secnotice("octagon", "Static Persistent Refs are %@ (overridden)", SecKeychainStaticPersistentRefsEnabledOverride ? @"enabled" : @"disabled");
-        return SecKeychainStaticPersistentRefsEnabledOverride;
-    }
-
-    static bool staticPersistentRefsEnabled = true;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        staticPersistentRefsEnabled = os_feature_enabled(Security, SecKeychainStaticPersistentRefs);
-        secnotice("octagon", "Static Persistent Refs are %@ (via feature flags)", staticPersistentRefsEnabled ? @"enabled" : @"disabled");
-    });
-
-    return staticPersistentRefsEnabled;
-}
-
-void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value)
-{
-    SecKeychainStaticPersistentRefsEnabledOverrideSet = true;
-    SecKeychainStaticPersistentRefsEnabledOverride = value;
-}
-
 
 typedef enum {
     OctagonSupportsPersonaMultiuser_DEFAULT,
@@ -211,4 +159,39 @@ void ClearSOSCompatibilityModeOverride(void)
     secnotice("octagon", "DeferSOSFromSignIn override removed");
 }
 
+typedef enum {
+    ROLL_OCTAGON_IDENTITY_DEFAULT,
+    ROLL_OCTAGON_IDENTITY_ENABLED,
+    ROLL_OCTAGON_IDENTITY_DISABLED,
+} RollOctagonIdentityEnabled;
 
+static RollOctagonIdentityEnabled gRollOctagonIdentityEnabled = ROLL_OCTAGON_IDENTITY_DEFAULT;
+
+bool IsRollOctagonIdentityEnabled(void)
+{
+    if (gRollOctagonIdentityEnabled != ROLL_OCTAGON_IDENTITY_DEFAULT) {
+        return gRollOctagonIdentityEnabled == ROLL_OCTAGON_IDENTITY_ENABLED;
+    }
+
+    static bool ffRollOctagonIdentityEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // To enable, run this and reboot: $ ffctl Security/RollIdentityOnMIDRotation=FeatureComplete
+        ffRollOctagonIdentityEnabled = os_feature_enabled(Security, RollIdentityOnMIDRotation);
+        secnotice("octagon", "RollIdentityOnMIDRotation is %s", ffRollOctagonIdentityEnabled ? "enabled" : "disabled");
+    });
+
+    return ffRollOctagonIdentityEnabled;
+}
+
+void SetRollOctagonIdentityEnabled(bool value)
+{
+    gRollOctagonIdentityEnabled = value ? ROLL_OCTAGON_IDENTITY_ENABLED : ROLL_OCTAGON_IDENTITY_DISABLED;
+    secnotice("octagon", "RollIdentityOnMIDRotation overridden to %s", value ? "enabled" : "disabled");
+}
+
+void ClearRollOctagonIdentityEnabledOverride(void)
+{
+    gRollOctagonIdentityEnabled = ROLL_OCTAGON_IDENTITY_DEFAULT;
+    secnotice("octagon", "RollIdentityOnMIDRotation override removed");
+}

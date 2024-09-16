@@ -31,6 +31,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/osxcode.h>
 #include <security_utilities/logging.h>
+#include <Security/SecFramework.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -51,7 +52,7 @@ ModuleNexus<PluginHost> plugin;
 //
 PluginHost::PluginHost()
 {
-	if (CFBundleRef securityFramework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")))
+	if (CFBundleRef securityFramework = SecFrameworkGetBundle())
 		if (CFRef<CFURLRef> plugins = CFBundleCopyBuiltInPlugInsURL(securityFramework))
 			if (CFRef<CFURLRef> pluginURL = makeCFURL("csparser.bundle", true, plugins)) {
 				plugin = new LoadableBundle(cfString(pluginURL).c_str());

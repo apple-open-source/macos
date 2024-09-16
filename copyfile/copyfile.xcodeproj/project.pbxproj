@@ -8,11 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		096213F7239827D0005847FC /* identical_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 096213F6239827D0005847FC /* identical_test.c */; };
+		097634A62BB6280B0032242D /* symlink_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 097634A52BB6280B0032242D /* symlink_test.c */; };
 		098AF3B622692BF300F9BA42 /* stat_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 098AF3B522692BF300F9BA42 /* stat_test.c */; };
 		0995EE832632401A007E32F3 /* bsize_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 0995EE822632401A007E32F3 /* bsize_test.c */; };
 		0996C65426B48AED004B1073 /* ctype_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 0996C65326B48AED004B1073 /* ctype_test.c */; };
 		0998F99228ECF564008142F5 /* xdev_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 0998F99128ECF564008142F5 /* xdev_test.c */; };
+		09A638A12A7D72C100AF9D38 /* acl_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09A638A02A7D72C100AF9D38 /* acl_test.c */; };
 		09B503C12591048B00718584 /* clone_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09B503C02591048B00718584 /* clone_test.c */; };
+		09BB60BB2A5F378900E9CE49 /* cprotect_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09BB60BA2A5F378900E9CE49 /* cprotect_test.c */; };
 		09BBB7BD27AB0AE7002EEC14 /* revert_writable_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */; };
 		09ED398B2B7E913200627FB2 /* recursive_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 09ED398A2B7E913200627FB2 /* recursive_test.c */; };
 		3EF9FA5F2418B6BA003B43E8 /* readonly_fd_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */; };
@@ -45,12 +48,15 @@
 
 /* Begin PBXFileReference section */
 		096213F6239827D0005847FC /* identical_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = identical_test.c; sourceTree = "<group>"; };
+		097634A52BB6280B0032242D /* symlink_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = symlink_test.c; sourceTree = "<group>"; };
 		098AF3B522692BF300F9BA42 /* stat_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stat_test.c; sourceTree = "<group>"; };
 		098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = copyfile_test.entitlements; sourceTree = "<group>"; };
 		0995EE822632401A007E32F3 /* bsize_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bsize_test.c; sourceTree = "<group>"; };
 		0996C65326B48AED004B1073 /* ctype_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ctype_test.c; sourceTree = "<group>"; };
 		0998F99128ECF564008142F5 /* xdev_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xdev_test.c; sourceTree = "<group>"; };
+		09A638A02A7D72C100AF9D38 /* acl_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = acl_test.c; sourceTree = "<group>"; };
 		09B503C02591048B00718584 /* clone_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = clone_test.c; sourceTree = "<group>"; };
+		09BB60BA2A5F378900E9CE49 /* cprotect_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cprotect_test.c; sourceTree = "<group>"; };
 		09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = revert_writable_test.c; sourceTree = "<group>"; };
 		09C701E82AA29188007083B2 /* scaffolding */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scaffolding; sourceTree = "<group>"; };
 		09ED398A2B7E913200627FB2 /* recursive_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = recursive_test.c; sourceTree = "<group>"; };
@@ -122,7 +128,10 @@
 				0996C65326B48AED004B1073 /* ctype_test.c */,
 				09BBB7BC27AB0AE7002EEC14 /* revert_writable_test.c */,
 				0998F99128ECF564008142F5 /* xdev_test.c */,
+				09BB60BA2A5F378900E9CE49 /* cprotect_test.c */,
+				09A638A02A7D72C100AF9D38 /* acl_test.c */,
 				09ED398A2B7E913200627FB2 /* recursive_test.c */,
+				097634A52BB6280B0032242D /* symlink_test.c */,
 			);
 			path = copyfile_test;
 			sourceTree = "<group>";
@@ -287,7 +296,10 @@
 				721D4F081EA95290000F0555 /* xattr_flags.c in Sources */,
 				3EF9FA5F2418B6BA003B43E8 /* readonly_fd_test.c in Sources */,
 				09BBB7BD27AB0AE7002EEC14 /* revert_writable_test.c in Sources */,
+				097634A62BB6280B0032242D /* symlink_test.c in Sources */,
 				09B503C12591048B00718584 /* clone_test.c in Sources */,
+				09BB60BB2A5F378900E9CE49 /* cprotect_test.c in Sources */,
+				09A638A12A7D72C100AF9D38 /* acl_test.c in Sources */,
 				D11048A22455AE7900E8F465 /* xattr_test.c in Sources */,
 				0998F99228ECF564008142F5 /* xdev_test.c in Sources */,
 				0995EE832632401A007E32F3 /* bsize_test.c in Sources */,

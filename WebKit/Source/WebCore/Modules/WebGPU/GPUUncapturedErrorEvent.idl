@@ -31,12 +31,12 @@ typedef (GPUOutOfMemoryError or GPUValidationError or GPUInternalError) GPUError
 
 [
     EnabledBySetting=WebGPUEnabled,
-    Exposed=(Window,DedicatedWorker),
+    Exposed=(Window,Worker),
     SecureContext
 ]
 interface GPUUncapturedErrorEvent : Event {
     constructor(
-        DOMString type,
+        [AtomString] DOMString type,
         GPUUncapturedErrorEventInit gpuUncapturedErrorEventInitDict
     );
     readonly attribute GPUError error;

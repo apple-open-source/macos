@@ -35,6 +35,7 @@
 #include "CSSStyleValueFactory.h"
 #include "CSSUnitValue.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringView.h>
 
 namespace WebCore {
@@ -52,7 +53,7 @@ ExceptionOr<Ref<CSSStyleValue>> CSSStyleValue::parse(const Document& document, c
     
     // Returned vector should not be empty. If parsing failed, an exception should be returned.
     if (returnValue.isEmpty())
-        return Exception { ExceptionCode::SyntaxError, makeString(cssText, " cannot be parsed as a ", property) };
+        return Exception { ExceptionCode::SyntaxError, makeString(cssText, " cannot be parsed as a "_s, property) };
 
     return WTFMove(returnValue.at(0));
 }

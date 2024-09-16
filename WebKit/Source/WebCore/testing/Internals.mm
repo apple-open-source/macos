@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,6 +92,10 @@
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebCoreInternalsAdditions.mm>)
+#import <WebKitAdditions/WebCoreInternalsAdditions.mm>
+#endif
+
 namespace WebCore {
 
 String Internals::userVisibleString(const DOMURL& url)
@@ -138,7 +142,7 @@ ExceptionOr<RefPtr<Range>> Internals::rangeForDictionaryLookupAtLocation(int x, 
     if (!range)
         return nullptr;
 
-    return RefPtr<Range> { createLiveRange(std::get<SimpleRange>(*range)) };
+    return RefPtr<Range> { createLiveRange(*range) };
 }
 
 void Internals::setUsesOverlayScrollbars(bool enabled)
@@ -172,7 +176,7 @@ void Internals::setUsesOverlayScrollbars(bool enabled)
 #if ENABLE(VIDEO)
 double Internals::privatePlayerVolume(const HTMLMediaElement& element)
 {
-    auto corePlayer = element.player();
+    RefPtr corePlayer = element.player();
     if (!corePlayer)
         return 0;
     auto player = corePlayer->objCAVFoundationAVPlayer();
@@ -183,7 +187,7 @@ double Internals::privatePlayerVolume(const HTMLMediaElement& element)
 
 bool Internals::privatePlayerMuted(const HTMLMediaElement& element)
 {
-    auto corePlayer = element.player();
+    RefPtr corePlayer = element.player();
     if (!corePlayer)
         return false;
     auto player = corePlayer->objCAVFoundationAVPlayer();
@@ -199,11 +203,6 @@ String Internals::encodedPreferenceValue(const String& domain, const String& key
     id value = [userDefaults objectForKey:key];
     auto data = retainPtr([NSKeyedArchiver archivedDataWithRootObject:value requiringSecureCoding:YES error:nullptr]);
     return [data base64EncodedStringWithOptions:0];
-}
-
-String Internals::getUTIFromTag(const String& tagClass, const String& tag, const String& conformingToUTI)
-{
-    return UTIFromTag(tagClass, tag, conformingToUTI);
 }
 
 bool Internals::isRemoteUIAppForAccessibility()

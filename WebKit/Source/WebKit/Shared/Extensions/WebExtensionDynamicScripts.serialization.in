@@ -27,7 +27,7 @@ headers: "WebExtensionScriptInjectionParameters.h" "WebExtensionScriptInjectionR
 struct WebKit::WebExtensionScriptInjectionParameters {
     std::optional<WebKit::WebExtensionTabIdentifier> tabIdentifier;
 
-    std::optional<Vector<String>> arguments;
+    std::optional<Ref<API::Data>> arguments;
     std::optional<Vector<String>> files;
     std::optional<Vector<WebKit::WebExtensionFrameIdentifier>> frameIDs;
 
@@ -36,11 +36,12 @@ struct WebKit::WebExtensionScriptInjectionParameters {
     std::optional<String> function;
 
     WebKit::WebExtensionContentWorldType world;
+    WebCore::UserStyleLevel styleLevel;
 }
 
 struct WebKit::WebExtensionScriptInjectionResultParameters {
     std::optional<String> error;
-    std::optional<String> result;
+    std::optional<String> resultJSON;
     std::optional<WebKit::WebExtensionFrameIdentifier> frameID;
 }
 
@@ -59,6 +60,7 @@ struct WebKit::WebExtensionRegisteredScriptParameters {
     std::optional<bool> persistent;
 
     std::optional<WebKit::WebExtensionContentWorldType> world;
+    std::optional<WebCore::UserStyleLevel> styleLevel;
 }
 
 [Nested] enum class WebKit::WebExtension::InjectionTime : uint8_t {

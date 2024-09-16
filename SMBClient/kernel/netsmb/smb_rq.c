@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -300,7 +300,13 @@ smb_rq_done(struct smb_rq *rqp)
 	}
 	rqp->sr_session = NULL;
 	rqp->sr_share = NULL;
+    
 	mb_done(mbp);
+    if (rqp->sr_flags & SMBR_COMPRESSED) {
+        mbp = &rqp->sr_rq_compressed;
+        mb_done(mbp);
+    }
+    
 	md_done(mdp);
 	lck_mtx_destroy(&rqp->sr_slock, srs_lck_group);
 	if (rqp->sr_flags & SMBR_ALLOCED)
@@ -318,9 +324,9 @@ smb_rq_reply(struct smb_rq *rqp)
 	uint32_t tdw;
 	uint8_t tb;
 	int error = 0, rperror = 0;
-    struct timespec ts;
-    struct timespec ts_sent;
-    uint64_t reply_micro_secs = 0;
+    uint64_t messageid = rqp->sr_messageid;
+
+    SMB_LOG_KTRACE(SMB_DBG_RQ_REPLY | DBG_FUNC_START, smb_hideaddr(rqp), messageid, 0, 0, 0);
 
 	/* If an async call then just remove it from the queue, no waiting required */
 	if (rqp->sr_flags & SMBR_ASYNC) {
@@ -329,8 +335,10 @@ smb_rq_reply(struct smb_rq *rqp)
 	} else {
 		if (rqp->sr_timo == SMBNOREPLYWAIT) {
             /* Only Echo requests use this */
-			return (smb_iod_removerq(rqp));
+			error = smb_iod_removerq(rqp);
+            goto done;
         }
+
 		error = smb_iod_waitrq(rqp);
 	}
     
@@ -339,19 +347,10 @@ smb_rq_reply(struct smb_rq *rqp)
     }
 
     smb_rq_getreply(rqp, &mdp);
-    
+
     if (rqp->sr_extflags & SMB2_RESPONSE) {
-        /* Calculate how long it took for the reply to arrive */
-        nanouptime(&ts);
-        ts_sent = rqp->sr_credit_timesent;
-        timespecsub(&ts, &ts_sent);
-
-        reply_micro_secs = (ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
-        SMB_LOG_KTRACE(SMB_DBG_RQ_REPLY_TIME | DBG_FUNC_NONE,
-                       /* channelID */ 0, reply_micro_secs, 0, 0, 0);
-
-        error = smb2_rq_parse_header(rqp, &mdp);
-        return (error);
+        error = smb2_rq_parse_header(rqp, &mdp, 0);
+        goto done;
     }
     else {
         /* SMB 1 Parsing */
@@ -451,6 +450,7 @@ smb_rq_reply(struct smb_rq *rqp)
 	}
 	
 done:
+    SMB_LOG_KTRACE(SMB_DBG_RQ_REPLY | DBG_FUNC_END, (error ? error : rperror), messageid, 0, 0, 0);
 	return error ? error : rperror;
 }
 

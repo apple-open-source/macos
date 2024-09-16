@@ -23,6 +23,21 @@ mklocale/lex.l	freebsd	usr.bin/mklocale/lex.l	8a16b7a18f5d0b031f09832fd7752fba71
 mklocale/mklocale.1	freebsd	usr.bin/mklocale/mklocale.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 mklocale/yacc.y	freebsd	usr.bin/mklocale/yacc.y	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
+localedef/README	freebsd	usr.bin/localedef/README	057ca2d4372f94cc0911c140cd4d8f117fe9b26a
+localedef/charmap.c	freebsd	usr.bin/localedef/charmap.c	3a7ffe206ce7e4741fae26432f6d6e5159207f45
+localedef/collate.c	freebsd	usr.bin/localedef/collate.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/ctype.c	freebsd	usr.bin/localedef/ctype.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+localedef/localedef.1	freebsd	usr.bin/localedef/localedef.1	fa9896e082a1046ff4fbc75fcba4d18d1f2efc19
+localedef/localedef.c	freebsd	usr.bin/localedef/localedef.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/localedef.h	freebsd	usr.bin/localedef/localedef.h	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/messages.c	freebsd	usr.bin/localedef/messages.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+localedef/monetary.c	freebsd	usr.bin/localedef/monetary.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/numeric.c	freebsd	usr.bin/localedef/numeric.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/parser.y	freebsd	usr.bin/localedef/parser.y	b3e7694832e81d7a904a10f525f8797b753bf0d3
+localedef/scanner.c	freebsd	usr.bin/localedef/scanner.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+localedef/time.c	freebsd	usr.bin/localedef/time.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d
+localedef/wide.c	freebsd	usr.bin/localedef/wide.c	1d386b48a555f61cb7325543adbbb5c3f3407a66
+
 pkill/pkill.1	freebsd	bin/pkill/pkill.1	3d17b350e5c949d0d5a42aa907034a2a22f7312b
 pkill/pkill.c	freebsd	bin/pkill/pkill.c	3610bffd2888b65389a46e8d075ce8e1fc83af4c
 pkill/tests/pgrep-_f_test.sh	freebsd	bin/pkill/tests/pgrep-_f_test.sh	822057bfbbbcdb722a7ccd0e40d6b7e82b1d83f7

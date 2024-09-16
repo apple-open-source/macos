@@ -70,6 +70,7 @@ public:
 	void checkValidity(SecCSFlags flags);
 	virtual SecCodeStatus getGuestStatus(SecCode *guest);
 	virtual void changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation, CFDictionaryRef arguments);
+	virtual void guestMatchesLightweightCodeRequirement(SecCode *guest, const Requirement* lwcr);
 	
 public:
 	// perform "autolocation" (root-based heuristic). Caller owns the result

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ typedef struct
     mDNSBool                    useFailover;            // Use DNS service failover if applicable.
     mDNSBool                    failoverMode;           // Use DNS service failover immediately.
     mDNSBool                    prohibitEncryptedDNS;   // Prohibit use of encrypted DNS protocols.
+    mDNSBool                    overrideDNSService;     // True if resolver UUID overrides DNS service selection.
     mDNSu8                      resolverUUID[UUID_SIZE];// Resolver UUID to use with original QNAME.
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
@@ -79,7 +80,7 @@ typedef struct
     QueryRecordOp       op; // Query record operation object.
 
 }   QueryRecordClientRequest;
-mdns_compile_time_max_size_check(QueryRecordClientRequest, 800);
+mdns_compile_time_max_size_check(QueryRecordClientRequest, 816);
 
 typedef struct
 {
@@ -129,6 +130,7 @@ typedef struct
     mDNSBool                useFailover;
     mDNSBool                failoverMode;
     mDNSBool                prohibitEncryptedDNS;
+    mDNSBool                overrideDNSService;
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
     mdns_audit_token_t      peerToken;

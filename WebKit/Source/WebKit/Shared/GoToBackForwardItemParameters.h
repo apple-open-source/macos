@@ -30,6 +30,7 @@
 #include "WebsitePoliciesData.h"
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/PublicSuffix.h>
 #include <WebCore/ShouldTreatAsContinuingLoad.h>
 #include <wtf/text/WTFString.h>
 
@@ -43,7 +44,7 @@ struct GoToBackForwardItemParameters {
     std::optional<WebsitePoliciesData> websitePolicies;
     bool lastNavigationWasAppInitiated;
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
-    std::optional<String> topPrivatelyControlledDomain;
+    WebCore::PublicSuffix publicSuffix;
     SandboxExtension::Handle sandboxExtensionHandle;
 };
 

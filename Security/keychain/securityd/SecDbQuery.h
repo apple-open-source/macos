@@ -168,10 +168,14 @@ typedef struct Query
     SecPolicyRef q_match_policy;
     //date for filtering certs and identities
     CFDateRef q_match_valid_on_date;
+    //email address for filtering certs and identities
+    CFStringRef q_match_email_address;
     //trusted only certs and identities
     CFBooleanRef q_match_trusted_only;
     //token persistent reference for filtering items is represented by token ID (in attrs) and token object ID
     CFDataRef q_token_object_id;
+    //for filtering internet password types that match a provided host or subdomain
+    CFStringRef q_match_host_or_subdomain;
 
     CFIndex q_pairs_count;
     Pair q_pairs[];
@@ -197,6 +201,8 @@ void query_set_caller_access_groups(Query *q, CFArrayRef caller_access_groups);
 void query_set_policy(Query *q, SecPolicyRef policy);
 void query_set_valid_on_date(Query *q, CFDateRef policy);
 void query_set_trusted_only(Query *q, CFBooleanRef trusted_only);
+void query_set_host_or_subdomain(Query *q, CFStringRef host_or_subdomain);
+void query_set_email_address(Query *q, CFStringRef email_address);
 
 #if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
 CFDataRef

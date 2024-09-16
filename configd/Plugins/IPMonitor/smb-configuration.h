@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 
 __BEGIN_DECLS
 
-void	load_smb_configuration		(Boolean	verbose);
+void	load_smb_configuration(dispatch_queue_t);
 
 __END_DECLS
 

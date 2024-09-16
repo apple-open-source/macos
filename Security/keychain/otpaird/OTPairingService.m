@@ -436,6 +436,8 @@
 #if TARGET_OS_IOS
 - (void)scheduleGizmoPoke
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     xpc_object_t criteria;
 
     criteria = xpc_dictionary_create(NULL, NULL, 0);
@@ -460,6 +462,7 @@
             });
         }
     });
+#pragma clang diagnostic pop
 }
 #endif /* TARGET_OS_IOS */
 

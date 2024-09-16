@@ -24,6 +24,9 @@
 #  include <fcntl.h>
 #endif /* _WIN32 */
 
+#if __has_include(<sys/socket_private.h>)
+#include <sys/socket_private.h>
+#endif
 
 /*
  * 'httpAddrConnect()' - Connect to any of the addresses in the list.
@@ -188,6 +191,39 @@ httpAddrConnect2(
       fcntl(fds[nfds], F_SETFL, flags | O_NONBLOCK);
 #endif /* O_NONBLOCK */
 
+#if defined(IPV6_BOUND_IF) || defined(SO_BINDTODEVICE)
+      /*
+       * If an ipv6 scope id was specified it may not be respected
+       * when connect() is called.  Darwin offers connectx() for this,
+       * or explicitly setting the interface index via a sockopt.
+       * Linux also provies a name based sockopt to achieve this.
+       */
+      if (httpAddrFamily(&(addrlist->addr)) == AF_INET6)
+      {
+  uint32_t ifscope = addrlist->addr.ipv6.sin6_scope_id;
+
+  if (ifscope != 0)
+  {
+    char ifname[IF_NAMESIZE];
+    if (if_indextoname(ifscope, ifname) != NULL) {
+#if defined(IPV6_BOUND_IF)
+      DEBUG_printf(("httpAddrConnect2: Want to set ipv6 bound interface to %d", ifscope));
+
+      int err = setsockopt(fds[nfds], IPPROTO_IPV6, IPV6_BOUND_IF, CUPS_SOCAST &ifscope, sizeof(ifscope));
+      if (err != 0) {
+        DEBUG_printf(("httpAddrConnect2: error setting bound if scope to %s(%d) - %d", ifname, ifscope, errno));
+      }
+
+#elif defined(SO_BINDTODEVICE)
+      DEBUG_printf(("httpAddrConnect2: Want to set ipv6 bound interface to %d (%s)", ifscope, ifname));
+      setsockopt(fds[nfds], SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname));
+#endif
+    }
+  }
+      }
+#endif /* IPV6_BOUND_IF or SO_BINDTODEVICE */
+      
+      
      /*
       * Then connect...
       */

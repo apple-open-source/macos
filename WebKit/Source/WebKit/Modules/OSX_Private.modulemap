@@ -84,11 +84,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module NSURLDownloadSPI {
-    header "NSURLDownloadSPI.h"
-    export *
-  }
-
   explicit module PreferenceObserver {
     header "PreferenceObserver.h"
     export *
@@ -244,11 +239,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WKBundleInspector {
-    header "WKBundleInspector.h"
-    export *
-  }
-
   explicit module WKBundleMac {
     header "WKBundleMac.h"
     export *
@@ -374,16 +364,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WKConnection {
-    header "WKConnection.h"
-    export *
-  }
-
-  explicit module WKConnectionRef {
-    header "WKConnectionRef.h"
-    export *
-  }
-
   explicit module WKContentRuleListPrivate {
     header "WKContentRuleListPrivate.h"
     export *
@@ -406,11 +386,6 @@ framework module WebKit_Private [system] {
 
   explicit module WKContextConfigurationRef {
     header "WKContextConfigurationRef.h"
-    export *
-  }
-
-  explicit module WKContextConnectionClient {
-    header "WKContextConnectionClient.h"
     export *
   }
 
@@ -1319,11 +1294,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WebApplicationCache {
-    header "WebApplicationCache.h"
-    export *
-  }
-
   explicit module WebAutocapitalizeTypes {
     header "WebAutocapitalizeTypes.h"
     export *
@@ -1511,11 +1481,6 @@ framework module WebKit_Private [system] {
 
   explicit module WebLocalizableStrings {
     header "WebLocalizableStrings.h"
-    export *
-  }
-
-  explicit module WebNSDataExtrasPrivate {
-    header "WebNSDataExtrasPrivate.h"
     export *
   }
 
@@ -2184,6 +2149,21 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module _WKWebExtensionDataRecord {
+    header "_WKWebExtensionDataRecord.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionDataRecordPrivate {
+    header "_WKWebExtensionDataRecordPrivate.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionDataType {
+    header "_WKWebExtensionDataType.h"
+    export *
+  }
+
   explicit module _WKWebExtensionMatchPattern {
     header "_WKWebExtensionMatchPattern.h"
     export *
@@ -2209,6 +2189,11 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module _WKWebExtensionPermissionPrivate {
+    header "_WKWebExtensionPermissionPrivate.h"
+    export *
+  }
+
   explicit module _WKWebExtensionPrivate {
     header "_WKWebExtensionPrivate.h"
     export *
@@ -2226,6 +2211,11 @@ framework module WebKit_Private [system] {
 
   explicit module _WKWebExtensionWebNavigationURLFilter {
     header "_WKWebExtensionWebNavigationURLFilter.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionWebRequestFilter {
+    header "_WKWebExtensionWebRequestFilter.h"
     export *
   }
 

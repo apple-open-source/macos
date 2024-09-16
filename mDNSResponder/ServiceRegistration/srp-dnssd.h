@@ -56,6 +56,20 @@ DNSServiceErrorType dns_service_update_record_wa(srp_server_t *NULLABLE srp_serv
                                                  DNSServiceAttributeRef NULLABLE attr);
 void dns_service_ref_deallocate(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL sdRef);
 void ioloop_dnssd_txn_cancel_srp(void *NULLABLE srp_server, dnssd_txn_t *NONNULL txn);
+DNSServiceErrorType
+dns_service_query_record(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL *NULLABLE sdRef,
+                         DNSServiceFlags flags, uint32_t interfaceIndex, const char *NONNULL fullname,
+                         uint16_t rrtype, uint16_t rrclass, DNSServiceQueryRecordReply NONNULL callBack,
+                         void *NULLABLE context);
+DNSServiceErrorType
+dns_service_query_record_wa(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL *NULLABLE sdRef,
+                            DNSServiceFlags flags, uint32_t interfaceIndex, const char *NONNULL fullname,
+                            uint16_t rrtype, uint16_t rrclass, DNSServiceAttribute const *NULLABLE attr,
+                            DNSServiceQueryRecordReply NONNULL callBack, void *NULLABLE context);
+dnssd_txn_t *NULLABLE
+dns_service_ioloop_txn_add(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL sdref, void *NULLABLE context,
+                           dnssd_txn_finalize_callback_t NULLABLE finalize_callback,
+                           dnssd_txn_failure_callback_t NULLABLE failure_callback);
 #else
 #define dns_service_ref_deallocate(srp_server, ...)     DNSServiceRefDeallocate(__VA_ARGS__)
 #define dns_service_register_record(srp_server, ...)    DNSServiceRegisterRecord(__VA_ARGS__)
@@ -66,6 +80,9 @@ void ioloop_dnssd_txn_cancel_srp(void *NULLABLE srp_server, dnssd_txn_t *NONNULL
 #define dns_service_update_record(srp_server, ...)      DNSServiceUpdateRecord(__VA_ARGS__)
 #define dns_service_update_record_wa(srp_server, ...)   DNSServiceUpdateRecordWithAttribute(__VA_ARGS__)
 #define ioloop_dnssd_txn_cancel_srp(srp_server, ...)    ioloop_dnssd_txn_cancel(__VA_ARGS__)
+#define dns_service_query_record(srp_server, ...)       DNSServiceQueryRecord(__VA_ARGS__)
+#define dns_service_query_record_wa(srp_server, ...)    DNSServiceQueryRecordWithAttribute(__VA_ARGS__)
+#define dns_service_ioloop_txn_add(srp_server, ...)     ioloop_dnssd_txn_add(__VA_ARGS__)
 #endif
 
 // Local Variables:

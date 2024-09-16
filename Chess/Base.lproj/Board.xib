@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="19150" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23028.2" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19150"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23028.2"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -10,16 +10,15 @@
                 <outlet property="board" destination="200663" id="200727"/>
                 <outlet property="dialogController" destination="202980" id="202981"/>
                 <outlet property="engine" destination="200665" id="200732"/>
-                <outlet property="fBoard" destination="200663" id="200664"/>
-                <outlet property="fInteractive" destination="200668" id="200670"/>
                 <outlet property="gameInfo" destination="200723" id="200730"/>
+                <outlet property="gameMTLView" destination="Nok-V6-Iaa" id="f9L-kM-3Xl"/>
                 <outlet property="gameNewSheet" destination="201758" id="201825"/>
                 <outlet property="gameView" destination="196" id="200726"/>
                 <outlet property="interactive" destination="200668" id="200729"/>
                 <outlet property="logContainer" destination="201641" id="201660"/>
                 <outlet property="logView" destination="200779" id="200818"/>
                 <outlet property="logViewRightEdgeConstraint" destination="201698" id="201757"/>
-                <outlet property="newGameSheet" destination="201758" id="201811"/>
+                <outlet property="mtlBackingView" destination="k30-Wm-08H" id="s1m-ue-4yx"/>
                 <outlet property="playersPopupMenu" destination="201783" id="NtH-5o-AoX"/>
                 <outlet property="remote" destination="200777" id="200778"/>
                 <outlet property="window" destination="21" id="200725"/>
@@ -32,24 +31,36 @@
             <windowCollectionBehavior key="collectionBehavior" fullScreenPrimary="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" topStrut="YES"/>
             <rect key="contentRect" x="5" y="44" width="971" height="680"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1415"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1728" height="1079"/>
             <value key="minSize" type="size" width="500" height="500"/>
             <view key="contentView" autoresizesSubviews="NO" id="2">
                 <rect key="frame" x="0.0" y="0.0" width="971" height="680"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
+                    <customView wantsLayer="YES" translatesAutoresizingMaskIntoConstraints="NO" id="k30-Wm-08H" userLabel="MTL Backing View">
+                        <rect key="frame" x="0.0" y="0.0" width="741" height="680"/>
+                    </customView>
+                    <customView translatesAutoresizingMaskIntoConstraints="NO" id="Nok-V6-Iaa" userLabel="MTL Board View" customClass="MBCBoardMTLView">
+                        <rect key="frame" x="0.0" y="62" width="741" height="556"/>
+                        <constraints>
+                            <constraint firstAttribute="width" secondItem="Nok-V6-Iaa" secondAttribute="height" multiplier="4:3" id="L6l-1N-dso"/>
+                        </constraints>
+                        <connections>
+                            <outlet property="aspectConstraint" destination="L6l-1N-dso" id="RnS-uP-2xH"/>
+                        </connections>
+                    </customView>
                     <customView autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="196" customClass="MBCBoardView">
                         <rect key="frame" x="0.0" y="0.0" width="741" height="680"/>
                         <accessibility description="Board"/>
                     </customView>
                     <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="201641" userLabel="Log Container">
-                        <rect key="frame" x="738" y="-4" width="236" height="686"/>
+                        <rect key="frame" x="741" y="0.0" width="230" height="680"/>
                         <view key="contentView" id="TNk-HX-YnA">
-                            <rect key="frame" x="0.0" y="0.0" width="236" height="686"/>
+                            <rect key="frame" x="0.0" y="0.0" width="230" height="680"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <view autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="200779" customClass="NSBox">
-                                    <rect key="frame" x="3" y="4" width="230" height="680"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="230" height="680"/>
                                     <subviews>
                                         <scrollView horizontalLineScroll="16" horizontalPageScroll="10" verticalLineScroll="16" verticalPageScroll="10" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="200782">
                                             <rect key="frame" x="7" y="8" width="215" height="549"/>
@@ -176,7 +187,7 @@
                                                 <action selector="editInfo:" target="200723" id="200860"/>
                                             </connections>
                                         </button>
-                                        <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200781">
+                                        <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200781">
                                             <rect key="frame" x="7" y="614" width="215" height="57"/>
                                             <constraints>
                                                 <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="57" id="0pP-ky-xHD"/>
@@ -243,6 +254,14 @@ Spy</string>
                     <constraint firstItem="196" firstAttribute="leading" secondItem="2" secondAttribute="leading" id="201745"/>
                     <constraint firstItem="196" firstAttribute="top" secondItem="2" secondAttribute="top" id="201747"/>
                     <constraint firstItem="196" firstAttribute="bottom" secondItem="2" secondAttribute="bottom" id="201753"/>
+                    <constraint firstItem="k30-Wm-08H" firstAttribute="top" secondItem="2" secondAttribute="top" id="DSU-mp-zmo"/>
+                    <constraint firstItem="k30-Wm-08H" firstAttribute="trailing" secondItem="201641" secondAttribute="leading" id="Sl4-kG-5HG"/>
+                    <constraint firstItem="201641" firstAttribute="leading" secondItem="Nok-V6-Iaa" secondAttribute="trailing" id="WYj-Ue-Lie"/>
+                    <constraint firstItem="k30-Wm-08H" firstAttribute="leading" secondItem="2" secondAttribute="leading" id="Wyn-xh-qBT"/>
+                    <constraint firstAttribute="bottom" secondItem="k30-Wm-08H" secondAttribute="bottom" id="Zmd-of-U8h"/>
+                    <constraint firstItem="Nok-V6-Iaa" firstAttribute="centerY" secondItem="2" secondAttribute="centerY" id="hwg-s7-ise"/>
+                    <constraint firstItem="196" firstAttribute="centerY" secondItem="2" secondAttribute="centerY" id="tfa-lY-ihj"/>
+                    <constraint firstItem="Nok-V6-Iaa" firstAttribute="leading" secondItem="2" secondAttribute="leading" id="wII-c7-dHg"/>
                 </constraints>
             </view>
             <connections>
@@ -256,27 +275,27 @@ Spy</string>
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES" nonactivatingPanel="YES"/>
             <windowPositionMask key="initialPositionMask" topStrut="YES"/>
             <rect key="contentRect" x="197" y="569" width="575" height="269"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1415"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1728" height="1079"/>
             <value key="minSize" type="size" width="213" height="107"/>
             <view key="contentView" id="200872">
                 <rect key="frame" x="0.0" y="0.0" width="575" height="269"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box ambiguous="YES" title="Speech" translatesAutoresizingMaskIntoConstraints="NO" id="200877">
-                        <rect key="frame" x="272" y="56" width="286" height="206"/>
-                        <view key="contentView" ambiguous="YES" id="dcB-cn-Rax">
-                            <rect key="frame" x="3" y="3" width="280" height="186"/>
+                    <box title="Speech" translatesAutoresizingMaskIntoConstraints="NO" id="200877">
+                        <rect key="frame" x="273" y="56" width="285" height="206"/>
+                        <view key="contentView" id="dcB-cn-Rax">
+                            <rect key="frame" x="4" y="5" width="277" height="184"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button toolTip="Speak the moves played by your opponent." misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200884">
-                                    <rect key="frame" x="12" y="128" width="169" height="19"/>
-                                    <constraints>
-                                        <constraint firstAttribute="height" constant="15" id="rfO-Pt-Mtv"/>
-                                    </constraints>
+                                    <rect key="frame" x="12" y="126" width="169" height="19"/>
                                     <buttonCell key="cell" type="check" title="Speak Computer Moves" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="200885">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
+                                    <constraints>
+                                        <constraint firstAttribute="height" constant="15" id="rfO-Pt-Mtv"/>
+                                    </constraints>
                                     <connections>
                                         <binding destination="200723" name="value" keyPath="MBCSpeakMoves" id="200924"/>
                                         <binding destination="-2" name="hidden" keyPath="hideSpeakMoves" id="200963"/>
@@ -284,7 +303,7 @@ Spy</string>
                                     </connections>
                                 </button>
                                 <button misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200883">
-                                    <rect key="frame" x="12" y="156" width="197" height="18"/>
+                                    <rect key="frame" x="12" y="154" width="197" height="18"/>
                                     <string key="toolTip">Use speech recognition to listen
 for spoken moves.</string>
                                     <buttonCell key="cell" type="check" title="Allow Player to Speak Moves" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="200886">
@@ -295,11 +314,8 @@ for spoken moves.</string>
                                         <binding destination="200723" name="value" keyPath="MBCListenForMoves" id="200923"/>
                                     </connections>
                                 </button>
-                                <popUpButton verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200882">
-                                    <rect key="frame" x="124" y="43" width="145" height="25"/>
-                                    <constraints>
-                                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="140" id="201157"/>
-                                    </constraints>
+                                <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200882">
+                                    <rect key="frame" x="120" y="41" width="147" height="25"/>
                                     <popUpButtonCell key="cell" type="push" title="Default Voice" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="200890" id="200887">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
@@ -312,29 +328,32 @@ for spoken moves.</string>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
+                                    <constraints>
+                                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="140" id="201157"/>
+                                    </constraints>
                                     <connections>
                                         <accessibilityConnection property="title" destination="200881" id="200947"/>
                                         <action selector="updateVoices:" target="200723" id="200926"/>
                                     </connections>
                                 </popUpButton>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200881">
-                                    <rect key="frame" x="14" y="50" width="98" height="16"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200881">
+                                    <rect key="frame" x="13" y="48" width="97" height="16"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Primary Voice" usesSingleLineMode="YES" id="200891">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200880">
-                                    <rect key="frame" x="14" y="23" width="98" height="16"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200880">
+                                    <rect key="frame" x="13" y="21" width="97" height="16"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Alternate Voice" usesSingleLineMode="YES" id="200892">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <popUpButton verticalHuggingPriority="750" ambiguous="YES" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="200879">
-                                    <rect key="frame" x="124" y="16" width="145" height="24"/>
+                                <popUpButton tag="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200879">
+                                    <rect key="frame" x="120" y="14" width="147" height="24"/>
                                     <popUpButtonCell key="cell" type="push" title="Default Voice" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="200896" id="200893">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
@@ -353,7 +372,7 @@ for spoken moves.</string>
                                     </connections>
                                 </popUpButton>
                                 <button toolTip="Speak the moves played by the human player." misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200878">
-                                    <rect key="frame" x="12" y="101" width="151" height="18"/>
+                                    <rect key="frame" x="12" y="99" width="151" height="18"/>
                                     <buttonCell key="cell" type="check" title="Speak Human Moves" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="200897">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
@@ -391,14 +410,14 @@ for spoken moves.</string>
                         </constraints>
                         <font key="titleFont" metaFont="message"/>
                     </box>
-                    <box toolTip="Select the look of the board and pieces." ambiguous="YES" title="Style" translatesAutoresizingMaskIntoConstraints="NO" id="200876">
-                        <rect key="frame" x="17" y="164" width="244" height="98"/>
-                        <view key="contentView" ambiguous="YES" id="DGt-VM-gP4">
-                            <rect key="frame" x="3" y="3" width="238" height="78"/>
+                    <box toolTip="Select the look of the board and pieces." title="Style" translatesAutoresizingMaskIntoConstraints="NO" id="200876">
+                        <rect key="frame" x="17" y="164" width="245" height="98"/>
+                        <view key="contentView" id="DGt-VM-gP4">
+                            <rect key="frame" x="4" y="5" width="237" height="76"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <popUpButton verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200901">
-                                    <rect key="frame" x="61" y="9" width="168" height="25"/>
+                                <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200901">
+                                    <rect key="frame" x="57" y="7" width="172" height="25"/>
                                     <popUpButtonCell key="cell" type="push" title="Item1" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="200905" id="200902">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
@@ -415,27 +434,24 @@ for spoken moves.</string>
                                         <action selector="updateStyles:" target="200723" id="200938"/>
                                     </connections>
                                 </popUpButton>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200900">
-                                    <rect key="frame" x="11" y="46" width="45" height="16"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200900">
+                                    <rect key="frame" x="10" y="44" width="44" height="16"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Board" usesSingleLineMode="YES" id="200907">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200899">
-                                    <rect key="frame" x="11" y="16" width="45" height="16"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200899">
+                                    <rect key="frame" x="10" y="14" width="44" height="16"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Pieces" usesSingleLineMode="YES" id="200908">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <popUpButton verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200898">
-                                    <rect key="frame" x="61" y="39" width="168" height="25"/>
-                                    <constraints>
-                                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="163" id="33p-fN-qOl"/>
-                                    </constraints>
+                                <popUpButton horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="200898">
+                                    <rect key="frame" x="57" y="37" width="172" height="25"/>
                                     <popUpButtonCell key="cell" type="push" title="Item3" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="200911" id="200909">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
@@ -445,6 +461,9 @@ for spoken moves.</string>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
+                                    <constraints>
+                                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="163" id="33p-fN-qOl"/>
+                                    </constraints>
                                     <connections>
                                         <accessibilityConnection property="title" destination="200900" id="200951"/>
                                         <action selector="updateStyles:" target="200723" id="200937"/>
@@ -469,14 +488,14 @@ for spoken moves.</string>
                         </constraints>
                         <font key="titleFont" metaFont="message"/>
                     </box>
-                    <box autoresizesSubviews="NO" ambiguous="YES" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="200875">
-                        <rect key="frame" x="17" y="56" width="244" height="94"/>
+                    <box autoresizesSubviews="NO" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="200875">
+                        <rect key="frame" x="17" y="56" width="245" height="94"/>
                         <view key="contentView" id="LFi-6w-BHY">
-                            <rect key="frame" x="3" y="3" width="238" height="88"/>
+                            <rect key="frame" x="4" y="5" width="237" height="86"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <slider toolTip="Select the speed and skill level of the computer." verticalHuggingPriority="750" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200915">
-                                    <rect key="frame" x="14" y="26" width="210" height="27"/>
+                                <slider toolTip="Select the speed and skill level of the computer." verticalHuggingPriority="751" translatesAutoresizingMaskIntoConstraints="NO" id="200915">
+                                    <rect key="frame" x="13" y="18" width="211" height="28"/>
                                     <sliderCell key="cell" continuous="YES" alignment="left" minValue="1" maxValue="12" doubleValue="3" tickMarkPosition="below" numberOfTickMarks="12" allowsTickMarkValuesOnly="YES" sliderType="linear" id="200916">
                                         <font key="font" size="12" name="Helvetica"/>
                                     </sliderCell>
@@ -484,24 +503,24 @@ for spoken moves.</string>
                                         <binding destination="200723" name="value" keyPath="MBCSearchTime" id="200922"/>
                                     </connections>
                                 </slider>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200914">
-                                    <rect key="frame" x="16" y="11" width="35" height="13"/>
+                                <textField focusRingType="none" verticalHuggingPriority="751" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200914">
+                                    <rect key="frame" x="16" y="9" width="35" height="13"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Faster" usesSingleLineMode="YES" id="200917">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200912">
-                                    <rect key="frame" x="179" y="11" width="47" height="13"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200912">
+                                    <rect key="frame" x="179" y="9" width="47" height="13"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Stronger" usesSingleLineMode="YES" id="200919">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" ambiguous="YES" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200959">
-                                    <rect key="frame" x="16" y="65" width="187" height="13"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200959">
+                                    <rect key="frame" x="16" y="63" width="187" height="13"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" placeholderString="DONT_LOCALIZE Computer Thinks X " usesSingleLineMode="YES" id="200960">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -576,13 +595,13 @@ Gw
                     <constraint firstItem="200877" firstAttribute="leading" secondItem="200875" secondAttribute="trailing" constant="17" id="WIG-3e-5I2"/>
                 </constraints>
             </view>
-            <point key="canvasLocation" x="139" y="149"/>
+            <point key="canvasLocation" x="138.5" y="148.5"/>
         </window>
         <window title="Panel" allowsToolTipsWhenApplicationIsInactive="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" id="200803" userLabel="GameInfo" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" documentModal="YES"/>
             <windowPositionMask key="initialPositionMask" rightStrut="YES" topStrut="YES"/>
             <rect key="contentRect" x="35" y="107" width="316" height="268"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1415"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1728" height="1079"/>
             <value key="minSize" type="size" width="213" height="107"/>
             <view key="contentView" id="200804">
                 <rect key="frame" x="0.0" y="0.0" width="316" height="268"/>
@@ -614,7 +633,7 @@ Gw
                             <action selector="cancelProperties:" target="200723" id="200931"/>
                         </connections>
                     </button>
-                    <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200805">
+                    <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="200805">
                         <rect key="frame" x="18" y="231" width="152" height="17"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Edit Game Information" usesSingleLineMode="YES" id="200817">
                             <font key="font" metaFont="systemBold"/>
@@ -622,7 +641,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203221">
+                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203221">
                         <rect key="frame" x="18" y="194" width="58" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="White:" usesSingleLineMode="YES" id="203222">
                             <font key="font" metaFont="system"/>
@@ -630,7 +649,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203262">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203262">
                         <rect key="frame" x="82" y="191" width="214" height="21"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="214" id="203278"/>
@@ -646,7 +665,7 @@ Gw
                             <binding destination="200723" name="enabled" keyPath="whiteEditable" previousBinding="203346" id="203467"/>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203286">
+                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203286">
                         <rect key="frame" x="18" y="165" width="58" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Black:" usesSingleLineMode="YES" id="203290">
                             <font key="font" metaFont="system"/>
@@ -654,7 +673,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203287">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203287">
                         <rect key="frame" x="82" y="162" width="214" height="21"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="214" id="203288"/>
@@ -670,7 +689,7 @@ Gw
                             <binding destination="200723" name="enabled" keyPath="blackEditable" previousBinding="203359" id="203470"/>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203299">
+                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203299">
                         <rect key="frame" x="18" y="136" width="58" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="City:" usesSingleLineMode="YES" id="203303">
                             <font key="font" metaFont="system"/>
@@ -678,7 +697,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203300">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203300">
                         <rect key="frame" x="82" y="133" width="214" height="21"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="214" id="203301"/>
@@ -692,7 +711,7 @@ Gw
                             <binding destination="200723" name="value" keyPath="City" id="203365"/>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203313">
+                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203313">
                         <rect key="frame" x="18" y="107" width="58" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Country:" usesSingleLineMode="YES" id="203317">
                             <font key="font" metaFont="system"/>
@@ -700,7 +719,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203314">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203314">
                         <rect key="frame" x="82" y="104" width="214" height="21"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="214" id="203315"/>
@@ -714,7 +733,7 @@ Gw
                             <binding destination="200723" name="value" keyPath="Country" id="203375"/>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203325">
+                    <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="759" translatesAutoresizingMaskIntoConstraints="NO" id="203325">
                         <rect key="frame" x="18" y="78" width="58" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Event:" usesSingleLineMode="YES" id="203329">
                             <font key="font" metaFont="system"/>
@@ -722,7 +741,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203326">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="203326">
                         <rect key="frame" x="82" y="75" width="214" height="21"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="214" id="203327"/>
@@ -774,12 +793,13 @@ Gw
                     <constraint firstItem="203221" firstAttribute="width" secondItem="203286" secondAttribute="width" id="yf2-B8-Qgq"/>
                 </constraints>
             </view>
+            <point key="canvasLocation" x="139" y="-46"/>
         </window>
         <window title="Panel" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="201758" userLabel="NewGame" customClass="NSPanel">
             <windowStyleMask key="styleMask" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="403" y="317" width="333" height="256"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1415"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1728" height="1079"/>
             <value key="minSize" type="size" width="213" height="107"/>
             <view key="contentView" misplaced="YES" id="201759">
                 <rect key="frame" x="0.0" y="0.0" width="333" height="256"/>
@@ -787,9 +807,6 @@ Gw
                 <subviews>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="201761">
                         <rect key="frame" x="97" y="182" width="220" height="25"/>
-                        <constraints>
-                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="213" id="203200"/>
-                        </constraints>
                         <popUpButtonCell key="cell" type="push" title="Regular" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="201792" id="201789">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
@@ -812,6 +829,9 @@ Win by losing all your pieces except the king.</string>
                                 </items>
                             </menu>
                         </popUpButtonCell>
+                        <constraints>
+                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="213" id="203200"/>
+                        </constraints>
                         <connections>
                             <binding destination="200506" name="selectedIndex" keyPath="values.MBCNewGameVariant" id="201803"/>
                         </connections>
@@ -846,7 +866,7 @@ Win by losing all your pieces except the king.</string>
                             <binding destination="200506" name="selectedIndex" keyPath="values.MBCNewGamePlayers" id="201819"/>
                         </connections>
                     </popUpButton>
-                    <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201763">
+                    <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201763">
                         <rect key="frame" x="18" y="191" width="52" height="17"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Variant:" usesSingleLineMode="YES" id="201781">
                             <font key="font" metaFont="system"/>
@@ -854,7 +874,7 @@ Win by losing all your pieces except the king.</string>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="201764">
+                    <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="201764">
                         <rect key="frame" x="18" y="143" width="52" height="16"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Players:" usesSingleLineMode="YES" id="201780">
                             <font key="font" metaFont="system"/>
@@ -888,7 +908,7 @@ Gw
                             <action selector="cancelNewGame:" target="-2" id="201816"/>
                         </connections>
                     </button>
-                    <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201765">
+                    <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201765">
                         <rect key="frame" x="18" y="217" width="129" height="17"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Start a New Game?" usesSingleLineMode="YES" id="201779">
                             <font key="font" metaFont="systemBold"/>
@@ -899,11 +919,11 @@ Gw
                     <box autoresizesSubviews="NO" borderType="line" title="Playing" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="201760">
                         <rect key="frame" x="17" y="42" width="299" height="86"/>
                         <view key="contentView" id="uEC-Lp-QYE">
-                            <rect key="frame" x="3" y="3" width="293" height="80"/>
+                            <rect key="frame" x="4" y="5" width="291" height="78"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201796">
-                                    <rect key="frame" x="16" y="31" width="49" height="17"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201796">
+                                    <rect key="frame" x="16" y="29" width="49" height="17"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Playing" usesSingleLineMode="YES" id="201797">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -911,7 +931,7 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201795">
-                                    <rect key="frame" x="121" y="12" width="62" height="58"/>
+                                    <rect key="frame" x="120" y="10" width="62" height="58"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     <size key="cellSize" width="62" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
@@ -958,11 +978,11 @@ Gw
                     <box autoresizesSubviews="NO" borderType="line" title="Box" titlePosition="noTitle" translatesAutoresizingMaskIntoConstraints="NO" id="201766">
                         <rect key="frame" x="17" y="47" width="299" height="75"/>
                         <view key="contentView" id="zwN-St-SYM">
-                            <rect key="frame" x="3" y="3" width="293" height="69"/>
+                            <rect key="frame" x="4" y="5" width="291" height="67"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <slider toolTip="Select the speed and skill level of the computer." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="201771">
-                                    <rect key="frame" x="14" y="17" width="265" height="33"/>
+                                    <rect key="frame" x="13" y="15" width="265" height="33"/>
                                     <constraints>
                                         <constraint firstAttribute="height" constant="25" id="202476"/>
                                     </constraints>
@@ -973,24 +993,24 @@ Gw
                                         <binding destination="-2" name="value" keyPath="document.MBCSearchTime" id="201824"/>
                                     </connections>
                                 </slider>
-                                <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201773">
-                                    <rect key="frame" x="241" y="7" width="47" height="13"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201773">
+                                    <rect key="frame" x="241" y="5" width="47" height="13"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Stronger" usesSingleLineMode="YES" id="201776">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201772">
-                                    <rect key="frame" x="16" y="7" width="35" height="13"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201772">
+                                    <rect key="frame" x="16" y="5" width="35" height="13"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Faster" usesSingleLineMode="YES" id="201777">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
-                                <textField verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201774" userLabel="Static Text - Computer Thinks X">
-                                    <rect key="frame" x="16" y="48" width="200" height="14"/>
+                                <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="201774" userLabel="Static Text - Computer Thinks X">
+                                    <rect key="frame" x="16" y="46" width="200" height="14"/>
                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" alignment="left" placeholderString="DONT_LOCALIZE Computer Thinks X" usesSingleLineMode="YES" id="201775">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -1065,9 +1085,13 @@ Gw
                 <outlet property="fAlternateVoiceMenu" destination="200879" id="200934"/>
                 <outlet property="fBoard" destination="200663" id="200821"/>
                 <outlet property="fBoardStyle" destination="200898" id="200935"/>
+                <outlet property="fBoardStyleText" destination="200900" id="R02-mA-eqb"/>
+                <outlet property="fBoardStyleTrailingConstraint" destination="H6g-Os-Bij" id="KsA-S7-k9m"/>
                 <outlet property="fEditSheet" destination="200803" id="200820"/>
                 <outlet property="fMoveList" destination="200785" id="200819"/>
                 <outlet property="fPieceStyle" destination="200901" id="200936"/>
+                <outlet property="fPieceStyleText" destination="200899" id="jKK-Oy-J6M"/>
+                <outlet property="fPieceStyleTrailingConstraint" destination="1GJ-1a-KDF" id="g23-Nt-Axz"/>
                 <outlet property="fPrefsSheet" destination="200871" id="200932"/>
                 <outlet property="fPrimaryVoiceMenu" destination="200882" id="200933"/>
             </connections>

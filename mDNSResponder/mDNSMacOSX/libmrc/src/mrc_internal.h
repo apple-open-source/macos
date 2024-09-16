@@ -18,6 +18,6 @@
 #define MRC_INTERNAL_H
 
 MRC_DECL(client);
-MRC_DECL(enabler);
+MRC_DECL(session);
 
 #endif	// MRC_INTERNAL_H

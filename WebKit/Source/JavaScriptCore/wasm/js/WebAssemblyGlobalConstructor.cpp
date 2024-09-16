@@ -35,19 +35,12 @@
 #include "WasmFormat.h"
 #include "WebAssemblyGlobalPrototype.h"
 
-#include "WebAssemblyGlobalConstructor.lut.h"
-
 namespace JSC {
 
-const ClassInfo WebAssemblyGlobalConstructor::s_info = { "Function"_s, &Base::s_info, &constructorGlobalWebAssemblyGlobal, nullptr, CREATE_METHOD_TABLE(WebAssemblyGlobalConstructor) };
+const ClassInfo WebAssemblyGlobalConstructor::s_info = { "Function"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(WebAssemblyGlobalConstructor) };
 
 static JSC_DECLARE_HOST_FUNCTION(constructJSWebAssemblyGlobal);
 static JSC_DECLARE_HOST_FUNCTION(callJSWebAssemblyGlobal);
-
-/* Source for WebAssemblyGlobalConstructor.lut.h
- @begin constructorGlobalWebAssemblyGlobal
- @end
- */
 
 JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
@@ -169,7 +162,7 @@ JSC_DEFINE_HOST_FUNCTION(callJSWebAssemblyGlobal, (JSGlobalObject* globalObject,
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    return JSValue::encode(throwConstructorCannotBeCalledAsFunctionTypeError(globalObject, scope, "WebAssembly.Global"));
+    return JSValue::encode(throwConstructorCannotBeCalledAsFunctionTypeError(globalObject, scope, "WebAssembly.Global"_s));
 }
 
 WebAssemblyGlobalConstructor* WebAssemblyGlobalConstructor::create(VM& vm, Structure* structure, WebAssemblyGlobalPrototype* thisPrototype)

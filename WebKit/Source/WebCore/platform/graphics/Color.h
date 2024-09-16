@@ -38,6 +38,10 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
+#if USE(SKIA)
+#include <skia/core/SkColor.h>
+#endif
+
 #if USE(CG)
 typedef struct CGColor* CGColorRef;
 #endif
@@ -122,6 +126,10 @@ public:
     // or precision of ColorType is smaller than the current underlying type.
     template<typename ColorType> ColorType toColorTypeLossy() const;
 
+    // This acts just like toColorTypeLossy(), but will carry forward missing components
+    // from the underlying type into any analogous components in ColorType.
+    template<typename ColorType> ColorType toColorTypeLossyCarryingForwardMissing() const;
+
     ColorComponents<float, 4> toResolvedColorComponentsInColorSpace(ColorSpace) const;
     ColorComponents<float, 4> toResolvedColorComponentsInColorSpace(const DestinationColorSpace&) const;
 
@@ -152,6 +160,14 @@ public:
     operator GdkRGBA() const;
 #endif
 
+#if USE(SKIA)
+    Color(const SkColor&);
+    operator SkColor() const;
+
+    Color(const SkColor4f&);
+    operator SkColor4f() const;
+#endif
+
 #if USE(CG)
     WEBCORE_EXPORT static Color createAndPreserveColorSpace(CGColorRef, OptionSet<Flags> = { });
 #endif
@@ -170,6 +186,7 @@ public:
     static constexpr auto green = SRGBA<uint8_t> { 0, 255, 0 };
     static constexpr auto darkGreen = SRGBA<uint8_t> { 0, 128, 0 };
     static constexpr auto orange = SRGBA<uint8_t> { 255, 128, 0 };
+    static constexpr auto purple = SRGBA<uint8_t> { 128, 0, 255 };
 
     static bool isBlackColor(const Color&);
     static bool isWhiteColor(const Color&);
@@ -412,6 +429,13 @@ template<typename ColorType> ColorType Color::toColorTypeLossy() const
 {
     return callOnUnderlyingType([] (const auto& underlyingColor) {
         return convertColor<ColorType>(underlyingColor);
+    });
+}
+
+template<typename ColorType> ColorType Color::toColorTypeLossyCarryingForwardMissing() const
+{
+    return callOnUnderlyingType([] (const auto& underlyingColor) {
+        return convertColorCarryingForwardMissing<ColorType>(underlyingColor);
     });
 }
 

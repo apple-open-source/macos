@@ -65,15 +65,12 @@
 #include "sysctl_fsid.h"
 
 #include <os/log.h>
-#define MAXVAL(a, b)	((a) > (b) ? (a) : (b))
+#define MAXVAL(a, b)    ((a) > (b) ? (a) : (b))
 #define AUTOFS_MAX_MSG_SIZE \
 	MAXVAL(sizeof (union __RequestUnion__autofs_subsystem), \
 	    sizeof (union __ReplyUnion__autofs_subsystem))
 
 static void usage(void);
-static void compute_new_timeout(struct timespec *);
-static void *shutdown_thread(void *);
-static void *timeout_thread(void *);
 static void *wait_for_flush_indication_thread(void *);
 static int get_audit_token_pid(audit_token_t *atoken);
 static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
@@ -86,28 +83,23 @@ static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
  * I/O library to a maximum of 256 FILE *'s.  (Now why that affects
  * their automounter is another question....)
  */
-#define	MAXTHREADS 64
-#define	SHUTDOWN_TIMEOUT  2     /* timeout gets set to this after TERM signal */
-#define	TIMEOUT RDDIR_CACHE_TIME  /* Hang around if caches might be valid */
-#define	APPLE_PREFIX  "com.apple." /* Bootstrap name prefix */
-#define	MAXLABEL	256	/* Max bootstrap name */
+#define MAXTHREADS 64
+#define SHUTDOWN_TIMEOUT  2     /* timeout gets set to this after TERM signal */
+#define TIMEOUT RDDIR_CACHE_TIME  /* Hang around if caches might be valid */
+#define APPLE_PREFIX  "com.apple." /* Bootstrap name prefix */
+#define MAXLABEL        256     /* Max bootstrap name */
 #define MIG_MAX_REPLY_SIZE 65536 /* Largest reply is returned from autofs_readdir() */
 
 os_log_t automountd_logger;
-static int numthreads;
-static pthread_attr_t attr;	/* To create detached threads */
-static time_t timeout = TIMEOUT; /* Seconds to wait before exiting */
-static int bye = 0;		/* Force clean shutdown flag. */
-
-static sigset_t waitset;	/* Signals that we wait for */
-static sigset_t contset;	/* Signals that we don't exit from */
+static pthread_attr_t attr;     /* To create detached threads */
+static int bye = 0;             /* Force clean shutdown flag. */
 
 static mach_port_t service_port_receive_right;
 static dispatch_mach_t public_mach_channel;
 
 static int autofs_fd;
 
-#define	RESOURCE_FACTOR 8
+#define RESOURCE_FACTOR 8
 
 struct autodir *dir_head;
 struct autodir *dir_tail;
@@ -127,29 +119,32 @@ static int current_worker_queue = 0;
 int num_cpus;
 
 void
-parse_config_file()
+parse_config_file(void)
 {
 	int defflags;
 	char *defval;
 
 	if ((defopen(AUTOFSADMIN)) == 0) {
 		if ((defval = defread("AUTOMOUNTD_VERBOSE=")) != NULL) {
-			if (strncasecmp("true", defval, 4) == 0)
+			if (strncasecmp("true", defval, 4) == 0) {
 				verbose = TRUE;
-			else
+			} else {
 				verbose = FALSE;
+			}
 		}
 		if ((defval = defread("AUTOMOUNTD_NOBROWSE=")) != NULL) {
-			if (strncasecmp("true", defval, 4) == 0)
+			if (strncasecmp("true", defval, 4) == 0) {
 				automountd_nobrowse = TRUE;
-			else
+			} else {
 				automountd_nobrowse = FALSE;
+			}
 		}
 		if ((defval = defread("AUTOMOUNTD_TRACE=")) != NULL) {
 			errno = 0;
 			trace = (int)strtol(defval, (char **)NULL, 10);
-			if (errno != 0)
+			if (errno != 0) {
 				trace = 0;
+			}
 		}
 		if ((defval = defread("AUTOMOUNTD_ENV=")) != NULL) {
 			char *tmp = strdup(defval);
@@ -181,10 +176,11 @@ parse_config_file()
 			}
 		}
 		if ((defval = defread("AUTOMOUNTD_NOSUID=")) != NULL) {
-			if (strncasecmp("true", defval, 4) == 0)
+			if (strncasecmp("true", defval, 4) == 0) {
 				automountd_nosuid = TRUE;
-			else
+			} else {
 				automountd_nosuid = FALSE;
+			}
 		}
 
 		/* close defaults file */
@@ -209,8 +205,9 @@ parse_args(int argc, char **argv)
 			trace++;
 			break;
 		case 'o':
-			if (automountd_defopts != NULL)
+			if (automountd_defopts != NULL) {
 				free(automountd_defopts);
+			}
 			automountd_defopts = strdup(optarg);
 			break;
 		case 'D':
@@ -223,15 +220,16 @@ parse_args(int argc, char **argv)
 }
 
 void
-determine_platform()
+determine_platform(void)
 {
 	/*
 	 * This is platform-dependent; for now, we just say
 	 * "macintosh".
 	 * XXX Unclear what we should do for iOS.
 	 */
-	if (getenv("ARCH") == NULL)
+	if (getenv("ARCH") == NULL) {
 		(void) putenv("ARCH=macintosh");
+	}
 	if (getenv("CPU") == NULL) {
 #if defined(__i386__) || defined(__x86_64__)
 		/*
@@ -250,7 +248,7 @@ determine_platform()
 }
 
 void
-open_autofs_fd()
+open_autofs_fd(void)
 {
 	/*
 	 * Attempt to open the autofs device to establish ourselves
@@ -293,9 +291,9 @@ struct worker_context {
 
 static void
 mach_channel_handler(void *context, dispatch_mach_reason_t reason,
-	dispatch_mach_msg_t message, mach_error_t error)
+    dispatch_mach_msg_t message, mach_error_t error)
 {
-    kern_return_t kr;
+	kern_return_t kr;
 	/*
 	 * Check if we got a SIGTERM. If so, deallocate mach port and we're done.
 	 * Else, dispatch the work to one of the worker queues in a round-robin.
@@ -304,12 +302,13 @@ mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 		/*
 		 * Wake up the "wait for flush indication" thread.
 		 */
-		if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
+		if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1) {
 			pr_msg(LOG_ERR, "AUTOFS_NOTIFYCHANGE failed: %m");
-        kr = mach_port_mod_refs(mach_task_self(), service_port_receive_right, MACH_PORT_RIGHT_RECEIVE, -1);
-        if (!kr) {
-            syslog(LOG_ERR, "mach_port_mod_refs failed (%d)\n", kr);
-        }
+		}
+		kr = mach_port_mod_refs(mach_task_self(), service_port_receive_right, MACH_PORT_RIGHT_RECEIVE, -1);
+		if (!kr) {
+			syslog(LOG_ERR, "mach_port_mod_refs failed (%d)\n", kr);
+		}
 		return;
 	}
 	if (message) {
@@ -317,7 +316,7 @@ mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 	}
 	dispatch_async(work_queues[current_worker_queue], ^ {
 		static const struct mig_subsystem *subsystems[] = {
-			(mig_subsystem_t)&autofs_subsystem,
+		        (mig_subsystem_t)&autofs_subsystem,
 		};
 		os_transaction_t trans;
 
@@ -325,8 +324,8 @@ mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 		case DISPATCH_MACH_MESSAGE_RECEIVED:
 			trans = os_transaction_create("com.apple.automountd.transaction");
 			if (!dispatch_mach_mig_demux(context, subsystems, 1, message)) {
-				syslog(LOG_ERR, "dispatch_mach_mig_demux failed, %m");
-				mach_msg_destroy(dispatch_mach_msg_get_msg(message, NULL));
+			        syslog(LOG_ERR, "dispatch_mach_mig_demux failed, %m");
+			        mach_msg_destroy(dispatch_mach_msg_get_msg(message, NULL));
 			} else {
 			}
 			os_release(trans);
@@ -336,10 +335,10 @@ mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 			break;
 		}
 		if (message) {
-			dispatch_release(message);
+		        dispatch_release(message);
 		}
-		});
-	current_worker_queue = (current_worker_queue + 1) % num_cpus; 
+	});
+	current_worker_queue = (current_worker_queue + 1) % num_cpus;
 }
 
 /*
@@ -393,8 +392,9 @@ main(int argc, char *argv[])
 	openlog(myname, LOG_PID, LOG_DAEMON);
 	(void) setlocale(LC_ALL, "");
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "%s running", myname);
+	}
 
 	determine_platform();
 
@@ -419,7 +419,7 @@ main(int argc, char *argv[])
 	ret = bootstrap_check_in(bootstrap_port, bname, &service_port_receive_right);
 	if (ret != BOOTSTRAP_SUCCESS) {
 		syslog(LOG_ERR, "Could not get receive right for %s: %s (%d)\n",
-				bname, bootstrap_strerror(ret), ret);
+		    bname, bootstrap_strerror(ret), ret);
 		exit(EXIT_FAILURE);
 	}
 
@@ -475,12 +475,12 @@ main(int argc, char *argv[])
 
 	/* Create mach channel to receive upcalls */
 	public_mach_channel = dispatch_mach_create_f("com.apple.automountd.upcall_channel",
-		main_workloop, NULL, mach_channel_handler);
+	    main_workloop, NULL, mach_channel_handler);
 	dispatch_set_qos_class_fallback(public_mach_channel, QOS_CLASS_DEFAULT);
 
 	/* Create a SOURCE_SIGNAL to catch signals */
 	signal_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM,
-		0, main_workloop);
+	    0, main_workloop);
 	/* Set handler for the signal source */
 	dispatch_source_set_event_handler_f(signal_source, signal_handler);
 	dispatch_resume(signal_source);
@@ -503,33 +503,23 @@ main(int argc, char *argv[])
 
 	/* Connect the mach channel to start receiving messages */
 	dispatch_mach_connect(public_mach_channel, service_port_receive_right,
-		MACH_PORT_NULL, NULL);
+	    MACH_PORT_NULL, NULL);
 	dispatch_main();
 
 	/* We should never reach this */
-	return (EXIT_SUCCESS);
+	return EXIT_SUCCESS;
 }
 
 static void
 usage(void)
 {
 	(void) fprintf(stderr, "Usage: automountd\n"
-		"\t[-o opts]\t\t(default mount options)\n"
-		"\t[-T]\t\t(trace requests)\n"
-		"\t[-v]\t\t(verbose error msgs)\n"
-		"\t[-D n=s]\t(define env variable)\n");
+	    "\t[-o opts]\t\t(default mount options)\n"
+	    "\t[-T]\t\t(trace requests)\n"
+	    "\t[-v]\t\t(verbose error msgs)\n"
+	    "\t[-D n=s]\t(define env variable)\n");
 	exit(1);
 	/* NOTREACHED */
-}
-
-static void
-compute_new_timeout(struct timespec *new)
-{
-	struct timeval current;
-
-	gettimeofday(&current, NULL);
-	new->tv_sec = current.tv_sec + timeout;
-	new->tv_nsec = 1000 * current.tv_usec;
 }
 
 static void *
@@ -555,10 +545,11 @@ wait_for_flush_indication_thread(__unused void *arg)
 				    "AUTOFS_WAITFORFLUSH failed: %s",
 				    strerror(errno));
 			}
-		} else
+		} else {
 			flush_caches();
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 static pid_t
@@ -574,15 +565,15 @@ get_audit_token_pid(audit_token_t *atoken)
 
 kern_return_t
 autofs_readdir(__unused mach_port_t server,
-	       autofs_pathname rda_map,				/* IN */
-	       int64_t rda_offset,				/* IN */
-	       uint32_t rda_count,				/* IN */
-	       int *status,					/* OUT */
-	       int64_t *rddir_offset,				/* OUT */
-	       boolean_t *rddir_eof,				/* OUT */
-	       byte_buffer *rddir_entries,			/* OUT */
-	       mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
-	       audit_token_t atoken)
+    autofs_pathname rda_map,                                    /* IN */
+    int64_t rda_offset,                                         /* IN */
+    uint32_t rda_count,                                         /* IN */
+    int *status,                                                /* OUT */
+    int64_t *rddir_offset,                                      /* OUT */
+    boolean_t *rddir_eof,                                       /* OUT */
+    byte_buffer *rddir_entries,                                 /* OUT */
+    mach_msg_type_number_t *rddir_entriesCnt,                   /* OUT */
+    audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*status = EPERM;
@@ -604,12 +595,12 @@ autofs_readdir(__unused mach_port_t server,
 	}
 
 	*status = do_readdir(rda_map,
-			     rda_offset,
-			     rda_count,
-			     rddir_offset,
-			     rddir_eof,
-			     rddir_entries,
-			     rddir_entriesCnt);
+	    rda_offset,
+	    rda_count,
+	    rddir_offset,
+	    rddir_eof,
+	    rddir_entries,
+	    rddir_entriesCnt);
 
 	if (trace > 0) {
 		trace_prt(1, "READDIR REPLY	: status=%d\n", *status);
@@ -621,20 +612,20 @@ out:
 
 kern_return_t
 autofs_readsubdir(__unused mach_port_t server,
-		  autofs_pathname rda_map,			/* IN */
-		  autofs_component rda_name,			/* IN */
-		  mach_msg_type_number_t rda_nameCnt,		/* IN */
-		  autofs_pathname rda_subdir,			/* IN */
-		  autofs_opts rda_mntopts,			/* IN */
-		  uint32_t rda_parentino,			/* IN */
-		  int64_t rda_offset,				/* IN */
-		  uint32_t rda_count,				/* IN */
-		  int *status,					/* OUT */
-		  int64_t *rddir_offset,			/* OUT */
-		  boolean_t *rddir_eof,				/* OUT */
-		  byte_buffer *rddir_entries,			/* OUT */
-		  mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
-		  audit_token_t atoken)
+    autofs_pathname rda_map,                                    /* IN */
+    autofs_component rda_name,                                  /* IN */
+    mach_msg_type_number_t rda_nameCnt,                         /* IN */
+    autofs_pathname rda_subdir,                                 /* IN */
+    autofs_opts rda_mntopts,                                    /* IN */
+    uint32_t rda_parentino,                                     /* IN */
+    int64_t rda_offset,                                         /* IN */
+    uint32_t rda_count,                                         /* IN */
+    int *status,                                                /* OUT */
+    int64_t *rddir_offset,                                      /* OUT */
+    boolean_t *rddir_eof,                                       /* OUT */
+    byte_buffer *rddir_entries,                                 /* OUT */
+    mach_msg_type_number_t *rddir_entriesCnt,                   /* OUT */
+    audit_token_t atoken)
 {
 	char *key;
 
@@ -669,25 +660,27 @@ autofs_readsubdir(__unused mach_port_t server,
 	memcpy(key, rda_name, rda_nameCnt);
 	key[rda_nameCnt] = '\0';
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "READSUBDIR REQUEST : name=%s[%s] map=%s @ %llu\n",
-		key, rda_subdir, rda_map, rda_offset);
+		    key, rda_subdir, rda_map, rda_offset);
+	}
 
 	*status = do_readsubdir(rda_map,
-				key,
-				rda_subdir,
-				rda_mntopts,
-				rda_parentino,
-				rda_offset,
-				rda_count,
-				rddir_offset,
-				rddir_eof,
-				rddir_entries,
-				rddir_entriesCnt);
+	    key,
+	    rda_subdir,
+	    rda_mntopts,
+	    rda_parentino,
+	    rda_offset,
+	    rda_count,
+	    rddir_offset,
+	    rddir_eof,
+	    rddir_entries,
+	    rddir_entriesCnt);
 	free(key);
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "READSUBDIR REPLY   : status=%d\n", *status);
+	}
 
 out:
 	return KERN_SUCCESS;
@@ -695,13 +688,13 @@ out:
 
 kern_return_t
 autofs_unmount(__unused mach_port_t server,
-	       fsid_t mntpnt_fsid,				/* IN */
-	       autofs_pathname mntresource,			/* IN */
-	       autofs_pathname mntpnt,				/* IN */
-	       autofs_component fstype,				/* IN */
-	       autofs_opts mntopts,				/* IN */
-	       int *status,					/* OUT */
-	       audit_token_t atoken)
+    fsid_t mntpnt_fsid,                                         /* IN */
+    autofs_pathname mntresource,                                /* IN */
+    autofs_pathname mntpnt,                                     /* IN */
+    autofs_component fstype,                                    /* IN */
+    autofs_opts mntopts,                                        /* IN */
+    int *status,                                                /* OUT */
+    audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*status = EPERM;
@@ -716,17 +709,18 @@ autofs_unmount(__unused mach_port_t server,
 
 	if (trace > 0) {
 		trace_prt(1, "UNMOUNT REQUEST: resource=%s fstype=%s mntpnt=%s mntopts=%s\n",
-			mntresource, fstype, mntpnt, mntopts);
+		    mntresource, fstype, mntpnt, mntopts);
 	}
 
 	*status = do_unmount1(mntpnt_fsid,
-			      mntresource,
-			      mntpnt,
-			      fstype,
-			      mntopts);
+	    mntresource,
+	    mntpnt,
+	    fstype,
+	    mntopts);
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "UNMOUNT REPLY: status=%d\n", *status);
+	}
 
 out:
 	return KERN_SUCCESS;
@@ -734,18 +728,18 @@ out:
 
 kern_return_t
 autofs_lookup(__unused mach_port_t server,
-	      autofs_pathname map,				/* IN */
-	      autofs_pathname path,				/* IN */
-	      autofs_component name,				/* IN */
-	      mach_msg_type_number_t nameCnt,			/* IN */
-	      autofs_pathname subdir,				/* IN */
-	      autofs_opts opts,					/* IN */
-	      boolean_t isdirect,				/* IN */
-	      uint32_t sendereuid,				/* IN */
-	      int *err,						/* OUT */
-	      int *node_type,					/* OUT */
-	      boolean_t *lu_verbose,				/* OUT */
-	      audit_token_t atoken)
+    autofs_pathname map,                                        /* IN */
+    autofs_pathname path,                                       /* IN */
+    autofs_component name,                                      /* IN */
+    mach_msg_type_number_t nameCnt,                             /* IN */
+    autofs_pathname subdir,                                     /* IN */
+    autofs_opts opts,                                           /* IN */
+    boolean_t isdirect,                                         /* IN */
+    uint32_t sendereuid,                                        /* IN */
+    int *err,                                                   /* OUT */
+    int *node_type,                                             /* OUT */
+    boolean_t *lu_verbose,                                      /* OUT */
+    audit_token_t atoken)
 {
 	char *key;
 
@@ -780,7 +774,7 @@ autofs_lookup(__unused mach_port_t server,
 
 	if (trace > 0) {
 		trace_prt(1, "LOOKUP REQUEST: name=%s[%s] map=%s opts=%s path=%s direct=%d uid=%u\n",
-			key, subdir, map, opts, path, isdirect, sendereuid);
+		    key, subdir, map, opts, path, isdirect, sendereuid);
 	}
 
 	*err = do_lookup1(map, key, subdir, opts, isdirect, sendereuid,
@@ -788,8 +782,9 @@ autofs_lookup(__unused mach_port_t server,
 	*lu_verbose = verbose;
 	free(key);
 
-	if (trace > 0)
+	if (trace > 0) {
 		trace_prt(1, "LOOKUP REPLY  : status=%d\n", *err);
+	}
 
 out:
 	return KERN_SUCCESS;
@@ -797,25 +792,25 @@ out:
 
 kern_return_t
 autofs_mount(__unused mach_port_t server,
-	     autofs_pathname map,				/* IN */
-	     autofs_pathname path,				/* IN */
-	     autofs_component name,				/* IN */
-	     mach_msg_type_number_t nameCnt,			/* IN */
-	     autofs_pathname subdir,				/* IN */
-	     autofs_opts opts,					/* IN */
-	     boolean_t isdirect,				/* IN */
-	     boolean_t issubtrigger,				/* IN */
-	     fsid_t mntpnt_fsid,				/* IN */
-	     uint32_t sendereuid,				/* IN */
-	     int32_t asid,					/* IN */
-	     int *mr_type,					/* OUT */
-	     fsid_t *fsidp,					/* OUT */
-	     uint32_t *retflags,				/* OUT */
-	     byte_buffer *actions,				/* OUT */
-	     mach_msg_type_number_t *actionsCnt,		/* OUT */
-	     int *err,						/* OUT */
-	     boolean_t *mr_verbose,				/* OUT */
-	     audit_token_t atoken)
+    autofs_pathname map,                                        /* IN */
+    autofs_pathname path,                                       /* IN */
+    autofs_component name,                                      /* IN */
+    mach_msg_type_number_t nameCnt,                             /* IN */
+    autofs_pathname subdir,                                     /* IN */
+    autofs_opts opts,                                           /* IN */
+    boolean_t isdirect,                                         /* IN */
+    boolean_t issubtrigger,                                     /* IN */
+    fsid_t mntpnt_fsid,                                         /* IN */
+    uint32_t sendereuid,                                        /* IN */
+    int32_t asid,                                               /* IN */
+    int *mr_type,                                               /* OUT */
+    fsid_t *fsidp,                                              /* OUT */
+    uint32_t *retflags,                                         /* OUT */
+    byte_buffer *actions,                                       /* OUT */
+    mach_msg_type_number_t *actionsCnt,                         /* OUT */
+    int *err,                                                   /* OUT */
+    boolean_t *mr_verbose,                                      /* OUT */
+    audit_token_t atoken)
 {
 	char *key;
 	int status;
@@ -826,7 +821,7 @@ autofs_mount(__unused mach_port_t server,
 	*err = EPERM;
 	*mr_type = AUTOFS_DONE;
 	memset(fsidp, 0, sizeof(*fsidp));
-	*retflags = 0;	/* what we call sets retflags as needed */
+	*retflags = 0;  /* what we call sets retflags as needed */
 	*actions = NULL;
 	*actionsCnt = 0;
 	*mr_verbose = FALSE;
@@ -857,28 +852,29 @@ autofs_mount(__unused mach_port_t server,
 
 	if (trace > 0) {
 		trace_prt(1, "MOUNT  REQUEST: name=%s [%s] map=%s opts=%s path=%s direct=%d\n",
-			key, subdir, map, opts, path, isdirect);
+		    key, subdir, map, opts, path, isdirect);
 	}
 
 	status = do_mount1(map,
-			   key,
-			   subdir,
-			   opts,
-			   path,
-			   isdirect,
-			   issubtrigger,
-			   mntpnt_fsid,
-			   sendereuid,
-			   asid,
-			   fsidp,
-			   retflags,
-			   actions,
-			   actionsCnt);
+	    key,
+	    subdir,
+	    opts,
+	    path,
+	    isdirect,
+	    issubtrigger,
+	    mntpnt_fsid,
+	    sendereuid,
+	    asid,
+	    fsidp,
+	    retflags,
+	    actions,
+	    actionsCnt);
 
-	if (status == 0 && *actionsCnt != 0)
+	if (status == 0 && *actionsCnt != 0) {
 		*mr_type = AUTOFS_ACTION;
-	else
+	} else {
 		*mr_type = AUTOFS_DONE;
+	}
 
 	*err = status;
 	*mr_verbose = verbose;
@@ -906,12 +902,12 @@ autofs_mount(__unused mach_port_t server,
 		if (isdirect) {
 			/* direct mount */
 			syslog(LOG_ERR, "mount of %s%s failed: %s", path,
-				issubtrigger ? "" : subdir, strerror(status));
+			    issubtrigger ? "" : subdir, strerror(status));
 		} else {
 			/* indirect mount */
 			syslog(LOG_ERR,
-				"mount of %s/%s%s failed: %s", path, key,
-				issubtrigger ? "" : subdir, strerror(status));
+			    "mount of %s/%s%s failed: %s", path, key,
+			    issubtrigger ? "" : subdir, strerror(status));
 		}
 	}
 	free(key);
@@ -922,20 +918,20 @@ out:
 
 kern_return_t
 autofs_mount_subtrigger(__unused mach_port_t server,
-			autofs_pathname mntpt,			/* IN */
-			autofs_pathname submntpt,		/* IN */
-			autofs_pathname path,			/* IN */
-			autofs_opts opts,			/* IN */
-			autofs_pathname map,			/* IN */
-			autofs_pathname subdir,			/* IN */
-			autofs_component key,			/* IN */
-			uint32_t flags,				/* IN */
-			uint32_t mntflags,			/* IN */
-			int32_t direct,				/* IN */
-			fsid_t *fsidp,				/* OUT */
-			boolean_t *top_level,			/* OUT */
-			int *err,				/* OUT */
-			audit_token_t atoken)
+    autofs_pathname mntpt,                                      /* IN */
+    autofs_pathname submntpt,                                   /* IN */
+    autofs_pathname path,                                       /* IN */
+    autofs_opts opts,                                           /* IN */
+    autofs_pathname map,                                        /* IN */
+    autofs_pathname subdir,                                     /* IN */
+    autofs_component key,                                       /* IN */
+    uint32_t flags,                                             /* IN */
+    uint32_t mntflags,                                          /* IN */
+    int32_t direct,                                             /* IN */
+    fsid_t *fsidp,                                              /* OUT */
+    boolean_t *top_level,                                       /* OUT */
+    int *err,                                                   /* OUT */
+    audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*err = EPERM;
@@ -951,21 +947,22 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 	}
 
 	*err = do_mount_subtrigger(mntpt,
-				   submntpt,
-				   path,
-				   opts,
-				   map,
-				   subdir,
-				   key,
-				   flags,
-				   mntflags,
-				   direct,
-				   fsidp,
-				   top_level);
+	    submntpt,
+	    path,
+	    opts,
+	    map,
+	    subdir,
+	    key,
+	    flags,
+	    mntflags,
+	    direct,
+	    fsidp,
+	    top_level);
 
-	if (*err)
+	if (*err) {
 		syslog(LOG_ERR, "subtrigger mount on %s failed: %s", mntpt,
 		    strerror(*err));
+	}
 
 out:
 	return KERN_SUCCESS;
@@ -973,17 +970,17 @@ out:
 
 static int
 do_mount_subtrigger(autofs_pathname mntpt,
-		    autofs_pathname submntpt,
-		    autofs_pathname path,
-		    autofs_opts opts,
-		    autofs_pathname map,
-		    autofs_pathname subdir,
-		    autofs_component key,
-		    uint32_t flags,
-		    uint32_t mntflags,
-		    int32_t direct,
-		    fsid_t *fsidp,
-		    boolean_t *top_level)
+    autofs_pathname submntpt,
+    autofs_pathname path,
+    autofs_opts opts,
+    autofs_pathname map,
+    autofs_pathname subdir,
+    autofs_component key,
+    uint32_t flags,
+    uint32_t mntflags,
+    int32_t direct,
+    fsid_t *fsidp,
+    boolean_t *top_level)
 {
 	struct stat statb;
 	struct autofs_args mnt_args;
@@ -1010,7 +1007,7 @@ do_mount_subtrigger(autofs_pathname mntpt,
 		if (S_ISLNK(statb.st_mode)) {
 			syslog(LOG_ERR, "%s symbolic link: not a valid mountpoint - mount failed",
 			    mntpt);
-			return (ENOENT);
+			return ENOENT;
 		}
 	}
 
@@ -1022,18 +1019,19 @@ do_mount_subtrigger(autofs_pathname mntpt,
 	mnt_args.key = key;
 	mnt_args.mntflags = mntflags;
 	mnt_args.direct = direct;
-	mnt_args.mount_type = MOUNT_TYPE_SUBTRIGGER;		/* special trigger submount */
+	mnt_args.mount_type = MOUNT_TYPE_SUBTRIGGER;            /* special trigger submount */
 	/*
 	 * XXX - subtriggers are always direct maps, right?
 	 */
-	if (direct)
+	if (direct) {
 		mnt_args.node_type = NT_TRIGGER;
-	else
-		mnt_args.node_type = 0;	/* not a trigger */
-
-	if (mount(MNTTYPE_AUTOFS, mntpt, flags|MNT_AUTOMOUNTED|MNT_DONTBROWSE,
-	    &mnt_args) == -1)
-		return (errno);
+	} else {
+		mnt_args.node_type = 0; /* not a trigger */
+	}
+	if (mount(MNTTYPE_AUTOFS, mntpt, flags | MNT_AUTOMOUNTED | MNT_DONTBROWSE,
+	    &mnt_args) == -1) {
+		return errno;
+	}
 	/*
 	 * XXX - what if somebody unmounts the mount out from under us?
 	 */
@@ -1047,32 +1045,32 @@ do_mount_subtrigger(autofs_pathname mntpt,
 		 * mount and it times out.
 		 */
 		unmount(mntpt, MNT_FORCE);
-		return (err);
+		return err;
 	}
 	*fsidp = buf.f_fsid;
 	*top_level = (strcmp(submntpt, ".") == 0);
-	return (0);
+	return 0;
 }
 
 kern_return_t
 autofs_mount_url(__unused mach_port_t server,
-		 autofs_pathname url,				/* IN */
-		 autofs_pathname mountpoint,			/* IN */
-		 autofs_opts opts,				/* IN */
-		 fsid_t mntpnt_fsid,				/* IN */
-		 uint32_t sendereuid,				/* IN */
-		 int32_t asid,					/* IN */
-		 fsid_t *fsidp,					/* OUT */
-		 uint32_t *retflags,				/* OUT */
-		 int *err,					/* OUT */
-		 audit_token_t atoken)
+    autofs_pathname url,                                        /* IN */
+    autofs_pathname mountpoint,                                 /* IN */
+    autofs_opts opts,                                           /* IN */
+    fsid_t mntpnt_fsid,                                         /* IN */
+    uint32_t sendereuid,                                        /* IN */
+    int32_t asid,                                               /* IN */
+    fsid_t *fsidp,                                              /* OUT */
+    uint32_t *retflags,                                         /* OUT */
+    int *err,                                                   /* OUT */
+    audit_token_t atoken)
 {
 	int status;
 
 	/* Sanitize our OUT parameters */
 	*err = EPERM;
 	memset(fsidp, 0, sizeof(*fsidp));
-	*retflags = 0;	/* what we call sets retflags as needed */
+	*retflags = 0;  /* what we call sets retflags as needed */
 
 	/*
 	 * Reject this if the sender wasn't a kernel process
@@ -1095,21 +1093,22 @@ autofs_mount_url(__unused mach_port_t server,
 		trace_prt(1, "MOUNT_URL REPLY    : status=%d\n", status);
 	}
 
-	if (status && verbose)
+	if (status && verbose) {
 		syslog(LOG_ERR, "mount of %s on %s failed", url, mountpoint);
+	}
 
 out:
 	return KERN_SUCCESS;
 }
 
-#define SMBREMOUNTSERVER_PATH	"/System/Library/Extensions/autofs.kext/Contents/Resources/smbremountserver"
+#define SMBREMOUNTSERVER_PATH   "/System/Library/Extensions/autofs.kext/Contents/Resources/smbremountserver"
 
 kern_return_t
 autofs_smb_remount_server(__unused mach_port_t server,
-			  byte_buffer blob,			/* IN */
-			  mach_msg_type_number_t blobCnt,	/* IN */
-			  au_asid_t asid,			/* IN */
-			  audit_token_t atoken)
+    byte_buffer blob,                                           /* IN */
+    mach_msg_type_number_t blobCnt,                             /* IN */
+    au_asid_t asid,                                             /* IN */
+    audit_token_t atoken)
 {
 	int pipefds[2];
 	int child_pid;
@@ -1182,7 +1181,7 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		close(pipefds[0]);
 		close(pipefds[1]);
 		(void) execl(SMBREMOUNTSERVER_PATH, SMBREMOUNTSERVER_PATH,
-			     NULL);
+		    NULL);
 		res = errno;
 		syslog(LOG_ERR, "exec %s: %m", SMBREMOUNTSERVER_PATH);
 		_exit(res);
@@ -1201,7 +1200,7 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		 */
 		byte_count = blobCnt;
 		bytes_written = write(pipefds[1], &byte_count,
-				      sizeof byte_count);
+		    sizeof byte_count);
 		if (bytes_written == -1) {
 			syslog(LOG_ERR, "Write of byte count to pipe failed: %m");
 			close(pipefds[1]);
@@ -1209,7 +1208,7 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		}
 		if ((size_t)bytes_written != sizeof byte_count) {
 			syslog(LOG_ERR, "Write of byte count to pipe wrote only %zd of %zu bytes",
-			       bytes_written, sizeof byte_count);
+			    bytes_written, sizeof byte_count);
 			close(pipefds[1]);
 			goto done;
 		}
@@ -1225,7 +1224,7 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		}
 		if (bytes_written != (ssize_t)byte_count) {
 			syslog(LOG_ERR, "Write of blob to pipe wrote only %zd of %u bytes",
-			       bytes_written, byte_count);
+			    bytes_written, byte_count);
 			close(pipefds[1]);
 			goto done;
 		}
@@ -1240,21 +1239,22 @@ autofs_smb_remount_server(__unused mach_port_t server,
 		 * Now wait for the child to finish.
 		 */
 		while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
-			if (errno == EINTR)
+			if (errno == EINTR) {
 				continue;
+			}
 			syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
 			goto done;
 		}
 
 		if (WIFSIGNALED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess terminated with %s",
-			       strsignal(WTERMSIG(stat_loc)));
+			    strsignal(WTERMSIG(stat_loc)));
 		} else if (WIFSTOPPED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess stopped with %s",
-			       strsignal(WSTOPSIG(stat_loc)));
+			    strsignal(WSTOPSIG(stat_loc)));
 		} else if (!WIFEXITED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess got unknown status 0x%08x",
-			       stat_loc);
+			    stat_loc);
 		}
 		break;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -113,7 +113,7 @@ static int buildkey(struct hfsmount *hfsmp, struct cat_desc *descp,
 
 static void buildthreadkey(HFSCatalogNodeID parentID, CatalogKey *key);
 
-static void buildrecord(struct cat_attr *attrp, cnid_t cnid, u_int32_t encoding, CatalogRecord *crp, u_int32_t *recordSize);
+static void buildrecord(struct cat_attr *attrp, cnid_t cnid, u_int32_t encoding, CatalogRecord *crp, u_int32_t *recordSize, bool expanded_times);
 
 static int catrec_update(const CatalogKey *ckp, CatalogRecord *crp, struct update_state *state);
 
@@ -773,6 +773,7 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 	cnid_t cnid = 0;
 	u_int32_t encoding = 0;
 	cnid_t parentid = 0;
+	bool hfs_extime = false;
 
 	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
@@ -816,6 +817,22 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 			}
 		}
 	}
+
+	/* Check for expanded times in the found catalog record, based on the type */
+	switch (recp->recordType) {
+		case kHFSPlusFileRecord:
+			hfs_extime = (recp->hfsPlusFile.flags & kHFSCatExpandedTimesMask);
+			break;
+		case kHFSPlusFolderRecord:
+			hfs_extime = (recp->hfsPlusFolder.flags & kHFSCatExpandedTimesMask);
+			break;
+		/*
+		 * Note: the default is false, when the bool was initialized.
+		 * Thread records and HFS standard records are omitted here as they
+		 * cannot have valid expanded timestamps.
+		 */
+	}
+
 	
 	/*
 	 * When a hardlink link is encountered, auto resolve it.
@@ -824,8 +841,8 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 	 */
 	if ((attrp || forkp)
 	    && (recp->recordType == kHFSPlusFileRecord)
-	    && ((to_bsd_time(recp->hfsPlusFile.createDate) == (time_t)hfsmp->hfs_itime) ||
-	        (to_bsd_time(recp->hfsPlusFile.createDate) == (time_t)hfsmp->hfs_metadata_createdate))) {
+	    && ((to_bsd_time(recp->hfsPlusFile.createDate, hfs_extime) == (time_t)hfsmp->hfs_itime) ||
+	        (to_bsd_time(recp->hfsPlusFile.createDate, hfs_extime) == (time_t)hfsmp->hfs_metadata_createdate))) {
 		int isdirlink = 0;
 		int isfilelink = 0;
 
@@ -897,7 +914,7 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 			forkp->cf_new_size = 0;
 			forkp->cf_blocks = recp->hfsPlusFile.resourceFork.totalBlocks;
 			if ((hfsmp->hfc_stage == HFC_RECORDING) &&
-			    (to_bsd_time(recp->hfsPlusFile.accessDate) >= hfsmp->hfc_timebase)) {
+			    (to_bsd_time(recp->hfsPlusFile.accessDate, hfs_extime) >= hfsmp->hfc_timebase)) {
 				forkp->cf_bytesread =
 					recp->hfsPlusFile.resourceFork.clumpSize *
 					HFSTOVCB(hfsmp)->blockSize;
@@ -916,7 +933,7 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 			forkp->cf_new_size = 0;
 			forkp->cf_blocks = recp->hfsPlusFile.dataFork.totalBlocks;
 			if ((hfsmp->hfc_stage == HFC_RECORDING) &&
-			    (to_bsd_time(recp->hfsPlusFile.accessDate) >= hfsmp->hfc_timebase)) {
+			    (to_bsd_time(recp->hfsPlusFile.accessDate, hfs_extime) >= hfsmp->hfc_timebase)) {
 				forkp->cf_bytesread =
 					recp->hfsPlusFile.dataFork.clumpSize *
 					HFSTOVCB(hfsmp)->blockSize;
@@ -1013,6 +1030,7 @@ cat_create(struct hfsmount *hfsmp, cnid_t new_fileid, struct cat_desc *descp, st
 	int result = 0;
 	u_int32_t encoding = kTextEncodingMacRoman;
 	int modeformat;
+	bool hfs_extime = (attrp->ca_recflags & kHFSCatExpandedTimesMask);
 
 	modeformat = attrp->ca_mode & S_IFMT;
 
@@ -1050,7 +1068,7 @@ cat_create(struct hfsmount *hfsmp, cnid_t new_fileid, struct cat_desc *descp, st
 	/*
 	 * Now insert the file/directory record
 	 */
-	buildrecord(attrp, new_fileid, encoding, &bto->data, &datalen);
+	buildrecord(attrp, new_fileid, encoding, &bto->data, &datalen, hfs_extime);
 	btdata.bufferAddress = &bto->data;
 	btdata.itemSize = datalen;
 	btdata.itemCount = 1;
@@ -1573,11 +1591,16 @@ catrec_update(const CatalogKey *ckp, CatalogRecord *crp, struct update_state *st
 	const struct cat_fork *forkp;
 	struct hfsmount *hfsmp;
 	long blksize;
+	bool hfs_extime = false;
 
 	descp   = state->s_desc;
 	attrp   = state->s_attr;
 	hfsmp   = state->s_hfsmp;
 	blksize = HFSTOVCB(hfsmp)->blockSize;
+
+	if (attrp->ca_recflags & kHFSCatExpandedTimesMask) {
+		hfs_extime = true;
+	}
 
 	switch (crp->recordType) {
 	case kHFSPlusFolderRecord: {
@@ -1591,12 +1614,12 @@ catrec_update(const CatalogKey *ckp, CatalogRecord *crp, struct update_state *st
 		}
 		dir->flags            = attrp->ca_recflags;
 		dir->valence          = attrp->ca_entries;
-		dir->createDate       = to_hfs_time(attrp->ca_itime);
-		dir->contentModDate   = to_hfs_time(attrp->ca_mtime);
-		dir->backupDate       = to_hfs_time(attrp->ca_btime);
-		dir->accessDate       = to_hfs_time(attrp->ca_atime);
+		dir->createDate       = to_hfs_time(attrp->ca_itime, hfs_extime);
+		dir->contentModDate   = to_hfs_time(attrp->ca_mtime, hfs_extime);
+		dir->backupDate       = to_hfs_time(attrp->ca_btime, hfs_extime);
+		dir->accessDate       = to_hfs_time(attrp->ca_atime, hfs_extime);
 		attrp->ca_atimeondisk = attrp->ca_atime;	
-		dir->attributeModDate = to_hfs_time(attrp->ca_ctime);
+		dir->attributeModDate = to_hfs_time(attrp->ca_ctime, hfs_extime);
 		/* Note: directory hardlink inodes don't require a text encoding hint. */
 		if (ckp->hfsPlus.parentID != hfsmp->hfs_private_desc[DIR_HARDLINKS].cd_cnid) {
 			dir->textEncoding = descp->cd_encoding;
@@ -1654,12 +1677,12 @@ catrec_update(const CatalogKey *ckp, CatalogRecord *crp, struct update_state *st
 		if (file->fileID != attrp->ca_fileid)
 			return (btNotFound);
 		file->flags            = attrp->ca_recflags;
-		file->createDate       = to_hfs_time(attrp->ca_itime);
-		file->contentModDate   = to_hfs_time(attrp->ca_mtime);
-		file->backupDate       = to_hfs_time(attrp->ca_btime);
-		file->accessDate       = to_hfs_time(attrp->ca_atime);
+		file->createDate       = to_hfs_time(attrp->ca_itime, hfs_extime);
+		file->contentModDate   = to_hfs_time(attrp->ca_mtime, hfs_extime);
+		file->backupDate       = to_hfs_time(attrp->ca_btime, hfs_extime);
+		file->accessDate       = to_hfs_time(attrp->ca_atime, hfs_extime);
 		attrp->ca_atimeondisk  = attrp->ca_atime;	
-		file->attributeModDate = to_hfs_time(attrp->ca_ctime);
+		file->attributeModDate = to_hfs_time(attrp->ca_ctime, hfs_extime);
 		/*
 		 * Note: file hardlink inodes don't require a text encoding
 		 * hint, but they do have a first link value.
@@ -2175,6 +2198,7 @@ cat_createlink(struct hfsmount *hfsmp, struct cat_desc *descp, struct cat_attr *
 	int thread_inserted = 0;
 	int alias_allocated = 0;
 	int result = 0;
+	bool hfs_extime = (hfsmp->hfs_flags & HFS_EXPANDED_TIMES);
 
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 
@@ -2215,7 +2239,7 @@ cat_createlink(struct hfsmount *hfsmp, struct cat_desc *descp, struct cat_attr *
 	/*
 	 * Now insert the link record.
 	 */
-	buildrecord(attrp, nextCNID, kTextEncodingMacUnicode, &bto->data, &datalen);
+	buildrecord(attrp, nextCNID, kTextEncodingMacUnicode, &bto->data, &datalen, hfs_extime);
 	
 	bto->data.hfsPlusFile.hl_prevLinkID = 0;
 	bto->data.hfsPlusFile.hl_nextLinkID = nextlinkid;
@@ -2800,7 +2824,8 @@ getdirentries_callback(const CatalogKey *ckp, const CatalogRecord *crp,
 	size_t uiosize = 0;
 	caddr_t uioaddr;
 	Boolean stop_after_pack = false;
-	
+	bool hfs_extime = false;
+
 	hfsmp = state->cbs_hfsmp;
 	curID = ckp->hfsPlus.parentID;
 
@@ -2881,7 +2906,8 @@ getdirentries_callback(const CatalogKey *ckp, const CatalogRecord *crp,
 			}
 			break;
 		case kHFSPlusFileRecord:
-			itime = to_bsd_time(crp->hfsPlusFile.createDate);
+			hfs_extime = (crp->hfsPlusFile.flags & kHFSCatExpandedTimesMask);
+			itime = to_bsd_time(crp->hfsPlusFile.createDate, hfs_extime);
 			type = MODE_TO_DT(crp->hfsPlusFile.bsdInfo.fileMode);
 			cnid = crp->hfsPlusFile.fileID;
 			/*
@@ -3693,10 +3719,10 @@ cat_getkeyplusattr(struct hfsmount *hfsmp, cnid_t cnid, CatalogKey * key, struct
  */
 static void
 buildrecord(struct cat_attr *attrp, cnid_t cnid, u_int32_t encoding,
-            CatalogRecord *crp, u_int32_t *recordSize)
+            CatalogRecord *crp, u_int32_t *recordSize, bool expanded_times)
 {
 	int type = attrp->ca_mode & S_IFMT;
-	u_int32_t createtime = to_hfs_time(attrp->ca_itime);
+	u_int32_t createtime = to_hfs_time(attrp->ca_itime, expanded_times);
 
 	struct HFSPlusBSDInfo * bsdp = NULL;
 
@@ -3813,14 +3839,15 @@ getbsdattr(struct hfsmount *hfsmp, const struct HFSPlusCatalogFile *crp, struct 
 {
 	int isDirectory = (crp->recordType == kHFSPlusFolderRecord);
 	const struct HFSPlusBSDInfo *bsd = &crp->bsdInfo;
+	bool hfs_extime = (crp->flags & kHFSCatExpandedTimesMask);
 
 	attrp->ca_recflags = crp->flags;
-	attrp->ca_atime = to_bsd_time(crp->accessDate);
+	attrp->ca_atime = to_bsd_time(crp->accessDate, hfs_extime);
 	attrp->ca_atimeondisk = attrp->ca_atime;	
-	attrp->ca_mtime = to_bsd_time(crp->contentModDate);
-	attrp->ca_ctime = to_bsd_time(crp->attributeModDate);
-	attrp->ca_itime = to_bsd_time(crp->createDate);
-	attrp->ca_btime = to_bsd_time(crp->backupDate);
+	attrp->ca_mtime = to_bsd_time(crp->contentModDate, hfs_extime);
+	attrp->ca_ctime = to_bsd_time(crp->attributeModDate, hfs_extime);
+	attrp->ca_itime = to_bsd_time(crp->createDate, hfs_extime);
+	attrp->ca_btime = to_bsd_time(crp->backupDate, hfs_extime);
 
 	if ((bsd->fileMode & S_IFMT) == 0) {
 		attrp->ca_flags = 0;

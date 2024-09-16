@@ -1973,7 +1973,9 @@ dhcp-failover2  847/tcp     # dhcp-failover 2
 gdoi            848/udp     # GDOI
 gdoi            848/tcp     # GDOI
 #                          RFC-ietf-msec-gdoi-07.txt
-#               849-859    Unassigned
+#               849-852    Unassigned
+domain-s        853/tcp     # RFC7858 (DNS-over-TLS)
+#               854-859    Unassigned
 iscsi           860/udp     # iSCSI
 iscsi           860/tcp     # iSCSI
 #                          RFC-draft-ietf-ips-iscsi-20.txt
@@ -11320,7 +11322,10 @@ fcp-srvr-inst2  5503/tcp    # fcp-srvr-inst2
 fcp-cics-gw1    5504/udp    # fcp-cics-gw1
 fcp-cics-gw1    5504/tcp    # fcp-cics-gw1
 #			   Mark Zeiss <mark.r.zeiss@ac.com>
-#               5505-5552  Unassigned
+#               5505-5539  Unassigned
+matter          5540/tcp    # Matter Operational Discovery and Communication
+matter          5540/udp    # Matter Operational Discovery and Communication
+#               5541-5552  Unassigned
 sgi-eventmond   5553/udp    # SGI Eventmond Port
 sgi-eventmond   5553/tcp    # SGI Eventmond Port
 #                          Andrei Vilkotski <andreiv@sgi.com> June 2003

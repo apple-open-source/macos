@@ -42,7 +42,9 @@ for header_index, header in enumerate(macho.headers):
         raise Exception("didn't find symbol named 'page_max_size'")
 
     for lc, cmd, data in header.commands:
-        if lc.cmd == mach_o.LC_SEGMENT_64:
+        # mach_o.LC_SEGMENT_64 is only applicable for 64 bit address size. 
+        # We should also check LC_SEGMENT for 32 bit.
+        if lc.cmd == mach_o.LC_SEGMENT_64 or mach_o.LC_SEGMENT:
             if cmd.segname.rstrip(b'\x00') == b"__TEXT":
                 if cmd.vmsize != 2 * PAGE_MAX_SIZE:
                     raise Exception("__TEXT segment size is wrong")

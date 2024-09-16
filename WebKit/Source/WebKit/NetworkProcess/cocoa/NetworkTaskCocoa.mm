@@ -35,6 +35,7 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/text/MakeString.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -232,7 +233,7 @@ void NetworkTaskCocoa::unblockCookies()
         return;
 
     if (auto* storageSession = m_networkSession->networkStorageSession()) {
-        [task() _setExplicitCookieStorage:storageSession->nsCookieStorage()._cookieStorage];
+        [task() _setExplicitCookieStorage:[storageSession->nsCookieStorage() _cookieStorage]];
         m_hasBeenSetToUseStatelessCookieStorage = false;
     }
 }

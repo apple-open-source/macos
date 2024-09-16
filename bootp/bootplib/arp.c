@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -146,9 +146,7 @@ typedef enum {
 } command_t;
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char * argv[])
 {
 	int ch;
 	int s;
@@ -215,13 +213,13 @@ main(argc, argv)
  * Display an individual arp entry
  */
 int
-get(host)
-	char *host;
+get(char * host)
 {
 	struct hostent *hp;
 	struct	sockaddr_inarp sin_m;
 	struct sockaddr_inarp *sin = &sin_m;
 	route_msg msg;
+	char ntopbuf[INET_ADDRSTRLEN];
 
 	sin_m = blank_sin;
 	sin->sin_addr.s_addr = inet_addr(host);
@@ -237,7 +235,9 @@ get(host)
 	if (arp_get(arp_open_routing_socket(), &msg, sin->sin_addr, 0) 
 	    != ARP_RETURN_SUCCESS) {
 		printf("%s (%s) -- no entry\n",
-		    host, inet_ntoa(sin->sin_addr));
+		       host,
+		       inet_ntop(AF_INET, &sin->sin_addr,
+				 ntopbuf, sizeof(ntopbuf)));
 		return (1);
 	}
 	else {
@@ -255,6 +255,7 @@ delete(int s, int argc, char * * argv)
 	char * host;
 	struct hostent *hp;
 	struct in_addr iaddr;
+	char	ntopbuf[INET_ADDRSTRLEN];
 
 	host = argv[0];
 	iaddr.s_addr = inet_addr(host);
@@ -273,7 +274,8 @@ delete(int s, int argc, char * * argv)
 	    errno = 0;
 	    ret = arp_delete(s, iaddr, 0);
 	    if (ret == ARP_RETURN_SUCCESS) {
-		printf("%s (%s) deleted\n", host, inet_ntoa(iaddr));
+		printf("%s (%s) deleted\n", host,
+		       inet_ntop(AF_INET, &iaddr, ntopbuf, sizeof(ntopbuf)));
 		return (0);
 	    }
 	    printf("delete: %s %s", arp_strerror(ret), host);
@@ -294,6 +296,7 @@ dump_entry(struct rt_msghdr * rtm)
 {
     char *			host;
     struct hostent *		hp;
+    char			ntopbuf[INET_ADDRSTRLEN];
     struct sockaddr_inarp *	sin;
     struct sockaddr_dl *	sdl;
 
@@ -316,7 +319,8 @@ dump_entry(struct rt_msghdr * rtm)
     if (h_errno == TRY_AGAIN) {
 	nflag = 1;
     }
-    printf("%s (%s) at ", host, inet_ntoa(sin->sin_addr));
+    printf("%s (%s) at ", host,
+	   inet_ntop(AF_INET, &sin->sin_addr, ntopbuf, sizeof(ntopbuf)));
     if (sdl->sdl_alen != 0) {
 	ether_print((u_char *)LLADDR(sdl));
     }
@@ -342,8 +346,7 @@ dump_entry(struct rt_msghdr * rtm)
 }
 
 int
-dump(addr)
-	u_long addr;
+dump(u_long addr)
 {
 	int mib[6];
 	size_t needed;
@@ -386,8 +389,7 @@ dump(addr)
 }
 
 void
-ether_print(cp)
-	u_char *cp;
+ether_print(u_char *cp)
 {
 	printf("%02x:%02x:%02x:%02x:%02x:%02x",
 	       cp[0], cp[1], cp[2], cp[3], cp[4], cp[5]);
@@ -617,8 +619,12 @@ arp_flush(int s, int all, int if_index)
 	rtm->rtm_type = RTM_DELETE;
 	if (write(s, (char *)rtm, rtm->rtm_msglen) < 0) {
 #ifdef MAIN
+	    char	ntopbuf[INET_ADDRSTRLEN];
+
 	    fprintf(stderr, "flush: delete %s failed, %s\n",
-		    inet_ntoa(sin->sin_addr), strerror(errno));
+		    inet_ntop(AF_INET, &sin->sin_addr,
+			      ntopbuf, sizeof(ntopbuf)),
+		    strerror(errno));
 #endif /* MAIN */
 	}
     }

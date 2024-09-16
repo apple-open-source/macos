@@ -54,17 +54,11 @@ Ref<WebInspectorUI> WebInspectorUI::create(WebPage& page)
     return adoptRef(*new WebInspectorUI(page));
 }
 
-void WebInspectorUI::enableFrontendFeatures(WebPage& page)
-{
-    page.corePage()->settings().setCSSTypedOMEnabled(true);
-}
-
 WebInspectorUI::WebInspectorUI(WebPage& page)
     : m_page(page)
     , m_frontendAPIDispatcher(InspectorFrontendAPIDispatcher::create(*page.corePage()))
     , m_debuggableInfo(DebuggableInfoData::empty())
 {
-    WebInspectorUI::enableFrontendFeatures(page);
 }
 
 WebInspectorUI::~WebInspectorUI() = default;
@@ -86,6 +80,8 @@ void WebInspectorUI::establishConnection(WebPageProxyIdentifier inspectedPageIde
     m_frontendController->setInspectorFrontendClient(this);
 
     updateConnection();
+
+    didEstablishConnection();
 }
 
 void WebInspectorUI::updateConnection()
@@ -183,6 +179,11 @@ void WebInspectorUI::resetState()
 void WebInspectorUI::setForcedAppearance(WebCore::InspectorFrontendClient::Appearance appearance)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::SetForcedAppearance(appearance), m_inspectedPageIdentifier);
+}
+
+void WebInspectorUI::effectiveAppearanceDidChange(WebCore::InspectorFrontendClient::Appearance appearance)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::EffectiveAppearanceDidChange(appearance), m_inspectedPageIdentifier);
 }
 
 WebCore::UserInterfaceLayoutDirection WebInspectorUI::userInterfaceLayoutDirection() const
@@ -464,8 +465,7 @@ WebCore::Page* WebInspectorUI::frontendPage()
     return m_page.corePage();
 }
 
-
-#if !PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN)
+#if !PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN) && !ENABLE(WPE_PLATFORM)
 bool WebInspectorUI::canSave(InspectorFrontendClient::SaveMode)
 {
     notImplemented();
@@ -488,6 +488,11 @@ String WebInspectorUI::localizedStringsURL() const
 {
     notImplemented();
     return emptyString();
+}
+
+void WebInspectorUI::didEstablishConnection()
+{
+    notImplemented();
 }
 #endif // !PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(WIN)
 

@@ -31,11 +31,11 @@
 #include <libkern/section_keywords.h>
 #include <pexpert/device_tree.h>
 #include <os/atomic_private.h>
-#include <vm/cpm.h>
+#include <vm/cpm_internal.h>
 #include <vm/vm_kern.h>
 #include <vm/vm_protos.h>
-#include <vm/vm_object.h>
-#include <vm/vm_page.h>
+#include <vm/vm_object_xnu.h>
+#include <vm/vm_page_internal.h>
 #include <vm/vm_pageout.h>
 
 #include <arm/pmap/pmap_internal.h>
@@ -631,7 +631,8 @@ pmap_data_bootstrap(void)
 	vm_size_t ptd_root_table_size = num_ptd_pages * PAGE_SIZE;
 
 	/* Number of VM pages that span all of kernel-managed memory. */
-	const unsigned int npages = (unsigned int)atop(mem_size);
+	unsigned int npages = (unsigned int)atop(mem_size);
+
 
 	/* The pv_head_table and pp_attr_table both have one entry per VM page. */
 	const vm_size_t pp_attr_table_size = npages * sizeof(pp_attr_t);
@@ -1234,12 +1235,6 @@ pmap_enqueue_pages(vm_page_t mem)
 		*(NEXT_PAGE_PTR(m_prev)) = VM_PAGE_NULL;
 	}
 	vm_object_unlock(pmap_object);
-}
-
-static inline boolean_t
-pmap_is_preemptible(void)
-{
-	return preemption_enabled() || (startup_phase < STARTUP_SUB_EARLY_BOOT);
 }
 
 /**

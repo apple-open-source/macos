@@ -1,0 +1,43 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+fails=0
+
+rm -rf dir1 dir2 dir3
+# Make a new dir with all of the interesting things
+mkdir dir1
+cd dir1
+touch a_file
+ln a_file hardlink
+echo "Hello, world" >> a_file
+
+cd ..
+mkdir dir2
+cd dir2
+touch a_file
+ln a_file hardlink
+echo "Hello" >> a_file
+
+cd ..
+rsync -a --inplace -- dir1/ dir2 2> l2
+
+# Make sure it didn't break the hardlink
+case $(uname -s) in
+Linux)
+	ino1=$(stat -c "%i" dir2/a_file)
+	ino2=$(stat -c "%i" dir2/hardlink)
+	;;
+*)
+	ino1=$(stat -f "%i" dir2/a_file)
+	ino2=$(stat -f "%i" dir2/hardlink)
+	;;
+esac
+
+if ! test "$ino1" -eq "$ino2"; then
+	1>&2 echo "FAIL: hardlink broken"
+	fails=$((fails + 1))
+fi
+
+exit $fails

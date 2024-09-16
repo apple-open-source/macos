@@ -37,6 +37,8 @@
 	<true/>
 	<key>com.apple.private.corewifi</key>
 	<true/>
+	<key>com.apple.private.IPConfigurationHelper.PvD</key>
+	<true/>
 	<key>com.apple.private.lockdown.is-host-trusted</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>
@@ -49,6 +51,8 @@
 	<key>com.apple.private.network.management.control</key>
 	<true/>
 	<key>com.apple.private.network.management.data</key>
+	<true/>
+	<key>com.apple.private.network.ultraconstrained</key>
 	<true/>
 	<key>com.apple.private.necp.drop_all_bypass</key>
 	<true/>

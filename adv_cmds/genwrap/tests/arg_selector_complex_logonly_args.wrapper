@@ -1,0 +1,11 @@
+application "foo"
+	cwdpath "bin/foo"
+	argmode logonly
+	flag "a"
+	flag "b"
+application "newfoo"
+	default
+	cwdpath "bin/newfoo"
+	flag "exit" "x" logonly
+	flag "y" logonly
+	flag "z"

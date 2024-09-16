@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1262,6 +1262,7 @@ nd6_options(struct nd_opt_hdr *hdr, int limit,
 			break;	/* we don't care about these options */
 		case ND_OPT_SOURCE_LINKADDR:
 		case ND_OPT_MTU:
+		case ND_OPT_PVD:
 			if (ndopts->nd_opt_array[hdr->nd_opt_type]) {
 				infolog("<%s> duplicated ND option (type = %d)",
 				    __func__, hdr->nd_opt_type);

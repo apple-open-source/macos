@@ -2480,21 +2480,36 @@
 			</dict>
 			<dict>
 				<key>Name</key>
-				<string>nfs_buf_upl_setup impulse</string>
+				<string>nfs_buf_upl_setup</string>
 				<key>Type</key>
-				<string>Impulse</string>
-				<key>KTraceCode</key>
-				<string>0x3150280</string>
-				<key>ArgNames</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x3150281</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x3150282</string>
+				<key>EventsMatchedBy</key>
+				<string>thread</string>
+				<key>ArgNamesBegin</key>
 				<dict>
 					<key>Arg1</key>
-					<string>Checkpoint</string>
+					<string>bp</string>
 					<key>Arg2</key>
-					<string>Arg2</string>
+					<string>nb_np</string>
 					<key>Arg3</key>
-					<string>Arg3</string>
+					<string>nb_bufsize</string>
 					<key>Arg4</key>
-					<string>Arg4</string>
+					<string>nb_off</string>
+				</dict>
+				<key>ArgNamesEnd</key>
+				<dict>
+					<key>Arg1</key>
+					<string>bp</string>
+					<key>Arg2</key>
+					<string>nb_lblkno</string>
+					<key>Arg3</key>
+					<string>nb_flags</string>
+					<key>Arg4</key>
+					<string>error</string>
 				</dict>
 			</dict>
 			<dict>
@@ -2575,21 +2590,36 @@
 			</dict>
 			<dict>
 				<key>Name</key>
-				<string>nfs_buf_map impulse</string>
+				<string>nfs_buf_map</string>
 				<key>Type</key>
-				<string>Impulse</string>
-				<key>KTraceCode</key>
-				<string>0x3150294</string>
-				<key>ArgNames</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x3150295</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x3150296</string>
+				<key>EventsMatchedBy</key>
+				<string>thread</string>
+				<key>ArgNamesBegin</key>
 				<dict>
 					<key>Arg1</key>
-					<string>Checkpoint</string>
+					<string>bp</string>
 					<key>Arg2</key>
-					<string>Arg2</string>
+					<string>nb_np</string>
 					<key>Arg3</key>
-					<string>Arg3</string>
+					<string>nb_bufsize</string>
 					<key>Arg4</key>
-					<string>Arg4</string>
+					<string>nb_off</string>
+				</dict>
+				<key>ArgNamesEnd</key>
+				<dict>
+					<key>Arg1</key>
+					<string>bp</string>
+					<key>Arg2</key>
+					<string>nb_lblkno</string>
+					<key>Arg3</key>
+					<string>nb_flags</string>
+					<key>Arg4</key>
+					<string>error</string>
 				</dict>
 			</dict>
 			<dict>

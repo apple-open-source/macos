@@ -30,6 +30,16 @@
 #include <WebCore/AudioSession.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <wtf/WeakHashSet.h>
+#include <wtf/WeakRef.h>
+
+namespace WebKit {
+class RemoteAudioSessionProxyManager;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteAudioSessionProxyManager> : std::true_type { };
+}
 
 namespace WebKit {
 
@@ -37,8 +47,8 @@ class GPUProcess;
 class RemoteAudioSessionProxy;
 
 class RemoteAudioSessionProxyManager
-    : public WebCore::AudioSession::InterruptionObserver
-    , private WebCore::AudioSession::ConfigurationChangeObserver {
+    : public WebCore::AudioSessionInterruptionObserver
+    , private WebCore::AudioSessionConfigurationChangeObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     RemoteAudioSessionProxyManager(GPUProcess&);
@@ -49,6 +59,7 @@ public:
 
     void updateCategory();
     void updatePreferredBufferSizeForProcess();
+    void updateSpatialExperience();
 
     bool tryToSetActiveForProcess(RemoteAudioSessionProxy&, bool);
 
@@ -60,9 +71,9 @@ public:
 
     void updatePresentingProcesses();
 
-    using WebCore::AudioSession::InterruptionObserver::weakPtrFactory;
-    using WebCore::AudioSession::InterruptionObserver::WeakValueType;
-    using WebCore::AudioSession::InterruptionObserver::WeakPtrImplType;
+    using WebCore::AudioSessionInterruptionObserver::weakPtrFactory;
+    using WebCore::AudioSessionInterruptionObserver::WeakValueType;
+    using WebCore::AudioSessionInterruptionObserver::WeakPtrImplType;
 
 private:
     void beginAudioSessionInterruption() final;
@@ -76,7 +87,7 @@ private:
     bool hasOtherActiveProxyThan(RemoteAudioSessionProxy& proxyToExclude);
     bool hasActiveNotInterruptedProxy();
 
-    GPUProcess& m_gpuProcess;
+    WeakRef<GPUProcess> m_gpuProcess;
     WeakHashSet<RemoteAudioSessionProxy> m_proxies;
 };
 

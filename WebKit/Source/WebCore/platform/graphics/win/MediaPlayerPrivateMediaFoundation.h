@@ -80,16 +80,16 @@ public:
     bool hasVideo() const final;
     bool hasAudio() const final;
 
-    void setPageIsVisible(bool, String&&) final;
+    void setPageIsVisible(bool) final;
 
     bool seeking() const final;
     void seekToTarget(const SeekTarget&) final;
 
     void setRate(float) final;
 
-    float duration() const final;
+    MediaTime duration() const final;
 
-    float currentTime() const final;
+    MediaTime currentTime() const final;
 
     bool paused() const final;
 
@@ -100,7 +100,7 @@ public:
     MediaPlayer::NetworkState networkState() const final;
     MediaPlayer::ReadyState readyState() const final;
 
-    float maxTimeSeekable() const final;
+    MediaTime maxTimeSeekable() const final;
 
     const PlatformTimeRanges& buffered() const final;
 
@@ -148,7 +148,6 @@ private:
     mutable Lock m_cachedNaturalSizeLock;
 
     COMPtr<IMFMediaSession> m_mediaSession;
-    COMPtr<IMFSourceResolver> m_sourceResolver;
     COMPtr<IMFMediaSource> m_mediaSource;
     COMPtr<IMFTopology> m_topology;
     COMPtr<IMFPresentationDescriptor> m_sourcePD;

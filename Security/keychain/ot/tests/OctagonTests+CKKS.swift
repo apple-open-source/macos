@@ -59,9 +59,9 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
 
-        #if os(tvOS)
+#if os(tvOS)
         // do not continue: TVs don't sync sos items.
-        #else
+#else
 
         self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: CKRecordZone.ID(zoneName: "SecureObjectSync"))
         self.addGenericPassword("asdf",
@@ -69,7 +69,7 @@ class OctagonCKKSTests: OctagonTestsBase {
                                 accessGroup: "com.apple.sbd")
 
         self.verifyDatabaseMocks()
-        #endif // tvos test skip
+#endif // tvos test skip
     }
 
     func testHandleMFiItemAdd() throws {
@@ -281,7 +281,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         self.cuttlefishContext.startOctagonStateMachine()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         do {
             let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
@@ -291,12 +291,12 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         // Now, we should be in 'ready'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
         // and all subCKKSes should enter waitfortlk, as they don't have the TLKs uploaded by the other peer
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.verifyDatabaseMocks()
     }
 
@@ -313,7 +313,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         self.cuttlefishContext.startOctagonStateMachine()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         do {
             let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
@@ -323,11 +323,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         // Now, we should be in 'ready'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
@@ -346,7 +346,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         self.cuttlefishContext.startOctagonStateMachine()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         do {
             let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
@@ -356,25 +356,25 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         // Now, we should be in 'ready'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.verifyDatabaseMocks()
 
         self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.saveTLKMaterialToKeychain()
         self.verifyDatabaseMocks()
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         self.verifyDatabaseMocks()
     }
 
     func testUserControllableViewManagedTrue() throws {
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         return
-        #endif
+#endif
 
         self.startCKAccountStatusMock()
 
@@ -393,9 +393,9 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testUserControllableViewManagedFalse() throws {
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         return
-        #endif
+#endif
 
         self.startCKAccountStatusMock()
 
@@ -420,11 +420,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.fakeCuttlefishServer.establishListener = { request in
             XCTAssertTrue(request.peer.hasStableInfoAndSig, "updateTrust request should have a stableInfo info")
             let newStableInfo = request.peer.stableInfoAndSig.stableInfo()
-            #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .FOLLOWING, "User-controllable views should be 'following'")
-            #else
+#else
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .DISABLED, "User-controllable views should be disabled")
-            #endif
+#endif
             establishExpectation.fulfill()
             return nil
         }
@@ -432,14 +432,15 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        self.wait(for: [establishExpectation], timeout: 10)
+        self.wait(for: [establishExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
         self.fakeCuttlefishServer.establishListener = nil
 
-        #if os(tvOS)
+#if os(tvOS)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow")
 
         XCTAssertTrue(self.defaultCKKS.syncingPolicy?.syncUserControllableViewsAsBoolean() ?? false, "CKKS should be syncing user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: true)
 
         // Since the API should fail, we expect not to have the notification sent
         let ucvStatusChangeNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTUserControllableViewStatusChanged))
@@ -449,31 +450,34 @@ class OctagonCKKSTests: OctagonTestsBase {
         XCTAssertThrowsError(try clique.setUserControllableViewsSyncStatus(false), "Should be an error setting user-visible sync status")
         XCTAssertThrowsError(try clique.setUserControllableViewsSyncStatus(true), "Should be an error setting user-visible sync status")
 
-        self.wait(for: [ucvStatusChangeNotificationExpectation], timeout: 1)
+        self.wait(for: [ucvStatusChangeNotificationExpectation], timeout: 1 * Double(self.rpcTimeoutScalingFactor))
 
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow peer's opinions of sync user views")
         XCTAssertTrue(self.defaultCKKS.syncingPolicy?.syncUserControllableViewsAsBoolean() ?? false, "CKKS should be syncing user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: true)
 
-        #else
+#else
 
-        #if !os(watchOS)
+#if !os(watchOS)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .DISABLED, "CKKS should be configured to not sync user views")
 
         // And disabling it again doesn't write to the server
         self.assertModifyUserViewsWithNoPeerUpdate(clique: clique, intendedSyncStatus: false)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .DISABLED, "CKKS should be configured to not sync user views")
-        #else
+#else
         // Watches, since some support this UI, and others don't, get special handling
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow")
         XCTAssertTrue(self.defaultCKKS.syncingPolicy?.syncUserControllableViewsAsBoolean() ?? false, "CKKS should be syncing user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: true)
 
         self.assertModifyUserViews(clique: clique, intendedSyncStatus: false)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .DISABLED, "CKKS should be configured to not sync user views")
-        #endif // watchOS
+#endif // watchOS
 
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: false)
 
         // Manatee items should upload
         self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: self.manateeZoneID)
@@ -489,28 +493,32 @@ class OctagonCKKSTests: OctagonTestsBase {
                                 expecting: errSecSuccess,
                                 message: "Should be able to add a CFNetwork keychain item")
 
-        self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: false)
 
         // And how about enabling it? That should upload the password
         self.expectCKModifyItemRecords(1, currentKeyPointerRecords: 1, zoneID: self.passwordsZoneID)
         self.assertModifyUserViews(clique: clique, intendedSyncStatus: true)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .ENABLED, "CKKS should be configured to sync user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: true)
         self.verifyDatabaseMocks()
 
         // And enabling it again doesn't write to the server
         self.assertModifyUserViewsWithNoPeerUpdate(clique: clique, intendedSyncStatus: true)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .ENABLED, "CKKS should be configured to sync user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: true)
 
         // And we can turn it off again
         self.assertModifyUserViews(clique: clique, intendedSyncStatus: false)
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .DISABLED, "CKKS should be configured to not sync user views")
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
+        self.assertFetchUserControllableViewsSyncStatusAsync(clique: clique, status: false)
 
-        #endif // !os(tvOS)
+#endif // !os(tvOS)
     }
 
     func testJoinFollowsUserViewStatus() throws {
@@ -518,7 +526,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        #if os(tvOS)
+#if os(tvOS)
         // For tvs, this is always on
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
 
@@ -535,7 +543,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         XCTAssertThrowsError(try peer2Clique.setUserControllableViewsSyncStatus(true), "Should be an error setting user-visible sync status")
         self.assertFetchUserControllableViewsSyncStatus(clique: peer2Clique, status: true)
 
-        #elseif os(watchOS)
+#elseif os(watchOS)
         // Watches are following by default. Turn the status off for the rest of the test
         XCTAssertEqual(self.defaultCKKS.syncingPolicy?.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow")
 
@@ -549,7 +557,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         // A new watch peer will be FOLLOWING, so this API will return true
         self.assertFetchUserControllableViewsSyncStatus(clique: self.cliqueFor(context: peer2Context), status: true)
 
-        #else  // iOS, macOS
+#else  // iOS, macOS
 
         // By default, the sync status is "off"
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
@@ -564,19 +572,19 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         self.assertModifyUserViews(clique: self.cliqueFor(context: peer2Context), intendedSyncStatus: true)
         self.assertFetchUserControllableViewsSyncStatus(clique: self.cliqueFor(context: peer2Context), status: true)
-        #endif  // iOS, macOS
+#endif  // iOS, macOS
 
         // And a third peer joins!
         let peer3Context = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3)
         self.assertJoinViaEscrowRecovery(joiningContext: peer3Context, sponsor: peer2Context)
 
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         // Watches and TVs won't ever turn this off (without extra UI), so a freshly joined peer will report this status as true
         self.assertFetchUserControllableViewsSyncStatus(clique: self.cliqueFor(context: peer3Context), status: true)
-        #else
+#else
         // Peer3, by default, should have disabled the user controllable views (following peer1)
         self.assertFetchUserControllableViewsSyncStatus(clique: self.cliqueFor(context: peer3Context), status: false)
-        #endif
+#endif
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaAskingSOS() throws {
@@ -588,11 +596,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
-        #else
+#else
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
-        #endif
+#endif
 
         // Now, fake that the peer no longer has this opinion:
         do {
@@ -617,20 +625,20 @@ class OctagonCKKSTests: OctagonTestsBase {
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow peer's user views")
-            #else
+#else
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .ENABLED, "CKKS should be configured to sync user views (following SOS's lead)")
-            #endif
+#endif
             updateTrustExpectation.fulfill()
             return nil
         }
 
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
-        self.wait(for: [updateTrustExpectation], timeout: 10)
+        self.wait(for: [updateTrustExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor), "State machine should pause")
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionViaPeersOpinion() throws {
@@ -640,11 +648,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
-        #else
+#else
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
-        #endif
+#endif
 
         // Now, fake that the peer no longer has this opinion:
         do {
@@ -669,20 +677,20 @@ class OctagonCKKSTests: OctagonTestsBase {
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow peer's user views")
-            #else
+#else
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .DISABLED, "CKKS should be configured to disable user views, since no peers have it actively enabled")
-            #endif
+#endif
             updateTrustExpectation.fulfill()
             return nil
         }
 
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
-        self.wait(for: [updateTrustExpectation], timeout: 10)
+        self.wait(for: [updateTrustExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor), "State machine should pause")
     }
 
     func testUpgradePeerToHaveUserSyncableViewsOpinionWhileLocked() throws {
@@ -694,11 +702,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
-        #else
+#else
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
-        #endif
+#endif
 
         // Now, fake that the peer no longer has this opinion:
         do {
@@ -731,16 +739,16 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // We should get to 'wait for unlock'
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 100 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 100 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
-            #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .FOLLOWING, "CKKS should be configured to follow peer's user views")
-            #else
+#else
             XCTAssertEqual(newStableInfo.syncUserControllableViews, .ENABLED, "CKKS should be configured to sync user views (following SOS's lead)")
-            #endif
+#endif
             updateTrustExpectation.fulfill()
             return nil
         }
@@ -749,7 +757,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        self.wait(for: [updateTrustExpectation], timeout: 10)
+        self.wait(for: [updateTrustExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
     }
 
     func testHandleFailureUpgradingPeerToHaveUserSyncableViewsOpinion() throws {
@@ -759,11 +767,11 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
         let clique = self.cliqueFor(context: self.cuttlefishContext)
 
-        #if os(tvOS) || os(watchOS)
+#if os(tvOS) || os(watchOS)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: true)
-        #else
+#else
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: false)
-        #endif
+#endif
 
         // Now, fake that the peer no longer has this opinion:
         do {
@@ -807,14 +815,14 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
-        self.wait(for: [fastUpdateTrustExpectation], timeout: 20)
+        self.wait(for: [fastUpdateTrustExpectation], timeout: 20 * Double(self.rpcTimeoutScalingFactor))
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor), "State machine should pause")
 
-        self.wait(for: [retriedUpdateTrustExpectation], timeout: 20)
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "State machine should pause")
+        self.wait(for: [retriedUpdateTrustExpectation], timeout: 20 * Double(self.rpcTimeoutScalingFactor))
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+        XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor), "State machine should pause")
     }
 
     func testAssistCKKSTLKUploadWhenMissingFromOctagon() throws {
@@ -829,17 +837,17 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.silentZoneDeletesAllowed = true
         self.resetAllCKKSViews()
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         // Octagon won't help to make new TLKs, so we will delete the zones and then bail.
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
-        self.assertCKKSStateMachine(enters: CKKSStateWaitForTrust, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+        self.assertCKKSStateMachine(enters: CKKSStateWaitForTrust, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
     }
 
     func testUserControllableViewsSyncingStatusNoAccount() throws {
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
         self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
@@ -847,7 +855,7 @@ class OctagonCKKSTests: OctagonTestsBase {
             XCTAssertFalse(isSyncing, "should not be syncing with no account")
             fetchExpectation.fulfill()
         }
-        self.wait(for: [fetchExpectation], timeout: 10)
+        self.wait(for: [fetchExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
 
         let setExpectation = self.expectation(description: "set user controllable views syncing status quickly")
         self.cuttlefishContext.rpcSetUserControllableViewsSyncingStatus(true) { isSyncing, error in
@@ -865,7 +873,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
         self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
@@ -873,7 +881,7 @@ class OctagonCKKSTests: OctagonTestsBase {
             XCTAssertFalse(isSyncing, "should not be syncing untrusted")
             fetchExpectation.fulfill()
         }
-        self.wait(for: [fetchExpectation], timeout: 10)
+        self.wait(for: [fetchExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
     }
 
     func testFetchUserControllableViewsSyncingStatusError() throws {
@@ -881,7 +889,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let op = OctagonStateTransitionOperation(name: "force-error-state", entering: OctagonStateError)
 
@@ -891,7 +899,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         self.cuttlefishContext.stateMachine.doSimpleStateMachineRPC("force-error-state", op: op, sourceStates: sourceState, reply: reply)
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateError, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateError, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
         self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
@@ -899,7 +907,7 @@ class OctagonCKKSTests: OctagonTestsBase {
             XCTAssertFalse(isSyncing, "should not be syncing in the error state")
             fetchExpectation.fulfill()
         }
-        self.wait(for: [fetchExpectation], timeout: 10)
+        self.wait(for: [fetchExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
     }
 
     func testSignInWithDelayedHSA2StatusAndAttemptFetchUserControllableViewsSyncingStatus() throws {
@@ -913,7 +921,7 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // With no account, Octagon should go directly into 'NoAccount'
         self.cuttlefishContext.startOctagonStateMachine()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         // Sign in occurs, but HSA2 status isn't here yet
         let newAltDSID = UUID().uuidString
@@ -924,7 +932,7 @@ class OctagonCKKSTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
 
         // Octagon should go into 'waitforhsa2'
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
 
         let fetchExpectation = self.expectation(description: "fetch user controllable views syncing status returns")
         self.cuttlefishContext.rpcFetchUserControllableViewsSyncingStatus { isSyncing, error in
@@ -932,7 +940,7 @@ class OctagonCKKSTests: OctagonTestsBase {
             XCTAssertFalse(isSyncing, "should not be syncing with non hsa2 account")
             fetchExpectation.fulfill()
         }
-        self.wait(for: [fetchExpectation], timeout: 2)
+        self.wait(for: [fetchExpectation], timeout: 2 * Double(self.rpcTimeoutScalingFactor))
     }
 
     func testWaitForPriorityViewAPIAfterEstablish() throws {
@@ -947,11 +955,77 @@ class OctagonCKKSTests: OctagonTestsBase {
             waitExpectation.fulfill()
         }
 
-        self.wait(for: [waitExpectation], timeout: 10)
+        self.wait(for: [waitExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
 
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
         XCTAssertNoThrow(try cliqueBridge.waitForPriorityViewKeychainDataRecovery(), "Should be able to use OctagonTrust API")
+    }
+
+    func testWaitForPriorityViewAPISucceedsAfterRestart() throws {
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        do {
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+        }
+
+        // Now, we should be in 'ready'
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
+
+        // Restart!
+        self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
+
+        // Assert that we have an account but CKKS's trustStatus is not available yet
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
+        self.assertAccountAvailable(context: self.cuttlefishContext)
+        XCTAssertNotEqual(self.defaultCKKS.trustStatus, CKKSAccountStatus.available)
+
+        let waitExpectation = self.expectation(description: "wait should end")
+        self.cuttlefishContext.rpcWaitForPriorityViewKeychainDataRecovery { error in
+            XCTAssertNil(error, "Should have no error waiting for CKKS Priority zones to recover all data")
+            waitExpectation.fulfill()
+        }
+
+        self.wait(for: [waitExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+    }
+
+    func testWaitForPriorityViewsAPISucceedsWithCKKSTrustRaceCondition() throws {
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
+
+        do {
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+        }
+
+        // Octagon should think it's good to go
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
+
+        // But for some reason, CKKS mistakenly loses trust
+        self.defaultCKKS.endTrustedOperation()
+
+        // Now, kick off a priority views RPC. It should fail due to error 52 (No iCloud Keychain trust) but work after a retry
+        let waitExpectation = self.expectation(description: "wait should end")
+        self.cuttlefishContext.rpcWaitForPriorityViewKeychainDataRecovery { error in
+            XCTAssertNil(error, "Should have no error waiting for CKKS Priority zones to recover all data")
+            waitExpectation.fulfill()
+        }
+
+        self.wait(for: [waitExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
     }
 
     func testWaitForPriorityViewAPIDuringJoinWithSlowCKFetch() throws {
@@ -981,14 +1055,14 @@ class OctagonCKKSTests: OctagonTestsBase {
         }
 
         // First, ensure that the wait occurs while the fetch hasn't completed
-        self.wait(for: [returnedTooEarlyExpectation], timeout: 4)
+        self.wait(for: [returnedTooEarlyExpectation], timeout: 4 * Double(self.rpcTimeoutScalingFactor))
 
         // Let the fetch complete: the wait should then end
         self.releaseCloudKitFetchHold()
-        self.wait(for: [returnedCorrectlyExpectation], timeout: 10)
+        self.wait(for: [returnedCorrectlyExpectation], timeout: 10 * Double(self.rpcTimeoutScalingFactor))
 
         // And CKKS should enter ready!
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC * self.rpcTimeoutScalingFactor)
         self.verifyDatabaseMocks()
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
     }

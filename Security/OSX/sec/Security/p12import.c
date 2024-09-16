@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2007-2010,2012-2014 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2007-2010,2012-2014,2023 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -29,22 +29,24 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonKeyDerivation.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <AssertMacros.h>
 #include <Security/SecInternal.h>
+#include <utilities/SecCFWrappers.h>
 #include <utilities/debugging.h>
 
 #include "p12pbegen.h"
 #include "p12import.h"
 #include <Security/SecImportExport.h>
 
-#ifdef NDEBUG
-#define p12DecodeLog(args...)
-#else
+//#ifdef NDEBUG
+//define p12DecodeLog(args...)
+//#else
 #define p12DecodeLog(args...)         secdebug("pkcs12", "%s\n", args)
-#endif
+//#endif
 
 int decode_item(pkcs12_context * context, const SecAsn1Item *item, 
     const SecAsn1Template *tmpl, void *dest);
@@ -70,42 +72,61 @@ typedef struct {
 	CCOptions		options;	// padding and mode.
 } PKCSOidInfo;
 
-/* PKCS12 algorithms OID_ISO_MEMBER, OID_US, OID_RSA, OID_PKCS, OID_PKCS_12 */
-static const uint8_t PKCS12_pbep[] = { 42, 134, 72, 134, 247, 13, 1, 12, 1 };
+/* PKCS12 algorithms OID_ISO_MEMBER, OID_US, OID_RSA, OID_PKCS, OID_PKCS_12(12), pkcs-12PbeIds(1) */
+static const uint8_t PKCS12_pbep[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x0c, 0x01 };
 static const DERItem OID_PKCS12_pbep = { (uint8_t*)PKCS12_pbep, sizeof(PKCS12_pbep)  };
+/* PBKDF2 is under PKCS5: OID_ISO_MEMBER(1), OID_US(840), OID_RSA(113549), OID_PKCS(1), OID_PKCS_5(5) */
+static const uint8_t PKCS5_pbep2[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x05 };
+static const DERItem OID_PKCS5_pbep2 = { (uint8_t*)PKCS5_pbep2, sizeof(PKCS5_pbep2)  };
+
 static const PKCSOidInfo pkcsOidInfos[] = {
-	{   /*CSSMOID_PKCS12_pbeWithSHAAnd128BitRC4,*/
-		kCCAlgorithmRC4, 128, 0/* stream cipher */, 0 },
-	{   /*CSSMOID_PKCS12_pbeWithSHAAnd40BitRC4,*/
-		kCCAlgorithmRC4, 40, 0/* stream cipher */, 0 },
-	{   /*CSSMOID_PKCS12_pbeWithSHAAnd3Key3DESCBC,*/
-		kCCAlgorithm3DES, 64 * 3, 8, kCCOptionPKCS7Padding },
-	{   /*CSSMOID_PKCS12_pbeWithSHAAnd2Key3DESCBC,*/
-		-1 /*CSSM_ALGID_3DES_2KEY unsupported*/, 64 * 2, 8, kCCOptionPKCS7Padding },
+    {   /*CSSMOID_PKCS12_pbeWithSHAAnd128BitRC4,*/
+        kCCAlgorithmRC4, 128, 0/* stream cipher */, 0 },
+    {   /*CSSMOID_PKCS12_pbeWithSHAAnd40BitRC4,*/
+        kCCAlgorithmRC4, 40, 0/* stream cipher */, 0 },
+    {   /*CSSMOID_PKCS12_pbeWithSHAAnd3Key3DESCBC,*/
+        kCCAlgorithm3DES, 64 * 3, 8, kCCOptionPKCS7Padding },
+    {   /*CSSMOID_PKCS12_pbeWithSHAAnd2Key3DESCBC,*/
+        -1 /*CSSM_ALGID_3DES_2KEY unsupported*/, 64 * 2, 8, kCCOptionPKCS7Padding },
     {   /*CSSMOID_PKCS12_pbeWithSHAAnd128BitRC2CBC,*/
         kCCAlgorithmRC2, 128, 8, kCCOptionPKCS7Padding },
     {   /*CSSMOID_PKCS12_pbewithSHAAnd40BitRC2CBC,*/
-        kCCAlgorithmRC2, 40, 8, kCCOptionPKCS7Padding }
+        kCCAlgorithmRC2, 40, 8, kCCOptionPKCS7Padding },
+    {   /*AES-CBC*/
+        kCCAlgorithmAES, 256, 16, kCCOptionPKCS7Padding },
 };
 
 #define NUM_PKCS_OID_INFOS (sizeof(pkcsOidInfos) / sizeof(pkcsOidInfos[1]))
 
-static int pkcsOidToParams(const SecAsn1Item *oid, CCAlgorithm *alg,
-	uint32_t *keySizeInBits, uint32_t *blockSizeInBytes, CCOptions *options)
+static int pkcsOidToParams(const SecAsn1Item *oid, CCAlgorithm *alg, CCOptions *options,
+    uint32_t *keySizeInBits, uint32_t *blockSizeInBytes,
+    uint32_t *hashSizeInBytes, uint32_t *hashBlockSizeInBytes)
 {
     DERItem prefix = { oid->Data, oid->Length };
     prefix.length -= 1;
     if (DEROidCompare(&OID_PKCS12_pbep, &prefix)) {
         uint8_t postfix = oid->Data[oid->Length-1];
-        if (postfix > NUM_PKCS_OID_INFOS || postfix == 4)
+        if (postfix > NUM_PKCS_OID_INFOS || postfix == 4) {
             return -1;
+        }
         *alg 			  = pkcsOidInfos[postfix-1].alg;
         *keySizeInBits 	  = pkcsOidInfos[postfix-1].keySizeInBits;
         *blockSizeInBytes = pkcsOidInfos[postfix-1].blockSizeInBytes;
         *options		  = pkcsOidInfos[postfix-1].options;
+        *hashSizeInBytes  = CC_SHA1_DIGEST_LENGTH;
+        *hashBlockSizeInBytes = CC_SHA1_BLOCK_BYTES;
         return 0;
     }
-	return -1;
+    if (DEROidCompare(&OID_PKCS5_pbep2, &prefix)) {
+        *alg              = kCCAlgorithmAES;
+        *keySizeInBits    = 256;
+        *blockSizeInBytes = 16;
+        *options          = kCCOptionPKCS7Padding;
+        *hashSizeInBytes  = CC_SHA256_DIGEST_LENGTH;
+        *hashBlockSizeInBytes = CC_SHA256_BLOCK_BYTES;
+        return 0;
+    }
+    return -1;
 }
 
 static int p12DataToInt(const SecAsn1Item *cdata, uint32_t *u)
@@ -132,19 +153,33 @@ static int p12DataToInt(const SecAsn1Item *cdata, uint32_t *u)
 
 /*
  * Parse an SecAsn1AlgId specific to P12.
- * Decode the alg params as a NSS_P12_PBE_Params and parse and 
- * return the result if the pbeParams is non-NULL.
+ * Decode the alg params as a NSS_P12_PBE_Params
+ * and return the result if the pbeParams is non-NULL.
  */
 static int algIdParse(pkcs12_context * context, 
-	const SecAsn1AlgId *algId, NSS_P12_PBE_Params *pbeParams/*optional*/)
+    const SecAsn1AlgId *algId, NSS_P12_PBE2_Params *pbeParams/*optional*/)
 {
-	p12DecodeLog("algIdParse");
-	const SecAsn1Item *param = &algId->parameters;
-	require(pbeParams, out);
+    p12DecodeLog("algIdParse");
+    int result = 0;
+    const SecAsn1Item *param = &algId->parameters;
+    require(pbeParams, out);
     require(param && param->Length, out);
-	memset(pbeParams, 0, sizeof(*pbeParams));
-	require_noerr(decode_item(context, param, NSS_P12_PBE_ParamsTemplate, pbeParams), out);
-    
+    memset(pbeParams, 0, sizeof(*pbeParams));
+    // first attempt to decode as PBE1. This will fill in the first two fields
+    // (salt and iterations) if successful, and leave the rest nil.
+    result = decode_item(context, param, NSS_P12_PBE_ParamsTemplate, (NSS_P12_PBE_Params*)pbeParams);
+    // possible results from SecAsn1Decode: errSecParam, errSecDecode, errSecSuccess
+    if (result != errSecSuccess) {
+        memset(pbeParams, 0, sizeof(*pbeParams));
+        result = decode_item(context, param, NSS_P12_PBE2_ParamsTemplate, pbeParams);
+        if (result == errSecSuccess) {
+            // fill in the first two fields with our PBKDF2 parameters
+            pbeParams->salt = pbeParams->kdf.params.salt;
+            pbeParams->iterations = pbeParams->kdf.params.iterations;
+        }
+    }
+    require_noerr(result, out);
+
     return 0;
 out:
     return -1;
@@ -153,40 +188,64 @@ out:
 static int p12Decrypt(pkcs12_context * context, const SecAsn1AlgId *algId,
 	const SecAsn1Item *cipherText, SecAsn1Item *plainText)
 {
-	NSS_P12_PBE_Params pbep = {};
+    NSS_P12_PBE2_Params pbep = {};
     // XXX/cs not requiring decoding, but if pbep is uninit this will fail later
-	algIdParse(context, algId, &pbep);
+    algIdParse(context, algId, &pbep);
 
-	CCAlgorithm		alg = 0;
-	uint32_t			keySizeInBits = 0;
-	uint32_t			blockSizeInBytes = 0;	// for IV, optional
-	CCOptions		options = 0;
-	require_noerr_quiet(pkcsOidToParams(&algId->algorithm, &alg, &keySizeInBits, 
-        &blockSizeInBytes, &options), out);
+    CCAlgorithm     alg = 0;
+    uint32_t        keySizeInBits = 0;
+    uint32_t        blockSizeInBytes = 0; // for IV, optional
+    uint32_t        hashSizeInBytes = 0;
+    uint32_t        hashBlockSizeInBytes = 0;
+    CCOptions       options = 0;
+    require_noerr_quiet(pkcsOidToParams(&algId->algorithm, &alg, &options, &keySizeInBits,
+                                        &blockSizeInBytes, &hashSizeInBytes, &hashBlockSizeInBytes), out);
 
-	uint32_t iterCount = 0;
-	require_noerr(p12DataToInt(&pbep.iterations, &iterCount), out);
+    uint32_t iterCount = 0;
+    require_noerr(p12DataToInt(&pbep.iterations, &iterCount), out);
 
-	/* P12 style key derivation */
-	SecAsn1Item key = {0, NULL};
-	if(keySizeInBits)
+    /* P12 style key derivation */
+    SecAsn1Item key = {0, NULL};
+    if(keySizeInBits) {
         alloc_item(context, &key, (keySizeInBits+7)/8);
-    require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length, 
-        iterCount, PBE_ID_Key, key.Data, key.Length), out);
-        
-	/* P12 style IV derivation, optional */
-	SecAsn1Item iv = {0, NULL};
-	if(blockSizeInBytes) {
-		alloc_item(context, &iv, blockSizeInBytes);
-        require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length, 
-            iterCount, PBE_ID_IV, iv.Data, iv.Length), out);
+    }
+    // rdar://119278907
+    // either algIdParse or pkcsOidToParams should determine KDF and PRF type.
+    // we want to eventually use CCKeyDerivationPBKDF for all P12 key derivation;
+    // for now, hardcode kCCPBKDF2 and kCCPRFHmacAlgSHA256 for AES,
+    // and keep using the older p12_pbe_gen for everything else.
+    bool useCCKeyDerivation = (alg == kCCAlgorithmAES);
+    if (useCCKeyDerivation) {
+        __block int kdf_result = 0;
+        key.Length = keySizeInBits/8;
+        CFStringPerformWithCString(context->passphrase, ^(const char *utf8Str) {
+            kdf_result = CCKeyDerivationPBKDF(kCCPBKDF2, utf8Str, strlen(utf8Str),
+                                              pbep.salt.Data, pbep.salt.Length,
+                                              kCCPRFHmacAlgSHA256, iterCount,
+                                              key.Data, key.Length);
+        });
+        require_noerr(kdf_result, out);
+    } else {
+        require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
+                                  iterCount, PBE_ID_Key, key.Data, key.Length,
+                                  hashBlockSizeInBytes, hashSizeInBytes), out);
     }
 
-	SecAsn1Item ourPtext = {0, NULL};
+    /* P12 style IV derivation, optional */
+    SecAsn1Item iv = {0, NULL};
+    if (pbep.enc.iv.Data && pbep.enc.iv.Length) {
+        iv = pbep.enc.iv; // IV was provided in the PBE parameters
+    } else if(blockSizeInBytes) {
+        alloc_item(context, &iv, blockSizeInBytes);
+        require_noerr(p12_pbe_gen(context->passphrase, pbep.salt.Data, pbep.salt.Length,
+                                  iterCount, PBE_ID_IV, iv.Data, iv.Length, hashBlockSizeInBytes, hashSizeInBytes), out);
+    }
+
+    SecAsn1Item ourPtext = {0, NULL};
     alloc_item(context, &ourPtext, cipherText->Length);
-    require_noerr(CCCrypt(kCCDecrypt, alg, options/*kCCOptionPKCS7Padding*/, 
-        key.Data, key.Length, iv.Data, cipherText->Data, cipherText->Length, 
-        ourPtext.Data, ourPtext.Length, &ourPtext.Length), out);
+    require_noerr(CCCrypt(kCCDecrypt, alg, options/*kCCOptionPKCS7Padding*/,
+                          key.Data, key.Length, iv.Data, cipherText->Data, cipherText->Length,
+                          ourPtext.Data, ourPtext.Length, &ourPtext.Length), out);
     *plainText = ourPtext;
 
     return 0;
@@ -457,6 +516,7 @@ out:
 
 static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
 {
+    uint8_t *hmacKey = NULL;
 	NSS_P12_MacData *macData = pfx->macData;
 	require(macData, out);
 	NSS_P7_DigestInfo *digestInfo  = &macData->mac;
@@ -464,40 +524,67 @@ static int p12VerifyMac(pkcs12_context * context, const NSS_P12_DecodedPFX *pfx)
 	SecAsn1Item *algOid = &digestInfo->digestAlgorithm.algorithm;
     require(algOid, out);
 
-    /* has to be OID_OIW_SHA1 */
+    /* supported algorithms: SHA1, SHA224, SHA256, SHA384, SHA512  */
     DERItem algOidItem = { algOid->Data, algOid->Length };
-    require(algOidItem.length && DEROidCompare(&oidSha1, &algOidItem), out);
-	
-	uint32_t iterCount = 0;
-	require_noerr_quiet(p12DataToInt(&macData->iterations, &iterCount), out);
-	if (iterCount == 0) { /* optional, default 1 */
-		iterCount = 1;
-	}
+    unsigned int hashBlockSize = 0;
+    unsigned int hashLen = 0;
+    size_t hmacLen = 0;
+    CCHmacAlgorithm hmacAlg = 0;
+    if (DEROidCompare(&oidSha1, &algOidItem)) {
+        hashLen = CC_SHA1_DIGEST_LENGTH;
+        hashBlockSize = CC_SHA1_BLOCK_BYTES;
+        hmacAlg = kCCHmacAlgSHA1;
+    } else if (DEROidCompare(&oidSha256, &algOidItem)) {
+        hashLen = CC_SHA256_DIGEST_LENGTH;
+        hashBlockSize = CC_SHA256_BLOCK_BYTES;
+        hmacAlg = kCCHmacAlgSHA256;
+    } else if (DEROidCompare(&oidSha384, &algOidItem)) {
+        hashLen = CC_SHA384_DIGEST_LENGTH;
+        hashBlockSize = CC_SHA384_BLOCK_BYTES;
+        hmacAlg = kCCHmacAlgSHA384;
+    } else if (DEROidCompare(&oidSha512, &algOidItem)) {
+        hashLen = CC_SHA512_DIGEST_LENGTH;
+        hashBlockSize = CC_SHA512_BLOCK_BYTES;
+        hmacAlg = kCCHmacAlgSHA512;
+    } else if (DEROidCompare(&oidSha224, &algOidItem)) {
+        hashLen = CC_SHA224_DIGEST_LENGTH;
+        hashBlockSize = CC_SHA224_BLOCK_BYTES;
+        hmacAlg = kCCHmacAlgSHA224;
+    }
+    hmacLen = hashLen;
+    require(algOidItem.length && hmacLen, out);
 
-	/*
-	 * In classic fashion, the PKCS12 spec now says:
-	 *
-	 *      When password integrity mode is used to secure a PFX PDU, 
-	 *      an SHA-1 HMAC is computed on the BER-encoding of the contents 
-	 *      of the content field of the authSafe field in the PFX PDU.
-	 *
-	 * So here we go.
-	 */
-	uint8_t hmac_key[CC_SHA1_DIGEST_LENGTH];
-	require_noerr_quiet(p12_pbe_gen(context->passphrase, 
-        macData->macSalt.Data, macData->macSalt.Length,
-        iterCount, PBE_ID_MAC, hmac_key, sizeof(hmac_key)), out);
+    uint32_t iterCount = 0;
+    require_noerr_quiet(p12DataToInt(&macData->iterations, &iterCount), out);
+    if (iterCount == 0) { /* optional, default 1 */
+        iterCount = 1;
+    }
 
-	/* prealloc the mac data */
-	SecAsn1Item verifyMac;
-	alloc_item(context, &verifyMac, CC_SHA1_DIGEST_LENGTH);
-	SecAsn1Item *ptext = pfx->authSafe.content.data;
-	CCHmac(kCCHmacAlgSHA1, hmac_key, CC_SHA1_DIGEST_LENGTH, 
-        ptext->Data, ptext->Length, verifyMac.Data);
-	require_quiet(nssCompareSecAsn1Items(&verifyMac, &digestInfo->digest), out);
-	
-	return 0;
+    /*
+     * from RFC 7292 Appendix A:
+     * When password integrity mode is used to secure a PFX PDU, an HMAC
+     * with SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, or
+     * SHA-512/256 is computed on the BER-encoding of the contents of the
+     * content field of the authSafe field in the PFX PDU (see Section 5.1).
+     *
+     * So here we go.
+     */
+    hmacKey = (uint8_t *)malloc(hmacLen);
+    require_noerr_quiet(p12_pbe_gen(context->passphrase,
+                                    macData->macSalt.Data, macData->macSalt.Length,
+                                    iterCount, PBE_ID_MAC, hmacKey, hmacLen,
+                                    hashBlockSize, hashLen), out);
+    /* prealloc the mac data */
+    SecAsn1Item verifyMac;
+    alloc_item(context, &verifyMac, hmacLen);
+    SecAsn1Item *ptext = pfx->authSafe.content.data;
+    CCHmac(hmacAlg, hmacKey, hmacLen, ptext->Data, ptext->Length, verifyMac.Data);
+    require_quiet(nssCompareSecAsn1Items(&verifyMac, &digestInfo->digest), out);
+
+    free(hmacKey);
+    return 0;
 out:
+    free(hmacKey);
     return -1;
 }
 

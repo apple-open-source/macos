@@ -31,6 +31,7 @@
 #include "CSSParserIdioms.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSValueKeywords.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
@@ -39,6 +40,7 @@
 #include "Quad.h"
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -98,9 +100,9 @@ private:
     bool commonSerializationChecks(const StyleProperties&);
 
     String serializeLonghands() const;
-    String serializeLonghands(unsigned lengthLimit, const char* separator = " ") const;
+    String serializeLonghands(unsigned lengthLimit, ASCIILiteral separator = " "_s) const;
     String serializeLonghandsOmittingInitialValues() const;
-    String serializeLonghandsOmittingTrailingInitialValue(const char* separator = " ") const;
+    String serializeLonghandsOmittingTrailingInitialValue(ASCIILiteral separator = " "_s) const;
 
     String serializeCommonValue() const;
     String serializeCommonValue(unsigned startIndex, unsigned count) const;
@@ -361,7 +363,7 @@ String ShorthandSerializer::serialize()
     case CSSPropertyWebkitBorderRadius:
         return serializeBorderRadius();
     case CSSPropertyContainer:
-        return serializeLonghandsOmittingTrailingInitialValue(" / ");
+        return serializeLonghandsOmittingTrailingInitialValue(" / "_s);
     case CSSPropertyFlex:
     case CSSPropertyPerspectiveOrigin:
         return serializeLonghands();
@@ -419,7 +421,7 @@ String ShorthandSerializer::serializeLonghands() const
     return serializeLonghands(length());
 }
 
-String ShorthandSerializer::serializeLonghands(unsigned lengthLimit, const char* separator) const
+String ShorthandSerializer::serializeLonghands(unsigned lengthLimit, ASCIILiteral separator) const
 {
     ASSERT(lengthLimit <= length());
     switch (lengthLimit) {
@@ -433,7 +435,7 @@ String ShorthandSerializer::serializeLonghands(unsigned lengthLimit, const char*
         return makeString(serializeLonghandValue(0), separator, serializeLonghandValue(1), separator, serializeLonghandValue(2), separator, serializeLonghandValue(3));
     default:
         StringBuilder result;
-        auto prefix = "";
+        auto prefix = ""_s;
         for (unsigned i = 0; i < lengthLimit; ++i)
             result.append(std::exchange(prefix, separator), serializeLonghandValue(i));
         return result.toString();
@@ -443,15 +445,15 @@ String ShorthandSerializer::serializeLonghands(unsigned lengthLimit, const char*
 String ShorthandSerializer::serializeLonghandsOmittingInitialValues() const
 {
     StringBuilder result;
-    auto prefix = "";
+    auto prefix = ""_s;
     for (auto longhand : longhands()) {
         if (!isInitialValue(longhand))
-            result.append(std::exchange(prefix, " "), serializeValue(longhand));
+            result.append(std::exchange(prefix, " "_s), serializeValue(longhand));
     }
     return result.isEmpty() ? serializeLonghandValue(0) : result.toString();
 }
 
-String ShorthandSerializer::serializeLonghandsOmittingTrailingInitialValue(const char* separator) const
+String ShorthandSerializer::serializeLonghandsOmittingTrailingInitialValue(ASCIILiteral separator) const
 {
     ASSERT(length() >= 2);
     return serializeLonghands(length() - isLonghandInitialValue(length() - 1), separator);
@@ -641,13 +643,6 @@ String ShorthandSerializer::serializeLayered() const
         for (unsigned j = 0; j < length(); j++) {
             auto longhand = longhandProperty(j);
 
-            // We always want to force the serialization of the transition longhands,
-            // except for transition-behavior which should only serialize if non-default.
-            if (m_shorthand.id() == CSSPropertyTransition) {
-                if (longhand != CSSPropertyTransitionBehavior)
-                    layerValues.skip(j) = false;
-            }
-
             // A single box value sets both background-origin and background-clip.
             // A single geometry-box value sets both mask-origin and mask-clip.
             // A single geometry-box value sets both mask-origin and -webkit-mask-clip.
@@ -802,7 +797,7 @@ String ShorthandSerializer::serializeBorderImage() const
     StringBuilder result;
     bool omittedSlice = false;
     bool omittedWidth = false;
-    auto separator = "";
+    auto separator = ""_s;
     for (auto longhand : longhands()) {
         if (isInitialValue(longhand)) {
             if (longhand.property == CSSPropertyBorderImageSlice || longhand.property == CSSPropertyMaskBorderSlice)
@@ -828,11 +823,11 @@ String ShorthandSerializer::serializeBorderImage() const
 
         // Append separator and text.
         if (longhand.property == CSSPropertyBorderImageWidth || longhand.property == CSSPropertyMaskBorderWidth)
-            separator = " / ";
+            separator = " / "_s;
         else if (longhand.property == CSSPropertyBorderImageOutset || longhand.property == CSSPropertyMaskBorderOutset)
-            separator = omittedWidth ? " / / " : " / ";
+            separator = omittedWidth ? " / / "_s : " / "_s;
         result.append(separator, valueText);
-        separator = " ";
+        separator = " "_s;
     }
     if (result.isEmpty())
         return nameString(CSSValueNone);
@@ -871,7 +866,7 @@ String ShorthandSerializer::serializeBorderRadius() const
     };
     serializeRadii(horizontalRadii);
     if (serializeBoth) {
-        result.append(" / ");
+        result.append(" / "_s);
         serializeRadii(verticalRadii);
     }
     return result.toString();
@@ -972,14 +967,14 @@ String ShorthandSerializer::serializeFont() const
     bool includeLineHeight = !isLonghandInitialValue(lineHeightIndex);
 
     auto style = includeStyle ? serializeLonghandValue(styleIndex) : String();
-    auto capsSeparator = includeCaps && includeStyle ? " " : "";
+    auto capsSeparator = includeCaps && includeStyle ? " "_s : ""_s;
     auto caps = includeCaps ? nameLiteral(capsKeyword) : ""_s;
-    auto weightSeparator = includeWeight && (includeStyle || includeCaps) ? " " : "";
+    auto weightSeparator = includeWeight && (includeStyle || includeCaps) ? " "_s : ""_s;
     auto weight = includeWeight ? serializeLonghandValue(weightIndex) : String();
-    auto stretchSeparator = includeStretch && (includeStyle || includeCaps || includeWeight) ? " " : "";
+    auto stretchSeparator = includeStretch && (includeStyle || includeCaps || includeWeight) ? " "_s : ""_s;
     auto stretch = includeStretch ? nameLiteral(stretchKeyword) : ""_s;
-    auto sizeSeparator = includeStyle || includeCaps || includeWeight || includeStretch ? " " : "";
-    auto lineHeightSeparator = includeLineHeight ? " / " : "";
+    auto sizeSeparator = includeStyle || includeCaps || includeWeight || includeStretch ? " "_s : ""_s;
+    auto lineHeightSeparator = includeLineHeight ? " / "_s : ""_s;
     auto lineHeight = includeLineHeight ? serializeLonghandValue(lineHeightIndex) : String();
 
     return makeString(style,
@@ -1079,15 +1074,15 @@ String ShorthandSerializer::serializeGrid() const
     auto& columns = longhandValue(columnsIndex);
 
     bool autoFlowContainsDense = gridAutoFlowContains(autoFlow, CSSValueDense);
-    auto dense = autoFlowContainsDense ? " dense" : "";
+    auto dense = autoFlowContainsDense ? " dense"_s : ""_s;
 
     if (gridAutoFlowContains(autoFlow, CSSValueColumn)) {
         if (!isValueIDIncludingList(autoRows, CSSValueAuto) || !isValueIDIncludingList(columns, CSSValueNone))
             return String();
 
         if (isValueIDIncludingList(autoColumns, CSSValueAuto))
-            return makeString(serializeLonghandValue(rowsIndex), " / auto-flow", dense);
-        return makeString(serializeLonghandValue(rowsIndex), " / auto-flow", dense, ' ', serializeLonghandValue(autoColumnsIndex));
+            return makeString(serializeLonghandValue(rowsIndex), " / auto-flow"_s, dense);
+        return makeString(serializeLonghandValue(rowsIndex), " / auto-flow"_s, dense, ' ', serializeLonghandValue(autoColumnsIndex));
     }
 
     if (!gridAutoFlowContains(autoFlow, CSSValueRow) && !autoFlowContainsDense)
@@ -1096,8 +1091,8 @@ String ShorthandSerializer::serializeGrid() const
         return String();
 
     if (isValueIDIncludingList(autoRows, CSSValueAuto))
-        return makeString("auto-flow", dense, " / ", serializeLonghandValue(columnsIndex));
-    return makeString("auto-flow", dense, " ", serializeLonghandValue(autoRowsIndex), " / ", serializeLonghandValue(columnsIndex));
+        return makeString("auto-flow"_s, dense, " / "_s, serializeLonghandValue(columnsIndex));
+    return makeString("auto-flow"_s, dense, ' ', serializeLonghandValue(autoRowsIndex), " / "_s, serializeLonghandValue(columnsIndex));
 }
 
 static bool isCustomIdentValue(const CSSValue& value)
@@ -1125,13 +1120,13 @@ String ShorthandSerializer::serializeGridArea() const
                 --longhandsToSerialize;
         }
     }
-    return serializeLonghands(longhandsToSerialize, " / ");
+    return serializeLonghands(longhandsToSerialize, " / "_s);
 }
 
 String ShorthandSerializer::serializeGridRowColumn() const
 {
     ASSERT(length() == 2);
-    return serializeLonghands(canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1)) ? 1 : 2, " / ");
+    return serializeLonghands(canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1)) ? 1 : 2, " / "_s);
 }
 
 String ShorthandSerializer::serializeGridTemplate() const
@@ -1146,7 +1141,7 @@ String ShorthandSerializer::serializeGridTemplate() const
     if (!areasValue) {
         if (isLonghandValueNone(rowsIndex) && isLonghandValueNone(columnsIndex))
             return nameString(CSSValueNone);
-        return serializeLonghands(2, " / ");
+        return serializeLonghands(2, " / "_s);
     }
 
     // Depending on the values of grid-template-rows and grid-template-columns, we may not
@@ -1198,7 +1193,7 @@ String ShorthandSerializer::serializeGridTemplate() const
         }
     }
     if (!isLonghandValueNone(columnsIndex))
-        result.append(" / ", serializeLonghandValue(columnsIndex));
+        result.append(" / "_s, serializeLonghandValue(columnsIndex));
     return result.toString();
 }
 
@@ -1226,13 +1221,13 @@ String ShorthandSerializer::serializeOffset() const
     }
 
     auto position = includePosition ? serializeLonghandValue(positionIndex) : String();
-    auto pathSeparator = includePosition && includePath ? " " : "";
+    auto pathSeparator = includePosition && includePath ? " "_s : ""_s;
     auto path = includePath ? serializeLonghandValue(pathIndex) : String();
-    auto distanceSeparator = includeDistance ? " " : "";
+    auto distanceSeparator = includeDistance ? " "_s : ""_s;
     auto distance = includeDistance ? serializeLonghandValue(distanceIndex) : String();
-    auto rotateSeparator = includeRotate ? " " : "";
+    auto rotateSeparator = includeRotate ? " "_s : ""_s;
     auto rotate = includeRotate ? serializeLonghandValue(rotateIndex) : String();
-    auto anchorSeparator = includeAnchor ? " / " : "";
+    auto anchorSeparator = includeAnchor ? " / "_s : ""_s;
     auto anchor = includeAnchor ? serializeLonghandValue(anchorIndex) : String();
 
     return makeString(position,

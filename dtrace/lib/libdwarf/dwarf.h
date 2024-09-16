@@ -130,6 +130,7 @@ extern "C" {
 #define DW_TAG_shared_type              0x40  /* DWARF3f */
 #define DW_TAG_type_unit                0x41  /* DWARF4 */
 #define DW_TAG_rvalue_reference_type    0x42  /* DWARF4 */
+#define DW_TAG_atomic_type              0x47  /* DWARF5 */
 #define DW_TAG_lo_user                  0x4080
 
 #define DW_TAG_MIPS_loop                0x4081
@@ -197,8 +198,21 @@ extern "C" {
 #define DW_FORM_sec_offset              0x17 /* DWARF4 */
 #define DW_FORM_exprloc                 0x18 /* DWARF4 */
 #define DW_FORM_flag_present            0x19 /* DWARF4 */
-  /* 0x1a thru 0x1f were left unused accidentally. Reserved for future use. */
+#define DW_FORM_strx                    0x1a /* DWARF5 */
+#define DW_FORM_addrx                   0x1b /* DWARF5 */
+  /* 0x1c thru 0x1f were left unused accidentally. Reserved for future use. */
 #define DW_FORM_ref_sig8                0x20 /* DWARF4 */
+#define DW_FORM_implicit_const          0x21 /* DWARF5 */
+#define DW_FORM_loclistx                0x22 /* DWARF5 */
+#define DW_FORM_rnglistx                0x23 /* DWARF5 */
+#define DW_FORM_strx1                   0x25 /* DWARF5 */
+#define DW_FORM_strx2                   0x26 /* DWARF5 */
+#define DW_FORM_strx3                   0x27 /* DWARF5 */
+#define DW_FORM_strx4                   0x28 /* DWARF5 */
+#define DW_FORM_addrx1                  0x29 /* DWARF5 */
+#define DW_FORM_addrx2                  0x2a /* DWARF5 */
+#define DW_FORM_addrx3                  0x2b /* DWARF5 */
+#define DW_FORM_addrx4                  0x2c /* DWARF5 */
 
 #define DW_AT_sibling                           0x01
 #define DW_AT_location                          0x02

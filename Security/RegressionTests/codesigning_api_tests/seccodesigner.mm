@@ -29,6 +29,7 @@
 #include <sys/xattr.h>
 #include <TargetConditionals.h>
 #include <TLE/TLE.h>
+#include <kern/cs_blobs.h>
 
 #define BEGIN()                                             \
 ({                                                          \
@@ -70,11 +71,16 @@ do { \
 
 #define kTemporaryPath                      "/tmp"
 #define kSystemBinariesPath                 "/bin"
+#define kUserLibrariesPath                  "/usr/lib"
 #define kAppleInternalApplicationsPath      "/AppleInternal/Applications/"
 
 #define k_ls_BinaryName                     "ls"
 #define k_ls_BinaryPath                     kSystemBinariesPath "/" k_ls_BinaryName
 #define k_ls_TemporaryBinaryPath            kTemporaryPath "/" k_ls_BinaryName
+
+#define k_dyld_BinaryName					"dyld"
+#define k_dyld_BinaryPath					kUserLibrariesPath "/" k_dyld_BinaryName
+#define k_dyld_TemporaryBinaryPath          kTemporaryPath "/" k_dyld_BinaryName
 
 // Bundle exists on both macOS and iOS.
 #define kNullBundleName                     "Null.app"
@@ -90,6 +96,12 @@ do { \
 #define kHFSDiskImageVolumeName       "SEC_TEST_HFS"
 #define kHFSDiskImageVolumePath       kHFSDiskImageVolumeDirectory "/" kHFSDiskImageVolumeName
 #define kHFSVolumeNullBundlePath      kHFSDiskImageVolumePath "/" kNullBundleName
+
+// Empty entitlements file
+#define kEmptyEntitlements			  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" \
+                            		  "<!DOCTYPE plist PUBLIC\"-//Apple//DTD PLIST" \
+                                      "1.0//EN\"\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" \
+									  "<plist version=\"1.0\"><dict></dict></plist>"
 
 static int
 _copyPath(const char *dst, const char *src)
@@ -1794,6 +1806,126 @@ exit:
 }
 
 static int
+CheckIgnoreLibraryEntitlements(void)
+{
+    BEGIN();
+
+    const char *path = k_dyld_TemporaryBinaryPath;
+    const char *copyPath = k_dyld_BinaryPath;
+    CFDataRef entitlements = CFDataCreate(NULL, (const uint8_t *) kEmptyEntitlements, strlen(kEmptyEntitlements));
+    
+    CFRef<CFURLRef> url;
+    SecStaticCodeRef codeRef;
+    OSStatus status = 0;
+    CFBooleanRef hasDerBlob;
+    CFBooleanRef hasEntitlementsBlob;
+
+    CFRef<CFMutableDictionaryRef> parameters(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    // This is how we do adhoc signing.
+    CFDictionaryAddValue(parameters, kSecCodeSignerIdentity, SecIdentityRef(kCFNull));
+    BlobWrapper *wrap = BlobWrapper::alloc(CFDataGetBytePtr(entitlements), CFDataGetLength(entitlements), kSecCodeMagicEntitlement);
+    CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*(BlobCore*)wrap));
+
+    int ret = -1;
+
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    ret = _forceAddSignature(path, "MachOIdentity", parameters);
+    if (ret) {
+        FAIL("Unable to add adhoc signature to %s", path);
+        goto exit;
+    }
+    
+    url.take(CFURLCreateWithString(NULL, CFSTR(k_dyld_TemporaryBinaryPath), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef);
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto exit;
+    }
+
+    hasDerBlob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_DER_ENTITLEMENTS);
+    hasEntitlementsBlob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_ENTITLEMENTS);
+
+    if (hasDerBlob == kCFBooleanTrue || hasEntitlementsBlob == kCFBooleanTrue) {
+        FAIL("Signed library (%s) has entitlement slot", path);
+    }
+
+    PASS("Successfully ignored provided entitlements when signing %s", path);
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    CFRelease(entitlements);
+    return ret;
+}
+
+static int
+CheckForceLibraryEntitlements(void)
+{
+    BEGIN();
+
+    const char *path = k_dyld_TemporaryBinaryPath;
+    const char *copyPath = k_dyld_BinaryPath;
+    CFDataRef entitlements = CFDataCreate(NULL, (const uint8_t *) kEmptyEntitlements, strlen(kEmptyEntitlements));
+    
+    CFRef<CFURLRef> url;
+    SecStaticCodeRef codeRef;
+    OSStatus status = 0;
+    CFBooleanRef hasDerBlob;
+    CFBooleanRef hasEntitlementsBlob;
+
+    CFRef<CFMutableDictionaryRef> parameters(CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    CFDictionaryAddValue(parameters, kSecCodeSignerIdentity, SecIdentityRef(kCFNull));
+    
+    BlobWrapper *wrap = BlobWrapper::alloc(CFDataGetBytePtr(entitlements), CFDataGetLength(entitlements), kSecCodeMagicEntitlement);
+    CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*(BlobCore*)wrap));
+    
+    CFDictionaryAddValue(parameters, kSecCodeSignerForceLibraryEntitlements, kCFBooleanTrue);
+    
+    int ret = -1;
+
+    if (_copyPath(path, copyPath)) {
+        FAIL("Unable to create temporary path (%s)", path);
+        goto exit;
+    }
+
+    ret = _forceAddSignature(path, "MachOIdentity", parameters);
+    if (ret) {
+        FAIL("Unable to add adhoc signature to %s", path);
+        goto exit;
+    }
+    
+    url.take(CFURLCreateWithString(NULL, CFSTR(k_dyld_TemporaryBinaryPath), NULL));
+    status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &codeRef);
+    
+    if (status) {
+        FAIL("Failed to create SecStaticCode: %d", status);
+        goto exit;
+    }
+    
+
+    hasDerBlob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_DER_ENTITLEMENTS);
+    hasEntitlementsBlob = SecCodeSpecialSlotIsPresent(codeRef, CSSLOT_ENTITLEMENTS);
+
+    if (hasDerBlob == kCFBooleanFalse || hasEntitlementsBlob == kCFBooleanFalse) {
+        FAIL("Signed library (%s) missing entitlement slot", path);
+    }
+
+    PASS("Successfully forced embedding provided entitlements when signing %s", path);
+    ret = 0;
+
+exit:
+    _deletePath(path);
+    CFRelease(entitlements);
+    return ret;
+}
+
+static int
 CheckAddSignatureRemoteBundle(void)
 {
     BEGIN();
@@ -2367,6 +2499,8 @@ int main(int argc, char* argv[])
         CheckAddAdhocSignatureMachoLibraryConstraints,
         CheckReSignPreserveMetadataRuntimeMachO,
         CheckStripDisallowedXattrsOnMachO,
+        CheckIgnoreLibraryEntitlements,
+        CheckForceLibraryEntitlements,
 
         // Bundle tests.
         CheckRemoveSignatureBundle,

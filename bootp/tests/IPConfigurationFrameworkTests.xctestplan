@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "D8FBD517-5712-46B1-87D4-C322EB6E1E37",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:bootp.xcodeproj",
+        "identifier" : "8AE48C262BA3A41B006705D6",
+        "name" : "IPConfigurationFrameworkTests"
+      }
+    }
+  ],
+  "version" : 1
+}

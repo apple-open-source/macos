@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,14 +45,22 @@ __BEGIN_DECLS
 typedef void (*InterfaceNamerControlPrefsCallBack)(_SCControlPrefsRef control);
 
 _SCControlPrefsRef
-InterfaceNamerControlPrefsInit	(CFRunLoopRef				runloop,
-				 InterfaceNamerControlPrefsCallBack	callback);
+InterfaceNamerControlPrefsInit(CFRunLoopRef runloop,
+			       InterfaceNamerControlPrefsCallBack callback);
 
 Boolean
-InterfaceNamerControlPrefsAllowNewInterfaces	(void);
+InterfaceNamerControlPrefsAllowNewInterfaces(_SCControlPrefsRef control);
 
 Boolean
-InterfaceNamerControlPrefsSetAllowNewInterfaces	(Boolean		allow);
+InterfaceNamerControlPrefsSetAllowNewInterfaces(_SCControlPrefsRef control,
+						Boolean allow);
+
+Boolean
+InterfaceNamerControlPrefsConfigureNewInterfaces(_SCControlPrefsRef control);
+
+Boolean
+InterfaceNamerControlPrefsSetConfigureNewInterfaces(_SCControlPrefsRef control,
+						    Boolean configure);
 
 __END_DECLS
 

@@ -54,12 +54,15 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fdopen.c,v 1.11 2008/05/10 18:39:20 antoi
 #include <limits.h>
 #include "un-namespace.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 FILE *
 fdopen(int fd, const char *mode)
 {
 	FILE *fp;
 	int flags, oflags, fdflags, tmp;
+
+	libc_hooks_will_read_cstring(mode);
 
 	/*
 	 * File descriptors are a full int, but _file is only a short.

@@ -42,7 +42,7 @@ mbsnrtowcs_l(wchar_t * __restrict dst, const char ** __restrict src,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_mbsnrtowcs;
-	return (loc->__lc_ctype->__mbsnrtowcs(dst, src, nms, len, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__mbsnrtowcs(dst, src, nms, len, ps, loc));
 }
 
 size_t
@@ -62,7 +62,7 @@ __mbsnrtowcs_std(wchar_t * __restrict dst, const char ** __restrict src,
 	size_t nb;
 	size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict,
 	    size_t, mbstate_t * __restrict, locale_t)
-	    = loc->__lc_ctype->__mbrtowc;
+	    = XLOCALE_CTYPE(loc)->__mbrtowc;
 
 	s = *src;
 	nchr = 0;

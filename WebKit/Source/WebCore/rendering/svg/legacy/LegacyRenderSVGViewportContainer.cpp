@@ -42,6 +42,8 @@ LegacyRenderSVGViewportContainer::LegacyRenderSVGViewportContainer(SVGSVGElement
     ASSERT(isLegacyRenderSVGViewportContainer());
 }
 
+LegacyRenderSVGViewportContainer::~LegacyRenderSVGViewportContainer() = default;
+
 SVGSVGElement& LegacyRenderSVGViewportContainer::svgSVGElement() const
 {
     return downcast<SVGSVGElement>(LegacyRenderSVGContainer::element());
@@ -60,9 +62,9 @@ void LegacyRenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
 
 void LegacyRenderSVGViewportContainer::calcViewport()
 {
-    SVGSVGElement& element = svgSVGElement();
-    SVGLengthContext lengthContext(&element);
-    FloatRect newViewport(element.x().value(lengthContext), element.y().value(lengthContext), element.width().value(lengthContext), element.height().value(lengthContext));
+    Ref element = svgSVGElement();
+    SVGLengthContext lengthContext(element.ptr());
+    FloatRect newViewport(element->x().value(lengthContext), element->y().value(lengthContext), element->width().value(lengthContext), element->height().value(lengthContext));
 
     if (m_viewport == newViewport)
         return;

@@ -18,6 +18,7 @@
 #define __ApplePlatformFeatures_h
 
 #include <AppleFeatures/AppleFeatures.h>
+#include <mdns/general.h>
 #include <TargetConditionals.h>
 
 // Feature: Add audit token to questions
@@ -89,6 +90,14 @@
 
 #if !defined(MDNSRESPONDER_SUPPORTS_APPLE_D2D)
     #define MDNSRESPONDER_SUPPORTS_APPLE_D2D                        1
+#endif
+
+// Feature: Discovery Proxy client support for local domains
+// Radar:   <rdar://114127909>
+// Enabled: Support is compiled in, but disabled by default by the discovery_proxy_client runtime feature flag.
+
+#if !defined(MDNSRESPONDER_SUPPORTS_APPLE_DISCOVERY_PROXY_CLIENT)
+    #define MDNSRESPONDER_SUPPORTS_APPLE_DISCOVERY_PROXY_CLIENT     1
 #endif
 
 // Feature: Support for DNS Analytics
@@ -165,6 +174,18 @@
         #define MDNSRESPONDER_SUPPORTS_APPLE_IGNORE_HOSTS_FILE      1
     #else
         #define MDNSRESPONDER_SUPPORTS_APPLE_IGNORE_HOSTS_FILE      0
+    #endif
+#endif
+
+// Feature: Don't pretend that the network interface addresses went away in preparation for sleep.
+// Radar:   <rdar://127413333>
+// Enabled: Only on watchOS for now.
+
+#if !defined(MDNSRESPONDER_SUPPORTS_APPLE_KEEP_INTERFACES_DURING_SLEEP)
+    #if MDNS_OS(watchOS)
+        #define MDNSRESPONDER_SUPPORTS_APPLE_KEEP_INTERFACES_DURING_SLEEP 1
+    #else
+        #define MDNSRESPONDER_SUPPORTS_APPLE_KEEP_INTERFACES_DURING_SLEEP 0
     #endif
 #endif
 
@@ -302,6 +323,14 @@
     #define MDNSRESPONDER_SUPPORTS_APPLE_SYMPTOMS                   1
 #endif
 
+// Feature: Terminus Assisted Unicast Discovery
+// Radar:   <rdar://115756005>
+// Enabled: Yes.
+
+#if !defined(MDNSRESPONDER_SUPPORTS_APPLE_TERMINUS_ASSISTED_UNICAST_DISCOVERY)
+    #define MDNSRESPONDER_SUPPORTS_APPLE_TERMINUS_ASSISTED_UNICAST_DISCOVERY    1
+#endif
+
 // Feature: Tracker Debugging
 // Radar:   <rdar://problem/102778582>
 // Enabled: Yes. (depends on MDNSRESPONDER_SUPPORTS_APPLE_TRACKER_STATE)
@@ -327,11 +356,11 @@
 #endif
 
 // Feature: Enforce entitlements prompts
-// Radar:   <rdar://problem/55922132>
-// Enabled: iOS only (depends on MDNSRESPONDER_SUPPORTS_APPLE_AUDIT_TOKEN)
+// Radar:   <rdar://problem/55922132>, <rdar://problem/113918221>
+// Enabled: iOS & macOS (depends on MDNSRESPONDER_SUPPORTS_APPLE_AUDIT_TOKEN)
 
 #if !defined(MDNSRESPONDER_SUPPORTS_APPLE_TRUST_ENFORCEMENT)
-    #if (TARGET_OS_IOS)
+    #if (TARGET_OS_IOS || TARGET_OS_OSX)
         #define MDNSRESPONDER_SUPPORTS_APPLE_TRUST_ENFORCEMENT      1
     #else
         #define MDNSRESPONDER_SUPPORTS_APPLE_TRUST_ENFORCEMENT      0
@@ -432,6 +461,18 @@
     #endif
 #endif
 
+#if MDNSRESPONDER_SUPPORTS(APPLE, DISCOVERY_PROXY_CLIENT)
+    #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+        #error "MDNSRESPONDER_SUPPORTS(APPLE, DISCOVERY_PROXY_CLIENT) depends on MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)."
+    #endif
+#endif
+
+#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
+    #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+        #error "MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH) depends on MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)."
+    #endif
+#endif
+
 #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
     #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER) && !MDNSRESPONDER_DISABLE_DNSSECv2_DEPENDENCY_CHECK_FOR_QUERIER
         #error "MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2) depends on MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)."
@@ -453,6 +494,12 @@
 #if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
     #if !MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
         #error "MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS) depends on MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)."
+    #endif
+#endif
+
+#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
+    #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+        #error "MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY) depends on MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)."
     #endif
 #endif
 

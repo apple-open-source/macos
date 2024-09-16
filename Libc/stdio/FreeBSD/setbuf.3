@@ -80,20 +80,24 @@ or input is read from any stream attached to a terminal device
 (typically
 .Dv stdin ) .
 .Pp
-The default buffer settings can be overwritten for stdout
-.Dv ( STDBUF1 )
+The default buffer settings can be overwritten for stdin
+.Dv ( STDBUF0 , _STDBUF_I ),
+stdout
+.Dv ( STDBUF1 , _STDBUF_O ),
+stderr
+.Dv ( STDBUF2 , _STDBUF_E ),
 or for all descriptors
 .Dv ( STDBUF ) .
 The environment variable value is a letter followed by an optional numeric
 value indicating the size of the buffer.
-Valid sizes range from 0B to 64KB.
+Valid sizes range from 0B to 16MB (suffixes 'k' and 'M' are accepted).
 Valid letters are:
 .Bl -tag -width X -offset indent
 .It Dv Li U
 Unbuffered.
 .It Dv Li L
 Line-buffered.
-.It Dv Li F
+.It Dv Li B , Dv Li F
 Fully-buffered.
 .El
 .Pp

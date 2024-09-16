@@ -33,7 +33,14 @@
 #include "WebSocketTaskCurl.h"
 #else
 
-#include "DataReference.h"
+namespace WebKit {
+class WebSocketTask;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::WebSocketTask> : std::true_type { };
+}
 
 namespace WebKit {
 
@@ -44,8 +51,8 @@ class WebSocketTask : public CanMakeWeakPtr<WebSocketTask> {
 public:
     typedef uint64_t TaskIdentifier;
 
-    void sendString(const IPC::DataReference&, CompletionHandler<void()>&&) { }
-    void sendData(const IPC::DataReference&, CompletionHandler<void()>&&) { }
+    void sendString(std::span<const uint8_t>, CompletionHandler<void()>&&) { }
+    void sendData(std::span<const uint8_t>, CompletionHandler<void()>&&) { }
     void close(int32_t code, const String& reason) { }
 
     void cancel() { }

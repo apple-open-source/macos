@@ -27,6 +27,7 @@
 #import "WebPushMessage.h"
 
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 namespace WebKit {
 
@@ -72,10 +73,8 @@ std::optional<WebPushMessage> WebPushMessage::fromDictionary(NSDictionary *dicti
     WebPushMessage message { { }, String { pushPartition }, URL { url }, { } };
 #endif
 
-    if (isData) {
-        NSData *data = (NSData *)pushData;
-        message.pushData = Vector<uint8_t> { static_cast<const uint8_t*>(data.bytes), data.length };
-    }
+    if (isData)
+        message.pushData = makeVector((NSData *)pushData);
 
     return message;
 }
@@ -84,7 +83,7 @@ NSDictionary *WebPushMessage::toDictionary() const
 {
     RetainPtr<NSData> nsData;
     if (pushData)
-        nsData = nsData = adoptNS([[NSData alloc] initWithBytes:pushData->data() length:pushData->size()]);
+        nsData = nsData = toNSData(pushData->span());
 
     NSDictionary *nsPayload = nil;
 #if ENABLE(DECLARATIVE_WEB_PUSH)

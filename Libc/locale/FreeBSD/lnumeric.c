@@ -49,59 +49,60 @@ __private_extern__ int
 __numeric_load_locale(const char *name, locale_t loc)
 {
 	int ret;
-	struct __xlocale_st_numeric *xp;
-	static struct __xlocale_st_numeric *cache = NULL;
+	struct xlocale_numeric *xp;
+	static struct xlocale_numeric *cache = NULL;
 
 	/* 'name' must be already checked. */
-	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0) {
+	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0 ||
+	    strncmp(name, "C.", 2) == 0) {
 		if (!loc->_numeric_using_locale)
 			return (_LDP_CACHE);
 		loc->_numeric_using_locale = 0;
-		XL_RELEASE(loc->__lc_numeric);
-		loc->__lc_numeric = NULL;
+		xlocale_release(loc->components[XLC_NUMERIC]);
+		loc->components[XLC_NUMERIC] = NULL;
 		loc->__nlocale_changed = 1;
 		return (_LDP_CACHE);
 	}
 
-	if (loc->_numeric_using_locale && strcmp(name, loc->__lc_numeric->_numeric_locale_buf) == 0)
+	if (loc->_numeric_using_locale && strcmp(name, XLOCALE_NUMERIC(loc)->buffer) == 0)
 		return (_LDP_CACHE);
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
-	if (cache && cache->_numeric_locale_buf && strcmp(name, cache->_numeric_locale_buf) == 0) {
+	if (cache && cache->buffer && strcmp(name, cache->buffer) == 0) {
 		loc->_numeric_using_locale = 1;
-		XL_RELEASE(loc->__lc_numeric);
-		loc->__lc_numeric = cache;
-		XL_RETAIN(loc->__lc_numeric);
+		xlocale_release(loc->components[XLC_NUMERIC]);
+		loc->components[XLC_NUMERIC] = (void *)cache;
+		xlocale_retain(cache);
 		loc->__nlocale_changed = 1;
 		return (_LDP_CACHE);
 	}
-	if ((xp = (struct __xlocale_st_numeric *)malloc(sizeof(*xp))) == NULL)
+	if ((xp = (struct xlocale_numeric *)malloc(sizeof(*xp))) == NULL)
 		return _LDP_ERROR;
-	xp->__refcount = 1;
-	xp->__free_extra = (__free_extra_t)__ldpart_free_extra;
-	xp->_numeric_locale_buf = NULL;
+	xp->header.header.retain_count = 1;
+	xp->header.header.destructor = destruct_ldpart;
+	xp->buffer = NULL;
 
 	ret = __part_load_locale(name, &loc->_numeric_using_locale,
-		&xp->_numeric_locale_buf, "LC_NUMERIC",
+		&xp->buffer, "LC_NUMERIC",
 		LCNUMERIC_SIZE, LCNUMERIC_SIZE,
-		(const char **)&xp->_numeric_locale);
+		(const char **)&xp->locale);
 	if (ret != _LDP_ERROR)
 		loc->__nlocale_changed = 1;
 	else
 		free(xp);
 	if (ret == _LDP_LOADED) {
 		/* Can't be empty according to C99 */
-		if (*xp->_numeric_locale.decimal_point == '\0')
-			xp->_numeric_locale.decimal_point =
+		if (*xp->locale.decimal_point == '\0')
+			xp->locale.decimal_point =
 			    _C_numeric_locale.decimal_point;
-		xp->_numeric_locale.grouping =
-		    __fix_locale_grouping_str(xp->_numeric_locale.grouping);
-		XL_RELEASE(loc->__lc_numeric);
-		loc->__lc_numeric = xp;
-		XL_RELEASE(cache);
+		xp->locale.grouping =
+		    __fix_locale_grouping_str(xp->locale.grouping);
+		xlocale_release(loc->components[XLC_NUMERIC]);
+		loc->components[XLC_NUMERIC] = (void *)xp;
+		xlocale_release(cache);
 		cache = xp;
-		XL_RETAIN(cache);
+		xlocale_retain(cache);
 	}
 	return (ret);
 }
@@ -110,7 +111,7 @@ __private_extern__ struct lc_numeric_T *
 __get_current_numeric_locale(locale_t loc)
 {
 	return (loc->_numeric_using_locale
-		? &loc->__lc_numeric->_numeric_locale
+		? &XLOCALE_NUMERIC(loc)->locale
 		: (struct lc_numeric_T *)&_C_numeric_locale);
 }
 
@@ -121,9 +122,9 @@ locale_t loc = __current_locale();
 printf(	"decimal_point = %s\n"
 	"thousands_sep = %s\n"
 	"grouping = %s\n",
-	loc->__lc_numeric->_numeric_locale.decimal_point,
-	loc->__lc_numeric->_numeric_locale.thousands_sep,
-	loc->__lc_numeric->_numeric_locale.grouping
+	XLOCALE_NUMERIC(loc)->locale.decimal_point,
+	XLOCALE_NUMERIC(loc)->locale.thousands_sep,
+	XLOCALE_NUMERIC(loc)->locale.grouping
 );
 }
 #endif /* LOCALE_DEBUG */

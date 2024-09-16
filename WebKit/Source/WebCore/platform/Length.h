@@ -149,6 +149,7 @@ public:
     int intValue() const;
     float percent() const;
     CalculationValue& calculationValue() const;
+    Ref<CalculationValue> protectedCalculationValue() const;
 
     LengthType type() const;
     WEBCORE_EXPORT IPCData ipcData() const;
@@ -585,6 +586,7 @@ inline bool Length::isContent() const
 }
 
 Length convertTo100PercentMinusLength(const Length&);
+Length convertTo100PercentMinusLengthSum(const Length&, const Length&);
 
 WTF::TextStream& operator<<(WTF::TextStream&, Length);
 

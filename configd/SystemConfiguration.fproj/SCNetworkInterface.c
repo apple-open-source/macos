@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -295,7 +295,13 @@ static const CFRuntimeClass __SCNetworkInterfaceClass = {
 	__SCNetworkInterfaceEqual,			// equal
 	__SCNetworkInterfaceHash,			// hash
 	__SCNetworkInterfaceCopyFormattingDescription,	// copyFormattingDesc
-	__SCNetworkInterfaceCopyDescription		// copyDebugDesc
+	__SCNetworkInterfaceCopyDescription,		// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -414,7 +420,7 @@ __SCNetworkInterfaceCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef form
 					     interfacePrivate->usb.name);
 		}
 
-		CFStringAppendFormat(result, NULL, CFSTR(", USB vid/pid = 0x%0x/0x%0x"),
+		CFStringAppendFormat(result, NULL, CFSTR(", USB vid/pid = %d/%d"),
 				     vid,
 				     pid);
 	}
@@ -428,7 +434,7 @@ __SCNetworkInterfaceCopyFormattingDescription(CFTypeRef cf, CFDictionaryRef form
 		CFStringAppendFormat(result, formatOptions, CFSTR(", overrides = %@"), str);
 		CFRelease(str);
 	}
-	CFStringAppendFormat(result, NULL, CFSTR(", order = %d (%s)"),
+	CFStringAppendFormat(result, NULL, CFSTR(", order = %u (%s)"),
 			     interfacePrivate->sort_order,
 			     interfacePrivate->sort_order <= kSortUnknown ? sortOrderName[interfacePrivate->sort_order] : "?");
 	if (interfacePrivate->prefs != NULL) {
@@ -748,7 +754,7 @@ __SCNetworkInterfaceInitialize(void)
 		// get mach port used to communication with IOKit
 		kr = IOMainPort(MACH_PORT_NULL, &masterPort);
 		if (kr != kIOReturnSuccess) {
-			SC_log(LOG_NOTICE, "could not get IOMainPort, kr = 0x%x", kr);
+			SC_log(LOG_NOTICE, "could not get IOMainPort, kr = %d", kr);
 		}
 
 	});
@@ -1361,7 +1367,7 @@ pci_slot(io_registry_entry_t interface, CFTypeRef *pci_slot_name)
 			// if we have hit the root node
 			break;
 		default :
-			SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = 0x%x", kr);
+			SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = %d", kr);
 			break;
 	}
 
@@ -1422,7 +1428,7 @@ pci_port(CFTypeRef slot_name, int ift, CFStringRef bsdName)
 
 	kr = IOServiceGetMatchingServices(masterPort, matching, &slot_iterator);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = %d", kr);
 		return MACH_PORT_NULL;
 	}
 
@@ -1437,7 +1443,7 @@ pci_port(CFTypeRef slot_name, int ift, CFStringRef bsdName)
 						   kIORegistryIterateRecursively,
 						   &child_iterator);
 		if (kr != kIOReturnSuccess) {
-			SC_log(LOG_INFO, "IORegistryEntryCreateIterator() failed, kr = 0x%x", kr);
+			SC_log(LOG_INFO, "IORegistryEntryCreateIterator() failed, kr = %d", kr);
 			CFRelease(port_names);
 			return MACH_PORT_NULL;
 		}
@@ -1558,7 +1564,7 @@ isBluetoothBuiltin(Boolean *haveController)
 					  &iter);
 	if ((kr != kIOReturnSuccess) || (iter == MACH_PORT_NULL)) {
 		if (kr != kIOReturnSuccess) {
-			SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = 0x%x", kr);
+			SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = %d", kr);
 		}
 		*haveController = FALSE;
 		return FALSE;
@@ -2673,7 +2679,7 @@ createInterface(io_registry_entry_t	interface,
 	// get the controller node
 	kr = IORegistryEntryGetParentEntry(interface, kIOServicePlane, &controller);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = %d", kr);
 		goto done;
 	}
 
@@ -2690,7 +2696,7 @@ createInterface(io_registry_entry_t	interface,
 	// get the bus node
 	kr = IORegistryEntryGetParentEntry(controller, kIOServicePlane, &bus);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IORegistryEntryGetParentEntry() failed, kr = %d", kr);
 		goto done;
 	}
 
@@ -2701,7 +2707,7 @@ createInterface(io_registry_entry_t	interface,
 	// get the registry entry ID
 	kr = IORegistryEntryGetRegistryEntryID(interface, &entryID);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IORegistryEntryGetRegistryEntryID() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IORegistryEntryGetRegistryEntryID() failed, kr = %d", kr);
 		goto done;
 	}
 
@@ -2804,7 +2810,7 @@ findMatchingInterfaces(CFDictionaryRef	matching,
 
 	kr = IOServiceGetMatchingServices(masterPort, matching, &iterator);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = %d", kr);
 		return NULL;
 	}
 
@@ -4269,9 +4275,6 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 	if (CFEqual(ifType, kSCValNetInterfaceTypeEthernet) ||
 	    CFEqual(ifType, kSCValNetInterfaceTypeFireWire) ||
 	    (CFEqual(ifType, kSCValNetInterfaceTypePPP) && CFEqual(ifSubType, kSCValNetInterfaceSubTypePPPoE))) {
-		char			bsdName[IFNAMSIZ];
-		CFMutableDictionaryRef	matching;
-
 		if (!isA_CFString(ifDevice)) {
 			return NULL;
 		}
@@ -4286,11 +4289,13 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 				goto done;
 			}
 		} else if (useSystemInterfaces) {
+			char		bsdName[IFNAMSIZ];
+			CFDictionaryRef	matching;
+
 			if (_SC_cfstring_to_cstring(ifDevice, bsdName, sizeof(bsdName), kCFStringEncodingUTF8) == NULL) {
 				goto done;
 			}
-
-			matching = IOBSDNameMatching(masterPort, 0, bsdName);
+			matching = _SC_IONetworkInterfaceBSDNameMatching(bsdName);
 			if (matching == NULL) {
 				__SCNetworkInterfaceCacheAdd(ifDevice, NULL);
 				goto done;
@@ -5933,7 +5938,6 @@ SCNetworkInterfaceGetLocalizedDisplayName(SCNetworkInterfaceRef interface)
 }
 
 
-__private_extern__
 CFPropertyListRef
 __SCNetworkInterfaceGetTemplateOverrides(SCNetworkInterfaceRef interface, CFStringRef overrideType)
 {
@@ -7926,7 +7930,7 @@ _SCNetworkInterfaceCopySlashDevPath(SCNetworkInterfaceRef interface)
 	// note: this "matching" dictionary will be consumed by the call to IOServiceGetMatchingServices
 	kr = IOServiceGetMatchingServices(masterPort, matching, &device_iterator);
 	if (kr != kIOReturnSuccess) {
-		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = 0x%x", kr);
+		SC_log(LOG_INFO, "IOServiceGetMatchingServices() failed, kr = %d", kr);
 		goto done;
 	}
 

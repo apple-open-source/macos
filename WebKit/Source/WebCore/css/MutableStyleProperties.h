@@ -74,7 +74,7 @@ public:
     bool removeProperty(CSSPropertyID, String* returnText = nullptr);
     bool removeProperties(std::span<const CSSPropertyID>);
 
-    void mergeAndOverrideOnConflict(const StyleProperties&);
+    bool mergeAndOverrideOnConflict(const StyleProperties&);
 
     void clear();
     bool parseDeclaration(const String& styleDeclaration, CSSParserContext);
@@ -84,8 +84,6 @@ public:
 
     int findPropertyIndex(CSSPropertyID) const;
     int findCustomPropertyIndex(StringView propertyName) const;
-
-    Vector<CSSProperty, 4> m_propertyVector;
 
     // Methods for querying and altering CSS custom properties.
     bool setCustomProperty(const String& propertyName, const String& value, bool important, CSSParserContext);
@@ -105,6 +103,8 @@ private:
     bool canUpdateInPlace(const CSSProperty&, CSSProperty* toReplace) const;
 
     friend class StyleProperties;
+
+    Vector<CSSProperty, 4> m_propertyVector;
 };
 
 inline void MutableStyleProperties::deref() const

@@ -5,6 +5,7 @@ xinstall() {
 
 xmkdir() {
     for dir in "$@"; do
+        test -d "${dir}" || \
         install -g "${INSTALL_GROUP}" -o "${INSTALL_OWNER}" \
           -m "${INSTALL_MODE_DIR:-0755}" -d "${dir}" || return $?
     done

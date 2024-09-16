@@ -63,15 +63,25 @@ setup(void)
 	wrapped_zone.calloc = NULL;
 }
 
-T_DECL(optional_apis, "Restrict zone API to what is supported by wrapped zone")
+T_DECL(optional_apis, "Restrict zone API to what is supported by wrapped zone", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 
 	malloc_zone_t *z = &zone->malloc_zone;
-	T_EXPECT_NOTNULL(z->batch_malloc, "batch_malloc() is always supported");
-	T_EXPECT_NOTNULL(z->batch_free, "batch_free() is always supported");
-	T_EXPECT_NULL(z->memalign, "memalign() is optional");
-	T_EXPECT_NULL(z->free_definite_size, "free_definite_size() is optional");
+
+	// Always supported
+	T_EXPECT_NOTNULL(z->batch_malloc, NULL);
+	T_EXPECT_NOTNULL(z->batch_free, NULL);
+	T_EXPECT_NOTNULL(z->pressure_relief, NULL);
+	T_EXPECT_NOTNULL(z->malloc_with_options, NULL);
+
+	// Never supported
+	T_EXPECT_NULL(z->try_free_default, NULL);
+
+	// Supported if wrapped zone has it
+	T_EXPECT_NULL(z->memalign, NULL);
+	T_EXPECT_NULL(z->free_definite_size, NULL);
+	T_EXPECT_NULL(z->claimed_address, NULL);
 }
 
 static size_t wrapped_zone_malloc_expected_size = size;
@@ -84,7 +94,8 @@ wrapped_zone_malloc(malloc_zone_t *zone, size_t size)
 }
 
 T_DECL(delegate_unsampled, "delegation of unsampled allocations",
-		T_META_ENVVAR("MallocProbGuardAllocations=1"))
+		T_META_ENVVAR("MallocProbGuardAllocations=1"),
+		T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.malloc = wrapped_zone_malloc;
@@ -115,7 +126,7 @@ wrapped_zone_free(malloc_zone_t *zone, void *ptr)
 	wrapped_zone_free_call_count++;
 }
 
-T_DECL(delegate_unguarded, "delegation of unguarded deallocations")
+T_DECL(delegate_unguarded, "delegation of unguarded deallocations", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.free = wrapped_zone_free;
@@ -133,7 +144,7 @@ T_DECL(delegate_unguarded, "delegation of unguarded deallocations")
 	T_EXPECT_EQ(wrapped_zone_free_call_count, 1, "delegate unguarded");
 }
 
-T_DECL(size, "size is rounded up to multiple of 16")
+T_DECL(size, "size is rounded up to multiple of 16", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	size_t requested_sizes[] = {0, 1, 16, 17, 32, 33, 48, 49};
@@ -153,7 +164,7 @@ is_aligned(void *ptr, uintptr_t alignment)
 	return ((uintptr_t)ptr % alignment) == 0;
 }
 
-T_DECL(alignment, "alignments")
+T_DECL(alignment, "alignments", T_META_TAG_VM_PREFERRED)
 {
 	wrapped_zone.memalign = malloc_default_zone()->memalign;
 	setup();
@@ -174,7 +185,7 @@ wrapped_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 	return ++wrapped_zone_memalign_ret_value;
 }
 
-T_DECL(memalign_invalid_alignment, "memalign delegates for invalid alignment")
+T_DECL(memalign_invalid_alignment, "memalign delegates for invalid alignment", T_META_TAG_VM_PREFERRED)
 {
 	wrapped_zone.memalign = wrapped_zone_memalign;
 	setup();
@@ -190,7 +201,7 @@ wrapped_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)
 	return (void *)7;
 }
 
-T_DECL(calloc_overflow, "calloc delegates on overflow")
+T_DECL(calloc_overflow, "calloc delegates on overflow", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.calloc = wrapped_zone_calloc;
@@ -215,7 +226,8 @@ is_zeroed_page(uint8_t *ptr)
 T_DECL(calloc_zeroed_memory, "calloc provides zeroed memory",
 		T_META_ENVVAR("MallocProbGuardSlots=2"),
 		T_META_ENVVAR("MallocProbGuardMetadata=2"),
-		T_META_ENVVAR("MallocProbGuardAllocations=1"))
+		T_META_ENVVAR("MallocProbGuardAllocations=1"),
+		T_META_TAG_VM_PREFERRED)
 {
 	setup();
 
@@ -234,7 +246,7 @@ T_DECL(calloc_zeroed_memory, "calloc provides zeroed memory",
 	T_EXPECT_TRUE(is_zeroed_page(ptr3), "zeroed page");
 }
 
-T_DECL(realloc_null_pointer, "realloc forwards to malloc for null pointers")
+T_DECL(realloc_null_pointer, "realloc forwards to malloc for null pointers", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.malloc = wrapped_zone_malloc;
@@ -250,7 +262,8 @@ wrapped_zone_realloc(malloc_zone_t *zone, void *ptr, size_t new_size)
 	return (void *)9;
 }
 
-T_DECL(realloc_unguarded_and_unsampled, "realloc only delegates for old-unguarded and new-unsampled combination")
+T_DECL(realloc_unguarded_and_unsampled, "realloc only delegates for old-unguarded and new-unsampled combination",
+		T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.realloc = wrapped_zone_realloc;
@@ -260,7 +273,8 @@ T_DECL(realloc_unguarded_and_unsampled, "realloc only delegates for old-unguarde
 }
 
 T_DECL(batch_malloc, "batch_malloc implementation",
-		T_META_ENVVAR("MallocProbGuardAllocations=2"))
+		T_META_ENVVAR("MallocProbGuardAllocations=2"),
+		T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.malloc = wrapped_zone_malloc;
@@ -277,7 +291,7 @@ T_DECL(batch_malloc, "batch_malloc implementation",
 	T_EXPECT_EQ(results[2], (void *)1, "Wrapped zone allocation");
 }
 
-T_DECL(batch_free, "batch_free implementation")
+T_DECL(batch_free, "batch_free implementation", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	wrapped_zone.free = wrapped_zone_free;
@@ -309,7 +323,7 @@ range_recorder(task_t task, void *context, unsigned type, vm_range_t *range, uns
 	T_QUIET; T_EXPECT_EQ(count, 1, NULL);
 }
 
-T_DECL(introspection_enumerator, "In-process block enumeration")
+T_DECL(introspection_enumerator, "In-process block enumeration", T_META_TAG_VM_PREFERRED)
 {
 	setup();
 	expected_ranges[0] = (vm_range_t){(vm_address_t)CALL(malloc,  7), 16};

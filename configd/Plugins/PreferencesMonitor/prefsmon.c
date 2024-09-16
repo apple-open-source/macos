@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -333,6 +333,7 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	Boolean		quiet		= FALSE;
 	Boolean		timeout		= FALSE;
 	Boolean		updated		= FALSE;
+	Boolean		preconfigured_updated = FALSE;
 
 	/*
 	 * Capture/process InterfaceNamer[.bundle] info
@@ -379,7 +380,6 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 			preconfigured = CFDictionaryGetValue(dict, kInterfaceNamerKey_PreConfiguredInterfaces);
 			preconfigured = isA_CFArray(preconfigured);
 			if (!_SC_CFEqual(preconfigured, preconfigured_names)) {
-				Boolean		preconfigured_updated;
 
 				preconfigured_updated = findInterfaces(preconfigured, &preconfigured_interfaces, &preconfigured_names);
 				if (preconfigured_updated) {
@@ -393,8 +393,6 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 					}
 					SC_log(LOG_INFO, "pre-configured interface list changed: %@", interfaces);
 					CFRelease(interfaces);
-
-					updated = TRUE;
 				}
 			}
 		}
@@ -420,10 +418,10 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 		}
 	}
 
-	if (updated && (changedKeys != NULL)) {
-		// if pre-configured interface list changed
-		updateConfiguration(S_prefs, kSCPreferencesNotificationApply,
-				    NULL);
+	if ((updated || preconfigured_updated) && changedKeys != NULL) {
+		CFBooleanRef	preconfigured = updated ? NULL : kCFBooleanTrue;
+
+		updateConfiguration(S_prefs, kSCPreferencesNotificationApply, (void *)preconfigured);
 	}
 
 	return;
@@ -626,8 +624,309 @@ excludeConfigurations(SCPreferencesRef prefs)
 }
 
 
+static CFDictionaryRef
+copyDictionaryWithKeyValue(CFStringRef key, CFTypeRef value)
+{
+	return CFDictionaryCreate(NULL,
+				  (const void * *)&key, (const void * *)&value,
+				  1,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+}
+
+static CFDictionaryRef
+getIPv4DHCPDictionary(void)
+{
+	static CFDictionaryRef	dict;
+
+	if (dict == NULL) {
+		dict = copyDictionaryWithKeyValue(kSCPropNetIPv4ConfigMethod,
+						  kSCValNetIPv4ConfigMethodDHCP);
+	}
+	return (dict);
+}
+
+static CFDictionaryRef
+getIPv6AutomaticDictionary(void)
+{
+	static CFDictionaryRef	dict;
+
+	if (dict == NULL) {
+		dict = copyDictionaryWithKeyValue(kSCPropNetIPv6ConfigMethod,
+						  kSCValNetIPv6ConfigMethodAutomatic);
+	}
+	return (dict);
+}
+
+static CFDictionaryRef
+copyServiceDictionary(CFStringRef user_defined_name, CFStringRef rank)
+{
+	int		count;
+#define N_SERVICE_KEYS	2
+	const void *	keys[N_SERVICE_KEYS];
+	const void *	values[N_SERVICE_KEYS];
+
+	keys[0] = kSCPropUserDefinedName;
+	values[0] = user_defined_name;
+	count = 1;
+	if (rank != NULL) {
+		keys[1] = kSCPropNetServicePrimaryRank;
+		values[1] = rank;
+		count = 2;
+	}
+	return CFDictionaryCreate(NULL,
+				  keys,
+				  values,
+				  count,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+}
+
+static CFDictionaryRef
+getProxiesDictionary(void)
+{
+	static CFDictionaryRef	dict;
+	CFStringRef 		keys[] = {
+		kSCPropNetProxiesExceptionsList,
+		kSCPropNetProxiesFTPPassive,
+	};
+	CFTypeRef 		values[] = {
+		NULL,
+		NULL,
+	};
+	if (dict == NULL) {
+		CFArrayRef	array;
+		CFStringRef	exceptions[] = {
+			CFSTR("*.local"),
+			CFSTR("169.254/16"),
+		};
+		CFNumberRef	passive;
+		int		val = 1;
+
+		array = CFArrayCreate(NULL, (const void * *)exceptions,
+				      sizeof(exceptions) / sizeof(exceptions[0]),
+				      &kCFTypeArrayCallBacks);
+		values[0] = array;
+		passive = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		values[1] = passive;
+		dict = CFDictionaryCreate(NULL,
+					  (const void * *)keys,
+					  (const void * *)values,
+					  sizeof(keys) / sizeof(*keys),
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+		CFRelease(array);
+		CFRelease(passive);
+	}
+	return (dict);
+}
+
+static CFDictionaryRef
+copyInterfaceDictionary(CFStringRef if_name, CFStringRef if_type,
+			CFStringRef user_defined_name)
+{
+	CFStringRef keys[] = {
+		kSCPropNetInterfaceDeviceName,
+		kSCPropNetInterfaceHardware,
+		kSCNetworkInterfaceHiddenConfigurationKey,
+		kSCPropNetInterfaceType,
+		kSCPropUserDefinedName,
+	};
+	CFTypeRef values[] = {
+		if_name,
+		if_type,
+		kCFBooleanTrue,
+		if_type,
+		user_defined_name,
+	};
+	return CFDictionaryCreate(NULL,
+				  (const void * *)keys, (const void * *)values,
+				  sizeof(keys) / sizeof(*keys),
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+}
+
+static inline CFStringRef
+setupServiceKeyCreate(CFStringRef serviceID, CFStringRef entity)
+{
+	return SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+						   kSCDynamicStoreDomainSetup,
+						   serviceID,
+						   entity);
+}
+
 static void
-updatePreConfiguredConfiguration(SCPreferencesRef prefs)
+addPreconfiguredIPv4(CFMutableDictionaryRef dict,
+		     SCNetworkInterfaceRef netif,
+		     CFStringRef serviceID)
+{
+	CFStringRef	key;
+	CFDictionaryRef value;
+
+	key = setupServiceKeyCreate(serviceID, kSCEntNetIPv4);
+	value = __SCNetworkInterfaceGetTemplateOverrides(netif, kSCEntNetIPv4);
+	if (isA_CFDictionary(value) == NULL) {
+		value = getIPv4DHCPDictionary();
+	}
+	CFDictionarySetValue(dict, key, value);
+	__SC_CFRELEASE(key);
+}
+
+static void
+addPreconfiguredIPv6(CFMutableDictionaryRef dict,
+		     SCNetworkInterfaceRef netif,
+		     CFStringRef serviceID)
+{
+	CFStringRef	key;
+	CFDictionaryRef value;
+
+	key = setupServiceKeyCreate(serviceID, kSCEntNetIPv6);
+	value = __SCNetworkInterfaceGetTemplateOverrides(netif, kSCEntNetIPv6);
+	if (isA_CFDictionary(value) == NULL) {
+		value = getIPv6AutomaticDictionary();
+	}
+	CFDictionarySetValue(dict, key, value);
+	__SC_CFRELEASE(key);
+}
+
+static void
+addPreconfiguredInterface(CFMutableDictionaryRef dict, CFStringRef serviceID,
+			  CFStringRef if_name, CFStringRef if_type,
+			  CFStringRef localized_name)
+{
+	CFStringRef	key;
+	CFDictionaryRef value;
+
+	key = setupServiceKeyCreate(serviceID, kSCEntNetInterface);
+	value = copyInterfaceDictionary(if_name, if_type, localized_name);
+	CFDictionarySetValue(dict, key, value);
+	__SC_CFRELEASE(key);
+	__SC_CFRELEASE(value);
+}
+
+static void
+addPreconfiguredProxies(CFMutableDictionaryRef dict, CFStringRef serviceID)
+{
+	CFStringRef	key;
+	CFDictionaryRef value;
+
+	key = setupServiceKeyCreate(serviceID, kSCEntNetProxies);
+	value = getProxiesDictionary();
+	CFDictionarySetValue(dict, key, value);
+	__SC_CFRELEASE(key);
+}
+
+static void
+addPreconfiguredService(CFMutableDictionaryRef dict,
+			SCNetworkInterfaceRef netif,
+			CFStringRef serviceID,
+			CFStringRef localized_name)
+{
+	CFStringRef	key;
+	CFStringRef	rank;
+	CFDictionaryRef value;
+
+	rank = __SCNetworkInterfaceGetTemplateOverrides(netif,
+						kSCPropNetServicePrimaryRank);
+	rank = isA_CFString(rank);
+	key = setupServiceKeyCreate(serviceID, NULL);
+	value = copyServiceDictionary(localized_name, rank);
+	CFDictionarySetValue(dict, key, value);
+	__SC_CFRELEASE(key);
+	__SC_CFRELEASE(value);
+}
+
+/*
+ * Function: addPreconfiguredServices
+ * Purpose:
+ *   An Apple preconfigured interface has no persistent configuration, but it
+ *   still needs to be configured for the system to make use of it.
+ *   Instead of using the expensive SCNetworkConfiguration API,
+ *   use a set of static template configurations.
+ *
+ *   Use the driver-specified override configuration for IPv4 or IPv6 if it
+ *   is specified. If the PrimaryRank property is set, merge that into the
+ *   service configuration.
+ *
+ *   Populate the corresponding SCDynamicStore {key, value} pairs for all
+ *   of the entities after the other preferences.plist content has already
+ *   been flattened.
+ *
+ *   These services are not added to the ServiceOrder array, which means
+ *   they always sort last. No current use case requires any special
+ *   ordering. Wired CarPlay in particular specifies PrimaryRank = Never, so
+ *   can never become primary anyways. Other cases are either a point-to-point
+ *   interface between a Mac and a device, or an interface used with
+ *   ContentCaching/InternetSharing to provide internet to the device.
+ *
+ * Notes:
+ * 1) Uses a serviceID that is based on the interface name.
+ *
+ * 2) The template configuration uses the following {key, value} pairs:
+ *     Setup:/Network/Service/<serviceID>/IPv4 : <dictionary> {
+ *         ConfigMethod : DHCP
+ *     }
+ *     Setup:/Network/Service/<serviceID>/IPv6 : <dictionary> {
+ *         ConfigMethod : Automatic
+ *     }
+ *     Setup:/Network/Service/<serviceID>/Interface : <dictionary> {
+ *         DeviceName : <if-name>
+ *         Hardware : <if-type>
+ *         HiddenConfiguration : TRUE
+ *         Type : <if-type>
+ *         UserDefinedName : <localized-name>
+ *     }
+ *     Setup:/Network/Service/<serviceID>/Proxies : <dictionary> {
+ *         ExceptionsList : <array> {
+ *             0 : *.local
+ *             1 : 169.254/16
+ *         }
+ *         FTPPassive : 1
+ *     }
+ *     Setup:/Network/Service/<serviceID> <dictionary> {
+ *         UserDefinedName : <localized-name>
+ *     }
+ */
+static void
+addPreconfiguredServices(CFMutableDictionaryRef dict)
+{
+	CFIndex		count;
+
+	if (preconfigured_interfaces == NULL) {
+		return;
+	}
+	count = CFArrayGetCount(preconfigured_interfaces);
+	for (CFIndex i = 0; i < count; i++) {
+		CFStringRef		if_name;
+		CFStringRef		if_type;
+		SCNetworkInterfaceRef	netif;
+		CFStringRef		localized_name;
+		CFStringRef		serviceID;
+
+		netif = CFArrayGetValueAtIndex(preconfigured_interfaces, i);
+		localized_name
+			= SCNetworkInterfaceGetLocalizedDisplayName(netif);
+		if (localized_name == NULL) {
+			localized_name = CFSTR("Preconfigured");
+		}
+		if_name = SCNetworkInterfaceGetBSDName(netif);
+		if_type = SCNetworkInterfaceGetInterfaceType(netif);
+		if (if_type == NULL) {
+			if_type = kSCValNetInterfaceTypeEthernet;
+		}
+		serviceID = _SC_copyInterfaceUUID(if_name);
+		addPreconfiguredIPv4(dict, netif, serviceID);
+		addPreconfiguredIPv6(dict, netif, serviceID);
+		addPreconfiguredInterface(dict, serviceID, if_name, if_type,
+					  localized_name);
+		addPreconfiguredProxies(dict, serviceID);
+		addPreconfiguredService(dict, netif, serviceID, localized_name);
+		__SC_CFRELEASE(serviceID);
+	}
+}
+
+static void
+removePreConfiguredConfiguration(SCPreferencesRef prefs)
 {
 	Boolean		ok;
 	CFRange		range;
@@ -703,40 +1002,6 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 				       SCErrorString(SCError()));
 			}
 		}
-	}
-
-	/*
-	 * Now, add a new network service for each pre-configured interface
-	 */
-	for (CFIndex i = 0; i < range.length; i++) {
-		CFStringRef		bsdName;
-		SCNetworkInterfaceRef	interface	= CFArrayGetValueAtIndex(preconfigured_interfaces, i);
-		SCNetworkServiceRef	service;
-
-		bsdName = SCNetworkInterfaceGetBSDName(interface);
-
-		// create network service
-		service = _SCNetworkServiceCreatePreconfigured(prefs, interface);
-		if (service == NULL) {
-			continue;
-		}
-
-		// add network service to the current set
-		ok = SCNetworkSetAddService(set, service);
-		if (!ok) {
-			SC_log(LOG_ERR, "could not add service for \"%@\": %s",
-			       bsdName,
-			       SCErrorString(SCError()));
-			SCNetworkServiceRemove(service);
-			CFRelease(service);
-			continue;
-		}
-
-		SC_log(LOG_INFO, "network service %@ added for \"%@\"",
-		       SCNetworkServiceGetServiceID(service),
-		       bsdName);
-
-		CFRelease(service);
 	}
 
 	CFRelease(set);
@@ -896,6 +1161,9 @@ updateSCDynamicStore(SCDynamicStoreRef store, SCPreferencesRef prefs)
 
 	/* add Setup: key */
 	CFDictionarySetValue(newPrefs, kSCDynamicStoreDomainSetup, dict);
+
+	/* add services for pre-configured interfaces */
+	addPreconfiguredServices(newPrefs);
 
 	/* compare current and new preferences */
 	CFDictionaryApplyFunction(newPrefs, updateCache, NULL);
@@ -1307,7 +1575,9 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    SCPreferencesNotification   notificationType,
 		    void			*info)
 {
-#pragma unused(info)
+	Boolean preconfigured_updated;
+
+	preconfigured_updated = (info != NULL);
 	if ((notificationType & kSCPreferencesNotificationCommit) != 0) {
 		if (!rofs) {
 			SCPreferencesSynchronize(prefs);
@@ -1318,7 +1588,9 @@ updateConfiguration(SCPreferencesRef		prefs,
 			haveConfiguration = TRUE;
 		}
 		/* copy configuration to preboot volume */
-		updatePrebootVolume();
+		if (!preconfigured_updated) {
+			updatePrebootVolume();
+		}
 #endif	/* TARGET_OS_OSX */
 	}
 
@@ -1331,8 +1603,8 @@ updateConfiguration(SCPreferencesRef		prefs,
 	/* adjust configuration for category-based services */
 	updateCategoryServices(prefs);
 
-	/* add any [Apple] pre-configured network services */
-	updatePreConfiguredConfiguration(prefs);
+	/* remove services for pre-configured interfaces */
+	removePreConfiguredConfiguration(prefs);
 
 	/* remove any excluded network services */
 	excludeConfigurations(prefs);

@@ -92,7 +92,7 @@
 #include <kern/policy_internal.h>
 #include <kern/mach_filter.h>
 
-#include <vm/vm_map.h>
+#include <vm/vm_map_xnu.h>
 
 #include <ipc/port.h>
 #include <ipc/ipc_types.h>

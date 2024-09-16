@@ -39,6 +39,7 @@
 #include "mylog.h"
 #include "util.h"
 #include <sys/stat.h>
+#include "IPConfigurationAgentUtil.h"
 
 #define IPCONFIGURATION_PRIVATE_DIR	"/var/db/dhcpclient"
 #define DHCPCLIENT_LEASES_DIR		IPCONFIGURATION_PRIVATE_DIR "/leases"

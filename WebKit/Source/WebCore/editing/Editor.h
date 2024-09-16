@@ -43,7 +43,7 @@
 #include "VisibleSelection.h"
 #include "WritingDirection.h"
 #include <memory>
-#include <wtf/CheckedRef.h>
+#include <wtf/WeakRef.h>
 
 #if PLATFORM(COCOA)
 OBJC_CLASS NSAttributedString;
@@ -76,6 +76,7 @@ class KillRing;
 class LocalFrame;
 class Pasteboard;
 class PasteboardWriterData;
+class RenderInline;
 class RenderLayer;
 class FragmentedSharedBuffer;
 class Font;
@@ -87,6 +88,7 @@ class Text;
 class TextCheckerClient;
 class TextEvent;
 class TextPlaceholderElement;
+class WritingSuggestionData;
 
 struct CompositionHighlight;
 struct DictationAlternative;
@@ -109,6 +111,7 @@ enum class MailBlockquoteHandling : bool {
 };
 
 #if ENABLE(ATTACHMENT_ELEMENT)
+class AttachmentAssociatedElement;
 class HTMLAttachmentElement;
 #endif
 
@@ -171,8 +174,9 @@ private:
     TemporarySelectionChange m_selectionChange;
 };
 
-class Editor : public CanMakeCheckedPtr {
+class Editor final : public CanMakeCheckedPtr<Editor> {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Editor);
 public:
     explicit Editor(Document&);
     ~Editor();
@@ -204,7 +208,6 @@ public:
 
     WEBCORE_EXPORT bool canCut() const;
     WEBCORE_EXPORT bool canCopy() const;
-    WEBCORE_EXPORT bool canPaste() const;
     WEBCORE_EXPORT bool canDelete() const;
     WEBCORE_EXPORT bool canSmartCopyOrDelete();
     bool shouldSmartDelete();
@@ -234,8 +237,6 @@ public:
 
     String readPlainTextFromPasteboard(Pasteboard&);
 
-    WEBCORE_EXPORT void indent();
-    WEBCORE_EXPORT void outdent();
     void transpose();
 
     bool shouldInsertFragment(DocumentFragment&, const std::optional<SimpleRange>&, EditorInsertAction);
@@ -282,6 +283,11 @@ public:
     WEBCORE_EXPORT void applyStyleToSelection(StyleProperties*, EditAction);
     WEBCORE_EXPORT void applyStyleToSelection(Ref<EditingStyle>&&, EditAction, ColorFilterMode);
     void applyParagraphStyleToSelection(StyleProperties*, EditAction);
+
+#if ENABLE(WRITING_TOOLS)
+    bool suppressEditingForWritingTools() const { return m_suppressEditingForWritingTools; }
+    void setSuppressEditingForWritingTools(bool suppress) { m_suppressEditingForWritingTools = suppress; }
+#endif
 
     // Returns whether or not we should proceed with editing.
     bool willApplyEditing(CompositeEditCommand&, Vector<RefPtr<StaticRange>>&&);
@@ -398,6 +404,10 @@ public:
     // international text input composition
     bool hasComposition() const { return m_compositionNode; }
     WEBCORE_EXPORT void setComposition(const String&, const Vector<CompositionUnderline>&, const Vector<CompositionHighlight>&, const HashMap<String, Vector<CharacterRange>>&, unsigned selectionStart, unsigned selectionEnd);
+#if PLATFORM(COCOA)
+    WEBCORE_EXPORT void setWritingSuggestion(const String&, const CharacterRange& selection);
+#endif
+    WEBCORE_EXPORT void setOffset(uint64_t);
     WEBCORE_EXPORT void confirmComposition();
     WEBCORE_EXPORT void confirmComposition(const String&); // if no existing composition, replaces selection
     void confirmOrCancelCompositionAndNotifyClient();
@@ -552,8 +562,14 @@ public:
     WEBCORE_EXPORT void readSelectionFromPasteboard(const String& pasteboardName);
     WEBCORE_EXPORT void replaceNodeFromPasteboard(Node&, const String& pasteboardName, EditAction = EditAction::Paste);
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    WEBCORE_EXPORT void insertMultiRepresentationHEIC(const std::span<const uint8_t>&, const String&);
+#endif
+
     static RefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *);
     static RefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *);
+
+    static bool writingSuggestionsSupportsSuffix();
 #endif
 
 #if PLATFORM(MAC)
@@ -587,7 +603,7 @@ public:
     void registerAttachmentIdentifier(const String&, const String& contentType, const String& preferredFileName, Ref<FragmentedSharedBuffer>&& fileData);
     void registerAttachments(Vector<SerializedAttachmentData>&&);
     void registerAttachmentIdentifier(const String&, const String& contentType, const String& filePath);
-    void registerAttachmentIdentifier(const String&, const HTMLImageElement&);
+    void registerAttachmentIdentifier(const String&, const AttachmentAssociatedElement&);
     void cloneAttachmentData(const String& fromIdentifier, const String& toIdentifier);
     void didInsertAttachmentElement(HTMLAttachmentElement&);
     void didRemoveAttachmentElement(HTMLAttachmentElement&);
@@ -603,6 +619,16 @@ public:
 
     bool isPastingFromMenuOrKeyBinding() const { return m_pastingFromMenuOrKeyBinding; }
     bool isCopyingFromMenuOrKeyBinding() const { return m_copyingFromMenuOrKeyBinding; }
+
+    WEBCORE_EXPORT Node* nodeBeforeWritingSuggestions() const;
+    Element* writingSuggestionsContainerElement() const;
+    WritingSuggestionData* writingSuggestionData() const { return m_writingSuggestionData.get(); }
+    bool isInsertingTextForWritingSuggestion() const { return m_isInsertingTextForWritingSuggestion; }
+
+    RenderInline* writingSuggestionRenderer() const;
+    void setWritingSuggestionRenderer(RenderInline&);
+
+    WEBCORE_EXPORT void closeTyping();
 
 private:
     Document& document() const { return m_document.get(); }
@@ -659,6 +685,8 @@ private:
 
     void postTextStateChangeNotificationForCut(const String&, const VisibleSelection&);
 
+    void removeWritingSuggestionIfNeeded();
+
     WeakPtr<EditorClient> m_client;
     WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     RefPtr<CompositeEditCommand> m_lastEditCommand;
@@ -677,10 +705,18 @@ private:
     EditorParagraphSeparator m_defaultParagraphSeparator { EditorParagraphSeparator::div };
     bool m_overwriteModeEnabled { false };
 
+#if ENABLE(WRITING_TOOLS)
+    bool m_suppressEditingForWritingTools { false };
+#endif
+
 #if ENABLE(ATTACHMENT_ELEMENT)
     MemoryCompactRobinHoodHashSet<String> m_insertedAttachmentIdentifiers;
     MemoryCompactRobinHoodHashSet<String> m_removedAttachmentIdentifiers;
 #endif
+
+    std::unique_ptr<WritingSuggestionData> m_writingSuggestionData;
+    SingleThreadWeakPtr<RenderInline> m_writingSuggestionRenderer;
+    bool m_isInsertingTextForWritingSuggestion { false };
 
     VisibleSelection m_mark;
     bool m_areMarkedTextMatchesHighlighted { false };

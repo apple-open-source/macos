@@ -1348,7 +1348,7 @@ charname2(wchar_t wc)
 static char *
 show(int c)
 {
-	static char buf[5];
+	static char buf[16];
 
 	if (c >=32 && c <= 126)
 		sprintf(buf, "'%c' ", c);

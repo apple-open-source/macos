@@ -35,6 +35,15 @@ class SQLiteTransaction;
 }
 
 namespace WebKit {
+class SQLiteStorageArea;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::SQLiteStorageArea> : std::true_type { };
+}
+
+namespace WebKit {
 
 class SQLiteStorageArea final : public StorageAreaBase {
 public:
@@ -74,7 +83,8 @@ private:
     WebCore::SQLiteStatementAutoResetScope cachedStatement(StatementType);
     Expected<String, StorageError> getItem(const String& key);
     Expected<String, StorageError> getItemFromDatabase(const String& key);
-    bool handleDatabaseCorruptionIfNeeded(int databaseError);
+    enum class IsDatabaseDeleted : bool { No, Yes };
+    IsDatabaseDeleted handleDatabaseErrorIfNeeded(int databaseError);
     void updateCacheIfNeeded(const String& key, const String& value);
     bool requestSpace(const String& key, const String& value);
 

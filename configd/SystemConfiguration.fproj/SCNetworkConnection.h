@@ -254,8 +254,8 @@ SCNetworkConnectionGetTypeID			(void)			API_AVAILABLE(macos(10.3)) SPI_AVAILABLE
 Boolean
 SCNetworkConnectionCopyUserPreferences		(
 						CFDictionaryRef				  __nullable	selectionOptions,
-						CFStringRef		__nonnull	* __nullable	serviceID,
-						CFDictionaryRef		__nonnull	* __nullable	userOptions
+						CFStringRef		__nullable	* __nonnull	serviceID,
+						CFDictionaryRef		__nullable	* __nonnull	userOptions
 						)			API_AVAILABLE(macos(10.3)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 

@@ -28,14 +28,16 @@
 
 #pragma once
 
+#include <mach/exclaves.h>
 #include <mach/kern_return.h>
 #include <kern/kern_types.h>
 #include <kern/kern_cdata.h>
 #include <kern/thread.h>
 #include <sys/cdefs.h>
 
-
 #if CONFIG_EXCLAVES
+
+#include <kern/exclaves.tightbeam.h>
 
 __BEGIN_DECLS
 
@@ -49,7 +51,6 @@ extern void exclaves_inspection_begin_collecting(void);
 extern void exclaves_inspection_wait_complete(queue_t exclaves_inspection_queue);
 
 extern void exclaves_inspection_check_ast(void);
-extern bool exclaves_inspection_is_initialized(void);
 
 extern bool exclaves_stackshot_raw_addresses;
 extern bool exclaves_stackshot_all_address_spaces;
@@ -71,8 +72,6 @@ exclaves_inspection_queue_add(queue_t queue, queue_entry_t elm)
 	enqueue_head(queue, elm);
 }
 
-uint32_t exclaves_stack_offset(uintptr_t * out_addr, size_t nframes, bool slid_addresses);
-
 struct exclaves_panic_stackshot {
 	uint8_t *stackshot_buffer;
 	uint64_t stackshot_buffer_size;
@@ -89,6 +88,10 @@ extern exclaves_panic_ss_status_t exclaves_panic_ss_status;
 
 /* Attempt to read Exclave panic stackshot data */
 void kdp_read_panic_exclaves_stackshot(struct exclaves_panic_stackshot *eps);
+
+/* Convert exclaves stackshot data from tightbeam structures into kcdata. */
+kern_return_t
+stackshot_exclaves_process_stackshot(const stackshot_stackshotresult_s *result, void *kcdata_ptr, bool want_raw_addresses);
 
 __END_DECLS
 

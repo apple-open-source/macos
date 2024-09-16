@@ -19,7 +19,7 @@
 
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CFRunLoop.h>
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 #include "keychain/ckks/CKKS.h"
 
 int main(int argc, char *argv[])

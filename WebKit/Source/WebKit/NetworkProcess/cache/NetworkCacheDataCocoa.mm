@@ -26,7 +26,7 @@
 #import "config.h"
 #import "NetworkCacheData.h"
 
-#import "SharedMemory.h"
+#import <WebCore/SharedMemory.h>
 #import <dispatch/dispatch.h>
 #import <sys/mman.h>
 #import <sys/stat.h>
@@ -34,9 +34,9 @@
 namespace WebKit {
 namespace NetworkCache {
 
-Data::Data(const uint8_t* data, size_t size)
-    : m_dispatchData(adoptOSObject(dispatch_data_create(data, size, nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT)))
-    , m_size(size)
+Data::Data(std::span<const uint8_t> data)
+    : m_dispatchData(adoptOSObject(dispatch_data_create(data.data(), data.size(), nullptr, DISPATCH_DATA_DESTRUCTOR_DEFAULT)))
+    , m_size(data.size())
 {
 }
 
@@ -52,7 +52,7 @@ Data Data::empty()
     return { OSObjectPtr<dispatch_data_t> { dispatch_data_empty } };
 }
 
-const uint8_t* Data::data() const
+std::span<const uint8_t> Data::span() const
 {
     if (!m_data && m_dispatchData) {
         const void* data;
@@ -61,7 +61,7 @@ const uint8_t* Data::data() const
         ASSERT(size == m_size);
         m_data = static_cast<const uint8_t*>(data);
     }
-    return m_data;
+    return { m_data, m_size };
 }
 
 bool Data::isNull() const
@@ -105,12 +105,12 @@ Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::Platfor
     return { WTFMove(bodyMap), Data::Backing::Map };
 }
 
-RefPtr<SharedMemory> Data::tryCreateSharedMemory() const
+RefPtr<WebCore::SharedMemory> Data::tryCreateSharedMemory() const
 {
     if (isNull() || !isMap())
         return nullptr;
 
-    return SharedMemory::wrapMap(const_cast<uint8_t*>(data()), m_size, SharedMemory::Protection::ReadOnly);
+    return WebCore::SharedMemory::wrapMap(span(), WebCore::SharedMemory::Protection::ReadOnly);
 }
 
 }

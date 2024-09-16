@@ -47,6 +47,7 @@ extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notificat
 extern void _DAServerCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 extern kern_return_t _DAServerSessionCancel( mach_port_t _session );
 extern void _DAVolumeMountedCallback( void );
+extern void _DADiskCreateFromFSStat(struct statfs *fs);
 extern void _DAVolumeUnmountedCallback( void );
 extern void _DAVolumeUpdatedCallback( void );
 #if TARGET_OS_OSX

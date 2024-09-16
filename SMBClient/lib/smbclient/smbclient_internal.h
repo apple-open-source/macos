@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -92,28 +92,40 @@ extern "C" {
 #define SMBFS_MNT_FORCE_NEW_SESSION         0x20000000
 #define SMBFS_MNT_DUR_HANDLE_LOCKFID_ONLY   0x40000000
 #define SMBFS_MNT_HIFI_DISABLED             0x80000000
+#define SMBFS_MNT_COMPRESSION_CHAINING_OFF  0x100000000
+#define SMBFS_MNT_MC_CLIENT_RSS_FORCE_ON    0x200000000
+
+/* Compression algorithm bitmap */
+#define SMB2_COMPRESSION_LZNT1_ENABLED          0x00000001
+#define SMB2_COMPRESSION_LZ77_ENABLED           0x00000002
+#define SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED   0x00000004
+#define SMB2_COMPRESSION_PATTERN_V1_ENABLED     0x00000008
 
 /*
  * Async Read/Write defaults
  * Minimum credits is 64 credits. Default of 2 MB will use just 32 credits
+ *
+ * Note that smb_tcpsndbuf/smb_tcprcvbuf will limit the max quantum size that
+ * can be used.
  */
 
-/* Anything smaller than this is broken up into quantum sizes */
-#define kMaxSingleIO (512 * 1024)
+/* Anything bigger than this is broken up into quantum sizes */
+#define kMaxSingleIO (1024 * 1024)
 
-#define kSmallReadQuantumSize (128 * 1024)          /* 10 gigE non jumbo frames */
-#define kReadMediumQuantumSize (512 * 1024)         /* Sealing being used */
-#define kLargeReadQuantumSize ((1024 + 256) * 1024) /* 10 gigE jumbo frames */
+#define kSmallReadQuantumSize (256 * 1024)
+#define kReadMediumQuantumSize (512 * 1024)
+#define kLargeReadQuantumSize (1024  * 1024)
 
-#define kSmallWriteQuantumSize (256 * 1024)         /* 10 gigE non jumbo frames */
-#define kWriteMediumQuantumSize (512 * 1024)        /* Sealing being used */
-#define kLargeWriteQuantumSize (1024 * 1024)        /* 10 gigE jumbo frames */
+#define kSmallWriteQuantumSize (256 * 1024)
+#define kWriteMediumQuantumSize (512 * 1024)
+#define kLargeWriteQuantumSize (1024 * 1024)
 
-#define kQuantumMaxNumber 8     /* Used with kSmallQuantumSize (16-32 credits). Must be smaller than kSmallMTUMaxNumber */
-#define kQuantumMedNumber 8     /* Used with kMediumQuantumSize (64 credits) */
-#define kQuantumMinNumber 6     /* Used with kLargeQuantumSize (96-180 credits) */
+#define kQuantumMaxNumber 8     /* Used with kSmallQuantumSize */
+#define kQuantumMedNumber 8     /* Used with kMediumQuantumSize */
+#define kQuantumMinNumber 8     /* Used with kLargeQuantumSize */
 
 #define kSmallMTUMaxNumber 16   /* If no large MTU, then max number of requests */
+#define kQuantumNumberLimit 255
 
 #define kQuantumRecheckTimeOut 60
 

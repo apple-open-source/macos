@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <wtf/ProcessID.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -127,7 +127,9 @@ bool WebMemorySampler::isRunning() const
     
 void WebMemorySampler::initializeTempLogFile()
 {
-    m_sampleLogFilePath = FileSystem::openTemporaryFile(processName(), m_sampleLogFile);
+    auto result = FileSystem::openTemporaryFile(processName());
+    m_sampleLogFilePath = result.first;
+    m_sampleLogFile = result.second;
     writeHeaders();
 }
 
@@ -143,8 +145,8 @@ void WebMemorySampler::initializeSandboxedLogFile(SandboxExtension::Handle&& sam
 
 void WebMemorySampler::writeHeaders()
 {
-    auto processDetails = makeString("Process: ", processName(), " Pid: ", getCurrentProcessID(), '\n').utf8();
-    FileSystem::writeToFile(m_sampleLogFile, processDetails.data(), processDetails.length());
+    auto processDetails = makeString("Process: "_s, processName(), " Pid: "_s, getCurrentProcessID(), '\n').utf8();
+    FileSystem::writeToFile(m_sampleLogFile, processDetails.span());
 }
 
 void WebMemorySampler::sampleTimerFired()
@@ -178,7 +180,7 @@ void WebMemorySampler::appendCurrentMemoryUsageToFile(FileSystem::PlatformFileHa
     statString.append('\n');
 
     CString utf8String = statString.toString().utf8();
-    FileSystem::writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
+    FileSystem::writeToFile(m_sampleLogFile, utf8String.span());
 }
 
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>BlackAlpha</key>
@@ -7,28 +7,40 @@
 	<key>BlackDiffuse</key>
 	<real>0.2850877046585083</real>
 	<key>BlackShininess</key>
-	<real>25.263158798217773</real>
+	<real>25.26315879821777</real>
 	<key>BlackSpecular</key>
-	<real>0.21491228044033051</real>
+	<real>0.2149122804403305</real>
+	<key>BlackRoughness</key>
+	<real>0.2</real>
+	<key>BlackMetallic</key>
+	<real>0</real>
+	<key>BlackAmbientOcclusion</key>
+	<real>0.75</real>
 	<key>BorderAlpha</key>
 	<real>1</real>
 	<key>BorderDiffuse</key>
-	<real>0.73245614767074585</real>
+	<real>0.7324561476707458</real>
 	<key>BorderShininess</key>
-	<real>0.0</real>
+	<real>0</real>
 	<key>BorderSpecular</key>
-	<real>0.0</real>
+	<real>0</real>
 	<key>LabelIntensity</key>
-	<real>0.61842107772827148</real>
+	<real>0.6184210777282715</real>
 	<key>Reflectivity</key>
-	<real>0.62719297409057617</real>
+	<real>0.6271929740905762</real>
 	<key>WhiteAlpha</key>
 	<real>1</real>
 	<key>WhiteDiffuse</key>
 	<real>1</real>
 	<key>WhiteShininess</key>
-	<real>78.035087585449219</real>
+	<real>78.03508758544922</real>
 	<key>WhiteSpecular</key>
-	<real>0.76754385232925415</real>
+	<real>0.7675438523292542</real>
+	<key>WhiteRoughness</key>
+	<real>0.2</real>
+	<key>WhiteMetallic</key>
+	<real>0</real>
+	<key>WhiteAmbientOcclusion</key>
+	<real>0.75</real>
 </dict>
 </plist>

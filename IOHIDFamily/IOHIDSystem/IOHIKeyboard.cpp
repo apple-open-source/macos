@@ -37,14 +37,15 @@
 #include "IOHIDFamilyTrace.h"
 #include "ev_private.h"
 #include "IOHIDDebug.h"
+#include <libkern/c++/OSValueObject.h>
 
 //************************************************************************
 // KeyboardReserved
 //
 // RY: The following was added because the IOHIKeyboard class doesn't have
 // a reserved field defined.  Essentially what this does is create a
-// static dictionary that stores OSData objects for each keyboard.  These
-// OSData objects will be added and removed as each keyboard enters and
+// static dictionary that stores OSValueObjects for each keyboard.  These
+// OSValueObjects will be added and removed as each keyboard enters and
 // leaves the system.
 
 struct KeyboardReserved
@@ -58,6 +59,8 @@ struct KeyboardReserved
     IOService *		openClient;
     //IOHIDKeyboardDevice *	keyboardNub;
 };
+
+OSDefineValueObjectForDependentType(KeyboardReserved);
 
 static OSArray  *gKeyboardReservedArray = OSArray::withCapacity(4);
 IOLock          *gKeyboardReservedArrayLock = IOLockAlloc();
@@ -77,7 +80,7 @@ static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard 
                     obj->retain();
                     IOLockUnlock(gKeyboardReservedArrayLock);
                     
-                    OSData * data = OSDynamicCast(OSData, obj);
+                    OSValueObject<KeyboardReserved> * data = OSDynamicCast(OSValueObject<KeyboardReserved>, obj);
                     if (data) {
                         retVal = (KeyboardReserved *)data->getBytesNoCopy();
                         if (retVal && (retVal->service == service)) {
@@ -108,14 +111,14 @@ static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard 
 static void AppendNewKeyboardReservedStructForService(IOHIKeyboard *service)
 {
     KeyboardReserved 	temp;
-    OSData 		* data		= 0;
+    OSValueObject<KeyboardReserved> * data = 0;
     
     if (gKeyboardReservedArray)
     {
         bzero(&temp, sizeof(KeyboardReserved));
         temp.repeatMode = true;
         temp.service = service;
-        data = OSData::withBytes(&temp, sizeof(KeyboardReserved));
+        data = OSValueObject<KeyboardReserved>::withValue(temp);
         IOLockLock(gKeyboardReservedArrayLock);
         gKeyboardReservedArray->setObject(data);
         IOLockUnlock(gKeyboardReservedArrayLock);

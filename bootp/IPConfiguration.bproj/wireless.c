@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
  * July 6, 2020 	Dieter Siegmund (dieter@apple.com)
  * - moved out of ipconfigd.c
  */
+#include <TargetConditionals.h>
 #include "wireless.h"
 #include "util.h"
 #include "cfutil.h"
@@ -43,6 +44,25 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <pthread.h>
 
+#if TARGET_OS_OSX
+
+static bool S_hide_bssid;
+
+PRIVATE_EXTERN void
+WiFiInfoSetHideBSSID(bool hide)
+{
+	my_log(LOG_NOTICE, "BSSID %shidden", hide ? "" : "not ");
+	S_hide_bssid = hide;
+}
+
+STATIC bool
+WiFiInfoGetHideBSSID(void)
+{
+	return (S_hide_bssid);
+}
+
+#endif /* TARGET_OS_OSX */
+
 struct WiFiInfo {
 	CFRuntimeBase	cf_base;
 
@@ -52,9 +72,9 @@ struct WiFiInfo {
 	CFStringRef		ssid;
 	CFStringRef		networkID;
 	WiFiAuthType		auth_type;
-	Boolean			private_bssid_set;
 	struct ether_addr	bssid;
-	struct ether_addr	private_bssid;
+	CFStringRef		bssid_string;
+	bool			allow_sharing_device_type;
 };
 
 /**
@@ -83,27 +103,25 @@ __WiFiInfoCopyDebugDesc(CFTypeRef cf)
 {
 	CFAllocatorRef		allocator = CFGetAllocator(cf);
 	WiFiAuthType		auth_type;
-	char			bssid[LINK_ADDR_ETHER_STR_LEN];
 	WiFiInfoRef		info_p = (WiFiInfoRef)cf;
 	CFStringRef		networkID;
 	CFMutableStringRef	str;
 
 	str = CFStringCreateMutable(allocator, 0);
 	auth_type = WiFiInfoGetAuthType(info_p);
-	link_addr_to_string(bssid, sizeof(bssid),
-			    (const uint8_t *)WiFiInfoGetBSSID(info_p),
-			    ETHER_ADDR_LEN);
 	STRING_APPEND(str,
 		      "<WiFiInfo %p [%p]> { SSID \"%@\""
-		      " BSSID %s Security %s",
+		      " BSSID %@ Security %s",
 		      cf, allocator,
 		      WiFiInfoGetSSID(info_p),
-		      bssid,
+		      WiFiInfoGetBSSIDString(info_p),
 		      WiFiAuthTypeGetString(auth_type));
 	networkID = WiFiInfoGetNetworkID(info_p);
 	if (networkID != NULL) {
 		STRING_APPEND(str, " NetworkID %@", networkID);
 	}
+	STRING_APPEND(str, " AllowSharingDeviceType=%s",
+		      WiFiInfoAllowSharingDeviceType(info_p) ? "1" : "0");
 	STRING_APPEND_STR(str, " }");
 	return (str);
 }
@@ -116,6 +134,7 @@ __WiFiInfoDeallocate(CFTypeRef cf)
 
 	my_CFRelease(&info_p->ssid);
 	my_CFRelease(&info_p->networkID);
+	my_CFRelease(&info_p->bssid_string);
 	return;
 }
 
@@ -170,7 +189,7 @@ WiFiInfoCopy(CFStringRef ifname)
 
 #else /* NO_WIRELESS */
 
-#include <Apple80211/Apple80211API.h>
+#include <IO80211/Apple80211API.h>
 #include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
 
 #define _CASSERT(x)	_Static_assert(x, "compile-time assertion failed")
@@ -316,47 +335,42 @@ copy_networkID(Apple80211Ref wref)
 	}
 	return (networkID);
 }
+
+
+#define HAVE_DHCP_ALLOW_IOCTL	1
+
+STATIC bool
+get_allow_sharing_device_type(Apple80211Ref wref)
+{
+#if HAVE_DHCP_ALLOW_IOCTL
+	Apple80211Err		error;
+	bool			ret = false;
+	uint32_t		status;
+
+	error = Apple80211Get(wref,
+			      APPLE80211_IOC_DEVICE_TYPE_IN_DHCP_ALLOW,
+			      0,
+			      &status,
+			      sizeof(status));
+	if (error != kA11NoErr) {
+		my_log(LOG_NOTICE,
+		       "Apple80211Get(APPLE80211_IOC_DEVICE_TYPE_IN_DHCP_ALLOW)"
+		       "failed, 0x%x", error);
+	}
+	else {
+		ret = (status == 1);
+		my_log(LOG_NOTICE, "Allow Sharing Device Type is %s",
+		       ret ? "true" : "false");
+	}
+	return (ret);
+#else /* HAVE_DHCP_ALLOW_IOCTL */
+#pragma unused (wref)
+	return (false);
+#endif /* HAVE_DHCP_ALLOW_IOCTL */
+}
+
 #include <CommonCrypto/CommonHMAC.h>
 #include <sys/sysctl.h>
-
-STATIC void
-WiFiInfoComputePrivateBSSID(WiFiInfoRef info_p)
-{
-	struct {
-		struct timeval 	boottime;
-		char		hostname[256];
-	} key;
-	size_t		key_size;
-	uint8_t 	hash[CC_SHA256_DIGEST_LENGTH];
-	int 		mib[2] = { CTL_KERN, KERN_BOOTTIME };
-	size_t 		size;
-
-	if (info_p->private_bssid_set) {
-		return;
-	}
-	bzero(&key, sizeof(key));
-	size = sizeof(key.boottime);
-	if (sysctl(mib, 2, &key.boottime, &size, NULL, 0) == -1) {
-		my_log(LOG_NOTICE,
-		       "%s: sysctl(kern.boottime) failed, %s",
-		       __func__, strerror(errno));
-		goto done;
-	}
-	if (gethostname(key.hostname, sizeof(key.hostname)) != 0) {
-		my_log(LOG_NOTICE,
-		       "%s: gethostname() failed, %s",
-		       __func__, strerror(errno));
-		goto done;
-	}
-	key_size = sizeof(key.boottime) + strlen(key.hostname);
-	CCHmac(kCCHmacAlgSHA256, &key, key_size,
-	       &info_p->bssid, sizeof(info_p->bssid), hash);
-	bcopy(hash, &info_p->private_bssid,
-	      sizeof(info_p->private_bssid));
- done:
-	info_p->private_bssid_set = TRUE;
-	return;
-}
 
 PRIVATE_EXTERN WiFiInfoRef
 WiFiInfoCopy(CFStringRef ifname)
@@ -386,6 +400,8 @@ WiFiInfoCopy(CFStringRef ifname)
 		info_p->bssid = bssid;
 		info_p->auth_type = get_wifi_auth_type(wref);
 		info_p->networkID = copy_networkID(wref);
+		info_p->allow_sharing_device_type
+			= get_allow_sharing_device_type(wref);
 	}
 	CFRelease(ssid);
 
@@ -410,11 +426,26 @@ WiFiInfoGetBSSID(WiFiInfoRef w)
 	return (&w->bssid);
 }
 
-PRIVATE_EXTERN const struct ether_addr *
-WiFiInfoGetPrivateBSSID(WiFiInfoRef w)
+PRIVATE_EXTERN CFStringRef
+WiFiInfoGetBSSIDString(WiFiInfoRef w)
 {
-	WiFiInfoComputePrivateBSSID(w);
-	return (&w->private_bssid);
+#if TARGET_OS_OSX
+	if (WiFiInfoGetHideBSSID()) {
+		return (CFSTR("<redacted>"));
+	}
+#endif /* TARGET_OS_OSX */
+	if (w->bssid_string == NULL) {
+		char			bssid[LINK_ADDR_ETHER_STR_LEN];
+
+		link_addr_to_string(bssid, sizeof(bssid),
+				    (const uint8_t *)WiFiInfoGetBSSID(w),
+				    ETHER_ADDR_LEN);
+		w->bssid_string
+			= CFStringCreateWithCString(NULL,
+						    bssid,
+						    kCFStringEncodingUTF8);
+	}
+	return (w->bssid_string);
 }
 
 PRIVATE_EXTERN WiFiAuthType
@@ -500,6 +531,12 @@ WiFiInfoCompare(WiFiInfoRef info1, WiFiInfoRef info2)
 	return (result);
 }
 
+bool
+WiFiInfoAllowSharingDeviceType(WiFiInfoRef info)
+{
+	return (info->allow_sharing_device_type);
+}
+
 #if TEST_WIRELESS
 
 STATIC WiFiInfoRef
@@ -542,7 +579,7 @@ compare_info(const char * test, WiFiInfoRef info1, WiFiInfoRef info2,
 	WiFiInfoComparisonResult	result;
 
 	result = WiFiInfoCompare(info1, info2);
-	SCPrint(TRUE, stderr, CFSTR("%s: %@, %@\n"),
+	SCPrint(TRUE, stdout, CFSTR("%s: %@, %@\n"),
 		WiFiInfoComparisonResultGetString(result),
 		info1,
 		info2);
@@ -655,29 +692,15 @@ main(int argc, char * argv[])
 		info_p = WiFiInfoCopy(ifname);
 		if (info_p != NULL) {
 			WiFiAuthType	auth_type;
-			char		bssid[LINK_ADDR_ETHER_STR_LEN];
-			char		private_bssid[LINK_ADDR_ETHER_STR_LEN];
 
-			link_addr_to_string(bssid, sizeof(bssid),
-					    (const uint8_t *)
-					    WiFiInfoGetBSSID(info_p),
-					    ETHER_ADDR_LEN);
-			link_addr_to_string(private_bssid,
-					    sizeof(private_bssid),
-					    (const uint8_t *)
-					    WiFiInfoGetPrivateBSSID(info_p),
-					    ETHER_ADDR_LEN);
 			auth_type = WiFiInfoGetAuthType(info_p);
 			SCPrint(TRUE, stdout,
-				CFSTR("%@: SSID %@ BSSID %s Security %s"
+				CFSTR("%@: SSID %@ BSSID %@ Security %s"
 				      " NetworkID %@\n"),
 				ifname, WiFiInfoGetSSID(info_p),
-				bssid,
+				WiFiInfoGetBSSIDString(info_p),
 				WiFiAuthTypeGetString(auth_type),
 				WiFiInfoGetNetworkID(info_p));
-			SCPrint(TRUE, stdout,
-				CFSTR("Private BSSID %s\n"),
-				private_bssid);
 			SCPrint(TRUE, stdout,
 				CFSTR("%@: %@\n"), ifname, info_p);
 		}

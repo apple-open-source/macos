@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <Security/cssmerr.h>
+#include <Security/SecFramework.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/cfutilities.h>
@@ -1478,7 +1479,7 @@ void MDSSession::DbFilesInfo::updateSystemDbInfo(
 	 */
 	if (systemPath) {
 		string path;
-		if (CFRef<CFBundleRef> me = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")))
+		if (CFRef<CFBundleRef> me = SecFrameworkGetBundle())
 			if (CFRef<CFURLRef> url = CFBundleCopyBundleURL(me))
 				if (CFRef<CFStringRef> cfpath = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle))
 					path = cfString(cfpath);	// path to my bundle

@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardViewDraw.mm
 	Contains:	Draw chess board
-	Copyright:	� 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 	
 	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
@@ -49,6 +49,7 @@
 #import "MBCBoardViewDraw.h"
 #import "MBCBoardViewModels.h"
 #import "MBCBoardViewTextures.h"
+#import "MBCDrawStyle.h"
 
 #import <math.h>
 #import <OpenGL/glu.h>
@@ -57,51 +58,6 @@
 #import <vector>
 
 using std::min;
-
-@implementation MBCDrawStyle
-
-- (id) init
-{
-	fTexture	= 0;
-
-	return self;
-}
-
-- (id) initWithTexture:(GLuint)tex
-{
-	fTexture	= tex;
-	fDiffuse	= 1.0f;
-	fSpecular	= 0.2f;
-	fShininess	= 5.0f;
-	fAlpha		= 1.0f;
-
-	return self;
-}
-
-- (void) unloadTexture
-{
-	if (fTexture)
-		glDeleteTextures(1, &fTexture);
-}
-
-- (void) startStyle:(float)alpha
-{
-	GLfloat white_texture_color[4] 	= 
-		{fDiffuse, fDiffuse, fDiffuse, fAlpha*alpha};
-	GLfloat emission_color[4] 		= 
-		{0.0f, 0.0f, 0.0f, fAlpha*alpha};
-	GLfloat specular_color[4] 		= 
-		{fSpecular, fSpecular, fSpecular, fAlpha*alpha};
-
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white_texture_color);
-	glMaterialfv(GL_FRONT, GL_EMISSION, emission_color);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, specular_color);
-	glMaterialf(GL_FRONT, GL_SHININESS, fShininess);
-	glBindTexture(GL_TEXTURE_2D, fTexture);
-}
-
-@end
 
 @implementation MBCBoardView ( Draw )
 

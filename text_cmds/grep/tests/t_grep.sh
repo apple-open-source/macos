@@ -980,6 +980,26 @@ zgrep_multiple_files_body()
 	echo bar > test2
 	atf_check -s exit:1 zgrep foo test1 test2
 }
+
+#ifdef __APPLE__
+atf_test_case binlocale
+binlocale_head()
+{
+	atf_set "descr" "rdar://problem/112930177 - binary files have no locale"
+}
+
+binlocale_body()
+{
+
+	# d_binlocale.in has a nul terminator to make it a binary file, and the
+	# character immediately preceding "Hello" would make it look like a two
+	# byte UTF-8 sequence.  Therefore, if we aren't handling this properly,
+	# we won't match on "Hello" because the "H" has been consumed by the
+	# preceding character.
+	atf_check -o inline:"Hello\n" env LC_ALL=en_US.UTF-8 \
+	    grep -ao "Hello" $(atf_get_srcdir)/d_binlocale.in
+}
+#endif
 # End FreeBSD
 
 atf_init_test_cases()
@@ -1036,5 +1056,8 @@ atf_init_test_cases()
 	atf_add_test_case mflag
 	atf_add_test_case mflag_trail_ctx
 	atf_add_test_case zgrep_multiple_files
+#ifdef __APPLE__
+	atf_add_test_case binlocale
+#endif
 # End FreeBSD
 }

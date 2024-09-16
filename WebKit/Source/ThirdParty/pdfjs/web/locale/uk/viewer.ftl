@@ -288,7 +288,7 @@ pdfjs-text-annotation-type =
 
 pdfjs-password-label = Введіть пароль для відкриття цього PDF-файла.
 pdfjs-password-invalid = Невірний пароль. Спробуйте ще.
-pdfjs-password-ok-button = Гаразд
+pdfjs-password-ok-button = OK
 pdfjs-password-cancel-button = Скасувати
 pdfjs-web-fonts-disabled = Веб-шрифти вимкнено: неможливо використати вбудовані у PDF шрифти.
 
@@ -303,6 +303,29 @@ pdfjs-editor-ink-button-label = Малювати
 pdfjs-editor-stamp-button =
     .title = Додати чи редагувати зображення
 pdfjs-editor-stamp-button-label = Додати чи редагувати зображення
+pdfjs-editor-highlight-button =
+    .title = Підсвітити
+pdfjs-editor-highlight-button-label = Підсвітити
+pdfjs-highlight-floating-button =
+    .title = Підсвітити
+pdfjs-highlight-floating-button1 =
+    .title = Підсвітити
+    .aria-label = Підсвітити
+pdfjs-highlight-floating-button-label = Підсвітити
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Вилучити малюнок
+pdfjs-editor-remove-freetext-button =
+    .title = Вилучити текст
+pdfjs-editor-remove-stamp-button =
+    .title = Вилучити зображення
+pdfjs-editor-remove-highlight-button =
+    .title = Вилучити підсвічування
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Колір
 pdfjs-editor-free-text-size-input = Розмір
@@ -312,6 +335,10 @@ pdfjs-editor-ink-opacity-input = Прозорість
 pdfjs-editor-stamp-add-image-button =
     .title = Додати зображення
 pdfjs-editor-stamp-add-image-button-label = Додати зображення
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Товщина
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Змінюйте товщину під час підсвічування елементів, крім тексту
 pdfjs-free-text =
     .aria-label = Текстовий редактор
 pdfjs-free-text-default-content = Почніть вводити…
@@ -341,11 +368,37 @@ pdfjs-editor-alt-text-textarea =
 ## Editor resizers
 ## This is used in an aria label to help to understand the role of the resizer.
 
-pdfjs-editor-resizer-label-top-left = Верхній лівий кут — зміна розміру
-pdfjs-editor-resizer-label-top-middle = Вгорі посередині — зміна розміру
-pdfjs-editor-resizer-label-top-right = Верхній правий кут — зміна розміру
-pdfjs-editor-resizer-label-middle-right = Праворуч посередині — зміна розміру
-pdfjs-editor-resizer-label-bottom-right = Нижній правий кут — зміна розміру
-pdfjs-editor-resizer-label-bottom-middle = Внизу посередині — зміна розміру
-pdfjs-editor-resizer-label-bottom-left = Нижній лівий кут — зміна розміру
-pdfjs-editor-resizer-label-middle-left = Ліворуч посередині — зміна розміру
+pdfjs-editor-resizer-label-top-left = Верхній лівий кут – зміна розміру
+pdfjs-editor-resizer-label-top-middle = Вгорі посередині – зміна розміру
+pdfjs-editor-resizer-label-top-right = Верхній правий кут – зміна розміру
+pdfjs-editor-resizer-label-middle-right = Праворуч посередині – зміна розміру
+pdfjs-editor-resizer-label-bottom-right = Нижній правий кут – зміна розміру
+pdfjs-editor-resizer-label-bottom-middle = Внизу посередині – зміна розміру
+pdfjs-editor-resizer-label-bottom-left = Нижній лівий кут – зміна розміру
+pdfjs-editor-resizer-label-middle-left = Ліворуч посередині – зміна розміру
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Колір підсвічування
+pdfjs-editor-colorpicker-button =
+    .title = Змінити колір
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Вибір кольору
+pdfjs-editor-colorpicker-yellow =
+    .title = Жовтий
+pdfjs-editor-colorpicker-green =
+    .title = Зелений
+pdfjs-editor-colorpicker-blue =
+    .title = Блакитний
+pdfjs-editor-colorpicker-pink =
+    .title = Рожевий
+pdfjs-editor-colorpicker-red =
+    .title = Червоний
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Показати все
+pdfjs-editor-highlight-show-all-button =
+    .title = Показати все

@@ -4,7 +4,13 @@
 <dict>
     <key>com.apple.application-identifier</key>
     <string>com.apple.fskit.msdos</string>
+    <key>com.apple.developer.fskit.fsmodule</key>
+    <true/>
     <key>com.apple.security.app-sandbox</key>
     <true/>
+    <key>com.apple.security.temporary-exception.iokit-user-client-class</key>
+    <string>AppleLIFSUserClient</string>
+    <key>com.apple.security.exception.iokit-user-client-class</key>
+    <string>AppleLIFSUserClient</string>
 </dict>
 </plist>

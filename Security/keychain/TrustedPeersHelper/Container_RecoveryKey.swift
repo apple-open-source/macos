@@ -113,7 +113,7 @@ extension Container {
                     do {
                         sponsor = try self.model.peer(withID: sponsorPeerID)
                     } catch {
-                        logger.warning("preflightRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing:error), privacy: .public)")
+                        logger.warning("preflightRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }
@@ -261,7 +261,7 @@ extension Container {
                     do {
                         sponsor = try self.model.peer(withID: sponsorPeerID)
                     } catch {
-                        logger.warning("preflightCustodianRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing:error), privacy: .public)")
+                        logger.warning("preflightCustodianRecoveryKey Error finding peer with ID \(sponsorPeerID, privacy: .public): \(String(describing: error), privacy: .public)")
                         reply(nil, nil, error)
                         return
                     }

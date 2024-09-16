@@ -1432,19 +1432,30 @@ S_forget_network(mach_port_t server, int argc, char * argv[])
 static int
 S_set_hide_BSSID(mach_port_t server, int argc, char * argv[])
 {
+    char *		arg = argv[0];
     int			enable;
+    Boolean		success = FALSE;
 
     errno = 0;
-    enable = (int)strtol(argv[0], NULL, 0);
-    if (enable == 0 && errno != 0) {
-        fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
-        return (1);
+    if (strcasecmp(arg, "default") == 0) {
+	success = IPConfigurationControlPrefsSetHideBSSIDDefault();
+	if (!success) {
+	    fprintf(stderr, "failed to set hide BSSID\n");
+	}
     }
-    if (!IPConfigurationControlPrefsSetHideBSSID(enable != 0)) {
-        fprintf(stderr, "failed to hide BSSID\n");
-        return (1);
+    else {
+	enable = (int)strtol(arg, NULL, 0);
+	if (enable == 0 && errno != 0) {
+	    fprintf(stderr,
+		    "conversion to integer of %s failed\n", arg);
+	    return (1);
+	}
+	success = IPConfigurationControlPrefsSetHideBSSID(enable != 0);
+	if (!success) {
+	    fprintf(stderr, "failed to set hide BSSID\n");
+	}
     }
-    return (0);
+    return (success ? 0 : 1);
 }
 #endif
 
@@ -1511,7 +1522,7 @@ static const struct command_info {
     { "getdhcpduidtype", S_get_dhcp_duid_type, 0, NULL, 0, 1 },
     { "forgetNetwork", S_forget_network, 2, "<interface name> <ssid>", 0, 0},
 #if TARGET_OS_OSX
-    { "setHideBSSID", S_set_hide_BSSID, 1, "0 | 1", 0, 1},
+    { "setHideBSSID", S_set_hide_BSSID, 1, "0 | 1 | default", 0, 1},
 #endif
     { NULL, NULL, 0, NULL, 0, 0 },
 };

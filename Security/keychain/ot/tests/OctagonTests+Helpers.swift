@@ -31,6 +31,19 @@ extension EstablishRequest {
     }
 }
 
+extension JoinWithVoucherRequest {
+    func permanentInfo() -> TPPeerPermanentInfo {
+        XCTAssertTrue(self.hasPeer, "joinWithVoucher request should have a peer")
+        XCTAssertTrue(self.peer.hasPermanentInfoAndSig, "joinWithVoucher request should have a permanentInfo")
+        let newPermanentInfo = TPPeerPermanentInfo(peerID: self.peer.peerID,
+                                                   data: self.peer.permanentInfoAndSig.peerPermanentInfo,
+                                                   sig: self.peer.permanentInfoAndSig.sig,
+                                                   keyFactory: TPECPublicKeyFactory())
+        XCTAssertNotNil(newPermanentInfo, "should be able to make a permanantInfo from protobuf")
+        return newPermanentInfo!
+    }
+}
+
 extension OctagonTestsBase {
     func simulateRestart(context: OTCuttlefishContext) -> OTCuttlefishContext {
         self.tphClient.containerMap.removeContainer(name: ContainerName(container: context.containerName, context: context.contextID))
@@ -46,12 +59,28 @@ extension OctagonTestsBase {
         return newContext
     }
 
-    func otconfigurationContextFor(context: OTCuttlefishContext) throws -> OTConfigurationContext {
+    func createOTConfigurationContextForTests(contextID: String,
+                                              otControl: OTControl? = nil,
+                                              altDSID: String? = nil,
+                                              sbd: Any? = nil,
+                                              authenticationAppleID: String? = nil,
+                                              passwordEquivalentToken: String? = nil,
+                                              octagonCapableRecordsExist: Bool = false,
+                                              overrideForJoinAfterRestore: Bool = false,
+                                              ckksControl: CKKSControl? = nil) -> OTConfigurationContext {
+
         let otcliqueContext = OTConfigurationContext()
-        otcliqueContext.context = context.contextID
-        otcliqueContext.altDSID = context.activeAccount?.altDSID
-        otcliqueContext.otControl = self.otControl
-        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        otcliqueContext.context = contextID
+        otcliqueContext.otControl = otControl ?? self.otControl
+        otcliqueContext.containerName = OTCKContainerName
+        otcliqueContext.altDSID = altDSID
+        otcliqueContext.testsEnabled = true
+        otcliqueContext.sbd = sbd ?? OTMockSecureBackup(bottleID: nil, entropy: nil)
+        otcliqueContext.authenticationAppleID = authenticationAppleID
+        otcliqueContext.passwordEquivalentToken = passwordEquivalentToken
+        otcliqueContext.octagonCapableRecordsExist = octagonCapableRecordsExist
+        otcliqueContext.overrideForJoinAfterRestore = overrideForJoinAfterRestore
+        otcliqueContext.ckksControl = ckksControl
         return otcliqueContext
     }
 
@@ -62,7 +91,7 @@ extension OctagonTestsBase {
     }
 
     func cliqueFor(context: OTCuttlefishContext) -> OTClique {
-        return OTClique(contextData: try! self.otconfigurationContextFor(context: context))
+        return OTClique(contextData: self.createOTConfigurationContextForTests(contextID: context.contextID))
     }
 
     func assertFetchUserControllableViewsSyncStatus(clique: OTClique, status: Bool, file: StaticString = #file, line: UInt = #line) {
@@ -72,6 +101,20 @@ extension OctagonTestsBase {
         } catch {
             XCTFail("Should be no error fetching status: \(error)", file: file, line: line)
         }
+    }
+
+    func assertFetchUserControllableViewsSyncStatusAsync(clique: OTClique, status: Bool, file: StaticString = #file, line: UInt = #line) {
+        let fetchExpectation = self.expectation(description: "fetch callback occurs")
+        let asyncExpectation = self.expectation(description: "function is truly async")
+        clique.fetchUserControllableViewsSyncingEnabledAsync { result, error in
+            self.wait(for: [asyncExpectation], timeout: 10)
+
+            XCTAssertEqual(result, status, "API should report that sync status matches expectation", file: file, line: line)
+            XCTAssertNil(error, "Should be no error fetching status")
+            fetchExpectation.fulfill()
+        }
+        asyncExpectation.fulfill()
+        self.wait(for: [fetchExpectation], timeout: 10)
     }
 
     func assertModifyUserViews(clique: OTClique, intendedSyncStatus: Bool, file: StaticString = #file, line: UInt = #line) {

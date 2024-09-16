@@ -40,7 +40,7 @@
 #include "HTMLDivElement.h"
 #include "Logging.h"
 #include "RenderElement.h"
-#include "ShadowPseudoIds.h"
+#include "UserAgentParts.h"
 #include "VTTCue.h"
 #include "VTTScanner.h"
 #include "WebVTTParser.h"
@@ -65,11 +65,6 @@ VTTRegion::VTTRegion(ScriptExecutionContext& context)
 }
 
 VTTRegion::~VTTRegion() = default;
-
-void VTTRegion::setTrack(TextTrack* track)
-{
-    m_track = track;
-}
 
 void VTTRegion::setId(const String& id)
 {
@@ -314,7 +309,7 @@ HTMLDivElement& VTTRegion::getDisplayTree()
 {
     if (!m_regionDisplayTree) {
         m_regionDisplayTree = HTMLDivElement::create(downcast<Document>(*scriptExecutionContext()));
-        m_regionDisplayTree->setPseudo(ShadowPseudoIds::webkitMediaTextTrackRegion());
+        m_regionDisplayTree->setUserAgentPart(UserAgentParts::webkitMediaTextTrackRegion());
         m_recalculateStyles = true;
     }
 
@@ -337,7 +332,7 @@ void VTTRegion::prepareRegionDisplayTree()
     // gradually scrolled out as multiple cues are appended to the region.
     if (!m_cueContainer) {
         m_cueContainer = HTMLDivElement::create(downcast<Document>(*scriptExecutionContext()));
-        m_cueContainer->setPseudo(ShadowPseudoIds::webkitMediaTextTrackRegionContainer());
+        m_cueContainer->setUserAgentPart(UserAgentParts::webkitMediaTextTrackRegionContainer());
         m_regionDisplayTree->appendChild(*m_cueContainer);
     }
 

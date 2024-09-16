@@ -32,10 +32,13 @@
 #include <assert.h>
 #include <err.h>
 #include <getopt.h>
+#include <limits.h>
+#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <xpc/xpc.h>
 
@@ -50,9 +53,27 @@
 #define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
 #endif
 
+/* The trailing slash is important, will be glued to WRAPPER_NAME later. */
+#define	_PATH_VARSEL	"/var/select/"
+
 #if !defined(WRAPPER_ANALYTICS_IDENT) && defined(WRAPPER_ANALYTICS_TESTING)
 #error shim was improperly modified to remove the analytics identifier
 #endif
+
+/*
+ * Wrappers can specify regular expressions to capture argument values.  We
+ * capture those here; the expression will only be compiled exactly once, just
+ * in case an argument appears multiple times.  We put the storage for that in
+ * arg_expr directly, which might get kind of costly but our wrappers aren't
+ * that large to begin with.
+ */
+struct arg_expr {
+	regex_t		 expr_reg;
+	const char	*expr_str;
+	size_t		 expr_count;
+	bool		 expr_compiled;
+	bool		 expr_error;
+};
 
 /*
  * The wrapper generator will provide an array of struct application that we
@@ -77,6 +98,12 @@ struct application {
 	 */
 	const char		*app_optstr;
 	const struct option	*app_longopts;
+
+	size_t			 app_nlogonly;
+	const bool		*app_logonly_opts;
+
+	struct arg_expr		*app_shortopt_expr;
+	struct arg_expr		*app_longopt_expr;
 
 	/*
 	 * Relative paths are relative to cwd, rather than to the selected

@@ -33,7 +33,6 @@
 #include "WebEventModifier.h"
 #include "WebEventType.h"
 
-#include <wtf/EnumTraits.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/UUID.h>
@@ -65,6 +64,7 @@ public:
 
     WallTime timestamp() const { return m_timestamp; }
 
+    bool isActivationTriggeringEvent() const;
     WTF::UUID authorizationToken() const { return m_authorizationToken; }
 
 private:

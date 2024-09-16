@@ -125,7 +125,7 @@ versions of the algorithms include the hash size as part of the function names:
 .Fn CC_SHA512_Final ,
 .Fn CC_SHA512
 .Sh RETURN VALUES
-All routines return 1 except for the one-shot routines (
+All routines return 1 upon success and NULL upon failure, except for the one-shot routines (
 .Fn CC_SHA1 ,
 etc.), which
 return the pointer passed in via the md parameter.

@@ -34,6 +34,9 @@
 
 struct _citrus_mapper_area;
 struct _citrus_mapper;
+#ifdef __APPLE__
+struct _citrus_mapper_convert_ctx;
+#endif
 struct _citrus_mapper_ops;
 struct _citrus_mapper_traits;
 
@@ -50,6 +53,9 @@ int	 _citrus_mapper_open_direct(
 	    const char *__restrict, const char *__restrict);
 void	 _citrus_mapper_close(struct _citrus_mapper *);
 void	 _citrus_mapper_set_persistent(struct _citrus_mapper * __restrict);
+#ifdef __APPLE__
+int	 _citrus_mapper_get_mapdir_from_key(const char *);
+#endif
 __END_DECLS
 
 #include "citrus_mapper_local.h"
@@ -62,6 +68,35 @@ __END_DECLS
 #define _CITRUS_MAPPER_CONVERT_ILSEQ		(4)
 #define _CITRUS_MAPPER_CONVERT_FATAL		(5)
 #define _CITRUS_MAPPER_CONVERT_TRANSLIT		(6)
+
+#ifdef __APPLE__
+/*
+ * We lop off two of the top bits to encode a direction for certain classes of
+ * failures.  The caller (generally iconv_std) will use this to determine what
+ * kind of fallback needs to take place upon error.
+ *
+ * Note that the return value is technically signed, even if we won't be using
+ * negative values, so we're explicitly avoiding shifting into the sign bit.
+ */
+#define	_CITRUS_MAPPER_CONVERT_DIR_SHIFT	29
+#define	_CITRUS_MAPPER_CONVERT_DIR_MASK		\
+    (MDIR_UCS_BOTH << _CITRUS_MAPPER_CONVERT_DIR_SHIFT)
+
+/* Encode a dir in _CITRUS_MAPPER_CONVERT bits */
+#define	_CITRUS_MAPPER_CONVERT_ENCODE_DIR(x)	\
+    (((x) & MDIR_UCS_BOTH) << _CITRUS_MAPPER_CONVERT_DIR_SHIFT)
+
+/* Combine a dir with an error value. */
+#define	_CITRUS_MAPPER_CONVERT_COMBINE(dir, err)	\
+    (_CITRUS_MAPPER_CONVERT_ENCODE_DIR(dir) | (err))
+
+/* Extract a dir, error from _CITRUS_MAPPER_CONVERT bits */
+#define	_CITRUS_MAPPER_CONVERT_DIR(x)		\
+    (((x) >> _CITRUS_MAPPER_CONVERT_DIR_SHIFT) & MDIR_UCS_BOTH)
+#define	_CITRUS_MAPPER_CONVERT_ERROR(x)		\
+    ((x) & ~_CITRUS_MAPPER_CONVERT_DIR_MASK)
+
+#endif
 
 /*
  * _citrus_mapper_convert:
@@ -81,8 +116,7 @@ __END_DECLS
 static __inline int
 #ifdef __APPLE__
 _citrus_mapper_convert(struct _citrus_mapper * __restrict cm,
-    _citrus_index_t * __restrict dst, _citrus_index_t *src, int *cnt,
-    void * __restrict ps)
+    struct _citrus_mapper_convert_ctx *ctx)
 #else
 _citrus_mapper_convert(struct _citrus_mapper * __restrict cm,
     _citrus_index_t * __restrict dst, _citrus_index_t src,
@@ -91,7 +125,7 @@ _citrus_mapper_convert(struct _citrus_mapper * __restrict cm,
 {
 
 #ifdef __APPLE__
-	return ((*cm->cm_ops->mo_convert)(cm, dst, src, cnt, ps));
+	return ((*cm->cm_ops->mo_convert)(cm, ctx));
 #else
 	return ((*cm->cm_ops->mo_convert)(cm, dst, src, ps));
 #endif

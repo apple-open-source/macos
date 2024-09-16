@@ -1265,7 +1265,6 @@ _voucher_libkernel_init(void)
 #define _voucher_libkernel_init()
 #endif
 
-
 void
 voucher_activity_initialize_4libtrace(voucher_activity_hooks_t hooks)
 {
@@ -1277,7 +1276,6 @@ voucher_activity_initialize_4libtrace(voucher_activity_hooks_t hooks)
 		DISPATCH_CLIENT_CRASH(_voucher_libtrace_hooks,
 				"voucher_activity_initialize_4libtrace called twice");
 	}
-
 
 	// HACK: we can't call into os_variant until after the initialization of
 	// dispatch and XPC, but we want to do it before the end of libsystem
@@ -1408,12 +1406,10 @@ _firehose_task_buffer_init(void *ctx OS_UNUSED)
 	}
 }
 
-
 DISPATCH_ALWAYS_INLINE
 static inline bool
 _voucher_activity_disabled(void)
 {
-
 	dispatch_once_f(&_firehose_task_buffer_pred,
 			NULL, _firehose_task_buffer_init);
 
@@ -1457,9 +1453,9 @@ voucher_activity_get_metadata_buffer(size_t *length)
 }
 
 voucher_t
-voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
+voucher_activity_create_with_data_2(firehose_tracepoint_id_t *trace_id,
 		voucher_t base, firehose_activity_flags_t flags,
-		const void *pubdata, size_t publen)
+		const void *pubdata, size_t publen, uint32_t append_flags)
 {
 	firehose_activity_id_t va_id = 0, current_id = 0, parent_id = 0;
 	firehose_tracepoint_id_u ftid = { .ftid_value = *trace_id };
@@ -1467,6 +1463,7 @@ voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
 	uint16_t pubsize;
 	voucher_t ov = _voucher_get();
 	voucher_t v;
+	bool reliable = !(append_flags & VOUCHER_ACTIVITY_TRACE_FLAG_UNRELIABLE);
 
 	if (os_add_overflow(sizeof(va_id), publen, &pubsize) || pubsize > 128) {
 		DISPATCH_CLIENT_CRASH(pubsize, "Absurd publen");
@@ -1507,7 +1504,6 @@ voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
 		goto done;
 	}
 
-
 	static const firehose_stream_t streams[2] = {
 		firehose_stream_metadata,
 		firehose_stream_persist,
@@ -1516,8 +1512,13 @@ voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
 	uint64_t stamp = firehose_tracepoint_time(flags);
 
 	for (size_t i = 0; i < countof(streams); i++) {
-		ft = _voucher_activity_tracepoint_reserve(stamp, streams[i], pubsize,
-				0, NULL, true);
+		if (streams[i] == firehose_stream_metadata) {
+			ft = _voucher_activity_tracepoint_reserve(stamp, streams[i], pubsize,
+					0, NULL, true);
+		} else {
+			ft = _voucher_activity_tracepoint_reserve(stamp, streams[i], pubsize,
+				    0, NULL, reliable);
+		}
 		if (unlikely(!ft)) continue;
 
 		uint8_t *pubptr = ft->ft_data;
@@ -1538,6 +1539,15 @@ done:
 	*trace_id = ftid.ftid_value;
 	_voucher_trace(CREATE, v, v->v_kvoucher, va_id);
 	return v;
+}
+
+voucher_t
+voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
+		voucher_t base, firehose_activity_flags_t flags,
+		const void *pubdata, size_t publen)
+{
+	return voucher_activity_create_with_data_2(trace_id, base, flags,
+			pubdata, publen, 0);
 }
 
 voucher_t

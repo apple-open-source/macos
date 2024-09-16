@@ -1,7 +1,7 @@
 /*
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
-	Copyright:	� 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -53,6 +53,8 @@
 #import "MBCGameInfo.h"
 #import "MBCUserDefaults.h"
 #import "MBCDebug.h"
+#import "MBCBoardWin.h"
+#import "MBCRecordingController.h"
 
 #ifdef CHESS_TUNER
 #import "MBCTuner.h"
@@ -66,9 +68,24 @@
 
 #import <CoreFoundation/CoreFoundation.h>
 
+#define MAIN_WINDOW_CONTROLLER_KEYPATH @"mainWindow.windowController"
+
+@interface MBCController () <MBCRecordingControllerDelegate> {
+    MBCRecordingController *_recordingController;
+}
+
+@end
+
 @implementation MBCController
 
 @synthesize localPlayer, logMouse, dumpLanguageModels, sharePlaySessionMenuItem;
+
+- (void)dealloc {
+    [_recordingController release];
+    [NSApp removeObserver:self forKeyPath:MAIN_WINDOW_CONTROLLER_KEYPATH];
+    
+    [super dealloc];
+}
 
 - (void)copyOpeningBook:(NSString *)book
 {
@@ -125,7 +142,7 @@
 
     fMatchesToLoad      = [[NSMutableArray alloc] init];
 
-    if ([self isSharePlayEnabled]){
+    if ([MBCUserDefaults isSharePlayEnabled]){
         NSLog(@"MBCController: Setting up shareplay session");
         //Setup SharePlay Session
         [[MBCSharePlayManager sharedInstance] configureSharePlaySessionWithCompletionHandler:nil];
@@ -134,7 +151,8 @@
         NSLog(@"MBCController: SharePlay feature is disabled");
     }
     
-    
+    [NSApp addObserver:self forKeyPath:MAIN_WINDOW_CONTROLLER_KEYPATH options:NSKeyValueObservingOptionNew context:NULL];
+
 	return self;
 }
 
@@ -143,6 +161,12 @@
 #ifdef CHESS_TUNER
 	[MBCTuner makeTuner];
 #endif
+    if ([MBCUserDefaults usingScreenCaptureKit]) {
+        if (@available(macOS 15, *)) {
+            // SCK record to file available in macOS 15
+            [self initializeForRecording];
+        }
+    }
 }
 
 - (IBAction) newGame:(id)sender
@@ -294,9 +318,9 @@
     achievement.showsCompletionBanner = achievement.percentComplete < 100.0;
     achievement.percentComplete = value;
     
-    [GKAchievement reportAchievements:[[NSArray alloc] initWithObjects:achievement, nil] withCompletionHandler:^(NSError *error) {
+    [GKAchievement reportAchievements:@[achievement] withCompletionHandler:^(NSError *error) {
         if (error) {
-            // we should report the error here
+            NSLog(@"Error reporting GKAchievement: %@", error);
         }
     }];
 }
@@ -304,15 +328,20 @@
 - (void)loadAchievements
 {
     [GKAchievement loadAchievementsWithCompletionHandler:^(NSArray *achievements, NSError *error) {
+        if (fAchievements) {
+            [fAchievements release];
+            fAchievements = nil;
+        }
         fAchievements = [[NSMutableDictionary alloc] initWithCapacity:[achievements count]];
-        for (GKAchievement * achievement in achievements) 
+        for (GKAchievement * achievement in achievements) {
             [fAchievements setObject:achievement forKey:achievement.identifier];
+        }
     }];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
-    if ([self isSharePlayEnabled]) {
+    if ([MBCUserDefaults isSharePlayEnabled]) {
         sharePlaySessionMenuItem.hidden = NO;
     }
     [[NSDocumentController sharedDocumentController] setAutosavingDelay:3.0];
@@ -433,6 +462,36 @@
     }
 }
 
+#pragma mark - Screen Recording
+
+- (void)initializeForRecording {
+    _recordingController = [[MBCRecordingController alloc] init];
+    _recordingController.delegate = self;
+}
+
+- (void)stopRecordingForWindow:(NSWindow *)window {
+    if (![_recordingController isRecordingWindow:window]) {
+        return;
+    }
+    
+    [_recordingController stopRecordingWindow:window completionHandler:^(NSError * _Nullable error) {
+        
+        // Save panel has been presented, clean up recording session.
+        [_recordingController cleanupRecordingSessionForWindow:window];
+    }];
+}
+
+- (void)recordingController:(MBCRecordingController *)recordingController 
+    didStartRecordingWindow:(NSWindow *)window {
+    // Called when the SCRecordingOutput has started recording.
+}
+
+- (void)recordingController:(MBCRecordingController *)recordingController
+     didStopRecordingWindow:(NSWindow *)window
+                      error:(NSError *)error {
+    // Called when recording stopped from Control Center or ScreenCaptureKit error.
+}
+
 #pragma mark - MBCSharePlayConnectionDelegate
 
 - (void) sharePlayConnectionEstablished {
@@ -453,12 +512,36 @@
     });
 }
 
-#pragma mark - MBCSharePlay
+/*!
+ @discussion Observing the NSApp mainWindow.windowController key path. When this value changes, will post notificaion
+ that the currentWindowController has changed on the MBCController. As a result, the reference bindings to currentWindowContrller
+ in MainMenu.xib will be triggered.
+ */
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                       context:(void *)context {
+    if ([keyPath isEqualToString:MAIN_WINDOW_CONTROLLER_KEYPATH]) {
+        // Notify of change, which will trigger reference bindings to currentWindowController in MainMenu.xib
+        [self willChangeValueForKey:@"currentWindowController"];
+        [self didChangeValueForKey:@"currentWindowController"];
+    } else {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+    }
+}
 
-- (BOOL) isSharePlayEnabled {
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"Defaults" ofType:@"plist"];
-    NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:path];
-    return [[dict objectForKey:@"SharePlayEnabled"] boolValue];
+/*!
+ @abstract currentWindowController
+ @discussion This method is used for KVO reference bindings in the MainMenu.xib. This was added for cases when the mainWindow changes
+ to a window that is not a game window. In these cases, the window controller is not MBCBoardWin and thus KVO does not work where
+ Interface Building binds NSApp's mainWindow.windowController expecting MBCBoardWin. One example where this occurs is presenting share menu.
+ */
+- (NSWindowController *)currentWindowController {
+    NSWindowController *windowController = [NSApp mainWindow].windowController;
+    if ([windowController isKindOfClass:[MBCBoardWin class]]) {
+        return windowController;
+    }
+    return nil;
 }
 
 @end

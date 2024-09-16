@@ -37,11 +37,14 @@
 
 #if CONFIG_SPTM
 #include <arm64/sptm/sptm.h>
+#include <arm64/hv/hv_vm.h>
+#include <arm64/hv/hv_vcpu.h>
 #else
 #error Invalid configuration
 #endif /* CONFIG_SPTM */
 
 #include <arm/cpu_data_internal.h>
+#include <arm/misc_protos.h>
 #include <kern/epoch_sync.h>
 #include <kern/ipc_kobject.h>
 #include <kern/kalloc.h>
@@ -63,15 +66,14 @@
 
 #include <IOKit/IOBSD.h>
 
+#include <xnuproxy/messages.h>
+
 #include "exclaves_debug.h"
 #include "exclaves_panic.h"
+#include "exclaves_xnuproxy.h"
 
 /* External & generated headers */
 #include <xrt_hosted_types/types.h>
-#include <xnuproxy/messages.h>
-
-/* Use the new version of xnuproxy_msg_t. */
-#define xnuproxy_msg_t xnuproxy_msg_new_t
 
 #if __has_include(<Tightbeam/tightbeam.h>)
 #include <Tightbeam/tightbeam.h>
@@ -83,23 +85,9 @@
 #include "exclaves_boot.h"
 #include "exclaves_inspection.h"
 #include "exclaves_memory.h"
-
-/* Unslid pointers defining the range of code which switches threads into
- * secure world */
-uintptr_t exclaves_enter_range_start;
-uintptr_t exclaves_enter_range_end;
-
-/* Unslid pointers defining the range of code which triggers upcall handlers */
-uintptr_t exclaves_upcall_range_start;
-uintptr_t exclaves_upcall_range_end;
-
-/* Number of allocated ipcb buffers, estimate of active exclave threads */
-static _Atomic size_t exclaves_ipcb_cnt;
+#include "exclaves_internal.h"
 
 LCK_GRP_DECLARE(exclaves_lck_grp, "exclaves");
-
-/* Lock around communication with singleton xnu proxy server thread */
-LCK_MTX_DECLARE(exclaves_xnu_proxy_lock, &exclaves_lck_grp);
 
 /* Boot lock - only used here for assertions. */
 extern lck_mtx_t exclaves_boot_lock;
@@ -116,14 +104,6 @@ static TUNABLE(bool, exclaves_smp_enabled, "exclaves_smp", true);
 #else
 #define exclaves_smp_enabled true
 #endif
-
-static xnuproxy_msg_t *exclaves_xnu_proxy_msg_buffer;
-static uint64_t exclaves_xnu_proxy_scid;
-#if XNUPROXY_MSG_VERSION >= 3
-static pmap_paddr_t exclaves_xnu_proxy_upcall_ipcb_paddr;
-#endif /* XNUPROXY_MSG_VERSION >= 3 */
-static Exclaves_L4_IpcBuffer_t *exclaves_xnu_proxy_upcall_ipcb;
-
 
 /*
  * Sent/latest offset for updating exclaves clocks
@@ -143,20 +123,6 @@ typedef struct {
 
 static exclaves_clock_t exclaves_absolute_clock, exclaves_continuous_clock;
 
-/*
- * boot-arg to control the service lookup fallback.
- * When set, it allows services in the com.apple.kernel and com.apple.darwin
- * domains to be found when the service can't be found in the attached conclave
- * domain.
- */
-static TUNABLE(bool, exclaves_service_fallback, "exclaves_service_fallback", true);
-
-static kern_return_t
-exclaves_acquire_ipc_buffer(Exclaves_L4_IpcBuffer_t **ipcb_out,
-    Exclaves_L4_Word_t *scid_out);
-static kern_return_t
-exclaves_relinquish_ipc_buffer(Exclaves_L4_IpcBuffer_t *ipcb,
-    Exclaves_L4_Word_t scid);
 static kern_return_t
 exclaves_endpoint_call_internal(ipc_port_t port, exclaves_id_t endpoint_id);
 
@@ -166,7 +132,7 @@ static kern_return_t
 exclaves_bootinfo(uint64_t *out_boot_info, bool *early_enter);
 
 static kern_return_t
-exclaves_scheduler_init(uint64_t boot_info);
+exclaves_scheduler_init(uint64_t boot_info, uint64_t *xnuproxy_boot_info);
 OS_NORETURN OS_NOINLINE
 static void
 exclaves_wait_for_panic(void);
@@ -176,21 +142,9 @@ exclaves_clock_needs_update(const exclaves_clock_t *clock);
 static kern_return_t
 exclaves_clock_update(exclaves_clock_t *clock, XrtHosted_Buffer_t *save_out_ptr, XrtHosted_Buffer_t *save_in_ptr);
 
-kern_return_t
-exclaves_scheduler_resume_scheduling_context(Exclaves_L4_Word_t scid,
-    Exclaves_L4_Word_t *spawned_scid, bool interrupted);
 static kern_return_t
 exclaves_scheduler_boot(void);
 
-static kern_return_t
-exclaves_xnu_proxy_init(uint64_t xnu_proxy_boot_info);
-static kern_return_t
-exclaves_xnu_proxy_allocate_context(Exclaves_L4_Word_t *out_scid,
-    Exclaves_L4_IpcBuffer_t **out_ipcb);
-static kern_return_t
-exclaves_xnu_proxy_free_context(Exclaves_L4_Word_t scid);
-static kern_return_t
-exclaves_xnu_proxy_endpoint_call(Exclaves_L4_Word_t endpoint_id);
 static kern_return_t
 exclaves_hosted_error(bool success, XrtHosted_Error_t *error);
 
@@ -211,26 +165,6 @@ exclaves_get_thread_counter(const uint64_t id)
 	return &epoch_counter[XrtHosted_Counter_fromThreadId(id)];
 }
 
-/*
- * A (simple, for now...) cache of IPC buffers for communicating with XNU-Proxy.
- * Limited in size by the same value as XNU-Proxy's EC limit.
- * Must be realtime-safe.
- */
-
-static kern_return_t
-exclaves_ipc_buffer_cache_init(void);
-
-/* Intrusive linked list within the unused IPC buffer */
-struct exclaves_ipc_buffer_cache_item {
-	struct exclaves_ipc_buffer_cache_item *next;
-	Exclaves_L4_Word_t scid;
-} __attribute__((__packed__));
-
-_Static_assert(Exclaves_L4_IpcBuffer_Size >= sizeof(struct exclaves_ipc_buffer_cache_item),
-    "Invalid Exclaves_L4_IpcBuffer_Size");
-
-LCK_SPIN_DECLARE(exclaves_ipc_buffer_cache_lock, &exclaves_lck_grp);
-static struct exclaves_ipc_buffer_cache_item *exclaves_ipc_buffer_cache;
 
 /* -------------------------------------------------------------------------- */
 #pragma mark exclaves debug configuration
@@ -238,17 +172,39 @@ static struct exclaves_ipc_buffer_cache_item *exclaves_ipc_buffer_cache;
 #if DEVELOPMENT || DEBUG
 TUNABLE_WRITEABLE(unsigned int, exclaves_debug, "exclaves_debug",
     exclaves_debug_show_errors);
-#endif /* DEVELOPMENT || DEBUG */
 
-#if DEVELOPMENT || DEBUG
-TUNABLE_WRITEABLE(unsigned int, exclaves_ipc_buffer_cache_enabled, "exclaves_ipcb_cache", 1);
+TUNABLE_DT(exclaves_requirement_t, exclaves_relaxed_requirements, "/defaults",
+    "kern.exclaves_relaxed_reqs", "exclaves_relaxed_requirements", 0,
+    TUNABLE_DT_NONE);
 #else
-#define exclaves_ipc_buffer_cache_enabled 1
+const exclaves_requirement_t exclaves_relaxed_requirements = 0;
 #endif
+
 #endif /* CONFIG_EXCLAVES */
 
 /* -------------------------------------------------------------------------- */
 #pragma mark userspace entry point
+
+#if CONFIG_EXCLAVES
+static kern_return_t
+operation_boot(mach_port_name_t name, exclaves_boot_stage_t stage)
+{
+	if (name != MACH_PORT_NULL) {
+		/* Only accept MACH_PORT_NULL for now */
+		return KERN_INVALID_CAPABILITY;
+	}
+
+	/*
+	 * As the boot operation itself happens outside the context of any
+	 * conclave, it requires special privilege.
+	 */
+	if (!exclaves_has_priv(current_task(), EXCLAVES_PRIV_BOOT)) {
+		return KERN_DENIED;
+	}
+
+	return exclaves_boot(stage);
+}
+#endif /* CONFIG_EXCLAVES */
 
 kern_return_t
 _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
@@ -282,38 +238,46 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 	}
 
 	/*
-	 * All operations other than OP_BOOT are restricted to properly entitled
-	 * tasks which can operation in the kernel domain, or those which have
-	 * joined conclaves (which has its own entitlement check).
+	 * Deal with OP_BOOT up-front as it has slightly different restrictions
+	 * than the other operations.
 	 */
-	if (operation != EXCLAVES_CTL_OP_BOOT &&
-	    task_get_conclave(task) == NULL &&
-	    !exclaves_has_priv(task, EXCLAVES_PRIV_KERNEL_DOMAIN)) {
+	if (operation == EXCLAVES_CTL_OP_BOOT) {
+		return operation_boot(name, (uint32_t)identifier);
+	}
+
+	/*
+	 * All other operations are restricted to properly entitled tasks which
+	 * can operate in the kernel domain, or those which have joined
+	 * conclaves (which has its own entitlement check).
+	 * If requirements are relaxed during development, tasks with no
+	 * conclaves are also allowed.
+	 */
+	if (task_get_conclave(task) == NULL &&
+	    !exclaves_has_priv(task, EXCLAVES_PRIV_KERNEL_DOMAIN) &&
+	    !exclaves_requirement_is_relaxed(EXCLAVES_R_CONCLAVE_RESOURCES)) {
 		return KERN_DENIED;
 	}
 
 	/*
-	 * As the boot operation itself happens outside the context of any
-	 * conclave, it requires special privilege.
+	 * Wait for STAGE_2 boot to complete. If exclaves are unsupported,
+	 * return immediately,.
 	 */
-	if (operation == EXCLAVES_CTL_OP_BOOT &&
-	    !exclaves_has_priv(current_task(), EXCLAVES_PRIV_BOOT)) {
-		return KERN_DENIED;
+	kr = exclaves_boot_wait(EXCLAVES_BOOT_STAGE_2);
+	if (kr != KERN_SUCCESS) {
+		return kr;
 	}
 
-	/*
-	 * The only valid operation if exclaves are not booted to
-	 * EXCLAVES_BOOT_STAGE_EXCLAVEKIT, is the BOOT op.
-	 */
-	if (operation != EXCLAVES_CTL_OP_BOOT) {
+	if (task_get_conclave(task) != NULL) {
 		/*
-		 * Make this EXCLAVES_BOOT_STAGE_2 until userspace is actually
-		 * triggering the EXCLAVESKIT boot stage.
+		 * For calls from tasks that have joined conclaves, now wait until
+		 * booted up to EXCLAVEKIT. If EXCLAVEKIT boot fails for some reason,
+		 * KERN_NOT_SUPPORTED will be returned (on RELEASE this would panic).
+		 * For testing purposes, continue even if EXCLAVEKIT fails. This is a
+		 * separate call to the one above because we need to distinguish
+		 * STAGE_2 NOT SUPPORTED and still wait for EXCLAVEKIT to boot if it
+		 * *is* supported.
 		 */
-		kr = exclaves_boot_wait(EXCLAVES_BOOT_STAGE_2);
-		if (kr != KERN_SUCCESS) {
-			return kr;
-		}
+		(void) exclaves_boot_wait(EXCLAVES_BOOT_STAGE_EXCLAVEKIT);
 	}
 
 	switch (operation) {
@@ -327,8 +291,10 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 			return KERN_INVALID_ARGUMENT;
 		}
 
-		Exclaves_L4_IpcBuffer_t *ipcb;
-		if ((error = exclaves_allocate_ipc_buffer((void**)&ipcb))) {
+
+		Exclaves_L4_IpcBuffer_t *ipcb = exclaves_get_ipc_buffer();
+		/* TODO (rdar://123728529) - IPC buffer isn't freed until thread exit */
+		if (!ipcb && (error = exclaves_allocate_ipc_buffer((void**)&ipcb))) {
 			return error;
 		}
 		assert(ipcb != NULL);
@@ -342,10 +308,9 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 
 		/*
 		 * Verify that the service actually exists in the current
-		 * domain (only when the fallbacks are not enabled).
+		 * domain.
 		 */
-		if (!exclaves_service_fallback &&
-		    !exclaves_conclave_has_service(task_get_conclave(task),
+		if (!exclaves_conclave_has_service(task_get_conclave(task),
 		    identifier)) {
 			return KERN_INVALID_ARGUMENT;
 		}
@@ -370,8 +335,8 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		size_t len = 0;
-		char id_name[XNUPROXY_RESOURCE_NAME_MAX] = "";
-		if (copyinstr(identifier, id_name, XNUPROXY_RESOURCE_NAME_MAX,
+		char id_name[EXCLAVES_RESOURCE_NAME_MAX] = "";
+		if (copyinstr(identifier, id_name, EXCLAVES_RESOURCE_NAME_MAX,
 		    &len) != 0 || id_name[0] == '\0') {
 			return KERN_INVALID_ARGUMENT;
 		}
@@ -389,7 +354,7 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		    (perm == EXCLAVES_BUFFER_PERM_WRITE);
 		const bool shared_mem_available =
 		    exclaves_resource_lookup_by_name(domain, id_name,
-		    XNUPROXY_RESOURCE_SHARED_MEMORY) != NULL;
+		    XNUPROXY_RESOURCETYPE_SHAREDMEMORY) != NULL;
 		const bool use_shared_mem = new_api && shared_mem_available;
 
 		exclaves_resource_t *resource = NULL;
@@ -424,12 +389,12 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		switch (resource->r_type) {
-		case XNUPROXY_RESOURCE_NAMED_BUFFER:
+		case XNUPROXY_RESOURCETYPE_NAMEDBUFFER:
 			kr = exclaves_named_buffer_copyin(resource, ubuffer,
 			    usize, uoffset, usize2, uoffset2);
 			break;
 
-		case XNUPROXY_RESOURCE_SHARED_MEMORY:
+		case XNUPROXY_RESOURCETYPE_SHAREDMEMORY:
 			kr = exclaves_resource_shared_memory_copyin(resource,
 			    ubuffer, usize, uoffset, usize2, uoffset2);
 			break;
@@ -456,12 +421,12 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		switch (resource->r_type) {
-		case XNUPROXY_RESOURCE_NAMED_BUFFER:
+		case XNUPROXY_RESOURCETYPE_NAMEDBUFFER:
 			kr = exclaves_named_buffer_copyout(resource, ubuffer,
 			    usize, uoffset, usize2, uoffset2);
 			break;
 
-		case XNUPROXY_RESOURCE_SHARED_MEMORY:
+		case XNUPROXY_RESOURCETYPE_SHAREDMEMORY:
 			kr = exclaves_resource_shared_memory_copyout(resource,
 			    ubuffer, usize, uoffset, usize2, uoffset2);
 			break;
@@ -478,14 +443,6 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 		break;
 	}
-
-	case EXCLAVES_CTL_OP_BOOT:
-		if (name != MACH_PORT_NULL) {
-			/* Only accept MACH_PORT_NULL for now */
-			return KERN_INVALID_CAPABILITY;
-		}
-		kr = exclaves_boot((uint32_t)identifier);
-		break;
 
 	case EXCLAVES_CTL_OP_LAUNCH_CONCLAVE:
 		if (name != MACH_PORT_NULL) {
@@ -543,19 +500,19 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		const char *domain = exclaves_conclave_get_domain(task_get_conclave(task));
 		uint64_t id = exclaves_service_lookup(domain, uresource.r_name);
 
-		/* Disable fallbacks via boot-arg. */
-		if (exclaves_service_fallback) {
-			if (id == UINT64_C(~0)) {
+		if (exclaves_requirement_is_relaxed(EXCLAVES_R_CONCLAVE_RESOURCES) ||
+		    exclaves_has_priv(task, EXCLAVES_PRIV_KERNEL_DOMAIN)) {
+			if (id == EXCLAVES_INVALID_ID) {
 				id = exclaves_service_lookup(EXCLAVES_DOMAIN_DARWIN,
 				    uresource.r_name);
 			}
-			if (id == UINT64_C(~0)) {
+			if (id == EXCLAVES_INVALID_ID) {
 				id = exclaves_service_lookup(EXCLAVES_DOMAIN_KERNEL,
 				    uresource.r_name);
 			}
 		}
 
-		if (id == UINT64_C(~0)) {
+		if (id == EXCLAVES_INVALID_ID) {
 			return KERN_NOT_FOUND;
 		}
 
@@ -577,16 +534,16 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		/* copy in string name */
-		char id_name[XNUPROXY_RESOURCE_NAME_MAX] = "";
+		char id_name[EXCLAVES_RESOURCE_NAME_MAX] = "";
 		size_t done = 0;
-		if (copyinstr(identifier, id_name, XNUPROXY_RESOURCE_NAME_MAX, &done) != 0) {
+		if (copyinstr(identifier, id_name, EXCLAVES_RESOURCE_NAME_MAX, &done) != 0) {
 			return KERN_INVALID_ARGUMENT;
 		}
 
 		const char *domain = exclaves_conclave_get_domain(task_get_conclave(task));
 		const bool use_audio_memory =
 		    exclaves_resource_lookup_by_name(domain, id_name,
-		    XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY) != NULL;
+		    XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY) != NULL;
 		exclaves_resource_t *resource = NULL;
 		kr = use_audio_memory ?
 		    exclaves_resource_audio_memory_map(domain, id_name, usize, &resource) :
@@ -619,12 +576,12 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		switch (resource->r_type) {
-		case XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER:
+		case XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER:
 			kr = exclaves_audio_buffer_copyout(resource, ubuffer,
 			    usize, uoffset, usize2, uoffset2);
 			break;
 
-		case XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY:
+		case XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY:
 			kr = exclaves_resource_audio_memory_copyout(resource,
 			    ubuffer, usize, uoffset, usize2, uoffset2);
 			break;
@@ -649,9 +606,9 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 		}
 
 		/* copy in string name */
-		char id_name[XNUPROXY_RESOURCE_NAME_MAX] = "";
+		char id_name[EXCLAVES_RESOURCE_NAME_MAX] = "";
 		size_t done = 0;
-		if (copyinstr(identifier, id_name, XNUPROXY_RESOURCE_NAME_MAX, &done) != 0) {
+		if (copyinstr(identifier, id_name, EXCLAVES_RESOURCE_NAME_MAX, &done) != 0) {
 			return KERN_INVALID_ARGUMENT;
 		}
 
@@ -685,7 +642,7 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 			return kr;
 		}
 
-		if (resource->r_type != XNUPROXY_RESOURCE_SENSOR) {
+		if (resource->r_type != XNUPROXY_RESOURCETYPE_SENSOR) {
 			exclaves_resource_release(resource);
 			return KERN_FAILURE;
 		}
@@ -710,7 +667,7 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 			return kr;
 		}
 
-		if (resource->r_type != XNUPROXY_RESOURCE_SENSOR) {
+		if (resource->r_type != XNUPROXY_RESOURCETYPE_SENSOR) {
 			exclaves_resource_release(resource);
 			return KERN_FAILURE;
 		}
@@ -735,7 +692,7 @@ _exclaves_ctl_trap(struct exclaves_ctl_trap_args *uap)
 			return kr;
 		}
 
-		if (resource->r_type != XNUPROXY_RESOURCE_SENSOR) {
+		if (resource->r_type != XNUPROXY_RESOURCETYPE_SENSOR) {
 			exclaves_resource_release(resource);
 			return KERN_FAILURE;
 		}
@@ -859,69 +816,58 @@ exclaves_endpoint_call(ipc_port_t port, exclaves_id_t endpoint_id,
 #endif /* CONFIG_EXCLAVES */
 }
 
-/* Realtime-safe acquisition of an IPC buffer */
 kern_return_t
 exclaves_allocate_ipc_buffer(void **out_ipc_buffer)
 {
 #if CONFIG_EXCLAVES
 	kern_return_t kr = KERN_SUCCESS;
 	thread_t thread = current_thread();
-	Exclaves_L4_IpcBuffer_t *ipcb = thread->th_exclaves_ipc_buffer;
-	Exclaves_L4_Word_t scid = thread->th_exclaves_scheduling_context_id;
 
-	if (ipcb == NULL) {
-		assert(scid == 0);
-		if ((kr = exclaves_acquire_ipc_buffer(&ipcb, &scid))) {
+	if (thread->th_exclaves_ipc_ctx.ipcb == NULL) {
+		assert(thread->th_exclaves_ipc_ctx.usecnt == 0);
+		kr = exclaves_xnuproxy_ctx_alloc(&thread->th_exclaves_ipc_ctx);
+		if (kr != KERN_SUCCESS) {
 			return kr;
 		}
-		thread->th_exclaves_ipc_buffer = ipcb;
-		thread->th_exclaves_scheduling_context_id = scid;
+		assert(thread->th_exclaves_ipc_ctx.usecnt == 0);
 	}
-	if (out_ipc_buffer) {
-		*out_ipc_buffer = (void*)ipcb;
-	}
+	thread->th_exclaves_ipc_ctx.usecnt++;
 
-	return kr;
+	if (out_ipc_buffer != NULL) {
+		*out_ipc_buffer = thread->th_exclaves_ipc_ctx.ipcb;
+	}
+	return KERN_SUCCESS;
 #else /* CONFIG_EXCLAVES */
 #pragma unused(out_ipc_buffer)
 	return KERN_NOT_SUPPORTED;
 #endif /* CONFIG_EXCLAVES */
 }
 
-#if CONFIG_EXCLAVES
-static kern_return_t
-exclaves_thread_free_ipc_buffer(thread_t thread)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	Exclaves_L4_IpcBuffer_t *ipcb = thread->th_exclaves_ipc_buffer;
-	Exclaves_L4_Word_t scid = thread->th_exclaves_scheduling_context_id;
-
-	if (ipcb != NULL) {
-		assert(scid != 0);
-		thread->th_exclaves_ipc_buffer = NULL;
-		thread->th_exclaves_scheduling_context_id = 0;
-
-		kr = exclaves_relinquish_ipc_buffer(ipcb, scid);
-	} else {
-		assert(scid == 0);
-	}
-
-	return kr;
-}
-#endif /* CONFIG_EXCLAVES */
-
 kern_return_t
 exclaves_free_ipc_buffer(void)
 {
 #if CONFIG_EXCLAVES
-	thread_t thread = current_thread();
 
 	/* The inspection thread's cached buffer should never be freed */
-	if ((os_atomic_load(&thread->th_exclaves_inspection_state, relaxed) & TH_EXCLAVES_INSPECTION_NOINSPECT) != 0) {
+	thread_t thread = current_thread();
+
+	/* Don't try to free unallocated contexts. */
+	if (thread->th_exclaves_ipc_ctx.ipcb == NULL) {
 		return KERN_SUCCESS;
 	}
 
-	return exclaves_thread_free_ipc_buffer(thread);
+	const thread_exclaves_inspection_flags_t iflags =
+	    os_atomic_load(&thread->th_exclaves_inspection_state, relaxed);
+	if ((iflags & TH_EXCLAVES_INSPECTION_NOINSPECT) != 0) {
+		return KERN_SUCCESS;
+	}
+
+	assert(thread->th_exclaves_ipc_ctx.usecnt > 0);
+	if (--thread->th_exclaves_ipc_ctx.usecnt > 0) {
+		return KERN_SUCCESS;
+	}
+
+	return exclaves_xnuproxy_ctx_free(&thread->th_exclaves_ipc_ctx);
 #else /* CONFIG_EXCLAVES */
 	return KERN_NOT_SUPPORTED;
 #endif /* CONFIG_EXCLAVES */
@@ -936,11 +882,13 @@ exclaves_thread_terminate(__unused thread_t thread)
 	assert(thread == current_thread());
 	assert(thread->th_exclaves_intstate == 0);
 	assert(thread->th_exclaves_state == 0);
-	if (thread->th_exclaves_ipc_buffer) {
+	if (thread->th_exclaves_ipc_ctx.ipcb != NULL) {
 		exclaves_debug_printf(show_progress,
 		    "exclaves: thread_terminate freeing abandoned exclaves "
 		    "ipc buffer\n");
-		kr = exclaves_thread_free_ipc_buffer(thread);
+		/* Unconditionally free context irrespective of usecount */
+		thread->th_exclaves_ipc_ctx.usecnt = 0;
+		kr = exclaves_xnuproxy_ctx_free(&thread->th_exclaves_ipc_ctx);
 		assert(kr == KERN_SUCCESS);
 	}
 #else
@@ -956,8 +904,7 @@ exclaves_get_ipc_buffer(void)
 {
 #if CONFIG_EXCLAVES
 	thread_t thread = current_thread();
-	Exclaves_L4_IpcBuffer_t *ipcb = thread->th_exclaves_ipc_buffer;
-	assert(ipcb != NULL);
+	Exclaves_L4_IpcBuffer_t *ipcb = thread->th_exclaves_ipc_ctx.ipcb;
 
 	return ipcb;
 #else /* CONFIG_EXCLAVES */
@@ -966,21 +913,6 @@ exclaves_get_ipc_buffer(void)
 }
 
 #if CONFIG_EXCLAVES
-
-__startup_func
-static void
-initialize_exclaves_call_range(void)
-{
-	exclaves_enter_range_start = VM_KERNEL_UNSLIDE(&exclaves_enter_start_label);
-	assert3u(exclaves_enter_range_start, !=, 0);
-	exclaves_enter_range_end = VM_KERNEL_UNSLIDE(&exclaves_enter_end_label);
-	assert3u(exclaves_enter_range_end, !=, 0);
-	exclaves_upcall_range_start = VM_KERNEL_UNSLIDE(&exclaves_upcall_start_label);
-	assert3u(exclaves_upcall_range_start, !=, 0);
-	exclaves_upcall_range_end = VM_KERNEL_UNSLIDE(&exclaves_upcall_end_label);
-	assert3u(exclaves_upcall_range_end, !=, 0);
-}
-STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, initialize_exclaves_call_range);
 
 static void
 bind_to_boot_core(void)
@@ -1050,18 +982,26 @@ exclaves_boot_early(void)
 		}
 	}
 
-	kr = exclaves_scheduler_init(boot_info);
+	uint64_t xnuproxy_boot_info = 0;
+	kr = exclaves_scheduler_init(boot_info, &xnuproxy_boot_info);
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
 		    "exclaves: Init scheduler failed\n");
 		return kr;
 	}
 
-	kr = exclaves_ipc_buffer_cache_init();
+	kr = exclaves_xnuproxy_init(xnuproxy_boot_info);
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
-		    "exclaves: failed to initialize IPC buffer cache\n");
-		return kr;
+		    "XNU proxy setup failed\n");
+		return KERN_FAILURE;
+	}
+
+	kr = exclaves_panic_thread_setup();
+	if (kr != KERN_SUCCESS) {
+		exclaves_debug_printf(show_errors,
+		    "XNU proxy panic thread setup failed\n");
+		return KERN_FAILURE;
 	}
 
 	kr = exclaves_resource_init();
@@ -1118,77 +1058,6 @@ exclaves_update_timebase(exclaves_clock_type_t type, uint64_t offset)
 #if CONFIG_EXCLAVES
 
 static kern_return_t
-exclaves_acquire_ipc_buffer(Exclaves_L4_IpcBuffer_t **out_ipcb,
-    Exclaves_L4_Word_t *out_scid)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	Exclaves_L4_IpcBuffer_t *ipcb = NULL;
-	Exclaves_L4_Word_t scid = 0;
-	struct exclaves_ipc_buffer_cache_item *cached_buffer = NULL;
-
-
-	_Static_assert(Exclaves_L4_IpcBuffer_Size < PAGE_SIZE,
-	    "Invalid Exclaves_L4_IpcBuffer_Size");
-
-	if (exclaves_ipc_buffer_cache_enabled) {
-		lck_spin_lock(&exclaves_ipc_buffer_cache_lock);
-		if (exclaves_ipc_buffer_cache != NULL) {
-			cached_buffer = exclaves_ipc_buffer_cache;
-			exclaves_ipc_buffer_cache = cached_buffer->next;
-		}
-		lck_spin_unlock(&exclaves_ipc_buffer_cache_lock);
-	}
-
-	if (cached_buffer) {
-		scid = cached_buffer->scid;
-
-		/* zero out this usage of the buffer to avoid any confusion in xnuproxy */
-		cached_buffer->next = NULL;
-		cached_buffer->scid = 0;
-
-		ipcb = (Exclaves_L4_IpcBuffer_t*)cached_buffer;
-	} else {
-		kr = exclaves_xnu_proxy_allocate_context(&scid, &ipcb);
-		if (kr == KERN_NO_SPACE) {
-			panic("Exclaves IPC buffer allocation failed");
-		}
-	}
-
-	*out_ipcb = ipcb;
-	*out_scid = scid;
-
-	return kr;
-}
-
-size_t
-exclaves_ipc_buffer_count(void)
-{
-	return os_atomic_load(&exclaves_ipcb_cnt, relaxed);
-}
-
-static kern_return_t
-exclaves_relinquish_ipc_buffer(Exclaves_L4_IpcBuffer_t *ipcb,
-    Exclaves_L4_Word_t scid)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	struct exclaves_ipc_buffer_cache_item *cached_buffer;
-
-	if (!exclaves_ipc_buffer_cache_enabled) {
-		kr = exclaves_xnu_proxy_free_context(scid);
-	} else {
-		cached_buffer = (struct exclaves_ipc_buffer_cache_item*)ipcb;
-		cached_buffer->scid = scid;
-
-		lck_spin_lock(&exclaves_ipc_buffer_cache_lock);
-		cached_buffer->next = exclaves_ipc_buffer_cache;
-		exclaves_ipc_buffer_cache = cached_buffer;
-		lck_spin_unlock(&exclaves_ipc_buffer_cache_lock);
-	}
-
-	return kr;
-}
-
-static kern_return_t
 exclaves_endpoint_call_internal(__unused ipc_port_t port,
     exclaves_id_t endpoint_id)
 {
@@ -1196,7 +1065,7 @@ exclaves_endpoint_call_internal(__unused ipc_port_t port,
 
 	assert(port == IPC_PORT_NULL);
 
-	kr = exclaves_xnu_proxy_endpoint_call(endpoint_id);
+	kr = exclaves_xnuproxy_endpoint_call(endpoint_id);
 
 	return kr;
 }
@@ -1256,6 +1125,7 @@ exclaves_enter(void)
 
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_SWITCH)
 	    | DBG_FUNC_START);
+
 	recount_enter_secure();
 
 	/* xnu_return_to_gl2 relies on this flag being present to correctly return
@@ -1277,6 +1147,18 @@ exclaves_enter(void)
 	thread->th_exclaves_intstate &= ~TH_EXCLAVES_EXECUTION;
 
 	recount_leave_secure();
+
+#if CONFIG_SPTM
+	/**
+	 * SPTM will return here with debug exceptions disabled (MDSCR_{KDE,MDE} == {0,0})
+	 * but SK might have clobbered individual breakpoints, etc. Invalidate the current CPU
+	 * debug state forcing a reload on the next return to user mode.
+	 */
+	if (__improbable(getCpuDatap()->cpu_user_debug != NULL)) {
+		arm_debug_set(NULL);
+	}
+#endif /* CONFIG_SPTM */
+
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_SWITCH)
 	    | DBG_FUNC_END);
 
@@ -1426,7 +1308,7 @@ exclaves_init_unicore(void)
 }
 
 static kern_return_t
-exclaves_scheduler_init(uint64_t boot_info)
+exclaves_scheduler_init(uint64_t boot_info, uint64_t *xnuproxy_boot_info)
 {
 	kern_return_t kr = KERN_SUCCESS;
 	XrtHosted_Error_t hosted_error;
@@ -1496,14 +1378,22 @@ exclaves_scheduler_init(uint64_t boot_info)
 		return kr;
 	}
 
-	/* Initialise the XNU proxy */
 	XrtHosted_Global_t *global = exclaves_callbacks->v1.global();
 
-	exclaves_multicore = (global->v2.smpStatus == XrtHosted_SmpStatus_Multicore || global->v2.smpStatus == XrtHosted_SmpStatus_MulticoreMpidr);
+	exclaves_multicore = (global->v2.smpStatus ==
+	    XrtHosted_SmpStatus_Multicore ||
+	    global->v2.smpStatus == XrtHosted_SmpStatus_MulticoreMpidr);
 	exclaves_multicore ? exclaves_init_multicore() : exclaves_init_unicore();
 
-	uint64_t xnu_proxy_boot_info = global->v1.proxyInit;
-	kr = exclaves_xnu_proxy_init(xnu_proxy_boot_info);
+	/* Initialise the XNU proxy */
+	if (!pmap_valid_address(global->v1.proxyInit)) {
+		exclaves_debug_printf(show_errors,
+		    "exclaves: %s: 0x%012llx\n",
+		    "Invalid xnu prpoxy physical address",
+		    phys);
+		return KERN_FAILURE;
+	}
+	*xnuproxy_boot_info = global->v1.proxyInit;
 
 	return kr;
 }
@@ -1701,12 +1591,17 @@ handle_response_yield(bool early, __assert_only Exclaves_L4_Word_t scid,
 
 static kern_return_t
 handle_response_spawned(__assert_only Exclaves_L4_Word_t scid,
-    const XrtHosted_Spawned_t *spawned, Exclaves_L4_Word_t *spawned_scid)
+    const XrtHosted_Spawned_t *spawned)
 {
 	Exclaves_L4_Word_t responding_scid = spawned->thread;
-	__assert_only ctid_t ctid = thread_get_ctid(current_thread());
+	thread_t thread = current_thread();
+	__assert_only ctid_t ctid = thread_get_ctid(thread);
 
-	if (spawned_scid == NULL) {
+	/*
+	 * There are only a few places an exclaves thread is expected to be
+	 * spawned. Any other cases are considered errors.
+	 */
+	if ((thread->th_exclaves_state & TH_EXCLAVES_SPAWN_EXPECTED) == 0) {
 		exclaves_debug_printf(show_errors,
 		    "exclaves: Scheduler: Unexpected thread spawn: "
 		    "scid 0x%lx spawned scid 0x%llx\n",
@@ -1714,21 +1609,14 @@ handle_response_spawned(__assert_only Exclaves_L4_Word_t scid,
 		return KERN_FAILURE;
 	}
 
-	*spawned_scid = spawned->spawned;
 	exclaves_debug_printf(show_progress,
 	    "exclaves: Scheduler: scid 0x%lx spawned scid 0x%lx\n",
-	    responding_scid, *spawned_scid);
+	    responding_scid, (unsigned long)spawned->spawned);
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
-	    MACH_EXCLAVES_SCHEDULER_SPAWNED), *spawned_scid);
+	    MACH_EXCLAVES_SCHEDULER_SPAWNED), spawned->spawned);
 
-	/* TODO: remember yielding scid if it isn't the xnu proxy's
-	 * th_exclaves_scheduling_context_id so we know to resume it later
-	 */
-	if (0) {
-		// FIXME: reenable when exclaves scheduler is fixed
-		assert3u(responding_scid, ==, scid);
-		assert3u(spawned->threadHostId, ==, ctid);
-	}
+	assert3u(responding_scid, ==, scid);
+	assert3u(spawned->threadHostId, ==, ctid);
 
 	return KERN_SUCCESS;
 }
@@ -1756,7 +1644,8 @@ static kern_return_t
 handle_response_wait(const XrtHosted_Wait_t *wait)
 {
 	Exclaves_L4_Word_t responding_scid = wait->waiter;
-	__assert_only ctid_t ctid = thread_get_ctid(current_thread());
+	thread_t thread = current_thread();
+	__assert_only ctid_t ctid = thread_get_ctid(thread);
 
 	exclaves_debug_printf(show_progress,
 	    "exclaves: Scheduler: Wait: "
@@ -1764,6 +1653,11 @@ handle_response_wait(const XrtHosted_Wait_t *wait)
 	    "epoch 0x%llx\n", responding_scid, wait->owner,
 	    wait->queueId, wait->epoch);
 	assert3u(wait->waiterHostId, ==, ctid);
+
+	/* The exclaves inspection thread should never wait. */
+	if ((thread->th_exclaves_state & TH_EXCLAVES_INSPECTION_NOINSPECT) != 0) {
+		panic("Exclaves inspection thread tried to wait\n");
+	}
 
 	/*
 	 * Note, "owner" may not be safe to access directly, for example
@@ -1802,7 +1696,7 @@ handle_response_wait(const XrtHosted_Wait_t *wait)
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_WAIT) | DBG_FUNC_START, id, epoch, owner,
 	    wait->interruptible);
-	const wait_result_t wr = esync_wait(&esync_queue_ht, id, epoch,
+	const wait_result_t wr = esync_wait(ESYNC_SPACE_EXCLAVES_Q, id, epoch,
 	    exclaves_get_queue_counter(id), owner, policy, interruptible);
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_WAIT) | DBG_FUNC_END, wr);
@@ -1841,7 +1735,7 @@ handle_response_wake(const XrtHosted_Wake_t *wake)
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_WAKE) | DBG_FUNC_START, id, epoch, 0, mode);
 
-	kern_return_t kr = esync_wake(&esync_queue_ht, id, epoch,
+	kern_return_t kr = esync_wake(ESYNC_SPACE_EXCLAVES_Q, id, epoch,
 	    exclaves_get_queue_counter(id), mode, 0);
 
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
@@ -1872,12 +1766,12 @@ handle_response_wake_with_owner(const XrtHosted_WakeWithOwner_t *wake)
 
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_WAKE) | DBG_FUNC_START, id, epoch, owner,
-	    ESYNC_WAKE_ONE);
+	    ESYNC_WAKE_ONE_WITH_OWNER);
 
-	kern_return_t kr = esync_wake(&esync_queue_ht, id, epoch,
+	kern_return_t kr = esync_wake(ESYNC_SPACE_EXCLAVES_Q, id, epoch,
 	    exclaves_get_queue_counter(id), ESYNC_WAKE_ONE_WITH_OWNER, owner);
 
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES,
+	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_WAKE) | DBG_FUNC_END,
 	    kr == KERN_SUCCESS ? THREAD_AWAKENED : THREAD_NOT_WAITING);
 
@@ -1895,7 +1789,7 @@ handle_response_panic_wait(const XrtHosted_PanicWait_t *panic_wait)
 	    "Panic thread SCID %lx\n",
 	    panic_thread_scid);
 
-	assert3u(panic_thread_scid, ==, thread->th_exclaves_scheduling_context_id);
+	assert3u(panic_thread_scid, ==, thread->th_exclaves_ipc_ctx.scid);
 
 	exclaves_panic_thread_wait();
 
@@ -1920,7 +1814,7 @@ handle_response_suspended(const XrtHosted_Suspended_t *suspended)
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_SUSPENDED) | DBG_FUNC_START, id, epoch);
 
-	const wait_result_t wr = esync_wait(&esync_thread_ht, id, epoch,
+	const wait_result_t wr = esync_wait(ESYNC_SPACE_EXCLAVES_T, id, epoch,
 	    exclaves_get_thread_counter(id), 0, ESYNC_POLICY_KERNEL, THREAD_UNINT);
 
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
@@ -1959,7 +1853,7 @@ handle_response_resumed(const XrtHosted_Resumed_t *resumed)
 	    MACH_EXCLAVES_SCHEDULER_RESUMED) | DBG_FUNC_START, id, epoch,
 	    target);
 
-	kern_return_t kr = esync_wake(&esync_thread_ht, id, epoch,
+	kern_return_t kr = esync_wake(ESYNC_SPACE_EXCLAVES_T, id, epoch,
 	    exclaves_get_thread_counter(id), ESYNC_WAKE_THREAD, target);
 
 	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
@@ -1991,10 +1885,10 @@ handle_response_interrupted(const XrtHosted_Interrupted_t *interrupted)
 	    MACH_EXCLAVES_SCHEDULER_INTERRUPTED) | DBG_FUNC_START, id, epoch,
 	    target);
 
-	kern_return_t kr = esync_wake(&esync_queue_ht, id, epoch,
+	kern_return_t kr = esync_wake(ESYNC_SPACE_EXCLAVES_Q, id, epoch,
 	    exclaves_get_queue_counter(id), ESYNC_WAKE_THREAD, target);
 
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES,
+	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES_SCHEDULER,
 	    MACH_EXCLAVES_SCHEDULER_INTERRUPTED) | DBG_FUNC_END,
 	    kr == KERN_SUCCESS ? THREAD_AWAKENED : THREAD_NOT_WAITING);
 
@@ -2064,7 +1958,7 @@ handle_response_pmm_early_alloc(const XrtHosted_PmmEarlyAlloc_t *pmm_early_alloc
 	 * EXCLAVES_MEMORY_MAX_REQUEST gets large, this should probably be moved
 	 * to the heap.
 	 */
-	uint32_t page[npages];
+	uint32_t page[EXCLAVES_MEMORY_MAX_REQUEST];
 	exclaves_memory_alloc(npages, page, XNUUPCALLS_PAGEKIND_ROOTDOMAIN);
 
 	/* Now copy the list of pages into the first page. */
@@ -2217,24 +2111,24 @@ exclaves_scheduler_boot(void)
 }
 
 kern_return_t
-exclaves_scheduler_resume_scheduling_context(Exclaves_L4_Word_t scid,
-    Exclaves_L4_Word_t *spawned_scid, bool interrupted)
+exclaves_scheduler_resume_scheduling_context(const exclaves_ctx_t *ctx,
+    bool interrupted)
 {
 	kern_return_t kr = KERN_SUCCESS;
 	thread_t thread = current_thread();
 	const ctid_t ctid = thread_get_ctid(thread);
 
 	exclaves_debug_printf(show_progress,
-	    "exclaves: Scheduler: Request to resume scid 0x%lx\n", scid);
+	    "exclaves: Scheduler: Request to resume scid 0x%lx\n", ctx->scid);
 
 	XrtHosted_Response_t response = {};
 	const XrtHosted_Request_t request = interrupted ?
 	    XrtHosted_Request_InterruptWithHostIdMsg(
-		.thread = scid,
+		.thread = ctx->scid,
 		.hostId = ctid,
 		) :
 	    XrtHosted_Request_ResumeWithHostIdMsg(
-		.thread = scid,
+		.thread = ctx->scid,
 		.hostId = ctid,
 		);
 	kr = exclaves_scheduler_request(&request, &response);
@@ -2255,11 +2149,11 @@ exclaves_scheduler_resume_scheduling_context(Exclaves_L4_Word_t scid,
 		goto out;
 
 	case XrtHosted_Response_Yield:
-		kr = handle_response_yield(false, scid, &response.Yield);
+		kr = handle_response_yield(false, ctx->scid, &response.Yield);
 		goto out;
 
 	case XrtHosted_Response_Spawned:
-		kr = handle_response_spawned(scid, &response.Spawned, spawned_scid);
+		kr = handle_response_spawned(ctx->scid, &response.Spawned);
 		goto out;
 
 	case XrtHosted_Response_Terminated:
@@ -2307,349 +2201,6 @@ out:
 /* -------------------------------------------------------------------------- */
 
 #pragma mark exclaves xnu proxy communication
-static const char *
-cmd_to_str(xnuproxy_cmd_t cmd)
-{
-	switch (cmd) {
-	case XNUPROXY_CMD_UNDEFINED:           return "undefined";
-	case XNUPROXY_CMD_SETUP:               return "setup";
-	case XNUPROXY_CMD_CONTEXT_ALLOCATE:    return "allocate context";
-	case XNUPROXY_CMD_CONTEXT_FREE:        return "free context";
-	case XNUPROXY_CMD_NAMED_BUFFER_CREATE: return "named buffer create";
-	case XNUPROXY_CMD_NAMED_BUFFER_DELETE: return "named buffer delete";
-	case XNUPROXY_CMD_RESOURCE_INFO:       return "resource info";
-	case XNUPROXY_CMD_AUDIO_BUFFER_CREATE: return "audio buffer create";
-	case XNUPROXY_CMD_AUDIO_BUFFER_COPYOUT: return "audio buffer copyout";
-	case XNUPROXY_CMD_AUDIO_BUFFER_DELETE: return "audio buffer delete";
-	case XNUPROXY_CMD_SENSOR_START:        return "sensor start";
-	case XNUPROXY_CMD_SENSOR_STOP:         return "sensor stop";
-	case XNUPROXY_CMD_SENSOR_STATUS:       return "sensor status";
-	case XNUPROXY_CMD_DISPLAY_HEALTHCHECK_RATE: return "display healthcheck rate";
-	case XNUPROXY_CMD_NAMED_BUFFER_MAP:    return "named buffer map";
-	case XNUPROXY_CMD_NAMED_BUFFER_LAYOUT: return "named buffer layout";
-	case XNUPROXY_CMD_AUDIO_BUFFER_MAP:    return "audio buffer map";
-	case XNUPROXY_CMD_AUDIO_BUFFER_LAYOUT: return "audio buffer layout";
-	case XNUPROXY_CMD_REPORT_MEMORY_USAGE: return "memory usage";
-	case XNUPROXY_CMD_UPCALL_READY:        return "upcall ready";
-	default:                               return "<unknown>";
-	}
-}
-#define exclaves_xnu_proxy_debug(flag, step, msg) \
-	exclaves_debug_printf(flag, \
-	    "exclaves: xnu proxy %s " #step ":\t" \
-	    "msg %p server_id 0x%lx cmd %u status %u\n", \
-	    cmd_to_str((msg)->cmd), (msg), (msg)->server_id, (msg)->cmd, \
-	    os_atomic_load(&(msg)->status, relaxed))
-#define exclaves_xnu_proxy_show_progress(step, msg) \
-	exclaves_xnu_proxy_debug(show_progress, step, msg)
-#define exclaves_xnu_proxy_show_error(msg) \
-	exclaves_xnu_proxy_debug(show_errors, failed, msg)
-#define exclaves_xnu_proxy_endpoint_call_show_progress(operation, step, \
-	    eid, scid, status) \
-	exclaves_debug_printf(show_progress, \
-	    "exclaves: xnu proxy endpoint " #operation " " #step ":\t" \
-	    "endpoint id %ld scid 0x%lx status %u\n", \
-	    (eid), (scid), (status))
-
-
-static kern_return_t
-exclaves_handle_upcall(thread_t thread, Exclaves_L4_IpcBuffer_t *ipcb,
-    Exclaves_L4_Word_t scid, xnuproxy_msg_status_t status)
-{
-	kern_return_t kr;
-	Exclaves_L4_Word_t endpoint_id;
-
-	uint64_t oldscid = thread->th_exclaves_scheduling_context_id;
-	void *oldipcb = thread->th_exclaves_ipc_buffer;
-
-	thread->th_exclaves_scheduling_context_id = scid;
-	thread->th_exclaves_ipc_buffer = ipcb;
-
-	thread->th_exclaves_state |= TH_EXCLAVES_UPCALL;
-	endpoint_id = XNUPROXY_CR_ENDPOINT_ID(ipcb);
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_UPCALL)
-	    | DBG_FUNC_START, scid, endpoint_id);
-	exclaves_xnu_proxy_endpoint_call_show_progress(upcall, entry,
-	    endpoint_id, scid, status);
-	__asm__ volatile (
-                                                "EXCLAVES_UPCALL_START: nop\n\t"
-        );
-	kr = exclaves_call_upcall_handler(endpoint_id);
-	__asm__ volatile (
-                                                "EXCLAVES_UPCALL_END: nop\n\t"
-        );
-	XNUPROXY_CR_STATUS(ipcb) =
-	    XNUPROXY_MSG_STATUS_PROCESSING;
-	/* TODO: More state returned than Success or OperationInvalid? */
-	XNUPROXY_CR_RETVAL(ipcb) =
-	    (kr == KERN_SUCCESS) ? Exclaves_L4_Success :
-	    Exclaves_L4_ErrorOperationInvalid;
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_UPCALL)
-	    | DBG_FUNC_END);
-	thread->th_exclaves_state &= ~TH_EXCLAVES_UPCALL;
-	exclaves_xnu_proxy_endpoint_call_show_progress(upcall, returned,
-	    endpoint_id, scid,
-	    (unsigned int)XNUPROXY_CR_RETVAL(ipcb));
-
-	thread->th_exclaves_scheduling_context_id = oldscid;
-	thread->th_exclaves_ipc_buffer = oldipcb;
-
-	return kr;
-}
-
-extern kern_return_t exclaves_xnu_proxy_send(xnuproxy_msg_t *, Exclaves_L4_Word_t *);
-kern_return_t
-exclaves_xnu_proxy_send(xnuproxy_msg_t *_msg, Exclaves_L4_Word_t *spawned)
-{
-	assert3p(_msg, !=, NULL);
-
-	thread_t thread = current_thread();
-
-	if (exclaves_xnu_proxy_msg_buffer == NULL) {
-		return KERN_FAILURE;
-	}
-
-	kern_return_t kr = KERN_SUCCESS;
-	xnuproxy_msg_t *msg = exclaves_xnu_proxy_msg_buffer;
-	bool interrupted = false;
-
-	lck_mtx_lock(&exclaves_xnu_proxy_lock);
-
-	assert3u(thread->th_exclaves_state & TH_EXCLAVES_STATE_ANY, ==, 0);
-	thread->th_exclaves_state |= TH_EXCLAVES_XNUPROXY;
-
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_XNUPROXY)
-	    | DBG_FUNC_START, exclaves_xnu_proxy_scid, _msg->cmd);
-
-	*msg = *_msg;
-	msg->server_id = exclaves_xnu_proxy_scid;
-
-	os_atomic_store(&msg->status, XNUPROXY_MSG_STATUS_PROCESSING,
-	    release);
-
-	while (os_atomic_load(&msg->status, relaxed) ==
-	    XNUPROXY_MSG_STATUS_PROCESSING) {
-		exclaves_xnu_proxy_show_progress(in progress, msg);
-		kr = exclaves_scheduler_resume_scheduling_context(msg->server_id,
-		    spawned, interrupted);
-		assert(kr == KERN_SUCCESS || kr == KERN_ABORTED);
-
-		/* A wait was interrupted. */
-		interrupted = kr == KERN_ABORTED;
-
-		if (NULL != exclaves_xnu_proxy_upcall_ipcb) {
-			if (XNUPROXY_MSG_STATUS_UPCALL == XNUPROXY_CR_STATUS(exclaves_xnu_proxy_upcall_ipcb)) {
-				xnuproxy_msg_status_t status = (xnuproxy_msg_status_t)
-				    XNUPROXY_CR_STATUS(exclaves_xnu_proxy_upcall_ipcb);
-				(void) exclaves_handle_upcall(thread, exclaves_xnu_proxy_upcall_ipcb,
-				    exclaves_xnu_proxy_scid, status);
-			}
-		}
-	}
-
-	if (os_atomic_load(&msg->status, acquire) ==
-	    XNUPROXY_MSG_STATUS_NONE) {
-		exclaves_xnu_proxy_show_progress(complete, msg);
-	} else {
-		kr = KERN_FAILURE;
-		exclaves_xnu_proxy_show_error(msg);
-	}
-
-	*_msg = *msg;
-
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_XNUPROXY)
-	    | DBG_FUNC_END);
-
-	thread->th_exclaves_state &= ~TH_EXCLAVES_XNUPROXY;
-	lck_mtx_unlock(&exclaves_xnu_proxy_lock);
-
-	return kr;
-}
-
-static kern_return_t
-exclaves_xnu_proxy_init(uint64_t xnu_proxy_boot_info)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	pmap_paddr_t msg_buffer_paddr = xnu_proxy_boot_info;
-
-	lck_mtx_assert(&exclaves_boot_lock, LCK_MTX_ASSERT_OWNED);
-
-	if (msg_buffer_paddr && pmap_valid_address(msg_buffer_paddr)) {
-		lck_mtx_lock(&exclaves_xnu_proxy_lock);
-		exclaves_xnu_proxy_msg_buffer =
-		    (xnuproxy_msg_t*)phystokv(msg_buffer_paddr);
-		exclaves_xnu_proxy_scid =
-		    exclaves_xnu_proxy_msg_buffer->server_id;
-
-#if XNUPROXY_MSG_VERSION >= 3
-		exclaves_xnu_proxy_upcall_ipcb_paddr =
-		    exclaves_xnu_proxy_msg_buffer->upcall_ipc_buffer_paddr;
-		if (exclaves_xnu_proxy_upcall_ipcb_paddr != 0) {
-			exclaves_xnu_proxy_upcall_ipcb = (Exclaves_L4_IpcBuffer_t *)
-			    phystokv(exclaves_xnu_proxy_upcall_ipcb_paddr);
-		}
-#endif /* XNUPROXY_MSG_VERSION >= 3 */
-		lck_mtx_unlock(&exclaves_xnu_proxy_lock);
-	} else {
-		exclaves_debug_printf(show_errors,
-		    "exclaves: %s: 0x%012llx\n",
-		    "Invalid xnu proxy boot info physical address",
-		    xnu_proxy_boot_info);
-		return KERN_FAILURE;
-	}
-
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_SETUP,
-	};
-
-	kr = exclaves_xnu_proxy_send(&msg, NULL);
-	if (kr != KERN_SUCCESS) {
-		return kr;
-	}
-
-	if (msg.cmd_setup.response.version != XNUPROXY_MSG_VERSION) {
-		exclaves_debug_printf(show_errors,
-		    "exclaves: mismatched xnuproxy message version, "
-		    "xnuproxy: %u, xnu: %u  ", msg.cmd_setup.response.version,
-		    XNUPROXY_MSG_VERSION);
-		return KERN_FAILURE;
-	}
-
-	exclaves_debug_printf(show_progress,
-	    "exclaves: xnuproxy message version: 0x%u\n", XNUPROXY_MSG_VERSION);
-
-	kr = exclaves_panic_thread_setup();
-	if (kr != KERN_SUCCESS) {
-		exclaves_debug_printf(show_errors,
-		    "XNU proxy panic thread setup failed\n");
-		return KERN_FAILURE;
-	}
-
-	return KERN_SUCCESS;
-}
-
-static kern_return_t
-exclaves_xnu_proxy_allocate_context(Exclaves_L4_Word_t *scid,
-    Exclaves_L4_IpcBuffer_t **ipcb)
-{
-	kern_return_t kr = KERN_FAILURE;
-	Exclaves_L4_Word_t spawned_scid = 0;
-
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_CONTEXT_ALLOCATE,
-	};
-
-	kr = exclaves_xnu_proxy_send(&msg, &spawned_scid);
-	if (kr != KERN_SUCCESS) {
-		return kr;
-	}
-
-	if (msg.cmd_ctx_alloc.response.ipc_paddr == 0) {
-		return KERN_NO_SPACE;
-	}
-
-	if (spawned_scid != 0) {
-		assert3u(msg.cmd_ctx_alloc.response.sched_id, ==, spawned_scid);
-	}
-
-	*scid = msg.cmd_ctx_alloc.response.sched_id;
-	*ipcb = (Exclaves_L4_IpcBuffer_t *)
-	    phystokv(msg.cmd_ctx_alloc.response.ipc_paddr);
-	os_atomic_inc(&exclaves_ipcb_cnt, relaxed);
-
-	return KERN_SUCCESS;
-}
-
-static kern_return_t
-exclaves_xnu_proxy_free_context(Exclaves_L4_Word_t scid)
-{
-	kern_return_t kr = KERN_FAILURE;
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_CONTEXT_FREE,
-		.cmd_ctx_free = (xnuproxy_cmd_ctx_free_t) {
-			.request.sched_id = scid,
-			.request.destroy = false,
-		},
-	};
-
-	kr = exclaves_xnu_proxy_send(&msg, NULL);
-	if (kr == KERN_SUCCESS) {
-		size_t orig_ipcb_cnt = os_atomic_dec_orig(&exclaves_ipcb_cnt, relaxed);
-		assert3u(orig_ipcb_cnt, >=, 1);
-		if (orig_ipcb_cnt == 0) { /* This is just to avoid unused variable warning */
-			kr = KERN_FAILURE;
-		}
-	}
-	return kr;
-}
-
-OS_NOINLINE
-static kern_return_t
-exclaves_xnu_proxy_endpoint_call(Exclaves_L4_Word_t endpoint_id)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	thread_t thread = current_thread();
-	bool interrupted = false;
-
-	Exclaves_L4_Word_t scid = thread->th_exclaves_scheduling_context_id;
-	Exclaves_L4_IpcBuffer_t *ipcb = thread->th_exclaves_ipc_buffer;
-	xnuproxy_msg_status_t status =
-	    XNUPROXY_MSG_STATUS_PROCESSING;
-
-	XNUPROXY_CR_ENDPOINT_ID(ipcb) = endpoint_id;
-	XNUPROXY_CR_STATUS(ipcb) = status;
-
-	exclaves_xnu_proxy_endpoint_call_show_progress(call, entry,
-	    endpoint_id, scid, status);
-
-	assert3u(thread->th_exclaves_state & TH_EXCLAVES_STATE_ANY, ==, 0);
-	thread->th_exclaves_state |= TH_EXCLAVES_RPC;
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_RPC)
-	    | DBG_FUNC_START, scid, endpoint_id);
-
-	while (1) {
-		kr = exclaves_scheduler_resume_scheduling_context(scid, NULL,
-		    interrupted);
-		assert(kr == KERN_SUCCESS || kr == KERN_ABORTED);
-
-		/* A wait was interrupted. */
-		interrupted = kr == KERN_ABORTED;
-
-		status = (xnuproxy_msg_status_t)
-		    XNUPROXY_CR_STATUS(ipcb);
-
-		switch (status) {
-		case XNUPROXY_MSG_STATUS_PROCESSING:
-			exclaves_xnu_proxy_endpoint_call_show_progress(call, yielded,
-			    endpoint_id, scid, status);
-			continue;
-
-		case XNUPROXY_MSG_STATUS_REPLY:
-			exclaves_xnu_proxy_endpoint_call_show_progress(call, returned,
-			    endpoint_id, scid, status);
-			kr = KERN_SUCCESS;
-			break;
-
-		case XNUPROXY_MSG_STATUS_UPCALL:
-			kr = exclaves_handle_upcall(thread, ipcb, scid, status);
-			continue;
-
-		default:
-			// Should we have an assert(valid return) here?
-			exclaves_xnu_proxy_endpoint_call_show_progress(call, failed,
-			    endpoint_id, scid, status);
-			kr = KERN_FAILURE;
-			break;
-		}
-		break;
-	}
-
-	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_EXCLAVES, MACH_EXCLAVES_RPC)
-	    | DBG_FUNC_END);
-	thread->th_exclaves_state &= ~TH_EXCLAVES_RPC;
-
-	return kr;
-}
 
 static kern_return_t
 exclaves_hosted_error(bool success, XrtHosted_Error_t *error)
@@ -2668,38 +2219,21 @@ exclaves_hosted_error(bool success, XrtHosted_Error_t *error)
 	}
 }
 
-kern_return_t
-exclaves_ipc_buffer_cache_init(void)
-{
-	kern_return_t kr = KERN_SUCCESS;
-	Exclaves_L4_IpcBuffer_t *ipcb = NULL;
-	Exclaves_L4_Word_t scid = 0;
-
-	LCK_MTX_ASSERT(&exclaves_boot_lock, LCK_MTX_ASSERT_OWNED);
-	assert(exclaves_ipc_buffer_cache == NULL);
-
-	if (exclaves_ipc_buffer_cache_enabled) {
-		if ((kr = exclaves_xnu_proxy_allocate_context(&scid, &ipcb))) {
-			return kr;
-		}
-
-		/* relinquish the new buffer into the cache */
-		exclaves_relinquish_ipc_buffer(ipcb, scid);
-	}
-	return kr;
-}
 
 #pragma mark exclaves privilege management
 
 /*
  * All entitlement checking enabled by default.
  */
-#define DEFAULT_ENTITLEMENT_FLAGS (~(0))
+#define DEFAULT_ENTITLEMENT_FLAGS (~0)
 
 /*
  * boot-arg to control the use of entitlements.
+ * Eventually this should be removed and entitlement checking should be gated on
+ * the EXCLAVES_R_ENTITLEMENTS requirement.
+ * This will be addressed with rdar://125153460.
  */
-static TUNABLE(unsigned int, exclaves_entitlement_flags,
+TUNABLE(unsigned int, exclaves_entitlement_flags,
     "exclaves_entitlement_flags", DEFAULT_ENTITLEMENT_FLAGS);
 
 static bool
@@ -2771,8 +2305,10 @@ exclaves_has_priv(task_t task, exclaves_priv_t priv)
 		if (is_launchd) {
 			return true;
 		}
+		/* BEGIN IGNORE CODESTYLE */
 		return has_entitlement(task, priv,
-		           "com.apple.private.exclaves.boot");
+		    "com.apple.private.exclaves.boot");
+		/* END IGNORE CODESTYLE */
 
 	/* The CONCLAVE HOST priv is always checked by vnode. */
 	case EXCLAVES_PRIV_CONCLAVE_HOST:
@@ -2785,9 +2321,35 @@ bool
 exclaves_has_priv_vnode(void *vnode, int64_t off, exclaves_priv_t priv)
 {
 	switch (priv) {
-	case EXCLAVES_PRIV_CONCLAVE_HOST:
-		return has_entitlement_vnode(vnode, off, priv,
-		           "com.apple.private.exclaves.conclave-host");
+	case EXCLAVES_PRIV_CONCLAVE_HOST: {
+		const bool has_conclave_host = has_entitlement_vnode(vnode,
+		    off, priv, "com.apple.private.exclaves.conclave-host");
+
+		/*
+		 * Tasks should never have both EXCLAVES_PRIV_CONCLAVE_HOST
+		 * *and* EXCLAVES_PRIV_KERNEL_DOMAIN.
+		 */
+
+		/* Don't check if neither entitlemenent is being enforced.*/
+		if ((exclaves_entitlement_flags & EXCLAVES_PRIV_CONCLAVE_HOST) == 0 ||
+		    (exclaves_entitlement_flags & EXCLAVES_PRIV_KERNEL_DOMAIN) == 0) {
+			return has_conclave_host;
+		}
+
+		const bool has_domain_kernel = has_entitlement_vnode(vnode, off,
+		    EXCLAVES_PRIV_KERNEL_DOMAIN,
+		    "com.apple.private.exclaves.kernel-domain");
+
+		/* See if it has both. */
+		if (has_conclave_host && has_domain_kernel) {
+			exclaves_debug_printf(show_errors,
+			    "exclaves: task has both conclave-host and "
+			    "kernel-domain entitlements which is forbidden\n");
+			return false;
+		}
+
+		return has_conclave_host;
+	}
 
 	case EXCLAVES_PRIV_CONCLAVE_SPAWN:
 		return has_entitlement_vnode(vnode, off, priv,
@@ -2798,38 +2360,70 @@ exclaves_has_priv_vnode(void *vnode, int64_t off, exclaves_priv_t priv)
 	}
 }
 
+
+#pragma mark exclaves stackshot range
+
+/* Unslid pointers defining the range of code which switches threads into
+ * secure world */
+uintptr_t exclaves_enter_range_start;
+uintptr_t exclaves_enter_range_end;
+
+
+__startup_func
+static void
+initialize_exclaves_enter_range(void)
+{
+	exclaves_enter_range_start = VM_KERNEL_UNSLIDE(&exclaves_enter_start_label);
+	assert3u(exclaves_enter_range_start, !=, 0);
+	exclaves_enter_range_end = VM_KERNEL_UNSLIDE(&exclaves_enter_end_label);
+	assert3u(exclaves_enter_range_end, !=, 0);
+}
+STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, initialize_exclaves_enter_range);
+
+/*
+ * Return true if the specified address is in exclaves_enter.
+ */
+static bool
+exclaves_enter_in_range(uintptr_t addr, bool slid)
+{
+	return slid ?
+	       exclaves_in_range(addr, (uintptr_t)&exclaves_enter_start_label, (uintptr_t)&exclaves_enter_end_label) :
+	       exclaves_in_range(addr, exclaves_enter_range_start, exclaves_enter_range_end);
+}
+
 uint32_t
-exclaves_stack_offset(uintptr_t * out_addr, size_t nframes, bool slid_addresses)
+exclaves_stack_offset(const uintptr_t *addr, size_t nframes, bool slid)
 {
 	size_t i = 0;
-	uintptr_t enter_range_start = 0;
-	uintptr_t enter_range_end = 0;
-	uintptr_t upcall_range_start = 0;
-	uintptr_t upcall_range_end = 0;
 
-	if (slid_addresses) {
-		enter_range_start = (uintptr_t)&exclaves_enter_start_label;
-		enter_range_end = (uintptr_t)&exclaves_enter_end_label;
-		upcall_range_start = (uintptr_t)&exclaves_upcall_start_label;
-		upcall_range_end = (uintptr_t)&exclaves_upcall_end_label;
-	} else {
-		enter_range_start = exclaves_enter_range_start;
-		enter_range_end = exclaves_enter_range_end;
-		upcall_range_start = exclaves_upcall_range_start;
-		upcall_range_end = exclaves_upcall_range_end;
+	// Check for a frame matching upcall code range
+	for (i = 0; i < nframes; i++) {
+		if (exclaves_upcall_in_range(addr[i], slid)) {
+			break;
+		}
 	}
 
-	while (i < nframes &&
-	    !((enter_range_start < out_addr[i]) && (out_addr[i] <= enter_range_end))
-	    && !((upcall_range_start < out_addr[i]) && (out_addr[i] <= upcall_range_end))
-	    ) {
-		i++;
+	// Insert exclaves stacks before the upcall frame when found
+	if (i < nframes) {
+		return (uint32_t)(i + 1);
 	}
 
+	// Check for a frame matching exclaves enter range
+	for (i = 0; i < nframes; i++) {
+		if (exclaves_enter_in_range(addr[i], slid)) {
+			break;
+		}
+	}
+
+	// Put exclaves stacks on top of kernel stacks by default
+	if (i == nframes) {
+		i = 0;
+	}
 	return (uint32_t)i;
 }
 
 #endif /* CONFIG_EXCLAVES */
+
 
 #ifndef CONFIG_EXCLAVES
 /* stubs for sensor functions which are not compiled in from exclaves.c when

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000012F</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>303</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_swtransparencyd</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Software Transparency Services</string>
+	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000012F</string>
+	</array>
+	<key>users</key>
+	<array>
+		<string>_swtransparencyd</string>
+	</array>
+</dict>
+</plist>

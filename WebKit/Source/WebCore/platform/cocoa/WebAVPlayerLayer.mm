@@ -57,14 +57,21 @@ SOFT_LINK_CLASS_OPTIONAL(AVKit, __AVPlayerLayerView)
 #endif
 
 namespace WebCore {
-class WebAVPlayerLayerPresentationModelClient : public VideoPresentationModelClient {
+class WebAVPlayerLayerPresentationModelClient final : public VideoPresentationModelClient, public CanMakeCheckedPtr<WebAVPlayerLayerPresentationModelClient> {
     WTF_MAKE_FAST_ALLOCATED(WebAVPlayerLayerPresentationModelClient);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebAVPlayerLayerPresentationModelClient);
 public:
     WebAVPlayerLayerPresentationModelClient(WebAVPlayerLayer* playerLayer)
         : m_playerLayer(playerLayer)
     {
     }
 private:
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+
     void videoDimensionsChanged(const FloatSize& videoDimensions)
     {
         [m_playerLayer.get() setVideoDimensions:videoDimensions];
@@ -78,6 +85,7 @@ private:
     ThreadSafeWeakPtr<VideoPresentationModel> _presentationModel;
     RetainPtr<WebAVPlayerController> _playerController;
     RetainPtr<CALayer> _videoSublayer;
+    RetainPtr<CALayer> _captionsLayer;
     FloatRect _targetVideoFrame;
     CGSize _videoDimensions;
     RetainPtr<NSString> _videoGravity;
@@ -158,6 +166,24 @@ private:
     return _videoSublayer.get();
 }
 
+- (void)setCaptionsLayer:(CALayer *)captionsLayer
+{
+    if (_captionsLayer)
+        [_captionsLayer removeFromSuperlayer];
+
+    _captionsLayer = captionsLayer;
+
+    if (_captionsLayer) {
+        [self addSublayer:_captionsLayer.get()];
+        [self setNeedsLayout];
+    }
+}
+
+- (CALayer*)captionsLayer
+{
+    return _captionsLayer.get();
+}
+
 - (CGSize)videoDimensions
 {
     return _videoDimensions;
@@ -222,6 +248,16 @@ static bool areFramesEssentiallyEqualWithTolerance(const FloatRect& a, const Flo
 
     FloatRect sourceVideoFrame = self.videoSublayer.bounds;
     _targetVideoFrame = [self calculateTargetVideoFrame];
+
+    if (_captionsLayer) {
+        // Captions should be placed atop video content, but if the video content overflows
+        // the WebAVPlayerLayer bounds, restrict the caption area to only what is visible.
+        FloatRect captionsFrame = _targetVideoFrame;
+        captionsFrame.intersect(self.bounds);
+        [_captionsLayer setFrame:captionsFrame];
+        if (auto model = _presentationModel.get())
+            model->setTextTrackRepresentationBounds(enclosingIntRect(captionsFrame));
+    }
 
     float videoAspectRatio = self.videoDimensions.width / self.videoDimensions.height;
 
@@ -370,6 +406,18 @@ static bool areFramesEssentiallyEqualWithTolerance(const FloatRect& a, const Flo
 {
     _legibleContentInsets = legibleContentInsets;
 }
+
+#if PLATFORM(APPLETV)
+- (BOOL)avkit_isVisible
+{
+    return !CGRectIsEmpty(self.bounds);
+}
+
+- (CGRect)avkit_videoRectInWindow
+{
+    return self.videoRect;
+}
+#endif
 
 @end
 

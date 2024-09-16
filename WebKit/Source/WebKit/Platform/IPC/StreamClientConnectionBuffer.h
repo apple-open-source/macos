@@ -43,7 +43,7 @@ public:
     enum class WakeUpServer : bool { No, Yes };
     WakeUpServer release(size_t writeSize);
     void resetClientOffset();
-    std::span<uint8_t> alignedSpan(size_t offset, size_t limit);
+    std::span<uint8_t> alignedMutableSpan(size_t offset, size_t limit);
     void setSemaphores(IPC::Semaphore&& wakeUp, IPC::Semaphore&& clientWait);
     bool hasSemaphores() const { return m_semaphores.has_value(); }
     void wakeUpServer();
@@ -51,9 +51,9 @@ public:
 private:
     static constexpr size_t minimumMessageSize = StreamConnectionEncoder::minimumMessageSize;
     static constexpr size_t messageAlignment = StreamConnectionEncoder::messageAlignment;
-    explicit StreamClientConnectionBuffer(Ref<WebKit::SharedMemory>);
+    explicit StreamClientConnectionBuffer(Ref<WebCore::SharedMemory>);
 
-    size_t size(size_t offset, size_t limit);
+    size_t size(size_t offset, size_t limit) const;
     size_t alignOffset(size_t offset) const { return StreamConnectionBuffer::alignOffset<messageAlignment>(offset, minimumMessageSize); }
     Atomic<ClientOffset>& sharedClientOffset() { return clientOffset(); }
     using ClientLimit = ServerOffset;
@@ -81,13 +81,13 @@ inline std::optional<StreamClientConnectionBuffer> StreamClientConnectionBuffer:
         return std::nullopt;
 
     auto size = (static_cast<size_t>(1) << dataSizeLog2) + headerSize();
-    auto memory = WebKit::SharedMemory::allocate(size);
+    auto memory = WebCore::SharedMemory::allocate(size);
     if (!memory)
         return std::nullopt;
     return StreamClientConnectionBuffer { memory.releaseNonNull() };
 }
 
-inline StreamClientConnectionBuffer::StreamClientConnectionBuffer(Ref<WebKit::SharedMemory> memory)
+inline StreamClientConnectionBuffer::StreamClientConnectionBuffer(Ref<WebCore::SharedMemory> memory)
     : StreamConnectionBuffer(WTFMove(memory))
 {
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(sharedMemorySizeIsValid(m_sharedMemory->size()));
@@ -107,7 +107,7 @@ inline std::optional<std::span<uint8_t>> StreamClientConnectionBuffer::tryAcquir
 
     for (;;) {
         if (clientLimit != ClientLimit::clientIsWaitingTag) {
-            auto result = alignedSpan(m_clientOffset, toLimit(clientLimit));
+            auto result = alignedMutableSpan(m_clientOffset, toLimit(clientLimit));
             if (result.size() >= minimumMessageSize)
                 return result;
         }
@@ -120,7 +120,7 @@ inline std::optional<std::span<uint8_t>> StreamClientConnectionBuffer::tryAcquir
             clientLimit = sharedClientLimit().load(std::memory_order_acquire);
         } else
             clientLimit = oldClientLimit;
-        // The alignedSpan uses the minimumMessageSize to calculate the next beginning position in the buffer,
+        // The alignedMutableSpan uses the minimumMessageSize to calculate the next beginning position in the buffer,
         // and not the size. The size might be more or less what is needed, depending on where the reader is.
         // If there is no capacity for minimum message size, wait until more is available.
         // In the case where clientOffset < clientLimit we can arrive to a situation where
@@ -155,7 +155,7 @@ inline std::optional<std::span<uint8_t>> StreamClientConnectionBuffer::tryAcquir
     // In case the transaction was cancelled, undo the transaction marker.
     sharedClientLimit().store(static_cast<ClientLimit>(0), std::memory_order_release);
     m_clientOffset = 0;
-    return alignedSpan(m_clientOffset, 0);
+    return alignedMutableSpan(m_clientOffset, 0);
 }
 
 inline StreamClientConnectionBuffer::WakeUpServer StreamClientConnectionBuffer::release(size_t size)
@@ -177,7 +177,7 @@ inline void StreamClientConnectionBuffer::resetClientOffset()
     m_clientOffset = 0;
 }
 
-inline std::span<uint8_t> StreamClientConnectionBuffer::alignedSpan(size_t offset, size_t limit)
+inline std::span<uint8_t> StreamClientConnectionBuffer::alignedMutableSpan(size_t offset, size_t limit)
 {
     ASSERT(offset < dataSize());
     ASSERT(limit < dataSize());
@@ -190,10 +190,10 @@ inline std::span<uint8_t> StreamClientConnectionBuffer::alignedSpan(size_t offse
         if (aligned >= offset || aligned < limit)
             resultSize = size(aligned, limit);
     }
-    return { data() + aligned, resultSize };
+    return mutableSpan().subspan(aligned, resultSize);
 }
 
-inline size_t StreamClientConnectionBuffer::size(size_t offset, size_t limit)
+inline size_t StreamClientConnectionBuffer::size(size_t offset, size_t limit) const
 {
     if (!limit)
         return dataSize() - 1 - offset;

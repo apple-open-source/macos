@@ -46,6 +46,9 @@
 #import <pal/spi/ios/QuickLookSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/SpanCocoa.h>
+
+#import <pal/ios/QuickLookSoftLink.h>
 
 #import <pal/ios/QuickLookSoftLink.h>
 
@@ -220,6 +223,9 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
     if (!_previewController)
         return nil;
 
+    // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
+    // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
+    // We should call PageClientImpl::presentingViewController() instead.
     return _previewController->page().uiClient().presentingViewController();
 }
 
@@ -326,7 +332,9 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
         return ".usdz"_s;
     }();
 
-    _filePath = FileSystem::openTemporaryFile("SystemPreview"_s, _fileHandle, fileExtension);
+    auto result = FileSystem::openTemporaryFile("SystemPreview"_s, fileExtension);
+    _filePath = result.first;
+    _fileHandle = result.second;
     ASSERT(FileSystem::isHandleValid(_fileHandle));
 
     _previewController->loadStarted(URL::fileURLWithFileSystemPath(_filePath));
@@ -355,7 +363,7 @@ static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParamete
 - (void)completeLoad
 {
     ASSERT(_fileHandle != FileSystem::invalidPlatformFileHandle);
-    size_t byteCount = FileSystem::writeToFile(_fileHandle, [_data bytes], [_data length]);
+    size_t byteCount = FileSystem::writeToFile(_fileHandle, span(_data.get()));
     FileSystem::closeFile(_fileHandle);
 
     if (byteCount != _data.get().length) {
@@ -382,6 +390,9 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
     if (m_qlPreviewController)
         return completionHandler();
 
+    // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
+    // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
+    // We should call PageClientImpl::presentingViewController() instead.
     RetainPtr<UIViewController> presentingViewController = m_webPageProxy.uiClient().presentingViewController();
 
     if (!presentingViewController)
@@ -396,7 +407,8 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
         auto protectedThis = weakThis.get();
         RELEASE_LOG(SystemPreview, "SystemPreview began on %lld", protectedThis->m_systemPreviewInfo.element.elementIdentifier.toUInt64());
         auto request = WebCore::ResourceRequest(url);
-        protectedThis->m_webPageProxy.dataTaskWithRequest(WTFMove(request), topOrigin, [weakThis, completionHandler = WTFMove(completionHandler)] (Ref<API::DataTask>&& task) mutable {
+        bool shouldRunAtForegroundPriority = false;
+        protectedThis->m_webPageProxy.dataTaskWithRequest(WTFMove(request), topOrigin, shouldRunAtForegroundPriority, [weakThis, completionHandler = WTFMove(completionHandler)] (Ref<API::DataTask>&& task) mutable {
             if (!weakThis)
                 return completionHandler();
 
@@ -431,14 +443,14 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
         successHandler(success);
     });
     auto alert = WebKit::createUIAlertController(WEB_UI_NSSTRING(@"Open this 3D model?", "Open this 3D model?"), nil);
-    UIAlertAction* allowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING(@"Allow (usdz QuickLook Preview)", "Allow") style:UIAlertActionStyleDefault handler:[weakThis = WeakPtr { *this }](UIAlertAction *) mutable {
+    UIAlertAction* allowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING_KEY(@"Allow", @"Allow (usdz QuickLook Preview)", "Allow displaying QuickLook Preview of 3D model") style:UIAlertActionStyleDefault handler:[weakThis = WeakPtr { *this }](UIAlertAction *) mutable {
         if (!weakThis)
             return;
 
         std::exchange(weakThis->m_allowPreviewCallback, nullptr)(true);
     }];
 
-    UIAlertAction* doNotAllowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING(@"Cancel (usdz QuickLook Preview)", "Cancel") style:UIAlertActionStyleCancel handler:[weakThis = WeakPtr { *this }](UIAlertAction *) mutable {
+    UIAlertAction* doNotAllowAction = [UIAlertAction actionWithTitle:WEB_UI_NSSTRING_KEY(@"Cancel", @"Cancel (usdz QuickLook Preview)", "Cancel displaying QuickLook Preview of 3D model") style:UIAlertActionStyleCancel handler:[weakThis = WeakPtr { *this }](UIAlertAction *) mutable {
         if (!weakThis)
             return;
 
@@ -448,7 +460,9 @@ void SystemPreviewController::begin(const URL& url, const WebCore::SecurityOrigi
     [alert addAction:doNotAllowAction];
     [alert addAction:allowAction];
 
-    if (m_showPreviewDelay) {
+    if (m_testingCallback)
+        std::exchange(m_allowPreviewCallback, nullptr)(true);
+    else if (m_showPreviewDelay) {
         RunLoop::main().dispatchAfter(Seconds { m_showPreviewDelay }, [alert, presentingViewController] {
             [presentingViewController presentViewController:alert.get() animated:YES completion:nil];
         });
@@ -551,7 +565,7 @@ void SystemPreviewController::takeActivityToken()
 #if USE(RUNNINGBOARD)
     RELEASE_LOG(ProcessSuspension, "%p - UIProcess is taking a background assertion because it is downloading a system preview", this);
     ASSERT(!m_activity);
-    m_activity = page().process().throttler().backgroundActivity("System preview download"_s).moveToUniquePtr();
+    m_activity = page().legacyMainFrameProcess().throttler().backgroundActivity("System preview download"_s).moveToUniquePtr();
 #endif
 }
 
@@ -586,7 +600,7 @@ void SystemPreviewController::triggerSystemPreviewActionWithTargetForTesting(uin
 
     m_systemPreviewInfo.isPreview = true;
     m_systemPreviewInfo.element.elementIdentifier = ObjectIdentifier<WebCore::ElementIdentifierType>(elementID);
-    m_systemPreviewInfo.element.documentIdentifier = { *uuid, m_webPageProxy.process().coreProcessIdentifier() };
+    m_systemPreviewInfo.element.documentIdentifier = { *uuid, m_webPageProxy.legacyMainFrameProcess().coreProcessIdentifier() };
     m_systemPreviewInfo.element.webPageIdentifier = ObjectIdentifier<WebCore::PageIdentifierType>(pageID);
     triggerSystemPreviewAction();
 }

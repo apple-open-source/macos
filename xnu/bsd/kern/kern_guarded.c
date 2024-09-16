@@ -42,6 +42,7 @@
 #include <sys/syscall.h>
 #include <sys/kauth.h>
 #include <sys/kdebug.h>
+#include <sys/reason.h>
 #include <stdbool.h>
 #include <vm/vm_protos.h>
 #include <libkern/section_keywords.h>
@@ -66,8 +67,7 @@ extern int writev_uio(struct proc *p, int fd, user_addr_t user_iovp,
 extern int write_internal(struct proc *p, int fd, user_addr_t buf,
     user_size_t nbyte, off_t offset, int flags, guardid_t *puguard,
     user_ssize_t *retval);
-extern int exit_with_guard_exception(void *p, mach_exception_data_type_t code,
-    mach_exception_data_type_t subcode);
+
 /*
  * Experimental guarded file descriptor support.
  */
@@ -232,11 +232,19 @@ fd_guard_ast(
 	 * deliver it synchronously and then kill the process, else kill the process
 	 * and deliver the exception via EXC_CORPSE_NOTIFY. Always kill the process if we are not in dev mode.
 	 */
+
+	int flags = PX_DEBUG_NO_HONOR;
+	exception_info_t info = {
+		.os_reason = OS_REASON_GUARD,
+		.exception_type = EXC_GUARD,
+		.mx_code = code,
+		.mx_subcode = subcode,
+	};
+
 	if (task_exception_notify(EXC_GUARD, code, subcode, fatal) == KERN_SUCCESS) {
-		psignal(current_proc(), SIGKILL);
-	} else {
-		exit_with_guard_exception(current_proc(), code, subcode);
+		flags |= PX_PSIGNAL;
 	}
+	exit_with_mach_exception(current_proc(), info, flags);
 }
 
 /*
@@ -1356,16 +1364,27 @@ vn_guard_ast(thread_t __unused t,
 	 * the exception would have a corpse for a FATAL one and a corpse-fork for a NON-Fatal
 	 * exception.
 	 */
+
+	int flags = PX_DEBUG_NO_HONOR;
+	exception_info_t info = {
+		.os_reason = OS_REASON_GUARD,
+		.exception_type = EXC_GUARD,
+		.mx_code = code,
+		.mx_subcode = subcode,
+	};
+
 	if (task_exception_notify(EXC_GUARD, code, subcode, fatal) == KERN_SUCCESS) {
 		if (fatal) {
-			psignal(current_proc(), SIGKILL);
+			flags |= PX_PSIGNAL;
 		}
 	} else {
-		if (fatal) {
-			exit_with_guard_exception(current_proc(), code, subcode);
-		} else {
+		if (!fatal) {
 			task_violated_guard(code, subcode, NULL, FALSE); /* not fatal */
 		}
+	}
+
+	if (fatal) {
+		exit_with_mach_exception(current_proc(), info, flags);
 	}
 }
 

@@ -2646,6 +2646,9 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr,
 _Static_assert(WORKQ_KEVENT_EVENT_BUFFER_LEN == WQ_KEVENT_LIST_LEN,
 		"Kernel and userland should agree on the event list size");
 
+#define PTHREAD_WORKLOOP_CREATE_OPTIONS_MASK \
+		(uint64_t)(PTHREAD_WORKLOOP_CREATE_WITH_BOUND_THREAD)
+
 void
 pthread_workqueue_setdispatchoffset_np(int offset)
 {
@@ -2886,7 +2889,7 @@ _pthread_workloop_create(uint64_t workloop_id, uint64_t options, pthread_attr_t 
 		.kqwlp_flags = 0,
 	};
 
-	if (!attr) {
+	if ((!attr) || (options & ~PTHREAD_WORKLOOP_CREATE_OPTIONS_MASK)) {
 		return EINVAL;
 	}
 
@@ -2909,6 +2912,10 @@ _pthread_workloop_create(uint64_t workloop_id, uint64_t options, pthread_attr_t 
 	if (MACH_PORT_VALID(attr->work_interval_port)) {
 		params.kqwlp_flags |= KQ_WORKLOOP_CREATE_WORK_INTERVAL;
 		params.kqwl_wi_port = attr->work_interval_port;
+	}
+
+	if (options & PTHREAD_WORKLOOP_CREATE_WITH_BOUND_THREAD) {
+		params.kqwlp_flags |= KQ_WORKLOOP_CREATE_WITH_BOUND_THREAD;
 	}
 
 	int res = __kqueue_workloop_ctl(KQ_WORKLOOP_CREATE, 0, &params,

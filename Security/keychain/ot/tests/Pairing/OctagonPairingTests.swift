@@ -458,6 +458,11 @@ class OctagonPairingTests: OctagonTestsBase {
                                                              isInitiator: true)
     }
 
+    override func tearDown() {
+        TestsObjectiveC.clearInvocationCount()
+        super.tearDown()
+    }
+
     func getAcceptorInCircle() {
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
         self.cuttlefishContextForAcceptor.startOctagonStateMachine()
@@ -473,7 +478,7 @@ class OctagonPairingTests: OctagonTestsBase {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 1, "should be 1 bottles")
     }
 
-    func setupPairingEndpoints(withPairNumber pairNumber: String, initiatorContextID: String, acceptorContextID: String, initiatorUniqueID: String, acceptorUniqueID: String) -> (KCPairingChannel, KCPairingChannel) {
+    func setupPairingEndpoints(withPairNumber pairNumber: String, initiatorContextID: String, acceptorContextID: String, initiatorUniqueID: String, acceptorUniqueID: String, maxCapability: KCPairingIntent_Capability = KCPairingIntent_Capability._FullPeer) -> (KCPairingChannel, KCPairingChannel) {
         let (acceptorClique, initiatorClique) = self.setupOTCliquePair(withNumber: pairNumber)
         XCTAssertNotNil(acceptorClique, "acceptorClique should not be nil")
         XCTAssertNotNil(initiatorClique, "initiatorClique should not be nil")
@@ -492,6 +497,7 @@ class OctagonPairingTests: OctagonTestsBase {
         acceptorContext.uniqueClientID = initiatorUniqueID
         acceptorContext.flowID = acceptorFlowID
         acceptorContext.deviceSessionID = acceptorDeviceSessionID
+        acceptorContext.capability = maxCapability
 
         let initiatorContext = KCPairingChannelContext()
         initiatorContext.model = "InitiatorModel"
@@ -500,6 +506,7 @@ class OctagonPairingTests: OctagonTestsBase {
         initiatorContext.uniqueDeviceID = initiatorUniqueID
         initiatorContext.flowID = requestorFlowID
         initiatorContext.deviceSessionID = requestorDeviceSessionID
+        initiatorContext.capability = maxCapability
 
         let acceptor = acceptorClique!.setupPairingChannel(asAcceptor: acceptorContext)
         let initiator = initiatorClique!.setupPairingChannel(asInitiator: initiatorContext)
@@ -551,17 +558,14 @@ class OctagonPairingTests: OctagonTestsBase {
     }
 
     func setupOTCliquePair(withNumber count: String) -> (OTClique?, OTClique?) {
-        let secondAcceptorData = OTConfigurationContext()
-        secondAcceptorData.context = "secondAcceptor"
-        secondAcceptorData.altDSID = "alt-a-" + count
+        let secondAcceptorData = self.createOTConfigurationContextForTests(contextID: "secondAcceptor",
+                                                                           altDSID: "alt-a-" + count)
 
         let acceptor = OTClique(contextData: secondAcceptorData)
         XCTAssertNotNil(acceptor, "Clique should not be nil")
 
-        let secondInitiatorData = OTConfigurationContext()
-        secondInitiatorData.context = "secondInitiator"
-        secondInitiatorData.altDSID = "alt-i-" + count
-
+        let secondInitiatorData = self.createOTConfigurationContextForTests(contextID: "secondInitiator",
+                                                                            altDSID: "alt-i-" + count)
         let initiator = OTClique(contextData: secondInitiatorData)
         XCTAssertNotNil(initiator, "Clique should not be nil")
 
@@ -581,7 +585,7 @@ class OctagonPairingTests: OctagonTestsBase {
         }
     }
 
-    func testClientStateMachineTimeoutIfCalledInWrongOrder() throws {
+    func testInvokingEpochFetchBackToBack() throws {
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
 
@@ -606,21 +610,8 @@ class OctagonPairingTests: OctagonTestsBase {
         do {
             let rpcEpochExpectation = self.expectation(description: "rpcEpoch returns")
             self.manager.rpcEpoch(with: self.otcontrolArgumentsFor(context: self.cuttlefishContext), configuration: joiningConfig) { epoch, error in
-                XCTAssertEqual(epoch, 0, "Epoch should be 0")
-                XCTAssertNotNil(error, "Should have an error when diverging from the expected join path")
-
-                let error = try! XCTUnwrap(error as? NSError)
-                XCTAssertEqual(error.domain, CKKSResultErrorDomain, "Should be an CKKS error")
-                XCTAssertEqual(error.code, CKKSResultTimedOut, "Should be CKKSResultTimedOut")
-
-                let underlyingError: NSError = try! XCTUnwrap(error.userInfo[NSUnderlyingErrorKey] as? NSError)
-                XCTAssertEqual(underlyingError.domain, CKKSResultDescriptionErrorDomain, "Should be domain for CKKSResultOperationDescriptionError")
-                XCTAssertEqual(underlyingError.code, CKKSResultDescriptionErrorCode.errorPendingMachineRequestStart.rawValue, "Should be the code for 'request never started")
-
-                let stateError: NSError = try! XCTUnwrap(underlyingError.userInfo[NSUnderlyingErrorKey] as? NSError)
-                XCTAssertEqual(stateError.domain, "com.apple.security.octagon.client", "Should be custom-set domain")
-                XCTAssertEqual(stateError.code, 3, "Should be the code set for state 'OctagonStateAcceptorAwaitingIdentity'")
-
+                XCTAssertEqual(epoch, 1, "Epoch should be 1")
+                XCTAssertNil(error, "Should have no error")
                 rpcEpochExpectation.fulfill()
             }
 

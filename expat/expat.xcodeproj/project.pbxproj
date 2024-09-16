@@ -38,6 +38,7 @@
 		449F8B4B285CEFC60023BFE2 /* xml_parsebuffer_fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = 449F8B30285CEF420023BFE2 /* xml_parsebuffer_fuzzer.c */; };
 		449F8B4F285CEFDC0023BFE2 /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
 		449F8B52285CEFE70023BFE2 /* libexpat.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */; };
+		D043CA312B6C0EC700DBF2C1 /* expat_config.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1FC1485B43D00BBAEF9 /* expat_config.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D01485AD7300BBAEF9 /* xmlparse.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D11485AD7300BBAEF9 /* xmlrole.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D21485AD7300BBAEF9 /* xmltok.c */; settings = {COMPILER_FLAGS = "-Wno-missing-field-initializers -Wno-unused-parameter"; }; };
@@ -257,6 +258,7 @@
 			files = (
 				FD18B1DD1485B02B00BBAEF9 /* expat.h in Headers */,
 				FD18B1E51485B07E00BBAEF9 /* expat_external.h in Headers */,
+				D043CA312B6C0EC700DBF2C1 /* expat_config.h in Headers */,
 				FD18B1DC1485B02B00BBAEF9 /* ascii.h in Headers */,
 				FD18B1ED1485B0C700BBAEF9 /* asciitab.h in Headers */,
 				FD18B1F11485B0D900BBAEF9 /* iasciitab.h in Headers */,
@@ -596,7 +598,7 @@
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /usr/lib;
 				IS_ZIPPERED = YES;
-				OTHER_TAPI_FLAGS = "-DXML_DTD=1";
+				OTHER_TAPI_FLAGS = "-DXML_DTD=1 -DXML_GE=1";
 				PRODUCT_NAME = "$(TARGET_NAME).1";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 				WARNING_CFLAGS = (

@@ -50,7 +50,7 @@ RefPtr<IPCStreamTester> IPCStreamTester::create(IPCStreamTesterIdentifier identi
 }
 
 IPCStreamTester::IPCStreamTester(IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& connectionHandle, bool ignoreInvalidMessageForTesting)
-    : m_workQueue(IPC::StreamConnectionWorkQueue::create("IPCStreamTester work queue"))
+    : m_workQueue(IPC::StreamConnectionWorkQueue::create("IPCStreamTester work queue"_s))
     , m_streamConnection(IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), { ignoreInvalidMessageForTesting }).releaseNonNull())
     , m_identifier(identifier)
 {
@@ -76,17 +76,17 @@ void IPCStreamTester::stopListeningForIPC(Ref<IPCStreamTester>&& refFromConnecti
     workQueue().stopAndWaitForCompletion();
 }
 
-void IPCStreamTester::syncMessageReturningSharedMemory1(uint32_t byteCount, CompletionHandler<void(std::optional<SharedMemory::Handle>&&)>&& completionHandler)
+void IPCStreamTester::syncMessageReturningSharedMemory1(uint32_t byteCount, CompletionHandler<void(std::optional<WebCore::SharedMemory::Handle>&&)>&& completionHandler)
 {
-    auto result = [&]() -> std::optional<SharedMemory::Handle> {
-        auto sharedMemory = WebKit::SharedMemory::allocate(byteCount);
+    auto result = [&]() -> std::optional<WebCore::SharedMemory::Handle> {
+        auto sharedMemory = WebCore::SharedMemory::allocate(byteCount);
         if (!sharedMemory)
             return std::nullopt;
-        auto handle = sharedMemory->createHandle(SharedMemory::Protection::ReadOnly);
+        auto handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
         if (!handle)
             return std::nullopt;
-        uint8_t* data = static_cast<uint8_t*>(sharedMemory->data());
-        for (size_t i = 0; i < sharedMemory->size(); ++i)
+        auto data = sharedMemory->mutableSpan();
+        for (size_t i = 0; i < data.size(); ++i)
             data[i] = i;
         return WTFMove(*handle);
     }();
@@ -107,9 +107,9 @@ void IPCStreamTester::syncCrashOnZero(int32_t value, CompletionHandler<void(int3
     completionHandler(value);
 }
 
-void IPCStreamTester::asyncMessage(bool value, CompletionHandler<void(bool)>&& completionHandler)
+void IPCStreamTester::asyncPing(uint32_t value, CompletionHandler<void(uint32_t)>&& completionHandler)
 {
-    completionHandler(!value);
+    completionHandler(value + 1);
 }
 
 #if USE(FOUNDATION)

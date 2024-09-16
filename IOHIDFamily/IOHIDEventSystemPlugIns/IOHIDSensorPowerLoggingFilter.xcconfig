@@ -1,0 +1,9 @@
+//
+//  IOHIDSensorPowerLoggingFilter.xcconfig
+//  IOHIDFamily
+//
+
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/ServiceFilters
+
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDSensorPowerLoggingFilter/IOHIDSensorPowerLoggingFilter-info.plist
+

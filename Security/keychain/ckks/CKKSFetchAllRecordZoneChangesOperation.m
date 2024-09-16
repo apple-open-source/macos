@@ -230,6 +230,12 @@
         }
     }
 
+    if(self.fetchedZoneIDs.count == 0) {
+        ckksnotice_global("ckksfetch", "No zones to fetch. Skipping operation.");
+        [self runBeforeGroupFinished:self.fetchCompletedOperation];
+        return;
+    }
+
     [eventS addMetrics:@{kSecurityRTCFieldNumViews:@(self.fetchedZoneIDs.count)}];
 
     ckksnotice_global("ckksfetch", "Beginning fetch: %@ options: %@",
@@ -251,11 +257,11 @@
        [self.fetchReasons containsObject:CKKSFetchBecauseMoreComing] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy]) {
 
-        if(SecCKKSHighPriorityOperations()) {
-            // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
-            self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-            [eventS addMetrics:@{kSecurityRTCFieldIsPrioritized:@(YES)}];
-        }
+        // CKKSHighPriorityOperations default enabled
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        self.fetchRecordZoneChangesOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+        [eventS addMetrics:@{kSecurityRTCFieldIsPrioritized:@(YES)}];
+        
     }
 
     self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {

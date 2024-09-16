@@ -395,6 +395,7 @@
 #define PLUDB_SCUAC "scuac"
 #define PLUDB_DNODE "dnode"
 #define PLUDB_OWNER "owner"
+#define PLUDB_PREBOOT "preboot"
 
 /* FVUnlock related defines */
 #define AGENT_FVUNLOCK_USER "fvusername"

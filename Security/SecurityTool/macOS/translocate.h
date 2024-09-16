@@ -29,7 +29,6 @@
 extern "C" {
 #endif
 
-extern int translocate_create(int argc, char * const *argv);
 extern int translocate_policy(int argc, char * const *argv);
 extern int translocate_check(int argc, char * const *argv);
 extern int translocate_original_path(int argc, char * const * argv);

@@ -29,18 +29,7 @@
 
 #include <fsproperties.h>
 #include <sys/loadable_fs.h>
-
-struct __DAProbeCallbackContext
-{
-    DAProbeCallback   callback;
-    void *            callbackContext;
-    CFMutableArrayRef candidates;
-    DADiskRef         disk;
-    DADiskRef         containerDisk;
-    DAFileSystemRef   filesystem;
-};
-
-typedef struct __DAProbeCallbackContext __DAProbeCallbackContext;
+#include <os/feature_private.h>
 
 static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CFStringRef type, CFUUIDRef uuid, void * parameter )
 {
@@ -146,7 +135,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                                 containerBSDPath = NULL;
                             }
 #endif
-                        
+                            
                             DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), DADiskGetBSDPath( context->disk, TRUE ), containerBSDPath, __DAProbeCallback, context, doFsck );
 
                             return;
@@ -157,6 +146,36 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
             CFArrayRemoveValueAtIndex( context->candidates, 0 );
         }
+        
+#ifdef DA_FSKIT
+        /*
+         * Only probe the FSModules for the current logged in user if we have the preference for it
+         * and don't have any other viable candidates.
+         */
+        if (!gFSKitMissing
+            &&  os_feature_enabled( DiskArbitration, enableFSKitModules ) 
+            &&  !context->gotFSModules ) {
+            context->gotFSModules = 1;
+            
+            /* Allocate independent context here to account for asynchronous operation */
+            __DAProbeCallbackContext *contextCopy = malloc( sizeof( __DAProbeCallbackContext ) );
+            
+            if ( contextCopy )
+            {
+                CFRetain( context->disk );
+                
+                contextCopy->callback        = context->callback;
+                contextCopy->callbackContext = context->callbackContext;
+                contextCopy->candidates      = NULL; /* non-FSKit candidates are not needed here */
+                contextCopy->disk            = context->disk;
+                contextCopy->containerDisk   = context->containerDisk;
+                contextCopy->filesystem      = NULL; /* begin our own callback cycle with FSKit */
+                contextCopy->gotFSModules    = 1;
+                
+                DAGetFSModulesForUser( gDAConsoleUserUID , contextCopy );
+            }
+        }
+#endif
     
     }
     else
@@ -171,8 +190,13 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
         DALogInfo( "probed disk, id = %@, with %@, success.", context->disk, kind );
     }
-
-    if ( context->callback )
+    
+    if ( context->callback 
+#ifdef DA_FSKIT
+        /* Don't call the callback if we haven't succeeded probe or before we query FSModules if FSKit is available */
+        && ( !status || !context->gotFSModules )
+#endif
+        )
     {
         ( context->callback )( status, context->filesystem, cleanStatus, name, type, uuid, context->callbackContext );
     }
@@ -261,7 +285,10 @@ void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback,
     context->disk            = disk;
     context->containerDisk   = containerDisk;
     context->filesystem      = NULL;
-
+#ifdef DA_FSKIT
+    context->gotFSModules = 0;
+#endif
+    
     __DAProbeCallback( -1, NULL, NULL, NULL, NULL, context );
 
 DAProbeErr:

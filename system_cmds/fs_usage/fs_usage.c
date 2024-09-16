@@ -2424,18 +2424,32 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				clen += clip_64bit("O=", offset_reassembled);
 
 				if (format == FMT_LSEEK) {
-					char *mode;
+					const char *mode = NULL;
 
-					if (ti->arg3 == SEEK_SET)
+					switch (ti->arg3) {
+					case SEEK_SET:
 						mode = "SEEK_SET";
-					else if (ti->arg3 == SEEK_CUR)
+						break;
+					case SEEK_CUR:
 						mode = "SEEK_CUR";
-					else if (ti->arg3 == SEEK_END)
+						break;
+					case SEEK_END:
 						mode = "SEEK_END";
-					else
-						mode = "UNKNOWN";
+						break;
+					case SEEK_HOLE:
+						mode = "SEEK_HOLE";
+						break;
+					case SEEK_DATA:
+						mode = "SEEK_DATA";
+						break;
+					default:
+						break;
+					}
 
-					clen += printf(" <%s>", mode);
+					if (mode != NULL)
+						clen += printf(" <%s>", mode);
+					else
+						clen += printf(" <0x%" PRIx64 ">", ti->arg3);
 				}
 
 				break;

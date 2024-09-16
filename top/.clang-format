@@ -1,0 +1,22 @@
+BasedOnStyle: WebKit
+
+ColumnLimit: 100
+
+# tabs, and continuations are double-indented
+# Xcode is (barely) smart enough to handle this sensibly
+UseTab: ForContinuationAndIndentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 8
+
+# reflow to make the best use of vertical space
+ReflowComments: true
+BinPackArguments: true
+BinPackParameters: true
+
+# make it easy to find function definitions with /^<name>/
+AlwaysBreakAfterReturnType: AllDefinitions
+
+AlignAfterOpenBracket: DontAlign
+AlignTrailingComments: true
+PointerAlignment: Right

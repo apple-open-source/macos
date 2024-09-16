@@ -36,7 +36,6 @@
 #include "InlineCallFrame.h"
 #include "IntrinsicGetterAccessCase.h"
 #include "ModuleNamespaceAccessCase.h"
-#include "ProxyObjectAccessCase.h"
 #include "StructureStubInfo.h"
 #include <wtf/ListDump.h>
 
@@ -75,10 +74,23 @@ GetByStatus GetByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
         break;
     }
 
+    case op_get_length: {
+        auto& metadata = instruction->as<OpGetLength>().metadata(profiledBlock);
+        // FIXME: We should not just bail if we see a get_by_id_proto_load.
+        // https://bugs.webkit.org/show_bug.cgi?id=158039
+        if (metadata.m_modeMetadata.mode != GetByIdMode::Default)
+            return GetByStatus(NoInformation, false);
+        structureID = metadata.m_modeMetadata.defaultMode.structureID;
+
+        identifier = &vm.propertyNames->length;
+        break;
+    }
+
     case op_try_get_by_id:
         structureID = instruction->as<OpTryGetById>().metadata(profiledBlock).m_structureID;
         identifier = &(profiledBlock->identifier(instruction->as<OpTryGetById>().m_property));
         break;
+
     case op_get_by_id_direct:
         structureID = instruction->as<OpGetByIdDirect>().metadata(profiledBlock).m_structureID;
         identifier = &(profiledBlock->identifier(instruction->as<OpGetByIdDirect>().m_property));
@@ -211,12 +223,6 @@ GetByStatus::GetByStatus(const ModuleNamespaceAccessCase& accessCase)
 {
 }
 
-GetByStatus::GetByStatus(const ProxyObjectAccessCase&)
-    : m_state(ProxyObject)
-    , m_wasSeenInJIT(true)
-{
-}
-
 GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin codeOrigin)
 {
     StubInfoSummary summary = StructureStubInfo::summary(profiledBlock->vm(), stubInfo);
@@ -260,12 +266,11 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
             case AccessCase::ModuleNamespaceLoad:
                 return GetByStatus(access.as<ModuleNamespaceAccessCase>());
             case AccessCase::ProxyObjectLoad: {
-                auto& accessCase = access.as<ProxyObjectAccessCase>();
-                auto status = GetByStatus(accessCase);
+                auto status = GetByStatus(GetByStatus::ProxyObject, true);
                 auto callLinkStatus = makeUnique<CallLinkStatus>();
-                if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, 0))
+                if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, 0, access))
                     *callLinkStatus = CallLinkStatus::computeFor(locker, profiledBlock, *callLinkInfo, callExitSiteData);
-                status.appendVariant(GetByVariant(accessCase.identifier(), { }, invalidOffset, { }, WTFMove(callLinkStatus)));
+                status.appendVariant(GetByVariant(access.identifier(), { }, invalidOffset, { }, WTFMove(callLinkStatus)));
                 return status;
             }
             case AccessCase::LoadMegamorphic:
@@ -319,7 +324,9 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
                 if (!conditionSet.isStillValid())
                     continue;
 
-                Structure* currStructure = access.hasAlternateBase() ? access.alternateBase()->structure() : access.structure();
+                Structure* currStructure = access.structure();
+                if (auto* object = access.tryGetAlternateBase())
+                    currStructure = object->structure();
                 // For now, we only support cases which JSGlobalObject is the same to the currently profiledBlock.
                 if (currStructure->globalObject() != profiledBlock->globalObject())
                     return GetByStatus(JSC::slowVersion(summary), stubInfo);
@@ -375,7 +382,7 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
                     }
                     case AccessCase::Getter: {
                         callLinkStatus = makeUnique<CallLinkStatus>();
-                        if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, listIndex))
+                        if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, listIndex, access))
                             *callLinkStatus = CallLinkStatus::computeFor(locker, profiledBlock, *callLinkInfo, callExitSiteData);
                         break;
                     }

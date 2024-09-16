@@ -33,6 +33,7 @@
 #import "SFAnalyticsDefines.h"
 #import <CoreFoundation/CFPriv.h>
 #import <Foundation/NSXPCConnection_Private.h>
+#import <os/signpost.h>
 
 static NSString* _path;
 static NSInteger _testnum;
@@ -117,6 +118,22 @@ static NSInteger _reporterWrites;
 
 @end
 
+// MARK: Stub FakeSWTransparencyAnalytics
+
+@interface FakeSWTransparencyAnalytics : SFAnalytics
+
+@end
+
+@implementation FakeSWTransparencyAnalytics
+
++ (NSString*)databasePath
+{
+    return [_path stringByAppendingFormat:@"/swtransparency_%ld.db", (long)_testnum];
+}
+
+@end
+
+
 // MARK: Start SupdTests
 
 @interface SupdTests : XCTestCase
@@ -132,6 +149,7 @@ static NSInteger _reporterWrites;
     FakePCSAnalytics* _pcsAnalytics;
     FakeTLSAnalytics* _tlsAnalytics;
     FakeTransparencyAnalytics* _transparencyAnalytics;
+    FakeSWTransparencyAnalytics* _swtransparencyAnalytics;
 }
 
 // MARK: Test helper methods
@@ -154,6 +172,10 @@ static NSInteger _reporterWrites;
 
 - (SFAnalyticsTopic *)TransparencyTopic {
     return [self topicNamed:SFAnalyticsTopicTransparency];
+}
+
+- (SFAnalyticsTopic *)SWTransparencyTopic {
+    return [self topicNamed:SFAnalyticsTopicSWTransparency];
 }
 
 - (void)inspectDataBlobStructure:(NSDictionary*)data
@@ -360,12 +382,14 @@ static NSInteger _reporterWrites;
     NSString *tlsPath = [_path stringByAppendingFormat:@"/tls_%ld.db", (long)_testnum];
     NSString *cloudServicesPath = [_path stringByAppendingFormat:@"/cloudServices_%ld.db", (long)_testnum];
     NSString *transparencyPath = [_path stringByAppendingFormat:@"/transparency_%ld.db", (long)_testnum];
+    NSString *swtransparencyPath = [_path stringByAppendingFormat:@"/swtransparency_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForCKKS]).andReturn(ckksPath);
     OCMStub([mockTopic databasePathForSOS]).andReturn(sosPath);
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
     OCMStub([mockTopic databasePathForTrust]).andReturn(tlsPath);
     OCMStub([mockTopic databasePathForCloudServices]).andReturn(cloudServicesPath);
     OCMStub([mockTopic databasePathForTransparency]).andReturn(transparencyPath);
+    OCMStub([mockTopic databasePathForSWTransparency]).andReturn(swtransparencyPath);
 
     // These are not used for testing, but real data can pollute tests so point to empty DBs
     NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", (long)_testnum];
@@ -395,6 +419,7 @@ static NSInteger _reporterWrites;
     _pcsAnalytics = [FakePCSAnalytics new];
     _tlsAnalytics = [FakeTLSAnalytics new];
     _transparencyAnalytics = [FakeTransparencyAnalytics new];
+    _swtransparencyAnalytics = [FakeSWTransparencyAnalytics new];
 
     // Forcibly override analytics flags and enable them by default
     deviceAnalyticsOverride = YES;
@@ -419,9 +444,6 @@ static NSInteger _reporterWrites;
     mockReporter = nil;
     mockConnection = nil;
     [super tearDown];
-}
-
-+ (void)tearDown {
 }
 
 // MARK: Actual tests
@@ -554,6 +576,19 @@ static NSInteger _reporterWrites;
     [self inspectDataBlobStructure:data forTopic:[[self TransparencyTopic] splunkTopicName]];
 
     [self checkTotalEventCount:data hard:1 soft:1 accuracy:0 summaries:(int)[[[self TransparencyTopic] topicClients] count]];
+}
+
+- (void)testSWTransparencyLoggingJSONSimple
+{
+    [_swtransparencyAnalytics logSuccessForEventNamed:@"transparencyunittestevent"];
+    NSDictionary* transparencyAttrs = @{@"cattr" : @"cvalue"};
+    [_swtransparencyAnalytics logHardFailureForEventNamed:@"transparencyunittestevent" withAttributes:transparencyAttrs];
+    [_swtransparencyAnalytics logSoftFailureForEventNamed:@"transparencyunittestevent" withAttributes:transparencyAttrs];
+
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicSWTransparency];
+    [self inspectDataBlobStructure:data forTopic:[[self SWTransparencyTopic] splunkTopicName]];
+
+    [self checkTotalEventCount:data hard:1 soft:1 accuracy:0 summaries:(int)[[[self SWTransparencyTopic] topicClients] count]];
 }
 
 
@@ -1052,6 +1087,26 @@ static NSInteger _reporterWrites;
     XCTAssertEqual(2, [eventSet count]);
 }
 
+- (void)testCreateChunkedLoggingJSONThroughDB
+{
+    XCTSkip("only use under profiler");
+    os_log_t log = os_log_create("MemoryTest", OS_LOG_CATEGORY_POINTS_OF_INTEREST);
+    os_signpost_id_t identifier = os_signpost_id_generate(log);
+
+    int factor = 20000;
+    os_signpost_interval_begin(log, identifier, "Generation", "Started");
+
+    for (int i = 0; i < factor; i++){
+        [_transparencyAnalytics logSuccessForEventNamed:@"transparencyunittestevent"];
+        [_pcsAnalytics logSuccessForEventNamed:@"pcsUnitTest"];
+    }
+    os_signpost_interval_end(log, identifier, "Generation", "Finished");
+
+    os_signpost_interval_begin(log, identifier, "Upload", "Started");
+    [_supd performRegularlyScheduledUpload];
+    os_signpost_interval_end(log, identifier, "Upload", "Finished");
+}
+
 - (void)testCreateChunkedLoggingJSONMemoryPerf
 {
     int factor = 10000;
@@ -1152,6 +1207,13 @@ static NSInteger _reporterWrites;
 
 }
 
+- (void)testPrivateTrackingDataUpload
+{
+    XCTAssertTrue([[self keySyncTopic] ckDeviceAccountApprovedTopic:@"KeySyncTopic"], "should have KeySyncTopic");
+    XCTAssertTrue([[self TransparencyTopic] ckDeviceAccountApprovedTopic:@"TransparencyTopic"], "should have TransparencyTopic");
+    XCTAssertFalse([[self TrustTopic] ckDeviceAccountApprovedTopic:@"TrustTopic"], "should not have TrustTopic");
+    XCTAssertFalse([[self keySyncTopic] ckDeviceAccountApprovedTopic:@"NoWay"], "should not have NoWay");
+}
 
 // TODO
 - (void)testGetSysdiagnoseDump

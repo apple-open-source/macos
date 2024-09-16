@@ -81,16 +81,16 @@ const DERSize DERNumECDSASigItemSpecs =
                 if ([self _validateJWSProtectedHeader:components[0]]) {
                     NSString *payloadBase64Url = components[1];
                     _payload = [self dataWithBase64URLEncodedString:payloadBase64Url];
-                    NSData *signature = [self dataWithBase64URLEncodedString:components[2]];
+                    _signature = [self dataWithBase64URLEncodedString:components[2]];
 
-                    if (!_payload || !signature) {
+                    if (!_payload || !_signature) {
                         _verificationError = [NSError errorWithDomain:SecJWSErrorDomain code:SecJWSErrorCompactEncodingPayloadParseError userInfo:nil];
                     } else {
                         // Validate the signature
                         SecKeyRef publicKey = publicKeyRef;
                         CFRetainSafe(publicKey);
                         if (publicKey) {
-                            [self _validateJWSSignature:signature ofHeader:components[0] andPayload:components[1] withPublicKey:publicKey];
+                            [self _validateJWSSignature:_signature ofHeader:components[0] andPayload:components[1] withPublicKey:publicKey];
                             CFRelease(publicKey);
                         } else {
                             _verificationError = [NSError errorWithDomain:SecJWSErrorDomain code:SecJWSErrorInvalidPublicKey userInfo:nil];
@@ -126,9 +126,11 @@ const DERSize DERNumECDSASigItemSpecs =
     NSDictionary *headerDict = (NSDictionary *)headerObject;
 
     // Inspect dictionary for correct keys
-    if ((headerDict.count < 2) ||
+    // %%% note: keyID is optional
+    if ((headerDict.count < 1) ||
         ![headerDict[kSecJWSHeaderKeyAlgorithm] isKindOfClass:[NSString class]] ||
-        ![headerDict[kSecJWSHeaderKeyKeyID] isKindOfClass:[NSString class]]) {
+        (headerDict[kSecJWSHeaderKeyKeyID] &&
+         ![headerDict[kSecJWSHeaderKeyKeyID] isKindOfClass:[NSString class]])) {
         _verificationError = [NSError errorWithDomain:SecJWSErrorDomain code:SecJWSErrorHeaderIncorrectKeyError userInfo:nil];
         return false;
     }
@@ -142,7 +144,7 @@ const DERSize DERNumECDSASigItemSpecs =
 
     // Validate that the keyID matches the provided value
     NSString *keyID = headerDict[kSecJWSHeaderKeyKeyID];
-    if (![self.keyID isEqualToString:keyID]) {
+    if (keyID && ![self.keyID isEqualToString:keyID]) {
         _verificationError = [NSError errorWithDomain:SecJWSErrorDomain code:SecJWSErrorHeaderInvalidKeyIDError userInfo:nil];
         return false;
     }
@@ -274,27 +276,61 @@ const DERSize DERNumECDSASigItemSpecs =
     return result;
 }
 
+- (BOOL) appendPaddedToData:(NSMutableData *)data ptr:(const DERByte *)ptr len:(DERSize)len expected:(DERSize)expLen {
+    // Attempts to append expLen bytes from ptr to the data instance,
+    // zero-padding if needed. Returns false if we cannot zero-pad or
+    // remove leading zeroes to get the expected length.
+    const DERByte *p = ptr;
+    DERSize length = len;
+    if (length > expLen) {
+        // skip leading zeroes until we get expected length or non-zero
+        while (p[0] == 0x00 && length > expLen) {
+            p++;
+            length--;
+        }
+        if (length != expLen) {
+            return false;
+        }
+    } else if (length < expLen) {
+        // zero-pad to expected length
+        uint8_t zeroByte = 0;
+        while (length < expLen) {
+            [data appendBytes:&zeroByte length:sizeof(zeroByte)];
+            length++;
+        }
+        length = len; // number of bytes remaining to append
+    }
+    [data appendData:[NSData dataWithBytes:p length:length]];
+    return true;
+}
+
 - (NSString *) signatureWithProtectedHeader:(NSString *)protected payload:(NSString *)payload
 {
     NSData *content = [[NSString stringWithFormat:@"%@.%@", protected, payload] dataUsingEncoding:NSUTF8StringEncoding];
     // according to RFC 7515, we sign this content and not a digest of it
-    CFErrorRef error;
+    CFErrorRef error = NULL;
     CFDataRef signature = SecKeyCreateSignature(_privateKey,
                                                 kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
                                                 (__bridge CFDataRef)content,
                                                 &error);
     // Note: consider changing the above to use kSecKeyAlgorithmECDSASignatureRFC4754
     // with a digest of the content string; output signature should be just (R||S).
+    if (error) {
+        secerror("Failed to create signature: %@", error);
+        CFReleaseNull(error);
+    }
     if (!signature) {
-        //NSLog(@"error - failed to create signature");
         return nil; // cannot continue
     }
 
     // We have an ASN.1 signature, but we need to return a JWS signature.
-    // Per RFC 7515, this is just a concatenation of the two 32 byte integers
-    // (R || S) in sequence, skipping leading zeroes if they were added.
+    // Per RFC 7515, this is just a concatenation of the two integers
+    // (R || S) in sequence. Further note that in RFC 7518 3.4, the octet
+    // sequence representations of R and S must both be 32 byte values
+    // for a total of 64 bytes, maintaining leading zeroes if present.
     NSMutableData *data = [NSMutableData dataWithCapacity:0];
     DERReturn drtn = DR_GenericErr;
+    DERSize octlen = 32; // required length of each value in bytes
     DER_ECDSASig parsedSig;
     DERItem signatureItem = {
         .data = (DERByte *)CFDataGetBytePtr(signature),
@@ -308,18 +344,17 @@ const DERSize DERNumECDSASigItemSpecs =
         CFReleaseNull(signature);
         return nil;
     }
-    if (parsedSig.r.data[0] == 0x00 && parsedSig.r.length >= 1) {
-        // Remove leading 0x00 bytes, if present
-        [data appendData:[NSData dataWithBytes:(parsedSig.r.data + 1) length:(parsedSig.r.length - 1)]];
-    } else {
-        [data appendData:[NSData dataWithBytes:parsedSig.r.data length:parsedSig.r.length]];
+    if (![self appendPaddedToData:data ptr:parsedSig.r.data len:parsedSig.r.length expected:octlen]) {
+        secerror("Non-compliant signature: r is %lld bytes, expected %lld",
+                 (long long)parsedSig.r.length, (long long)octlen);
+        CFReleaseNull(signature);
+        return nil;
     }
-
-    if (parsedSig.s.data[0] == 0x00 && parsedSig.s.length >= 1) {
-        // Remove leading 0x00 bytes, if present
-        [data appendData:[NSData dataWithBytes:(parsedSig.s.data + 1) length:(parsedSig.s.length - 1)]];
-    } else {
-        [data appendData:[NSData dataWithBytes:parsedSig.s.data length:parsedSig.s.length]];
+    if (![self appendPaddedToData:data ptr:parsedSig.s.data len:parsedSig.s.length expected:octlen]) {
+        secerror("Non-compliant signature: s is %lld bytes, expected %lld",
+                 (long long)parsedSig.s.length, (long long)octlen);
+        CFReleaseNull(signature);
+        return nil;
     }
     NSString *result = [self base64URLEncodedStringRepresentationWithData:data];
     CFReleaseNull(signature);

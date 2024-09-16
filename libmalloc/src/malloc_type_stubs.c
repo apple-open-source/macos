@@ -43,7 +43,7 @@ malloc_type_aligned_alloc(size_t alignment, size_t size,
 }
 
 int
-malloc_type_posix_memalign(void **memptr, size_t alignment, size_t size,
+malloc_type_posix_memalign(void * __unsafe_indexable *memptr, size_t alignment, size_t size,
 		malloc_type_id_t type_id)
 {
 	return posix_memalign(memptr, alignment, size);

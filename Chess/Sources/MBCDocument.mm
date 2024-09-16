@@ -1,7 +1,7 @@
 /*
 	File:		MBCDocument.mm
 	Contains:	Document representing a Chess game
-	Copyright:	© 2003-2013 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -51,11 +51,14 @@
 #import "MBCUserDefaults.h"
 #import "MBCBoardWin.h"
 
+#define MBC_DOCUMENT_CLOSE_DELAY_MSEC 100
+
 NSString * const sProperties[] = {
     kMBCBoardStyle, kMBCPieceStyle,
     kMBCDefaultVoice, kMBCAlternateVoice,
     kMBCSpeakMoves, kMBCSpeakHumanMoves, kMBCListenForMoves,
     kMBCSearchTime, kMBCBoardAngle, kMBCBoardSpin, kMBCShowGameLog,
+    kMBCShowEdgeNotation,
     NULL
 };
 
@@ -89,6 +92,20 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     return YES;
 }
 
+- (NSString *)displayName {
+    // Always want a number identifying the unsaved documents.
+    if ((self.isDraft || !self.fileURL) &&
+        [super.displayName isEqualToString:self.defaultDraftName]) {
+        return NSLocalizedString(@"generic_game_name_one", @"Game 1");
+    }
+    
+    return super.displayName;
+}
+
+- (NSString *)defaultDraftName {
+    return NSLocalizedString(@"generic_game_name", @"Game");
+}
+
 - (BOOL) boolForKey:(NSString *)key;
 {
     return [[properties valueForKey:key] boolValue];
@@ -107,8 +124,12 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 - (id) objectForKey:(NSString *)key
 {
     id result = [properties valueForKey:key];
-    if (!result && ([key isEqual:@"White"] || [key isEqual:@"Black"]))
+    if (!result && ([key isEqual:@"White"] || [key isEqual:@"Black"])) {
         result = NSLocalizedString(@"gc_automatch", @"GameCenter Automatch");
+    } else if (!result && [key isEqualToString:kMBCShowEdgeNotation]) {
+        // No value stored, default to showing labels.
+        result = [NSNumber numberWithBool:YES];
+    }
     return result;
 }
 
@@ -313,11 +334,15 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void)close
 {
-    //
-    // Delay disposing document a little while, because main window with active bindings is autoreleased
-    //
+    /*
+     Delay disposing document a little while, because main window with active Interface Builder
+     bindings is autoreleased. The reference bindings are automatically set up and removed, and
+     thus using this delay to allow for the cleanup to occur. Bindings are mainly from the new
+     game sheet and preferences pane to window controller, where label text and values are
+     bound to document methods.
+    */
     [self retain];
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_MSEC);
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, MBC_DOCUMENT_CLOSE_DELAY_MSEC * NSEC_PER_MSEC);
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
         [self release];
     });
@@ -442,7 +467,9 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         //
         // Reused document
         //
-        [[[self windowControllers] objectAtIndex:0] adjustLogView];
+        MBCBoardWin *windowController = [[self windowControllers] objectAtIndex:0];
+        [windowController adjustLogViewForReusedWindow];
+        [windowController checkEdgeNotationVisibilityForReusedWindow];
     } else {
         MBCBoardWin * windowController = [[MBCBoardWin alloc] initWithWindowNibName:[self windowNibName]];
         [self addWindowController:windowController];
@@ -538,6 +565,10 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         players = kComputerVsHuman;
     else
         players = kComputerVsComputer;
+    
+    if (properties) {
+        [properties release];
+    }
     properties = [dict mutableCopy];
     NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
     for (int i = 0; sProperties[i]; ++i)

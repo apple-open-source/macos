@@ -28,6 +28,7 @@
 #include "IntPointHash.h"
 #include "IntRect.h"
 #include "PlatformCALayerClient.h"
+#include "TileGridIdentifier.h"
 #include "Timer.h"
 #include <wtf/Deque.h>
 #include <wtf/HashCountedSet.h>
@@ -44,12 +45,16 @@ class GraphicsContext;
 class PlatformCALayer;
 class TileController;
 
+using TileIndex = IntPoint;
+
 class TileGrid : public PlatformCALayerClient {
     WTF_MAKE_NONCOPYABLE(TileGrid);
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit TileGrid(TileController&);
     ~TileGrid();
+
+    TileGridIdentifier identifier() const { return m_identifier; }
 
 #if USE(CA)
     PlatformCALayer& containerLayer() { return m_containerLayer; }
@@ -80,6 +85,7 @@ public:
     IntRect extent() const;
     
     IntSize tileSize() const { return m_tileSize; }
+    FloatRect rectForTile(TileIndex) const;
 
     double retainedTileBackingStoreMemory() const;
     unsigned blankPixelCount() const;
@@ -92,8 +98,6 @@ public:
     unsigned numberOfUnparentedTiles() const { return m_cohortList.size(); }
     void removeUnparentedTilesNow();
 #endif
-
-    using TileIndex = IntPoint;
 
     using TileCohort = unsigned;
     static constexpr TileCohort visibleTileCohort = std::numeric_limits<TileCohort>::max();
@@ -135,9 +139,10 @@ private:
     TileCohort newestTileCohort() const;
     TileCohort oldestTileCohort() const;
 
-    void removeTiles(const Vector<TileGrid::TileIndex>& toRemove);
+    void removeTiles(const Vector<TileIndex>& toRemove);
 
     // PlatformCALayerClient
+    PlatformLayerIdentifier platformCALayerIdentifier() const override;
     void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&, OptionSet<GraphicsLayerPaintBehavior>) override;
     bool platformCALayerShowDebugBorders() const override;
     bool platformCALayerShowRepaintCounter(PlatformCALayer*) const override;
@@ -147,7 +152,9 @@ private:
     bool platformCALayerDrawsContent() const override { return true; }
     float platformCALayerDeviceScaleFactor() const override;
     bool isUsingDisplayListDrawing(PlatformCALayer*) const override;
+    bool platformCALayerNeedsPlatformContext(const PlatformCALayer*) const override;
 
+    TileGridIdentifier m_identifier;
     TileController& m_controller;
 #if USE(CA)
     Ref<PlatformCALayer> m_containerLayer;

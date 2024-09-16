@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2023 Apple Inc. All rights reserved.
  */
 
 #include "removefile.h"
@@ -55,6 +55,9 @@ removefile_state_get(removefile_state_t state, uint32_t key, void* dst) {
 			break;
 		case REMOVEFILE_STATE_STATUS_CONTEXT:
 			*(void**)dst = state->status_context;
+			break;
+		case REMOVEFILE_STATE_FTSENT:
+			*(FTSENT**)dst = state->recurse_entry;
 			break;
 		default:
 			errno = EINVAL;

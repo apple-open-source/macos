@@ -14,8 +14,11 @@
 	<true/>
 	<key>com.apple.private.keychain.certificates</key>
 	<true/>
+	<key>com.apple.private.assets.bypass-asset-types-check</key>
+	<true/>
 	<key>com.apple.private.assets.accessible-asset-types</key>
 	<array>
+		<string>com.apple.MobileAsset.PKITrustStore</string>
 		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
 		<string>com.apple.MobileAsset.SecExperimentAssets</string>
 	</array>
@@ -28,6 +31,14 @@
 	<key>com.apple.private.tcc.manager.check-by-audit-token</key>
 	<array>
 		<string>kTCCServiceUserTracking</string>
+	</array>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.mobileasset.autoasset</string>
+	</array>
+	<key>com.apple.security.exception.files.absolute-path.read-only</key>
+	<array>
+		<string>/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_PKITrustStore/</string>
 	</array>
 	<key>seatbelt-profiles</key>
 	<array>

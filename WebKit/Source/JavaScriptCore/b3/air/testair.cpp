@@ -41,12 +41,14 @@
 #include "Options.h"
 #include "ProbeContext.h"
 #include "PureNaN.h"
+#include "RegisterTZoneTypes.h"
 #include <regex>
 #include <string>
 #include <wtf/DataLog.h>
 #include <wtf/Lock.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdMap.h>
+#include <wtf/TZoneMallocInitialization.h>
 #include <wtf/Threading.h>
 #include <wtf/WTFProcess.h>
 #include <wtf/text/StringCommon.h>
@@ -95,18 +97,18 @@ std::unique_ptr<Compilation> compile(B3::Procedure& proc)
     LinkBuffer linkBuffer(jit, nullptr);
 
     return makeUnique<Compilation>(
-        FINALIZE_CODE(linkBuffer, JITCompilationPtrTag, "testair compilation"), proc.releaseByproducts());
+        FINALIZE_CODE(linkBuffer, JITCompilationPtrTag, nullptr, "testair compilation"), proc.releaseByproducts());
 }
 
 template<typename T, typename... Arguments>
 T invoke(const Compilation& code, Arguments... arguments)
 {
     void* executableAddress;
-    T (*function)(Arguments...);
+    T (SYSV_ABI *function)(Arguments...);
     T result;
 
     executableAddress = untagCFunctionPtr<JITCompilationPtrTag>(code.code().taggedPtr());
-    function = bitwise_cast<T(*)(Arguments...)>(executableAddress);
+    function = bitwise_cast<T(SYSV_ABI *)(Arguments...)>(executableAddress);
     result = function(arguments...);
 
     return result;
@@ -1665,7 +1667,7 @@ void testShuffleShiftDouble()
     CHECK(things[3] == 3);
 }
 
-#if CPU(X86) || CPU(X86_64)
+#if CPU(X86_64)
 void testX86VMULSD()
 {
     B3::Procedure proc;
@@ -1856,7 +1858,7 @@ void testX86VMULSDBaseIndexNeedRex()
     uint64_t index = 16;
     CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 2, index, pureNaN()) == 2.4 * 4.2);
 }
-#endif // #if CPU(X86) || CPU(X86_64)
+#endif // #if CPU(X86_64)
 
 #if CPU(ARM64)
 void testInvalidateCachedTempRegisters()
@@ -2682,7 +2684,7 @@ void run(const char* filter)
     RUN(testShuffleSwapDouble());
     RUN(testShuffleShiftDouble());
 
-#if CPU(X86) || CPU(X86_64)
+#if CPU(X86_64)
     RUN(testX86VMULSD());
     RUN(testX86VMULSDDestRex());
     RUN(testX86VMULSDOp1DestRex());
@@ -2743,7 +2745,7 @@ void run(const char* filter)
     for (unsigned i = filter ? 1 : WTF::numberOfProcessorCores(); i--;) {
         threads.append(
             Thread::create(
-                "testair thread",
+                "testair thread"_s,
                 [&] () {
                     for (;;) {
                         RefPtr<SharedTask<void()>> task;
@@ -2776,8 +2778,15 @@ static void run(const char*)
 
 #endif // ENABLE(B3_JIT)
 
-int main(int argc, char** argv)
+int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
 {
+#if USE(TZONE_MALLOC)
+    const char* boothash = GET_TZONE_SEED_FROM_ENV(darwinEnvp);
+    WTF_TZONE_INIT(boothash);
+    JSC::registerTZoneTypes();
+    WTF_TZONE_REGISTRATION_DONE();
+#endif
+
     const char* filter = nullptr;
     switch (argc) {
     case 1:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,12 +42,16 @@
 
 __BEGIN_DECLS
 
-typedef const struct CF_BRIDGED_TYPE(id) __SCControlPrefs * _SCControlPrefsRef;
+typedef struct CF_BRIDGED_TYPE(id) __SCControlPrefs * _SCControlPrefsRef;
 
 typedef void (*_SCControlPrefsCallBack)			(_SCControlPrefsRef		control);
 
 _SCControlPrefsRef	_SCControlPrefsCreate		(const char			*prefsPlist,
 							 CFRunLoopRef			runloop,
+							 _SCControlPrefsCallBack	callback);
+
+_SCControlPrefsRef	_SCControlPrefsCreateWithQueue	(const char			*prefsPlist,
+							 dispatch_queue_t		queue,
 							 _SCControlPrefsCallBack	callback);
 
 Boolean			_SCControlPrefsGetBoolean	(_SCControlPrefsRef		control,

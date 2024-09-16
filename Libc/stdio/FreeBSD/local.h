@@ -83,7 +83,11 @@ extern void	__sinit(void);
 #define CLEANUP_PTRAUTH
 #endif
 extern void	_cleanup(void);
-extern void	(* CLEANUP_PTRAUTH __cleanup)(void);
+#ifdef __APPLE__
+extern int	__cleanup;
+#else
+extern void    (* CLEANUP_PTRAUTH __cleanup)(void);
+#endif // __APPLE__
 extern void	__smakebuf(FILE *);
 extern int	__swhatbuf(FILE *, size_t *, int *);
 extern int	_fwalk(int (*)(FILE *));

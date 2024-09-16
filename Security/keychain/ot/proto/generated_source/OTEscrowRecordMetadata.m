@@ -8,6 +8,7 @@
 #import <ProtocolBuffer/PBDataReader.h>
 
 #import "OTEscrowRecordMetadataClientMetadata.h"
+#import "OTEscrowRecordMetadataPasscodeGeneration.h"
 
 #if !__has_feature(objc_arc)
 # error This generated file depends on ARC but it is not enabled; turn on ARC, or use 'objc_use_arc' option to generate non-ARC code.
@@ -78,6 +79,16 @@
     return _serial != nil;
 }
 @synthesize serial = _serial;
+- (BOOL)hasBuild
+{
+    return _build != nil;
+}
+@synthesize build = _build;
+- (BOOL)hasPasscodeGeneration
+{
+    return _passcodeGeneration != nil;
+}
+@synthesize passcodeGeneration = _passcodeGeneration;
 
 - (NSString *)description
 {
@@ -122,6 +133,14 @@
     if (self->_serial)
     {
         [dict setObject:self->_serial forKey:@"serial"];
+    }
+    if (self->_build)
+    {
+        [dict setObject:self->_build forKey:@"build"];
+    }
+    if (self->_passcodeGeneration)
+    {
+        [dict setObject:[_passcodeGeneration dictionaryRepresentation] forKey:@"passcodeGeneration"];
     }
     return dict;
 }
@@ -208,6 +227,30 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
                 self->_serial = new_serial;
             }
             break;
+            case 10 /* build */:
+            {
+                NSString *new_build = PBReaderReadString(reader);
+                self->_build = new_build;
+            }
+            break;
+            case 11 /* passcodeGeneration */:
+            {
+                OTEscrowRecordMetadataPasscodeGeneration *new_passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+                self->_passcodeGeneration = new_passcodeGeneration;
+                PBDataReaderMark mark_passcodeGeneration;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_passcodeGeneration);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !OTEscrowRecordMetadataPasscodeGenerationReadFrom(new_passcodeGeneration, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_passcodeGeneration);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -286,6 +329,20 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
             PBDataWriterWriteStringField(writer, self->_serial, 9);
         }
     }
+    /* build */
+    {
+        if (self->_build)
+        {
+            PBDataWriterWriteStringField(writer, self->_build, 10);
+        }
+    }
+    /* passcodeGeneration */
+    {
+        if (self->_passcodeGeneration != nil)
+        {
+            PBDataWriterWriteSubmessage(writer, self->_passcodeGeneration, 11);
+        }
+    }
 }
 
 - (void)copyTo:(OTEscrowRecordMetadata *)other
@@ -328,6 +385,14 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
     {
         other.serial = _serial;
     }
+    if (_build)
+    {
+        other.build = _build;
+    }
+    if (_passcodeGeneration)
+    {
+        other.passcodeGeneration = _passcodeGeneration;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -350,6 +415,8 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
     copy->_peerInfo = [_peerInfo copyWithZone:zone];
     copy->_bottleValidity = [_bottleValidity copyWithZone:zone];
     copy->_serial = [_serial copyWithZone:zone];
+    copy->_build = [_build copyWithZone:zone];
+    copy->_passcodeGeneration = [_passcodeGeneration copyWithZone:zone];
     return copy;
 }
 
@@ -375,6 +442,10 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
     ((!self->_bottleValidity && !other->_bottleValidity) || [self->_bottleValidity isEqual:other->_bottleValidity])
     &&
     ((!self->_serial && !other->_serial) || [self->_serial isEqual:other->_serial])
+    &&
+    ((!self->_build && !other->_build) || [self->_build isEqual:other->_build])
+    &&
+    ((!self->_passcodeGeneration && !other->_passcodeGeneration) || [self->_passcodeGeneration isEqual:other->_passcodeGeneration])
     ;
 }
 
@@ -399,6 +470,10 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
     [self->_bottleValidity hash]
     ^
     [self->_serial hash]
+    ^
+    [self->_build hash]
+    ^
+    [self->_passcodeGeneration hash]
     ;
 }
 
@@ -445,6 +520,18 @@ BOOL OTEscrowRecordMetadataReadFrom(__unsafe_unretained OTEscrowRecordMetadata *
     if (other->_serial)
     {
         [self setSerial:other->_serial];
+    }
+    if (other->_build)
+    {
+        [self setBuild:other->_build];
+    }
+    if (self->_passcodeGeneration && other->_passcodeGeneration)
+    {
+        [self->_passcodeGeneration mergeFrom:other->_passcodeGeneration];
+    }
+    else if (!self->_passcodeGeneration && other->_passcodeGeneration)
+    {
+        [self setPasscodeGeneration:other->_passcodeGeneration];
     }
 }
 

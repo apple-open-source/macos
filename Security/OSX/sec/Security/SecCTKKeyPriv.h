@@ -33,8 +33,7 @@ extern const CFStringRef kSecUseToken;
 extern const CFStringRef kSecUseTokenSession;
 
 bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query);
-OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters,
-                               SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey);
+SecKeyRef SecCTKKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error);
 SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error);
 
 __END_DECLS

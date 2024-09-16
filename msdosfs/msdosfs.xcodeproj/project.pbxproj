@@ -13,8 +13,8 @@
 			buildPhases = (
 			);
 			dependencies = (
-				CC47433328FFD1A80046B093 /* PBXTargetDependency */,
 				CCC0E8AB270ADDBD00EBE058 /* PBXTargetDependency */,
+				CC47433328FFD1A80046B093 /* PBXTargetDependency */,
 				4D3DCB7708E084D400C78A0B /* PBXTargetDependency */,
 				4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */,
 				4D9CE48B150080EE00186084 /* PBXTargetDependency */,
@@ -28,8 +28,8 @@
 			buildPhases = (
 			);
 			dependencies = (
-				CC47433528FFD1AE0046B093 /* PBXTargetDependency */,
 				DBB91EE51FBCD25C006380E0 /* PBXTargetDependency */,
+				CC47433528FFD1AE0046B093 /* PBXTargetDependency */,
 				DBB91EE71FBCD35B006380E0 /* PBXTargetDependency */,
 				4D5A7D121816FB8D00D5FE60 /* PBXTargetDependency */,
 				F9E147F523A7EA1400047008 /* PBXTargetDependency */,
@@ -80,17 +80,57 @@
 		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
 		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
 		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
+		900DA2E32A3F2D2A001AA2E7 /* FATManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 905050EB2A3B34210007C0FE /* FATManager.m */; };
 		901090A31F94B33E00259D7C /* Conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 901090A21F94B33E00259D7C /* Conv.c */; };
+		90208C042AE50AA100C6A2A0 /* ItemCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90208C032AE50AA100C6A2A0 /* ItemCache.m */; };
+		90208C052AE50AA100C6A2A0 /* ItemCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90208C032AE50AA100C6A2A0 /* ItemCache.m */; };
 		9022EC4C1FA5F75B00D1BCC4 /* Logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 9022EC4A1FA5F75B00D1BCC4 /* Logger.c */; };
 		9022EC4D1FA5F75B00D1BCC4 /* Logger.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022EC4B1FA5F75B00D1BCC4 /* Logger.h */; };
+		90460AAA2AADE05600A6C954 /* DirNameCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90D1EC4C2AADB50A003AF95A /* DirNameCache.m */; };
+		905050ED2A3B34210007C0FE /* FATManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 905050EB2A3B34210007C0FE /* FATManager.m */; };
 		905417B11F94A07C0033E46D /* Conv.h in Headers */ = {isa = PBXBuildFile; fileRef = 905417B01F94A07C0033E46D /* Conv.h */; };
 		905417B21F94A0DE0033E46D /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+		9058D80F2A8AAD6200FA52F3 /* mock_types.m in Sources */ = {isa = PBXBuildFile; fileRef = 9058D80E2A8AAD6200FA52F3 /* mock_types.m */; };
+		905A152D2B2202E700089A93 /* DirOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C983711F938071006C2ED3 /* DirOPS_Handler.c */; };
+		905A152E2B22032800089A93 /* Conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 901090A21F94B33E00259D7C /* Conv.c */; };
+		905A152F2B22037E00089A93 /* FAT_Access_M.c in Sources */ = {isa = PBXBuildFile; fileRef = D7238A7C1F7D491500D5F313 /* FAT_Access_M.c */; };
+		905A15302B2203D200089A93 /* FileRecord_M.c in Sources */ = {isa = PBXBuildFile; fileRef = 722801201F84DE840029992C /* FileRecord_M.c */; };
+		905A15312B22043100089A93 /* MR_SW_Lock.c in Sources */ = {isa = PBXBuildFile; fileRef = D787B4721F829CB800AF1565 /* MR_SW_Lock.c */; };
+		905A15322B22044200089A93 /* FSOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */; };
+		905A15332B22046200089A93 /* FileOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C9837B1F9380C5006C2ED3 /* FileOPS_Handler.c */; };
+		905A15342B22046900089A93 /* ZeroFill.c in Sources */ = {isa = PBXBuildFile; fileRef = 90778B1C1FCD5EBF000D829F /* ZeroFill.c */; };
+		905A15352B22049700089A93 /* Logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 9022EC4A1FA5F75B00D1BCC4 /* Logger.c */; };
+		905A15362B2204A300089A93 /* RawFile_Access_M.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B494111F8BB63A00E5468E /* RawFile_Access_M.c */; };
+		905A15372B2204A900089A93 /* Meta_RW.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A948FFA29A3A1E900FFEF52 /* Meta_RW.m */; };
+		905A15382B2204D900089A93 /* Naming_Hash.c in Sources */ = {isa = PBXBuildFile; fileRef = D79F2C912211983E003F8E27 /* Naming_Hash.c */; };
+		905A15392B22050F00089A93 /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+		906AA2912A2DABFC00AF50CD /* msdosItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 906AA2902A2DABFC00AF50CD /* msdosItem.m */; };
+		906AA2922A2DABFC00AF50CD /* msdosItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 906AA2902A2DABFC00AF50CD /* msdosItem.m */; };
+		90744DF32A02A86100C15023 /* FATVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF22A02A86100C15023 /* FATVolume.m */; };
+		90744DF42A02A86800C15023 /* FATVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF22A02A86100C15023 /* FATVolume.m */; };
+		90744DF62A02A91900C15023 /* msdosVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF52A02A91900C15023 /* msdosVolume.m */; };
+		90744DF72A02A91900C15023 /* msdosVolume.m in Sources */ = {isa = PBXBuildFile; fileRef = 90744DF52A02A91900C15023 /* msdosVolume.m */; };
 		90778B1D1FCD5EBF000D829F /* ZeroFill.h in Headers */ = {isa = PBXBuildFile; fileRef = 90778B1B1FCD5EBF000D829F /* ZeroFill.h */; };
 		90778B1E1FCD5EBF000D829F /* ZeroFill.c in Sources */ = {isa = PBXBuildFile; fileRef = 90778B1C1FCD5EBF000D829F /* ZeroFill.c */; };
+		90A0B0032A2DF3BC0067D28F /* FATItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 90A0B0022A2DF3BC0067D28F /* FATItem.m */; };
+		90A0B0042A2DF3BC0067D28F /* FATItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 90A0B0022A2DF3BC0067D28F /* FATItem.m */; };
+		90AC40482A13AFBB002CFE70 /* utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 90AC40472A13AFBB002CFE70 /* utils.m */; };
+		90AC40492A13AFBB002CFE70 /* utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 90AC40472A13AFBB002CFE70 /* utils.m */; };
+		90D1EC4F2AADB50B003AF95A /* DirNameCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 90D1EC4C2AADB50A003AF95A /* DirNameCache.m */; };
+		90D1EC502AADB50B003AF95A /* DirNameCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 90D1EC4D2AADB50B003AF95A /* DirNameCache.h */; };
+		90F1EC7B2B1F056F00455A9D /* newfs_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC5B08E0B79E00C78A0B /* newfs_msdos.c */; };
+		9A5C2B892AA5CBAD00D489DF /* DirItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A8879772A8B65EE00B40217 /* DirItem.m */; };
+		9A5C2B8A2AA5CBC200D489DF /* DirBlock.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A88797A2A8DF38100B40217 /* DirBlock.m */; };
 		9A948FFB29A3A1E900FFEF52 /* Meta_RW.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A948FFA29A3A1E900FFEF52 /* Meta_RW.m */; };
 		9A948FFD29A3A1F900FFEF52 /* Meta_RW.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A948FFC29A3A1F900FFEF52 /* Meta_RW.h */; };
+		9AB047A72AB0734300ACDE13 /* FileItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AD58B242AAF461B00958CEC /* FileItem.m */; };
 		9AC7DFFB2869C96000A7A4BF /* msdos_tests_utilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */; };
-		CC3D1D142906BBD7004AD946 /* msdosFileSystem.entitlements in Resources */ = {isa = PBXBuildFile; fileRef = CC47433128FEE4390046B093 /* msdosFileSystem.entitlements */; };
+		9AD273BD2A9F3E8E00A87F4A /* Conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 901090A21F94B33E00259D7C /* Conv.c */; };
+		9AD273BF2A9F402200A87F4A /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+		9AD273C12A9F542B00A87F4A /* DirItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A8879772A8B65EE00B40217 /* DirItem.m */; };
+		9AD273C22A9F542B00A87F4A /* DirBlock.m in Sources */ = {isa = PBXBuildFile; fileRef = 9A88797A2A8DF38100B40217 /* DirBlock.m */; };
+		9AD58B252AAF461B00958CEC /* FileItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 9AD58B242AAF461B00958CEC /* FileItem.m */; };
+		9ADF95D52C202DA600F3FC6A /* msdosProgressHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = DBDC25362BE3351500E5C552 /* msdosProgressHelper.m */; };
 		CC3D54182899412C0087E723 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC3D54172899412C0087E723 /* FSKit.framework */; };
 		CC47435228FFE4B40046B093 /* libutil1.0.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = CC47435128FFE4B40046B093 /* libutil1.0.tbd */; };
 		CC47435328FFE6120046B093 /* format.c in Sources */ = {isa = PBXBuildFile; fileRef = D3F27F8E28DB2FA400C0627E /* format.c */; };
@@ -103,6 +143,7 @@
 		CC47435A28FFE6120046B093 /* lib_fsck_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = D36FB0A028B75D2E00567E45 /* lib_fsck_msdos.c */; };
 		CC83F99328917B390040AFF0 /* msdosFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = CC83F99228917B390040AFF0 /* msdosFileSystem.m */; };
 		CE646B5428A2676900618D2C /* msdosFileSystem.m in Sources */ = {isa = PBXBuildFile; fileRef = CC83F99228917B390040AFF0 /* msdosFileSystem.m */; };
+		CE9C757C2B5E6E6300DBA668 /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
 		D124C374200E46F300BA6242 /* Randomizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D124C373200E46F300BA6242 /* Randomizer.swift */; };
 		D124C375200E46F300BA6242 /* Randomizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D124C373200E46F300BA6242 /* Randomizer.swift */; };
 		D12A83A21FFCC4CE00A02A42 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D12A83A11FFCC4CE00A02A42 /* Foundation.framework */; };
@@ -196,6 +237,7 @@
 		D7C9837E1F9380C5006C2ED3 /* FileOPS_Handler.h in Headers */ = {isa = PBXBuildFile; fileRef = D7C9837C1F9380C5006C2ED3 /* FileOPS_Handler.h */; };
 		D7C983811F9380DD006C2ED3 /* FSOPS_Handler.c in Sources */ = {isa = PBXBuildFile; fileRef = D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */; };
 		D7C983821F9380DD006C2ED3 /* FSOPS_Handler.h in Headers */ = {isa = PBXBuildFile; fileRef = D7C983801F9380DD006C2ED3 /* FSOPS_Handler.h */; };
+		DBDC25372BE3351600E5C552 /* msdosProgressHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = DBDC25362BE3351500E5C552 /* msdosProgressHelper.m */; };
 		DD2D3C95291BE6D2001C53C8 /* msdos_maintenance_format_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = DD2D3C90291BE56E001C53C8 /* msdos_maintenance_format_tests.m */; };
 		DD4A4700291D22B600FDE8E2 /* FSKitTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD4A46FF291D22B600FDE8E2 /* FSKitTesting.framework */; };
 		DDD306DE29587E5400E9DB43 /* msdos_maintenance_check_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = DDD306DC29587D4800E9DB43 /* msdos_maintenance_check_tests.m */; };
@@ -432,6 +474,7 @@
 		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
 		4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		52D0973B2B1C810D00447896 /* ExtensionCommon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtensionCommon.h; sourceTree = "<group>"; };
 		7228011F1F84DE840029992C /* FileRecord_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileRecord_M.h; sourceTree = "<group>"; };
 		722801201F84DE840029992C /* FileRecord_M.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FileRecord_M.c; sourceTree = "<group>"; usesTabs = 0; };
 		72B494101F8BB63A00E5468E /* RawFile_Access_M.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RawFile_Access_M.h; sourceTree = "<group>"; };
@@ -439,17 +482,40 @@
 		7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		7D91DB9F010FC00502CA2964 /* msdos.util */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		901090A21F94B33E00259D7C /* Conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Conv.c; sourceTree = "<group>"; };
+		90208C022AE4F78D00C6A2A0 /* ItemCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ItemCache.h; sourceTree = "<group>"; };
+		90208C032AE50AA100C6A2A0 /* ItemCache.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ItemCache.m; sourceTree = "<group>"; };
 		9022EC4A1FA5F75B00D1BCC4 /* Logger.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Logger.c; sourceTree = "<group>"; };
 		9022EC4B1FA5F75B00D1BCC4 /* Logger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Logger.h; sourceTree = "<group>"; };
+		905050EA2A3B340F0007C0FE /* FATManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FATManager.h; sourceTree = "<group>"; };
+		905050EB2A3B34210007C0FE /* FATManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FATManager.m; sourceTree = "<group>"; };
 		905417B01F94A07C0033E46D /* Conv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Conv.h; sourceTree = "<group>"; };
+		9058D80D2A8AAD4D00FA52F3 /* mock_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mock_types.h; sourceTree = "<group>"; };
+		9058D80E2A8AAD6200FA52F3 /* mock_types.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = mock_types.m; sourceTree = "<group>"; };
+		906AA2902A2DABFC00AF50CD /* msdosItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdosItem.m; sourceTree = "<group>"; };
+		906AA2942A2DAC1400AF50CD /* msdosItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdosItem.h; sourceTree = "<group>"; };
+		90744DF12A0291B100C15023 /* FATVolume.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FATVolume.h; sourceTree = "<group>"; };
+		90744DF22A02A86100C15023 /* FATVolume.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FATVolume.m; sourceTree = "<group>"; };
+		90744DF52A02A91900C15023 /* msdosVolume.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdosVolume.m; sourceTree = "<group>"; };
+		90744DF82A02A93C00C15023 /* msdosVolume.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdosVolume.h; sourceTree = "<group>"; };
 		90778B1B1FCD5EBF000D829F /* ZeroFill.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ZeroFill.h; sourceTree = "<group>"; };
 		90778B1C1FCD5EBF000D829F /* ZeroFill.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ZeroFill.c; sourceTree = "<group>"; };
+		90A0B0022A2DF3BC0067D28F /* FATItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FATItem.m; sourceTree = "<group>"; };
+		90AC40462A13AC5C002CFE70 /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		90AC40472A13AFBB002CFE70 /* utils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = utils.m; sourceTree = "<group>"; };
+		90BD51262A0A5C7300656E31 /* FATItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FATItem.h; sourceTree = "<group>"; };
+		90D1EC4C2AADB50A003AF95A /* DirNameCache.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DirNameCache.m; sourceTree = "<group>"; };
+		90D1EC4D2AADB50B003AF95A /* DirNameCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DirNameCache.h; sourceTree = "<group>"; };
+		9A5C2B8B2AA8A10A00D489DF /* DirItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DirItem.h; sourceTree = "<group>"; };
 		9A772CD4286DBC5200978E45 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A772CD6286DBC5D00978E45 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator16.0.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		9A8879772A8B65EE00B40217 /* DirItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DirItem.m; sourceTree = "<group>"; };
+		9A8879792A8B69B400B40217 /* DirBlock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DirBlock.h; sourceTree = "<group>"; };
+		9A88797A2A8DF38100B40217 /* DirBlock.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DirBlock.m; sourceTree = "<group>"; };
 		9A948FFA29A3A1E900FFEF52 /* Meta_RW.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Meta_RW.m; sourceTree = "<group>"; };
 		9A948FFC29A3A1F900FFEF52 /* Meta_RW.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Meta_RW.h; sourceTree = "<group>"; };
 		9AC7DFF92869C94200A7A4BF /* msdos_tests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_tests.h; sourceTree = "<group>"; };
 		9AC7DFFA2869C96000A7A4BF /* msdos_tests_utilities.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_tests_utilities.m; sourceTree = "<group>"; };
+		9AD58B242AAF461B00958CEC /* FileItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileItem.m; sourceTree = "<group>"; };
 		9D8D72301B448C08001AB190 /* mount_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_msdos.entitlements; sourceTree = "<group>"; };
 		9D8D72311B448C19001AB190 /* msdos_util.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = msdos_util.entitlements; sourceTree = "<group>"; };
 		9D8D72321B448C29001AB190 /* fsck_msdos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_msdos.entitlements; sourceTree = "<group>"; };
@@ -491,6 +557,7 @@
 		D34AF4A628E44B2F00FD69E9 /* lib_fsck_msdos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lib_fsck_msdos.h; sourceTree = "<group>"; };
 		D36FB0A028B75D2E00567E45 /* lib_fsck_msdos.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lib_fsck_msdos.c; sourceTree = "<group>"; };
 		D3749D8B28BE34C400149E40 /* msdos_maintenance_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = msdos_maintenance_testplan.xctestplan; sourceTree = "<group>"; };
+		D381A2B42A55522600114969 /* msdos_module_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = msdos_module_testplan.xctestplan; sourceTree = "<group>"; };
 		D3AEB95D28BE0CE700558AD7 /* msdos_maintenance_xctests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_maintenance_xctests.h; sourceTree = "<group>"; };
 		D3AEB95E28BE0CFD00558AD7 /* msdos_maintenance_xctests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_maintenance_xctests.m; sourceTree = "<group>"; };
 		D3D393B628A39E5000F9CA59 /* msdos_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = msdos_testplan.xctestplan; sourceTree = "<group>"; };
@@ -524,6 +591,8 @@
 		D7C9837F1F9380DD006C2ED3 /* FSOPS_Handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = FSOPS_Handler.c; sourceTree = "<group>"; usesTabs = 0; };
 		D7C983801F9380DD006C2ED3 /* FSOPS_Handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FSOPS_Handler.h; sourceTree = "<group>"; };
 		DB65E18E1FBD07030012DF97 /* livefiles_msdos_tester.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = livefiles_msdos_tester.entitlements; sourceTree = "<group>"; };
+		DBDC25352BE3351500E5C552 /* msdosProgressHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdosProgressHelper.h; sourceTree = "<group>"; };
+		DBDC25362BE3351500E5C552 /* msdosProgressHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdosProgressHelper.m; sourceTree = "<group>"; };
 		DD2D3C90291BE56E001C53C8 /* msdos_maintenance_format_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_maintenance_format_tests.m; sourceTree = "<group>"; };
 		DD2D3C92291BE5D2001C53C8 /* msdos_maintenance_format_tests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_maintenance_format_tests.h; sourceTree = "<group>"; };
 		DD4A46FF291D22B600FDE8E2 /* FSKitTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FSKitTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -766,10 +835,34 @@
 		CC83F98928916A490040AFF0 /* msdos_appex */ = {
 			isa = PBXGroup;
 			children = (
-				CC47433128FEE4390046B093 /* msdosFileSystem.entitlements */,
+				9A8879792A8B69B400B40217 /* DirBlock.h */,
+				9A88797A2A8DF38100B40217 /* DirBlock.m */,
+				9A5C2B8B2AA8A10A00D489DF /* DirItem.h */,
+				9A8879772A8B65EE00B40217 /* DirItem.m */,
+				90D1EC4D2AADB50B003AF95A /* DirNameCache.h */,
+				90D1EC4C2AADB50A003AF95A /* DirNameCache.m */,
+				52D0973B2B1C810D00447896 /* ExtensionCommon.h */,
+				90BD51262A0A5C7300656E31 /* FATItem.h */,
+				90A0B0022A2DF3BC0067D28F /* FATItem.m */,
+				905050EA2A3B340F0007C0FE /* FATManager.h */,
+				905050EB2A3B34210007C0FE /* FATManager.m */,
+				90744DF12A0291B100C15023 /* FATVolume.h */,
+				90744DF22A02A86100C15023 /* FATVolume.m */,
+				9AD58B242AAF461B00958CEC /* FileItem.m */,
 				CC83F98C28916A490040AFF0 /* Info.plist */,
+				90208C022AE4F78D00C6A2A0 /* ItemCache.h */,
+				90208C032AE50AA100C6A2A0 /* ItemCache.m */,
 				CC83F99128917B390040AFF0 /* msdosFileSystem.h */,
 				CC83F99228917B390040AFF0 /* msdosFileSystem.m */,
+				CC47433128FEE4390046B093 /* msdosFileSystem.entitlements */,
+				906AA2942A2DAC1400AF50CD /* msdosItem.h */,
+				906AA2902A2DABFC00AF50CD /* msdosItem.m */,
+				DBDC25352BE3351500E5C552 /* msdosProgressHelper.h */,
+				DBDC25362BE3351500E5C552 /* msdosProgressHelper.m */,
+				90744DF82A02A93C00C15023 /* msdosVolume.h */,
+				90744DF52A02A91900C15023 /* msdosVolume.m */,
+				90AC40462A13AC5C002CFE70 /* utils.h */,
+				90AC40472A13AFBB002CFE70 /* utils.m */,
 			);
 			path = msdos_appex;
 			sourceTree = "<group>";
@@ -829,6 +922,7 @@
 			children = (
 				D3D393B628A39E5000F9CA59 /* msdos_testplan.xctestplan */,
 				D3749D8B28BE34C400149E40 /* msdos_maintenance_testplan.xctestplan */,
+				D381A2B42A55522600114969 /* msdos_module_testplan.xctestplan */,
 				DD5C37FA294F5BC300B1F757 /* msdos_tests.entitlements */,
 				9AC7DFF92869C94200A7A4BF /* msdos_tests.h */,
 				D32A18FD27A9647C00574BF7 /* msdos_tests.m */,
@@ -840,6 +934,8 @@
 				DD2D3C90291BE56E001C53C8 /* msdos_maintenance_format_tests.m */,
 				DDD306DC29587D4800E9DB43 /* msdos_maintenance_check_tests.m */,
 				DDD306DD29587D9300E9DB43 /* msdos_maintenance_check_tests.h */,
+				9058D80D2A8AAD4D00FA52F3 /* mock_types.h */,
+				9058D80E2A8AAD6200FA52F3 /* mock_types.m */,
 			);
 			path = msdos_tests;
 			sourceTree = "<group>";
@@ -1021,6 +1117,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DDD306E029587F6C00E9DB43 /* msdos_tests.h in Headers */,
+				90D1EC502AADB50B003AF95A /* DirNameCache.h in Headers */,
 				DDD306E129587F6C00E9DB43 /* msdos_tests_utilities.h in Headers */,
 				DDD306E229587F6C00E9DB43 /* msdos_maintenance_xctests.h in Headers */,
 				DDD306E329587F8300E9DB43 /* msdos_maintenance_check_tests.h in Headers */,
@@ -1367,7 +1464,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CC3D1D142906BBD7004AD946 /* msdosFileSystem.entitlements in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1433,7 +1529,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		4D3DCB4008E084D300C78A0B /* ShellScript */ = {
@@ -1443,7 +1539,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		4D42A02B15055E2600720D1A /* ShellScript */ = {
@@ -1561,15 +1657,29 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CC47435328FFE6120046B093 /* format.c in Sources */,
-				CC47435428FFE6120046B093 /* lib_newfs_msdos.c in Sources */,
 				CC47435528FFE6120046B093 /* boot.c in Sources */,
 				CC47435628FFE6120046B093 /* check.c in Sources */,
+				9AD273BD2A9F3E8E00A87F4A /* Conv.c in Sources */,
 				CC47435728FFE6120046B093 /* dir.c in Sources */,
+				9A5C2B8A2AA5CBC200D489DF /* DirBlock.m in Sources */,
+				9A5C2B892AA5CBAD00D489DF /* DirItem.m in Sources */,
+				90D1EC4F2AADB50B003AF95A /* DirNameCache.m in Sources */,
+				90744DF32A02A86100C15023 /* FATVolume.m in Sources */,
+				9AD58B252AAF461B00958CEC /* FileItem.m in Sources */,
 				CC47435828FFE6120046B093 /* fat.c in Sources */,
+				90A0B0042A2DF3BC0067D28F /* FATItem.m in Sources */,
+				905050ED2A3B34210007C0FE /* FATManager.m in Sources */,
+				CC47435328FFE6120046B093 /* format.c in Sources */,
 				CC47435928FFE6120046B093 /* fsutil.c in Sources */,
+				90208C052AE50AA100C6A2A0 /* ItemCache.m in Sources */,
 				CC47435A28FFE6120046B093 /* lib_fsck_msdos.c in Sources */,
+				CC47435428FFE6120046B093 /* lib_newfs_msdos.c in Sources */,
+				9AD273BF2A9F402200A87F4A /* msdosfs_conv.c in Sources */,
+				906AA2922A2DABFC00AF50CD /* msdosItem.m in Sources */,
 				CC83F99328917B390040AFF0 /* msdosFileSystem.m in Sources */,
+				DBDC25372BE3351600E5C552 /* msdosProgressHelper.m in Sources */,
+				90744DF72A02A91900C15023 /* msdosVolume.m in Sources */,
+				90AC40492A13AFBB002CFE70 /* utils.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1630,18 +1740,43 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9ADF95D52C202DA600F3FC6A /* msdosProgressHelper.m in Sources */,
+				905A15392B22050F00089A93 /* msdosfs_conv.c in Sources */,
+				905A15382B2204D900089A93 /* Naming_Hash.c in Sources */,
+				905A15372B2204A900089A93 /* Meta_RW.m in Sources */,
+				905A15362B2204A300089A93 /* RawFile_Access_M.c in Sources */,
+				905A15352B22049700089A93 /* Logger.c in Sources */,
+				905A15342B22046900089A93 /* ZeroFill.c in Sources */,
+				905A15332B22046200089A93 /* FileOPS_Handler.c in Sources */,
+				905A15322B22044200089A93 /* FSOPS_Handler.c in Sources */,
+				905A15312B22043100089A93 /* MR_SW_Lock.c in Sources */,
+				905A15302B2203D200089A93 /* FileRecord_M.c in Sources */,
+				905A152F2B22037E00089A93 /* FAT_Access_M.c in Sources */,
+				905A152E2B22032800089A93 /* Conv.c in Sources */,
+				905A152D2B2202E700089A93 /* DirOPS_Handler.c in Sources */,
+				90460AAA2AADE05600A6C954 /* DirNameCache.m in Sources */,
+				9AB047A72AB0734300ACDE13 /* FileItem.m in Sources */,
+				9AD273C12A9F542B00A87F4A /* DirItem.m in Sources */,
+				9AD273C22A9F542B00A87F4A /* DirBlock.m in Sources */,
 				DD2D3C95291BE6D2001C53C8 /* msdos_maintenance_format_tests.m in Sources */,
+				906AA2912A2DABFC00AF50CD /* msdosItem.m in Sources */,
+				90208C042AE50AA100C6A2A0 /* ItemCache.m in Sources */,
 				D34AF4B628E44C5700FD69E9 /* fat.c in Sources */,
 				DDD306DE29587E5400E9DB43 /* msdos_maintenance_check_tests.m in Sources */,
 				D34AF4B728E44C5700FD69E9 /* fsutil.h in Sources */,
+				90A0B0032A2DF3BC0067D28F /* FATItem.m in Sources */,
 				D34AF4B828E44C5700FD69E9 /* fsutil.c in Sources */,
+				90744DF42A02A86800C15023 /* FATVolume.m in Sources */,
 				D34AF4B928E44C5700FD69E9 /* lib_fsck_msdos.c in Sources */,
 				D34AF4BA28E44C5700FD69E9 /* lib_fsck_msdos.h in Sources */,
 				D3F27F9828DB33B500C0627E /* format.c in Sources */,
+				900DA2E32A3F2D2A001AA2E7 /* FATManager.m in Sources */,
 				D3F27F9928DB33B500C0627E /* format.h in Sources */,
+				9058D80F2A8AAD6200FA52F3 /* mock_types.m in Sources */,
 				D3F27F9A28DB33B500C0627E /* lib_newfs_msdos.c in Sources */,
 				D3F27F9B28DB33B500C0627E /* lib_newfs_msdos.h in Sources */,
 				D3F27F9C28DB33B500C0627E /* newfs_data_types.h in Sources */,
+				90F1EC7B2B1F056F00455A9D /* newfs_msdos.c in Sources */,
 				D3AEB95328BE0A2C00558AD7 /* boot.c in Sources */,
 				D3AEB95428BE0A2C00558AD7 /* check.c in Sources */,
 				D3AEB95528BE0A2C00558AD7 /* dir.c in Sources */,
@@ -1649,6 +1784,9 @@
 				D3AEB95728BE0A2C00558AD7 /* ext.h in Sources */,
 				D3AEB95F28BE0CFD00558AD7 /* msdos_maintenance_xctests.m in Sources */,
 				D32A18FE27A9647C00574BF7 /* msdos_tests.m in Sources */,
+				90744DF62A02A91900C15023 /* msdosVolume.m in Sources */,
+				90AC40482A13AFBB002CFE70 /* utils.m in Sources */,
+				CE9C757C2B5E6E6300DBA668 /* msdosfs_conv.c in Sources */,
 				9AC7DFFB2869C96000A7A4BF /* msdos_tests_utilities.m in Sources */,
 				CE646B5428A2676900618D2C /* msdosFileSystem.m in Sources */,
 			);
@@ -2005,6 +2143,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Debug;
@@ -2016,6 +2155,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Release;
@@ -2302,6 +2442,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = CodeCoverage;
@@ -2344,10 +2485,9 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "MSDOS_APPEX=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2356,7 +2496,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -2396,6 +2536,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_PREPROCESSOR_DEFINITIONS = "MSDOS_APPEX=1";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2404,7 +2546,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -2444,6 +2586,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_PREPROCESSOR_DEFINITIONS = "MSDOS_APPEX=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -2452,7 +2597,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -2850,23 +2995,22 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-					"DIAGNOSTIC=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = USB_STORAGE_PLUGIN;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				XCTRUNNER_LAUNCH_AS_TOOL = YES;
@@ -2904,22 +3048,21 @@
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"DIAGNOSTIC=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = USB_STORAGE_PLUGIN;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				VALIDATE_PRODUCT = YES;
@@ -2958,18 +3101,21 @@
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_PREPROCESSOR_DEFINITIONS = USB_STORAGE_PLUGIN;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.filesystems.msdos-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos.internal;
+				SDKROOT = macosx.internal;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USES_XCTRUNNER = YES;
 				VALIDATE_PRODUCT = YES;
@@ -3023,7 +3169,6 @@
 				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
 					"DEBUG=1",
 					"DIAGNOSTIC=1",
-					"USB_STORAGE_PLUGIN=1",
 				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -3033,8 +3178,9 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
+				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -3075,7 +3221,6 @@
 				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
 					"DEBUG=1",
 					"DIAGNOSTIC=1",
-					"USB_STORAGE_PLUGIN=1",
 				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -3084,8 +3229,9 @@
 				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
+				SDKROOT = macosx;
 			};
 			name = CodeCoverage;
 		};
@@ -3123,10 +3269,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "USB_STORAGE_PLUGIN=1";
-				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = (
-					"DEBUG=0",
-					"USB_STORAGE_PLUGIN=1",
-				);
+				"GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS[arch=*]" = "DEBUG=0";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
@@ -3134,8 +3277,9 @@
 				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx.internal;
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -3172,10 +3316,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_STORAGE_PLUGIN=1";
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
 					"DEBUG=1",
 					"DIAGNOSTIC=1",
@@ -3221,6 +3362,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_STORAGE_PLUGIN=1";
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
 					"DEBUG=1",
 					"DIAGNOSTIC=1",
@@ -3265,6 +3407,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_STORAGE_PLUGIN=1";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;

@@ -3,11 +3,13 @@
 # for now until genwrap(8) makes it to all build hosts.
 
 analytics "com.apple.rsync" noargs
+env "CHOSEN_RSYNC"
 application "rsync_samba"
 	# Legacy rsync
 	path "/usr/libexec/rsync/rsync.samba"
 
-	# Not necessary at the moment because we only have the one application.
+	# Both applications will have logonly set as we only want selection via
+	# env var for the time being.
 	argmode logonly
 
 	# Compare to options.c long_options, long_daemon_options; sorting here
@@ -54,3 +56,86 @@ application "rsync_samba"
 	flag "protocol" arg
 	flag "checksum-seed" arg
 	flag "config" arg
+application "rsync_openrsync"
+	default
+	path "/usr/libexec/rsync/rsync.openrsync"
+
+	# Keep in sync with openrsync's main.c.  Options marked logonly or
+	# commented out either need more testing or more work.
+	flag "address" arg
+	flag "archive" "a"
+	flag "compare-dest" arg logonly
+	flag "link-dest" arg
+	#flag "compress" "z"
+	flag "copy-dirlinks" "k"
+	flag "copy-links" "L"
+	flag "D"
+	flag "no-D"
+	flag "del"
+	flag "delete"
+	flag "delete-before"
+	flag "delete-during"
+	flag "delete-delay"
+	flag "delete-excluded"
+	flag "devices"
+	flag "no-devices"
+	flag "dry-run" "n"
+	# Corner case for globstar not currently handled.
+	flag "exclude" arg logonly
+	flag "exclude-from" arg logonly
+	flag "existing"
+	flag "group" "g"
+	flag "no-group"
+	flag "no-g"
+	flag "hard-links" "H"
+	flag "help" "h"
+	flag "ignore-existing"
+	flag "ignore-non-existing"
+	flag "ignore-times" "I"
+	# Corner case for globstar not currently handled.
+	flag "include" arg logonly
+	flag "include-from" arg logonly
+	# Needs --bwlimit for testing
+	#flag "inplace"
+	flag "links" "l"
+	flag "max-size" arg
+	flag "min-size" arg
+	flag "no-links"
+	flag "no-l"
+	flag "no-motd"
+	flag "numeric-ids"
+	flag "owner" "o"
+	flag "no-owner"
+	flag "no-o"
+	flag "perms" "p"
+	flag "no-perms"
+	flag "no-p"
+	flag "port" arg
+	flag "recursive" "r"
+	flag "no-recursive"
+	flag "no-r"
+	flag "one-file-system" "x"
+	flag "rsh" "e" arg
+	flag "rsync-path" arg
+	flag "sender"
+	flag "server"
+	flag "specials"
+	flag "sparse" "S"
+	flag "no-specials"
+	flag "timeout" arg
+	flag "times" "t"
+	flag "no-times"
+	flag "no-t"
+	flag "verbose" "v"
+	flag "no-verbose"
+	# Needs testing
+	#flag "backup" "b"
+	flag "version" "V"
+	flag "relative" "R"
+	flag "no-R"
+	flag "no-relative"
+	flag "dirs" "d"
+	flag "no-dirs"
+	# Doesn't deal with remote files from yet.
+	flag "files-from" arg logonly
+	flag "delay-updates"

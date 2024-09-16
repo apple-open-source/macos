@@ -27,14 +27,20 @@
 #import "GraphicsContext.h"
 
 #import "DisplayListRecorder.h"
+#import "Font.h"
 #import "GraphicsContextCG.h"
 #import "IOSurface.h"
 #import "IntRect.h"
+#import <pal/spi/cf/CoreTextSPI.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
 #import <pal/spi/mac/NSGraphicsSPI.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/StdLibExtras.h>
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+#include "MultiRepresentationHEICMetrics.h"
+#endif
 
 #if USE(APPKIT)
 #import <AppKit/AppKit.h>
@@ -56,6 +62,41 @@ namespace WebCore {
 
 // NSColor, NSBezierPath, and NSGraphicsContext calls do not raise exceptions
 // so we don't block exceptions.
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+
+ImageDrawResult GraphicsContext::drawMultiRepresentationHEIC(Image& image, const Font& font, const FloatRect& destination, ImagePaintingOptions options)
+{
+    RetainPtr multiRepresentationHEIC = image.adapter().multiRepresentationHEIC();
+    if (!multiRepresentationHEIC)
+        return ImageDrawResult::DidNothing;
+
+    RefPtr imageBuffer = createScaledImageBuffer(destination.size(), scaleFactor(), DestinationColorSpace::SRGB(), RenderingMode::Unaccelerated, RenderingMethod::Local);
+    if (!imageBuffer)
+        return ImageDrawResult::DidNothing;
+
+    CGContextRef cgContext = imageBuffer->context().platformContext();
+
+    CGContextScaleCTM(cgContext, 1, -1);
+    CGContextTranslateCTM(cgContext, 0, -destination.height());
+
+    // FIXME (rdar://123044459): This needs to account for vertical writing modes.
+    CGContextSetTextPosition(cgContext, 0, font.metricsForMultiRepresentationHEIC().descent);
+
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    CTFontDrawImageFromEmojiImageProviderAtPoint(font.getCTFont(), multiRepresentationHEIC.get(), CGContextGetTextPosition(cgContext), cgContext);
+ALLOW_DEPRECATED_DECLARATIONS_END
+
+    auto orientation = options.orientation();
+    if (orientation == ImageOrientation::Orientation::FromImage)
+        orientation = image.orientation();
+
+    drawImageBuffer(*imageBuffer, destination, { options, orientation });
+
+    return ImageDrawResult::DidDraw;
+}
+
+#endif
 
 void GraphicsContextCG::drawFocusRing(const Path& path, float, const Color& color)
 {

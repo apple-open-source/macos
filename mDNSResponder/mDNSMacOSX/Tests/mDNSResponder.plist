@@ -15,6 +15,25 @@
 	<array>
 		<dict>
 			<key>TestName</key>
+			<string>Check Hardendened Heap Status</string>
+			<key>Description</key>
+			<string>Check the status of Hardened Heap (positive result will show Rosetta entries)</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/usr/bin/footprint</string>
+				<string>mDNSResponder</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>mDNSResponder Leaks</string>
 			<key>Description</key>
 			<string>Checks mDNSResponder for memory leaks.</string>
@@ -2795,11 +2814,11 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>DNS Proxy (Legacy SPI)</string>
+			<string>Record Registration</string>
 			<key>Description</key>
-			<string>Tests mDNSResponder&apos;s DNS proxy by sending it a variety of queries and verifying the responses. The queries are sent via UDP and TCP to the DNS proxy&apos;s IPV4 and IPv6 addresses. The DNS proxy is tested while it runs in different modes. Aside from the mode without a DNS64 prefix, the DNS proxy is tested while it runs with all of the valid DNS64 prefix lengths: 32-bit, 40-bit, 48-bit, 56-bit, 64-bit, and 96-bit. Uses the legacy client SPI to start the DNS proxies, i.e., DNSXEnableProxy() and DNSXEnableProxy64().</string>
+			<string>Tests the registration and deregistration of records.</string>
 			<key>AsRoot</key>
-			<true/>
+			<false/>
 			<key>RequiresWiFi</key>
 			<false/>
 			<key>Timeout</key>
@@ -2812,10 +2831,91 @@
 				<string>;</string>
 				<string>/usr/local/bin/dnssdutil</string>
 				<string>test</string>
-				<string>dnsproxy</string>
-				<string>--legacy</string>
-				<string>--format</string>
-				<string>json</string>
+				<string>record-registration</string>
+				<string>--interval</string>
+				<string>1500</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>mDNSResponder Leaks</string>
+			<key>Description</key>
+			<string>Checks mDNSResponder for memory leaks.</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/usr/bin/leaks</string>
+				<string>mDNSResponder</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>Record Cache Flush</string>
+			<key>Description</key>
+			<string>Tests the mrc_record_cache_flush SPI.</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+			<key>IgnoreOutput</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/mDNSResponder/network-isolate-device</string>
+				<string>;</string>
+				<string>/usr/local/bin/dnssdutil</string>
+				<string>test</string>
+				<string>record-cache-flush</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>mDNSResponder Leaks</string>
+			<key>Description</key>
+			<string>Checks mDNSResponder for memory leaks.</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/usr/bin/leaks</string>
+				<string>mDNSResponder</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>Resolver Override</string>
+			<key>Description</key>
+			<string>Verifies that a resolver override set with DNSServiceAttributeSetResolverOverride() is used when querying for records with DNSServiceQueryRecordWithAttribute().</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>300</integer>
+			<key>IgnoreOutput</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/mDNSResponder/network-isolate-device</string>
+				<string>;</string>
+				<string>/usr/local/bin/dnssdutil</string>
+				<string>test</string>
+				<string>resolver-override</string>
 			</array>
 		</dict>
 		<dict>
@@ -3883,8 +3983,8 @@
 			<string>Single SRPL Update test</string>
 			<key>Description</key>
 			<string>
-			  Test that when we generate a DNS Update message and deliver it through the SRP replication
-			  input path, it is successfully registered.
+				Test that when we generate a DNS Update message and deliver it through the SRP replication
+				input path, it is successfully registered.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -3906,9 +4006,9 @@
 			<string>Two-instance SRPL registration test</string>
 			<key>Description</key>
 			<string>
-			  Test that when we generate two DNS Update message, each of which adds a single instance,
-			  and deliver them together through the SRP replication input path, both are successfully registered,
-			  and the host registration is only done once and not renewed.
+				Test that when we generate two DNS Update message, each of which adds a single instance,
+				and deliver them together through the SRP replication input path, both are successfully registered,
+				and the host registration is only done once and not renewed.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -3930,10 +4030,10 @@
 			<string>Two-instance SRPL registration + remove test</string>
 			<key>Description</key>
 			<string>
-			  Test that when we generate two DNS Update message, the first of which adds two instances, and the
-			  second of which removes the first instance, and then we deliver them together through the SRP replication
-			  input path, the second is successfully registered, but the first is never registered, and the host registration
-			  and second instance registration are done exactly once and not renewed.
+				Test that when we generate two DNS Update message, the first of which adds two instances, and the
+				second of which removes the first instance, and then we deliver them together through the SRP replication
+				input path, the second is successfully registered, but the first is never registered, and the host registration
+				and second instance registration are done exactly once and not renewed.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -3951,7 +4051,7 @@
 			</array>
 		</dict>
 		<dict>
-		  <key>TestName</key>
+			<key>TestName</key>
 			<string>Zero-instance SRPL registration test</string>
 			<key>Description</key>
 			<string> test that an SRP client registers a host with no instances through the primary SRP server, and the update message is delivered to the other SRP server through SRPL connection and then the host is registered on that SRP server.</string>
@@ -3972,14 +4072,74 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>SRPL lease time test</string>
+			<key>Description</key>
+			<string> test that lease time gets renewed as expected from replication.</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>srpl-lease-time</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SRPL cycle through peers test</string>
+			<key>Description</key>
+			<string> test that lease time is not accidentally extended because of replication.</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>srpl-cycle-through-peers</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SRPL update after remove test</string>
+			<key>Description</key>
+			<string> test that a stale update through replication does not re-add the host that has been removed by the actual device.</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>srpl-update-after-remove</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>Two-instance SRPL registration + remove test with duplicate</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the two updates contain the same messages, the second set are ignored.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the two updates contain the same messages, the second set are ignored.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4001,11 +4161,11 @@
 			<string>Two-instance SRPL registration + remove test with duplicate of first message only</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the second updates contain only the first message, it is ignored.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the second updates contain only the first message, it is ignored.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4027,11 +4187,11 @@
 			<string>Two-instance SRPL registration + remove test with duplicate of last message only</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the second updates contain only the last message, it is ignored.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the second updates contain only the last message, it is ignored.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4053,11 +4213,11 @@
 			<string>Two-instance SRPL registration + remove, then add a new instance plus dupes of the original messages</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the second update starts with a new third instance, it is added.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the second update starts with a new third instance, it is added.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4079,11 +4239,11 @@
 			<string>Two-instance SRPL registration + remove plus duplicates of these messages and a new instance add</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the second update ends with a new third instance, it is added.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the second update ends with a new third instance, it is added.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4105,11 +4265,11 @@
 			<string>Two-instance SRPL registration + remove with different keys</string>
 			<key>Description</key>
 			<string>
-			  The goal of this test is to generate two DNS Update messages, both for the
-			  same host, each containing a new registration for a different instance, and
-			  deliver it through the SRP replication input path. Having passed the update set once
-			  we then deliver it a second time to see that it is correctly ignored.
-			  VARIANT: test that if the two updates are signed with different keys, they are rejected.
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the two updates are signed with different keys, they are rejected.
 			</string>
 			<key>AsRoot</key>
 			<false/>
@@ -4124,6 +4284,178 @@
 				<string>/usr/local/bin/srp-test-server</string>
 				<string>--test</string>
 				<string>srpl-two-instances-dup-2keys</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>DNS Dangling Query test</string>
+			<key>Description</key>
+			<string>
+				The goal of this test is to generate two DNS Update messages, both for the
+				same host, each containing a new registration for a different instance, and
+				deliver it through the SRP replication input path. Having passed the update set once
+				we then deliver it a second time to see that it is correctly ignored.
+				VARIANT: test that if the two updates are signed with different keys, they are rejected.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>20</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>dns-dangling-query</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>DNS local query</string>
+			<key>Description</key>
+			<string>
+				The goal of this test is to create DNS connection to the test server and attempt to
+				look up a name that goes through the local query path. If we get a response, the test
+				succeeded.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>20</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>dns-mdns</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>DNS Push local query</string>
+			<key>Description</key>
+			<string>
+				The goal of this test is to create DNS Push connection to the test server and attempt to
+				look up a name that goes through the local query path. If we get a response, the test
+				succeeded.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>20</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>dns-push-mdns</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>DNS Push server crash</string>
+			<key>Description</key>
+			<string>
+				The goal of this test is to create DNS Push connection to the test server and attempt to
+				look up a name that goes through the local (mDNS) query path. Once we have a result, we fake
+				an mDNSResponder crash and make sure the query is successfully restarted.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>20</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>dns-push-crash</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>DNS two-question query</string>
+			<key>Description</key>
+			<string>
+			  The goal of this test is to create DSO connection to the test server and send a DNS query that
+			  looks up a name that goes through the hardwired query path. If we get a response, the test
+			  succeeded.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>20</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>dns-two</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>Listener Longevity test</string>
+			<key>Description</key>
+			<string>
+				The goal of this test is to see that when we start the dnssd proxy UDP listener and deliver
+				an SRP registration to it, that the listener is not canceled after 30 seconds. This test is
+				in place because of rdar://124631151 (Unable to pair matter thread accessory ...) which was
+				cause by erroneously starting a tracker idle timeout when processing an incoming SRP
+				registration on port 53, which is where we receive anycast updates.  The test fails if
+				after 30 seconds the listener has been canceled.
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>60</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>listener-longevity</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>getifaddr test</string>
+			<key>Description</key>
+			<string>
+				This test checks to see that when the link-layer address on an interface is changed, we get a remove event
+				for the old address and an add event for the new address in ioloop_map_interface_addresses_here().
+			</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>RequiresWiFi</key>
+			<false/>
+			<key>Timeout</key>
+			<integer>2</integer>
+			<key>IgnoreOutput</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/srp-test-server</string>
+				<string>--test</string>
+				<string>ifaddrs</string>
 			</array>
 		</dict>
 	</array>

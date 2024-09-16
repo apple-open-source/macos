@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2019  Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023  Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,7 @@
 
 #include <sys/smb_apple.h>
 #include <sys/vnode.h>
+#include <sys/mman.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_2.h>
@@ -43,6 +44,316 @@ struct global_dir_cache_entry *global_dir_cache_head;
 uint64_t g_hardware_memory_size = 0;
 uint32_t g_max_dirs_cached = k_2GB_max_dirs_cached;
 uint32_t g_max_dir_entries_cached = k_2GB_max_dir_entries_cached;
+
+
+#pragma mark - SMB Data Compression
+
+/*
+ * Part of this function from fbt_blacklist.c
+ * Default list of file extensions that should be excluded from SMB data
+ * compression because its expected they will not compress much compared
+ * to the effort or processing them.
+ *
+ * This must be kept in asciibetical order for purposes of bsearch().
+ */
+const char * smb_compression_exclude_list[] =
+{
+    "7z",
+    "aa3",
+    "aac",
+    "aes",
+    "asf",
+    "avchd",
+    "avi",
+    "bik",
+    "bsf",
+    "bz",
+    "bz2",
+    "bzip",
+    "bzip2",
+    "chm",
+    "cpgz",
+    "cr2",
+    "divx",
+    "dng",
+    "docm",
+    "docx",
+    "dotm",
+    "dotx",
+    "emz",
+    "epub",
+    "f4v",
+    "flv",
+    "gif",
+    "gpg",
+    "graffle",
+    "gz",
+    "gzip",
+    "hdmov",
+    "heic",
+    "heif",
+    "hxs",
+    "j2c",
+    "jar",
+    "jpeg",
+    "jpg",
+    "lzma",
+    "m4a",
+    "m4a",
+    "m4v",
+    "mint",
+    "mkv",
+    "mov",
+    "mp2",
+    "mp3",
+    "mp4",
+    "mpa",
+    "mpe",
+    "mpeg",
+    "mpg",
+    "mpq",
+    "mshc",
+    "msi",
+    "mts",
+    "nef",
+    "odp",
+    "ods",
+    "odt",
+    "opus",
+    "otp",
+    "ots",
+    "ott",
+    "pack",
+    "pages",
+    "png",
+    "pptm",
+    "pptx",
+    "pspimage",
+    "qt",
+    "ra",
+    "rar",
+    "rpm",
+    "sea",
+    "sit",
+    "tgz",
+    "tif",
+    "tiff",
+    "vob",
+    "war",
+    "wav",
+    "webarchive",
+    "webm",
+    "webp",
+    "wma",
+    "wmv",
+    "wtv",
+    "wv",
+    "xlsb",
+    "xlsm",
+    "xlsx",
+    "xps",
+    "xz",
+    "zip",
+    "zstd"
+};
+#define SMB_EXCLUSION_LIST_COUNT (sizeof(smb_compression_exclude_list)/sizeof(smb_compression_exclude_list[0]))
+
+static const void*
+smb_bsearch(const void *key, const void *base0, size_t nmemb, size_t size, int (*compar)(const void *, const void *))
+{
+    /* Part of this function from fbt_blacklist.c */
+    const char *base = base0;
+    size_t lim = 0;
+    int cmp = 0;
+    const void *p = NULL;
+    
+    for (lim = nmemb; lim != 0; lim >>= 1) {
+        p = base + (lim >> 1) * size;
+            cmp = (*compar)(key, p);
+            if (cmp == 0) {
+                return p;
+            }
+            if (cmp > 0) {  /* key > p: move right */
+                base = (const char *)p + size;
+                lim--;
+            }               /* else move left */
+    }
+    return NULL;
+}
+
+/*
+ * Does this extension match any in the user supplied lists?
+ */
+int
+smb_check_user_list(const char* extension, size_t extension_len,
+                    char *list[], uint32_t list_cnt)
+{
+    /* Expected that the user lists will be small enough for a linear search */
+    uint32_t i = 0;
+    
+    for (i = 0; i < list_cnt; i++) {
+        if (extension_len != strlen(list[i])) {
+            continue;
+        }
+        
+        if (strncasecmp(extension, list[i], strlen(list[i])) == 0) {
+            /* found a match */
+            return(1);
+        }
+    }
+    
+    return(0);
+}
+
+static int
+smb_cmp(const void *a, const void *b)
+{
+    /*
+     * Part of this function from fbt_blacklist.c
+     * Do the comparison as case insensitive so "zip" and "ZIP" are the same
+     */
+    const char *v = *(const char **)b;
+    return strncasecmp((const char *)a, v, strlen(v));
+}
+
+/*
+ * SMB data compression filename exclusion check (case insensitive)
+ */
+bool
+smb_compression_excluded(const char* extension, size_t extension_len)
+{
+#pragma unused(extension_len)
+    /* Part of this function from fbt_blacklist.c */
+    const char *excluded = NULL;
+
+    excluded = smb_bsearch(extension, smb_compression_exclude_list,
+                           SMB_EXCLUSION_LIST_COUNT, sizeof(smb_compression_exclude_list[0]),
+                           smb_cmp);
+    return excluded;
+}
+
+
+int
+smb_compression_allowed(struct mount *mp, vnode_t vp)
+{
+    /* Part of this function from is_package_name() */
+    char *name = NULL;
+    size_t name_len = 0;
+    const char *ptr = NULL, *name_ext = NULL;
+    struct smbnode *np = NULL;
+    int compression_allowed = 1; /* assume it is compressible */
+    int match_found = 0;
+    struct smbmount *smp = NULL;
+    struct smb_session *sessionp = NULL;
+
+    /* Start with basic sanity checking */
+    if ((vp == NULL) || (mp == NULL)) {
+        SMBERROR("Null vp or mp? \n");
+        return(0);
+    }
+    
+    if (vnode_vtype(vp) != VREG) {
+        /* Only regular files can be compressed */
+        return(0);
+    }
+
+    np = VTOSMB(vp);
+    if (np == NULL) {
+        SMBERROR("Null np? \n");
+        return(0);
+    }
+
+    if ((np->n_name == NULL) || (np->n_nmlen == 0)) {
+        SMBERROR("n_name is null or n_nmlen is 0? \n");
+        return(0);
+    }
+
+    smp = VFSTOSMBFS(mp);
+    if (smp == NULL) {
+        SMBERROR("Null smp? \n");
+        return(0);
+    }
+
+    sessionp = SS_TO_SESSION(smp->sm_share);
+    if (sessionp == NULL) {
+        SMBERROR("Null sessionp? \n");
+        return(0);
+    }
+
+    /* Is compression supported? */
+    if (!SMBV_SMB3_OR_LATER(sessionp) ||
+        (sessionp->server_compression_algorithms_map == 0)) {
+        /* Compression not supported */
+        return(0);
+    }
+
+    name = np->n_name;
+    name_len = np->n_nmlen;
+    
+    /*
+     * Find the filename extension if any.
+     *
+     * If the name is less than 3 bytes it can't be of the
+     * form A.B and if it begins with a "." then it is also
+     * does not have an extension. Assume its compressible.
+     */
+    if (name_len <= 3 || name[0] == '.') {
+        return(compression_allowed);
+    }
+
+    name_ext = NULL;
+    for (ptr = name; *ptr != '\0'; ptr++) {
+        if (*ptr == '.') {
+            name_ext = ptr;
+        }
+    }
+
+    /* if there is no "." extension, it can't match. Assume its compressible */
+    if ((name_ext == NULL) || (name_ext++ == NULL)) {
+        return(compression_allowed);
+    }
+
+    /* advance over the "." */
+    name_ext++;
+
+    /* Check the default exclusion list */
+    if (smb_compression_excluded(name_ext, strlen(name_ext))) {
+        /* Compression not allowed, but does user list allow this file? */
+        compression_allowed = 0;
+        
+        match_found = smb_check_user_list(name_ext, strlen(name_ext),
+                                          smp->sm_args.compression_include,
+                                          smp->sm_args.compression_include_cnt);
+        if (match_found) {
+            SMB_LOG_COMPRESS_LOCK(np, "Compression is allowed on <%s> from user list \n",
+                                  np->n_name);
+            compression_allowed = 1;
+        }
+        else {
+            SMB_LOG_COMPRESS_LOCK(np, "Compression not allowed on <%s> from default list \n",
+                                  np->n_name);
+        }
+    }
+    else {
+        /* Compression allowed, but does user list exclude this file? */
+        compression_allowed = 1;
+
+        match_found = smb_check_user_list(name_ext, strlen(name_ext),
+                                          smp->sm_args.compression_exclude,
+                                          smp->sm_args.compression_exclude_cnt);
+        if (match_found) {
+            SMB_LOG_COMPRESS_LOCK(np, "Compression not allowed on <%s> from user list \n",
+                                  np->n_name);
+            compression_allowed = 0;
+        }
+    }
+    
+    /* if we get here, no extension matched */
+    return(compression_allowed);
+}
+
+
+#pragma mark - Dir Enumeration Caching
 
 void
 smb_dir_cache_add_entry(vnode_t dvp, void *in_cachep,
@@ -223,7 +534,7 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked,
 		return;
 	}
 	
-    SMB_LOG_KTRACE(SMB_DBG_SMB_DIR_CACHE_CHECK | DBG_FUNC_START, 0, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_DIR_CACHE_CHECK | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     if (!is_locked) {
         lck_mtx_lock(&dnp->d_enum_cache_list_lock);
@@ -293,14 +604,14 @@ smb_dir_cache_check(vnode_t dvp, void *in_cachep, int is_locked,
         }
         
         /* Any locking was already done earlier in this function */
-        smb_dir_cache_remove(dvp, cachep, "main", reason_str, 1);
+        smb_dir_cache_remove(dvp, cachep, "main", reason_str, 1, 0);
     }
     
     if (!is_locked) {
         lck_mtx_unlock(&dnp->d_enum_cache_list_lock);
     }
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_DIR_CACHE_CHECK | DBG_FUNC_END, 0, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_DIR_CACHE_CHECK | DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
 
 int32_t
@@ -494,12 +805,14 @@ smb_dir_cache_invalidate(vnode_t vp, uint32_t forceInvalidate)
 void
 smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
 					 const char *cache, const char *reason,
-					 int is_locked)
+					 int is_locked, off_t offset)
 {
     struct smb_enum_cache *cachep = in_cachep;
     struct smbnode *dnp = NULL;
     struct cached_dir_entry *entryp = NULL;
     struct cached_dir_entry *currp = NULL;
+    off_t remove_count = 0;
+    uint8_t partial_remove = 0;
     
     if (dvp == NULL) {
         SMBERROR("dvp is null \n");
@@ -512,7 +825,7 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
         return;
     }
     
-    SMB_LOG_KTRACE(SMB_DBG_SMB_DIR_CACHE_REMOVE | DBG_FUNC_START, 0, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_DIR_CACHE_REMOVE | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
     if (!is_locked) {
         lck_mtx_lock(&dnp->d_enum_cache_list_lock);
@@ -523,7 +836,13 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
         SMB_LOG_DIR_CACHE_LOCK(dnp, "Removing <%s> dir cache for <%s> due to <%s> \n",
                                cache, dnp->n_name, reason);
     }
-    
+
+    partial_remove = (offset > 0) && (offset > cachep->start_offset) && (offset <= cachep->offset);
+
+    if (partial_remove) {
+        remove_count = offset - cachep->start_offset;
+    }
+
     while (entryp != NULL) {
         /* wipe out the enum cache entries */
         currp = entryp;
@@ -531,11 +850,22 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
 		
 		vfs_removename(currp->name);
         SMB_FREE_TYPE(struct cached_dir_entry, currp);
+
+        remove_count--;
+        if (partial_remove && (remove_count == 0)) {
+            break;
+        }
     }
     
-    cachep->list = NULL;
-    cachep->offset = 0;
-    cachep->count = 0;
+    if (partial_remove) {
+        cachep->start_offset = offset;
+        cachep->count = cachep->offset - offset;
+        cachep->list = entryp;
+    } else {
+        cachep->offset = 0;
+        cachep->count = 0;
+        cachep->list = NULL;
+    }
     cachep->flags &= ~(kDirCacheComplete | kDirCachePartial);
     
 	/* 
@@ -550,7 +880,7 @@ smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
         lck_mtx_unlock(&dnp->d_enum_cache_list_lock);
     }
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_DIR_CACHE_REMOVE | DBG_FUNC_END, 0, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_DIR_CACHE_REMOVE | DBG_FUNC_END, 0, 0, 0, 0, 0);
 }
 
 void
@@ -753,8 +1083,8 @@ smb_global_dir_cache_low_memory(int free_all, void *context_ptr)
                              * any SMB requests. Just empty the dir cache and
                              * that should be enough.
                              */
-                            smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_main_cache, "main", "low memory", 0);
-                            smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_overflow_cache, "overflow", "low memory", 0);
+                            smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_main_cache, "main", "low memory", 0, 0);
+                            smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_overflow_cache, "overflow", "low memory", 0, 0);
 
                             /*
                              * Assume its cached count is now 0. Its actual count will
@@ -793,6 +1123,8 @@ smb_global_dir_cache_prune(void *oldest_ptr, int is_locked,
 	struct timespec	ts;
 	int32_t max_attempts = 50;	/* Safety to keep from looping forever */
     int error;
+
+    SMB_LOG_KTRACE(SMB_DBG_GLOBAL_DIR_CACHE_PRUNE | DBG_FUNC_START, is_locked, 0, 0, 0, 0);
 
 	if (!is_locked) {
 		lck_mtx_lock(&global_dir_cache_lock);
@@ -843,8 +1175,8 @@ again:
                          */
                         smbfs_closedirlookup(VTOSMB(dvp), 0, "smb_global_dir_cache_prune", context);
 
-						smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_main_cache, "main", "prune", 1);
-						smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_overflow_cache, "overflow", "prune", 1);
+						smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_main_cache, "main", "prune", 1, 0);
+						smb_dir_cache_remove(dvp, &VTOSMB(dvp)->d_overflow_cache, "overflow", "prune", 1, 0);
 						
 						/*
 						 * Assume its cached count is now 0. Its actual count will
@@ -893,8 +1225,7 @@ again:
 		currentp = currentp->next;
 	}
 	
-    SMB_LOG_KTRACE(SMB_DBG_GLOBAL_DIR_CACHE_CNT | DBG_FUNC_NONE,
-                   current_dir_cnt, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_GLOBAL_DIR_CACHE_PRUNE | DBG_FUNC_NONE, 0xabc001, current_dir_cnt, 0, 0, 0);
 
     /* Do we have too many cached dir or entries? */
 	if (current_dir_cnt > g_max_dirs_cached) {
@@ -905,6 +1236,8 @@ exit:
 	if (!is_locked) {
 		lck_mtx_unlock(&global_dir_cache_lock);
 	}
+    
+    SMB_LOG_KTRACE(SMB_DBG_GLOBAL_DIR_CACHE_PRUNE | DBG_FUNC_END, 0, is_locked, 0, 0, 0);
 }
 
 void
@@ -1098,6 +1431,136 @@ smb_global_dir_cache_update_entry(vnode_t dvp)
 	lck_mtx_unlock(&global_dir_cache_lock);
 	return(ENOENT);	/* No match found */
 }
+
+#pragma mark - buf_map_range helper functions
+
+/*
+ * Copied from Xsan (acfs_buf_map() functions) for vnop_strategy buf_map
+ * handling to avoid ENOMEM errors due to contention over the upl
+ */
+
+#define NUM_ADDR_BUCKETS 32
+lck_mtx_t smbfs_buf_map_locks[NUM_ADDR_BUCKETS];
+
+void
+smbfs_init_buf_map(void)
+{
+    for (int i = 0; i < NUM_ADDR_BUCKETS; i++ ) {
+        lck_mtx_init(&smbfs_buf_map_locks[i], smbfs_mutex_group, smbfs_lock_attr);
+    }
+}
+
+void
+smbfs_teardown_buf_map(void)
+{
+    for (int i = 0; i < NUM_ADDR_BUCKETS; i++ ) {
+        lck_mtx_destroy(&smbfs_buf_map_locks[i], smbfs_mutex_group);
+    }
+}
+
+uint32_t
+smbfs_hash_upl_addr(void *addr)
+{
+    intptr_t ip = (intptr_t)addr;
+    return(crc32(0, (void *)&ip, sizeof(addr)) & (NUM_ADDR_BUCKETS - 1));
+}
+
+int
+smbfs_buf_map(struct buf *bp, caddr_t *io_addr, vm_prot_t prot)
+{
+    void *upl = NULL;
+    uint32_t bucket = 0;
+    int error = 0;
+
+    if (bp == NULL) {
+        SMBERROR("bp is null? \n");
+        return EINVAL;
+    }
+    
+    SMB_LOG_KTRACE(SMB_DBG_BUF_MAP | DBG_FUNC_START, 0, 0, 0, 0, 0);
+    
+    /* Get the upl that this buf belongs to */
+    upl = buf_upl(bp);
+
+    SMB_LOG_IO("bp 0x%lx, upl 0x%lx, offset %lld, size %u, %s \n",
+               smb_hideaddr(bp), smb_hideaddr(upl),
+               ((off_t)buf_blkno(bp)) * PAGE_SIZE, buf_count(bp),
+               (prot == PROT_WRITE) ? "PROT_WRITE" : "PROT-READ");
+
+    /* Hash the upl */
+    *io_addr = NULL;
+    bucket = smbfs_hash_upl_addr(upl);
+
+    /*
+     * The buf_map_range_with_prot() doesn't support concurrent mappings of UPL.
+     * Other worker threads executing smbfs_do_strategy() for the split IOs could be
+     * trying to map the same UPL so serialization is needed here.
+     * Ideally, the lock should be per UPL but lock per bucket is good enough
+     * as we don't expect high collision rate of different UPLs hashing to the
+     * same bucket.
+     */
+    lck_mtx_lock(&smbfs_buf_map_locks[bucket]);
+
+    SMB_LOG_KTRACE(SMB_DBG_BUF_MAP | DBG_FUNC_NONE, 0xabc001, bucket, 0, 0, 0);
+
+    error = buf_map_range_with_prot(bp, io_addr, prot);
+
+    if (error) {
+        /* Should not happen */
+        SMBERROR("buf_map_range_with_prot failed %d, bp 0x%lx, upl 0x%lx, offset %lld, size %u, %s\n",
+                 error, smb_hideaddr(bp), smb_hideaddr(upl),
+                 ((off_t)buf_blkno(bp)) * PAGE_SIZE, buf_count(bp),
+                 (prot == PROT_WRITE) ? "PROT_WRITE" : "PROT-READ");
+        
+        lck_mtx_unlock(&smbfs_buf_map_locks[bucket]);
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_BUF_MAP | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return error;
+}
+
+int
+smbfs_buf_unmap(struct buf *bp)
+{
+    void *upl = NULL;
+    uint32_t bucket = 0;
+    int error = 0;
+
+    if (bp == NULL) {
+        SMBERROR("bp is null? \n");
+        return EINVAL;
+    }
+    
+    SMB_LOG_KTRACE(SMB_DBG_BUF_UNMAP | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
+    /* Get the upl that this buf belongs to */
+    upl = buf_upl(bp);
+
+    SMB_LOG_IO("bp 0x%lx, upl 0x%lx, offset %lld, size %u\n",
+               smb_hideaddr(bp), smb_hideaddr(upl),
+               ((off_t)buf_blkno(bp)) * PAGE_SIZE, buf_count(bp));
+
+    error = buf_unmap_range(bp);
+    if (error) {
+        /* Should not happen */
+        SMBERROR("buf_unmap_range failed %d, bp 0x%lx, upl 0x%lx, offset %lld, size %u\n",
+                 error, smb_hideaddr(bp), smb_hideaddr(upl),
+                 ((off_t)buf_blkno(bp)) * PAGE_SIZE, buf_count(bp));
+    }
+    
+    /* Free lock this upl belong to */
+    bucket = smbfs_hash_upl_addr(upl);
+
+    SMB_LOG_KTRACE(SMB_DBG_BUF_UNMAP | DBG_FUNC_NONE, 0xabc001, bucket, 0, 0, 0);
+
+    lck_mtx_unlock(&smbfs_buf_map_locks[bucket]);
+
+    SMB_LOG_KTRACE(SMB_DBG_BUF_UNMAP | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return error;
+}
+
+
+#pragma mark - Misc Helper Functions
 
 void
 smb2fs_smb_file_id_check(struct smb_share *share, uint64_t ino,

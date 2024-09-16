@@ -416,6 +416,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)testKeychainCorruptionCopyMatching
 {
+    SecKeychainDelayAsyncBlocks(true);
+
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
@@ -448,13 +450,16 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     // Just calling SecItemCopyMatching shouldn't have created a new metadata key
     [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:[@"super bad key" dataUsingEncoding:NSUTF8StringEncoding]];
 
-    /* CopyMatching will delete corrupt pre-emptively */
+    /* CopyMatching will delete corrupt items pre-emptively, but asynchronously, so we must wait */
+    SecKeychainDbWaitForAsyncBlocks();
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
 }
 
 - (void)testKeychainDeletionCopyMatching
 {
+    SecKeychainDelayAsyncBlocks(true);
+
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
@@ -487,7 +492,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     // Just calling SecItemCopyMatching shouldn't have created a new metadata key
     [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false value:nil];
 
-    /* CopyMatching will delete corrupt pre-emptively */
+    /* CopyMatching will delete corrupt items pre-emptively, but asynchronously, so we must wait */
+    SecKeychainDbWaitForAsyncBlocks();
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
 }

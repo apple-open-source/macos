@@ -148,7 +148,6 @@ struct protox pfkeyprotox[] = {
 };
 #endif
 
-
 struct protox systmprotox[] = {
 	{ systmpr,	NULL,		NULL,	"reg", 0 },
 	{ systmpr,	kevt_stats,		NULL,	"kevt", SYSPROTO_EVENT },
@@ -174,10 +173,15 @@ struct protox kernprotox[] = {
 
 #ifdef AF_VSOCK
 struct protox vsockprotox[] = {
-	{ vsockpr,	NULL,	NULL,	"vsock", 0 },
+	{ vsockpr,	vsockstats,	NULL,	"vsock", 0 },
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 #endif
+
+struct protox unixprotox[] = {
+	{ unixpr,		unixstats,	NULL,	"unix", 0 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
 
 struct protox *protoprotox[] = {
 	protox,
@@ -252,7 +256,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "AaBbc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1)
+	while ((ch = getopt(argc, argv, "AaBbc:dFf:gI:ikLlmnP:p:qQrRsStuvWw:xz")) != -1) {
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -261,6 +265,12 @@ main(argc, argv)
 			aflag = 1;
 			break;
 		case 'B':
+			if (optind < argc) {
+				if (strcmp(argv[optind], "help") == 0) {
+					bpf_help();
+					exit(0);
+				}
+			}
 			Bflag = 1;
 			break;
 		case 'b':
@@ -386,6 +396,7 @@ main(argc, argv)
 		default:
 			usage();
 		}
+	}
 	argv += optind;
 	argc -= optind;
 
@@ -470,9 +481,12 @@ main(argc, argv)
 		for (tp = pfkeyprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 #endif /*IPSEC*/
-	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag && !sflag)
-		unixpr();
-		
+
+	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag) {
+		for (tp = unixprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+	}
+
 	if ((af == AF_SYSTEM || af == AF_UNSPEC) && !Lflag)
 		for (tp = systmprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
@@ -490,9 +504,10 @@ main(argc, argv)
 			printproto(tp, tp->pr_name);
 
 #ifdef AF_VSOCK
-	if (af == AF_VSOCK || af == AF_UNSPEC)
+	if ((af == AF_VSOCK || af == AF_UNSPEC) && !Lflag) {
 		for (tp = vsockprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
+	}
 #endif /*AF_VSOCK*/
 
 #ifdef SRVCACHE

@@ -663,6 +663,12 @@ class OctagonDeviceListTests: OctagonTestsBase {
         XCTAssert(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should already have device 2 on the list")
 
         let peer2ContextID = "joiner"
+        #if os(watchOS)
+        self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: "iPhone15,2",
+                                                      deviceName: "I'm an iPhone",
+                                                      serialNumber: "456",
+                                                      osVersion: "iPhone OS Version")
+        #endif
         let peer1ID = self.assertResetAndBecomeTrustedInDefaultContext()
 
         let joiningContext = self.makeInitiatorContext(contextID: peer2ContextID, authKitAdapter: self.mockAuthKit2)
@@ -684,25 +690,31 @@ class OctagonDeviceListTests: OctagonTestsBase {
             return nil
         }
 
+        do {
+            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL()
+            XCTAssertEqual(enforcing, 1, "Should report that the local MID list will be enforced")
+        }
+
         let deviceListFetches = self.mockAuthKit2.fetchInvocations
         self.mockAuthKit2.injectAuthErrorsAtFetchTime = true
         self.mockAuthKit2.removeAndSendNotification(self.mockAuthKit2.currentMachineID)
 
-        self.assertEnters(context: joiningContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfUntrusted(context: joiningContext)
+        self.assertEnters(context: joiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: joiningContext)
 
-        #if !os(tvOS)
-        XCTAssertTrue(joiningContext.followupHandler.hasPosted(.stateRepair), "Octagon should have posted a repair CFU after falling off the trusted device list")
-        #else
-        XCTAssertFalse(joiningContext.followupHandler.hasPosted(.stateRepair), "posted should be false on tvOS; there aren't any iOS devices around to repair it")
-        #endif
+        XCTAssertFalse(joiningContext.followupHandler.hasPosted(.stateRepair), "device should not have posted a CFU; other components should post it to regain auth")
 
-        // And it should even report itself as not on the list anymore
+        // It should still be on its locally cached list, but it should realize it shouldn't enforce any further list changes
         do {
             let errorPtr: NSErrorPointer = nil
             let onList = joiningContext.machineID(onMemoizedList: self.mockAuthKit2.currentMachineID, error: errorPtr)
             XCTAssertNil(errorPtr, "Should have had no error checking memoized list")
-            XCTAssertFalse(onList, "Should no longer report that the local MID is on the memoized MID list")
+            XCTAssertTrue(onList, "Should no longer report that the local MID is on the memoized MID list")
+        }
+
+        do {
+            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL()
+            XCTAssertEqual(enforcing, 0, "Should not report that the local MID list will be enforced")
         }
 
         XCTAssertEqual(deviceListFetches + 1, self.mockAuthKit2.fetchInvocations, "Should have fetched device list exactly once")
@@ -758,17 +770,15 @@ class OctagonDeviceListTests: OctagonTestsBase {
         self.mockAuthKit.injectAuthErrorsAtFetchTime = true
         self.mockAuthKit.removeAndSendNotification(self.mockAuthKit.currentMachineID)
 
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         let deviceListFetches = self.mockAuthKit.fetchInvocations
 
         do {
-            let arguments = OTConfigurationContext()
-            arguments.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
-            arguments.context = self.cuttlefishContext.contextID
-            arguments.otControl = self.otControl
-
+            let arguments = self.createOTConfigurationContextForTests(contextID: self.cuttlefishContext.contextID,
+                                                                      otControl: self.otControl,
+                                                                      altDSID: try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID))
             try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
             XCTFail("Should have errored trying to perform an Octagon Establish while not on the trusted device list")
         } catch {

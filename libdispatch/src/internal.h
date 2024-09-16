@@ -759,6 +759,14 @@ _dispatch_fork_becomes_unsafe(void)
 #endif
 #endif // !defined(DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION)
 
+#ifndef DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+#if DISPATCH_MIN_REQUIRED_OSX_AT_LEAST(150000)
+#define DISPATCH_SUPPORTS_THREAD_BOUND_KQWL 1
+#else
+#define DISPATCH_SUPPORTS_THREAD_BOUND_KQWL 0
+#endif
+#endif // !defined(DISPATCH_SUPPORTS_THREAD_BOUND_KQWL)
+
 #ifndef DISPATCH_USE_PTHREAD_ROOT_QUEUES
 #if defined(__BLOCKS__) && defined(__APPLE__)
 #define DISPATCH_USE_PTHREAD_ROOT_QUEUES 1 // <rdar://problem/10719357>
@@ -1013,7 +1021,7 @@ _dispatch_ktrace_impl(uint32_t code, uint64_t a, uint64_t b,
 #endif
 
 #ifndef VOUCHER_USE_PERSONA
-#if VOUCHER_USE_MACH_VOUCHER && defined(BANK_PERSONA_TOKEN) && \
+#if VOUCHER_USE_MACH_VOUCHER && \
 		!TARGET_OS_SIMULATOR && !TARGET_CPU_ARM
 #define VOUCHER_USE_PERSONA 1
 #else
@@ -1168,6 +1176,12 @@ extern bool _dispatch_kevent_workqueue_enabled;
 #else
 #define _dispatch_kevent_workqueue_enabled (0)
 #endif // DISPATCH_USE_KEVENT_WORKQUEUE
+
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+extern bool _dispatch_thread_bound_kqwl_enabled;
+#else
+#define _dispatch_thread_bound_kqwl_enabled (0)
+#endif // DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
 
 #if DISPATCH_USE_KEVENT_WORKLOOP
 #if !DISPATCH_USE_KEVENT_WORKQUEUE || !DISPATCH_USE_KEVENT_QOS

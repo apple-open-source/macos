@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,17 +97,14 @@ int smb2_smb_query_dir(struct smb_share *share, struct smb2_query_dir_rq *queryp
                        struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
 int smb2_smb_query_info(struct smb_share *share, struct smb2_query_info_rq *queryp, 
                         struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
-int smb2_smb_read_one(struct smb_share *share,
-                      struct smb2_rw_rq *readp,
-                      user_ssize_t *len,
-                      user_ssize_t *rresid,
-                      struct smb_rq **compound_rqp,
-                      struct smbiod *iod,
-                      vfs_context_t context);
+int smb2_smb_read_one(struct smb_share *share, struct smb2_rw_rq *readp,
+                      user_ssize_t *len, user_ssize_t *rresid,
+                      struct smb_rq **compound_rqp, struct smbiod *iod,
+                      uint32_t allow_compression, vfs_context_t context);
 int smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp,
-                  vfs_context_t context);
-int smb_smb_read(struct smb_share *share, SMBFID fid, uio_t uio, 
-                 vfs_context_t context);
+                  uint32_t allow_compression, vfs_context_t context);
+int smb_smb_read(struct smb_share *share, SMBFID fid, uio_t uio,
+                 uint32_t allow_compression, vfs_context_t context);
 int smb2_smb_set_info(struct smb_share *share, struct smb2_set_info_rq *infop,
                       struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
 int smb1_smb_ssnclose(struct smb_session *sessionp, vfs_context_t context);
@@ -118,21 +115,22 @@ int smb2_smb_tree_connect(struct smb_session *sessionp, struct smb_share *share,
 int smb1_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
 int smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
 int smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep,
-                   vfs_context_t context);
+                   uint32_t *allow_compressionp, vfs_context_t context);
 int smb2_smb_write_one(struct smb_share *share,
                        struct smb2_rw_rq *writep,
                        user_ssize_t *len,
                        user_ssize_t *rresid,
                        struct smb_rq **compound_rqp,
                        struct smbiod *iod,
+                       uint32_t *allow_compressionp,
                        vfs_context_t context);
 int smb_smb_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
-                  vfs_context_t context);
+                  uint32_t *allow_compressionp, vfs_context_t context);
 
 uint32_t smb2_session_maxread(struct smb_session *sessionp, uint32_t max_read);
 uint32_t smb2_session_maxwrite(struct smb_session *sessionp, uint32_t max_write);
 int smb_get_share(struct smb_session *sessionp, struct smb_share **sharepp);
-
+uint32_t smb2_session_max_io_size(struct smb_session *sessionp, int io_type);
 
 #endif /* _KERNEL */
 #endif /* _NETSMB_CONN_2_H_ */

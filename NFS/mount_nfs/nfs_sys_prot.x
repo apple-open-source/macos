@@ -194,6 +194,7 @@ typedef string			nfs_mattr_local_nfs_port<NFS_MAXPATHLEN>;
 typedef string			nfs_mattr_local_mount_port<NFS_MAXPATHLEN>;
 typedef uint32_t		nfs_mattr_set_mount_owner;
 typedef nfs_readlink_cache_mode	nfs_mattr_readlink_nocache;
+typedef uint32_t		nfs_mattr_access_cache;
 
 /* mount attribute bitmap indices */
 const NFS_MATTR_FLAGS			= 0;	/* mount flags bitmap (MFLAG_*) */
@@ -231,6 +232,7 @@ const NFS_MATTR_SET_MOUNT_OWNER 	= 31;	/* Set owner of mount point */
 const NFS_MATTR_READLINK_NOCACHE	= 32;	/* Readlink nocache mode */
 const NFS_MATTR_ATTRCACHE_ROOTDIR_MIN	= 33;	/* minimum attribute cache time for root directory */
 const NFS_MATTR_ATTRCACHE_ROOTDIR_MAX	= 34;	/* maximum attribute cache time for root directory */
+const NFS_MATTR_ACCESS_CACHE		= 35;	/* Access cache size */
 
 /*
  * Mount flags

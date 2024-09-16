@@ -96,6 +96,7 @@
 		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8F82280B86A00CBCB24 /* libbsm.dylib */; };
 		4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */; };
+		446AA4F72B57026B00CCA553 /* FactoryOTAConfigurationAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 446AA4F62B57026B00CCA553 /* FactoryOTAConfigurationAccess.m */; };
 		447011B325DB1260007F7D25 /* AppSSO.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447011B225DB125F007F7D25 /* AppSSO.framework */; settings = {ATTRIBUTES = (Required, ); }; };
 		4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
@@ -110,6 +111,7 @@
 		44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */; };
 		44980A3E1ABBC60400B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
+		4498C4722C069EE2009F6BF7 /* FactoryOTAConfigurationAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 446AA4F62B57026B00CCA553 /* FactoryOTAConfigurationAccess.m */; };
 		44AF45C8296F7DBF0075FCF0 /* eapolcfg.c in Sources */ = {isa = PBXBuildFile; fileRef = F960449F10D1CA46000D803D /* eapolcfg.c */; };
 		44AF45CA296F7DBF0075FCF0 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
 		44AF45CB296F7DBF0075FCF0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
@@ -545,6 +547,8 @@
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		4461C8F82280B86A00CBCB24 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
 		4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
+		446AA4F62B57026B00CCA553 /* FactoryOTAConfigurationAccess.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FactoryOTAConfigurationAccess.m; sourceTree = "<group>"; };
+		446AA4F92B57027700CCA553 /* FactoryOTAConfigurationAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FactoryOTAConfigurationAccess.h; sourceTree = "<group>"; };
 		447011B225DB125F007F7D25 /* AppSSO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSSO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/AppSSO.framework; sourceTree = DEVELOPER_DIR; };
 		4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPClientConfiguration.h; sourceTree = "<group>"; };
 		4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPClientConfiguration.c; sourceTree = "<group>"; };
@@ -1126,6 +1130,7 @@
 		F91F7B9D0C8F84A7000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				446AA4F62B57026B00CCA553 /* FactoryOTAConfigurationAccess.m */,
 				440EC83527E9014F00F753D6 /* MIBConfigurationAccess.m */,
 				44EAF9E125DA600300817560 /* AppSSOProviderAccess.m */,
 				F98E42EA19017F4900DE4397 /* wireless.m */,
@@ -1147,6 +1152,7 @@
 		F91F7B9E0C8F84B1000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				446AA4F92B57027700CCA553 /* FactoryOTAConfigurationAccess.h */,
 				440EC83727E9015D00F753D6 /* MIBConfigurationAccess.h */,
 				44EAF9E325DA601600817560 /* AppSSOProviderAccess.h */,
 				F94E3F750F6706510061BC58 /* InterestNotification.h */,
@@ -1690,6 +1696,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4498C4722C069EE2009F6BF7 /* FactoryOTAConfigurationAccess.m in Sources */,
 				44EAF9E225DA600300817560 /* AppSSOProviderAccess.m in Sources */,
 				F90FEE480CA3338A00A7B5A8 /* main.c in Sources */,
 				F90FEE490CA3338A00A7B5A8 /* Supplicant.c in Sources */,
@@ -1863,6 +1870,7 @@
 				F9B7FB620C95CA7000BBD057 /* KeyValue.c in Sources */,
 				F9B7FB630C95CA7200BBD057 /* mylog.c in Sources */,
 				F9B7FB650C95CA7300BBD057 /* wireless.c in Sources */,
+				446AA4F72B57026B00CCA553 /* FactoryOTAConfigurationAccess.m in Sources */,
 				F98E42EB19017F4900DE4397 /* wireless.m in Sources */,
 				F9B7FB660C95CA7400BBD057 /* Dialogue.c in Sources */,
 				F94E3F740F6706420061BC58 /* InterestNotification.c in Sources */,
@@ -2102,6 +2110,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
@@ -2115,8 +2124,11 @@
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-weak_framework",
 					MobileInBoxUpdate,
+					"-weak_framework",
+					FactoryOTAEAPClient,
 				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = "";
+				"OTHER_LDFLAGS[sdk=xros*]" = "";
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -2139,6 +2151,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
@@ -2152,8 +2165,11 @@
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-weak_framework",
 					MobileInBoxUpdate,
+					"-weak_framework",
+					FactoryOTAEAPClient,
 				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = "";
+				"OTHER_LDFLAGS[sdk=xros*]" = "";
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (

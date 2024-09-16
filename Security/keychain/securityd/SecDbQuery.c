@@ -30,7 +30,7 @@
 
 #include "keychain/securityd/SecDbQuery.h"
 #include "keychain/ot/OTConstants.h"
-
+#include "keychain/ot/Affordance_OTConstants.h"
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include "keychain/securityd/SecItemServer.h"
@@ -343,8 +343,12 @@ void query_add_attribute_with_desc(const SecDbAttr *desc, const void *value, Que
         CFDataSetLength(digest, CC_SHA1_DIGEST_LENGTH);
         /* 64 bits cast: worst case is we generate the wrong hash */
         assert((unsigned long)CFDataGetLength(data)<UINT32_MAX); /* Debug check. Correct as long as CFIndex is long */
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         CCDigest(kCCDigestSHA1, CFDataGetBytePtr(data), (CC_LONG)CFDataGetLength(data),
                  CFDataGetMutableBytePtr(digest));
+#pragma clang diagnostic pop
         CFRelease(data);
         attr = digest;
     }
@@ -545,6 +549,20 @@ static void query_add_match(const void *key, const void *value, Query *q)
             SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchTrustedOnly attribute"));
             return;
         }
+    } else if (CFEqual(kSecMatchHostOrSubdomainOfHost, key)){
+        if (CFGetTypeID(value) == CFStringGetTypeID()) {
+            query_set_host_or_subdomain(q, (CFStringRef)value);
+        } else {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchHostOrSubdomainOfHost attribute"));
+            return;
+        }
+    } else if (CFEqual(kSecMatchEmailAddressIfPresent, key)) {
+        if (CFGetTypeID(value) == CFStringGetTypeID()) {
+            query_set_email_address(q, (CFStringRef)value);
+        } else {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchEmailAddressIfPresent attribute"));
+            return;
+        }
     }
 }
 
@@ -660,7 +678,11 @@ static void query_add_use(const void *key, const void *value, Query *q)
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_use: value %@ for key %@ is neither CFBoolean nor CFNumber"), value, key);
             return;
         }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        // Implement a deprecated API constant
     } else if (CFEqual(key, kSecUseCredentialReference)) {
+#pragma clang diagnostic pop
         if (isData(value)) {
             CFRetainAssign(q->q_use_cred_handle, value);
         } else {
@@ -948,6 +970,8 @@ bool query_destroy(Query *q, CFErrorRef *error) {
     CFReleaseSafe(q->q_match_trusted_only);
     CFReleaseSafe(q->q_token_object_id);
     CFReleaseSafe(q->q_uuid_pref);
+    CFReleaseSafe(q->q_match_host_or_subdomain);
+    CFReleaseSafe(q->q_match_email_address);
 
     free(q);
     return ok;
@@ -1091,4 +1115,12 @@ void query_set_valid_on_date(Query *q, CFDateRef date) {
 
 void query_set_trusted_only(Query *q, CFBooleanRef trusted_only) {
     CFRetainAssign(q->q_match_trusted_only, trusted_only);
+}
+
+void query_set_host_or_subdomain(Query *q, CFStringRef host_or_subdomain){
+    CFRetainAssign(q->q_match_host_or_subdomain, host_or_subdomain);
+}
+
+void query_set_email_address(Query *q, CFStringRef email_address) {
+    CFRetainAssign(q->q_match_email_address, email_address);
 }

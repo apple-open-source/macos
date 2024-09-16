@@ -11,10 +11,8 @@
 
 #include <CommonCrypto/CommonCollabKeyGen.h>
 
-int CommonCollabKeyGen(int __unused argc, char *const * __unused argv)
+static void TestCommonCollabKeyGenV1(void)
 {
-    plan_tests(11);
-
     CCCryptorStatus rv;
 
     size_t commitment_len = CCCKGGetCommitmentSize(224, kCCDigestSHA256);
@@ -72,6 +70,77 @@ int CommonCollabKeyGen(int __unused argc, char *const * __unused argv)
 
     CCECCryptorRelease(publicKey);
     CCECCryptorRelease(privateKey);
+}
+
+static void TestCommonCollabKeyGenV2(void)
+{
+    CCCryptorStatus rv;
+
+    CCCKG2Params params = CCCKG2ParamsP224Sha256Version2();
+
+    size_t commitment_len = CCCKG2GetCommitmentSize(params);
+    size_t share_len = CCCKG2GetShareSize(params);
+    size_t opening_len = CCCKG2GetOpeningSize(params);
+
+    CCCKG2ContributorRef contrib;
+    CCCKG2ContributorCreate(params, &contrib);
+
+    CCCKG2OwnerRef owner;
+    CCCKG2OwnerCreate(params, &owner);
+
+    uint8_t commitment[commitment_len];
+    rv = CCCKG2ContributorCommit(contrib, commitment, sizeof(commitment));
+    is(rv, kCCSuccess, "Contributor committed");
+
+    uint8_t share[share_len];
+    rv = CCCKG2OwnerGenerateShare(owner, commitment, sizeof(commitment), share, sizeof(share));
+    is(rv, kCCSuccess, "Owner generated share");
+
+    uint8_t sk1[32];
+    CCECCryptorRef publicKey;
+    uint8_t opening[opening_len];
+    rv = CCCKG2ContributorFinish(contrib, share, sizeof(share), opening, sizeof(opening), sk1, sizeof(sk1), &publicKey);
+    is(rv, kCCSuccess, "Contributor finished");
+
+    uint8_t sk2[32];
+    CCECCryptorRef privateKey;
+    rv = CCCKG2OwnerFinish(owner, opening, sizeof(opening), sk2, sizeof(sk2), &privateKey);
+    is(rv, kCCSuccess, "Owner finished");
+
+    ok_memcmp(sk1, sk2, sizeof(sk1), "SKs match");
+
+    size_t pub1_len = 28;
+    size_t pub2_len = 28;
+    uint8_t pub1[pub1_len], pub2[pub2_len];
+    rv = CCECCryptorExportKey(kCCImportKeyCompact, pub1, &pub1_len, ccECKeyPublic, publicKey);
+    is(rv, kCCSuccess, "Public key 1 exported");
+    rv = CCECCryptorExportKey(kCCImportKeyCompact, pub2, &pub2_len, ccECKeyPublic, privateKey);
+    is(rv, kCCSuccess, "Public key 2 exported");
+
+    is(pub1_len, pub2_len, "Public keys match");
+    ok_memcmp(pub1, pub2, pub1_len, "Public keys match");
+
+    size_t priv_len = 85;
+    uint8_t priv[priv_len];
+    rv = CCECCryptorExportKey(kCCImportKeyBinary, priv, &priv_len, ccECKeyPrivate, privateKey);
+    is(rv, kCCSuccess, "Private key exported");
+    CCECCryptorRelease(privateKey);
+    rv = CCECCryptorImportKey(kCCImportKeyBinary, priv, priv_len, ccECKeyPrivate, &privateKey);
+    is(rv, kCCSuccess, "Private key imported");
+
+    CCCKG2ContributorDestroy(contrib);
+    CCCKG2OwnerDestroy(owner);
+
+    CCECCryptorRelease(publicKey);
+    CCECCryptorRelease(privateKey);
+}
+
+int CommonCollabKeyGen(int __unused argc, char *const * __unused argv)
+{
+    plan_tests(22);
+
+    TestCommonCollabKeyGenV1();
+    TestCommonCollabKeyGenV2();
 
     return 0;
 }

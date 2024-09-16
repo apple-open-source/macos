@@ -27,7 +27,6 @@
 
 #include "APIInjectedBundleBundleClient.h"
 #include "APIObject.h"
-#include "DataReference.h"
 #include "SandboxExtension.h"
 #include <JavaScriptCore/JavaScript.h>
 #include <WebCore/UserContentTypes.h>
@@ -69,7 +68,6 @@ typedef void* PlatformBundle;
 #endif
 
 class InjectedBundleScriptWorld;
-class WebConnection;
 class WebFrame;
 class WebPage;
 class WebPageGroupProxy;
@@ -83,16 +81,14 @@ public:
 
     bool initialize(const WebProcessCreationParameters&, RefPtr<API::Object>&& initializationUserData);
 
-    void setBundleParameter(const String&, const IPC::DataReference&);
-    void setBundleParameters(const IPC::DataReference&);
+    void setBundleParameter(const String&, std::span<const uint8_t>);
+    void setBundleParameters(std::span<const uint8_t>);
 
     // API
     void setClient(std::unique_ptr<API::InjectedBundle::Client>&&);
     void postMessage(const String&, API::Object*);
     void postSynchronousMessage(const String&, API::Object*, RefPtr<API::Object>& returnData);
     void setServiceWorkerProxyCreationCallback(void (*)(uint64_t));
-
-    WebConnection* webConnectionToUIProcess() const;
 
     // TestRunner only SPI
     void addOriginAccessAllowListEntry(const String&, const String&, const String&, bool);
@@ -104,7 +100,6 @@ public:
     String pageSizeAndMarginsInPixels(WebFrame*, int, int, int, int, int, int, int);
     bool isPageBoxVisible(WebFrame*, int);
     void setUserStyleSheetLocation(const String&);
-    void setWebNotificationPermission(WebPage*, const String& originString, bool allowed);
     void removeAllWebNotificationPermissions(WebPage*);
     std::optional<WTF::UUID> webNotificationID(JSContextRef, JSValueRef);
     Ref<API::Data> createWebDataFromUint8Array(JSContextRef, JSValueRef);

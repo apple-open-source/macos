@@ -45,6 +45,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <Security/SecBase.h>
 #include <inttypes.h>
+#include <Security/SecFramework.h>
 
 #if !TARGET_OS_OSX
 
@@ -79,7 +80,7 @@ copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
     CFBundleRef secBundle = NULL;
 
     // Make a bundle instance using the URLRef.
-    secBundle = CFBundleGetBundleWithIdentifier(kSecFrameworkBundleID);
+    secBundle = SecFrameworkGetBundle();
     if (!secBundle)
         goto exit;
 

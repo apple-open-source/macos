@@ -44,6 +44,7 @@
 #include "SecECKeyPriv.h"
 #include "SecKeyCurve25519Priv.h"
 #include "SecKeyCurve448Priv.h"
+#include "SecKyberKey.h"
 #include "SecCTKKeyPriv.h"
 #include <Security/SecBasePriv.h>
 
@@ -68,6 +69,7 @@
 #include <stdlib.h>
 #include <os/lock.h>
 #include <os/log.h>
+#include <os/activity.h>
 
 #include <libDER/asn1Types.h>
 #include <libDER/DER_Keys.h>
@@ -280,7 +282,7 @@ static bool getBoolForKey(CFDictionaryRef dict, CFStringRef key, bool default_va
 	return default_value;
 }
 
-static OSStatus add_key(SecKeyRef key, CFMutableDictionaryRef dict) {
+static bool add_key(SecKeyRef key, CFMutableDictionaryRef dict, CFErrorRef *error) {
 	CFDictionarySetValue(dict, kSecValueRef, key);
     CFDictionaryRef keyAttributes = SecKeyCopyAttributes(key);
     if (keyAttributes != NULL && CFDictionaryContainsKey(keyAttributes, kSecAttrAccessControl)) {
@@ -288,7 +290,13 @@ static OSStatus add_key(SecKeyRef key, CFMutableDictionaryRef dict) {
         CFDictionaryRemoveValue(dict, kSecAttrAccessControl);
     }
     CFReleaseNull(keyAttributes);
-    return SecItemAdd(dict, NULL);
+
+    // Remove SecKey-only attributes which cannot be understood by keychain.
+    CFDictionaryRemoveValue(dict, kSecKeyApplePayEnabled);
+    CFDictionaryRemoveValue(dict, kSecKeyOSBound);
+    CFDictionaryRemoveValue(dict, kSecKeySealedHashesBound);
+    OSStatus status = SecItemAdd(dict, NULL);
+    return SecError(status, error, CFSTR("failed to add key to keychain: %@"), key);
 }
 
 static void merge_params_applier(const void *key, const void *value,
@@ -321,7 +329,7 @@ static CF_RETURNS_RETAINED CFMutableDictionaryRef merge_params(CFDictionaryRef d
 	return result;
 }
 
-static inline void SecKeyCheck(SecKeyRef key, const char *callerName) {
+void _SecKeyCheck(SecKeyRef key, const char *callerName) {
     if (key == NULL) {
         os_log_fault(SECKEY_LOG, "%{public}s called with NULL SecKeyRef", callerName);
         [NSException raise:NSInvalidArgumentException format:@"%s called with NULL SecKeyRef", callerName];
@@ -329,7 +337,7 @@ static inline void SecKeyCheck(SecKeyRef key, const char *callerName) {
 }
 
 CFIndex SecKeyGetAlgorithmId(SecKeyRef key) {
-    SecKeyCheck(key, __func__);
+    SecKeyCheck(key);
     if (!key->key_class)  {
     // TBD: somehow, a key can be created with a NULL key_class in the
     // SecCertificateCopyPublicKey -> SecKeyCreatePublicFromDER code path
@@ -344,69 +352,24 @@ CFIndex SecKeyGetAlgorithmId(SecKeyRef key) {
     return kSecRSAAlgorithmID;
 }
 
-/* Generate a private/public keypair. */
-OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
-                            SecKeyRef *publicKey, SecKeyRef *privateKey) {
-    @autoreleasepool {
-        OSStatus result = errSecUnsupportedAlgorithm;
-        SecKeyRef privKey = NULL;
-        SecKeyRef pubKey = NULL;
-        CFMutableDictionaryRef pubParams = merge_params(parameters, kSecPublicKeyAttrs),
-        privParams = merge_params(parameters, kSecPrivateKeyAttrs);
-        CFStringRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
-        CFStringRef tokenID = CFDictionaryGetValue(parameters, kSecAttrTokenID);
-
-        require_quiet(ktype, errOut);
-
-        if (tokenID != NULL) {
-            result = SecCTKKeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeECSECPrimeRandom)) {
-            result = SecECKeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeRSA)) {
-            result = SecRSAKeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeEd25519)) {
-            result = SecEd25519KeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeX25519)) {
-            result = SecX25519KeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeEd448)) {
-            result = SecEd448KeyGeneratePair(parameters, &pubKey, &privKey);
-        } else if (CFEqual(ktype, kSecAttrKeyTypeX448)) {
-            result = SecX448KeyGeneratePair(parameters, &pubKey, &privKey);
+/* Legacy wrapper for SecKeyCreateRandomKey */
+OSStatus SecKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
+    CFErrorRef error = NULL;
+    OSStatus status = errSecSuccess;
+    id privKey = CFBridgingRelease(SecKeyCreateRandomKey(parameters, &error));
+    if (privKey == nil) {
+        status = (OSStatus)CFErrorGetCode(error);
+        CFReleaseSafe(error);
+    } else {
+        if (privateKey != NULL) {
+            *privateKey = (SecKeyRef)CFBridgingRetain(privKey);
         }
-
-        require_noerr_quiet(result, errOut);
-
-        // Store the keys in the keychain if they are marked as permanent. Governed by kSecAttrIsPermanent attribute, with default
-        // to 'false' (ephemeral keys), except private token-based keys, in which case the default is 'true' (permanent keys).
-        if (getBoolForKey(pubParams, kSecAttrIsPermanent, false)) {
-            CFDictionaryRemoveValue(pubParams, kSecAttrTokenID);
-            require_noerr_quiet(result = add_key(pubKey, pubParams), errOut);
+        if (publicKey != NULL) {
+            id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)privKey));
+            *publicKey = (SecKeyRef)CFBridgingRetain(pubKey);
         }
-        if (getBoolForKey(privParams, kSecAttrIsPermanent, CFDictionaryContainsKey(privParams, kSecAttrTokenID))) {
-            require_noerr_quiet(result = add_key(privKey, privParams), errOut);
-        }
-
-        if (publicKey) {
-            *publicKey = pubKey;
-            pubKey = NULL;
-        }
-        if (privateKey) {
-            *privateKey = privKey;
-            privKey = NULL;
-        }
-
-    errOut:
-        CFReleaseSafe(pubParams);
-        CFReleaseSafe(privParams);
-        CFReleaseSafe(pubKey);
-        CFReleaseSafe(privKey);
-
-        if (result != errSecSuccess) {
-            os_log_debug(SECKEY_LOG, "SecKeyGeneratePair() failed, error %d", (int)result);
-        }
-
-        return result;
     }
+    return status;
 }
 
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey) {
@@ -1007,7 +970,7 @@ OSStatus SecKeyDecrypt(
 }
 
 size_t SecKeyGetBlockSize(SecKeyRef key) {
-    SecKeyCheck(key, __func__);
+    SecKeyCheck(key);
     if (key->key_class->blockSize)
         return key->key_class->blockSize(key);
     return 0;
@@ -1197,10 +1160,15 @@ CFIndex SecKeyGetAlgorithmID(SecKeyRef key) {
 #endif
 
 OSStatus SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* serializedPublic) {
-    SecKeyCheck(key, __func__);
-    if (key->key_class->version > 1 && key->key_class->copyPublic)
-        return key->key_class->copyPublic(key, serializedPublic);
-    return errSecUnimplemented;
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCopyPublicBytes", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (key->key_class->version > 1 && key->key_class->copyPublic)
+            return key->key_class->copyPublic(key, serializedPublic);
+        return errSecUnimplemented;
+    }
 }
 
 SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorithmID, const uint8_t *keyData, CFIndex keyDataLength)
@@ -1231,6 +1199,9 @@ SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorith
             return SecKeyCreateX448PublicKey(allocator,
                                            keyData, keyDataLength,
                                            kSecKeyEncodingBytes);
+        case kSecKyberAlgorithmID:
+            return SecKeyCreateKyberPublicKey(allocator, keyData, keyDataLength);
+
         default:
             return NULL;
     }
@@ -1401,166 +1372,182 @@ static int64_t SecKeyParamsAsInt64(CFTypeRef value, CFStringRef errName, CFError
 }
 
 SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CFErrorRef *error) {
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateWithData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
 
-    SecKeyRef key = NULL;
-    CFAllocatorRef allocator = SecCFAllocatorZeroize();
+        SecKeyRef key = NULL;
+        CFAllocatorRef allocator = SecCFAllocatorZeroize();
 
-    CFStringRef tokenID = CFDictionaryGetValue(parameters, kSecAttrTokenID);
-    if (tokenID != NULL) {
-        key = SecKeyCreateCTKKey(allocator, parameters, error);
+        CFStringRef tokenID = CFDictionaryGetValue(parameters, kSecAttrTokenID);
+        if (tokenID != NULL) {
+            key = SecKeyCreateCTKKey(allocator, parameters, error);
+            if (key == NULL) {
+                os_log_debug(SECKEY_LOG, "Failed to create key for tokenID=%{public}@: %{public}@", tokenID, error ? *error : NULL);
+            }
+            return key;
+        }
+        else if (!keyData) {
+            SecError(errSecParam, error, CFSTR("Failed to provide key data to SecKeyCreateWithData"));
+            return NULL;
+        }
+        /* First figure out the key type (algorithm). */
+        int64_t algorithm = 0, class = 0;
+        CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
+        require_quiet((algorithm = SecKeyParamsAsInt64(ktype, CFSTR("key type"), error)) >= 0, out);
+        CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
+        require_quiet((class = SecKeyParamsAsInt64(kclass, CFSTR("key class"), error)) >= 0, out);
+
+        switch (class) {
+            case 0: // kSecAttrKeyClassPublic
+                switch (algorithm) {
+                    case 42: // kSecAttrKeyTypeRSA
+                        key = SecKeyCreateRSAPublicKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("RSA public key creation from data failed"));
+                        }
+                        break;
+                    case 2147483678: // kSecAttrKeyTypeECSECPrimeRandomPKA
+                    case 2147483679: // kSecAttrKeyTypeSecureEnclaveAttestation
+                    case 2147483680: // kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
+                    case 43: // kSecAttrKeyTypeDSA
+                    case 73: // kSecAttrKeyTypeECDSA
+                        key = SecKeyCreateECPublicKey(allocator,
+                                                      CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                      kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("EC public key creation from data failed"));
+                        }
+                        break;
+                    case 105: // kSecAttrKeyTypeEd25519
+                        key = SecKeyCreateEd25519PublicKey(allocator,
+                                                           CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                           kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Ed25519 public key creation from data failed"));
+                        }
+                        break;
+                    case 106: // kSecAttrKeyTypeX25519
+                        key = SecKeyCreateX25519PublicKey(allocator,
+                                                          CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                          kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("X25519 public key creation from data failed"));
+                        }
+                        break;
+                    case 107: // kSecAttrKeyTypeEd448
+                        key = SecKeyCreateEd448PublicKey(allocator,
+                                                         CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                         kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Ed448 public key creation from data failed"));
+                        }
+                        break;
+                    case 108: // kSecAttrKeyTypeX448
+                        key = SecKeyCreateX448PublicKey(allocator,
+                                                        CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                        kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("X448 public key creation from data failed"));
+                        }
+                        break;
+                    case 109: // kSecAttrKeyTypeKyber
+                        key = SecKeyCreateKyberPublicKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Kyber public key creation from data failed"));
+                        }
+                        break;
+                    default:
+                        SecError(errSecParam, error, CFSTR("Unsupported public key type: %@ (algorithm: %@)"), ktype, @(algorithm));
+                        break;
+                };
+                break;
+            case 1: // kSecAttrKeyClassPrivate
+                switch (algorithm) {
+                    case 42: // kSecAttrKeyTypeRSA
+                        key = SecKeyCreateRSAPrivateKey(allocator,
+                                                        CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                        kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("RSA private key creation from data failed"));
+                        }
+                        break;
+                    case 43: // kSecAttrKeyTypeDSA
+                    case 73: // kSecAttrKeyTypeECDSA
+                        key = SecKeyCreateECPrivateKey(allocator,
+                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                       kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("EC private key creation from data failed"));
+                        }
+                        break;
+                    case 105: // kSecAttrKeyTypeEd25519
+                        key = SecKeyCreateEd25519PrivateKey(allocator,
+                                                            CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                            kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Ed25519 private key creation from data failed"));
+                        }
+                        break;
+                    case 106: // kSecAttrKeyTypeX25519
+                        key = SecKeyCreateX25519PrivateKey(allocator,
+                                                           CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                           kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("X25519 private key creation from data failed"));
+                        }
+                        break;
+                    case 107: // kSecAttrKeyTypeEd448
+                        key = SecKeyCreateEd448PrivateKey(allocator,
+                                                          CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                          kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Ed448 private key creation from data failed"));
+                        }
+                        break;
+                    case 108: // kSecAttrKeyTypeX448
+                        key = SecKeyCreateX448PrivateKey(allocator,
+                                                         CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                         kSecKeyEncodingBytes);
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("X448 private key creation from data failed"));
+                        }
+                        break;
+                    case 109: // kSecAttrKeyTypeKyber
+                        key = SecKeyCreateKyberPrivateKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("Kyber public key creation from data failed"));
+                        }
+                        break;
+                    default:
+                        SecError(errSecParam, error, CFSTR("Unsupported private key type: %@"), ktype);
+                        break;
+                };
+                break;
+            case 2: // kSecAttrKeyClassSymmetric
+                SecError(errSecUnimplemented, error, CFSTR("Unsupported symmetric key type: %@"), ktype);
+                break;
+            default:
+                SecError(errSecParam, error, CFSTR("Unsupported key class: %@"), kclass);
+                break;
+        }
+
+        out:
         if (key == NULL) {
-            os_log_debug(SECKEY_LOG, "Failed to create key for tokenID=%{public}@: %{public}@", tokenID, error ? *error : NULL);
+            os_log_debug(SECKEY_LOG, "Failed to create key from data, algorithm:%d, class:%d: %{public}@", (int)algorithm, (int)class, error ? *error :  NULL);
         }
         return key;
     }
-    else if (!keyData) {
-        SecError(errSecParam, error, CFSTR("Failed to provide key data to SecKeyCreateWithData"));
-        return NULL;
-    }
-    /* First figure out the key type (algorithm). */
-    int64_t algorithm = 0, class = 0;
-    CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
-    require_quiet((algorithm = SecKeyParamsAsInt64(ktype, CFSTR("key type"), error)) >= 0, out);
-    CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
-    require_quiet((class = SecKeyParamsAsInt64(kclass, CFSTR("key class"), error)) >= 0, out);
-
-    switch (class) {
-        case 0: // kSecAttrKeyClassPublic
-            switch (algorithm) {
-                case 42: // kSecAttrKeyTypeRSA
-                    key = SecKeyCreateRSAPublicKey(allocator,
-                                                   CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                   kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("RSA public key creation from data failed"));
-                    }
-                    break;
-                case 2147483678: // kSecAttrKeyTypeECSECPrimeRandomPKA
-                case 2147483679: // kSecAttrKeyTypeSecureEnclaveAttestation
-                case 2147483680: // kSecAttrKeyTypeSecureEnclaveAnonymousAttestation
-                case 43: // kSecAttrKeyTypeDSA
-                case 73: // kSecAttrKeyTypeECDSA
-                    key = SecKeyCreateECPublicKey(allocator,
-                                                  CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                  kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("EC public key creation from data failed"));
-                    }
-                    break;
-                case 105: // kSecAttrKeyTypeEd25519
-                    key = SecKeyCreateEd25519PublicKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("Ed25519 public key creation from data failed"));
-                    }
-                    break;
-                case 106: // kSecAttrKeyTypeX25519
-                    key = SecKeyCreateX25519PublicKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("X25519 public key creation from data failed"));
-                    }
-                    break;
-                case 107: // kSecAttrKeyTypeEd448
-                    key = SecKeyCreateEd448PublicKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("Ed448 public key creation from data failed"));
-                    }
-                    break;
-                case 108: // kSecAttrKeyTypeX448
-                    key = SecKeyCreateX448PublicKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("X448 public key creation from data failed"));
-                    }
-                    break;
-                default:
-                    SecError(errSecParam, error, CFSTR("Unsupported public key type: %@ (algorithm: %@)"), ktype, @(algorithm));
-                    break;
-            };
-            break;
-        case 1: // kSecAttrKeyClassPrivate
-            switch (algorithm) {
-                case 42: // kSecAttrKeyTypeRSA
-                    key = SecKeyCreateRSAPrivateKey(allocator,
-                                                    CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                    kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("RSA private key creation from data failed"));
-                    }
-                    break;
-                case 43: // kSecAttrKeyTypeDSA
-                case 73: // kSecAttrKeyTypeECDSA
-                    key = SecKeyCreateECPrivateKey(allocator,
-                                                   CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                   kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("EC private key creation from data failed"));
-                    }
-                    break;
-                case 105: // kSecAttrKeyTypeEd25519
-                    key = SecKeyCreateEd25519PrivateKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("Ed25519 private key creation from data failed"));
-                    }
-                    break;
-                case 106: // kSecAttrKeyTypeX25519
-                    key = SecKeyCreateX25519PrivateKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("X25519 private key creation from data failed"));
-                    }
-                    break;
-                case 107: // kSecAttrKeyTypeEd448
-                    key = SecKeyCreateEd448PrivateKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("Ed448 private key creation from data failed"));
-                    }
-                    break;
-                case 108: // kSecAttrKeyTypeX448
-                    key = SecKeyCreateX448PrivateKey(allocator,
-                                                       CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
-                                                       kSecKeyEncodingBytes);
-                    if (key == NULL) {
-                        SecError(errSecParam, error, CFSTR("X448 private key creation from data failed"));
-                    }
-                    break;
-                default:
-                    SecError(errSecParam, error, CFSTR("Unsupported private key type: %@"), ktype);
-                    break;
-            };
-            break;
-        case 2: // kSecAttrKeyClassSymmetric
-            SecError(errSecUnimplemented, error, CFSTR("Unsupported symmetric key type: %@"), ktype);
-            break;
-        default:
-            SecError(errSecParam, error, CFSTR("Unsupported key class: %@"), kclass);
-            break;
-    }
-
-out:
-    if (key == NULL) {
-        os_log_debug(SECKEY_LOG, "Failed to create key from data, algorithm:%d, class:%d: %{public}@", (int)algorithm, (int)class, error ? *error :  NULL);
-    }
-    return key;
 }
 
 // Similar to CFErrorPropagate, but does not consult input value of *error, it can contain any garbage and if overwritten, previous value is never released.
-static inline bool _SecKeyErrorPropagate(bool succeeded, const char *logCallerName, CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) {
+bool _SecKeyErrorPropagate(bool succeeded, const char *logCallerName, CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) {
     if (succeeded) {
         return true;
     } else {
-        os_log_debug(SECKEY_LOG, "%{public}s failed: %{public}@", logCallerName, possibleError);
+        os_log_error(SECKEY_LOG, "%{public}s failed: %{public}@", logCallerName, possibleError);
         if (error) {
             *error = possibleError;
         } else {
@@ -1569,127 +1556,204 @@ static inline bool _SecKeyErrorPropagate(bool succeeded, const char *logCallerNa
         return false;
     }
 }
-#define SecKeyErrorPropagate(s, pe, e) _SecKeyErrorPropagate(s, __func__, pe, e)
 
 CFDataRef SecKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (!key->key_class->copyExternalRepresentation) {
-        if (error != NULL) {
-            *error = NULL;
-        }
-        SecError(errSecUnimplemented, error, CFSTR("export not implemented for key %@"), key);
-        os_log_debug(SECKEY_LOG, "%{public}s failed, export not implemented for key %{public}@", __func__, key);
-        return NULL;
-    }
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCopyExternalRepresentation", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
 
-    CFErrorRef localError = NULL;
-    CFDataRef result = key->key_class->copyExternalRepresentation(key, &localError);
-    SecKeyErrorPropagate(result != NULL, localError, error);
-    return result;
+        if (!key->key_class->copyExternalRepresentation) {
+            if (error != NULL) {
+                *error = NULL;
+            }
+            SecError(errSecUnimplemented, error, CFSTR("export not implemented for key %@"), key);
+            os_log_debug(SECKEY_LOG, "%{public}s failed, export not implemented for key %{public}@", __func__, key);
+            return NULL;
+        }
+
+        CFErrorRef localError = NULL;
+        CFDataRef result = key->key_class->copyExternalRepresentation(key, &localError);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        return result;
+    }
 }
 
 CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
-    SecKeyCheck(key, __func__);
-    if (key->key_class->copyDictionary) {
-        return key->key_class->copyDictionary(key);
-    } else {
-        // Create dictionary with basic values derived from other known information of the key.
-        CFMutableDictionaryRef dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-        CFIndex blockSize = SecKeyGetBlockSize(key) * 8;
-        if (blockSize > 0) {
-            CFNumberRef blockSizeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &blockSize);
-            CFDictionarySetValue(dict, kSecAttrKeySizeInBits, blockSizeRef);
-            CFRelease(blockSizeRef);
-        }
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCopyAttributes", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
 
-        switch (SecKeyGetAlgorithmId(key)) {
-            case kSecRSAAlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeRSA);
-                break;
-            case kSecECDSAAlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
-                break;
-            case kSecEd25519AlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd25519);
-                break;
-            case kSecX25519AlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX25519);
-                break;
-            case kSecEd448AlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd448);
-                break;
-            case kSecX448AlgorithmID:
-                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX448);
-                break;
-        }
+        if (key->key_class->copyDictionary) {
+            return key->key_class->copyDictionary(key);
+        } else {
+            // Create dictionary with basic values derived from other known information of the key.
+            CFMutableDictionaryRef dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+            CFIndex blockSize = SecKeyGetBlockSize(key) * 8;
+            if (blockSize > 0) {
+                CFNumberRef blockSizeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &blockSize);
+                CFDictionarySetValue(dict, kSecAttrKeySizeInBits, blockSizeRef);
+                CFRelease(blockSizeRef);
+            }
 
-        if (key->key_class->rawSign != NULL || key->key_class->decrypt != NULL) {
-            CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
-        } else if (key->key_class->rawVerify != NULL || key->key_class->encrypt != NULL) {
-            CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPublic);
-        }
+            switch (SecKeyGetAlgorithmId(key)) {
+                case kSecRSAAlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeRSA);
+                    break;
+                case kSecECDSAAlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
+                    break;
+                case kSecEd25519AlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd25519);
+                    break;
+                case kSecX25519AlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX25519);
+                    break;
+                case kSecEd448AlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeEd448);
+                    break;
+                case kSecX448AlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX448);
+                    break;
+            }
 
-        return dict;
+            if (key->key_class->rawSign != NULL || key->key_class->decrypt != NULL) {
+                CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+            } else if (key->key_class->rawVerify != NULL || key->key_class->encrypt != NULL) {
+                CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+            }
+
+            return dict;
+        }
     }
 }
 
 SecKeyRef SecKeyCopyPublicKey(SecKeyRef key) {
-    SecKeyCheck(key, __func__);
-    SecKeyRef result = NULL;
-    if (key->key_class->version >= 4 && key->key_class->copyPublicKey) {
-        result = key->key_class->copyPublicKey(key);
-        if (result != NULL) {
-            return result;
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCopyPublicKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+        SecKeyRef result = NULL;
+        if (key->key_class->version >= 4 && key->key_class->copyPublicKey) {
+            result = key->key_class->copyPublicKey(key);
+            if (result != NULL) {
+                return result;
+            }
         }
+
+        CFDataRef serializedPublic = NULL;
+
+        require_noerr_quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
+        require_quiet(serializedPublic, fail);
+
+        result = SecKeyCreateFromPublicData(SecCFAllocatorZeroize(), SecKeyGetAlgorithmId(key), serializedPublic);
+
+    fail:
+        CFReleaseSafe(serializedPublic);
+        return result;
     }
-
-    CFDataRef serializedPublic = NULL;
-
-    require_noerr_quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
-    require_quiet(serializedPublic, fail);
-
-    result = SecKeyCreateFromPublicData(SecCFAllocatorZeroize(), SecKeyGetAlgorithmId(key), serializedPublic);
-
-fail:
-    CFReleaseSafe(serializedPublic);
-    return result;
 }
 
 SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
     @autoreleasepool {
-        SecKeyRef privKey = NULL, pubKey = NULL;
-        OSStatus status = SecKeyGeneratePair(parameters, &pubKey, &privKey);
-        if (status != errSecSuccess) {
-            if (error != NULL) {
-                *error = NULL;
+        os_activity_t activity = os_activity_create("SecKeyCreateRandomKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        CFErrorRef localError = NULL;
+
+        SecKeyRef privKey = NULL;
+        SecKeyRef pubKey = NULL;
+        CFMutableDictionaryRef pubParams = merge_params(parameters, kSecPublicKeyAttrs),
+        privParams = merge_params(parameters, kSecPrivateKeyAttrs);
+        CFStringRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
+        CFStringRef tokenID = CFDictionaryGetValue(parameters, kSecAttrTokenID);
+        OSStatus status = errSecSuccess;
+
+        if (tokenID != NULL) {
+            privKey = SecCTKKeyCreateRandomKey(parameters, &localError);
+            SecError(SecErrorGetOSStatus(localError), &localError, CFSTR("Failed to generate keypair"));
+        } else {
+            if (CFEqualSafe(ktype, kSecAttrKeyTypeECSECPrimeRandom)) {
+                status = SecECKeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeRSA)) {
+                status = SecRSAKeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeEd25519)) {
+                status = SecEd25519KeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeX25519)) {
+                status = SecX25519KeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeEd448)) {
+                status = SecEd448KeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeX448)) {
+                status = SecX448KeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeKyber)) {
+                status = SecKyberKeyGeneratePair(parameters, &pubKey, &privKey);
+            } else {
+                SecError(errSecParam, error, CFSTR("incorrect or missing kSecAttrKeyType in key generation request"));
             }
-            SecError(status, error, CFSTR("Key generation failed, error %d"), (int)status);
+
+            if (status != errSecSuccess) {
+                os_log_error(SECKEY_LOG, "Failed to generate software key %{public}@:%{public}@, error: %d", ktype, CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits), (int)status);
+            }
         }
+
+        require_quiet(privKey != NULL, err);
+
+        // Store the keys in the keychain if they are marked as permanent. Governed by kSecAttrIsPermanent attribute, with default
+        // to 'false' (ephemeral keys), except private token-based keys, in which case the default is 'true' (permanent keys).
+        if (getBoolForKey(pubParams, kSecAttrIsPermanent, false)) {
+            CFDictionaryRemoveValue(pubParams, kSecAttrTokenID);
+            if (pubKey == NULL) {
+                pubKey = SecKeyCopyPublicKey(privKey);
+            }
+            require_action_quiet(add_key(pubKey, pubParams, &localError), err, CFReleaseNull(privKey));
+        }
+        if (getBoolForKey(privParams, kSecAttrIsPermanent, CFDictionaryContainsKey(privParams, kSecAttrTokenID))) {
+            require_action_quiet(add_key(privKey, privParams, &localError), err, CFReleaseNull(privKey));
+        }
+
+    err:
+        // If we have error code in status, convert it to full CFErrorRef in localError.
+        SecError(status, &localError, CFSTR("failed to generate key"));
+
+        // Propagate localError code into real output, if some kind of failure occured. This also releases localError.
+        SecKeyErrorPropagate(privKey != NULL, localError, error);
+        CFReleaseSafe(pubParams);
+        CFReleaseSafe(privParams);
         CFReleaseSafe(pubKey);
         return privKey;
     }
 }
 
 SecKeyRef SecKeyCreateDuplicate(SecKeyRef key) {
-    SecKeyCheck(key, __func__);
-    if (key->key_class->version >= 4 && key->key_class->createDuplicate) {
-        return key->key_class->createDuplicate(key);
-    } else {
-        return (SecKeyRef)CFRetain(key);
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateDuplicate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (key->key_class->version >= 4 && key->key_class->createDuplicate) {
+            return key->key_class->createDuplicate(key);
+        } else {
+            return (SecKeyRef)CFRetain(key);
+        }
     }
 }
 
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
-    if (key->key_class->version >= 4 && key->key_class->setParameter) {
-        CFErrorRef localError = NULL;
-        Boolean result = key->key_class->setParameter(key, name, value, &localError);
-        SecKeyErrorPropagate(result, localError, error);
-        return result;
-    } else {
-        if (error != NULL) {
-            *error = NULL;
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeySetParameter", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (key->key_class->version >= 4 && key->key_class->setParameter) {
+            CFErrorRef localError = NULL;
+            Boolean result = key->key_class->setParameter(key, name, value, &localError);
+            return SecKeyErrorPropagate(result, localError, error);
+        } else {
+            if (error != NULL) {
+                *error = NULL;
+            }
+            return SecError(errSecUnimplemented, error, CFSTR("setParameter not implemented for %@"), key);
         }
-        return SecError(errSecUnimplemented, error, CFSTR("setParameter not implemented for %@"), key);
     }
 }
 
@@ -1845,49 +1909,63 @@ static CFMutableArrayRef SecKeyCreateAlgorithmArray(SecKeyAlgorithm algorithm) {
 }
 
 CFDataRef SecKeyCreateSignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (dataToSign == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateSignature() called with NULL dataToSign"];
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateSignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (dataToSign == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateSignature() called with NULL dataToSign"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
+        CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, &localError);
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        return result;
     }
-    CFErrorRef localError = NULL;
-    SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, &localError);
-    SecKeyOperationContextDestroy(&context);
-    SecKeyErrorPropagate(result != NULL, localError, error);
-    return result;
 }
 
 Boolean SecKeyVerifySignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef signedData, CFDataRef signature,
                               CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (signedData == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyVerifySignature() called with NULL signedData"];
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyVerifySignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (signedData == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyVerifySignature() called with NULL signedData"];
+        }
+        if (signature == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyVerifySignature() called with NULL signature"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeVerify, SecKeyCreateAlgorithmArray(algorithm) };
+        CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, signedData, signature, &localError);
+        Boolean result = CFEqualSafe(res, kCFBooleanTrue);
+        CFReleaseSafe(res);
+        SecKeyOperationContextDestroy(&context);
+        return SecKeyErrorPropagate(result, localError, error);
     }
-    if (signature == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyVerifySignature() called with NULL signature"];
-    }
-    CFErrorRef localError = NULL;
-    SecKeyOperationContext context = { key, kSecKeyOperationTypeVerify, SecKeyCreateAlgorithmArray(algorithm) };
-    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, signedData, signature, &localError);
-    Boolean result = CFEqualSafe(res, kCFBooleanTrue);
-    CFReleaseSafe(res);
-    SecKeyOperationContextDestroy(&context);
-    SecKeyErrorPropagate(result, localError, error);
-    return result;
 }
 
 CFDataRef SecKeyCreateEncryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plaintext,
                                                   CFDictionaryRef parameters, CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (plaintext == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateEncryptedData() called with NULL plaintext"];
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateEncryptedDataWithParameters", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (plaintext == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateEncryptedData() called with NULL plaintext"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeEncrypt, SecKeyCreateAlgorithmArray(algorithm) };
+        CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plaintext, parameters, &localError);
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        return result;
     }
-    CFErrorRef localError = NULL;
-    SecKeyOperationContext context = { key, kSecKeyOperationTypeEncrypt, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plaintext, parameters, &localError);
-    SecKeyOperationContextDestroy(&context);
-    SecKeyErrorPropagate(result, localError, error);
-    return result;
 }
 
 CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plaintext, CFErrorRef *error) {
@@ -1896,14 +1974,21 @@ CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CF
 
 CFDataRef SecKeyCreateDecryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef ciphertext,
                                                   CFDictionaryRef parameters, CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (ciphertext == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateDecryptedData() called with NULL ciphertext"];
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateDecryptedDataWithParameters", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (ciphertext == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateDecryptedData() called with NULL ciphertext"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeDecrypt, SecKeyCreateAlgorithmArray(algorithm) };
+        CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, ciphertext, parameters, &localError);
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        return result;
     }
-    SecKeyOperationContext context = { key, kSecKeyOperationTypeDecrypt, SecKeyCreateAlgorithmArray(algorithm) };
-    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, ciphertext, parameters, error);
-    SecKeyOperationContextDestroy(&context);
-    return result;
 }
 
 CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef ciphertext, CFErrorRef *error) {
@@ -1912,31 +1997,81 @@ CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CF
 
 CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, SecKeyRef publicKey,
                                       CFDictionaryRef parameters, CFErrorRef *error) {
-    SecKeyCheck(key, __func__);
-    if (publicKey == NULL) {
-        [NSException raise:NSInvalidArgumentException format:@"SecKeyCopyKeyExchangeResult() called with NULL publicKey"];
-    }
-    CFErrorRef localError = NULL;
-    CFDataRef publicKeyData = NULL, result = NULL;
-    SecKeyOperationContext context = { key, kSecKeyOperationTypeKeyExchange, SecKeyCreateAlgorithmArray(algorithm) };
-    require_quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
-    result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, &localError);
-    SecKeyErrorPropagate(result != NULL, localError, error);
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCopyKeyExchangeResult", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
 
-out:
-    CFReleaseSafe(publicKeyData);
-    SecKeyOperationContextDestroy(&context);
-    return result;
+        if (publicKey == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCopyKeyExchangeResult() called with NULL publicKey"];
+        }
+        CFErrorRef localError = NULL;
+        CFDataRef publicKeyData = NULL, result = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeKeyExchange, SecKeyCreateAlgorithmArray(algorithm) };
+        require_quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
+        result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, &localError);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+
+        out:
+        CFReleaseSafe(publicKeyData);
+        SecKeyOperationContextDestroy(&context);
+        return result;
+    }
+}
+
+CFDataRef SecKeyCreateEncapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef *encapsulatedKey, CFErrorRef *error) {
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateEncapsulatedKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (encapsulatedKey == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateEncapsulatedKey() requires encapsulatedKey output parameter"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeEncapsulate, SecKeyCreateAlgorithmArray(algorithm) };
+        NSArray *result = CFBridgingRelease(SecKeyRunAlgorithmAndCopyResult(&context, NULL, NULL, &localError));
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        if (result == nil) {
+            return NULL;
+        }
+        *encapsulatedKey = CFBridgingRetain(result[0]);
+        return CFBridgingRetain(result[1]);
+    }
+}
+
+CFDataRef SecKeyCreateDecapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef encapsulatedKey, CFErrorRef *error) {
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateDecapsulatedKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (encapsulatedKey == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateDecapsulatedKey() requires encapsulatedKey input parameter"];
+        }
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeDecapsulate, SecKeyCreateAlgorithmArray(algorithm) };
+        CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, encapsulatedKey, NULL, &localError);
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
+        return result;
+    }
 }
 
 Boolean SecKeyIsAlgorithmSupported(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm) {
-    SecKeyCheck(key, __func__);
-    SecKeyOperationContext context = { key, operation, SecKeyCreateAlgorithmArray(algorithm), kSecKeyOperationModeCheckIfSupported };
-    CFErrorRef error = NULL;
-    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, NULL, NULL, &error);
-    Boolean result = CFEqualSafe(res, kCFBooleanTrue);
-    CFReleaseSafe(res);
-    CFReleaseSafe(error);
-    SecKeyOperationContextDestroy(&context);
-    return result;
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyIsAlgorithmSupported", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        SecKeyOperationContext context = { key, operation, SecKeyCreateAlgorithmArray(algorithm), kSecKeyOperationModeCheckIfSupported };
+        CFErrorRef error = NULL;
+        CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, NULL, NULL, &error);
+        Boolean result = CFEqualSafe(res, kCFBooleanTrue);
+        CFReleaseSafe(res);
+        CFReleaseSafe(error);
+        SecKeyOperationContextDestroy(&context);
+        return result;
+    }
 }

@@ -175,6 +175,10 @@ headers: <WebCore/DisplayListItems.h>
     float opacity();
 };
 
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode {
+    WebCore::CompositeMode compositeMode();
+};
+
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::EndTransparencyLayer {
 };
 
@@ -216,6 +220,7 @@ headers: <WebCore/DisplayListItems.h>
 
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::FillRect {
     WebCore::FloatRect rect();
+    WebCore::GraphicsContext::RequiresClipToRect requiresClipToRect();
 };
 
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::FillRectWithColor {
@@ -226,6 +231,13 @@ headers: <WebCore/DisplayListItems.h>
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::FillRectWithGradient {
     WebCore::FloatRect rect();
     Ref<WebCore::Gradient> gradient();
+};
+
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::FillRectWithGradientAndSpaceTransform {
+    WebCore::FloatRect rect();
+    Ref<WebCore::Gradient> gradient();
+    WebCore::AffineTransform gradientSpaceTransform();
+    WebCore::GraphicsContext::RequiresClipToRect requiresClipToRect();
 };
 
 [CustomHeader, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DisplayList::FillCompositedRect {

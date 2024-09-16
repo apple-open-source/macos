@@ -85,7 +85,7 @@ cssmPerror(const char *how, CSSM_RETURN error)
 const char *
 cssmErrorString(CSSM_RETURN error)
 {
-	static ThreadNexus<string> lastError;
+	[[clang::no_destroy]] static ThreadNexus<string> lastError;
 	
 	try {
 		string err;
@@ -135,7 +135,7 @@ copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
     CFBundleRef secBundle = NULL;
 
     // Make a bundle instance using the URLRef.
-    secBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security"));
+    secBundle = SecFrameworkGetBundle();
     if (!secBundle)
         goto xit;
 	

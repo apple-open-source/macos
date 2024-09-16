@@ -94,6 +94,8 @@
 #define kHasFeatCSV3            0x0100000000000000
 #define kHasFeatDIT             0x0200000000000000
 #define kHasFP_SyncExceptions   0x0400000000000000
+#define kHasFeatSME             0x0800000000000000
+#define kHasFeatSME2            0x1000000000000000
 
 /* Individual features coalesced to save bits */
 #define kHasFeatSHA256          kHasARMv8Crypto

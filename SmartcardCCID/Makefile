@@ -25,15 +25,13 @@ install::
 	@for proj in $(SUBPROJECTS); do \
 		mkdir -p $(SYMROOT)/$${proj}; \
 	done
-	@echo "Calling configure"
-	(cd $(SRCROOT)/$(Project)/ccid && ./MacOSX/configure --no-configure --disable-opensc ) && echo "Configure complete"
 	@echo "Copying files to open source location for: " $(BNIProject)
 	-mkdir -p $(OSV)
 	cp $(SRCROOT)/$(BNIProject).plist $(OSV)/$(BNIProject).plist
 	-mkdir -p $(OSL)
 	cp $(SRCROOT)/COPYING $(OSL)/$(BNIProject).txt
 
-installsrc clean installhdrs install::
+clean installhdrs install::
 	@for proj in $(SUBPROJECTS); do \
 		(cd $${proj} && make $@ \
 			SRCROOT=$(SRCROOT)/$${proj} \

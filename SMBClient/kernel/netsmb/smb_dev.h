@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,16 +81,18 @@
 #define SMB_SMB3_SIGNING_REQ    0x200   /* Signing required for SMB 3 */
 #define SMB_HIFI_REQUESTED      0x400   /* HiFi mode is being requested */
 #define SMB_MULTICHANNEL_ENABLE 0x800   /* Enable Multi-Channel SMB */
-#define SMB_MC_PREFER_WIRED         0x00001000   /* Prefer wired NICs in multichannel */
-#define SMB_DISABLE_311             0x00002000   /* Disable SMB v3.1.1 */
-#define SMB_ENABLE_AES_128_CCM      0x00004000   /* Enable SMB v3.1.1 AES_128_CCM encryption */
-#define SMB_ENABLE_AES_128_GCM      0x00008000   /* Enable SMB v3.1.1 AES_128_GCM encryption */
-#define SMB_ENABLE_AES_256_CCM      0x00010000   /* Enable SMB v3.1.1 AES_256_CCM encryption */
-#define SMB_ENABLE_AES_256_GCM      0x00020000   /* Enable SMB v3.1.1 AES_256_GCM encryption */
-#define SMB_FORCE_SESSION_ENCRYPT   0x00040000   /* Force session level encryption */
-#define SMB_FORCE_SHARE_ENCRYPT     0x00080000   /* Force share level encryption  */
-#define SMB_ENABLE_AES_128_CMAC     0x00100000   /* Enable SMB v3.1.1 AES_128_CMAC signing */
-#define SMB_ENABLE_AES_128_GMAC     0x00200000   /* Enable SMB v3.1.1 AES_128_GMAC signing */
+#define SMB_MC_PREFER_WIRED             0x00001000   /* Prefer wired NICs in multichannel */
+#define SMB_DISABLE_311                 0x00002000   /* Disable SMB v3.1.1 */
+#define SMB_ENABLE_AES_128_CCM          0x00004000   /* Enable SMB v3.1.1 AES_128_CCM encryption */
+#define SMB_ENABLE_AES_128_GCM          0x00008000   /* Enable SMB v3.1.1 AES_128_GCM encryption */
+#define SMB_ENABLE_AES_256_CCM          0x00010000   /* Enable SMB v3.1.1 AES_256_CCM encryption */
+#define SMB_ENABLE_AES_256_GCM          0x00020000   /* Enable SMB v3.1.1 AES_256_GCM encryption */
+#define SMB_FORCE_SESSION_ENCRYPT       0x00040000   /* Force session level encryption */
+#define SMB_FORCE_SHARE_ENCRYPT         0x00080000   /* Force share level encryption  */
+#define SMB_ENABLE_AES_128_CMAC         0x00100000   /* Enable SMB v3.1.1 AES_128_CMAC signing */
+#define SMB_ENABLE_AES_128_GMAC         0x00200000   /* Enable SMB v3.1.1 AES_128_GMAC signing */
+#define SMB_COMPRESSION_CHAINING_OFF    0x00400000   /* Chained compression enabled */
+#define SMB_MC_CLIENT_RSS_FORCE_ON      0x00800000   /* MultiChannel force client side RSS on */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -149,12 +151,15 @@ struct smbioc_negotiate {
     char        ioc_dns_name[255] __attribute((aligned(8)));
     struct sockaddr_storage ioc_shared_saddr;   /* Shared server's address */
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
-    int32_t     ioc_mc_max_channel;
-    int32_t     ioc_mc_max_rss_channel;
+    uint32_t    ioc_mc_max_channel;
+    uint32_t    ioc_mc_srvr_rss_channel;
+    uint32_t    ioc_mc_clnt_rss_channel;
     uint32_t    ioc_mc_client_if_ignorelist[kClientIfIgnorelistMaxLen] __attribute((aligned(8)));
     uint32_t    ioc_mc_client_if_ignorelist_len;
 
     uint8_t     ioc_session_uuid[16];
+
+    uint32_t    ioc_compression_algorithms_map;
 };
 
 /*
@@ -301,6 +306,27 @@ struct smbioc_session_properties {
     uint32_t        ioc_reserved0;
     struct timespec ioc_session_reconnect_time;
 
+    /* Compression */
+    uint32_t    client_compression_algorithms_map;
+    uint32_t    server_compression_algorithms_map;
+    uint32_t    compression_io_threshold;
+    uint32_t    compression_chunk_len;
+    uint32_t    compression_max_fail_cnt;
+
+    uint64_t    write_compress_cnt;
+    uint64_t    write_cnt_LZ77Huff;
+    uint64_t    write_cnt_LZ77;
+    uint64_t    write_cnt_LZNT1;
+    uint64_t    write_cnt_fwd_pattern;
+    uint64_t    write_cnt_bwd_pattern;
+    
+    uint64_t    read_compress_cnt;
+    uint64_t    read_cnt_LZ77Huff;
+    uint64_t    read_cnt_LZ77;
+    uint64_t    read_cnt_LZNT1;
+    uint64_t    read_cnt_fwd_pattern;
+    uint64_t    read_cnt_bwd_pattern;
+
     char        model_info[SMB_MAXFNAMELEN * 2] __attribute((aligned(8)));
 
     char        snapshot_time[32] __attribute((aligned(8)));
@@ -344,6 +370,7 @@ struct smbioc_multichannel_properties {
         uint64_t iod_prop_con_speed;
         uint64_t iod_prop_c_if;
         uint32_t iod_prop_c_if_type;
+        uint32_t iod_prop_c_if_caps;
         uint32_t iod_prop_s_if_caps;
         uint64_t iod_prop_s_if;
         uint64_t iod_prop_rx_bytes;

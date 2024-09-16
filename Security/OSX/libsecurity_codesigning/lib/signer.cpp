@@ -829,10 +829,11 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	}
 	
 	if (entitlements) {
-		writer.component(cdEntitlementSlot, entitlements);
-		builder.specialSlot(cdEntitlementSlot, entitlements);
 
-		if (mainBinary) {
+		if (mainBinary || state.mForceLibraryEntitlements) {
+			writer.component(cdEntitlementSlot, entitlements);
+			builder.specialSlot(cdEntitlementSlot, entitlements);
+			
 			CFRef<CFDataRef> entitlementDER;
 			uint64_t execSegFlags = 0;
 			cookEntitlements(entitlements, generateEntitlementDER,

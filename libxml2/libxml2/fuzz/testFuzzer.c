@@ -12,18 +12,27 @@
 #include <libxml/xmlstring.h>
 #include "fuzz.h"
 
+size_t
+LLVMFuzzerMutate(uint8_t *data, size_t size, size_t maxSize) {
+    return size;
+}
+
 #ifdef HAVE_HTML_FUZZER
+  #define LLVMFuzzerCustomMutator fuzzHtmlMutator
   #define LLVMFuzzerInitialize fuzzHtmlInit
   #define LLVMFuzzerTestOneInput fuzzHtml
   #include "html.c"
+  #undef LLVMFuzzerCustomMutator
   #undef LLVMFuzzerInitialize
   #undef LLVMFuzzerTestOneInput
 #endif
 
 #ifdef HAVE_READER_FUZZER
+  #define LLVMFuzzerCustomMutator fuzzReaderMutator
   #define LLVMFuzzerInitialize fuzzReaderInit
   #define LLVMFuzzerTestOneInput fuzzReader
   #include "reader.c"
+  #undef LLVMFuzzerCustomMutator
   #undef LLVMFuzzerInitialize
   #undef LLVMFuzzerTestOneInput
 #endif
@@ -53,17 +62,21 @@
 #endif
 
 #ifdef HAVE_XML_FUZZER
+  #define LLVMFuzzerCustomMutator fuzzXmlMutator
   #define LLVMFuzzerInitialize fuzzXmlInit
   #define LLVMFuzzerTestOneInput fuzzXml
   #include "xml.c"
+  #undef LLVMFuzzerCustomMutator
   #undef LLVMFuzzerInitialize
   #undef LLVMFuzzerTestOneInput
 #endif
 
 #ifdef HAVE_XPATH_FUZZER
+  #define LLVMFuzzerCustomMutator fuzzXPathMutator
   #define LLVMFuzzerInitialize fuzzXPathInit
   #define LLVMFuzzerTestOneInput fuzzXPath
   #include "xpath.c"
+  #undef LLVMFuzzerCustomMutator
   #undef LLVMFuzzerInitialize
   #undef LLVMFuzzerTestOneInput
 #endif

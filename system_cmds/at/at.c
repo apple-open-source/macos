@@ -147,7 +147,11 @@ static long *get_job_list(int, char *[], int *);
 
 /* Signal catching functions */
 
+#ifdef __APPLE__
+static void sigc(int signo)
+#else
 static void sigc(int signo __unused)
+#endif
 {
 /* If the user presses ^C, remove the spool file and exit 
  */
@@ -158,10 +162,21 @@ static void sigc(int signo __unused)
 	PRIV_END
     }
 
+#ifdef __APPLE__
+    if (signo != 0) {
+	signal(signo, SIG_DFL);
+	raise(signo);
+	return;
+    }
+#endif
     _exit(EXIT_FAILURE);
 }
 
+#ifdef __APPLE__
+static void alarmc(int signo)
+#else
 static void alarmc(int signo __unused)
+#endif
 {
     char buf[1024];
 
@@ -169,7 +184,11 @@ static void alarmc(int signo __unused)
     strlcpy(buf, namep, sizeof(buf));
     strlcat(buf, ": file locking timed out\n", sizeof(buf));
     write(STDERR_FILENO, buf, strlen(buf));
+#ifdef __APPLE__
+    sigc(signo);
+#else
     sigc(0);
+#endif
 }
 
 /* Local functions */
@@ -241,6 +260,9 @@ writefile(time_t runtimer, char queue)
     int fdes, lockdes, fd2;
     FILE *fp, *fpin;
     struct sigaction act;
+#ifdef __APPLE__
+    struct sigaction oact;
+#endif
     char **atenv;
     int ch;
     mode_t cmask;
@@ -260,7 +282,13 @@ writefile(time_t runtimer, char queue)
     sigemptyset(&(act.sa_mask));
     act.sa_flags = 0;
 
+#ifdef __APPLE__
+    (void)sigaction(SIGINT, NULL, &oact);
+    if (oact.sa_handler != SIG_IGN)
+	(void)sigaction(SIGINT, &act, NULL);
+#else
     sigaction(SIGINT, &act, NULL);
+#endif
 
     ppos = atfile + strlen(ATJOB_DIR);
 
@@ -285,10 +313,18 @@ writefile(time_t runtimer, char queue)
     /* Set an alarm so a timeout occurs after ALARMC seconds, in case
      * something is seriously broken.
      */
+#ifdef __APPLE__
+    (void)sigaction(SIGALRM, &act, &oact);
+#else
     sigaction(SIGALRM, &act, NULL);
+#endif
     alarm(ALARMC);
     fcntl(lockdes, F_SETLKW, &lock);
     alarm(0);
+#ifdef __APPLE__
+    /* Restore previous disposition for conformance purposes. */
+    (void)sigaction(SIGALRM, &oact, NULL);
+#endif
 
     if ((jobno = nextjob()) == EOF)
 	perr("cannot generate job number");

@@ -343,52 +343,66 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
 {
     OSStatus status = errAuthorizationInternal;
     
-    if ((flags & kAuthorizationFlagSheet) && environment) {
+    if ((flags & kAuthorizationFlagSheet) && (flags & kAuthorizationFlagInteractionAllowed)) {
+        if (!environment) {
+            os_log_error(AUTH_LOG, "Sheet authorization requested but no environment was provided");
+            goto securityAgentFallback;
+        }
         // check if window ID is present in environment
-        CGWindowID window = 0;
+        UInt64 window = 0;
         for (UInt32 i = 0; i < environment->count; ++i) {
-            if (strncmp(environment->items[i].name, kAuthorizationEnvironmentWindowId, strlen(kAuthorizationEnvironmentWindowId)) == 0
-                && (environment->items[i].valueLength = sizeof(window)) && environment->items[i].value) {
-                window = *(CGWindowID *)environment->items[i].value;
-                break;
+            if (strncmp(environment->items[i].name, kAuthorizationEnvironmentWindowId, strlen(kAuthorizationEnvironmentWindowId)) == 0 && environment->items[i].value ) {
+                if (environment->items[i].valueLength == sizeof(UInt64)) {
+                    window = *(UInt64 *)environment->items[i].value;
+                    break;
+                } else if (environment->items[i].valueLength == sizeof(CGWindowID)) {
+                    window = *(CGWindowID *)environment->items[i].value;
+                    break;
+                }
             }
         }
-        if (window > 0) {
-            os_log_debug(AUTH_LOG, "Trying to use sheet version");
-            static OSStatus (*SFAuthorizationSheetWorker)(CGWindowID windowID, AuthorizationRef authorization,
-                                                        const AuthorizationRights *rights,
-                                                        const AuthorizationEnvironment *environment,
-                                                        AuthorizationFlags flags,
-                                                        AuthorizationRights **authorizedRights,
-                                                        Boolean *authorizationLaunched) = NULL;
-            static dispatch_once_t onceToken;
-            dispatch_once(&onceToken, ^{
-                void *handle = dlopen("/System/Library/Frameworks/SecurityInterface.framework/SecurityInterface", RTLD_NOW|RTLD_GLOBAL|RTLD_NODELETE);
-                if (handle) {
-                    SFAuthorizationSheetWorker = dlsym(handle, "SFAuthorizationSheetWorker");
-                }
-            });
-            
-            if (SFAuthorizationSheetWorker) {
-                Boolean authorizationLaunched;
-                status = SFAuthorizationSheetWorker(window, authorization, rights, environment, flags, authorizedRights, &authorizationLaunched);
-                if (authorizationLaunched == true) {
-                    os_log_debug(AUTH_LOG, "Returning sheet result %d", (int)status);
-                    return status;
-                }
-                os_log(AUTH_LOG, "Sheet authorization cannot be used this time, falling back to the SecurityAgent UI");
-            } else {
-                os_log_debug(AUTH_LOG, "Failed to find sheet support in SecurityInterface");
-            }
-            // fall back to the standard (windowed) version if sheets are not available
-            flags &= ~kAuthorizationFlagSheet;
-        }
-    }
-    
-    xpc_object_t message = NULL;
 
-    require_noerr(status = _AuthorizationCopyRights_prepare_message(authorization, rights, environment, flags, &message), done);
-    require_noerr(status = _AuthorizationCopyRights_send_message(message, authorizedRights), done);
+        if (window == 0) {
+            os_log_error(AUTH_LOG, "Sheet authorization requested but no valid window handle was provided");
+            goto securityAgentFallback;
+        }
+        os_log_debug(AUTH_LOG, "Trying to use sheet version");
+        static OSStatus (*SFAuthorizationSheetWorker)(CGWindowID windowID, AuthorizationRef authorization,
+                                                      const AuthorizationRights *rights,
+                                                      const AuthorizationEnvironment *environment,
+                                                      AuthorizationFlags flags,
+                                                      AuthorizationRights **authorizedRights,
+                                                      Boolean *authorizationLaunched) = NULL;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            void *handle = dlopen("/System/Library/Frameworks/SecurityInterface.framework/SecurityInterface", RTLD_NOW|RTLD_GLOBAL|RTLD_NODELETE);
+            if (handle) {
+                SFAuthorizationSheetWorker = dlsym(handle, "SFAuthorizationSheetWorker");
+            }
+        });
+        
+        if (!SFAuthorizationSheetWorker) {
+            os_log_error(AUTH_LOG, "Failed to find sheet support in SecurityInterface");
+            goto securityAgentFallback;
+        }
+        Boolean authorizationLaunched;
+        status = SFAuthorizationSheetWorker((CGWindowID)window, authorization, rights, environment, flags, authorizedRights, &authorizationLaunched);
+        if (authorizationLaunched == true) {
+            os_log_debug(AUTH_LOG, "Returning sheet result %d", (int)status);
+            return status;
+        }
+        
+securityAgentFallback:
+        // fall back to the standard (windowed) version if sheets are not available
+        flags &= ~kAuthorizationFlagSheet;
+        flags |= kAuthorizationFlagInteractionAllowed;
+        os_log(AUTH_LOG, "Sheet authorization cannot be used this time, falling back to the SecurityAgent UI");
+    }
+
+xpc_object_t message = NULL;
+
+require_noerr(status = _AuthorizationCopyRights_prepare_message(authorization, rights, environment, flags, &message), done);
+require_noerr(status = _AuthorizationCopyRights_send_message(message, authorizedRights), done);
 
 done:
     xpc_release_safe(message);

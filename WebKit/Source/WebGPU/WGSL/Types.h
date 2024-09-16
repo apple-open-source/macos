@@ -27,6 +27,7 @@
 
 #include "ASTForward.h"
 #include "WGSLEnums.h"
+#include <functional>
 #include <wtf/FixedVector.h>
 #include <wtf/HashMap.h>
 #include <wtf/Markable.h>
@@ -39,6 +40,21 @@ namespace WGSL {
 class TypeChecker;
 class TypeStore;
 struct Type;
+
+enum Packing : uint8_t {
+    Packed       = 1 << 0,
+    Unpacked     = 1 << 1,
+    Either       = Packed | Unpacked,
+
+    PStruct = 1 << 2,
+    PArray = 1 << 3,
+    Vec3   = 1 << 4,
+
+    PackedStruct = Packed | PStruct,
+    PackedArray = Packed | PArray,
+    PackedVec3   = Packed | Vec3,
+};
+
 
 namespace Types {
 
@@ -120,8 +136,17 @@ struct Matrix {
 };
 
 struct Array {
+    // std::monostate represents a runtime-sized array
+    // unsigned represents a creation fixed array (constant size)
+    // AST::Expression* represents a fixed array (override size)
+    using Size = std::variant<std::monostate, unsigned, AST::Expression*>;
+
     const Type* element;
-    std::optional<unsigned> size;
+    Size size;
+
+    bool isRuntimeSized() const { return std::holds_alternative<std::monostate>(size); }
+    bool isCreationFixed() const { return std::holds_alternative<unsigned>(size); }
+    bool isOverrideSized() const { return std::holds_alternative<AST::Expression*>(size); }
 };
 
 struct Struct {
@@ -134,6 +159,7 @@ private:
     enum Kind : uint8_t {
         FrexpResult,
         ModfResult,
+        AtomicCompareExchangeResult,
     };
 
 public:
@@ -163,9 +189,23 @@ public:
         static constexpr SortedArrayMap map { mapEntries };
     };
 
+    struct AtomicCompareExchangeResult {
+        static constexpr Kind kind = Kind::AtomicCompareExchangeResult;
+        static constexpr unsigned oldValue = 0;
+        static constexpr unsigned exchanged = 1;
+
+        static constexpr std::pair<ComparableASCIILiteral, unsigned> mapEntries[] {
+            { "exchanged", exchanged },
+            { "old_value", oldValue },
+        };
+
+        static constexpr SortedArrayMap map { mapEntries };
+    };
+
     static constexpr SortedArrayMap<std::pair<ComparableASCIILiteral, unsigned>[2]> keys[] {
         FrexpResult::map,
         ModfResult::map,
+        AtomicCompareExchangeResult::map,
     };
 
     String name;
@@ -176,12 +216,14 @@ public:
 struct Function {
     WTF::Vector<const Type*> parameters;
     const Type* result;
+    bool mustUse;
 };
 
 struct Reference {
     AddressSpace addressSpace;
     AccessMode accessMode;
     const Type* element;
+    bool isVectorComponent;
 };
 
 struct Pointer {
@@ -242,6 +284,16 @@ struct Type : public std::variant<
     String toString() const;
     unsigned size() const;
     unsigned alignment() const;
+    Packing packing() const;
+    bool isConstructible() const;
+    bool isStorable() const;
+    bool isHostShareable() const;
+    bool hasFixedFootprint() const;
+    bool hasCreationFixedFootprint() const;
+    bool containsRuntimeArray() const;
+    bool containsOverrideArray() const;
+    bool isSampler() const;
+    bool isTexture() const;
 };
 
 using ConversionRank = Markable<unsigned, IntegralMarkableTraits<unsigned, std::numeric_limits<unsigned>::max()>>;

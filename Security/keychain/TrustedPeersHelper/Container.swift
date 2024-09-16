@@ -443,6 +443,78 @@ extension NSError {
     }
 }
 
+extension NSManagedObjectContext {
+    func saveIfChanged() throws {
+        if self.hasChanges {
+            do {
+                try self.save()
+            } catch {
+                logger.error("Failed to save moc: \(String(describing: error), privacy: .public)")
+                throw error
+            }
+            self.refreshAllObjects()
+        }
+    }
+
+    func executeBatchedFetchAndEnumerateChunkwise<Type>(fetchRequest: NSFetchRequest<Type>, itemBlock: (Type, inout Bool) throws -> Void, chunkBlock: ([Type]) throws -> Void ) throws {
+        let count: Int
+        do {
+            count = try self.count(for: fetchRequest)
+        } catch {
+            logger.error("Failed to fetch count for chunkwise enumeration: \(error, privacy: .public)")
+            throw error
+        }
+
+        let starts = stride(from: 0, to: count, by: fetchRequest.fetchBatchSize)
+
+        for start in starts {
+            var stop = false
+            try autoreleasepool {
+                let innerFetch = fetchRequest.copy() as! NSFetchRequest<Type>
+                innerFetch.fetchBatchSize = 0
+                innerFetch.fetchOffset = start
+                innerFetch.fetchLimit = min(count - start, fetchRequest.fetchBatchSize)
+
+                let chunk: [Type]?
+                do {
+                    chunk = try self.fetch(innerFetch) // hopefully mostly-faulted objects
+                } catch {
+                    logger.error("Failed to fetch for chunkwise enumeration: \(error, privacy: .public)")
+                    throw error
+                }
+                guard let chunk else {
+                    logger.error("Chunkwise enumeration allObjects is nil but no error fetching??")
+                    return
+                }
+
+                for obj in chunk {
+                    try autoreleasepool {
+                        try itemBlock(obj, &stop)
+                    }
+                    if stop {
+                        break
+                    }
+                }
+                try chunkBlock(chunk)
+                self.refreshAllObjects()
+            }
+            if stop {
+                break
+            }
+        }
+    }
+
+    func refaultUnchanged<T: NSManagedObject>(_ obj: T) {
+        if !obj.hasChanges {
+            self.refresh(obj, mergeChanges: false)
+        }
+    }
+
+    func refaultUnchanged<T: NSManagedObject>(_ seq: any Sequence<T>) {
+        seq.forEach(refaultUnchanged)
+    }
+}
+
 internal func traceError(_ error: Error?) -> String {
     if let error = error {
         return "error: \(String(describing: error))"
@@ -707,7 +779,7 @@ func extract(tlkShares: [CKKSTLKShare],
     do {
         egoPeer = try model.peer(withID: sponsorPeerID ?? peer.peerID)
     } catch {
-        logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+        logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
         egoPeer = nil
     }
     if let egoPeer {
@@ -723,22 +795,24 @@ func extract(tlkShares: [CKKSTLKShare],
             logger.info("Using computed dynamic info for share recovery: \(computedSponsorDynamicInfo, privacy: .public)")
 
             computedSponsorDynamicInfo.includedPeerIDs.forEach { trustedPeerID in
-                let peer: TPPeer?
-                do {
-                    peer = try model.peer(withID: trustedPeerID)
-                } catch {
-                    logger.warning("Error getting included peer (\(trustedPeerID)) from model: \(String(describing: error), privacy: .public)")
-                    peer = nil
-                }
-                if let peer {
-                    let peerObj = CKKSActualPeer(peerID: trustedPeerID,
-                                                 encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
-                                                 signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
-                                                 viewList: [])
+                autoreleasepool {
+                    let peer: TPPeer?
+                    do {
+                        peer = try model.peer(withID: trustedPeerID)
+                    } catch {
+                        logger.warning("Error getting included peer (\(trustedPeerID)) from model: \(String(describing: error), privacy: .public)")
+                        peer = nil
+                    }
+                    if let peer {
+                        let peerObj = CKKSActualPeer(peerID: trustedPeerID,
+                                                     encryptionPublicKey: (peer.permanentInfo.encryptionPubKey as! _SFECPublicKey),
+                                                     signing: (peer.permanentInfo.signingPubKey as! _SFECPublicKey),
+                                                     viewList: [])
 
-                    trustedPeers.append(peerObj)
-                } else {
-                    logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                        trustedPeers.append(peerObj)
+                    } else {
+                        logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                    }
                 }
             }
         } catch {
@@ -936,8 +1010,10 @@ class Container: NSObject, ConfiguredCloudKit {
 
     var tlkSharesBatch = 1000
 
+    var egoMachineIDVanished: Bool = false
+    var midVanishedFromTDL: Bool = false
+
     // test variables
-    var testEgoMachineIDVanished: Bool = false
     var testHashMismatchDetected: Bool = false
 
     // If you add a new field to the Cuttlefish Changes protocol, such that
@@ -1019,7 +1095,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 // but fall through and use a new key
             } catch ContainerError.failedToLoadSecret(errorCode: Int(errSecItemNotFound)) {
             } catch {
-                logger.notice("getHmacKey: ignoring \(String(describing: error), privacy: .public)")
+                logger.notice("getHmacKey: ignoring \(error, privacy: .public)")
                 // fall through and use a (likely) new key
             }
             var bytes = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
@@ -1035,7 +1111,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.info("getHmacKey: locked -- cannot save hmac")
                 // but keep going
             } catch {
-                logger.notice("getHmacKey: saveSecret failed: \(String(describing: error), privacy: .public)")
+                logger.notice("getHmacKey: saveSecret failed: \(error, privacy: .public)")
                 // but keep going
             }
             self.hmacKey = key
@@ -1043,21 +1119,39 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         func allPeerIDs() throws -> [String] {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
+            let fetch = PeerMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
             fetch.propertiesToFetch = ["peerID"]
+
+            var peerIDs: [String] = Array()
             do {
-                let peers = try self.moc.fetch(fetch)
-                let peerIDs = peers.compactMap { ($0 as? PeerMO)?.peerID }
-                return peerIDs
+                peerIDs.reserveCapacity(try moc.count(for: fetch))
             } catch {
-                logger.error("Failed to fetch peers: \(String(describing: error), privacy: .public)")
+                logger.error("Failed to fetch peers: \(error, privacy: .public)")
                 throw error
             }
+
+            fetch.fetchBatchSize = 25
+
+            do {
+                try moc.executeBatchedFetchAndEnumerateChunkwise(
+                    fetchRequest: fetch,
+                    itemBlock: { _, _ in },
+                    chunkBlock: { peerMOs in
+                        peerIDs.append(contentsOf: peerMOs.compactMap { $0.peerID })
+                        moc.refaultUnchanged(peerMOs) // ask CoreData to make these faults again, and therefore free memory
+                    }
+                )
+            } catch {
+                logger.error("Failed to fetch peers: \(error, privacy: .public)")
+                throw error
+            }
+
+            return peerIDs
         }
 
         func peerCount(_ errorOut: NSErrorPointer) -> UInt {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
+            let fetch = PeerMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
             do {
                 return UInt(try self.moc.count(for: fetch))
@@ -1068,20 +1162,10 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         }
 
-        func saveIfNeeded() {
-            if moc.hasChanges {
-                do {
-                    try moc.save()
-                } catch {
-                    logger.error("Failed to save: \(String(describing: error), privacy: .public)")
-                }
-            }
-        }
-
         func peer(withID peerID: String, error errorOut: NSErrorPointer) -> TPPeer? {
             do {
                 let ret = peerFromMO(peerMO: try fetchPeerMO(peerID: peerID))
-                self.saveIfNeeded()
+                try? moc.saveIfChanged()
                 return ret
             } catch let error as NSError {
                 logger.error("Failed to fetch peerID \(peerID, privacy: .public): \(String(describing: error), privacy: .public)")
@@ -1091,70 +1175,64 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         func enumeratePeers(_ block: @escaping (TPPeer, UnsafeMutablePointer<ObjCBool>) -> Void) throws {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
+            let fetch = PeerMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
-            let batchSize = 25
-            fetch.fetchBatchSize = batchSize
-            do {
-                var stop = ObjCBool(false)
-                var i = 0
-                for peer in try self.moc.fetch(fetch) {
-                    autoreleasepool {
-                        guard let peer = peerFromMO(peerMO: peer as? PeerMO) else {
-                            return
-                        }
-                        block(peer, &stop)
-                        i += 1
-                        if i == batchSize {
-                            self.saveIfNeeded()
-                            i = 0
-                        }
+            fetch.fetchBatchSize = 25 // empirically how many fully-realized PeerMOs we can keep in memory before hitting the jetsam HWM
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { peerMO, stop in
+                    guard let peer = peerFromMO(peerMO: peerMO) else {
+                        return
                     }
-                    if stop.boolValue {
-                        break
-                    }
+                    var oStop = ObjCBool(false)
+                    block(peer, &oStop)
+                    stop = oStop.boolValue
+                },
+                chunkBlock: { peerMOs in
+                    try? moc.saveIfChanged()
+                    moc.refaultUnchanged(peerMOs) // ask CoreData to make these faults again, and therefore free memory
                 }
-                self.saveIfNeeded()
-            } catch {
-                logger.error("Failed to fetch peers for enumeration: \(String(describing: error), privacy: .public)")
-                throw error
-            }
+            )
         }
 
         internal static func allMachineIDs(containerMO: ContainerMO, moc: NSManagedObjectContext) throws -> Set<String> {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Machine")
+            let fetch = MachineMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "container == %@", containerMO)
             fetch.propertiesToFetch = ["machineID"]
-            do {
-                let machines = try moc.fetch(fetch)
-                let machineIDs = Set(machines.compactMap { ($0 as? MachineMO)?.machineID })
-                return machineIDs
-            } catch {
-                logger.error("Failed to fetch machineIDs: \(String(describing: error), privacy: .public)")
-                throw error
-            }
+            fetch.fetchBatchSize = 25
+
+            var machineIDs = Set<String>()
+
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { _, _ in },
+                chunkBlock: { machineMOs in
+                    machineIDs.formUnion(machineMOs.compactMap { $0.machineID })
+                    moc.refaultUnchanged(machineMOs)
+                }
+            )
+
+            return machineIDs
         }
 
-        internal static func allMachineModifiedDatesFor(containerMO: ContainerMO, moc: NSManagedObjectContext, machineID: String) throws -> Set<MachineMO> {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Machine")
+        internal static func oldMachineObjectIds(containerMO: ContainerMO, moc: NSManagedObjectContext, machineID: String) throws -> [NSManagedObjectID] {
+            let fetch = MachineMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "machineID == %@ && container == %@", machineID, containerMO)
-            fetch.propertiesToFetch = ["modified"]
+            fetch.returnsObjectsAsFaults = true
+            fetch.sortDescriptors = [NSSortDescriptor(key: "modified", ascending: false)]
             do {
-                let machines = try moc.fetch(fetch)
-                let modifiedDates = Set(machines.compactMap { ($0 as? MachineMO) })
-                return modifiedDates
+                return try moc.fetch(fetch).dropFirst().map { $0.objectID }
             } catch {
-                logger.error("Failed to fetch modifiedDates: \(String(describing: error), privacy: .public)")
+                logger.error("Failed to fetch most recent machine object id for \(machineID): \(String(describing: error), privacy: .public)")
                 throw error
             }
         }
 
         static func fetchPeerMO(moc: NSManagedObjectContext, containerMO: ContainerMO, peerID: String) throws -> PeerMO? {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
+            let fetch = PeerMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "peerID == %@ && container == %@", peerID, containerMO)
             fetch.fetchLimit = 1
-            let peers = try moc.fetch(fetch)
-            return peers.first as? PeerMO
+            return try moc.fetch(fetch).first
         }
 
         func fetchPeerMO(peerID: String) throws -> PeerMO? {
@@ -1240,7 +1318,7 @@ class Container: NSObject, ConfiguredCloudKit {
             do {
                 ret = try TPPeer(permanentInfo: permanentInfo, stableInfo: stableInfo, dynamicInfo: dynamicInfo, checkSig: updateHmac)
             } catch {
-                logger.error("DBAdapter unable to init for peerID \(peerID, privacy: .public)): \(String(describing: error), privacy: .public)")
+                logger.error("DBAdapter unable to init for peerID \(peerID, privacy: .public)): \(error, privacy: .public)")
                 return nil
             }
 
@@ -1257,26 +1335,21 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         func enumerateVouchers(_ block: @escaping (TPVoucher, UnsafeMutablePointer<ObjCBool>) -> Void) throws {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Voucher")
+            let fetch = VoucherMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "beneficiary.container == %@", self.containerMO)
             fetch.fetchBatchSize = 50
-            do {
-                var stop = ObjCBool(false)
-                for voucher in try self.moc.fetch(fetch) {
-                    autoreleasepool {
-                        guard let voucher = DBAdapter.voucherFromMO(voucherMO: voucher as? VoucherMO) else {
-                            return
-                        }
-                        block(voucher, &stop)
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { voucherMO, stop in
+                    var oStop = ObjCBool(false)
+                    guard let voucher = DBAdapter.voucherFromMO(voucherMO: voucherMO) else {
+                        return
                     }
-                    if stop.boolValue {
-                        break
-                    }
-                }
-            } catch {
-                logger.error("Failed to fetch vouchers for enumeration: \(String(describing: error), privacy: .public)")
-                throw error
-            }
+                    block(voucher, &oStop)
+                    stop = oStop.boolValue
+                },
+                chunkBlock: moc.refaultUnchanged
+            )
         }
 
         static func voucherFromMO(voucherMO: VoucherMO?) -> TPVoucher? {
@@ -1288,7 +1361,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         func voucherCount(_ errorOut: NSErrorPointer) -> UInt {
-            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Voucher")
+            let fetch = VoucherMO.fetchRequest()
             fetch.predicate = NSPredicate(format: "beneficiary.container == %@", self.containerMO)
             do {
                 let count = try self.moc.count(for: fetch)
@@ -1297,6 +1370,47 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.error("Failed to fetch vouchers for count: \(String(describing: error), privacy: .public)")
                 errorOut?.pointee = error
                 return 0
+            }
+        }
+
+        func policy(withVersion version: TPCounter, error errorOut: NSErrorPointer) -> TPPolicyDocument? {
+            let fetch = PolicyMO.fetchRequest()
+            // Would be nice to use PRId64 here, but it's not easy, see rdar://121705880&121705973
+            // And PRId64 is "ll" "d", which is the same as "qd".
+            fetch.predicate = NSPredicate(format: "container == %@ && version == %qd", self.containerMO, Int64(version))
+            fetch.propertiesToFetch = ["policyData", "policyHash"]
+            fetch.fetchLimit = 1
+            do {
+                if let policyMO = try self.moc.fetch(fetch).first,
+                   let policyHash = policyMO.policyHash,
+                   let policyData = policyMO.policyData {
+                    return TPPolicyDocument.policyDoc(withHash: policyHash, data: policyData)
+                } else {
+                    return nil
+                }
+            } catch let error as NSError {
+                logger.error("Failed to fetch policy for version \(version, privacy: .public): \(String(describing: error), privacy: .public)")
+                errorOut?.pointee = error
+                return nil
+            }
+        }
+
+        func allRegisteredPolicyVersions() throws -> Set<TPPolicyVersion> {
+            let fetch = PolicyMO.fetchRequest()
+            fetch.predicate = NSPredicate(format: "container == %@", self.containerMO)
+            fetch.propertiesToFetch = ["version", "policyHash"]
+            do {
+                let versions = try self.moc.fetch(fetch).compactMap { policyMO in
+                    if let policyHash = policyMO.policyHash {
+                        return TPPolicyVersion(version: TPCounter(policyMO.version), hash: policyHash)
+                    } else {
+                        return nil
+                    }
+                }
+                return Set(versions)
+            } catch {
+                logger.error("Failed to fetch policies: \(error, privacy: .public)")
+                throw error
             }
         }
     }
@@ -1376,41 +1490,43 @@ class Container: NSObject, ConfiguredCloudKit {
 
         moc.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
 
-        moc.performAndWait {
+        try moc.performAndWait {
             // Fetch an existing ContainerMO record if it exists, or create and save one
-            do {
-                let containerFetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Container")
-                containerFetch.predicate = NSPredicate(format: "name == %@", name.asSingleString())
-                containerFetch.fetchLimit = 1
-                let fetchedContainers = try moc.fetch(containerFetch)
-                if let container = fetchedContainers.first as? ContainerMO {
-                    containerMO = container
-                } else {
-                    containerMO = ContainerMO(context: moc)
-                    containerMO.name = name.asSingleString()
-                }
-
-                // Perform upgrades as needed
-                Container.onqueueUpgradeMachineIDSetToModel(container: containerMO, moc: moc)
-                Container.onqueueUpgradeMachineIDSetToUseStatus(container: containerMO, moc: moc)
-
-                // remove duplicate vouchers on all the peers
-                Container.onqueueRemoveDuplicateVouchers(container: containerMO, moc: moc)
-                
-                // remove duplicate machineMOs
-                Container.onqueueRemoveDuplicateMachineIDs(containerMO: containerMO, moc: moc)
-
-                (model, dbAdapter) = Container.loadModel(moc: moc, containerMO: containerMO, hmacKey: nil)
-                Container.ensureEgoConsistency(from: containerMO, model: model)
-
+            let containerFetch = ContainerMO.fetchRequest()
+            containerFetch.predicate = NSPredicate(format: "name == %@", name.asSingleString())
+            containerFetch.fetchLimit = 1
+            if let container = try moc.fetch(containerFetch).first {
+                containerMO = container
+            } else {
+                containerMO = ContainerMO(context: moc)
+                containerMO.name = name.asSingleString()
                 try moc.save()
-            } catch {
-                initError = error
-                return
             }
-        }
-        if let initError = initError {
-            throw initError
+
+            // Perform upgrades as needed
+            try Container.onqueueUpgradeMachineIDSetToModel(container: containerMO, moc: moc)
+            try Container.onqueueUpgradeMachineIDSetToUseStatus(container: containerMO, moc: moc)
+
+            // remove duplicate vouchers on all the peers
+            try Container.onqueueRemoveDuplicateVouchers(container: containerMO, moc: moc)
+
+            // remove duplicate machineMOs
+            Container.onqueueRemoveDuplicateMachineIDs(containerMO: containerMO, moc: moc)
+
+            (model, dbAdapter) = Container.loadModel(moc: moc, containerMO: containerMO, hmacKey: nil)
+            Container.ensureEgoConsistency(from: containerMO, model: model)
+
+            try moc.saveIfChanged()
+
+            // free memory allocated during the above cleanup functions
+            moc.reset()
+
+            // and make sure to get a new containerMO, since it was associated with the moc before the reset
+            containerMO = try moc.fetch(containerFetch).first
+            if containerMO == nil {
+                logger.error("containerMO could not be fetched again?")
+                assertionFailure()
+            }
         }
 
         self.name = name
@@ -1427,25 +1543,35 @@ class Container: NSObject, ConfiguredCloudKit {
         do {
             let allMachineIDs = try DBAdapter.allMachineIDs(containerMO: containerMO, moc: moc)
             for machineID in allMachineIDs {
-                var machines = try DBAdapter.allMachineModifiedDatesFor(containerMO: containerMO, moc: moc, machineID: machineID)
-                if var highest = machines.first {
-                    for machine in machines {
-                        if machine.modifiedDate() > highest.modifiedDate() {
-                            highest = machine
-                        }
+                let oldOnes = try DBAdapter.oldMachineObjectIds(containerMO: containerMO, moc: moc, machineID: machineID)
+                if oldOnes.isEmpty {
+                    continue
+                }
+                do {
+                    let request = NSBatchDeleteRequest(objectIDs: oldOnes)
+                    request.resultType = .resultTypeObjectIDs
+                    let deleteResult = try moc.execute(request) as? NSBatchDeleteResult
+                    // Extract the IDs of the deleted managed objectss from the request's result.
+                    if let objectIDs = deleteResult?.result as? [NSManagedObjectID] {
+                        // Merge the deletions into the moc
+                        NSManagedObjectContext.mergeChanges(
+                            fromRemoteContextSave: [NSDeletedObjectsKey: objectIDs],
+                            into: [moc]
+                        )
                     }
-
-                    machines.remove(highest)
-
-                    logger.info("onqueueRemoveDuplicateMachineIDs removing: \(machines)")
-
-                    for machine in machines {
-                        moc.delete(machine)
-                    }
+                } catch {
+                    logger.error("onqueueRemoveDuplicateMachineIDs error removing duplicate machineIDs for \(machineID): \(error, privacy: .public)")
                 }
             }
         } catch {
             logger.error("onqueueRemoveDuplicateMachineIDs error removing duplicate machineIDs: \(error, privacy: .public)")
+        }
+
+        // if there were any to delete, we should save the moc
+        do {
+            try moc.saveIfChanged()
+        } catch {
+            logger.error("onqueueRemoveDuplicateMachineIDs error saving: \(error, privacy: .public)")
         }
     }
 
@@ -1480,7 +1606,7 @@ class Container: NSObject, ConfiguredCloudKit {
                                    hmacKey: Data?) -> (TPModel, DBAdapter) {
         // Populate model from persistent store
         let dbAdapter = DBAdapter(moc: moc, containerMO: containerMO, hmacKey: hmacKey)
-        let model = TPModel(decrypter: Decrypter(), dbAdapter: dbAdapter)
+        let model = TPModel(decrypter: PolicyRedactionCrypter(), dbAdapter: dbAdapter)
         model.suppressInitialInfoLogging = true
         defer { model.suppressInitialInfoLogging = false }
         let keyFactory = TPECPublicKeyFactory()
@@ -1495,7 +1621,7 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         do {
-            let peerCount = try model.peerCount();
+            let peerCount = try model.peerCount()
             logger.info("loadModel: loaded \(peerCount) peers")
         } catch {
             logger.error("loadModel error getting peerCount: \(error, privacy: .public)")
@@ -1525,20 +1651,10 @@ class Container: NSObject, ConfiguredCloudKit {
             }
         }
 
-        // Register persisted policies (cached from cuttlefish)
-        let policies = containerMO.policies as? Set<PolicyMO>
-        policies?.forEach { policyMO in
-            if let policyHash = policyMO.policyHash,
-               let policyData = policyMO.policyData {
-                if let policyDoc = TPPolicyDocument.policyDoc(withHash: policyHash, data: policyData) {
-                    model.register(policyDoc)
-                }
-            }
-        }
-
-        // Register built-in policies
-        builtInPolicyDocuments.forEach { policyDoc in
-            model.register(policyDoc)
+        do {
+            try loadPolicies(moc: moc, containerMO: containerMO)
+        } catch {
+            logger.error("loadModel error loading policies: \(error, privacy: .public)")
         }
 
         let knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
@@ -1561,6 +1677,87 @@ class Container: NSObject, ConfiguredCloudKit {
         }
 
         return (model, dbAdapter)
+    }
+
+    // Must be on moc queue to call this
+    internal static func loadPolicies(moc: NSManagedObjectContext,
+                                      containerMO: ContainerMO) throws {
+        try autoreleasepool {
+            // Register persisted policies (cached from cuttlefish), and note which versions are already in the DB
+            var versionsInDb: Set<TPCounter> = Set()
+            var policiesToRemove: Set<PolicyMO> = Set()
+            let fetch = PolicyMO.fetchRequest()
+            fetch.fetchBatchSize = 5
+            fetch.predicate = NSPredicate(format: "container == %@", containerMO)
+
+            versionsInDb.reserveCapacity(try moc.count(for: fetch))
+
+            try moc.executeBatchedFetchAndEnumerateChunkwise(
+                fetchRequest: fetch,
+                itemBlock: { policyMO, _ in
+                    defer { moc.refaultUnchanged(policyMO) }
+                    if let policyHash = policyMO.policyHash,
+                       let policyData = policyMO.policyData,
+                       let policyDoc = TPPolicyDocument.policyDoc(withHash: policyHash, data: policyData) {
+                        guard let builtInPolicyFn = builtInPolicyDocumentsFilteredByVersion({ $0 == policyMO.version }).first else {
+                            // Not known to us, but keep it in the DB
+                            versionsInDb.insert(policyDoc.version.versionNumber)
+                            return
+                        }
+                        if builtInPolicyFn().version.policyHash == policyHash && !versionsInDb.contains(policyDoc.version.versionNumber) {
+                            versionsInDb.insert(policyDoc.version.versionNumber)
+                        } else {
+                            // DB's policy of this version not a match for the built-in, or version already in DB
+                            policiesToRemove.insert(policyMO)
+                        }
+                    }
+                },
+                chunkBlock: { _ in })
+
+            if !policiesToRemove.isEmpty {
+                // Remove the ones whose hashes don't match in the DB or are duplicates
+                policiesToRemove.forEach(containerMO.removeFromPolicies)
+                policiesToRemove.removeAll()
+
+                do {
+                    try moc.saveIfChanged()
+                } catch {
+                    logger.error("Unable to save built-in policies to DB: \(error, privacy: .public)")
+                    throw error
+                }
+            }
+
+            // Add built-in policies that aren't already in the DB, by chunks, to reduce peak memory usage
+            let policyDocFns = builtInPolicyDocumentsFilteredByVersion { !versionsInDb.contains($0) }
+            if !policyDocFns.isEmpty {
+                let count = policyDocFns.count
+                let strideLength = 5
+                let chunks = stride(from: 0, to: count, by: strideLength).map { start in
+                    policyDocFns[start..<min(start + strideLength, count)]
+                }
+
+                try chunks.forEach { chunk in
+                    try autoreleasepool {
+                        chunk.forEach { docFn in
+                            autoreleasepool {
+                                let doc = docFn()
+                                let policyMO = PolicyMO(context: moc)
+                                policyMO.version = Int64(doc.version.versionNumber)
+                                policyMO.policyHash = doc.version.policyHash
+                                policyMO.policyData = doc.protobuf
+                                containerMO.addToPolicies(policyMO)
+                            }
+                        }
+                        do {
+                            try moc.saveIfChanged()
+                        } catch {
+                            logger.error("Unable to save built-in policies to DB: \(error, privacy: .public)")
+                            throw error
+                        }
+                    }
+                }
+            }
+        }
     }
 
     func resetContainer() {
@@ -1616,6 +1813,10 @@ class Container: NSObject, ConfiguredCloudKit {
         return dict
     }
 
+    static func dictionaryRepresentation(accountSettings: [String: TPPBPeerStableInfoSetting]) -> [String: Any] {
+        return accountSettings.mapValues { $0.dictionaryRepresentation() as Any }
+    }
+
     static func peerdictionaryRepresentation(peer: TPPeer) -> [String: Any] {
         autoreleasepool {
             var peerDict: [String: Any] = [
@@ -1638,7 +1839,7 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
-        func logErrorAndReplyEarly(error: Error, whichFunc: String, viablePeerCountsByModelID: [String:NSNumber]) {
+        func logErrorAndReplyEarly(error: Error, whichFunc: String, viablePeerCountsByModelID: [String: NSNumber]) {
             logger.error("error calling \(whichFunc): \(error, privacy: .public)")
             reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                   egoPeerMachineID: nil,
@@ -1650,7 +1851,7 @@ class Container: NSObject, ConfiguredCloudKit {
                   error)
         }
 
-        let viablePeerCountsByModelID: [String:NSNumber]
+        let viablePeerCountsByModelID: [String: NSNumber]
         do {
             viablePeerCountsByModelID = try self.model.viablePeerCountsByModelID()
         } catch {
@@ -1658,7 +1859,7 @@ class Container: NSObject, ConfiguredCloudKit {
             return
         }
 
-        let peerCountsByMachineID: [String:NSNumber]
+        let peerCountsByMachineID: [String: NSNumber]
         do {
             peerCountsByMachineID = try self.model.peerCountsByMachineID()
         } catch {
@@ -1674,7 +1875,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     logger.warning("Couldn't find ego peer in model")
                 }
             } catch {
-                logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
                 egoPeer = nil
             }
             let egoPermanentInfo = egoPeer?.permanentInfo
@@ -1890,39 +2091,41 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     egoPeer = try self.model.peer(withID: egoPeerID)
                 } catch {
-                    logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                    logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
                     egoPeer = nil
                 }
                 if let egoPeer {
                     egoPeer.trustedPeerIDs.forEach { trustedPeerID in
-                        let peer: TPPeer?
-                        do {
-                            peer = try self.model.peer(withID: trustedPeerID)
-                        } catch {
-                            logger.warning("Error getting trusted peer \(trustedPeerID) from model: \(String(describing: error), privacy: .public)")
-                            peer = nil
-                        }
-                        if let peer {
-                            let peerViews = try? self.model.getViewsForPeer(peer.permanentInfo,
-                                                                            stableInfo: peer.stableInfo)
-
-                            tphPeers.append(TrustedPeersHelperPeer(peerID: trustedPeerID,
-                                                                   signingSPKI: peer.permanentInfo.signingPubKey.spki(),
-                                                                   encryptionSPKI: peer.permanentInfo.encryptionPubKey.spki(),
-                                                                   secureElementIdentity: peer.stableInfo?.secureElementIdentity,
-                                                                   viewList: peerViews ?? Set()))
-                        } else if let crk = self.model.custodianPeer(withID: trustedPeerID) {
+                        autoreleasepool {
+                            let peer: TPPeer?
                             do {
-                                let crkViews = try? self.model.getViewsForCRK(crk,
-                                                                              donorPermanentInfo: egoPeer.permanentInfo,
-                                                                              donorStableInfo: egoPeer.stableInfo)
-
-                                tphPeers.append(try crk.asCustodianPeer(viewList: crkViews ?? Set()))
+                                peer = try self.model.peer(withID: trustedPeerID)
                             } catch {
-                                logger.error("Unable to add CRK as a trusted peer: \(String(describing: error), privacy: .public)")
+                                logger.warning("Error getting trusted peer \(trustedPeerID) from model: \(String(describing: error), privacy: .public)")
+                                peer = nil
                             }
-                        } else {
-                            logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                            if let peer {
+                                let peerViews = try? self.model.getViewsForPeer(peer.permanentInfo,
+                                                                                stableInfo: peer.stableInfo)
+
+                                tphPeers.append(TrustedPeersHelperPeer(peerID: trustedPeerID,
+                                                                       signingSPKI: peer.permanentInfo.signingPubKey.spki(),
+                                                                       encryptionSPKI: peer.permanentInfo.encryptionPubKey.spki(),
+                                                                       secureElementIdentity: peer.stableInfo?.secureElementIdentity,
+                                                                       viewList: peerViews ?? Set()))
+                            } else if let crk = self.model.custodianPeer(withID: trustedPeerID) {
+                                do {
+                                    let crkViews = try? self.model.getViewsForCRK(crk,
+                                                                                  donorPermanentInfo: egoPeer.permanentInfo,
+                                                                                  donorStableInfo: egoPeer.stableInfo)
+
+                                    tphPeers.append(try crk.asCustodianPeer(viewList: crkViews ?? Set()))
+                                } catch {
+                                    logger.error("Unable to add CRK as a trusted peer: \(String(describing: error), privacy: .public)")
+                                }
+                            } else {
+                                logger.info("No peer for trusted ID \(trustedPeerID, privacy: .public)")
+                            }
                         }
                     }
 
@@ -1973,7 +2176,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     peer = try self.model.peer(withID: egoPeerID)
                 } catch {
-                    logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                    logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
                     peer = nil
                 }
                 if let peer {
@@ -2024,12 +2227,36 @@ class Container: NSObject, ConfiguredCloudKit {
             d["idmsTrustedDeviceListFetchDate"] = self.containerMO.idmsTrustedDeviceListFetchDate
             d["machineIDsAllowed"] = midList.machineIDs(in: .allowed).sorted()
             d["machineIDsDisallowed"] = midList.machineIDs(in: .disallowed).sorted()
+            d["machineIDsEvicted"] = midList.machineIDs(in: .evicted).sorted()
+            d["machineIDsUnknownReason"] = midList.machineIDs(in: .unknownReason).sorted()
+            d["machineIDsGhostedFromTDL"] = midList.machineIDs(in: .ghostedFromTDL).sorted()
+            d["honorIDMSListChanges"] = self.containerMO.honorIDMSListChanges
+
             d["modelRecoverySigningPublicKey"] = self.model.recoverySigningPublicKey()
             d["modelRecoveryEncryptionPublicKey"] = self.model.recoveryEncryptionPublicKey()
-            d["registeredPolicyVersions"] = self.model.allRegisteredPolicyVersions().sorted().map { policyVersion in "\(policyVersion.versionNumber), \(policyVersion.policyHash)" }
+            do {
+                d["registeredPolicyVersions"] = try self.model.allRegisteredPolicyVersions().sorted().map { policyVersion in "\(policyVersion.versionNumber), \(policyVersion.policyHash)" }
+            } catch {
+                logger.error("Error getting registered policy versions: \(error, privacy: .public)")
+                d["registeredPolicyVersionsError"] = "\(error)"
+            }
+
+            if let accountSettings = self.containerMO.accountSettings {
+                if let accountSettings = try? Container.accountSettingsToDict(data: accountSettings) {
+                    d["accountSettings"] = Container.dictionaryRepresentation(accountSettings: accountSettings)
+                    d["accountSettingsDate"] = self.containerMO.accountSettingsDate
+                }
+            }
 
             reply(d, nil)
         }
+    }
+
+    static func accountSettingsToDict(data: Data) throws -> [String: TPPBPeerStableInfoSetting]? {
+        let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
+        return unarchiver.decodeObject(of: [NSDictionary.self, NSString.self, TPPBPeerStableInfoSetting.self],
+                                       forKey: NSKeyedArchiveRootObjectKey)
+                                       as? [String: TPPBPeerStableInfoSetting]
     }
 
     func dumpEgoPeer(reply: @escaping (String?, TPPeerPermanentInfo?, TPPeerStableInfo?, TPPeerDynamicInfo?, Error?) -> Void) {
@@ -2048,7 +2275,7 @@ class Container: NSObject, ConfiguredCloudKit {
             do {
                 peer = try self.model.peer(withID: egoPeerID)
             } catch {
-                logger.error("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                logger.error("Error getting ego peer from model: \(error, privacy: .public)")
                 reply(egoPeerID, nil, nil, nil, error)
                 return
             }
@@ -2539,7 +2766,7 @@ class Container: NSObject, ConfiguredCloudKit {
             do {
                 egoPeer = try self.model.peer(withID: egoPeerID)
             } catch {
-                logger.error("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                logger.error("Error getting ego peer from model: \(error, privacy: .public)")
                 reply(0, error)
                 return
             }
@@ -3051,7 +3278,10 @@ class Container: NSObject, ConfiguredCloudKit {
                 self.moc.performAndWait {
                     do {
                         let crkViews = try self.model.getViewsForCRK(crk.tpCustodian, donorPermanentInfo: permanentInfo, donorStableInfo: stableInfo)
-                        let ckksTLKs = ckksKeys.filter { crkViews.contains($0.tlk.zoneID.zoneName) }.map { $0.tlk }
+
+                        // Note: we only want to send up TLKs for uploaded ckks zones
+                        let ckksTLKs = ckksKeys.compactMap { (!$0.newUpload && crkViews.contains($0.tlk.zoneID.zoneName)) ? $0.tlk : nil }
+
                         let tlkShares = try makeTLKShares(ckksTLKs: ckksTLKs,
                                                           asPeer: crk.peerKeys,
                                                           toPeer: crk.peerKeys,
@@ -4161,7 +4391,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 try self.moc.save()
                 logger.log("Saved MOC to drop peer MOs")
             } catch {
-                logger.error("Failed to save MOC to drop peers: \(String(describing: error), privacy: .private)")
+                logger.error("Failed to save MOC to drop peers: \(error, privacy: .private)")
                 reply(error)
                 return
             }
@@ -4224,9 +4454,9 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func fetchViableBottles(from source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
+    func fetchViableBottles(from source: OTEscrowRecordFetchSource, flowID: String?, deviceSessionID: String?, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         let sem = self.grabSemaphore()
-        self.fetchViableBottlesWithSemaphore(from: source) { result in
+        self.fetchViableBottlesWithSemaphore(from: source, flowID: flowID, deviceSessionID: deviceSessionID) { result in
             sem.release()
 
             switch result {
@@ -4366,8 +4596,8 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
-        self.fetchViableBottlesWithSemaphore(from: source) { result in
+    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, flowID: String?, deviceSessionID: String?, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
+        self.fetchViableBottlesWithSemaphore(from: source, flowID: flowID, deviceSessionID: deviceSessionID) { result in
             switch result {
             case let .success((viableBottles, partialBottles)):
                 reply(viableBottles, partialBottles, nil)
@@ -4407,14 +4637,19 @@ class Container: NSObject, ConfiguredCloudKit {
         self.containerMO.escrowFetchDate = nil
     }
 
-    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
+    private func onQueueRemoveAccountSettings() {
+        self.containerMO.accountSettings = nil
+        self.containerMO.accountSettingsDate = nil
+    }
+
+    func fetchViableBottlesWithSemaphore(from source: OTEscrowRecordFetchSource, flowID: String?, deviceSessionID: String?, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
         logger.info("beginning a fetchViableBottles from source \(source.rawValue)")
 
         switch source {
         case .cache:
             self.fetchViableBottlesFromCacheWithSemaphore(checkingTimeout: false, reply: reply)
         case .cuttlefish:
-            self.fetchViableBottlesFromCuttlefishWithSemaphore(reply: reply)
+            self.fetchViableBottlesFromCuttlefishWithSemaphore(flowID: flowID, deviceSessionID: deviceSessionID, reply: reply)
         case .default:
             fallthrough
         @unknown default:
@@ -4429,7 +4664,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     }
                 case .failure:
                     logger.info("fetchViableBottlesFromCache did not return any bottles, checking cuttlefish")
-                    self.fetchViableBottlesFromCuttlefishWithSemaphore(reply: reply)
+                    self.fetchViableBottlesFromCuttlefishWithSemaphore(flowID: flowID, deviceSessionID: deviceSessionID, reply: reply)
                 }
             }
         }
@@ -4517,7 +4752,7 @@ class Container: NSObject, ConfiguredCloudKit {
         })
     }
 
-    func fetchViableBottlesFromCuttlefishWithSemaphore(reply: @escaping (Result<([String], [String]), Error>) -> Void) {
+    func fetchViableBottlesFromCuttlefishWithSemaphore(flowID: String?, deviceSessionID: String?, reply: @escaping (Result<([String], [String]), Error>) -> Void) {
         logger.info("starting fetchViableBottlesWithSemaphoreFromCuttlefish")
 
         let request = FetchViableBottlesRequest.with { request in
@@ -4526,6 +4761,10 @@ class Container: NSObject, ConfiguredCloudKit {
             } else {
                 logger.info("Requesting Cuttlefish to filter records by Octagon Only")
                 request.filterRequest = .byOctagonOnly
+            }
+            request.metrics = Metrics.with { metrics in
+                metrics.deviceSessionID = deviceSessionID ?? ""
+                metrics.flowID = flowID ?? ""
             }
         }
 
@@ -4562,7 +4801,7 @@ class Container: NSObject, ConfiguredCloudKit {
     }
 
     func fetchEscrowRecordsFromCuttlefishWithSemaphore(reply: @escaping (Result<[Data], Error>) -> Void) {
-        self.fetchViableBottlesFromCuttlefishWithSemaphore { result in
+        self.fetchViableBottlesFromCuttlefishWithSemaphore(flowID: nil, deviceSessionID: nil) { result in
             reply(self.moc.performAndWait { result.map { _ in
                 self.onqueueCachedEscrowRecords().compactMap { $0.data }
             }})
@@ -4595,14 +4834,22 @@ class Container: NSObject, ConfiguredCloudKit {
 
                 let modelID = TPPeerPermanentInfo.mungeModelID(modelIDOverride)
 
-                guard let policyDocument = self.model.policy(withVersion: prevailingPolicyVersion.versionNumber) else {
+                let policyDocument: TPPolicyDocument?
+                do {
+                    policyDocument = try self.model.policy(withVersion: prevailingPolicyVersion.versionNumber)
+                } catch {
+                    logger.error("error finding prevailing policy: \(error, privacy: .public)")
+                    reply(nil, .UNKNOWN, error)
+                    return
+                }
+                guard let policyDocument else {
                     logger.info("prevailing policy is missing?")
                     reply(nil, .UNKNOWN, ContainerError.noPreparedIdentity)
                     return
                 }
 
                 do {
-                    let prevailingPolicy = try policyDocument.policy(withSecrets: [:], decrypter: Decrypter())
+                    let prevailingPolicy = try policyDocument.policy(withSecrets: [:], decrypter: PolicyRedactionCrypter())
                     let syncingPolicy = try prevailingPolicy.syncingPolicy(forModel: modelID, syncUserControllableViews: .UNKNOWN, isInheritedAccount: isInheritedAccount)
 
                     logger.info("returning a policy for model ID \(modelID, privacy: .public)")
@@ -4651,7 +4898,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     }
 
                     // Note: we specifically do not want to sanitize this value for the platform: returning FOLLOWING here isn't that helpful
-                    let peersUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
+                    let peersUserViewSyncability = try self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
                     reply(syncingPolicy, peersUserViewSyncability, nil)
                     return
                 } catch {
@@ -4675,12 +4922,15 @@ class Container: NSObject, ConfiguredCloudKit {
             bestPolicyVersion = peerPolicyVersion
         }
 
-        guard let policyDocument = self.model.policy(withVersion: bestPolicyVersion.versionNumber) else {
+        let policyDocument = try self.moc.performAndWait {
+            return try self.model.policy(withVersion: bestPolicyVersion.versionNumber)
+        }
+        guard let policyDocument else {
             logger.info("best policy(\(bestPolicyVersion, privacy: .public)) is missing?")
             throw ContainerError.unknownPolicyVersion(bestPolicyVersion.versionNumber)
         }
 
-        let policy = try policyDocument.policy(withSecrets: stableInfo.policySecrets ?? [:], decrypter: Decrypter())
+        let policy = try policyDocument.policy(withSecrets: stableInfo.policySecrets ?? [:], decrypter: PolicyRedactionCrypter())
         return try policy.syncingPolicy(forModel: modelID, syncUserControllableViews: stableInfo.syncUserControllableViews, isInheritedAccount: stableInfo.isInheritedAccount)
     }
 
@@ -4771,7 +5021,6 @@ class Container: NSObject, ConfiguredCloudKit {
                         remaining.remove(expectedVersion) // Server responses should be unique, let's enforce
 
                         docs[doc.version] = doc
-                        self.model.register(doc)
 
                         let policyMO = PolicyMO(context: self.moc)
                         policyMO.version = Int64(doc.version.versionNumber)
@@ -4880,23 +5129,25 @@ class Container: NSObject, ConfiguredCloudKit {
         var peerShares: [TLKShare] = []
 
         for keyset in newCKKSKeys {
-            do {
-                let peerIDsWithAccess = try self.model.getPeerIDsTrustedByPeer(with: egoPeerDynamicInfo,
-                                                                               toAccessView: keyset.tlk.zoneID.zoneName)
-                logger.info("Planning to share \(String(describing: keyset.tlk), privacy: .public) with peers \(peerIDsWithAccess, privacy: .public)")
+            autoreleasepool {
+                do {
+                    let peerIDsWithAccess = try self.model.getPeerIDsTrustedByPeer(with: egoPeerDynamicInfo,
+                                                                                   toAccessView: keyset.tlk.zoneID.zoneName)
+                    logger.info("Planning to share \(String(describing: keyset.tlk), privacy: .public) with peers \(peerIDsWithAccess, privacy: .public)")
 
-                let peers = try peerIDsWithAccess.compactMap { try self.model.peer(withID: $0) }
-                let viewPeerShares = try peers.map { receivingPeer in
-                    TLKShare.convert(ckksTLKShare: try CKKSTLKShare(keyset.tlk,
-                                                                    as: egoPeerKeys,
-                                                                    to: receivingPeer.permanentInfo,
-                                                                    epoch: epoch,
-                                                                    poisoned: 0))
+                    let peers = try peerIDsWithAccess.compactMap { try self.model.peer(withID: $0) }
+                    let viewPeerShares = try peers.map { receivingPeer in
+                        TLKShare.convert(ckksTLKShare: try CKKSTLKShare(keyset.tlk,
+                                                                        as: egoPeerKeys,
+                                                                        to: receivingPeer.permanentInfo,
+                                                                        epoch: epoch,
+                                                                        poisoned: 0))
+                    }
+
+                    peerShares += viewPeerShares
+                } catch {
+                    logger.error("Unable to create TLKShares for keyset \(keyset, privacy: .public): \(String(describing: error), privacy: .public)")
                 }
-
-                peerShares += viewPeerShares
-            } catch {
-                logger.error("Unable to create TLKShares for keyset \(keyset, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
 
@@ -4932,7 +5183,13 @@ class Container: NSObject, ConfiguredCloudKit {
                 newUserViewSyncability = .FOLLOWING
             } else {
                 // All other platforms select what the other devices say to do
-                let consensusUserViewSyncability = self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
+                let consensusUserViewSyncability: TPPBPeerStableInfoUserControllableViewStatus
+                do {
+                    consensusUserViewSyncability = try self.model.userViewSyncabilityConsensusAmongTrustedPeers(dynamicInfo)
+                } catch {
+                    logger.error("error getting user view sync consensus: \(error, privacy: .public)")
+                    throw error
+                }
 
                 if consensusUserViewSyncability == .ENABLED && !self.managedConfigurationAdapter.isCloudKeychainSyncAllowed() {
                     logger.info("user-controllable views disabled by profile")
@@ -5036,7 +5293,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     do {
                         sponsor = try self.model.peer(withID: voucher.sponsorID)
                     } catch {
-                        logger.error("Error getting sponsor (\(voucher.sponsorID)): \(String(describing: error), privacy: .public)")
+                        logger.error("Error getting sponsor (\(voucher.sponsorID)): \(error, privacy: .public)")
                         reply(nil, [], nil, error)
                         return
                     }
@@ -5217,7 +5474,12 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func requestHealthCheck(requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
+    func requestHealthCheck(requiresEscrowCheck: Bool,
+                            repair: Bool,
+                            knownFederations: [String],
+                            flowID: String?,
+                            deviceSessionID: String?, 
+                            reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (TrustedPeersHelperHealthCheckResult?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
@@ -5235,11 +5497,18 @@ class Container: NSObject, ConfiguredCloudKit {
                 reply(nil, ContainerError.noPreparedIdentity)
                 return
             }
+
+            let metrics = Metrics.with {
+                $0.flowID = flowID ?? String()
+                $0.deviceSessionID = deviceSessionID ?? String()
+            }
+
             let request = GetRepairActionRequest.with {
                 $0.peerID = egoPeerID
                 $0.requiresEscrowCheck = requiresEscrowCheck
                 $0.knownFederations = knownFederations
                 $0.performCleanup = repair
+                $0.metrics = metrics
             }
 
             self.cuttlefish.getRepairAction(request) { response in
@@ -5417,6 +5686,7 @@ class Container: NSObject, ConfiguredCloudKit {
             case .success:
                 self.moc.performAndWait {
                     self.onQueueRemoveEscrowCache()
+                    self.onQueueRemoveAccountSettings()
                 }
                 reply(nil)
             case .failure(let error):
@@ -5435,6 +5705,37 @@ class Container: NSObject, ConfiguredCloudKit {
             sem.release()
             reply($0, $1)
         }
+        if !forceFetch {
+            var retSettings: [String: TPPBPeerStableInfoSetting]?
+            var retError: Error?
+            self.moc.performAndWait {
+                if let accountSettings = self.containerMO.accountSettings {
+                    do {
+                        if let settings = try Container.accountSettingsToDict(data: accountSettings) {
+                            retSettings = settings
+                        }
+                    } catch {
+                        logger.error("fetchAccountSettings: found bad cached account settings, removing")
+                        self.onQueueRemoveAccountSettings()
+                        do {
+                            try moc.saveIfChanged()
+                        } catch {
+                            logger.error("failed to save: \(error)")
+                            retError = error
+                        }
+                    }
+                }
+            }
+            if let retError {
+                reply(nil, retError)
+                return
+            }
+            if let retSettings {
+                reply(retSettings, nil)
+                return
+            }
+        }
+
         let block: (Error?) -> Void = { error in
             guard error == nil else {
                 logger.error("fetchAccountSettings unable to fetch changes: \(String(describing: error), privacy: .public)")
@@ -5446,7 +5747,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     bestWalrus = try self.model.bestWalrusAcrossTrustedPeers()
                 } catch {
-                    logger.error("fetchAccountSettings unable to find best ADP: \(String(describing: error), privacy: .public)")
+                    logger.error("fetchAccountSettings unable to find best walrus: \(error, privacy: .public)")
                     reply(nil, error)
                     return
                 }
@@ -5454,7 +5755,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     bestWebAccess = try self.model.bestWebAccessAcrossTrustedPeers()
                 } catch {
-                    logger.error("fetchAccountSettings unable to find best web access: \(String(describing: error), privacy: .public)")
+                    logger.error("fetchAccountSettings unable to find best web access: \(error, privacy: .public)")
                     reply(nil, error)
                     return
                 }
@@ -5466,6 +5767,19 @@ class Container: NSObject, ConfiguredCloudKit {
                 if let webAccess = bestWebAccess {
                     settings["webAccess"] = webAccess
                 }
+                do {
+                    self.containerMO.accountSettings = try NSKeyedArchiver.archivedData(withRootObject: settings, requiringSecureCoding: true)
+                    self.containerMO.accountSettingsDate = Date()
+                } catch {
+                    logger.error("Failed to set cached account settings, ignoring: \(error)")
+                    self.onQueueRemoveAccountSettings()
+                    do {
+                        try self.moc.save()
+                    } catch {
+                        logger.error("failed to save: \(error)")
+                    }
+                }
+
                 reply(settings, nil)
             }
         }
@@ -5850,7 +6164,7 @@ class Container: NSObject, ConfiguredCloudKit {
                     do {
                         egoPeer = try self.model.peer(withID: egoPeerID)
                     } catch {
-                        logger.warning("setPreapprovedKeys: error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                        logger.warning("setPreapprovedKeys: error getting ego peer from model: \(error, privacy: .public)")
                         egoPeer = nil
                     }
                     if dynamicInfo == egoPeer?.dynamicInfo {
@@ -6258,7 +6572,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 do {
                     currentSelfInModel = try self.model.peer(withID: egoPeerID)
                 } catch {
-                    logger.warning("Failed to get (current self) ego peer from model: \(String(describing: error), privacy: .public)")
+                    logger.warning("Failed to get (current self) ego peer from model: \(error, privacy: .public)")
                     currentSelfInModel = nil
                 }
                 guard let currentSelfInModel else {
@@ -6352,7 +6666,7 @@ class Container: NSObject, ConfiguredCloudKit {
                         do {
                             peer = try self.model.peer(withID: egoPeerID)
                         } catch {
-                            logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                            logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
                             peer = nil
                         }
                         if (stableInfo == nil || stableInfo == peer?.stableInfo) &&
@@ -6482,7 +6796,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 try self.moc.save()
             }
         } catch {
-            logger.error("removePeer unable to remove peerID \(peerID, privacy: .public)): \(String(describing: error), privacy: .public)")
+            logger.error("removePeer unable to remove peerID \(peerID, privacy: .public)): \(error, privacy: .public)")
         }
     }
 
@@ -6506,6 +6820,7 @@ class Container: NSObject, ConfiguredCloudKit {
         if !changes.differences.isEmpty {
             logger.info("escrow cache and viable bottles are no longer valid")
             self.onQueueRemoveEscrowCache()
+            self.onQueueRemoveAccountSettings()
 
             self.darwinNotifier.post(OTCliqueChanged)
         }
@@ -6558,6 +6873,7 @@ class Container: NSObject, ConfiguredCloudKit {
         do {
             let peerRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Peer")
             peerRequest.predicate = NSPredicate(format: "container == %@", self.containerMO)
+            peerRequest.resultType = .managedObjectIDResultType
             try self.moc.execute(NSBatchDeleteRequest(fetchRequest: peerRequest))
 
             // If we have an ego peer ID, keep the bottle associated with it
@@ -6574,6 +6890,7 @@ class Container: NSObject, ConfiguredCloudKit {
             } else {
                 let bottleRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Bottle")
                 bottleRequest.predicate = NSPredicate(format: "container == %@", self.containerMO)
+                peerRequest.resultType = .managedObjectIDResultType
                 try self.moc.execute(NSBatchDeleteRequest(fetchRequest: bottleRequest))
                 self.containerMO.bottles = nil
             }
@@ -6714,7 +7031,7 @@ class Container: NSObject, ConfiguredCloudKit {
 
     // Must be on moc queue to call this.
     private func getPolicyDoc(_ policyVersion: UInt64) throws -> TPPolicyDocument {
-        guard let policyDoc = self.model.policy(withVersion: policyVersion) else {
+        guard let policyDoc = try self.model.policy(withVersion: policyVersion) else {
             throw ContainerError.unknownPolicyVersion(policyVersion)
         }
         assert(policyVersion == policyDoc.version.versionNumber)
@@ -7137,6 +7454,82 @@ class Container: NSObject, ConfiguredCloudKit {
             reply(nil)
         default:
             reply(nil)
+        }
+    }
+
+    func fetchCurrentItem(items: [CuttlefishCurrentItemSpecifier], reply: @escaping ([CuttlefishCurrentItem]?, [CKRecord]?, Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: ([CuttlefishCurrentItem]?, [CKRecord]?, Error?) -> Void = {
+            let logType: OSLogType = $2 == nil ? .info : .error
+            logger.log(level: logType, "fetchCurrentItem complete: \(traceError($2), privacy: .public)")
+            sem.release()
+            reply($0, $1, $2)
+        }
+
+        logger.info("starting fetchCurrentItem")
+
+        let currentItemPointers = items.map { item in
+            CurrentCKKSItemSpecifier.with {
+                $0.itemPointerName = item.itemPtrName
+                $0.zone = item.zoneID
+            }
+        }
+
+        let request = CurrentItemFetchRequest.with {
+            $0.currentItems = currentItemPointers
+        }
+
+        self.cuttlefish.fetchCurrentItem(request) { response in
+            switch response {
+            case .success(let response):
+                let syncKeyRecords = response.synckeys.compactMap { CKRecord($0) }
+                // convert Cuttlefish CurrentCKKSItem to TPH CuttlefishCurrentItem
+                let ckksItems: [CuttlefishCurrentItem] = response.items.map { $0.convert() }
+                reply(ckksItems, syncKeyRecords, nil)
+                return
+            case .failure(let error):
+                logger.error("fetchCurrentItem failed: \(String(describing: error), privacy: .public)")
+                reply([], [], error)
+                return
+            }
+        }
+    }
+
+    func fetchPCSIdentityByKey(services: [CuttlefishPCSServiceIdentifier], reply: @escaping ([CuttlefishPCSIdentity], [CKRecord], Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: ([CuttlefishPCSIdentity]?, [CKRecord]?, Error?) -> Void = {
+            let logType: OSLogType = $2 == nil ? .info : .error
+            logger.log(level: logType, "fetchPCSIdentityByKey complete: \(traceError($2), privacy: .public)")
+            sem.release()
+            reply($0 ?? [], $1 ?? [], $2)
+        }
+        logger.info("starting fetchPCSIdentityByKey")
+
+        let requested_services = services.map { service in
+            PCSService.with {
+                $0.serviceIdentifier = Int32(truncating: service.pcsServiceID ?? -1)
+                $0.publicKey = service.pcsPublicKey ?? Data()
+                $0.zone = service.zoneID ?? ""
+            }
+        }
+
+        let request = DirectPCSIdentityFetchRequest.with {
+            $0.pcsServices = requested_services
+        }
+
+        self.cuttlefish.fetchPcsidentityByPublicKey(request) { response in
+            switch response {
+            case .success(let response):
+                let syncKeyRecords = response.synckeys.compactMap { CKRecord($0) }
+                // convert Cuttlefish DirectPCSIdentity to TPH CuttlefishPCSIdentity
+                let pcsItems: [CuttlefishPCSIdentity] = response.items.map { $0.convert() }
+                reply(pcsItems, syncKeyRecords, nil)
+                return
+            case .failure(let error):
+                logger.error("fetchPCSIdentityByKey failed: \(String(describing: error), privacy: .public)")
+                reply([], [], error)
+                return
+            }
         }
     }
 }

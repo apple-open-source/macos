@@ -26,22 +26,7 @@
 #import "config.h"
 #import "WKBundlePageMac.h"
 
-#import "PluginView.h"
-#import "WKBundleAPICast.h"
-#import "WKBundleFrame.h"
-#import "WebFrame.h"
-#import "WebPage.h"
-
-WK_EXPORT PDFDocument *WKBundlePageGetPDFDocumentInFrame(WKBundlePageRef, WKBundleFrameRef frame)
+WK_EXPORT PDFDocument *WKBundlePageGetPDFDocumentInFrame(WKBundlePageRef, WKBundleFrameRef)
 {
-#if !ENABLE(LEGACY_PDFKIT_PLUGIN)
-    UNUSED_PARAM(frame);
     return nil;
-#else
-    auto* pluginView = WebKit::WebPage::pluginViewForFrame(WebKit::toImpl(frame)->coreLocalFrame());
-    if (!pluginView)
-        return nil;
-
-    return pluginView->pdfDocumentForPrinting().autorelease();
-#endif
 }

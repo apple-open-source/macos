@@ -322,3 +322,8 @@ mechanism_get_type(mechanism_t mech)
 {
     return mech->type;
 }
+
+void mechanism_set_string(mechanism_t mech, const char *str)
+{
+    auth_items_set_string(mech->data, MECHANISM_PARAM, str);
+}

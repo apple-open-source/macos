@@ -253,6 +253,24 @@ __nullable CF_RETURNS_RETAINED
 CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
 
 /*
+ @function SecTrustCopyTrustStoreContentDigest
+ @abstract Ask trustd for the content digest of the trust store asset it is using.
+ @param error A returned error if trustd failed to answer.
+ @result The current version of the trust store. NULL upon failure.
+ */
+__nullable CF_RETURNS_RETAINED
+CFStringRef SecTrustCopyTrustStoreContentDigest(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+/*
+ @function SecTrustCopyTrustStoreAssetVersion
+ @abstract Ask trustd for the asset version of the trust store asset it is using.
+ @param error A returned error if trustd failed to answer.
+ @result The current version of the trust store asset, or NULL if the asset was unavailable.
+ */
+__nullable CF_RETURNS_RETAINED
+CFStringRef SecTrustCopyTrustStoreAssetVersion(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+/*
  @function SecTrustGetTrustStoreVersionNumber
  @abstract Ask trustd what trust store version it is using.
  @param error A returned error if trustd failed to answer.
@@ -262,9 +280,9 @@ uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef _Nullable * _Nullable CF_
 
 /*
  @function SecTrustGetAssetVersionNumber
- @abstract Ask trustd what asset version it is using.
+ @abstract Ask trustd what trust supplementals asset version it is using.
  @param error A returned error if trustd failed to answer.
- @result The current version of the asset. 0 upon failure.
+ @result The current version of the trust supplementals asset. 0 upon failure.
  */
 uint64_t SecTrustGetAssetVersionNumber(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
 
@@ -552,7 +570,7 @@ CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 
 /*
- *  Legacy functions (OS X only)
+ *  Legacy functions (macOS only)
  */
 #if TARGET_OS_OSX
 
@@ -642,7 +660,7 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA * __nullable * __null
      no extended result data and errSecDataNotAvailable is returned. Currently, only one dictionary key is defined
      (kSecEVOrganizationName).
 
-     Note: this function will be deprecated in a future release of OS X. Your
+     Note: this function will be deprecated in a future release of macOS. Your
      code should use SecTrustCopyResult to obtain the trust results dictionary.
  */
 OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef * __nonnull CF_RETURNS_RETAINED result)

@@ -64,7 +64,13 @@ static const CFRuntimeClass __SCUserPreferencesClass = {
 	__SCUserPreferencesEqual,		// equal
 	__SCUserPreferencesHash,		// hash
 	NULL,					// copyFormattingDesc
-	__SCUserPreferencesCopyDescription	// copyDebugDesc
+	__SCUserPreferencesCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 

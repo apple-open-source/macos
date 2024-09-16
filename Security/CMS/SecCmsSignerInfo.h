@@ -46,7 +46,7 @@ extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreate(SecCmsMessageRef cmsg, SecIdentityRef identity, SECOidTag digestalgtag)
     API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 
-#else // !TARGET_OSX
+#else // !TARGET_OS_OSX
 
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOidTag digestalgtag)
@@ -299,9 +299,10 @@ SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs);
 
 /*
  * Preference domain and key for the Microsoft ECDSA compatibility flag.
- * Default if not present is TRUE, meaning we generate ECDSA-signed messages
- * which are compatible with Microsoft Entourage. FALSE means we adhere to
+ * Default if not present is FALSE, meaning we adhere to
  * the spec (RFC 3278 section 2.1.1).
+ * TRUE means we generate ECDSA-signed messages
+ * which are compatible with Microsoft Entourage.
  */
 #define kMSCompatibilityDomain    "com.apple.security.smime"
 #define kMSCompatibilityMode    CFSTR("MSCompatibilityMode")

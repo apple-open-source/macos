@@ -49,6 +49,7 @@ struct kword {
 	{ "env",		ENV },
 	{ "argmode",		ARGMODE },
 	{ "logonly",		LOGONLY },
+	{ "pattern",		PATTERN },
 };
 
 int kword_lookup(const char *);

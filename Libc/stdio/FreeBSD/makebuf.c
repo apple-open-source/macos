@@ -55,47 +55,62 @@ __FBSDID("$FreeBSD$");
 #ifdef FEATURE_SMALL_STDIOBUF
 # define MAXBUFSIZE	(1 << 12)
 #else
-# define MAXBUFSIZE	(1 << 16)
+# define MAXBUFSIZE	(1 << 24)
 #endif
 
 #define TTYBUFSIZE	4096
 #define MAXEVPSIZE 16
 
 static char __fallback_evp[MAXEVPSIZE];
+static char __stdin_evp[MAXEVPSIZE];
 static char __stdout_evp[MAXEVPSIZE];
+static char __stderr_evp[MAXEVPSIZE];
 
 static void
-__loadevp(const char* key, char destination[MAXEVPSIZE])
+__loadevp(const char *key, char destination[MAXEVPSIZE])
 {
-	char* evp = getenv(key);
-	if (evp != NULL) {
+	char *evp = getenv(key);
+	if (evp != NULL)
 		strlcpy(destination, evp, MAXEVPSIZE);
-	} else {
-		destination[0] = '\0';
-	}
 }
 
 static void
-__evpinit(void* __unused unused)
+__evpinit(void __unused *unused)
 {
+	/* NetBSD style */
 	__loadevp("STDBUF", __fallback_evp);
+	__loadevp("STDBUF0", __stdin_evp);
 	__loadevp("STDBUF1", __stdout_evp);
+	__loadevp("STDBUF2", __stderr_evp);
+	/* GNU / FreeBSD style */
+	__loadevp("_STDBUF_I", __stdin_evp);
+	__loadevp("_STDBUF_O", __stdout_evp);
+	__loadevp("_STDBUF_E", __stderr_evp);
 }
 
-static char*
+static char *
 __getevp(int fd)
 {
 	static os_once_t predicate;
 	os_once(&predicate, NULL, __evpinit);
 
-	if (fd == STDOUT_FILENO && __stdout_evp[0] != '\0') {
-		return __stdout_evp;
-	} else if (__fallback_evp[0] != '\0') {
-		return __fallback_evp;
-	} else {
-		return NULL;
+	switch (fd) {
+	case STDIN_FILENO:
+		if (__stdin_evp[0] != '\0')
+			return __stdin_evp;
+		break;
+	case STDOUT_FILENO:
+		if (__stdout_evp[0] != '\0')
+			return __stdout_evp;
+		break;
+	case STDERR_FILENO:
+		if (__stderr_evp[0] != '\0')
+			return __stderr_evp;
+		break;
 	}
-
+	if (__fallback_evp[0] != '\0')
+		return __fallback_evp;
+	return NULL;
 }
 
 /*
@@ -106,54 +121,67 @@ __getevp(int fd)
 static int
 __senvbuf(FILE *fp, size_t *bufsize, int *couldbetty)
 {
-	char* evp;
-	char* end;
-	int flags;
-	long size;
+	char *evp;
+	int flags = 0; // default = fully buffered
+	size_t size = 0;
 
-	flags = 0; // Default to fully buffered
-
-	if ((evp = __getevp(fp->_file)) == NULL) {
-		return flags;
-	}
-
-	// Look at the first character only to determine buffering mode
+	if ((evp = __getevp(fp->_file)) == NULL || *evp == '\0')
+		return 0;
+	/*
+	 * NetBSD style: [UuLlFf] followed by an optional size
+	 * GNU style: [0L] or a size
+	 * FreeBSD style: [0LB] or a size
+	 * Synthesis: optional [0UuLlFfB] followed by optional size.
+	 */
 	switch (*evp) {
-		case 'u':
-		case 'U':
-			flags |= __SNBF;
-			break;
-		case 'l':
-		case 'L':
-			flags |= __SLBF;
-			break;
-		case 'f':
-		case 'F':
-			// Default flags is fully buffered
-			break;
-		default:
-			// Unexpected buffering mode, use default fully buffered
-			return flags;
+	case '0':
+	case 'U':
+	case 'u':
+		evp++;
+		flags = __SNBF;
+		break;
+	case 'L':
+	case 'l':
+		evp++;
+		flags = __SLBF;
+		break;
+	case 'F':
+	case 'f':
+	case 'B':
+		evp++;
+		break;
 	}
-	// User specified envrionment defaults have higher priority than tty defaults
+	if (flags == __SNBF && *evp != '\0')
+		return 0;
+	for (; isdigit((unsigned char)*evp); evp++)
+		size = size * 10 + *evp - '0';
+	/*
+	 * GNU accepts suffixes up to Z and has different notations for
+	 * binary and decimal.  FreeBSD accepts suffixes up to G.  We'll
+	 * settle for [Kk] and M and not bother with the distinction
+	 * between binary and decimal.
+	 */
+	switch (*evp) {
+	case 'M':
+		evp++;
+		size *= 1024 * 1024;
+		break;
+	case 'K':
+	case 'k':
+		evp++;
+		size *= 1024;
+		break;
+	case 'B':
+	case '\0':
+		break;
+	default:
+		return 0;
+	}
+	if (*evp == 'B')
+		evp++;
+	if (*evp != '\0')
+		return 0;
 	*couldbetty = 0;
-
-	// Advance the envrionment variable pointer, so we can attempt to parse the number
-	evp++;
-	if (!isdigit(*evp)) {
-		return flags; // No number found, this protects us from negative size values
-	}
-
-	size = strtol_l(evp, &end, 10, LC_C_LOCALE);
-	if (*end != '\0') {
-		return flags;
-	}
-
-	if (size <= 0) {
-		return __SNBF; // Override with unbuffered if the buffer size is 0
-	}
-
-	// We had a non zero buffer, cap it and return the flags;
 	*bufsize = size > MAXBUFSIZE ? MAXBUFSIZE : size;
 	return flags;
 }
@@ -188,6 +216,8 @@ __smakebuf(FILE *fp)
 			fp->_bf._size = 1;
 			return;
 		}
+		if (size == 0)
+			size = BUFSIZ;
 	}
 
 	if (couldbetty && isatty(fp->_file)) {
@@ -202,7 +232,11 @@ __smakebuf(FILE *fp)
 		fp->_bf._size = 1;
 		return;
 	}
+#ifdef __APPLE__
+	__cleanup = 1;
+#else
 	__cleanup = _cleanup;
+#endif // __APPLE__
 	flags |= __SMBF;
 	fp->_bf._base = fp->_p = p;
 	fp->_bf._size = size;

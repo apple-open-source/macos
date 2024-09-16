@@ -135,7 +135,7 @@ RenderTableSection* RenderTable::topSection() const
 void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
-    propagateStyleToAnonymousChildren(PropagateToAllChildren);
+    propagateStyleToAnonymousChildren(StylePropagationType::AllChildren);
 
     bool oldFixedTableLayout = oldStyle ? oldStyle->isFixedTableLayout() : false;
 
@@ -272,8 +272,8 @@ void RenderTable::updateLogicalWidth()
     LayoutUnit containerWidthInInlineDirection = hasPerpendicularContainingBlock ? perpendicularContainingBlockLogicalHeight() : availableLogicalWidth;
 
     Length styleLogicalWidth = style().logicalWidth();
-    if (hasOverridingLogicalWidth())
-        setLogicalWidth(overridingLogicalWidth());
+    if (auto overridingLogicalWidth = this->overridingLogicalWidth())
+        setLogicalWidth(*overridingLogicalWidth);
     else if ((styleLogicalWidth.isSpecified() && styleLogicalWidth.isPositive()) || styleLogicalWidth.isIntrinsic())
         setLogicalWidth(convertStyleLogicalWidthToComputedWidth(styleLogicalWidth, containerWidthInInlineDirection));
     else {
@@ -458,7 +458,7 @@ void RenderTable::layout()
     unsigned sectionCount = 0;
     bool shouldCacheIntrinsicContentLogicalHeightForFlexItem = true;
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this);
     {
         LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || style().isFlippedBlocksWritingMode());
 
@@ -489,18 +489,17 @@ void RenderTable::layout()
         bool collapsing = collapseBorders();
 
         for (auto& child : childrenOfType<RenderElement>(*this)) {
-            if (is<RenderTableSection>(child)) {
-                RenderTableSection& section = downcast<RenderTableSection>(child);
+            if (CheckedPtr section = dynamicDowncast<RenderTableSection>(child)) {
                 if (m_columnLogicalWidthChanged)
-                    section.setChildNeedsLayout(MarkOnlyThis);
-                section.layoutIfNeeded();
-                totalSectionLogicalHeight += section.calcRowLogicalHeight();
+                    section->setChildNeedsLayout(MarkOnlyThis);
+                section->layoutIfNeeded();
+                totalSectionLogicalHeight += section->calcRowLogicalHeight();
                 if (collapsing)
-                    section.recalcOuterBorder();
-                ASSERT(!section.needsLayout());
-            } else if (is<RenderTableCol>(child)) {
-                downcast<RenderTableCol>(child).layoutIfNeeded();
-                ASSERT(!child.needsLayout());
+                    section->recalcOuterBorder();
+                ASSERT(!section->needsLayout());
+            } else if (CheckedPtr column = dynamicDowncast<RenderTableCol>(child)) {
+                column->layoutIfNeeded();
+                ASSERT(!column->needsLayout());
             }
         }
 
@@ -527,8 +526,8 @@ void RenderTable::layout()
         if (logicalHeightLength.isIntrinsic() || (logicalHeightLength.isSpecified() && logicalHeightLength.isPositive()))
             computedLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalHeightLength);
 
-        if (hasOverridingLogicalHeight())
-            computedLogicalHeight = std::max(computedLogicalHeight, overridingLogicalHeight() - borderAndPaddingAfter - sumCaptionsLogicalHeight());
+        if (auto overridingLogicalHeight = this->overridingLogicalHeight())
+            computedLogicalHeight = std::max(computedLogicalHeight, *overridingLogicalHeight - borderAndPaddingAfter - sumCaptionsLogicalHeight());
 
         Length logicalMaxHeightLength = style().logicalMaxHeight();
         if (logicalMaxHeightLength.isFillAvailable() || (logicalMaxHeightLength.isSpecified() && !logicalMaxHeightLength.isNegative()
@@ -554,7 +553,12 @@ void RenderTable::layout()
             // Completely empty tables (with no sections or anything) should at least honor their
             // overriding or specified height in strict mode, but this value will not be cached.
             shouldCacheIntrinsicContentLogicalHeightForFlexItem = false;
-            setLogicalHeight(hasOverridingLogicalHeight() ? overridingLogicalHeight() - borderAndPaddingAfter : logicalHeight() + computedLogicalHeight);
+            auto tableLogicalHeight = [&] {
+                if (auto overridingLogicalHeight = this->overridingLogicalHeight())
+                    return *overridingLogicalHeight - borderAndPaddingAfter;
+                return logicalHeight() + computedLogicalHeight;
+            };
+            setLogicalHeight(tableLogicalHeight());
         }
 
         LayoutUnit sectionLogicalLeft = style().isLeftToRightDirection() ? borderStart() : borderEnd();
@@ -704,16 +708,31 @@ void RenderTable::addOverflowFromChildren()
     }
 
     // Add overflow from our caption.
-    for (unsigned i = 0; i < m_captions.size(); i++) 
-        addOverflowFromChild(m_captions[i].get());
+    for (unsigned i = 0; i < m_captions.size(); ++i) {
+        if (auto* caption = m_captions[i].get())
+            addOverflowFromChild(*caption);
+    }
 
     // Add overflow from our sections.
-    for (RenderTableSection* section = topSection(); section; section = sectionBelow(section))
-        addOverflowFromChild(section);
+    for (auto* section = topSection(); section; section = sectionBelow(section))
+        addOverflowFromChild(*section);
 }
 
 void RenderTable::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
+    auto isSkippedContent = [&] {
+        if (style().usedContentVisibility() == ContentVisibility::Visible)
+            return false;
+        // FIXME: Tables can never be skipped content roots. If a table is _inside_ a skipped subtree, we should have bailed out at the skipped root ancestor.
+        // However with continuation (see webkit.org/b/275459) used visibility values does not always get propagated properly and
+        // we may end up here with a dirty (skipped) table.
+        if (auto* containingBlock = this->containingBlock(); containingBlock && containingBlock->isAnonymousBlock() && !containingBlock->style().hasSkippedContent())
+            return true;
+        return false;
+    };
+    if (isSkippedContent())
+        return;
+
     LayoutPoint adjustedPaintOffset = paintOffset + location();
 
     PaintPhase paintPhase = paintInfo.phase;
@@ -735,13 +754,16 @@ void RenderTable::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     PaintPhase paintPhase = paintInfo.phase;
-    if ((paintPhase == PaintPhase::BlockBackground || paintPhase == PaintPhase::ChildBlockBackground) && hasVisibleBoxDecorations() && style().visibility() == Visibility::Visible)
+    if ((paintPhase == PaintPhase::BlockBackground || paintPhase == PaintPhase::ChildBlockBackground) && hasVisibleBoxDecorations() && style().usedVisibility() == Visibility::Visible)
         paintBoxDecorations(paintInfo, paintOffset);
 
     if (paintPhase == PaintPhase::Mask) {
         paintMask(paintInfo, paintOffset);
         return;
     }
+
+    if (paintPhase == PaintPhase::Accessibility)
+        paintInfo.accessibilityRegionContext()->takeBounds(*this, paintOffset);
 
     // We're done.  We don't bother painting any children.
     if (paintPhase == PaintPhase::BlockBackground)
@@ -762,7 +784,7 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
         }
     }
     
-    if (collapseBorders() && paintPhase == PaintPhase::ChildBlockBackground && style().visibility() == Visibility::Visible) {
+    if (collapseBorders() && paintPhase == PaintPhase::ChildBlockBackground && style().usedVisibility() == Visibility::Visible) {
         recalcCollapsedBorders();
         // Using our cached sorted styles, we then do individual passes,
         // painting each style of border from lowest precedence to highest precedence.
@@ -779,7 +801,7 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
     }
 
     // Paint outline.
-    if ((paintPhase == PaintPhase::Outline || paintPhase == PaintPhase::SelfOutline) && hasOutline() && style().visibility() == Visibility::Visible)
+    if ((paintPhase == PaintPhase::Outline || paintPhase == PaintPhase::SelfOutline) && hasOutline() && style().usedVisibility() == Visibility::Visible)
         paintOutline(paintInfo, LayoutRect(paintOffset, size()));
 }
 
@@ -838,7 +860,7 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
 
 void RenderTable::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style().visibility() != Visibility::Visible || paintInfo.phase != PaintPhase::Mask)
+    if (style().usedVisibility() != Visibility::Visible || paintInfo.phase != PaintPhase::Mask)
         return;
 
     LayoutRect rect(paintOffset, size());
@@ -885,9 +907,9 @@ void RenderTable::computePreferredLogicalWidths()
     for (unsigned i = 0; i < m_captions.size(); i++)
         m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, m_captions[i]->minPreferredLogicalWidth());
 
-    if (hasOverridingLogicalWidth()) {
-        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, overridingLogicalWidth());
-        m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, overridingLogicalWidth());
+    if (auto overridingLogicalWidth = this->overridingLogicalWidth()) {
+        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, *overridingLogicalWidth);
+        m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, *overridingLogicalWidth);
     }
 
     auto& styleToUse = style();
@@ -967,8 +989,8 @@ void RenderTable::appendColumn(unsigned span)
 RenderTableCol* RenderTable::firstColumn() const
 {
     for (auto& child : childrenOfType<RenderObject>(*this)) {
-        if (is<RenderTableCol>(child))
-            return &const_cast<RenderTableCol&>(downcast<RenderTableCol>(child));
+        if (auto* column = dynamicDowncast<RenderTableCol>(child))
+            return const_cast<RenderTableCol*>(column);
     }
     return nullptr;
 }
@@ -987,7 +1009,7 @@ void RenderTable::updateColumnCache() const
         m_columnRenderers.append(columnRenderer);
         // FIXME: We should look to compute the effective column index successively from previous values instead of
         // calling colToEffCol(), which is in O(numEffCols()). Although it's unlikely that this is a hot function.
-        m_effectiveColumnIndexMap.add(columnRenderer, colToEffCol(columnIndex));
+        m_effectiveColumnIndexMap.add(*columnRenderer, colToEffCol(columnIndex));
         columnIndex += columnRenderer->span();
     }
     m_columnRenderersValid = true;
@@ -1119,31 +1141,28 @@ void RenderTable::recalcSections() const
             m_hasColElements = true;
             break;
         case DisplayType::TableHeaderGroup:
-            if (is<RenderTableSection>(*child)) {
-                RenderTableSection& section = downcast<RenderTableSection>(*child);
+            if (CheckedPtr section = dynamicDowncast<RenderTableSection>(*child)) {
                 if (!m_head)
-                    m_head = section;
+                    m_head = *section;
                 else if (!m_firstBody)
-                    m_firstBody = section;
-                section.recalcCellsIfNeeded();
+                    m_firstBody = *section;
+                section->recalcCellsIfNeeded();
             }
             break;
         case DisplayType::TableFooterGroup:
-            if (is<RenderTableSection>(*child)) {
-                RenderTableSection& section = downcast<RenderTableSection>(*child);
+            if (CheckedPtr section = dynamicDowncast<RenderTableSection>(*child)) {
                 if (!m_foot)
-                    m_foot = section;
+                    m_foot = *section;
                 else if (!m_firstBody)
-                    m_firstBody = section;
-                section.recalcCellsIfNeeded();
+                    m_firstBody = *section;
+                section->recalcCellsIfNeeded();
             }
             break;
         case DisplayType::TableRowGroup:
-            if (is<RenderTableSection>(*child)) {
-                RenderTableSection& section = downcast<RenderTableSection>(*child);
+            if (CheckedPtr section = dynamicDowncast<RenderTableSection>(*child)) {
                 if (!m_firstBody)
-                    m_firstBody = section;
-                section.recalcCellsIfNeeded();
+                    m_firstBody = *section;
+                section->recalcCellsIfNeeded();
             }
             break;
         default:
@@ -1166,7 +1185,7 @@ void RenderTable::recalcSections() const
     for (auto& section : childrenOfType<RenderTableSection>(const_cast<RenderTable&>(*this)))
         section.removeRedundantColumns();
 
-    ASSERT(selfNeedsLayout());
+    ASSERT(selfNeedsLayout() || !wasSkippedDuringLastLayoutDueToContentVisibility() || *wasSkippedDuringLastLayoutDueToContentVisibility());
 
     m_needsSectionRecalc = false;
 }
@@ -1410,13 +1429,14 @@ RenderTableSection* RenderTable::sectionAbove(const RenderTableSection* section,
 
     RenderObject* prevSection = section == m_foot ? lastChild() : section->previousSibling();
     while (prevSection) {
-        if (is<RenderTableSection>(*prevSection) && prevSection != m_head && prevSection != m_foot && (skipEmptySections == DoNotSkipEmptySections || downcast<RenderTableSection>(*prevSection).numRows()))
-            break;
+        auto* tableSection = dynamicDowncast<RenderTableSection>(*prevSection);
+        if (tableSection && prevSection != m_head && prevSection != m_foot && (skipEmptySections == DoNotSkipEmptySections || downcast<RenderTableSection>(*prevSection).numRows()))
+            return tableSection;
         prevSection = prevSection->previousSibling();
     }
     if (!prevSection && m_head && (skipEmptySections == DoNotSkipEmptySections || m_head->numRows()))
-        prevSection = m_head.get();
-    return downcast<RenderTableSection>(prevSection);
+        return m_head.get();
+    return nullptr;
 }
 
 RenderTableSection* RenderTable::sectionBelow(const RenderTableSection* section, SkipEmptySectionsValue skipEmptySections) const
@@ -1428,13 +1448,14 @@ RenderTableSection* RenderTable::sectionBelow(const RenderTableSection* section,
 
     RenderObject* nextSection = section == m_head ? firstChild() : section->nextSibling();
     while (nextSection) {
-        if (is<RenderTableSection>(*nextSection) && nextSection != m_head && nextSection != m_foot && (skipEmptySections  == DoNotSkipEmptySections || downcast<RenderTableSection>(*nextSection).numRows()))
-            break;
+        auto* tableSection = dynamicDowncast<RenderTableSection>(*nextSection);
+        if (tableSection && nextSection != m_head && nextSection != m_foot && (skipEmptySections  == DoNotSkipEmptySections || downcast<RenderTableSection>(*nextSection).numRows()))
+            return tableSection;
         nextSection = nextSection->nextSibling();
     }
     if (!nextSection && m_foot && (skipEmptySections == DoNotSkipEmptySections || m_foot->numRows()))
-        nextSection = m_foot.get();
-    return downcast<RenderTableSection>(nextSection);
+        return m_foot.get();
+    return nullptr;
 }
 
 RenderTableSection* RenderTable::bottomSection() const
@@ -1443,8 +1464,8 @@ RenderTableSection* RenderTable::bottomSection() const
     if (m_foot)
         return m_foot.get();
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
-        if (is<RenderTableSection>(*child))
-            return downcast<RenderTableSection>(child);
+        if (auto* tableSection = dynamicDowncast<RenderTableSection>(*child))
+            return tableSection;
     }
     return nullptr;
 }
@@ -1617,9 +1638,10 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     // Check kids first.
     if (!hasNonVisibleOverflow() || locationInContainer.intersects(overflowClipRect(adjustedLocation, nullptr))) {
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
-            if (is<RenderBox>(*child) && !downcast<RenderBox>(*child).hasSelfPaintingLayer() && (child->isRenderTableSection() || child->isRenderTableCaption())) {
-                LayoutPoint childPoint = flipForWritingModeForChild(*downcast<RenderBox>(child), adjustedLocation);
-                if (child->nodeAtPoint(request, result, locationInContainer, childPoint, action)) {
+            CheckedPtr box = dynamicDowncast<RenderBox>(*child);
+            if (box && !box->hasSelfPaintingLayer() && (box->isRenderTableSection() || box->isRenderTableCaption())) {
+                LayoutPoint childPoint = flipForWritingModeForChild(*box, adjustedLocation);
+                if (box->nodeAtPoint(request, result, locationInContainer, childPoint, action)) {
                     updateHitTestResult(result, toLayoutPoint(locationInContainer.point() - childPoint));
                     return true;
                 }
@@ -1631,7 +1653,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     LayoutRect boundsRect(adjustedLocation, size());
     if (visibleToHitTesting(request) && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && locationInContainer.intersects(boundsRect)) {
         updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - toLayoutSize(adjustedLocation)));
-        if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
             return true;
     }
 

@@ -18,7 +18,7 @@ namespace antlr {
  *  token type of a node without having to have tests for null
  *  everywhere.
  */
-RefAST TreeParser::ASTNULL(new ASTNULLType);
+[[clang::no_destroy]] RefAST TreeParser::ASTNULL(new ASTNULLType);
 
 /** Parser error-reporting function can be overridden in subclass */
 void TreeParser::reportError(const RecognitionException& ex)

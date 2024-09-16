@@ -37,6 +37,7 @@
 #include "WasmTag.h"
 #include "WasmTypeDefinitionInlines.h"
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/text/MakeString.h>
 
 namespace JSC { namespace Wasm {
 
@@ -52,9 +53,11 @@ Instance::Instance(VM& vm, JSGlobalObject* globalObject, Ref<Module>&& module)
     , m_passiveDataSegments(m_module->moduleInformation().dataSegmentsCount())
     , m_tags(m_module->moduleInformation().exceptionIndexSpaceSize())
 {
-    ASSERT(static_cast<ptrdiff_t>(Instance::offsetOfCachedMemory() + sizeof(void*)) == Instance::offsetOfCachedBoundsCheckingSize());
-    for (unsigned i = 0; i < m_numImportFunctions; ++i)
-        new (importFunctionInfo(i)) ImportFunctionInfo();
+    static_assert(static_cast<ptrdiff_t>(Instance::offsetOfCachedMemory() + sizeof(void*)) == Instance::offsetOfCachedBoundsCheckingSize());
+    for (unsigned i = 0; i < m_numImportFunctions; ++i) {
+        auto* info = new (importFunctionInfo(i)) ImportFunctionInfo();
+        info->callLinkInfo.initialize(vm, nullptr, CallLinkInfo::CallType::Call, CodeOrigin { });
+    }
     m_globals = bitwise_cast<Global::Value*>(bitwise_cast<char*>(this) + offsetOfGlobalPtr(m_numImportFunctions, m_module->moduleInformation().tableCount(), 0));
     memset(bitwise_cast<char*>(m_globals), 0, m_module->moduleInformation().globalCount() * sizeof(Global::Value));
     for (unsigned i = 0; i < m_module->moduleInformation().globals.size(); ++i) {
@@ -88,7 +91,11 @@ Ref<Instance> Instance::create(VM& vm, JSGlobalObject* globalObject, Ref<Module>
     return adoptRef(*new (NotNull, fastMalloc(allocationSize(module->moduleInformation().importFunctionCount(), module->moduleInformation().tableCount(), module->moduleInformation().globalCount()))) Instance(vm, globalObject, WTFMove(module)));
 }
 
-Instance::~Instance() = default;
+Instance::~Instance()
+{
+    for (unsigned i = 0; i < m_numImportFunctions; ++i)
+        importFunctionInfo(i)->~ImportFunctionInfo();
+}
 
 size_t Instance::extraMemoryAllocated() const
 {
@@ -254,7 +261,8 @@ void Instance::initElementSegment(uint32_t tableIndex, const Element& segment, u
                 continue;
             }
 
-            Callee& jsEntrypointCallee = calleeGroup()->jsEntrypointCalleeFromFunctionIndexSpace(functionIndex);
+            auto& jsEntrypointCallee = calleeGroup()->jsEntrypointCalleeFromFunctionIndexSpace(functionIndex);
+            auto* wasmCallee = calleeGroup()->wasmCalleeFromFunctionIndexSpace(functionIndex);
             WasmToWasmImportableFunction::LoadLocation entrypointLoadLocation = calleeGroup()->entrypointLoadLocationFromFunctionIndexSpace(functionIndex);
             const auto& signature = TypeInformation::getFunctionSignature(typeIndex);
             // FIXME: Say we export local function "foo" at function index 0.
@@ -269,6 +277,7 @@ void Instance::initElementSegment(uint32_t tableIndex, const Element& segment, u
                 WTF::makeString(functionIndex),
                 jsInstance,
                 jsEntrypointCallee,
+                wasmCallee,
                 entrypointLoadLocation,
                 typeIndex,
                 TypeInformation::getCanonicalRTT(typeIndex));
@@ -276,23 +285,33 @@ void Instance::initElementSegment(uint32_t tableIndex, const Element& segment, u
             continue;
         }
 
-        if (initType == Element::InitializationType::FromGlobal) {
-            jsTable->set(dstIndex, JSValue::decode(loadI64Global(initialBitsOrIndex)));
-            continue;
+        JSValue initValue;
+        if (initType == Element::InitializationType::FromGlobal)
+            initValue = JSValue::decode(loadI64Global(initialBitsOrIndex));
+        else {
+            ASSERT(initType == Element::InitializationType::FromExtendedExpression);
+            uint64_t result;
+            bool success = evaluateConstantExpression(initialBitsOrIndex, segment.elementType, result);
+            // FIXME: https://bugs.webkit.org/show_bug.cgi?id=264454
+            // Currently this should never fail, as the parse phase already validated it.
+            RELEASE_ASSERT(success);
+            initValue = JSValue::decode(result);
         }
 
-        ASSERT(initType == Element::InitializationType::FromExtendedExpression);
-        uint64_t result;
-        bool success = evaluateConstantExpression(initialBitsOrIndex, segment.elementType, result);
-        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=264454
-        // Currently this should never fail, as the parse phase already validated it.
-        RELEASE_ASSERT(success);
-        jsTable->set(dstIndex, JSValue::decode(result));
+        if (jsTable->table()->isExternrefTable())
+            jsTable->set(dstIndex, initValue);
+        else {
+            // Validation should guarantee that the table is for funcs, and the value is a func as well.
+            ASSERT(jsTable->table()->isFuncrefTable());
+            ASSERT(initValue.getObject());
+            WebAssemblyFunctionBase* func = jsDynamicCast<WebAssemblyFunctionBase*>(initValue.getObject());
+            ASSERT(func);
+            jsTable->set(dstIndex, func);
+        }
     }
 }
 
-template<typename T>
-bool Instance::copyDataSegment(uint32_t segmentIndex, uint32_t offset, uint32_t lengthInBytes, FixedVector<T>& values)
+bool Instance::copyDataSegment(uint32_t segmentIndex, uint32_t offset, uint32_t lengthInBytes, uint8_t* values)
 {
     // Fail if the data segment index is out of bounds
     RELEASE_ASSERT(segmentIndex < module().moduleInformation().dataSegmentsCount());
@@ -312,32 +331,26 @@ bool Instance::copyDataSegment(uint32_t segmentIndex, uint32_t offset, uint32_t 
     const uint8_t* segmentData = &segment->byte(offset);
 
     // Copy the data from the segment into the out param vector
-    memcpy(reinterpret_cast<uint8_t*>(values.data()), segmentData, lengthInBytes);
+    memcpy(values, segmentData, lengthInBytes);
 
     return true;
 }
 
-template bool Instance::copyDataSegment<uint8_t>(uint32_t, uint32_t, uint32_t, FixedVector<uint8_t>&);
-template bool Instance::copyDataSegment<uint16_t>(uint32_t, uint32_t, uint32_t, FixedVector<uint16_t>&);
-template bool Instance::copyDataSegment<uint32_t>(uint32_t, uint32_t, uint32_t, FixedVector<uint32_t>&);
-template bool Instance::copyDataSegment<uint64_t>(uint32_t, uint32_t, uint32_t, FixedVector<uint64_t>&);
-
-
-void Instance::copyElementSegment(const Element& segment, uint32_t srcOffset, uint32_t length, FixedVector<uint64_t>& values)
+void Instance::copyElementSegment(const Element& segment, uint32_t srcOffset, uint32_t length, uint64_t* values)
 {
     // Caller should have already checked that the (offset + length) calculation doesn't overflow int32,
     // and that the (offset + length) doesn't overflow the element segment
     ASSERT(!sumOverflows<uint32_t>(srcOffset, length));
     ASSERT((srcOffset + length) <= segment.length());
 
-    for (uint32_t srcIndex = srcOffset; srcIndex < length; ++srcIndex) {
-        const auto dstIndex = srcIndex - srcOffset;
+    for (uint32_t i = 0; i < length; i++) {
+        uint32_t srcIndex = srcOffset + i;
         const auto initType = segment.initTypes[srcIndex];
         const auto initialBitsOrIndex = segment.initialBitsOrIndices[srcIndex];
 
         // Represent the null function as the null JS value
         if (initType == Element::InitializationType::FromRefNull) {
-            values[dstIndex] = static_cast<uint64_t>(JSValue::encode(jsNull()));
+            values[i] = static_cast<uint64_t>(JSValue::encode(jsNull()));
             continue;
         }
 
@@ -349,12 +362,12 @@ void Instance::copyElementSegment(const Element& segment, uint32_t srcOffset, ui
             // and create them here dynamically instead.
             JSValue value = getFunctionWrapper(functionIndex);
             ASSERT(value.isCallable());
-            values[dstIndex] = static_cast<uint64_t>(JSValue::encode(value));
+            values[i] = static_cast<uint64_t>(JSValue::encode(value));
             continue;
         }
 
         if (initType == Element::InitializationType::FromGlobal) {
-            values[dstIndex] = loadI64Global(initialBitsOrIndex);
+            values[i] = loadI64Global(initialBitsOrIndex);
             continue;
         }
 
@@ -364,7 +377,7 @@ void Instance::copyElementSegment(const Element& segment, uint32_t srcOffset, ui
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=264454
         // Currently this should never fail, as the parse phase already validated it.
         RELEASE_ASSERT(success);
-        values[dstIndex] = result;
+        values[i] = result;
     }
 }
 

@@ -301,8 +301,23 @@ pdfjs-editor-ink-button-label = Tegn
 pdfjs-editor-stamp-button =
     .title = Legg til eller rediger bilder
 pdfjs-editor-stamp-button-label = Legg til eller rediger bilder
-pdfjs-editor-remove-button =
-    .title = Fjern
+pdfjs-editor-highlight-button =
+    .title = Markere
+pdfjs-editor-highlight-button-label = Markere
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Fjern tegningen
+pdfjs-editor-remove-freetext-button =
+    .title = Fjern tekst
+pdfjs-editor-remove-stamp-button =
+    .title = Fjern bildet
+pdfjs-editor-remove-highlight-button =
+    .title = Fjern utheving
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Farge
 pdfjs-editor-free-text-size-input = Størrelse
@@ -312,6 +327,10 @@ pdfjs-editor-ink-opacity-input = Ugjennomsiktighet
 pdfjs-editor-stamp-add-image-button =
     .title = Legg til bilde
 pdfjs-editor-stamp-add-image-button-label = Legg til bilde
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Tykkelse
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Endre tykkelse når du markerer andre elementer enn tekst
 pdfjs-free-text =
     .aria-label = Tekstredigering
 pdfjs-free-text-default-content = Begynn å skrive…
@@ -349,3 +368,22 @@ pdfjs-editor-resizer-label-bottom-right = Nederste høyre hjørne – endre stø
 pdfjs-editor-resizer-label-bottom-middle = Nederst i midten — endre størrelse
 pdfjs-editor-resizer-label-bottom-left = Nederste venstre hjørne – endre størrelse
 pdfjs-editor-resizer-label-middle-left = Midt til venstre — endre størrelse
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Uthevingsfarge
+pdfjs-editor-colorpicker-button =
+    .title = Endre farge
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Fargevalg
+pdfjs-editor-colorpicker-yellow =
+    .title = Gul
+pdfjs-editor-colorpicker-green =
+    .title = Grønn
+pdfjs-editor-colorpicker-blue =
+    .title = Blå
+pdfjs-editor-colorpicker-pink =
+    .title = Rosa
+pdfjs-editor-colorpicker-red =
+    .title = Rød

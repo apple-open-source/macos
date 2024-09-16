@@ -46,8 +46,14 @@ typedef struct service service_t;
 typedef struct delete delete_t;
 typedef struct _cti_connection_t *cti_connection_t;
 typedef struct dnssd_proxy_advertisements dnssd_proxy_advertisements_t;
+#if SRP_FEATURE_DISCOVERY_PROXY_SERVER
+typedef struct dnssd_dp_proxy_advertisements dnssd_dp_proxy_advertisements_t;
+#endif
 typedef struct dnssd_client dnssd_client_t;
 typedef struct probe_state probe_state_t;
+typedef struct srpl_instance srpl_instance_t;
+typedef struct wanted_service wanted_service_t;
+
 #ifdef SRP_TEST_SERVER
 typedef struct dns_service_event dns_service_event_t;
 typedef struct test_state test_state_t;
@@ -55,12 +61,28 @@ typedef struct srp_server_state srp_server_t;
 typedef struct srpl_connection srpl_connection_t;
 #endif
 
+#define TSR_TIMESTAMP_STRING_LEN 28
+
+enum {
+    PRIORITY_DEFAULT = 0,
+#if !defined(__OPEN__SOURCE__) && !defined(POSIX_BUILD)
+    PRIORITY_HOMEPOD_ODEON = 1,
+    PRIORITY_HOMEPOD_NO_ODEON = 25,
+    PRIORITY_APPLETV_WIFI = 50,
+    PRIORITY_APPLETV_ETHERNET = 75,
+#endif
+};
+
 // Server internal state
 struct srp_server_state {
+#if SRP_TEST_SERVER
+    srp_server_t *NULLABLE next;
+#endif
     char *NULLABLE name;
     adv_host_t *NULLABLE hosts;
     dnssd_txn_t *NULLABLE shared_registration_txn;
     srpl_domain_t *NULLABLE srpl_domains;
+    srpl_instance_t *NULLABLE unmatched_instances;
 #ifdef SRP_TEST_SERVER
     dns_service_event_t *NULLABLE dns_service_events;
     test_state_t *NULLABLE test_state;
@@ -76,8 +98,13 @@ struct srp_server_state {
     service_publisher_t *NULLABLE service_publisher;
     thread_tracker_t *NULLABLE thread_tracker;
     node_type_tracker_t *NULLABLE node_type_tracker;
+    char *NULLABLE wed_ext_address; // For Wake-on End Device, the extended MAC address, if we are in p2p mode
+    struct in6_addr wed_ml_eid;     // For Wake-on End Device, the ML-EID, if we are in p2p mode
 #endif
     dnssd_proxy_advertisements_t *NULLABLE dnssd_proxy_advertisements;
+#if SRP_FEATURE_DISCOVERY_PROXY_SERVER
+    dnssd_dp_proxy_advertisements_t *NULLABLE dnssd_dp_proxy_advertisements;
+#endif
     dnssd_client_t *NULLABLE dnssd_client;
     io_t *NULLABLE adv_ctl_listener;
     wakeup_t *NULLABLE srpl_browse_wakeup;
@@ -92,18 +119,18 @@ struct srp_server_state {
     uint32_t key_min_lease_time; // thirty seconds
     int full_dump_count;
 
+    uint32_t priority;
     uint16_t rloc16;
 
     bool have_rloc16;
     bool have_mesh_local_address;
     bool srp_replication_enabled;
     bool break_srpl_time;
+#if STUB_ROUTER
     bool stub_router_enabled;
+#endif
     bool srp_unicast_service_blocked;
     bool srp_anycast_service_blocked;
-#if SRP_FEATURE_NAT64
-    bool srp_nat64_enabled;
-#endif
 };
 
 struct adv_instance {
@@ -180,6 +207,7 @@ struct adv_host {
     // to defer the host registration.
     bool update_pending;
     bool re_register_pending;
+
 };
 
 struct adv_update {
@@ -272,7 +300,26 @@ struct client_update {
     bool skip_host_updates;                      // If true, don't actually register any host records.
 };
 
+struct wanted_service {
+    wanted_service_t *NULLABLE next;
+    char *NULLABLE name;
+    char *NULLABLE service_type;
+};
+
 // Exported functions.
+bool srp_mdns_shared_registration_txn_setup(srp_server_t *NONNULL server_state);
+void srp_mdns_shared_record_remove(srp_server_t *NONNULL server_state, adv_record_t *NONNULL record);
+void srp_mdns_update_finished(adv_update_t *NONNULL update);
+#define adv_instance_retain(instance) adv_instance_retain_(instance, __FILE__, __LINE__)
+void adv_instance_retain_(adv_instance_t *NONNULL instance, const char *NONNULL file, int line);
+#define adv_instance_release(instance) adv_instance_release_(instance, __FILE__, __LINE__)
+void adv_instance_release_(adv_instance_t *NONNULL instance, const char *NONNULL file, int line);
+#define adv_record_retain(record) adv_record_retain_(record, __FILE__, __LINE__)
+void adv_record_retain_(adv_record_t *NONNULL record, const char *NONNULL file, int line);
+#define adv_record_release(record) adv_record_release_(record, __FILE__, __LINE__)
+void adv_record_release_(adv_record_t *NONNULL record, const char *NONNULL file, int line);
+void adv_instance_context_release(void *NONNULL context);
+
 #define srp_adv_host_release(host) srp_adv_host_release_(host, __FILE__, __LINE__)
 void srp_adv_host_release_(adv_host_t *NONNULL host, const char *NONNULL file, int line);
 #define srp_adv_host_retain(host) srp_adv_host_retain_(host, __FILE__, __LINE__)
@@ -285,6 +332,12 @@ int srp_hosts_to_array(srp_server_t *NONNULL server_state, adv_host_t *NONNULL *
 bool srp_adv_host_valid(adv_host_t *NONNULL host);
 srp_server_t *NULLABLE server_state_create(const char *NONNULL name, int max_lease_time,
                                            int min_lease_time, int key_max_lease_time, int key_min_lease_time);
+DNSServiceAttributeRef NULLABLE srp_adv_instance_tsr_attribute_generate(adv_instance_t *NONNULL instance,
+                                                                        char *NONNULL time_buf, size_t time_buf_size);
+DNSServiceAttributeRef NULLABLE srp_adv_host_tsr_attribute_generate(adv_host_t *NONNULL host,
+                                                                    char *NONNULL time_buf, size_t time_buf_size);
+DNSServiceAttributeRef NULLABLE srp_message_tsr_attribute_generate(message_t *NULLABLE message, uint32_t key_id,
+                                                                   char *NONNULL time_buf, size_t time_buf_size);
 #endif // __SRP_MDNS_PROXY_H__
 
 // Local Variables:

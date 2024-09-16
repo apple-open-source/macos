@@ -120,8 +120,19 @@ void ScriptExecutable::installCode(CodeBlock* codeBlock)
 
 void ScriptExecutable::installCode(VM& vm, CodeBlock* genericCodeBlock, CodeType codeType, CodeSpecializationKind kind, Profiler::JettisonReason reason)
 {
-    if (genericCodeBlock)
+    if (genericCodeBlock) {
         CODEBLOCK_LOG_EVENT(genericCodeBlock, "installCode", ());
+        switch (reason) {
+        case Profiler::JettisonReason::JettisonDueToWeakReference:
+        case Profiler::JettisonReason::JettisonDueToOldAge: {
+            if (genericCodeBlock && !vm.heap.isMarked(genericCodeBlock))
+                genericCodeBlock = nullptr;
+            break;
+        }
+        default:
+            break;
+        }
+    }
     
     CodeBlock* oldCodeBlock = nullptr;
     
@@ -196,17 +207,6 @@ void ScriptExecutable::installCode(VM& vm, CodeBlock* genericCodeBlock, CodeType
         Debugger* debugger = genericCodeBlock->globalObject()->debugger();
         if (UNLIKELY(debugger))
             debugger->registerCodeBlock(genericCodeBlock);
-    }
-
-    switch (reason) {
-    case Profiler::JettisonReason::JettisonDueToWeakReference:
-    case Profiler::JettisonReason::JettisonDueToOldAge: {
-        if (genericCodeBlock && !vm.heap.isMarked(genericCodeBlock))
-            genericCodeBlock = nullptr;
-        break;
-    }
-    default:
-        break;
     }
 
     if (oldCodeBlock)
@@ -377,7 +377,7 @@ static void setupLLInt(CodeBlock* codeBlock)
 static void setupJIT(VM& vm, CodeBlock* codeBlock)
 {
 #if ENABLE(JIT)
-    CompilationResult result = JIT::compile(vm, codeBlock, JITCompilationMustSucceed);
+    CompilationResult result = JIT::compileSync(vm, codeBlock, JITCompilationMustSucceed);
     RELEASE_ASSERT(result == CompilationSuccessful);
 #else
     UNUSED_PARAM(vm);

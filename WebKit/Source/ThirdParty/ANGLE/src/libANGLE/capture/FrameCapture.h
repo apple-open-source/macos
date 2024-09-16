@@ -11,6 +11,7 @@
 #define LIBANGLE_FRAME_CAPTURE_H_
 
 #include "common/PackedEnums.h"
+#include "common/SimpleMutex.h"
 #include "common/frame_capture_utils.h"
 #include "common/system_utils.h"
 #include "libANGLE/Context.h"
@@ -557,7 +558,7 @@ class CoherentBufferTracker final : angle::NonCopyable
     PageFaultHandlerRangeType handleWrite(uintptr_t address);
 
   public:
-    std::mutex mMutex;
+    angle::SimpleMutex mMutex;
     HashMap<GLuint, std::shared_ptr<CoherentBuffer>> mBuffers;
 
   private:
@@ -598,6 +599,7 @@ class FrameCaptureShared final : angle::NonCopyable
                             bool coherent);
 
     void trackTextureUpdate(const gl::Context *context, const CallCapture &call);
+    void trackImageUpdate(const gl::Context *context, const CallCapture &call);
     void trackDefaultUniformUpdate(const gl::Context *context, const CallCapture &call);
     void trackVertexArrayUpdate(const gl::Context *context, const CallCapture &call);
 
@@ -708,7 +710,16 @@ class FrameCaptureShared final : angle::NonCopyable
     void *maybeGetShadowMemoryPointer(gl::Buffer *buffer, GLsizeiptr length, GLbitfield access);
     void determineMemoryProtectionSupport(gl::Context *context);
 
-    std::mutex &getFrameCaptureMutex() { return mFrameCaptureMutex; }
+    angle::SimpleMutex &getFrameCaptureMutex() { return mFrameCaptureMutex; }
+
+    void setDeferredLinkProgram(gl::ShaderProgramID programID)
+    {
+        mDeferredLinkPrograms.emplace(programID);
+    }
+    bool isDeferredLinkProgram(gl::ShaderProgramID programID)
+    {
+        return (mDeferredLinkPrograms.find(programID) != mDeferredLinkPrograms.end());
+    }
 
   private:
     void writeJSON(const gl::Context *context);
@@ -786,7 +797,7 @@ class FrameCaptureShared final : angle::NonCopyable
     std::string mValidationExpression;
     PackedEnumMap<ResourceIDType, uint32_t> mMaxAccessedResourceIDs;
     CoherentBufferTracker mCoherentBufferTracker;
-    std::mutex mFrameCaptureMutex;
+    angle::SimpleMutex mFrameCaptureMutex;
 
     ResourceTracker mResourceTracker;
     ReplayWriter mReplayWriter;
@@ -802,6 +813,9 @@ class FrameCaptureShared final : angle::NonCopyable
     // Cache most recently compiled and linked sources.
     ShaderSourceMap mCachedShaderSource;
     ProgramSourceMap mCachedProgramSources;
+
+    // Set of programs which were created but not linked before capture was started
+    std::set<gl::ShaderProgramID> mDeferredLinkPrograms;
 
     gl::ContextID mWindowSurfaceContextID;
 
@@ -826,7 +840,7 @@ void CaptureGLCallToFrameCapture(CaptureFuncT captureFunc,
     // EGL calls are protected by the global context mutex but only a subset of GL calls
     // are so protected. Ensure FrameCaptureShared access thread safety by using a
     // frame-capture only mutex.
-    std::lock_guard<std::mutex> lock(frameCaptureShared->getFrameCaptureMutex());
+    std::lock_guard<angle::SimpleMutex> lock(frameCaptureShared->getFrameCaptureMutex());
 
     if (!frameCaptureShared->isCapturing())
     {

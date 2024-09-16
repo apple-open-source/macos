@@ -25,7 +25,7 @@
 #include "GStreamerCommon.h"
 #include "GStreamerRegistryScanner.h"
 #include "MediaStreamTrack.h"
-
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_outgoing_audio_debug);
@@ -34,14 +34,14 @@ GST_DEBUG_CATEGORY(webkit_webrtc_outgoing_audio_debug);
 namespace WebCore {
 
 RealtimeOutgoingAudioSourceGStreamer::RealtimeOutgoingAudioSourceGStreamer(const RefPtr<UniqueSSRCGenerator>& ssrcGenerator, const String& mediaStreamId, MediaStreamTrack& track)
-    : RealtimeOutgoingMediaSourceGStreamer(ssrcGenerator, mediaStreamId, track)
+    : RealtimeOutgoingMediaSourceGStreamer(RealtimeOutgoingMediaSourceGStreamer::Type::Audio, ssrcGenerator, mediaStreamId, track)
 {
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
         GST_DEBUG_CATEGORY_INIT(webkit_webrtc_outgoing_audio_debug, "webkitwebrtcoutgoingaudio", 0, "WebKit WebRTC outgoing audio");
     });
     static Atomic<uint64_t> sourceCounter = 0;
-    gst_element_set_name(m_bin.get(), makeString("outgoing-audio-source-", sourceCounter.exchangeAdd(1)).ascii().data());
+    gst_element_set_name(m_bin.get(), makeString("outgoing-audio-source-"_s, sourceCounter.exchangeAdd(1)).ascii().data());
     m_audioconvert = makeGStreamerElement("audioconvert", nullptr);
     m_audioresample = makeGStreamerElement("audioresample", nullptr);
     m_inputCapsFilter = gst_element_factory_make("capsfilter", nullptr);
@@ -54,22 +54,27 @@ RTCRtpCapabilities RealtimeOutgoingAudioSourceGStreamer::rtpCapabilities() const
     return registryScanner.audioRtpCapabilities(GStreamerRegistryScanner::Configuration::Encoding);
 }
 
-bool RealtimeOutgoingAudioSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>& caps)
+bool RealtimeOutgoingAudioSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>& codecPreferences)
 {
+    auto caps = adoptGRef(gst_caps_copy(codecPreferences.get()));
     GST_DEBUG_OBJECT(m_bin.get(), "Setting payload caps: %" GST_PTR_FORMAT, caps.get());
-    auto* structure = gst_caps_get_structure(caps.get(), 0);
-    const char* encodingName = gst_structure_get_string(structure, "encoding-name");
-    if (!encodingName) {
+    // FIXME: We use only the first structure of the caps. This not be the right approach specially
+    // we don't have a payloader or encoder for that format.
+    GUniquePtr<GstStructure> structure(gst_structure_copy(gst_caps_get_structure(caps.get(), 0)));
+    auto encoding = StringView::fromLatin1(gst_structure_get_string(structure.get(), "encoding-name")).convertToASCIILowercase();
+    if (encoding.isNull()) {
         GST_ERROR_OBJECT(m_bin.get(), "encoding-name not found");
         return false;
     }
 
-    auto encoding = makeString(encodingName).convertToASCIILowercase();
-    m_payloader = makeGStreamerElement(makeString("rtp"_s, encoding, "pay"_s).ascii().data(), nullptr);
-    if (UNLIKELY(!m_payloader)) {
-        GST_ERROR_OBJECT(m_bin.get(), "RTP payloader not found for encoding %s", encodingName);
+    auto& registryScanner = GStreamerRegistryScanner::singleton();
+    auto lookupResult = registryScanner.isRtpPacketizerSupported(encoding);
+    if (!lookupResult) {
+        GST_ERROR_OBJECT(m_bin.get(), "RTP payloader not found for encoding %s", encoding.ascii().data());
         return false;
     }
+    m_payloader = gst_element_factory_create(lookupResult.factory.get(), nullptr);
+    GST_DEBUG_OBJECT(m_bin.get(), "Using %" GST_PTR_FORMAT " for %s RTP packetizing", m_payloader.get(), encoding.ascii().data());
 
     m_inputCaps = adoptGRef(gst_caps_new_any());
 
@@ -78,17 +83,30 @@ bool RealtimeOutgoingAudioSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
         if (!m_encoder)
             return false;
 
+        gst_structure_set(structure.get(), "encoding-name", G_TYPE_STRING, "OPUS", nullptr);
+
         // FIXME: Enable dtx too?
         gst_util_set_object_arg(G_OBJECT(m_encoder.get()), "audio-type", "voice");
+        g_object_set(m_encoder.get(), "perfect-timestamp", TRUE, nullptr);
 
-        const char* useInbandFec = gst_structure_get_string(structure, "useinbandfec");
-        if (!g_strcmp0(useInbandFec, "1"))
-            g_object_set(m_encoder.get(), "inband-fec", true, nullptr);
+        if (const char* useInbandFec = gst_structure_get_string(structure.get(), "useinbandfec")) {
+            if (!g_strcmp0(useInbandFec, "1"))
+                g_object_set(m_encoder.get(), "inband-fec", true, nullptr);
+            gst_structure_remove_field(structure.get(), "useinbandfec");
+        }
 
-        const char* isStereo = gst_structure_get_string(structure, "stereo");
-        if (!g_strcmp0(isStereo, "1"))
-            m_inputCaps = adoptGRef(gst_caps_new_simple("audio/x-raw", "channels", G_TYPE_INT, 2, nullptr));
+        if (const char* isStereo = gst_structure_get_string(structure.get(), "stereo")) {
+            if (!g_strcmp0(isStereo, "1"))
+                m_inputCaps = adoptGRef(gst_caps_new_simple("audio/x-raw", "channels", G_TYPE_INT, 2, nullptr));
+            gst_structure_remove_field(structure.get(), "stereo");
+        }
 
+        if (gst_caps_is_any(m_inputCaps.get())) {
+            if (const char* encodingParameters = gst_structure_get_string(structure.get(), "encoding-params")) {
+                if (auto channels = parseIntegerAllowingTrailingJunk<int>(StringView::fromLatin1(encodingParameters)))
+                    m_inputCaps = adoptGRef(gst_caps_new_simple("audio/x-raw", "channels", G_TYPE_INT, *channels, nullptr));
+            }
+        }
     } else if (encoding == "g722"_s)
         m_encoder = makeGStreamerElement("avenc_g722", nullptr);
     else if (encoding == "pcma"_s)
@@ -96,67 +114,62 @@ bool RealtimeOutgoingAudioSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
     else if (encoding == "pcmu"_s)
         m_encoder = makeGStreamerElement("mulawenc", nullptr);
     else {
-        GST_ERROR_OBJECT(m_bin.get(), "Unsupported outgoing audio encoding: %s", encodingName);
+        GST_ERROR_OBJECT(m_bin.get(), "Unsupported outgoing audio encoding: %s", encoding.ascii().data());
         return false;
     }
 
     if (!m_encoder) {
-        GST_ERROR_OBJECT(m_bin.get(), "Encoder not found for encoding %s", encodingName);
+        GST_ERROR_OBJECT(m_bin.get(), "Encoder not found for encoding %s", encoding.ascii().data());
         return false;
     }
 
-    // FIXME: Re-enable auto-header-extension. Currently triggers caps negotiation error.
     // Align MTU with libwebrtc implementation, also helping to reduce packet fragmentation.
-    g_object_set(m_payloader.get(), "auto-header-extension", FALSE, "mtu", 1200, nullptr);
+    g_object_set(m_payloader.get(), "auto-header-extension", TRUE, "mtu", 1200, nullptr);
 
-    if (const char* minPTime = gst_structure_get_string(structure, "minptime")) {
+    if (const char* minPTime = gst_structure_get_string(structure.get(), "minptime")) {
         auto time = String::fromLatin1(minPTime);
-        if (auto value = parseIntegerAllowingTrailingJunk<int64_t>(time))
-            g_object_set(m_payloader.get(), "min-ptime", *value * GST_MSECOND, nullptr);
+        if (auto value = parseIntegerAllowingTrailingJunk<int64_t>(time)) {
+            if (gstObjectHasProperty(m_payloader.get(), "min-ptime"))
+                g_object_set(m_payloader.get(), "min-ptime", *value * GST_MSECOND, nullptr);
+            else
+                GST_WARNING_OBJECT(m_payloader.get(), "min-ptime property not supported");
+        }
+        gst_structure_remove_field(structure.get(), "minptime");
     }
 
-    int payloadType;
-    if (gst_structure_get_int(structure, "payload", &payloadType))
-        g_object_set(m_payloader.get(), "pt", payloadType, nullptr);
+    if (auto payloadType = gstStructureGet<int>(structure.get(), "payload"_s)) {
+        g_object_set(m_payloader.get(), "pt", *payloadType, nullptr);
+        gst_structure_remove_field(structure.get(), "payload");
+    }
+
+    if (m_payloaderState) {
+        g_object_set(m_payloader.get(), "seqnum-offset", m_payloaderState->seqnum, nullptr);
+        m_payloaderState.reset();
+    }
+
+    auto rtpCaps = adoptGRef(gst_caps_new_empty());
+
+    // When not present in caps, the vad support of the ssrc-audio-level extension should be
+    // enabled. In order to prevent caps negotiation issues with downstream, explicitely set it.
+    setSsrcAudioLevelVadOn(structure.get());
+
+    gst_caps_append_structure(rtpCaps.get(), structure.release());
 
     g_object_set(m_inputCapsFilter.get(), "caps", m_inputCaps.get(), nullptr);
-    g_object_set(m_capsFilter.get(), "caps", caps.get(), nullptr);
+    g_object_set(m_capsFilter.get(), "caps", rtpCaps.get(), nullptr);
+    GST_DEBUG_OBJECT(m_bin.get(), "RTP caps: %" GST_PTR_FORMAT, rtpCaps.get());
 
     gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_payloader.get(), m_encoder.get(), nullptr);
 
     auto preEncoderSinkPad = adoptGRef(gst_element_get_static_pad(m_preEncoderQueue.get(), "sink"));
     if (!gst_pad_is_linked(preEncoderSinkPad.get())) {
-        if (!gst_element_link_many(m_outgoingSource.get(), m_inputSelector.get(), m_audioconvert.get(), m_audioresample.get(), m_inputCapsFilter.get(), m_preEncoderQueue.get(), nullptr)) {
+        if (!gst_element_link_many(m_outgoingSource.get(), m_inputSelector.get(), m_liveSync.get(), m_audioconvert.get(), m_audioresample.get(), m_inputCapsFilter.get(), m_preEncoderQueue.get(), nullptr)) {
             GST_ERROR_OBJECT(m_bin.get(), "Unable to link outgoing source to pre-encoder queue");
             return false;
         }
     }
 
     return gst_element_link_many(m_preEncoderQueue.get(), m_encoder.get(), m_payloader.get(), m_postEncoderQueue.get(), nullptr);
-}
-
-void RealtimeOutgoingAudioSourceGStreamer::codecPreferencesChanged(const GRefPtr<GstCaps>& codecPreferences)
-{
-    gst_element_set_locked_state(m_bin.get(), TRUE);
-    if (m_payloader) {
-        gst_element_set_state(m_payloader.get(), GST_STATE_NULL);
-        gst_element_set_state(m_encoder.get(), GST_STATE_NULL);
-        gst_element_unlink_many(m_preEncoderQueue.get(), m_encoder.get(), m_payloader.get(), m_postEncoderQueue.get(), nullptr);
-        gst_bin_remove_many(GST_BIN_CAST(m_bin.get()), m_payloader.get(), m_encoder.get(), nullptr);
-        m_payloader.clear();
-        m_encoder.clear();
-    }
-    if (!setPayloadType(codecPreferences)) {
-        gst_element_set_locked_state(m_bin.get(), FALSE);
-        GST_ERROR_OBJECT(m_bin.get(), "Unable to link encoder to webrtcbin");
-        return;
-    }
-
-    gst_element_set_locked_state(m_bin.get(), FALSE);
-    gst_bin_sync_children_states(GST_BIN_CAST(m_bin.get()));
-    gst_element_sync_state_with_parent(m_bin.get());
-    GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(m_bin.get()), GST_DEBUG_GRAPH_SHOW_ALL, "outgoing-audio-new-codec-prefs");
-    m_isStopped = false;
 }
 
 void RealtimeOutgoingAudioSourceGStreamer::connectFallbackSource()
@@ -204,6 +217,15 @@ void RealtimeOutgoingAudioSourceGStreamer::linkOutgoingSource()
 void RealtimeOutgoingAudioSourceGStreamer::setParameters(GUniquePtr<GstStructure>&& parameters)
 {
     m_parameters = WTFMove(parameters);
+}
+
+void RealtimeOutgoingAudioSourceGStreamer::teardown()
+{
+    RealtimeOutgoingMediaSourceGStreamer::teardown();
+    m_audioconvert.clear();
+    m_audioresample.clear();
+    m_inputCaps.clear();
+    m_inputCaps.clear();
 }
 
 #undef GST_CAT_DEFAULT

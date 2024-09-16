@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.security.cs.debugger.read.root</key>
 	<true/>
+	<key>com.apple.system-task-ports.read</key>
+	<true/>
 </dict>
 </plist>

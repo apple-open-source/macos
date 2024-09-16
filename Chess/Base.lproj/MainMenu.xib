@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="19150" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23028.2" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19150"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23028.2"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -162,6 +162,18 @@
                         </items>
                     </menu>
                 </menuItem>
+                <menuItem title="View" hidden="YES" id="Fvq-hX-y9n">
+                    <menu key="submenu" title="View" id="xG8-5T-G3G">
+                        <items>
+                            <menuItem title="Edge Notation" id="Ock-lK-K4z">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleEdgeNotation:" target="-1" id="CPg-Xx-dVB"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
                 <menuItem title="Moves" id="392">
                     <menu key="submenu" title="Moves" id="393">
                         <items>
@@ -296,7 +308,7 @@ and your opponent's response.</string>
                             <menuItem title="Log Engine" id="200862">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
-                                    <binding destination="-3" name="value" keyPath="mainWindow.windowController.engine.logging" id="200870"/>
+                                    <binding destination="200908" name="value" keyPath="selection.engine.logging" id="mYv-wv-pzZ"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Log Mouse Clicks" id="200968">
@@ -357,7 +369,6 @@ and your opponent's response.</string>
         <customObject id="209" userLabel="MBCController" customClass="MBCController">
             <connections>
                 <outlet property="fCurrentDocument" destination="200827" id="200838"/>
-                <outlet property="fTakebackMenuItem" destination="395" id="460"/>
                 <outlet property="sharePlaySessionMenuItem" destination="sj3-Ji-hQ4" id="QzQ-2l-qYv"/>
             </connections>
         </customObject>
@@ -365,14 +376,14 @@ and your opponent's response.</string>
         <objectController objectClassName="NSDocument" id="200827" userLabel="Current Document">
             <classReference key="objectClass" className="NSDocument"/>
             <connections>
-                <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController.document" id="200828"/>
+                <binding destination="200908" name="contentObject" keyPath="selection.document" id="Q9q-nw-kdw"/>
             </connections>
         </objectController>
         <userDefaultsController id="200506"/>
         <objectController objectClassName="MBCBoardWin" id="200908" userLabel="Current WindowController">
             <classReference key="objectClass" className="MBCBoardWin"/>
             <connections>
-                <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController" id="200911"/>
+                <binding destination="209" name="contentObject" keyPath="currentWindowController" id="P13-Xv-0s1"/>
             </connections>
         </objectController>
     </objects>

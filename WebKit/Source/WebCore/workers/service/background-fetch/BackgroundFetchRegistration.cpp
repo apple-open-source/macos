@@ -34,11 +34,21 @@
 #include "FetchResponse.h"
 #include "FetchResponseBodyLoader.h"
 #include "JSBackgroundFetchRecord.h"
+#include "Node.h"
 #include "RetrieveRecordsOptions.h"
 #include "SWClientConnection.h"
 #include "ServiceWorkerContainer.h"
 #include "ServiceWorkerRegistrationBackgroundFetchAPI.h"
 #include <wtf/IsoMallocInlines.h>
+
+namespace WebCore {
+class BackgroundFetchResponseBodyLoader;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::BackgroundFetchResponseBodyLoader> : std::true_type { };
+}
 
 namespace WebCore {
 
@@ -230,11 +240,6 @@ void BackgroundFetchRegistration::updateInformation(const BackgroundFetchInforma
     m_information.recordsAvailable = information.recordsAvailable;
     
     dispatchEvent(Event::create(eventNames().progressEvent, Event::CanBubble::No, Event::IsCancelable::No));
-}
-
-const char* BackgroundFetchRegistration::activeDOMObjectName() const
-{
-    return "BackgroundFetchRegistration";
 }
 
 void BackgroundFetchRegistration::stop()

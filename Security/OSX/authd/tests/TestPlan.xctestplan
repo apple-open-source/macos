@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "5ABB5862-3E21-40E6-9059-78CAC8509D35",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Security.xcodeproj",
+        "identifier" : "F6D3EE342A94F4E7005CC5CA",
+        "name" : "AuthorizationTests"
+      }
+    }
+  ],
+  "version" : 1
+}

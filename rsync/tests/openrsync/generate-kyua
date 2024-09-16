@@ -1,0 +1,143 @@
+#! /bin/sh
+
+test_counter=10000
+
+shebang=""
+case $(uname -s) in
+FreeBSD)
+	shebang="/usr/libexec/atf-sh"
+	;;
+*)
+	shebang="/usr/bin/env atf-sh"
+	;;
+esac
+
+doit ()
+{
+    local name
+    local names=""
+
+    printf "#! %s\n\n" "$shebang"
+
+cat <<EOF
+setup_sshkey()
+{
+	local ssh_authfile ssh_keydir ssh_keyfile ssh_keyname ssh_lockfile
+
+	if [ -z "\$RSYNC_SSHKEY" ]; then
+		return 0
+	fi
+
+	# We'll allow RSYNC_SSHKEY to use \$VARS and we'll expand those, but it
+	# can't use tilde expansion.  The most common one will be \$HOME, so the
+	# constraint is likely ok.
+	eval "ssh_keyfile=\"\$RSYNC_SSHKEY\""
+	ssh_keydir="\$(dirname "\$ssh_keyfile")"
+
+	# One could specify a key in cwd, or elsewhere.  Make sure it exists so
+	# that we can write the lockfile into it.
+	mkdir -p "\$HOME/.ssh" "\$ssh_keydir"
+
+	ssh_authfile="\$HOME/.ssh/authorized_keys"
+	ssh_lockfile="\$ssh_keyfile.lock"
+
+	if [ -s "\$ssh_keyfile" ]; then
+		# No use even trying to lock if the keyfile is already there.
+		return 0
+	fi
+
+	if shlock -f "\$ssh_lockfile" -p \$\$; then
+		# We'll just assume that if the keyfile exists, whichever
+		# invocation won the race completed the whole setup.
+		if [ ! -s "\$ssh_keyfile" ]; then
+			# Generate a key for test purposes, add it to
+			# ~/.ssh/authorized_keys.
+			ssh-keygen -N '' -f "\$ssh_keyfile" -t ed25519
+			cat "\$ssh_keyfile.pub" >> "\$ssh_authfile"
+		fi
+
+		rm -f "\$ssh_lockfile"
+	else
+		# Spin until the lockfile is gone, wait up to 5 seconds.
+		# If we still haven't generated the key, fail the test.
+		time=0
+		while [ -e "\$ssh_lockfile" ] && [ "\$time" -lt 5 ]; do
+			time=\$((time + 1))
+			sleep 1
+		done
+
+		if [ ! -s "\$ssh_keyfile" ]; then
+			atf_fail "Lost the race to the ssh key, winner didn't finish setup"
+		fi
+	fi
+
+	return 0
+}
+
+EOF
+
+    trap 'rm -f $requiref' EXIT
+    requiref=$(mktemp -t rsync.test)
+    for file in test[0-9]*.test ; do
+        test_counter=$(($test_counter + 1))
+        # name needs to conform to sh function identifier rules
+        name=`echo $file | sed 's/[- ]/_/g'`
+        name=${name%%.*}
+        names="$names $name"
+	requires=""
+	sed -nE 's/.*[[:space:]]atf:([^=]+)=([^[:space:]]+)/\1\t\2\n/g p' \
+	    "$file" > "$requiref"
+
+	# Collect "kyua:var=value" specs from the file
+	while read var value; do
+		[ -z "$var" ] && continue
+		reqline="atf_set \"$var\" \"$value\""
+		requires="$requires"$'\n'"    $reqline"
+	done < "$requiref"
+
+        echo atf_test_case $name
+
+cat << EOF
+
+${name}_head()
+{
+    atf_set "descr" "${file%.test}"
+${requires}
+}
+
+${name}_body()
+{
+    export tstdir=\$(atf_get_srcdir)
+    setup_sshkey
+    if "\$tstdir/$file" ; then
+        atf_pass
+    else
+        atf_fail "$file failed"
+    fi
+}
+
+
+EOF
+    done
+
+    echo 'atf_init_test_cases()'
+    echo '{'
+    for name in $names ; do 
+        echo "    atf_add_test_case $name"
+    done
+    echo '}'
+
+}
+
+doit "$@" > tests_kyua.tmp && mv tests_kyua.tmp tests_kyua.sh
+chmod a+x tests_kyua.sh
+
+cat << EOF > Kyuafile
+syntax(2)
+
+-- The name of the test suite must be defined.
+test_suite('openrsynctests')
+
+-- This specifies the test programs
+atf_test_program{name='tests_kyua.sh'}
+EOF

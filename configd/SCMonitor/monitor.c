@@ -1021,7 +1021,7 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 		CFArrayAppendValue(myInstance->notifyNodes, myData);
 	} else {
 		SC_log(LOG_ERR,
-		       "add_init_watcher IOServiceAddInterestNotification() failed, kr =  0x%x",
+		       "add_init_watcher IOServiceAddInterestNotification() failed, kr = %d",
 		       kr);
 	}
 	CFRelease(myData);
@@ -1089,7 +1089,7 @@ add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
 			case kIOReturnNoDevice :	// if we have hit the root node
 				break;
 			default :
-				SC_log(LOG_ERR, "add_init_watcher IORegistryEntryGetParentEntry() failed, kr = 0x%x", kr);
+				SC_log(LOG_ERR, "add_init_watcher IORegistryEntryGetParentEntry() failed, kr = %d", kr);
 				break;
 		}
 		if (node != interface) {
@@ -1171,7 +1171,7 @@ watcher_add_serial(MyType *myInstance)
 					      (void *)myInstance,		// refCon
 					      &myInstance->notifyIterator);	// notification
 	if (kr != KERN_SUCCESS) {
-		SC_log(LOG_ERR, "SCMonitor : IOServiceAddMatchingNotification returned 0x%x", kr);
+		SC_log(LOG_ERR, "SCMonitor : IOServiceAddMatchingNotification returned %d", kr);
 		return;
 	}
 

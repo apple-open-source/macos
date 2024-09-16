@@ -32,7 +32,7 @@
 #include <kern/thread.h>
 #include <kern/backtrace.h>
 #include <kern/cambria_layout.h>
-#include <vm/vm_map.h>
+#include <vm/vm_map_xnu.h>
 #include <kperf/buffer.h>
 #include <kperf/context.h>
 #include <kperf/callstack.h>
@@ -468,7 +468,7 @@ kperf_ucallstack_log(struct kp_ucallstack *cs)
 
 #if CONFIG_EXCLAVES
 void
-kperf_excallstack_log(const stackshot_ipcstackentry_s *ipcstack)
+kperf_excallstack_log(const stackshottypes_ipcstackentry_s *ipcstack)
 {
 	__block unsigned int nframes = 0;
 	__block unsigned int flags = CALLSTACK_VALID;
@@ -478,7 +478,7 @@ kperf_excallstack_log(const stackshot_ipcstackentry_s *ipcstack)
 	BUF_DATA(PERF_CS_EXSTACK, ipcstack->asid);
 
 	if (ipcstack->stacktrace.has_value) {
-		address__v_visit(&ipcstack->stacktrace.value, ^(size_t i, const stackshot_address_s item) {
+		address__v_visit(&ipcstack->stacktrace.value, ^(size_t i, const stackshottypes_address_s item) {
 			if (i >= MAX_EXCALLSTACK_FRAMES) {
 				flags |= CALLSTACK_TRUNCATED;
 				return;

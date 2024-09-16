@@ -31,6 +31,7 @@
 #include <WebCore/WindowsKeyboardCodes.h>
 #include <wpe/wpe-platform.h>
 #include <wtf/HexNumber.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -883,7 +884,7 @@ String WebKeyboardEvent::keyIdentifierForWPEKeyval(unsigned keyval)
         break;
     }
 
-    return makeString("U+", hex(wpe_keyval_to_unicode(keyval), 4));
+    return makeString("U+"_s, hex(wpe_keyval_to_unicode(keyval), 4));
 }
 
 int32_t WebKeyboardEvent::windowsKeyCodeForWPEKeyval(unsigned keyval)

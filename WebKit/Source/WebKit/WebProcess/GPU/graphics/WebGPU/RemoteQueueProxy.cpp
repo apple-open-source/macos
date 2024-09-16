@@ -62,17 +62,16 @@ void RemoteQueueProxy::submit(Vector<std::reference_wrapper<WebCore::WebGPU::Com
 
 void RemoteQueueProxy::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
 {
-    auto sendResult = sendSync(Messages::RemoteQueue::OnSubmittedWorkDone());
-    UNUSED_VARIABLE(sendResult);
-
-    callback();
+    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::OnSubmittedWorkDone(), [callback = WTFMove(callback)]() mutable {
+        callback();
+    });
+    UNUSED_PARAM(sendResult);
 }
 
 void RemoteQueueProxy::writeBuffer(
     const WebCore::WebGPU::Buffer& buffer,
     WebCore::WebGPU::Size64 bufferOffset,
-    const void* source,
-    size_t byteLength,
+    std::span<const uint8_t> source,
     WebCore::WebGPU::Size64 dataOffset,
     std::optional<WebCore::WebGPU::Size64> size)
 {
@@ -81,14 +80,19 @@ void RemoteQueueProxy::writeBuffer(
     if (!convertedBuffer)
         return;
 
-    auto sendResult = send(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, Vector<uint8_t>(static_cast<const uint8_t*>(source) + dataOffset, size.value_or(byteLength - dataOffset))));
+    auto sharedMemory = WebCore::SharedMemory::copySpan(source.subspan(dataOffset, static_cast<size_t>(size.value_or(source.size() - dataOffset))));
+    std::optional<WebCore::SharedMemoryHandle> handle;
+    if (sharedMemory)
+        handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
+    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, WTFMove(handle)), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
+        RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+    });
     UNUSED_VARIABLE(sendResult);
 }
 
 void RemoteQueueProxy::writeTexture(
     const WebCore::WebGPU::ImageCopyTexture& destination,
-    const void* source,
-    size_t byteLength,
+    std::span<const uint8_t> source,
     const WebCore::WebGPU::ImageDataLayout& dataLayout,
     const WebCore::WebGPU::Extent3D& size)
 {
@@ -101,8 +105,33 @@ void RemoteQueueProxy::writeTexture(
     if (!convertedDestination || !convertedDataLayout || !convertedSize)
         return;
 
-    auto sendResult = send(Messages::RemoteQueue::WriteTexture(*convertedDestination, Vector<uint8_t>(static_cast<const uint8_t*>(source), byteLength), *convertedDataLayout, *convertedSize));
+    auto sharedMemory = WebCore::SharedMemory::copySpan(source);
+    std::optional<WebCore::SharedMemoryHandle> handle;
+    if (sharedMemory)
+        handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
+    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteTexture(*convertedDestination, WTFMove(handle), *convertedDataLayout, *convertedSize), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
+        RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+    });
     UNUSED_VARIABLE(sendResult);
+}
+
+void RemoteQueueProxy::writeBufferNoCopy(
+    const WebCore::WebGPU::Buffer&,
+    WebCore::WebGPU::Size64,
+    std::span<uint8_t>,
+    WebCore::WebGPU::Size64,
+    std::optional<WebCore::WebGPU::Size64>)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void RemoteQueueProxy::writeTexture(
+    const WebCore::WebGPU::ImageCopyTexture&,
+    std::span<uint8_t>,
+    const WebCore::WebGPU::ImageDataLayout&,
+    const WebCore::WebGPU::Extent3D&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void RemoteQueueProxy::copyExternalImageToTexture(

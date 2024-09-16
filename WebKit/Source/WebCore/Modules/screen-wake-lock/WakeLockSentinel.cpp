@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WakeLockSentinel.h"
 
+#include "Document.h"
 #include "EventNames.h"
 #include "Exception.h"
 #include "JSDOMPromiseDeferred.h"
@@ -60,11 +61,6 @@ void WakeLockSentinel::release(WakeLockManager& manager)
 
     if (scriptExecutionContext() && !scriptExecutionContext()->activeDOMObjectsAreStopped())
         dispatchEvent(Event::create(eventNames().releaseEvent, Event::CanBubble::No, Event::IsCancelable::No));
-}
-
-const char* WakeLockSentinel::activeDOMObjectName() const
-{
-    return "WakeLockSentinel";
 }
 
 // https://www.w3.org/TR/screen-wake-lock/#garbage-collection

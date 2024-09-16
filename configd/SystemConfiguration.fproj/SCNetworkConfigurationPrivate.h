@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -924,6 +924,10 @@ __SCNetworkInterfaceCreateCapabilities			(SCNetworkInterfaceRef		interface,
 int
 __SCNetworkInterfaceCreateMediaOptions			(SCNetworkInterfaceRef		interface,
 							 CFDictionaryRef		media_options)		API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+
+CFPropertyListRef
+__SCNetworkInterfaceGetTemplateOverrides	(SCNetworkInterfaceRef	interface,
+						 CFStringRef		overrideType)                           API_AVAILABLE(macos(15.0), ios(18.0));
 
 
 #pragma mark -

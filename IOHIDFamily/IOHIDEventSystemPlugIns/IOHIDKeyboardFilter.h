@@ -226,17 +226,6 @@ private:
     void resetCapsLockDelay(void);
     
     /*!
-     * @function canRemapKey
-     * @abstract Helper function which checks the current key for alphanumeric/special characters, and if so checks if the
-     * remapping process has the appropriate entitlement.
-     *
-     * @param   srcKey    the key being remapped
-     * @param   client    object representing client which is attempting to remap
-     * @result  True if remapping is allowed, false if key is restricted and process has insufficient permissions
-     *
-     */
-    bool canRemapKey(Key srcKey, CFTypeRef client);
-    /*!
      * @function allowKeyRemapping
      * @abstract Checks the attempted remapping for restricted characters and if the process can bypass those restrictions
      *
@@ -246,6 +235,7 @@ private:
      *
      */
     bool allowRemapping(CFTypeRef property, CFTypeRef client);
+    bool hasTCCPermissions(IOHIDEventSystemConnectionRef client);
 
     KeyMap createMapFromArrayOfPairs(CFArrayRef mappings);
     KeyMap createMapFromStringMap(CFStringRef mappings);

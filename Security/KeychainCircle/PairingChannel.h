@@ -15,14 +15,27 @@ extern NSString *kKCPairingChannelErrorDomain;
 #define KCPairingErrorTypeConfusion             5
 #define KCPairingErrorNoTrustAvailable          6
 #define KCPairingErrorNoStashedCredential       7
+#define KCPairingErrorNotTrustedInOctagon       8
 
 typedef void(^KCPairingChannelCompletion)(BOOL complete, NSData *packet, NSError *error);
 
 typedef NSString* KCPairingIntent_Type NS_STRING_ENUM;
-extern KCPairingIntent_Type KCPairingIntent_Type_None;
-extern KCPairingIntent_Type KCPairingIntent_Type_SilentRepair;
-extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
+extern KCPairingIntent_Type const KCPairingIntent_Type_None;
+extern KCPairingIntent_Type const KCPairingIntent_Type_SilentRepair;
+extern KCPairingIntent_Type const KCPairingIntent_Type_UserDriven;
 
+typedef NSString* KCPairingIntent_Capability NS_STRING_ENUM;
+extern KCPairingIntent_Capability const KCPairingIntent_Capability_FullPeer;
+extern KCPairingIntent_Capability const KCPairingIntent_Capability_LimitedPeer;
+
+typedef NSString *PairingPacketKey NS_STRING_ENUM;
+extern PairingPacketKey const PairingPacketKey_Device;
+extern PairingPacketKey const PairingPacketKey_OctagonData;
+extern PairingPacketKey const PairingPacketKey_PeerJoinBlob;
+extern PairingPacketKey const PairingPacketKey_Credential;
+extern PairingPacketKey const PairingPacketKey_CircleBlob;
+extern PairingPacketKey const PairingPacketKey_InitialCredentialsFromAcceptor;
+extern PairingPacketKey const PairingPacketKey_Version;
 @interface KCPairingChannelContext : NSObject <NSSecureCoding>
 @property (nonatomic, copy) NSString *model;
 @property (nonatomic, copy) NSString *modelVersion;
@@ -34,6 +47,7 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 @property (nonatomic, copy) NSString *flowID;
 @property (nonatomic, copy) NSString *deviceSessionID;
 @property (nonatomic, copy) KCPairingIntent_Type intent;
+@property (nonatomic, copy) KCPairingIntent_Capability capability;
 @end
 
 /**
@@ -68,7 +82,6 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 - (void)setOctagonMessageFailForTesting:(BOOL)value;
 + (bool)isSupportedPlatform;
 - (void)setSessionSupportsOctagonForTesting:(bool)value;
-
 + (NSData *)pairingChannelCompressData:(NSData *)data;
 + (NSData *)pairingChannelDecompressData:(NSData *)data;
 

@@ -64,6 +64,14 @@ initscr(void)
     if (!_nc_globals.init_screen) {
 	_nc_globals.init_screen = TRUE;
 
+#ifdef __APPLE__
+	if (getenv("NCURSES_PRINT_ABI") != NULL) {
+		fprintf(stderr, "ncurses: minimum supported ABI: %d.%d, maximum supported ABI: %d.%d\n",
+		    NCURSES_ABI_MAJOR(NCURSES_DEFAULT_ABI), NCURSES_ABI_MINOR(NCURSES_DEFAULT_ABI),
+		    NCURSES_ABI_MAJOR(NCURSES_MAX_ABI), NCURSES_ABI_MINOR(NCURSES_MAX_ABI));
+	}
+#endif
+
 	if ((name = getenv("TERM")) == 0
 	    || *name == '\0')
 	    name = "unknown";

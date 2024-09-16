@@ -30,6 +30,7 @@
 #include <uuid/uuid.h>
 #include <Availability.h>
 #include <sys/cdefs.h>
+#include <string.h>
 
 __BEGIN_DECLS
 
@@ -52,14 +53,16 @@ LOG_SIMPLE_AVAILABILITY
 uint8_t
 os_log_simple_type_from_asl(int level);
 
+#define _OS_LOG_SIMPLE_UUID_CLEAR(uuid) memset((uuid), 0, sizeof(uuid_t))
+
 // libplatform isn't allowed to link libdyld, so clients of the os_log_simple
 // interface should link libdyld and we call into the dyld routines in a macro
 #define __os_log_simple_dyld(sender_mh, sender_uuid, dsc_uuid, dsc_load_addr_p) __extension__({\
 	if (!_dyld_get_image_uuid(sender_mh, sender_uuid)) {\
-		uuid_clear(sender_uuid);\
+		_OS_LOG_SIMPLE_UUID_CLEAR(sender_uuid);\
 	}\
 	if (!_dyld_get_shared_cache_uuid(dsc_uuid)) {\
-		uuid_clear(dsc_uuid);\
+		_OS_LOG_SIMPLE_UUID_CLEAR(dsc_uuid);\
 	} else {\
 		size_t _dsc_size;\
 		*dsc_load_addr_p = (uintptr_t)_dyld_get_shared_cache_range(&_dsc_size);\

@@ -679,9 +679,9 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->transducerType = (uint32_t)transducerType;
-    eventData->position.x = CAST_DOUBLE_TO_FIXED(x);
-    eventData->position.y = CAST_DOUBLE_TO_FIXED(y);
-    eventData->position.z = CAST_DOUBLE_TO_FIXED(z);
+    eventData->position.x = (IOHIDDouble)x;
+    eventData->position.y = (IOHIDDouble)y;
+    eventData->position.z = (IOHIDDouble)z;
 
     return event;
 }
@@ -693,8 +693,8 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypeTilt;
-    eventData->orientation.tilt.x = CAST_DOUBLE_TO_FIXED(x);
-    eventData->orientation.tilt.y = CAST_DOUBLE_TO_FIXED(y);
+    eventData->orientation.tilt.x = (IOHIDDouble)x;
+    eventData->orientation.tilt.y = (IOHIDDouble)y;
 
     return event;
 }
@@ -706,12 +706,12 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypePolar;
-    eventData->orientation.polar.altitude = CAST_DOUBLE_TO_FIXED(altitude);
-    eventData->orientation.polar.azimuth = CAST_DOUBLE_TO_FIXED(azimuth);
-    eventData->orientation.polar.quality = CAST_DOUBLE_TO_FIXED(quality);
-    eventData->orientation.polar.density = CAST_DOUBLE_TO_FIXED(density);
-    eventData->orientation.polar.majorRadius = CAST_DOUBLE_TO_FIXED(majorRadius);
-    eventData->orientation.polar.minorRadius = CAST_DOUBLE_TO_FIXED(minorRadius);
+    eventData->orientation.polar.altitude = (IOHIDDouble)altitude;
+    eventData->orientation.polar.azimuth = (IOHIDDouble)azimuth;
+    eventData->orientation.polar.quality = (IOHIDDouble)quality;
+    eventData->orientation.polar.density = (IOHIDDouble)density;
+    eventData->orientation.polar.majorRadius = (IOHIDDouble)majorRadius;
+    eventData->orientation.polar.minorRadius = (IOHIDDouble)minorRadius;
 
     return event;
 }
@@ -723,12 +723,12 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypeQuality;
-    eventData->orientation.quality.quality = CAST_DOUBLE_TO_FIXED(quality);
-    eventData->orientation.quality.density = CAST_DOUBLE_TO_FIXED(density);
-    eventData->orientation.quality.irregularity = CAST_DOUBLE_TO_FIXED(irregularity);
-    eventData->orientation.quality.majorRadius = CAST_DOUBLE_TO_FIXED(majorRadius);
-    eventData->orientation.quality.minorRadius = CAST_DOUBLE_TO_FIXED(minorRadius);
-    eventData->orientation.quality.accuracy = CAST_DOUBLE_TO_FIXED(accuracy);
+    eventData->orientation.quality.quality = (IOHIDDouble)quality;
+    eventData->orientation.quality.density = (IOHIDDouble)density;
+    eventData->orientation.quality.irregularity = (IOHIDDouble)irregularity;
+    eventData->orientation.quality.majorRadius = (IOHIDDouble)majorRadius;
+    eventData->orientation.quality.minorRadius = (IOHIDDouble)minorRadius;
+    eventData->orientation.quality.accuracy = (IOHIDDouble)accuracy;
 
     return event;
 }
@@ -1786,9 +1786,9 @@
     HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventTypePointer, timestamp, options);
     IOHIDPointerEventData *eventData = (IOHIDPointerEventData *)event->_event.eventData;
 
-    eventData->position.x = CAST_DOUBLE_TO_FIXED(x);
-    eventData->position.y = CAST_DOUBLE_TO_FIXED(y);
-    eventData->position.z = CAST_DOUBLE_TO_FIXED(z);
+    eventData->position.x = (IOHIDDouble)x;
+    eventData->position.y = (IOHIDDouble)y;
+    eventData->position.z = (IOHIDDouble)z;
     eventData->button.mask = (uint32_t)buttonMask;
 
     return event;

@@ -109,7 +109,7 @@ angle::Result Memory::getInfo(MemInfo name,
             copySize  = sizeof(mOffset);
             break;
         case MemInfo::UsesSVM_Pointer:
-            valUInt   = CL_FALSE;  // TODO(jplate) Check for SVM pointer anglebug.com/6002
+            valUInt   = CL_FALSE;  // TODO(jplate) Check for SVM pointer anglebug.com/42264535
             copyValue = &valUInt;
             copySize  = sizeof(valUInt);
             break;
@@ -168,7 +168,7 @@ Memory::Memory(const Buffer &buffer,
       mSize(size),
       mMapCount(0u)
 {
-    ANGLE_CL_IMPL_TRY(context.getImpl().createBuffer(buffer, size, hostPtr, &mImpl));
+    ANGLE_CL_IMPL_TRY(context.getImpl().createBuffer(buffer, hostPtr, &mImpl));
 }
 
 Memory::Memory(const Buffer &buffer, Buffer &parent, MemFlags flags, size_t offset, size_t size)

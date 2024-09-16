@@ -7,6 +7,7 @@ GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 GCC_PRECOMPILE_PREFIX_HEADER = YES;
 GCC_PREPROCESSOR_DEFINITIONS = $(DEBUG_DEFINES) HAVE_CONFIG_H _REENTRANT;
 // GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -15,13 +16,14 @@ LINKER_DISPLAYS_MANGLED_NAMES = YES;
 PREBINDING = NO;
 // WARNING_CFLAGS = -Wextra -Wcast-qual -Wextra-tokens -Winit-self -Wmissing-noreturn -Wpacked -Wredundant-decls -Wundef;
 WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline $(SECURITY_WARNING_CFLAGS);
-SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
+SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=shorten-64-to-32 -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 
-OTHER_CFLAGS = $(inherited) $(LIBXSLT_FUZZER_CFLAGS);
+OTHER_CFLAGS = $(inherited) $(OTHER_CFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER)) $(OTHER_CFLAGS_UBSAN_$(ENABLE_UNDEFINED_BEHAVIOR_SANITIZER));
+OTHER_CFLAGS_LIBFUZZER_YES = -g -fno-omit-frame-pointer -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize-coverage=inline-8bit-counters,trace-cmp;
+OTHER_CFLAGS_UBSAN_YES = -fno-sanitize=float-divide-by-zero,pointer-overflow;
 
-LIBXSLT_FUZZER_CFLAGS = $(LIBXSLT_FUZZER_CFLAGS_$(ENABLE_LIBFUZZER));
-LIBXSLT_FUZZER_CFLAGS_YES = -g -fno-omit-frame-pointer $(LIBXSLT_FUZZER_UBSAN_CFLAGS_$(ENABLE_UNDEFINED_BEHAVIOR_SANITIZER)) -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION;
-LIBXSLT_FUZZER_UBSAN_CFLAGS_YES = -fno-sanitize=float-divide-by-zero,pointer-overflow;
+OTHER_LDFLAGS = $(inherited) $(OTHER_LDFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER));
+OTHER_LDFLAGS_LIBFUZZER_YES = -fsanitize-coverage=inline-8bit-counters,trace-cmp;
 
 CLANG_TRIVIAL_AUTO_VAR_INIT[sdk=iphone*]=zero;
 

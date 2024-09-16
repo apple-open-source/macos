@@ -98,10 +98,12 @@
     self.zoneID = ckRecord.recordID.zoneID;
     self.ckRecordType = ckRecord.recordType;
 
-    NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
-    [ckRecord encodeWithCoder:archiver];
-    _encodedCKRecord = archiver.encodedData;
-    _storedCKRecord = [ckRecord copy];
+    @autoreleasepool {
+        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+        [ckRecord encodeWithCoder:archiver];
+        _encodedCKRecord = archiver.encodedData;
+        _storedCKRecord = [ckRecord copy];
+    }
 }
 
 - (NSData*)encodedCKRecord

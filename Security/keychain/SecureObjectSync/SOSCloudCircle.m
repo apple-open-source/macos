@@ -69,9 +69,6 @@
 
 const char * kSOSCCCircleChangedNotification = "com.apple.security.secureobjectsync.circlechanged";
 const char * kSOSCCViewMembershipChangedNotification = "com.apple.security.secureobjectsync.viewschanged";
-const char * kSOSCCInitialSyncChangedNotification = "com.apple.security.secureobjectsync.initialsyncchanged";
-const char * kSOSCCHoldLockForInitialSync = "com.apple.security.secureobjectsync.holdlock";
-const char * kSOSCCPeerAvailable = "com.apple.security.secureobjectsync.peeravailable";
 const char * kSOSCCRecoveryKeyChanged = "com.apple.security.secureobjectsync.recoverykeychanged";
 const char * kSOSCCCircleOctagonKeysChangedNotification = "com.apple.security.sosoctagonbitschanged";
 const char * kSOSCCSOSIsNowOFF = "com.apple.security.sos.off";

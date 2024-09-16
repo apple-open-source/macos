@@ -392,6 +392,12 @@ foreach $file (@files) {
 		    "(cd elsewhere or use -d)\n";
 	}
 
+	if ($perftest == 1 && $wexitstat == 69) {
+		# Perf tests are libdarwintest based and 69 means SKIP
+		logmsg("[SKIP] $file\n");
+		next;
+	}
+
 	if ($wexitstat != $status) {
 		fail("returned $wexitstat instead of $status");
 		next;

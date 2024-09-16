@@ -416,7 +416,7 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 			continue;
 		}
 
-		serviceIdentifierString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%u"), serviceIdentifier);
+		serviceIdentifierString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), serviceIdentifier);
 		if (serviceIdentifierString == NULL) {
 			continue;
 		}

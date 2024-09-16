@@ -35,6 +35,7 @@
 namespace WGSL {
 
 class AttributeValidator;
+class EntryPointRewriter;
 
 namespace AST {
 
@@ -42,11 +43,13 @@ enum class ParameterRole : uint8_t {
     UserDefined,
     StageIn,
     BindGroup,
+    PackedResource,
 };
 
 class Parameter final : public Node {
     WGSL_AST_BUILDER_NODE(Parameter);
     friend AttributeValidator;
+    friend EntryPointRewriter;
 
 public:
     using List = ReferenceWrapperVector<Parameter>;

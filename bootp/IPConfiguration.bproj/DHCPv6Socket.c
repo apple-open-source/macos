@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,36 +71,17 @@
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
 
-#if TEST_DHCPV6_CLIENT
-#include <SystemConfiguration/SCPrivate.h>
-#undef my_log
-#define my_log(pri, format, ...)	do {		\
-	struct timeval	tv;				\
-	struct tm       tm;				\
-	time_t		t;				\
-							\
-	(void)gettimeofday(&tv, NULL);					\
-	t = tv.tv_sec;							\
-	(void)localtime_r(&t, &tm);					\
-									\
-	SCPrint(TRUE, stdout,						\
-		CFSTR("%04d/%02d/%02d %2d:%02d:%02d.%06d " format "\n"), \
-		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,		\
-		tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,		\
-		## __VA_ARGS__ );					\
-    } while (0)
-#endif
-
 typedef struct DHCPv6SocketGlobals {
     dynarray_t			sockets;
     FDCalloutRef		read_fd;
     int				read_fd_refcount;
     timer_callout_t *		timer_callout;
+    bool			cancel_pending;
 } DHCPv6SocketGlobals, * DHCPv6SocketGlobalsRef;
 
 struct DHCPv6Socket {
     interface_t *		if_p;
-    boolean_t			fd_open;
+    bool			fd_open;
     DHCPv6TransactionID		transaction_id;
     DHCPv6SocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
@@ -213,27 +194,6 @@ DHCPv6SocketCreateGlobals(void)
     return (globals);
 }
 
-STATIC void
-DHCPv6SocketReleaseGlobals(DHCPv6SocketGlobalsRef * globals_p)
-{
-    DHCPv6SocketGlobalsRef	globals;
-
-    if (globals_p == NULL) {
-	return;
-    }
-    globals = *globals_p;
-    if (globals == NULL) {
-	return;
-    }
-    *globals_p = NULL;
-    dynarray_free(&globals->sockets);
-    FDCalloutRelease(&globals->read_fd);
-    timer_callout_free(&globals->timer_callout);
-    bzero(globals, sizeof(*globals));
-    free(globals);
-    return;
-}
-
 STATIC DHCPv6SocketGlobalsRef
 DHCPv6SocketGetGlobals(void)
 {
@@ -242,6 +202,18 @@ DHCPv6SocketGetGlobals(void)
     }
     S_globals = DHCPv6SocketCreateGlobals();
     return (S_globals);
+}
+
+STATIC void
+DHCPv6SocketScheduleClose(void)
+{
+    if (S_globals->cancel_pending) {
+	my_log(LOG_ERR, "%s: cancel is already pending?",
+	       __func__);
+	return;
+    }
+    S_globals->cancel_pending = true;
+    FDCalloutRelease(&S_globals->read_fd);
 }
 
 STATIC void
@@ -260,9 +232,7 @@ DHCPv6SocketDelayedClose(void * arg1, void * arg2, void * arg3)
     my_log(LOG_DEBUG,
 	   "DHCPv6SocketDelayedClose(): closing DHCPv6 socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
-
-    /* this closes the file descriptor */
-    FDCalloutRelease(&S_globals->read_fd);
+    DHCPv6SocketScheduleClose();
     return;
 }
 
@@ -365,7 +335,7 @@ DHCPv6SocketCreate(interface_t * if_p)
 	return (NULL);
     }
     bzero(sock, sizeof(*sock));
-    if (dynarray_add(&globals->sockets, sock) == FALSE) {
+    if (!dynarray_add(&globals->sockets, sock)) {
 	free(sock);
 	return (NULL);
     }
@@ -402,16 +372,13 @@ DHCPv6SocketRelease(DHCPv6SocketRef * sock_p)
     }
     DHCPv6SocketFreeElement(sock);
     *sock_p = NULL;
-    if (dynarray_count(&S_globals->sockets) == 0) {
-	DHCPv6SocketReleaseGlobals(&S_globals);
-    }
     return;
 }
 
 STATIC void
 DHCPv6SocketCloseSocket(DHCPv6SocketRef sock)
 {
-    if (sock->fd_open == FALSE) {
+    if (sock->fd_open == false) {
 	return;
     }
     if (S_globals->read_fd_refcount <= 0) {
@@ -422,7 +389,7 @@ DHCPv6SocketCloseSocket(DHCPv6SocketRef sock)
     S_globals->read_fd_refcount--;
     my_log(LOG_DEBUG, "DHCPv6SocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
-    sock->fd_open = FALSE;
+    sock->fd_open = false;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
@@ -464,9 +431,15 @@ DHCPv6SocketRead(void * arg1, void * arg2)
     /* get message */
     n = recvmsg(FDCalloutGetFD(S_globals->read_fd), &mhdr, 0);
     if (n < 0) {
-	if (errno != EAGAIN) {
+	int	error = errno;
+
+	if (error != EAGAIN) {
 	    my_log(LOG_ERR, "DHCPv6SocketRead: recvfrom failed %s (%d)",
-		   strerror(errno), errno);
+		   strerror(errno), error);
+	    if (error == ENOTCONN) {
+		/* close and re-open */
+		DHCPv6SocketScheduleClose();
+	    }
 	}
 	return;
     }
@@ -508,47 +481,100 @@ DHCPv6SocketRead(void * arg1, void * arg2)
     return;
 }
 
-STATIC boolean_t
+STATIC void
+DHCPv6SocketFDComplete(int sockfd);
+
+
+STATIC void
+DHCPv6SocketEnableReceiveCallBack(int sockfd)
+{
+    dispatch_block_t	cancel_handler;
+
+    my_log(LOG_DEBUG, "%s: enabling receive on socket %d",
+	   __func__, sockfd);
+    cancel_handler = ^{
+	DHCPv6SocketFDComplete(sockfd);
+    };
+    S_globals->read_fd = FDCalloutCreate(sockfd,
+					 DHCPv6SocketRead,
+					 NULL, NULL,
+					 cancel_handler);
+}
+
+STATIC void
+DHCPv6SocketFDComplete(int sockfd)
+{
+    my_log(LOG_DEBUG, "%s: socket %d complete", __func__, sockfd);
+    S_globals->cancel_pending = false;
+    if (S_globals->read_fd_refcount > 0) {
+	my_log(LOG_DEBUG, "%s: re-enabling socket %d",
+	       __func__, sockfd);
+	DHCPv6SocketEnableReceiveCallBack(sockfd);
+    }
+    else {
+	my_log(LOG_DEBUG, "%s: closing socket %d",
+	       __func__, sockfd);
+	close(sockfd);
+    }
+}
+
+STATIC errno_t
+DHCPv6SocketOpenSocketFD(void)
+{
+    errno_t	error = 0;
+    int		sockfd;
+
+    if (S_globals->cancel_pending) {
+	my_log(LOG_DEBUG,
+	       "%s: waiting for cancel to complete",
+	       __func__);
+	goto done;
+    }
+    sockfd = open_dhcpv6_socket(S_client_port);
+    if (sockfd < 0) {
+	error = errno;
+	my_log(LOG_NOTICE,
+	       "%s: socket() failed, %s", __func__,
+	       strerror(error));
+	goto done;
+    }
+    my_log(LOG_DEBUG,
+	   "%s: opened DHCPv6 socket %d", __func__, sockfd);
+    DHCPv6SocketEnableReceiveCallBack(sockfd);
+
+ done:
+    return (error);
+}
+
+STATIC errno_t
 DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 {
+    errno_t	error = 0;
+
     if (sock->fd_open) {
-	return (TRUE);
+	goto done;
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_DEBUG, "DHCPv6SocketOpenSocket (%s): refcount %d",
-	   if_name(sock->if_p), S_globals->read_fd_refcount);
-    sock->fd_open = TRUE;
+    my_log(LOG_DEBUG, "%s (%s): refcount %d",
+	   __func__, if_name(sock->if_p), S_globals->read_fd_refcount);
+    sock->fd_open = true;
     if (S_globals->read_fd_refcount > 1) {
 	/* already open */
-	return (TRUE);
+	goto done;
     }
     if (S_globals->read_fd != NULL) {
-	my_log(LOG_INFO, "DHCPv6SocketOpenSocket(): socket is still open");
+	my_log(LOG_INFO, "%s: socket is still open",
+	       __func__);
+	goto done;
     }
-    else {
-	int	sockfd;
-
-	sockfd = open_dhcpv6_socket(S_client_port);
-	if (sockfd < 0) {
-	    my_log(LOG_NOTICE,
-		   "DHCPv6SocketOpenSocket: socket() failed, %s",
-		   strerror(errno));
-	    goto failed;
-	}
-	my_log(LOG_DEBUG,
-	       "DHCPv6SocketOpenSocket(): opened DHCPv6 socket %d",
-	       sockfd);
-	/* register as a reader */
-	S_globals->read_fd = FDCalloutCreate(sockfd,
-					     DHCPv6SocketRead,
-					     NULL, NULL);
+    error = DHCPv6SocketOpenSocketFD();
+    if (error != 0) {
+	DHCPv6SocketCloseSocket(sock);
     }
-    return (TRUE);
 
- failed:
-    DHCPv6SocketCloseSocket(sock);
-    return (FALSE);
+ done:
+    return (error);
 }
 
 PRIVATE_EXTERN void
@@ -557,13 +583,16 @@ DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
 			  DHCPv6SocketReceiveFuncPtr func, 
 			  void * arg1, void * arg2)
 {
+    errno_t	error;
+
     sock->receive_func = func;
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
     sock->transaction_id = transaction_id;
-    if (DHCPv6SocketOpenSocket(sock) == FALSE) {
-	my_log(LOG_NOTICE, "DHCPv6SocketEnableReceive(%s): failed",
-	       if_name(sock->if_p));
+    error = DHCPv6SocketOpenSocket(sock);
+    if (error != 0) {
+	my_log(LOG_NOTICE, "%s(%s): DHCPv6SocketOpenSocket failed, %s",
+	       __func__, if_name(sock->if_p), strerror(error));
     }
     return;
 }
@@ -594,21 +623,32 @@ S_send_packet(int sockfd, int ifindex, DHCPv6PacketRef pkt, int pkt_size)
     return (IPv6SocketSend(sockfd, ifindex, &dst, pkt, pkt_size, -1));
 }
 
-PRIVATE_EXTERN int
+PRIVATE_EXTERN errno_t
 DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 		     DHCPv6PacketRef pkt, int pkt_len)
 {
     DHCPv6OptionErrorString	err;
-    int				ret;
-    boolean_t			needs_close = FALSE;
+    errno_t			error = 0;
+    bool			needs_close = false;
 
-    if (sock->fd_open == FALSE) {
+    if (S_globals->read_fd == NULL) {
+	/*
+	 * The dispatch source was canceled, and we haven't gotten the
+	 * cancel completion callback yet.
+	 */
+	my_log(LOG_NOTICE, "%s: waiting for socket to close",
+	       __func__);
+	goto done;
+    }
+    if (sock->fd_open == false) {
 	/* open the DHCPv6 socket in case it's needed */
-	if (DHCPv6SocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_NOTICE, "DHCPv6Socket: failed to open socket");
-	    return (FALSE);
+	error = DHCPv6SocketOpenSocket(sock);
+	if (error != 0) {
+	    my_log(LOG_NOTICE, "%s: DHCPv6SocketOpenSocket failed",
+		   __func__);
+	    goto done;
 	}
-	needs_close = TRUE;
+	needs_close = true;
     }
     if (S_verbose) {
 	DHCPv6OptionListRef	options;
@@ -635,10 +675,11 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 	       pkt->msg_type,
 	       pkt_len);
     }
-    ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
-			if_link_index(sock->if_p), pkt, pkt_len);
+    error = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
+			  if_link_index(sock->if_p), pkt, pkt_len);
     if (needs_close) {
 	DHCPv6SocketCloseSocket(sock);
     }
-    return (ret);
+ done:
+    return (error);
 }

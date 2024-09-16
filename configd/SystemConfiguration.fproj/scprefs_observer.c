@@ -249,7 +249,7 @@ _prefs_observer_init(void)
 						  prefs_observer_handle_notifications();
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SC_log(LOG_INFO, "notify_register_dispatch() failed: %d", status);
+		SC_log(LOG_INFO, "notify_register_dispatch() failed: %u", status);
 	}
 }
 

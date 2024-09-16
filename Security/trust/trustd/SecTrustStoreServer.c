@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010,2012-2023 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2010,2012-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,30 +73,21 @@ static SecTrustStoreRef kSecTrustStoreUser = NULL;
 static SecTrustStoreRef kSecTrustStoreAdmin = NULL;
 static SecTrustStoreRef kSecTrustStoreSystem = NULL;
 
-static const char copyParentsSQL[] = "SELECT data FROM tsettings WHERE subj=?";
-static const char containsSQL[] = "SELECT tset FROM tsettings WHERE sha256=?";
-static const char insertSQL[] = "INSERT OR REPLACE INTO tsettings(sha256,subj,tset,data)VALUES(?,?,?,?)";
-static const char deleteSQL[] = "DELETE FROM tsettings WHERE sha256=?";
 static const char beginExclusiveTxnSQL[] = "BEGIN EXCLUSIVE TRANSACTION;";
 static const char endExclusiveTxnSQL[] = "COMMIT TRANSACTION; VACUUM;";
-static const char deleteAllSQL[] = "DELETE from tsettings";
-#if TARGET_OS_IPHONE
-static const char copyAllSQL[] = "SELECT data,tset FROM tsettings ORDER BY sha256";
-#endif // TARGET_OS_IPHONE
 #if !TARGET_OS_OSX
 static const char copyAllOldSQL[] = "SELECT data,tset FROM tsettings ORDER BY sha1";
 #endif // !TARGET_OS_OSX
-static const char countAllSQL[] = "SELECT COUNT(*) FROM tsettings";
 
-static const char copyParentsV2SQL[] = "SELECT data FROM tsettings WHERE subj=? AND uuid=?";
-static const char containsV2SQL[] = "SELECT tset FROM tsettings WHERE sha256=? AND uuid=?";
-static const char insertV2SQL[] = "INSERT OR REPLACE INTO tsettings(sha256,subj,tset,data,uuid)VALUES(?,?,?,?,?)";
-static const char deleteV2SQL[] = "DELETE FROM tsettings WHERE sha256=? AND uuid=?";
-static const char deleteAllV2SQL[] = "DELETE from tsettings WHERE uuid=?";
+static const char copyParentsSQL[] = "SELECT data FROM tsettings WHERE subj=? AND uuid=?";
+static const char containsSQL[] = "SELECT tset FROM tsettings WHERE sha256=? AND uuid=?";
+static const char insertSQL[] = "INSERT OR REPLACE INTO tsettings(sha256,subj,tset,data,uuid)VALUES(?,?,?,?,?)";
+static const char deleteSQL[] = "DELETE FROM tsettings WHERE sha256=? AND uuid=?";
+static const char deleteAllSQL[] = "DELETE from tsettings WHERE uuid=?";
 #if TARGET_OS_IPHONE
-static const char copyAllV2SQL[] = "SELECT data,tset FROM tsettings WHERE uuid=? ORDER BY sha256";
+static const char copyAllSQL[] = "SELECT data,tset FROM tsettings WHERE uuid=? ORDER BY sha256";
 #endif // TARGET_OS_IPHONE
-static const char countAllV2SQL[] = "SELECT COUNT(*) FROM tsettings WHERE uuid=?";
+static const char countAllSQL[] = "SELECT COUNT(*) FROM tsettings WHERE uuid=?";
 #if !TARGET_OS_OSX
 static const char findUUIDColSQL[] = "SELECT INSTR(sql,'uuid') FROM sqlite_master WHERE type='table' AND name='tsettings'";
 static const char copyToTmpSQL[] = "INSERT OR REPLACE INTO tmp_tsettings(sha256,subj,tset,data) SELECT sha256,subj,tset,data FROM tsettings";
@@ -200,18 +191,6 @@ static bool SecExtractFilesystemPathForPrivateTrustdFile(CFStringRef file, UInt8
     return translated;
 }
 
-static bool SecExtractFilesystemPathForPrivateUserTrustdFile(CFStringRef file, UInt8 *buffer, CFIndex maxBufLen)
-{
-    bool translated = false;
-    CFURLRef fileURL = SecCopyURLForFileInPrivateUserTrustdDirectory(file);
-
-    if (fileURL && CFURLGetFileSystemRepresentation(fileURL, false, buffer, maxBufLen))
-        translated = true;
-    CFReleaseSafe(fileURL);
-
-    return translated;
-}
-
 static bool SecTrustStoreOpenSharedConnection(SecTrustStoreRef ts) {
     __block int s3e = SQLITE_ERROR;
     require(ts && ts->queue, errOut);
@@ -244,17 +223,16 @@ static CFDataRef SecTrustStoreCopyUUID(SecTrustStoreRef ts) {
 
 static int64_t SecTrustStoreCountAll(SecTrustStoreRef ts) {
     __block int64_t result = -1;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
 
     require_quiet(ts && uuid, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         sqlite3_stmt *countAllStmt = NULL;
         int s3e = sqlite3_prepare_v2(ts->s3h,
-                                     (v2) ? countAllV2SQL : countAllSQL,
-                                     (v2) ? sizeof(countAllV2SQL) : sizeof(countAllSQL),
+                                     countAllSQL,
+                                     sizeof(countAllSQL),
                                      &countAllStmt, NULL);
-        if (s3e == SQLITE_OK && v2) {
+        if (s3e == SQLITE_OK) {
             /* "count all" means only those entries matching the user or admin uuid */
             require_noerr_quiet(s3e = sqlite3_bind_blob_wrapper(countAllStmt, 1,
                                                                  CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
@@ -282,7 +260,6 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
     SecTrustStoreDomain domain) {
     SecTrustStoreRef ts;
     int s3e = SQLITE_OK;
-    bool v2 = _SecTrustStoreUsesUUIDEnabled();
 
     require(ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore)), errOut);
     memset(ts, 0, sizeof(struct __SecTrustStore));
@@ -294,51 +271,38 @@ static SecTrustStoreRef SecTrustStoreCreate(const char *db_name,
     require(SecTrustStoreOpenSharedConnection(ts), errOut);
 
     s3e = sqlite3_prepare_v3(ts->s3h,
-                             (v2) ? copyParentsV2SQL : copyParentsSQL,
-                             (v2) ? sizeof(copyParentsV2SQL) : sizeof(copyParentsSQL),
+                             copyParentsSQL,
+                             sizeof(copyParentsSQL),
                              SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 	if (create && s3e == SQLITE_ERROR) {
 		/* sqlite3_prepare returns SQLITE_ERROR if the table we are
 		   compiling this statement for doesn't exist. */
 		char *errmsg = NULL;
-        if (v2) {
-            s3e = sqlite3_exec(ts->s3h,
-                               "CREATE TABLE tsettings("
-                               "sha256 BLOB NOT NULL DEFAULT '',"
-                               "subj BLOB NOT NULL DEFAULT '',"
-                               "tset BLOB,"
-                               "data BLOB,"
-                               "uuid BLOB NOT NULL DEFAULT '',"
-                               "UNIQUE(sha256,uuid)"
-                               ");"
-                               "CREATE INDEX isubj ON tsettings(subj);"
-                               , NULL, NULL, &errmsg);
-        } else {
-            s3e = sqlite3_exec(ts->s3h,
-                               "CREATE TABLE tsettings("
-                               "sha256 BLOB NOT NULL DEFAULT '',"
-                               "subj BLOB NOT NULL DEFAULT '',"
-                               "tset BLOB,"
-                               "data BLOB,"
-                               "PRIMARY KEY(sha256)"
-                               ");"
-                               "CREATE INDEX isubj ON tsettings(subj);"
-                               , NULL, NULL, &errmsg);
-        }
+        s3e = sqlite3_exec(ts->s3h,
+                           "CREATE TABLE tsettings("
+                           "sha256 BLOB NOT NULL DEFAULT '',"
+                           "subj BLOB NOT NULL DEFAULT '',"
+                           "tset BLOB,"
+                           "data BLOB,"
+                           "uuid BLOB NOT NULL DEFAULT '',"
+                           "UNIQUE(sha256,uuid)"
+                           ");"
+                           "CREATE INDEX isubj ON tsettings(subj);"
+                           , NULL, NULL, &errmsg);
 		if (errmsg) {
 			secwarning("CREATE TABLE tsettings: %s", errmsg);
 			sqlite3_free(errmsg);
 		}
 		require_noerr(s3e, errOut);
         s3e = sqlite3_prepare_v3(ts->s3h,
-                                 (v2) ? copyParentsV2SQL : copyParentsSQL,
-                                 (v2) ? sizeof(copyParentsV2SQL) : sizeof(copyParentsSQL),
+                                 copyParentsSQL,
+                                 sizeof(copyParentsSQL),
                                  SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 	}
 	require_noerr(s3e, errOut);
 	require_noerr(s3e = sqlite3_prepare_v3(ts->s3h,
-                                           (v2) ? containsV2SQL : containsSQL,
-                                           (v2) ? sizeof(containsV2SQL) : sizeof(containsSQL),
+                                           containsSQL,
+                                           sizeof(containsSQL),
                                            SQLITE_PREPARE_PERSISTENT,
                                            &ts->contains, NULL), errOut);
 
@@ -368,23 +332,7 @@ errOut:
 static void SecTrustStoreInitUser(void) {
 	const char path[MAXPATHLEN];
     bool pathResult = false;
-    bool v2 = _SecTrustStoreUsesUUIDEnabled();
-    if (v2) {
-        pathResult = SecExtractFilesystemPathForPrivateTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
-    } else {
-        pathResult = SecExtractFilesystemPathForPrivateUserTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
-#if !TARGET_OS_IPHONE
-        (void)pathResult;
-        // pre-v2 user trust store code (read-only on macOS)
-        SecTrustStoreRef ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore));
-        memset(ts, 0, sizeof(struct __SecTrustStore));
-        ts->readOnly = true;
-        ts->domain = kSecTrustStoreDomainUser;
-        kSecTrustStoreUser = ts;
-        // we don't need to continue
-        return;
-#endif
-    }
+    pathResult = SecExtractFilesystemPathForPrivateTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
     secdebug("truststore", "Creating user trust store at %s (%d)", path, (pathResult) ? 1 : 0);
     if (pathResult) {
         kSecTrustStoreUser = SecTrustStoreCreate(path, true, kSecTrustStoreDomainUser);
@@ -398,17 +346,7 @@ static void SecTrustStoreInitUser(void) {
 
 static void SecTrustStoreInitAdmin(void) {
     const char path[MAXPATHLEN];
-    bool v2 = _SecTrustStoreUsesUUIDEnabled();
     bool pathResult = false;
-    if (!v2) {
-        // pre-v2 admin trust store code (read-only, all platforms)
-        SecTrustStoreRef ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore));
-        memset(ts, 0, sizeof(struct __SecTrustStore));
-        ts->readOnly = true;
-        ts->domain = kSecTrustStoreDomainAdmin;
-        kSecTrustStoreAdmin = ts;
-        return;
-    }
     pathResult = SecExtractFilesystemPathForPrivateTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
     secdebug("config", "Creating admin trust store at %s (%d)", path, (pathResult) ? 1 : 0);
     if (pathResult) {
@@ -462,7 +400,6 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     SecCertificateRef certificate,
     CFTypeRef tsdoa, CFErrorRef *error) {
     __block bool ok;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     secdebug("truststore", "[%s trustd] SecTrustStoreSetTrustSettings for domain %d", (geteuid() == TRUSTD_ROLE_ACCOUNT) ? "system" : "user", ts->domain);
     require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
     require_action_quiet(!ts->readOnly, errOutNotLocked, ok = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
@@ -508,8 +445,8 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
 
         /* Parameter order is sha256,subj,tset,data{,uuid}. */
         require_noerr_action_quiet(s3e = sqlite3_prepare_v2(ts->s3h,
-                                            (v2) ? insertV2SQL : insertSQL,
-                                            (v2) ? sizeof(insertV2SQL) : sizeof(insertSQL),
+                                            insertSQL,
+                                            sizeof(insertSQL),
                                             &insert, NULL),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
         require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 1,
@@ -527,12 +464,10 @@ bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
                                                              SecCertificateGetBytePtr(certificate),
                                                              (size_t)SecCertificateGetLength(certificate), SQLITE_STATIC),
                                    errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        if (v2) {
-            require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 5,
-                                                                CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
-                                                                       SQLITE_STATIC),
-                                       errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
-        }
+        require_noerr_action_quiet(s3e = sqlite3_bind_blob_wrapper(insert, 5,
+                                                            CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
+                                                                   SQLITE_STATIC),
+                                   errOutSql, ok = SecError(errSecInternal, error, CFSTR("sqlite3 error: %d"), s3e));
         s3e = sqlite3_step(insert);
         if (s3e == SQLITE_DONE) {
             /* Great the insert worked. */
@@ -577,7 +512,6 @@ errOutNotLocked:
 
 bool _SecTrustStoreRemoveCertificate(SecTrustStoreRef ts, SecCertificateRef cert, CFErrorRef *error) {
     bool ok = true;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     CFDataRef digest = NULL;
     require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("truststore is NULL")));
@@ -590,15 +524,13 @@ bool _SecTrustStoreRemoveCertificate(SecTrustStoreRef ts, SecCertificateRef cert
         sqlite3_stmt *deleteStmt = NULL;
 
         require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
-                                               (v2) ? deleteV2SQL : deleteSQL,
-                                               (v2) ? sizeof(deleteV2SQL) : sizeof(deleteSQL),
+                                               deleteSQL,
+                                               sizeof(deleteSQL),
                                                &deleteStmt, NULL), errOut);
         require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 1,
                                                 CFDataGetBytePtr(digest), (size_t)CFDataGetLength(digest), SQLITE_STATIC), errOut);
-        if (v2) {
-            require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 2,
+        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteStmt, 2,
                                                 CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errOut);
-        }
         s3e = sqlite3_step(deleteStmt);
 
     errOut:
@@ -619,7 +551,6 @@ errOutNotLocked:
 bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
 {
     __block bool removed_all = false;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     require_action_quiet(ts, errOutNotLocked, removed_all = SecError(errSecParam, error, CFSTR("truststore is NULL")));
     require_action_quiet(!ts->readOnly, errOutNotLocked, removed_all = SecError(errSecReadOnly, error, CFSTR("truststore is readOnly")));
@@ -628,13 +559,11 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
         int s3e = SQLITE_OK;
         sqlite3_stmt *deleteAllStmt = NULL;
         require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
-                                        (v2) ? deleteAllV2SQL : deleteAllSQL,
-                                        (v2) ? sizeof(deleteAllV2SQL) : sizeof(deleteAllSQL),
+                                        deleteAllSQL,
+                                        sizeof(deleteAllSQL),
                                         &deleteAllStmt, NULL), errOut);
-        if (v2) {
-            require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteAllStmt, 1,
-                                                CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errOut);
-        }
+        require_noerr(s3e = sqlite3_bind_blob_wrapper(deleteAllStmt, 1,
+                                            CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC), errOut);
         // begin exclusive transaction
         s3e =sqlite3_exec(ts->s3h, beginExclusiveTxnSQL, NULL, NULL, NULL);
         if (s3e == SQLITE_OK) {
@@ -656,18 +585,20 @@ bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error)
         }
 
         /* prepared statements become unusable after deleteAllSQL, reset them */
-        if (ts->copyParents)
+        if (ts->copyParents) {
             sqlite3_finalize(ts->copyParents);
+        }
         sqlite3_prepare_v3(ts->s3h,
-                           (v2) ? copyParentsV2SQL : copyParentsSQL,
-                           (v2) ? sizeof(copyParentsV2SQL) : sizeof(copyParentsSQL),
+                           copyParentsSQL,
+                           sizeof(copyParentsSQL),
                            SQLITE_PREPARE_PERSISTENT, &ts->copyParents, NULL);
 
-        if (ts->contains)
+        if (ts->contains) {
             sqlite3_finalize(ts->contains);
+        }
         sqlite3_prepare_v3(ts->s3h,
-                           (v2) ? containsV2SQL : containsSQL,
-                           (v2) ? sizeof(containsV2SQL) : sizeof(containsSQL),
+                           containsSQL,
+                           sizeof(containsSQL),
                            SQLITE_PREPARE_PERSISTENT, &ts->contains, NULL);
     });
 errOutNotLocked:
@@ -678,7 +609,6 @@ errOutNotLocked:
 CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef *error) {
     __block CFMutableArrayRef parents = NULL;
 #if TARGET_OS_IPHONE
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     CFDataRef issuer = NULL;
     require(issuer = SecCertificateGetNormalizedIssuerContent(certificate), errOutNotLocked);
@@ -687,7 +617,7 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certi
     /* Since only trustd uses the CopyParents interface and only for the CertificateSource, it should never call
      * this with the system domain. */
     require(ts->domain != kSecTrustStoreDomainSystem, errOutNotLocked);
-    require(uuid || !v2, errOutNotLocked);
+    require(uuid, errOutNotLocked);
     dispatch_sync(ts->queue, ^{
         int s3e = SQLITE_OK;
 
@@ -696,11 +626,9 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts, SecCertificateRef certi
         require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 1,
                                                       CFDataGetBytePtr(issuer), (size_t)CFDataGetLength(issuer),
                                                       SQLITE_STATIC), errOut);
-        if (v2) {
-            require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 2,
-                                                          CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
-                                                          SQLITE_STATIC), errOut);
-        }
+        require_noerr(s3e = sqlite3_bind_blob_wrapper(ts->copyParents, 2,
+                                                      CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid),
+                                                      SQLITE_STATIC), errOut);
         require(parents = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                                                &kCFTypeArrayCallBacks), errOut);
         for (;;) {
@@ -749,13 +677,12 @@ static bool SecTrustStoreQueryCertificate(SecTrustStoreRef ts, SecCertificateRef
         *contains = false;
     }
     __block bool ok = true;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     __block CFDataRef digest = SecCertificateCopySHA256Digest(cert);
     require_action_quiet(digest, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("failed to get cert sha256 digest")));
     require_action_quiet(CFDataGetLength(digest) > 0, errOutNotLocked, ok = SecError(errSecAllocate, error, CFSTR("cert digest of bad length")));
     require_action_quiet(ts && ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
-    require_action_quiet(uuid || !v2, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("failed to get uuid")));
+    require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("failed to get uuid")));
     dispatch_sync(ts->queue, ^{
         CFDataRef xmlData = NULL;
         CFPropertyListRef trustSettings = NULL;
@@ -764,11 +691,9 @@ static bool SecTrustStoreQueryCertificate(SecTrustStoreRef ts, SecCertificateRef
         require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 1,
                                                              CFDataGetBytePtr(digest), (size_t)CFDataGetLength(digest), SQLITE_STATIC),
                              errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
-        if (v2) {
-            require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 2,
-                                                                 CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
-                                 errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
-        }
+        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(ts->contains, 2,
+                                                             CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
+                             errOut, ok = SecDbErrorWithStmt(s3e, ts->contains, error, CFSTR("sqlite3_bind_blob failed")));
         s3e = sqlite3_step(ts->contains);
         if (s3e == SQLITE_ROW) {
             if (contains)
@@ -843,14 +768,27 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
 #if TARGET_OS_IPHONE
     __block bool ok = true;
     __block CFMutableArrayRef CertsAndSettings = NULL;
-    __block bool v2 = _SecTrustStoreUsesUUIDEnabled();
     __block CFDataRef uuid = SecTrustStoreCopyUUID(ts);
     require(CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOutNotLocked);
     require_action_quiet(trustStoreContents, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("trustStoreContents is NULL")));
     require_action_quiet(ts, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts is NULL")));
+#if NO_SYSTEM_STORE
     require_action_quiet(ts->domain != kSecTrustStoreDomainSystem, errOutNotLocked, ok = SecError(errSecUnimplemented, error, CFSTR("Cannot copy system trust store contents"))); // Not allowing system trust store enumeration
+#else
+    if (ts->domain == kSecTrustStoreDomainSystem) {
+        CFArrayRef certs = SecSystemAnchorSourceCopyCertificates();
+        if (certs && CFArrayGetCount(certs) > 0) {
+            //%%% need to return as CertsAndSettings instead of just certs
+            *trustStoreContents = CFRetainSafe(certs);
+        }
+        CFReleaseNull(certs);
+        CFReleaseNull(CertsAndSettings);
+        CFReleaseNull(uuid);
+        return ok;
+    }
+#endif // NO_SYSTEM_STORE
     require_action_quiet(ts->s3h, errOutNotLocked, ok = SecError(errSecParam, error, CFSTR("ts DB is NULL")));
-    require_action_quiet(uuid || !v2, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
+    require_action_quiet(uuid, errOutNotLocked, ok = SecError(errSecInternal, error, CFSTR("uuid is NULL")));
     dispatch_sync(ts->queue, ^{
         sqlite3_stmt *copyAllStmt = NULL;
         CFDataRef cert = NULL;
@@ -859,14 +797,12 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
         CFArrayRef certSettingsPair = NULL;
         int s3e = SQLITE_OK;
         require_noerr(s3e = sqlite3_prepare_v2(ts->s3h,
-                                            (v2) ? copyAllV2SQL : copyAllSQL,
-                                            (v2) ? sizeof(copyAllV2SQL) : sizeof(copyAllSQL),
+                                            copyAllSQL,
+                                            sizeof(copyAllSQL),
                                             &copyAllStmt, NULL), errOut);
-        if (v2) {
-            require_noerr_action(s3e = sqlite3_bind_blob_wrapper(copyAllStmt, 1,
-                                                                 CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
-                                 errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_bind_blob failed")));
-        }
+        require_noerr_action(s3e = sqlite3_bind_blob_wrapper(copyAllStmt, 1,
+                                                             CFDataGetBytePtr(uuid), (size_t)CFDataGetLength(uuid), SQLITE_STATIC),
+                             errOut, ok = SecDbErrorWithStmt(s3e, copyAllStmt, error, CFSTR("sqlite3_bind_blob failed")));
         for(;;) {
             s3e = sqlite3_step(copyAllStmt);
             if (s3e == SQLITE_ROW) {
@@ -918,7 +854,17 @@ errOutNotLocked:
     return ok;
 #else // !TARGET_OS_IPHONE
     if (ts && ts->domain == kSecTrustStoreDomainSystem) {
+#if NO_SYSTEM_STORE
         return SecError(errSecUnimplemented, error, CFSTR("Cannot copy system trust store contents"));
+#else
+        CFArrayRef certs = SecSystemAnchorSourceCopyCertificates();
+        if (certs && CFArrayGetCount(certs) > 0) {
+            //%%% need to return as CertsAndSettings instead of just certs
+            *trustStoreContents = CFRetainSafe(certs);
+        }
+        CFReleaseNull(certs);
+        return true;
+#endif // NO_SYSTEM_STORE
     }
     CFMutableArrayRef CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (CertsAndSettings) {
@@ -940,10 +886,6 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
     sqlite3_stmt *countAllStmt = NULL;
     sqlite3_stmt *updateUUIDStmt = NULL;
     CFDataRef uuid = NULL;
-
-    // if v2 schema isn't enabled, there's nothing to do here.
-    bool v2 = _SecTrustStoreUsesUUIDEnabled();
-    if (!v2) { return true; }
 
     // open database connection (caller has previously checked that path exists)
     require_noerr(s3e = sec_sqlite3_open(path, &s3h, true), errOut);
@@ -1107,14 +1049,8 @@ bool _SecTrustStoreMigrateUserStore(CFErrorRef *error)
 #else
     /* If new trust store file already exists, we don't need to migrate, but we may need a schema update. */
     const char path[MAXPATHLEN];
-    // path we are using depends on if v2 schema is enabled
-    bool v2 = _SecTrustStoreUsesUUIDEnabled();
     bool pathResult = false;
-    if (v2) {
-        pathResult = SecExtractFilesystemPathForPrivateTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
-    } else {
-        pathResult = SecExtractFilesystemPathForPrivateUserTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
-    }
+    pathResult = SecExtractFilesystemPathForPrivateTrustdFile(kTrustStoreFileName, (UInt8*) path, (CFIndex) sizeof(path));
     if (pathResult) {
         FILE* file = fopen(path, "r");
         if (file != NULL) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,7 +23,7 @@
 
 /*
  * RouterAdvertisement.c
- * - CF object to encapulate an IPv6 ND Router Advertisement
+ * - CF object to encapsulate an IPv6 ND Router Advertisement
  */
 
 /*
@@ -51,6 +51,8 @@
 #include "ptrlist.h"
 #include "cfutil.h"
 #include "util.h"
+#include "nbo.h"
+#include "ipconfig_types.h"
 
 #define RA_OPT_INFINITE_LIFETIME		((uint32_t)0xffffffff)
 
@@ -119,6 +121,31 @@ struct _nd_opt_linkaddr {
 	u_int8_t		nd_opt_linkaddr_len;
 	u_int8_t		nd_opt_linkaddr_data[1];
 } __attribute__((__packed__));
+
+#ifndef ND_OPT_PVD
+#define ND_OPT_PVD                    21      /* RFC 8801 */
+#endif /* ND_OPT_PVD */
+
+#ifndef ND_OPT_PVD_MIN_LENGTH
+struct nd_opt_pvd {
+    u_int8_t        nd_opt_pvd_type;
+    u_int8_t        nd_opt_pvd_len;
+    /* http:		1 bit */
+    /* legacy:		1 bit */
+    /* ra:		1 bit */
+    /* reserved:	9 bits */
+    /* delay:		4 bits */
+    u_int8_t        nd_opt_flags_delay[2];
+    u_int16_t       nd_opt_pvd_seq;
+    u_int8_t        nd_opt_pvd_id[1];
+} __attribute__((__packed__));
+
+#define ND_OPT_PVD_MIN_LENGTH  offsetof(struct nd_opt_pvd, nd_opt_pvd_id)
+#define ND_OPT_PVD_FLAGS_HTTP          0x80
+#define ND_OPT_PVD_FLAGS_LEGACY        0x40
+#define ND_OPT_PVD_FLAGS_RA            0x20
+#define ND_OPT_PVD_DELAY_MASK          0x0f
+#endif /* ND_OPT_PVD_MIN_LENGTH */
 
 #define ND_OPT_PREFIX_INFORMATION_LENGTH sizeof(struct nd_opt_prefix_info)
 
@@ -301,6 +328,9 @@ S_nd_opt_name(int nd_opt)
 	case ND_OPT_PREF64:
 		str = "pref64";
 		break;
+	case ND_OPT_PVD:
+		str = "provisioning domain";
+		break;
 	default:
 		str = "<unknown>";
 		break;
@@ -439,6 +469,113 @@ find_dnssl(ptrlist_t * options_p, int * domains_length_p, uint32_t * lifetime_p)
 		*lifetime_p = lifetime;
 	}
 	return (domains);
+}
+
+STATIC const uint8_t *
+get_pvd_option(const struct nd_opt_hdr * opt, size_t * pvd_id_length,
+	       uint16_t * sequence, RA_PvDFlagsDelayRef flags)
+{
+	const struct nd_opt_pvd * 	pvd_opt = NULL;
+	uint8_t				opt_len = 0;
+	const uint8_t *			pvd_id = NULL;
+
+	pvd_opt = (const struct nd_opt_pvd *)opt;
+	opt_len = (pvd_opt->nd_opt_pvd_len * ND_OPT_ALIGN);
+	if (opt_len < ND_OPT_PVD_MIN_LENGTH) {
+		goto done;
+	}
+	flags->http = (pvd_opt->nd_opt_flags_delay[0]
+		       & ND_OPT_PVD_FLAGS_HTTP) != 0;
+	flags->legacy  = (pvd_opt->nd_opt_flags_delay[0]
+			  & ND_OPT_PVD_FLAGS_LEGACY) != 0;
+	flags->ra = (pvd_opt->nd_opt_flags_delay[0]
+		     & ND_OPT_PVD_FLAGS_RA) != 0;
+	flags->delay = pvd_opt->nd_opt_flags_delay[1]
+			& ND_OPT_PVD_DELAY_MASK;
+	*sequence = net_uint16_get((uint8_t *)&pvd_opt->nd_opt_pvd_seq);
+	*pvd_id_length = opt_len - ND_OPT_PVD_MIN_LENGTH;
+	pvd_id = pvd_opt->nd_opt_pvd_id;
+
+done:
+	return pvd_id;
+}
+
+STATIC const uint8_t *
+find_pvd_options(ptrlist_t * options_p, size_t * pvd_id_length,
+                 uint16_t * sequence, RA_PvDFlagsDelayRef flags)
+{
+    int                     count;
+    int                     i;
+    const uint8_t *         pvd_id = NULL;
+
+    count = ptrlist_count(options_p);
+    for (i = 0; i < count; i++) {
+	    const struct nd_opt_hdr *	opt;
+
+	    opt = (const struct nd_opt_hdr *)ptrlist_element(options_p, i);
+	    if (opt->nd_opt_type != ND_OPT_PVD) {
+		    continue;
+	    }
+	    pvd_id = get_pvd_option(opt, pvd_id_length, sequence, flags);
+	    break;
+    }
+    return pvd_id;
+}
+
+STATIC const CFArrayRef
+copy_prefixes_array(ptrlist_t * options_p)
+{
+    CFMutableArrayRef prefixes = NULL;
+    bool success = false;
+
+    for (int i = 0; i < ptrlist_count(options_p); i++) {
+	const struct nd_opt_prefix_info *pio = NULL;
+	uint8_t opt_len = 0;
+	char ntopbuf[INET6_ADDRSTRLEN];
+	const char *ntop_ret = NULL;
+	CFStringRef prefix_str = NULL;
+
+	pio = (const struct nd_opt_prefix_info *)ptrlist_element(options_p, i);
+	if (pio->nd_opt_pi_type != ND_OPT_PREFIX_INFORMATION) {
+	    continue;
+	}
+	/* there's at least one prefix info option at this point */
+	opt_len = pio->nd_opt_pi_len * ND_OPT_ALIGN;
+	if (opt_len < ND_OPT_PREFIX_INFORMATION_LENGTH) {
+	    /* malformed packet */
+	    goto done;
+	}
+	if (prefixes == NULL) {
+	    prefixes = CFArrayCreateMutable(NULL,
+					    1,
+					    &kCFTypeArrayCallBacks);
+	    if (prefixes == NULL) {
+		goto done;
+	    }
+	}
+	ntop_ret = inet_ntop(AF_INET6,
+			     &pio->nd_opt_pi_prefix,
+			     ntopbuf,
+			     sizeof(ntopbuf));
+	if (ntop_ret == NULL) {
+	    goto done;
+	}
+	prefix_str = CFStringCreateWithCString(NULL,
+					       ntop_ret,
+					       kCFStringEncodingUTF8);
+	if (prefix_str == NULL) {
+	    goto done;
+	}
+	CFArrayAppendValue(prefixes, prefix_str);
+	my_CFRelease(&prefix_str);
+    }
+    success = true;
+
+done:
+    if (!success) {
+	my_CFRelease(&prefixes);
+    }
+    return (CFArrayRef)prefixes;
 }
 
 STATIC const uint8_t *
@@ -708,7 +845,7 @@ AppendPrefixInformationOptionDescription(CFMutableStringRef str,
 						 ND_OPT_PREFIX_INFORMATION_LENGTH);
 		return;
 	}
-	STRING_APPEND(str, " %s/%d, Flags [",
+	STRING_APPEND(str, " %s/%d, flags [",
 		      inet_ntop(AF_INET6, &pi->nd_opt_pi_prefix,
 				ntopbuf, sizeof(ntopbuf)),
 		      pi->nd_opt_pi_prefix_len);
@@ -876,6 +1013,54 @@ AppendPREF64OptionDescription(CFMutableStringRef str,
 }
 
 STATIC void
+AppendPvDOptionDescription(CFMutableStringRef str,
+			   const struct nd_opt_hdr * opt,
+			   int opt_len)
+{
+	const uint8_t *		pvdid_bytes;
+	size_t			pvdid_bytes_len;
+	CFStringRef		pvdid = NULL;
+	uint16_t		seqnr;
+	RA_PvDFlagsDelay	flags_and_delay = { 0 };
+
+	if (opt_len < ND_OPT_PVD_MIN_LENGTH) {
+		AppendTruncatedOptionDescription(str, opt, opt_len,
+						 ND_OPT_PVD_MIN_LENGTH);
+		goto done;
+	}
+	pvdid_bytes = get_pvd_option(opt, &pvdid_bytes_len, &seqnr,
+				     &flags_and_delay);
+	STRING_APPEND_STR(str, " ");
+	if (pvdid_bytes == NULL) {
+		STRING_APPEND_STR(str, "invalid id");
+		goto done;
+	}
+	pvdid = DNSNameStringCreate(pvdid_bytes, pvdid_bytes_len);
+	if (pvdid == NULL) {
+		STRING_APPEND_STR(str, "invalid id");
+		goto done;
+	}
+	STRING_APPEND(str, "%@", pvdid);
+	STRING_APPEND_STR(str, ", flags [");
+	if (flags_and_delay.http) {
+		STRING_APPEND_STR(str, " http");
+	}
+	if (flags_and_delay.ra) {
+		STRING_APPEND_STR(str, " ra");
+	}
+	if (flags_and_delay.legacy) {
+		STRING_APPEND_STR(str, " legacy");
+	}
+	STRING_APPEND_STR(str, " ]");
+	STRING_APPEND(str, ", delay %hu", flags_and_delay.delay);
+	STRING_APPEND(str, ", sequence nr %hu", seqnr);
+
+done:
+	my_CFRelease(&pvdid);
+	return;
+}
+
+STATIC void
 AppendOptionDescriptions(CFMutableStringRef str, ptrlist_t * options_p)
 {
 	int		count;
@@ -918,6 +1103,9 @@ AppendOptionDescriptions(CFMutableStringRef str, ptrlist_t * options_p)
 			break;
 		case ND_OPT_PREF64:
 			AppendPREF64OptionDescription(str, opt, opt_len);
+			break;
+		case ND_OPT_PVD:
+			AppendPvDOptionDescription(str, opt, opt_len);
 			break;
 		case ND_OPT_TARGET_LINKADDR:
 		case ND_OPT_SOURCE_LINKADDR:
@@ -1094,6 +1282,12 @@ RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 	return (find_source_link_address(&ra->options, ret_len));
 }
 
+PRIVATE_EXTERN CFArrayRef
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra)
+{
+    return (copy_prefixes_array(&ra->options));
+}
+
 PRIVATE_EXTERN uint32_t
 RouterAdvertisementGetPrefixLifetimes(RouterAdvertisementRef ra,
 				      uint32_t * valid_lifetime)
@@ -1115,6 +1309,16 @@ RouterAdvertisementGetDNSSL(RouterAdvertisementRef ra,
 			    uint32_t * lifetime_p)
 {
 	return (find_dnssl(&ra->options, domains_length_p, lifetime_p));
+}
+
+PRIVATE_EXTERN const uint8_t *
+RouterAdvertisementGetPvD(RouterAdvertisementRef ra,
+                          size_t * pvd_id_length,
+                          uint16_t * sequence,
+                          RA_PvDFlagsDelayRef flags)
+{
+    return (find_pvd_options(&ra->options, pvd_id_length,
+                             sequence, flags));
 }
 
 PRIVATE_EXTERN CFAbsoluteTime

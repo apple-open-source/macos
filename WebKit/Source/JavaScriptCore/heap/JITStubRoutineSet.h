@@ -36,6 +36,7 @@ using WTF::Range;
 namespace JSC {
 
 class GCAwareJITStubRoutine;
+class VM;
 
 #if ENABLE(JIT)
 
@@ -72,6 +73,7 @@ private:
         GCAwareJITStubRoutine* routine;
     };
     Vector<Routine> m_routines;
+    Vector<GCAwareJITStubRoutine*> m_immutableCodeRoutines;
     Range<uintptr_t> m_range { 0, 0 };
 };
 

@@ -26,12 +26,12 @@
 #include "config.h"
 #include "ArgumentCodersGtk.h"
 
-#include "DataReference.h"
-#include "ShareableBitmap.h"
+#include "ArgumentCodersGLib.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/Image.h>
 #include <WebCore/SelectionData.h>
+#include <WebCore/ShareableBitmap.h>
 #include <gtk/gtk.h>
 #include <wtf/glib/GUniquePtr.h>
 
@@ -39,208 +39,36 @@ namespace IPC {
 using namespace WebCore;
 using namespace WebKit;
 
-static void encodeImage(Encoder& encoder, Image& image)
-{
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create({ IntSize(image.size()) });
-    bitmap->createGraphicsContext()->drawImage(image, IntPoint());
-    encoder << bitmap->createHandle();
-}
-
-static WARN_UNUSED_RETURN bool decodeImage(Decoder& decoder, RefPtr<Image>& image)
-{
-    std::optional<std::optional<ShareableBitmap::Handle>> handle;
-    decoder >> handle;
-    if (!handle || !*handle)
-        return false;
-
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(WTFMove(**handle));
-    if (!bitmap)
-        return false;
-    image = bitmap->createImage();
-    if (!image)
-        return false;
-    return true;
-}
-
-void ArgumentCoder<SelectionData>::encode(Encoder& encoder, const SelectionData& selection)
-{
-    bool hasText = selection.hasText();
-    encoder << hasText;
-    if (hasText)
-        encoder << selection.text();
-
-    bool hasMarkup = selection.hasMarkup();
-    encoder << hasMarkup;
-    if (hasMarkup)
-        encoder << selection.markup();
-
-    bool hasURL = selection.hasURL();
-    encoder << hasURL;
-    if (hasURL)
-        encoder << selection.url().string();
-
-    bool hasURIList = selection.hasURIList();
-    encoder << hasURIList;
-    if (hasURIList)
-        encoder << selection.uriList();
-
-    bool hasImage = selection.hasImage();
-    encoder << hasImage;
-    if (hasImage)
-        encodeImage(encoder, *selection.image());
-
-    bool hasCustomData = selection.hasCustomData();
-    encoder << hasCustomData;
-    if (hasCustomData)
-        encoder << RefPtr<FragmentedSharedBuffer>(selection.customData());
-
-    bool canSmartReplace = selection.canSmartReplace();
-    encoder << canSmartReplace;
-}
-
-std::optional<SelectionData> ArgumentCoder<SelectionData>::decode(Decoder& decoder)
-{
-    SelectionData selection;
-
-    bool hasText;
-    if (!decoder.decode(hasText))
-        return std::nullopt;
-    if (hasText) {
-        String text;
-        if (!decoder.decode(text))
-            return std::nullopt;
-        selection.setText(text);
-    }
-
-    bool hasMarkup;
-    if (!decoder.decode(hasMarkup))
-        return std::nullopt;
-    if (hasMarkup) {
-        String markup;
-        if (!decoder.decode(markup))
-            return std::nullopt;
-        selection.setMarkup(markup);
-    }
-
-    bool hasURL;
-    if (!decoder.decode(hasURL))
-        return std::nullopt;
-    if (hasURL) {
-        String url;
-        if (!decoder.decode(url))
-            return std::nullopt;
-        selection.setURL(URL { url }, String());
-    }
-
-    bool hasURIList;
-    if (!decoder.decode(hasURIList))
-        return std::nullopt;
-    if (hasURIList) {
-        String uriList;
-        if (!decoder.decode(uriList))
-            return std::nullopt;
-        selection.setURIList(uriList);
-    }
-
-    bool hasImage;
-    if (!decoder.decode(hasImage))
-        return std::nullopt;
-    if (hasImage) {
-        RefPtr<Image> image;
-        if (!decodeImage(decoder, image))
-            return std::nullopt;
-        selection.setImage(image.get());
-    }
-
-    bool hasCustomData;
-    if (!decoder.decode(hasCustomData))
-        return std::nullopt;
-    if (hasCustomData) {
-        RefPtr<SharedBuffer> buffer;
-        if (!decoder.decode(buffer))
-            return std::nullopt;
-        selection.setCustomData(Ref<SharedBuffer>(*buffer));
-    }
-
-    bool canSmartReplace;
-    if (!decoder.decode(canSmartReplace))
-        return std::nullopt;
-    selection.setCanSmartReplace(canSmartReplace);
-
-    return selection;
-}
-
-static void encodeGKeyFile(Encoder& encoder, GKeyFile* keyFile)
-{
-    gsize dataSize;
-    GUniquePtr<char> data(g_key_file_to_data(keyFile, &dataSize, 0));
-    encoder << DataReference(reinterpret_cast<uint8_t*>(data.get()), dataSize);
-}
-
-static WARN_UNUSED_RETURN bool decodeGKeyFile(Decoder& decoder, GUniquePtr<GKeyFile>& keyFile)
-{
-    DataReference dataReference;
-    if (!decoder.decode(dataReference))
-        return false;
-
-    if (!dataReference.size())
-        return true;
-
-    keyFile.reset(g_key_file_new());
-    if (!g_key_file_load_from_data(keyFile.get(), reinterpret_cast<const gchar*>(dataReference.data()), dataReference.size(), G_KEY_FILE_NONE, 0)) {
-        keyFile.reset();
-        return false;
-    }
-
-    return true;
-}
-
 void ArgumentCoder<GRefPtr<GtkPrintSettings>>::encode(Encoder& encoder, const GRefPtr<GtkPrintSettings>& argument)
 {
     GRefPtr<GtkPrintSettings> printSettings = argument ? argument : adoptGRef(gtk_print_settings_new());
-    GUniquePtr<GKeyFile> keyFile(g_key_file_new());
-    gtk_print_settings_to_key_file(printSettings.get(), keyFile.get(), "Print Settings");
-    encodeGKeyFile(encoder, keyFile.get());
+    GRefPtr<GVariant> variant = adoptGRef(gtk_print_settings_to_gvariant(printSettings.get()));
+    encoder << variant;
 }
 
 std::optional<GRefPtr<GtkPrintSettings>> ArgumentCoder<GRefPtr<GtkPrintSettings>>::decode(Decoder& decoder)
 {
-    GUniquePtr<GKeyFile> keyFile;
-    if (!decodeGKeyFile(decoder, keyFile))
+    auto variant = decoder.decode<GRefPtr<GVariant>>();
+    if (UNLIKELY(!variant))
         return std::nullopt;
 
-    GRefPtr<GtkPrintSettings> printSettings = adoptGRef(gtk_print_settings_new());
-    if (!keyFile)
-        return printSettings;
-
-    if (!gtk_print_settings_load_key_file(printSettings.get(), keyFile.get(), "Print Settings", nullptr))
-        return std::nullopt;
-
-    return printSettings;
+    return gtk_print_settings_new_from_gvariant(variant->get());
 }
 
 void ArgumentCoder<GRefPtr<GtkPageSetup>>::encode(Encoder& encoder, const GRefPtr<GtkPageSetup>& argument)
 {
     GRefPtr<GtkPageSetup> pageSetup = argument ? argument : adoptGRef(gtk_page_setup_new());
-    GUniquePtr<GKeyFile> keyFile(g_key_file_new());
-    gtk_page_setup_to_key_file(pageSetup.get(), keyFile.get(), "Page Setup");
-    encodeGKeyFile(encoder, keyFile.get());
+    GRefPtr<GVariant> variant = adoptGRef(gtk_page_setup_to_gvariant(pageSetup.get()));
+    encoder << variant;
 }
 
 std::optional<GRefPtr<GtkPageSetup>> ArgumentCoder<GRefPtr<GtkPageSetup>>::decode(Decoder& decoder)
 {
-    GUniquePtr<GKeyFile> keyFile;
-    if (!decodeGKeyFile(decoder, keyFile))
+    auto variant = decoder.decode<GRefPtr<GVariant>>();
+    if (UNLIKELY(!variant))
         return std::nullopt;
 
-    GRefPtr<GtkPageSetup> pageSetup = adoptGRef(gtk_page_setup_new());
-    if (!keyFile)
-        return pageSetup;
-
-    if (!gtk_page_setup_load_key_file(pageSetup.get(), keyFile.get(), "Page Setup", nullptr))
-        return std::nullopt;
-
-    return pageSetup;
+    return gtk_page_setup_new_from_gvariant(variant->get());
 }
 
 }

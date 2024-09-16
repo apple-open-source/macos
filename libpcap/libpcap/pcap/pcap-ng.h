@@ -318,6 +318,9 @@ struct pcapng_decryption_secrets_fields {
 #define	PCAPNG_EPB_PMD_FLAGS	0x8004  /* 32 bits flags word of packet metadata flags */
 #define	PCAPNG_EPB_FLOW_ID	0x8005  /* 32 bits flowid */
 #define	PCAPNG_EPB_TRACE_TAG	0x8006  /* 16 bits trace tag */
+#define PCAPNG_EPB_DROP_REASON  0x8007  /* 32 bits drop reason */
+#define PCAPNG_EPB_DROP_LINE    0x8008  /* 16 bits drop line */
+#define PCAPNG_EPB_DROP_FUNC    0x8009  /* String with drop function */
 
 /*
  * Packet Metadata Flags (PCAPNG_EPB_PMD_FLAGS option)

@@ -260,16 +260,12 @@ SOFT_LINK_FUNCTION(CoreAnalytics, AnalyticsSendEventLazy, soft_AnalyticsSendEven
     }
 
     // Apps shouldn't call themselves one of these, that's not nice.
-    if ([@[@"macOS", @"mac OS", @"MacOS", @"Mac OS"] indexOfObject:candidateName] != NSNotFound) {
+    // Alternately, if we have no name proposed yet, fall back to extracting something from the path.
+    if (candidateName == nil || [@[@"macOS", @"mac OS", @"MacOS", @"Mac OS"] indexOfObject:candidateName] != NSNotFound) {
         candidateName = [path.lastPathComponent stringByDeletingPathExtension];
     }
 
-    if (candidateName) {
-        return candidateName;
-    } else {
-        NSString* name = [path.lastPathComponent stringByDeletingPathExtension];
-        return name;
-    }
+    return candidateName;
 }
 
 @end

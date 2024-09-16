@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -270,7 +270,7 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
 	  if (route_list != NULL) {
 	      IPv4ClasslessRouteListBufferCreate(route_list, route_list_count,
 						 buf, len_p);
-	      CFRelease(route_list);
+	      free(route_list);
 	  }
 	  else {
 	      *len_p = 0;
@@ -1652,7 +1652,10 @@ main()
 		printf("can't find router option\n");
 	    }
 	    else {
-		printf("Found router option %s\n", inet_ntoa(*iaddr));
+		char	ntopbuf[INET_ADDRSTRLEN];
+
+		printf("Found router option %s\n",
+		       inet_ntop(AF_INET, iaddr, ntopbuf, sizeof(ntopbuf)));
 	    }
 	}
 	if (dhcpol_parse_vendor(&vendor_options, &options, NULL)) {

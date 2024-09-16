@@ -98,7 +98,7 @@ T *AllocateOrGetSharedResourceManager(const State *shareContextState,
     }
 }
 
-// TODO(https://anglebug.com/3889): Remove this helper function after blink and chromium part
+// TODO(https://anglebug.com/42262534): Remove this helper function after blink and chromium part
 // refactory done.
 bool IsTextureCompatibleWithSampler(TextureType texture, TextureType sampler)
 {
@@ -372,6 +372,8 @@ PrivateState::PrivateState(const EGLenum clientType,
       mLogicOp(LogicalOperation::Copy),
       mPatchVertices(3),
       mPixelLocalStorageActivePlanes(0),
+      mVariableRasterizationRateEnabled(false),
+      mVariableRasterizationRateMap(nullptr),
       mNoSimultaneousConstantColorAndAlphaBlendFunc(false),
       mSetBlendIndexedInvoked(false),
       mSetBlendFactorsIndexedInvoked(false),
@@ -387,6 +389,8 @@ PrivateState::PrivateState(const EGLenum clientType,
       mShadingRatePreserveAspectRatio(false),
       mShadingRate(ShadingRate::Undefined),
       mFetchPerSample(false),
+      mIsPerfMonitorActive(false),
+      mTiledRendering(false),
       mBindGeneratesResource(bindGeneratesResourceCHROMIUM),
       mClientArraysEnabled(clientArraysEnabled),
       mRobustResourceInit(robustResourceInit),
@@ -459,6 +463,10 @@ void PrivateState::initialize(Context *context)
 
     mCoverageModulation = GL_NONE;
 
+    // This coherent blending is enabled by default, but can be enabled or disabled by calling
+    // glEnable() or glDisable() with the symbolic constant GL_BLEND_ADVANCED_COHERENT_KHR.
+    mBlendAdvancedCoherent = context->getExtensions().blendEquationAdvancedCoherentKHR;
+
     mPrimitiveRestart = false;
 
     mNoSimultaneousConstantColorAndAlphaBlendFunc =
@@ -468,7 +476,8 @@ void PrivateState::initialize(Context *context)
     mNoUnclampedBlendColor = context->getLimitations().noUnclampedBlendColor;
 
     // GLES1 emulation: Initialize state for GLES1 if version applies
-    // TODO(http://anglebug.com/3745): When on desktop client only do this in compatibility profile
+    // TODO(http://anglebug.com/42262402): When on desktop client only do this in compatibility
+    // profile
     if (context->getClientVersion() < Version(2, 0) || mClientType == EGL_OPENGL_API)
     {
         mGLES1State.initialize(context, this);
@@ -958,6 +967,15 @@ void PrivateState::setSampleAlphaToOne(bool enabled)
     }
 }
 
+void PrivateState::setBlendAdvancedCoherent(bool enabled)
+{
+    if (mBlendAdvancedCoherent != enabled)
+    {
+        mBlendAdvancedCoherent = enabled;
+        mDirtyBits.set(state::EXTENDED_DIRTY_BIT_BLEND_ADVANCED_COHERENT);
+    }
+}
+
 void PrivateState::setMultisampling(bool enabled)
 {
     if (mMultiSampling != enabled)
@@ -1234,6 +1252,26 @@ void PrivateState::setLogicOp(LogicalOperation opcode)
     }
 }
 
+void PrivateState::setVariableRasterizationRateEnabled(bool enabled)
+{
+    if (mVariableRasterizationRateEnabled != enabled)
+    {
+        mVariableRasterizationRateEnabled = enabled;
+        mDirtyBits.set(state::DIRTY_BIT_EXTENDED);
+        mExtendedDirtyBits.set(state::EXTENDED_DIRTY_BIT_VARIABLE_RASTERIZATION_RATE);
+    }
+}
+
+void PrivateState::setVariableRasterizationRateMap(GLMTLRasterizationRateMapANGLE map)
+{
+    if (mVariableRasterizationRateMap != map)
+    {
+        mVariableRasterizationRateMap = map;
+        mDirtyBits.set(state::DIRTY_BIT_EXTENDED);
+        mExtendedDirtyBits.set(state::EXTENDED_DIRTY_BIT_VARIABLE_RASTERIZATION_RATE);
+    }
+}
+
 void PrivateState::setVertexAttribf(GLuint index, const GLfloat values[4])
 {
     ASSERT(static_cast<size_t>(index) < mVertexAttribCurrentValues.size());
@@ -1270,6 +1308,9 @@ void PrivateState::setEnableFeature(GLenum feature, bool enabled)
             return;
         case GL_SAMPLE_ALPHA_TO_ONE_EXT:
             setSampleAlphaToOne(enabled);
+            return;
+        case GL_BLEND_ADVANCED_COHERENT_KHR:
+            setBlendAdvancedCoherent(enabled);
             return;
         case GL_CULL_FACE:
             setCullFace(enabled);
@@ -1363,6 +1404,9 @@ void PrivateState::setEnableFeature(GLenum feature, bool enabled)
         case GL_FETCH_PER_SAMPLE_ARM:
             mFetchPerSample = enabled;
             return;
+        case GL_VARIABLE_RASTERIZATION_RATE_ANGLE:
+            setVariableRasterizationRateEnabled(enabled);
+            return;
         default:
             break;
     }
@@ -1452,6 +1496,8 @@ bool PrivateState::getEnableFeature(GLenum feature) const
             return isMultisamplingEnabled();
         case GL_SAMPLE_ALPHA_TO_ONE_EXT:
             return isSampleAlphaToOneEnabled();
+        case GL_BLEND_ADVANCED_COHERENT_KHR:
+            return isBlendAdvancedCoherentEnabled();
         case GL_CULL_FACE:
             return isCullFaceEnabled();
         case GL_POLYGON_OFFSET_POINT_NV:
@@ -1527,6 +1573,8 @@ bool PrivateState::getEnableFeature(GLenum feature) const
             return mShadingRatePreserveAspectRatio;
         case GL_FETCH_PER_SAMPLE_ARM:
             return mFetchPerSample;
+        case GL_VARIABLE_RASTERIZATION_RATE_ANGLE:
+            return mVariableRasterizationRateEnabled;
     }
 
     ASSERT(mClientVersion.major == 1);
@@ -1717,7 +1765,7 @@ void PrivateState::getBooleanv(GLenum pname, GLboolean *params) const
             *params = mIsSampleShadingEnabled;
             break;
         case GL_PRIMITIVE_RESTART_FOR_PATCHES_SUPPORTED:
-            *params = isPrimitiveRestartEnabled() && getExtensions().tessellationShaderEXT;
+            *params = isPrimitiveRestartEnabled() && getExtensions().tessellationShaderAny();
             break;
         case GL_ROBUST_FRAGMENT_SHADER_OUTPUT_ANGLE:
             *params = mExtensions.robustFragmentShaderOutputANGLE ? GL_TRUE : GL_FALSE;
@@ -2100,6 +2148,10 @@ void PrivateState::getIntegerv(GLenum pname, GLint *params) const
         // GL_ARM_shader_framebuffer_fetch
         case GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM:
             *params = mCaps.fragmentShaderFramebufferFetchMRT ? 1 : 0;
+            break;
+
+        case GL_BLEND_ADVANCED_COHERENT_KHR:
+            *params = mBlendAdvancedCoherent ? 1 : 0;
             break;
 
         default:
@@ -3404,6 +3456,9 @@ void State::getPointerv(const Context *context, GLenum pname, void **params) con
                                           context->vertexArrayIndex(ParamToVertexArrayType(pname))),
                                       GL_VERTEX_ATTRIB_ARRAY_POINTER, params);
             return;
+        case GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE:
+            *params = privateState().getVariableRasterizationRateMap();
+            break;
         default:
             UNREACHABLE();
             break;
@@ -3528,7 +3583,7 @@ void State::getBooleani_v(GLenum target, GLuint index, GLboolean *data) const
     }
 }
 
-// TODO(http://anglebug.com/3889): Remove this helper function after blink and chromium part
+// TODO(http://anglebug.com/42262534): Remove this helper function after blink and chromium part
 // refactor done.
 Texture *State::getTextureForActiveSampler(TextureType type, size_t index)
 {
@@ -3698,16 +3753,6 @@ angle::Result State::syncVertexArray(const Context *context, Command command)
     return mVertexArray->syncState(context);
 }
 
-angle::Result State::syncProgram(const Context *context, Command command)
-{
-    // There may not be a program if the calling application only uses program pipelines.
-    if (mProgram)
-    {
-        return mProgram->syncState(context);
-    }
-    return angle::Result::Continue;
-}
-
 angle::Result State::syncProgramPipelineObject(const Context *context, Command command)
 {
     // If a ProgramPipeline is bound, ensure it is linked.
@@ -3730,21 +3775,8 @@ angle::Result State::syncDirtyObject(const Context *context, GLenum target)
         case GL_DRAW_FRAMEBUFFER:
             localSet.set(state::DIRTY_OBJECT_DRAW_FRAMEBUFFER);
             break;
-        case GL_FRAMEBUFFER:
-            localSet.set(state::DIRTY_OBJECT_READ_FRAMEBUFFER);
-            localSet.set(state::DIRTY_OBJECT_DRAW_FRAMEBUFFER);
-            break;
-        case GL_VERTEX_ARRAY:
-            localSet.set(state::DIRTY_OBJECT_VERTEX_ARRAY);
-            break;
-        case GL_TEXTURE:
-            localSet.set(state::DIRTY_OBJECT_TEXTURES);
-            break;
-        case GL_SAMPLER:
-            localSet.set(state::DIRTY_OBJECT_SAMPLERS);
-            break;
-        case GL_PROGRAM:
-            localSet.set(state::DIRTY_OBJECT_PROGRAM);
+        default:
+            UNREACHABLE();
             break;
     }
 
@@ -3768,9 +3800,6 @@ void State::setObjectDirty(GLenum target)
         case GL_VERTEX_ARRAY:
             mDirtyObjects.set(state::DIRTY_OBJECT_VERTEX_ARRAY);
             break;
-        case GL_PROGRAM:
-            mDirtyObjects.set(state::DIRTY_OBJECT_PROGRAM);
-            break;
         default:
             break;
     }
@@ -3786,11 +3815,10 @@ angle::Result State::installProgramExecutable(const Context *context)
 
     mDirtyBits.set(state::DIRTY_BIT_PROGRAM_EXECUTABLE);
 
-    // Make sure the program is synced before draw, if needed
-    if (mProgram->needsSync())
-    {
-        mDirtyObjects.set(state::DIRTY_OBJECT_PROGRAM);
-    }
+    // Make sure the program binary is cached if needed and not already.  This is automatically done
+    // on program destruction, but is done here anyway to support situations like Android apps that
+    // are typically killed instead of cleanly closed.
+    mProgram->cacheProgramBinaryIfNecessary(context);
 
     // The bound Program always overrides the ProgramPipeline, so install the executable regardless
     // of whether a program pipeline is bound.
@@ -3995,7 +4023,5 @@ void State::initializeForCapture(const Context *context)
     Context *mutableContext = const_cast<Context *>(context);
     initialize(mutableContext);
 }
-
-constexpr State::DirtyObjectHandler State::kDirtyObjectHandlers[state::DIRTY_OBJECT_MAX];
 
 }  // namespace gl

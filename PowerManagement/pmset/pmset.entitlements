@@ -22,5 +22,7 @@
 	<true/>
 	<key>com.apple.private.iokit.soc-limit</key>
 	<true/>
+	<key>com.apple.private.applesmc.user-access</key>
+	<true/>
 </dict>
 </plist>

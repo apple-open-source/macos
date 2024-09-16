@@ -1,5 +1,5 @@
 .\"
-.\"  Copyright (c) 2022 Apple Inc. All rights reserved.
+.\"  Copyright (c) 2023 Apple Inc. All rights reserved.
 .\"
 .\"  @APPLE_LICENSE_HEADER_START@
 .\"
@@ -21,7 +21,7 @@
 .\"
 .\"  @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd June 23, 2023
+.Dd April 28, 2024
 .Dt GENWRAP 8
 .Os
 .Sh NAME
@@ -29,6 +29,8 @@
 .Nd generate parameterized program wrappers
 .Sh SYNOPSIS
 .Nm
+.Op Fl d
+.Op Fl n Ar name
 .Op Fl o Ar output
 .Ar spec
 .Sh DESCRIPTION
@@ -57,6 +59,28 @@ should be a file written in the format specified later in
 The following options are available for
 .Nm :
 .Bl -tag -offset indent
+.It Fl d
+Enables debug output to stderr.
+In particular, this emits notice of each action taken as a result of the
+specified wrapper definition as it is parsed, without any filtering.
+This is mainly intended to aide in debugging
+.Nm
+itself.
+.It Fl n Ar name
+Use
+.Ar name
+for the generated wrapper's name.
+This will be used as the name within
+.Pa /var/select
+to check for a defined system choice.
+The
+.Ar name
+will be automatically derived from a filename by omitting a trailing
+.Dq .wrapper ,
+so it is not necessary to specify for cases where the wrapper
+.Pa foo.wrapper
+should use
+.Pa /var/select/foo .
 .It Fl o Ar output
 Switch the output file to
 .Ar output .
@@ -72,13 +96,33 @@ Note that
 only generates a C source file for the shim.
 .Nm
 does not directly offer the ability to build a binary from the shim.
+.Pp
+The
+.Nm
+generated wrapper will use the following logic to choose the application to
+execute, in this order of precedence:
+.Pp
+If an
+.Va env
+var is configured, the variable is set in the environment, then it will be used.
+.Pp
+If argument-based switching is used, then the default application is checked
+first for compatibility with the arguments presented.
+The default application is discussed below in the
+.Sx SPECIFICATION FORMAT
+section.
+The applications are checked in the defined order after the default application
+is checked.
+.Pp
+If the above criteria did not result in anything to execute, then the default
+application will be executed.
 .Ss SPECIFICATION FORMAT
 .Nm
 uses a minimal custom language for generating shims.
 This language is best described as two primary functional blocks, the
 shim setting block and the application specification block.
 The shim setting block
-.Sy must
+.Em must
 appear before application specifications.
 Comments begin with a
 .Dq # ,
@@ -110,16 +154,16 @@ application specification block.
 Applications are defined after the shim setting block.
 At least one application must be defined.
 Every application must have a
-.Sy path
+.Cm path
 set.
 .Pp
 All directives besides the
-.Sy application
+.Cm application
 directives apply to the last specified
-.Sy application
+.Cm application
 prior to the directive.
 By convention, all directives besides the
-.Sy application
+.Cm application
 directives are indented by some consistent amount of whitespace to improve
 readability of the specification.
 .Pp
@@ -134,7 +178,7 @@ The given
 name typically corresponds to the name of the binary that this application block
 will represent, but its exact value is not significant.
 If the
-.Sy env
+.Cm env
 directive is specified above, then the specified environment variable may be set
 to
 .Ar name
@@ -142,9 +186,13 @@ to indicate that this application block's path should be used.
 .It default
 Optionally specifies that this application block is the default application.
 If no
-.Sy default
+.Cm default
 directive is specified, then the resulting shim will use the first specified
 application as the default.
+If a
+.Pa /var/select
+symlink is specified for the given wrapper, then the named application will be
+considered the default instead.
 .It argmode logonly
 Indicates that any flag directives specified should only be considered for
 logging purposes.
@@ -153,9 +201,9 @@ If arguments are evaluated to determine which application to choose, one with
 set will be considered acceptable by default.
 .It path Dq Ar path
 This directive is
-.Sy required
+.Cm required
 for each specified
-.Sy application .
+.Cm application .
 The given
 .Ar path
 should be the path to the binary to be used if this application is selected.
@@ -163,7 +211,20 @@ should be the path to the binary to be used if this application is selected.
 If a relative path is given, then it will be prefixed with the active developer
 directory as provided by
 .Xr xcode-select 1
-at runtime.
+at runtime, with one exception.
+If the relative path begins with a literal
+.Dq $XCODE/
+component, then
+.Nm
+will instead invoke
+.Xr xcrun 1
+with the trailing part of the relative path as the tool name.
+For example,
+.Dq $XCODE/yacc
+will do the equivalent behavior of:
+.Bd -literal -offset indent
+xcrun yacc ...
+.Ed
 .Pp
 If an absolute path is given, then it will be used as-is.
 .It addarg Do Ar argv[1] Dc Oo Do argv[n] Dc ... Oc
@@ -171,7 +232,8 @@ Adds the given quoted words to the arguments we pass to this application, if
 selected.
 These arguments are inserted at argv[1], before any arguments that the wrapper
 was invoked with.
-.It flag Do Ar flag Dc Oo optional_arg | arg Oc
+.It flag Do Ar flag Dc Oo optional_arg | arg Oc Oo logonly Oc Op pattern \
+Dq pattern
 Adds the given
 .Ar flag
 as a recognized flag by this application.
@@ -180,11 +242,27 @@ If
 is a long flag, it must not have a short flag alias when used in this form.
 .Pp
 If
-.Sy optional_arg
+.Cm optional_arg
 or
-.Sy arg
+.Cm arg
 are specified, then it is noted in the shim that this flag takes an argument.
-.It flag Do Ar longflag Dc Do Ar shortflag Dc Oo optional_arg | arg Oc
+.Pp
+If
+.Cm logonly
+is specified, then this argument will not be considered an acceptable argument
+for the application in argument-based switching.
+.Pp
+Specifying a
+.Cm pattern
+enables collection of option arguments if and only if they match the described
+pattern.
+The
+.Ar pattern
+will be interpreted and executed as a POSIX extended regular expression, as
+described in
+.Xr re_format 7 .
+.It flag Do Ar longflag Dc Do Ar shortflag Dc Oo optional_arg | arg Oc \
+Oo logonly Oc Op pattern Dq pattern
 This is equivalent to the above form, except that
 .Ar longflag
 explicitly has a
@@ -193,7 +271,7 @@ alias.
 .El
 .Pp
 The
-.Sy flag
+.Cm flag
 directives are only necessary if argument-based switching is desired, rather
 than environment-based switching.
 Informing the shim of argument structure may also be used to limit reported
@@ -215,7 +293,7 @@ shims report events with the following details:
 The name the wrapper was invoked as, i.e., argv[0].
 .It Sy chosen
 The name, provided in the
-.Sy application
+.Cm application
 directive, of the specific application that was chosen to be invoked.
 .It Sy arguments
 The array of arguments passed to the wrapper.
@@ -224,9 +302,9 @@ The array of arguments passed to the wrapper.
 Note that, currently, all arguments passed to the wrapper are reported in these
 events.
 The specification grammar accepts a
-.Sy noargs
+.Cm noargs
 keyword after the
-.Sy analytics
+.Cm analytics
 , which may be used to omit flags' argument values as well as any
 non-option arguments to prevent an inadvertent information disclosure through,
 e.g., file names.
@@ -301,6 +379,7 @@ Other examples may be found in
 .Sh SEE ALSO
 .Xr analyticsd 1 ,
 .Xr xcode-select 1 ,
+.Xr xcrun 1 ,
 .Xr analytics_tool 8
 .Sh BUGS
 The shims generated by

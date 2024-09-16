@@ -30,7 +30,7 @@
 #include "LibWebRTCProvider.h"
 #include "LibWebRTCRtpSenderBackend.h"
 #include "RTCRtpReceiver.h"
-#include <Timer.h>
+#include "Timer.h"
 
 ALLOW_UNUSED_PARAMETERS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -122,6 +122,9 @@ public:
 
     bool isNegotiationNeeded(uint32_t) const;
 
+    void startRTCLogs();
+    void stopRTCLogs();
+
 private:
     LibWebRTCMediaEndpoint(LibWebRTCPeerConnectionBackend&, LibWebRTCProvider&);
 
@@ -169,7 +172,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const final { return "LibWebRTCMediaEndpoint"; }
+    ASCIILiteral logClassName() const final { return "LibWebRTCMediaEndpoint"_s; }
     WTFLogChannel& logChannel() const final;
 
     Seconds statsLogInterval(int64_t) const;
@@ -201,6 +204,7 @@ private:
     Ref<const Logger> m_logger;
     const void* m_logIdentifier;
 #endif
+    bool m_isGatheringRTCLogs { false };
 };
 
 } // namespace WebCore

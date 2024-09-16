@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if HAVE(ASC_AUTH_UI) || HAVE(UNIFIED_ASC_AUTH_UI)
+#if HAVE(ASC_AUTH_UI) || HAVE(UNIFIED_ASC_AUTH_UI) || HAVE(WEB_AUTHN_AS_MODERN)
 
 @interface ASCWebKitSPISupport : NSObject
 @property (class, nonatomic) BOOL shouldUseAlternateCredentialStore;
@@ -155,7 +155,7 @@ typedef NS_ENUM(NSUInteger, ASCPublicKeyCredentialKind) {
 
 - (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataHash:(NSData *)clientDataHash userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials;
 
-- (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataJSON:(NSData *)clientDataJSON userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials;
+- (instancetype)initWithKind:(ASCPublicKeyCredentialKind)credentialKind relyingPartyIdentifier:(NSString *)relyingPartyIdentifier clientDataJSON:(NSData *)clientDataJSON userVerificationPreference:(nullable NSString *)userVerificationPreference allowedCredentials:(nullable NSArray<ASCPublicKeyCredentialDescriptor *> *)allowedCredentials origin:(nullable NSString *)origin;
 
 @property (nonatomic, readonly) ASCPublicKeyCredentialKind credentialKind;
 @property (nonatomic, copy, readonly) NSString *relyingPartyIdentifier;
@@ -282,7 +282,7 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 
 @property (nonatomic, nullable, copy) ASGlobalFrameIdentifier *globalFrameID;
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || (defined(TARGET_OS_VISION) && TARGET_OS_VISION)
 @property (nonatomic, copy) NSString *windowSceneIdentifier;
 #endif
 @end
@@ -360,7 +360,7 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 
 @protocol ASCAgentProtocol <NSObject>
 
-#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+#if (TARGET_OS_IOS && !TARGET_OS_MACCATALYST) || (defined(TARGET_OS_VISION) && TARGET_OS_VISION)
 - (void)performAuthorizationRequestsForContext:(ASCCredentialRequestContext *)context withCompletionHandler:(void (^)(id <ASCCredentialProtocol> _Nullable credential, NSError * _Nullable error))completionHandler;
 #elif TARGET_OS_OSX || TARGET_OS_MACCATALYST
 - (void)performAuthorizationRequestsForContext:(ASCCredentialRequestContext *)context withClearanceHandler:(void (^)(NSXPCListenerEndpoint * _Nullable daemonEndpoint, NSError * _Nullable error))clearanceHandler;
@@ -410,19 +410,25 @@ typedef NS_ENUM(NSInteger, ASCredentialRequestStyle) {
 extern NSErrorDomain const ASCAuthorizationErrorDomain;
 
 typedef NS_ERROR_ENUM(ASCAuthorizationErrorDomain, ASCAuthorizationError) {
-    ASCAuthorizationErrorUnknown,
-    ASCAuthorizationErrorFailed,
-    ASCAuthorizationErrorUserCanceled,
-    ASCAuthorizationErrorPINRequired,
-    ASCAuthorizationErrorMultipleNFCTagsPresent,
-    ASCAuthorizationErrorNoCredentialsFound,
-    ASCAuthorizationErrorLAError,
-    ASCAuthorizationErrorLAExcludeCredentialsMatched,
-    ASCAuthorizationErrorPINInvalid,
-    ASCAuthorizationErrorAuthenticatorTemporarilyLocked,
-    ASCAuthorizationErrorAuthenticatorPermanentlyLocked,
+    ASCAuthorizationErrorUnknown = 0,
+    ASCAuthorizationErrorFailed = 1,
+    ASCAuthorizationErrorUserCanceled = 2,
+    ASCAuthorizationErrorPINRequired = 3,
+    ASCAuthorizationErrorMultipleNFCTagsPresent = 4,
+    ASCAuthorizationErrorNoCredentialsFound = 5,
+    ASCAuthorizationErrorLAError = 6,
+    ASCAuthorizationErrorLAExcludeCredentialsMatched = 7,
+    ASCAuthorizationErrorPINInvalid = 8,
+    ASCAuthorizationErrorAuthenticatorTemporarilyLocked = 9,
+    ASCAuthorizationErrorAuthenticatorPermanentlyLocked = 10,
+    ASCAuthorizationErrorAlreadyStarted = 11,
+    ASCAuthorizationErrorInternalCancel = 12,
+    ASCAuthorizationErrorKeyStoreFull = 13,
+    ASCAuthorizationErrorInvalidResponse = 14,
+    ASCAuthorizationErrorNotSupportedInSTP = 16,
+    ASCAuthorizationErrorSecurityError = 17,
 };
 
 NS_ASSUME_NONNULL_END
 
-#endif // HAVE(ASC_AUTH_UI) || HAVE(UNIFIED_ASC_AUTH_UI)
+#endif // HAVE(ASC_AUTH_UI) || HAVE(UNIFIED_ASC_AUTH_UI) || HAVE(WEB_AUTHN_AS_MODERN)

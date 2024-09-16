@@ -46,30 +46,26 @@
 
 #include <vm/pmap.h>
 
-
 #include <kern/ipc_kobject.h>
 
 #include <os/hash.h>
-
-#include <libxnuproxy/messages.h>
 
 #include <mach/mach_traps.h>
 #include <mach/mach_port.h>
 
 #include <sys/event.h>
+#include <sys/reason.h>
 
 #include "exclaves_conclave.h"
 #include "exclaves_debug.h"
 #include "exclaves_resource.h"
 #include "exclaves_sensor.h"
 #include "exclaves_shared_memory.h"
+#include "exclaves_xnuproxy.h"
 
-/* Use the new version of xnuproxy_msg_t. */
-#define xnuproxy_msg_t xnuproxy_msg_new_t
+#include "kern/exclaves.tightbeam.h"
 
 static LCK_GRP_DECLARE(resource_lck_grp, "exclaves_resource");
-
-extern kern_return_t exclaves_xnu_proxy_send(xnuproxy_msg_t *, void *);
 
 /*
  * A cache of service ids in the kernel domain
@@ -301,7 +297,7 @@ table_t root_table = {
  * in that domain.
  */
 typedef struct {
-	char     d_name[XNUPROXY_RESOURCE_NAME_MAX];
+	char     d_name[EXCLAVES_RESOURCE_NAME_MAX];
 	table_t *d_table_name;
 	table_t *d_table_id;
 } exclaves_resource_domain_t;
@@ -341,7 +337,7 @@ iterate_resources(exclaves_resource_domain_t *domain,
 
 static exclaves_resource_t *
 lookup_resource_by_name(exclaves_resource_domain_t *domain, const char *name,
-    xnuproxy_resource_t type)
+    xnuproxy_resourcetype_s type)
 {
 	__block exclaves_resource_t *resource = NULL;
 	table_get(domain->d_table_name, name, strlen(name), ^bool (void *data) {
@@ -358,7 +354,7 @@ lookup_resource_by_name(exclaves_resource_domain_t *domain, const char *name,
 
 static exclaves_resource_t *
 lookup_resource_by_id(exclaves_resource_domain_t *domain, uint64_t id,
-    xnuproxy_resource_t type)
+    xnuproxy_resourcetype_s type)
 {
 	__block exclaves_resource_t *resource = NULL;
 	table_get(domain->d_table_id, &id, sizeof(id), ^bool (void *data) {
@@ -377,7 +373,7 @@ static exclaves_resource_domain_t *
 exclaves_resource_domain_alloc(const char *scope)
 {
 	assert3u(strlen(scope), >, 0);
-	assert3u(strlen(scope), <=, XNUPROXY_RESOURCE_NAME_MAX);
+	assert3u(strlen(scope), <=, EXCLAVES_RESOURCE_NAME_MAX);
 
 	exclaves_resource_domain_t *domain = kalloc_type(
 		exclaves_resource_domain_t, Z_WAITOK | Z_ZERO | Z_NOFAIL);
@@ -402,8 +398,8 @@ exclaves_resource_domain_alloc(const char *scope)
 }
 
 static exclaves_resource_t *
-exclaves_resource_alloc(xnuproxy_resource_t type, const char *name, uint64_t id,
-    exclaves_resource_domain_t *domain)
+exclaves_resource_alloc(xnuproxy_resourcetype_s type, const char *name, uint64_t id,
+    exclaves_resource_domain_t *domain, bool connected)
 {
 	exclaves_resource_t *resource = kalloc_type(exclaves_resource_t,
 	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
@@ -411,6 +407,7 @@ exclaves_resource_alloc(xnuproxy_resource_t type, const char *name, uint64_t id,
 	resource->r_type = type;
 	resource->r_id = id;
 	resource->r_active = false;
+	resource->r_connected = connected;
 	os_atomic_store(&resource->r_usecnt, 0, relaxed);
 
 	/*
@@ -442,7 +439,7 @@ exclaves_resource_alloc(xnuproxy_resource_t type, const char *name, uint64_t id,
 	 * name.
 	 */
 	switch (type) {
-	case XNUPROXY_RESOURCE_NOTIFICATION: {
+	case XNUPROXY_RESOURCETYPE_NOTIFICATION: {
 		/* Stick the newly created resource into the ID table. */
 		table_item_t *id_item = kalloc_type(table_item_t,
 		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
@@ -492,10 +489,10 @@ populate_conclave_services(void)
 
 		exclaves_resource_t *cm = exclaves_resource_lookup_by_name(
 		    EXCLAVES_DOMAIN_KERNEL, domain->d_name,
-		    XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+		    XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 		iterate_resources(domain, ^(exclaves_resource_t *resource) {
-			if (resource->r_type != XNUPROXY_RESOURCE_SERVICE) {
+			if (resource->r_type != XNUPROXY_RESOURCETYPE_SERVICE) {
 				return (bool)false;
 			}
 
@@ -536,35 +533,10 @@ exclaves_resource_init(void)
 	/* Initialize the root table. */
 	table_init(&root_table);
 
-	for (uint32_t i = 0;; i++) {
-		/* Get info about the 'i'th resource. */
-		xnuproxy_msg_t msg = {
-			.cmd = XNUPROXY_CMD_RESOURCE_INFO,
-			.cmd_resource_info = (xnuproxy_cmd_resource_info_t) {
-				.request.index = i,
-			},
-		};
-
-		kern_return_t kr = exclaves_xnu_proxy_send(&msg, NULL);
-		if (kr != KERN_SUCCESS) {
-			return kr;
-		}
-
-		/*
-		 * An empty name indicates there are no resources left to
-		 * enumerate.
-		 */
-		if (msg.cmd_resource_info.response.name[0] == '\0') {
-			break;
-		}
-
-		xnuproxy_resource_t type = msg.cmd_resource_info.response.type;
-		const char *name =
-		    (const char *)&msg.cmd_resource_info.response.name;
-		const uint64_t id = msg.cmd_resource_info.response.id;
-		const char *scope =
-		    (const char *)&msg.cmd_resource_info.response.domain;
-
+	/* BEGIN IGNORE CODESTYLE */
+	kern_return_t kr = exclaves_xnuproxy_resource_info(
+	    ^(const char *name, const char *scope,
+	    xnuproxy_resourcetype_s type, uint64_t id, bool connected) {
 		/*
 		 * Every resource is scoped to a specific domain, find the
 		 * domain (or create one if it doesn't exist).
@@ -576,27 +548,32 @@ exclaves_resource_init(void)
 
 		/* Allocate a new resource in the domain. */
 		exclaves_resource_t *resource = exclaves_resource_alloc(type,
-		    name, id, domain);
+		    name, id, domain, connected);
 
 		/*
 		 * Type specific initialization.
 		 */
 		switch (type) {
-		case XNUPROXY_RESOURCE_CONCLAVE_MANAGER:
+		case XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER:
 			exclaves_conclave_init(resource);
 			break;
 
-		case XNUPROXY_RESOURCE_NOTIFICATION:
+		case XNUPROXY_RESOURCETYPE_NOTIFICATION:
 			exclaves_notification_init(resource);
 			break;
 
-		case XNUPROXY_RESOURCE_SERVICE:
+		case XNUPROXY_RESOURCETYPE_SERVICE:
 			assert3u(resource->r_id, <, CONCLAVE_SERVICE_MAX);
 			break;
 
 		default:
 			break;
 		}
+	});
+	/* END IGNORE CODESTYLE */
+
+	if (kr != KERN_SUCCESS) {
+		return kr;
 	}
 
 	/* Populate the conclave service ID bitmaps. */
@@ -607,7 +584,7 @@ exclaves_resource_init(void)
 
 exclaves_resource_t *
 exclaves_resource_lookup_by_name(const char *domain_name, const char *name,
-    xnuproxy_resource_t type)
+    xnuproxy_resourcetype_s type)
 {
 	assert3u(strlen(domain_name), >, 0);
 	assert3u(strlen(name), >, 0);
@@ -617,12 +594,19 @@ exclaves_resource_lookup_by_name(const char *domain_name, const char *name,
 		return NULL;
 	}
 
-	return lookup_resource_by_name(domain, name, type);
+	exclaves_resource_t *r = lookup_resource_by_name(domain, name, type);
+
+	/* Ignore entries not marked connected. */
+	if (r == NULL || !r->r_connected) {
+		return NULL;
+	}
+
+	return r;
 }
 
 static exclaves_resource_t *
 exclaves_resource_lookup_by_id(const char *domain_name, uint64_t id,
-    xnuproxy_resource_t type)
+    xnuproxy_resourcetype_s type)
 {
 	assert3u(strlen(domain_name), >, 0);
 
@@ -631,7 +615,14 @@ exclaves_resource_lookup_by_id(const char *domain_name, uint64_t id,
 		return NULL;
 	}
 
-	return lookup_resource_by_id(domain, id, type);
+	exclaves_resource_t *r = lookup_resource_by_id(domain, id, type);
+
+	/* Ignore entries not marked connected. */
+	if (r == NULL || !r->r_connected) {
+		return NULL;
+	}
+
+	return r;
 }
 
 const char *
@@ -666,7 +657,7 @@ exclaves_resource_release(exclaves_resource_t *resource)
 	 * Drop the use count without holding the lock (this path may be called
 	 * by RT threads and should be RT-safe).
 	 */
-	uint32_t orig = os_atomic_dec_orig(&resource->r_usecnt, relaxed);
+	uint32_t orig = os_atomic_dec_orig(&resource->r_usecnt, release);
 	assert3u(orig, !=, 0);
 	if (orig != 1) {
 		return;
@@ -683,29 +674,29 @@ exclaves_resource_release(exclaves_resource_t *resource)
 	 * Re-check the use count - as a second user of the resource
 	 * may have snuck in in the meantime.
 	 */
-	if (os_atomic_load(&resource->r_usecnt, relaxed) > 0) {
+	if (os_atomic_load(&resource->r_usecnt, acquire) > 0) {
 		lck_mtx_unlock(&resource->r_mutex);
 		return;
 	}
 
 	switch (resource->r_type) {
-	case XNUPROXY_RESOURCE_NAMED_BUFFER:
+	case XNUPROXY_RESOURCETYPE_NAMEDBUFFER:
 		exclaves_named_buffer_unmap(resource);
 		break;
 
-	case XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER:
+	case XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER:
 		exclaves_audio_buffer_delete(resource);
 		break;
 
-	case XNUPROXY_RESOURCE_SENSOR:
+	case XNUPROXY_RESOURCETYPE_SENSOR:
 		exclaves_resource_sensor_reset(resource);
 		break;
 
-	case XNUPROXY_RESOURCE_SHARED_MEMORY:
+	case XNUPROXY_RESOURCETYPE_SHAREDMEMORY:
 		exclaves_resource_shared_memory_unmap(resource);
 		break;
 
-	case XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY:
+	case XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY:
 		exclaves_resource_audio_memory_unmap(resource);
 		break;
 
@@ -819,8 +810,8 @@ int
 exclaves_named_buffer_io(exclaves_resource_t *resource, off_t offset,
     size_t len, int (^cb)(char *, size_t))
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_NAMED_BUFFER ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
 
 	named_buffer_resource_t *nb = &resource->r_named_buffer;
@@ -878,7 +869,7 @@ exclaves_named_buffer_copyin(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_NAMED_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 
 	mach_vm_size_t umax = 0;
 	kern_return_t kr = KERN_FAILURE;
@@ -942,8 +933,8 @@ exclaves_named_buffer_copyout(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert(resource->r_type == XNUPROXY_RESOURCE_NAMED_BUFFER ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 
 	mach_vm_size_t umax = 0;
 	kern_return_t kr = KERN_FAILURE;
@@ -985,12 +976,12 @@ exclaves_named_buffer_copyout(exclaves_resource_t *resource,
 static void
 named_buffer_unmap(exclaves_resource_t *resource)
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER ||
-	    resource->r_type == XNUPROXY_RESOURCE_NAMED_BUFFER);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
 	/* BEGIN IGNORE CODESTYLE */
-	resource->r_type == XNUPROXY_RESOURCE_NAMED_BUFFER ?
+	resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER ?
 	    exclaves_named_buffer_unmap(resource) :
 	    exclaves_audio_buffer_delete(resource);
 	/* END IGNORE CODESTYLE */
@@ -1000,13 +991,11 @@ static kern_return_t
 named_buffer_map(exclaves_resource_t *resource, size_t size,
     exclaves_buffer_perm_t perm)
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER ||
-	    resource->r_type == XNUPROXY_RESOURCE_NAMED_BUFFER);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 	assert3u(perm & ~(EXCLAVES_BUFFER_PERM_READ | EXCLAVES_BUFFER_PERM_WRITE), ==, 0);
 
-	xnuproxy_cmd_t cmd = 0;
 	kern_return_t kr = KERN_FAILURE;
-	uint32_t status = 0;
 
 	if (size == 0) {
 		return KERN_INVALID_ARGUMENT;
@@ -1043,34 +1032,23 @@ named_buffer_map(exclaves_resource_t *resource, size_t size,
 		return KERN_SUCCESS;
 	}
 
-	cmd = resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER ?
-	    XNUPROXY_CMD_AUDIO_BUFFER_MAP:
-	    XNUPROXY_CMD_NAMED_BUFFER_MAP;
-	xnuproxy_msg_t msg = {
-		.cmd = cmd,
-		.cmd_named_buf_map = (xnuproxy_cmd_named_buf_map_t) {
-			.request.buffer_id = resource->r_id,
-			.request.buffer_size = rounded_size,
-		}
-	};
+	bool ro = true;
+	if (resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER) {
+		kr = exclaves_xnuproxy_audio_buffer_map(resource->r_id, rounded_size, &ro);
+	} else {
+		assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
+		kr = exclaves_xnuproxy_named_buffer_map(resource->r_id, rounded_size, &ro);
+	}
 
-	kr = exclaves_xnu_proxy_send(&msg, NULL);
 	if (kr != KERN_SUCCESS) {
 		lck_mtx_unlock(&resource->r_mutex);
 		return kr;
-	}
-	status = msg.cmd_named_buf_map.response.status;
-	if (status != XNUPROXY_NAMED_BUFFER_SUCCESS) {
-		lck_mtx_unlock(&resource->r_mutex);
-		return status == XNUPROXY_NAMED_BUFFER_EINVAL ?
-		       KERN_INVALID_ARGUMENT : KERN_FAILURE;
 	}
 
 	/*
 	 * From this point on named_buffer_unmap() must be called if
 	 * something goes wrong so that the buffer will be properly unmapped.
 	 */
-	const bool ro = msg.cmd_named_buf_map.response.readonly != 0;
 	switch (perm) {
 	case EXCLAVES_BUFFER_PERM_READ:
 		if (!ro) {
@@ -1097,75 +1075,39 @@ named_buffer_map(exclaves_resource_t *resource, size_t size,
 	named_buffer_resource_t *nb = &resource->r_named_buffer;
 	nb->nb_size = rounded_size;
 	nb->nb_perm = perm;
+	nb->nb_nranges = 0;
 
 	/*
 	 * The named buffer is now accessible by xnu. Discover the
 	 * layout of the memory.
 	 */
-	const uint64_t count = rounded_size / PAGE_SIZE;
-	uint32_t page = 0;
-	cmd = resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER ?
-	    XNUPROXY_CMD_AUDIO_BUFFER_LAYOUT:
-	    XNUPROXY_CMD_NAMED_BUFFER_LAYOUT;
-	while (page < count) {
-		xnuproxy_msg_t layout_msg = {
-			.cmd = cmd,
-			.cmd_named_buf_layout = (xnuproxy_cmd_named_buf_layout_t) {
-				.request.buffer_id = resource->r_id,
-				.request.start = page,
-				.request.npages = (uint32_t)count - page,
-			}
-		};
-
-		kr = exclaves_xnu_proxy_send(&layout_msg, NULL);
-		if (kr != KERN_SUCCESS) {
-			named_buffer_unmap(resource);
-			lck_mtx_unlock(&resource->r_mutex);
-			return kr;
+	kern_return_t (*layout)(uint64_t, uint32_t, uint32_t, kern_return_t (^)(uint64_t, uint32_t)) =
+	    resource->r_type == XNUPROXY_RESOURCETYPE_NAMEDBUFFER ?
+	    exclaves_xnuproxy_named_buffer_layout :
+	    exclaves_xnuproxy_audio_buffer_layout;
+	kr = layout(resource->r_id, 0, (uint32_t) (rounded_size / PAGE_SIZE),
+	    ^(uint64_t base, uint32_t npages) {
+		if (nb->nb_nranges >= EXCLAVES_SHARED_BUFFER_MAX_RANGES) {
+		        exclaves_debug_printf(show_errors, "exclaves: "
+		        "fragmented named buffer can't fit\n");
+		        return KERN_NO_SPACE;
 		}
 
-		status = layout_msg.cmd_named_buf_layout.response.status;
-		switch (status) {
-		case XNUPROXY_NAMED_BUFFER_SUCCESS:
-		case XNUPROXY_NAMED_BUFFER_ENOSPC:
-			break;
+		nb->nb_range[nb->nb_nranges].address = (char *)phystokv(base);
+		assert3p(nb->nb_range[nb->nb_nranges].address, !=, NULL);
 
-		case XNUPROXY_NAMED_BUFFER_EINVAL:
-			named_buffer_unmap(resource);
-			lck_mtx_unlock(&resource->r_mutex);
-			return KERN_INVALID_ARGUMENT;
+		nb->nb_range[nb->nb_nranges].npages = npages;
+		assert3u(nb->nb_range[nb->nb_nranges].npages, !=, 0);
 
-		default:
-			named_buffer_unmap(resource);
-			lck_mtx_unlock(&resource->r_mutex);
-			return KERN_FAILURE;
-		}
+		nb->nb_nranges++;
 
-		xnuproxy_named_buf_range_t *range =
-		    layout_msg.cmd_named_buf_layout.response.range;
-		uint32_t nranges =
-		    layout_msg.cmd_named_buf_layout.response.nranges;
+		return KERN_SUCCESS;
+	});
 
-		if (nb->nb_nranges + nranges > EXCLAVES_SHARED_BUFFER_MAX_RANGES) {
-			named_buffer_unmap(resource);
-			lck_mtx_unlock(&resource->r_mutex);
-			exclaves_debug_printf(show_errors, "exclaves: "
-			    "fragmented named buffer can't fit\n");
-			return KERN_FAILURE;
-		}
-
-		for (uint32_t i = 0; i < nranges; i++) {
-			nb->nb_range[nb->nb_nranges].address =
-			    (char *)phystokv(range[i].address);
-			nb->nb_range[nb->nb_nranges].npages = range[i].npages;
-
-			assert3p(nb->nb_range[nb->nb_nranges].address, !=,
-			    NULL);
-
-			nb->nb_nranges++;
-			page += range[i].npages;
-			assert3u(page, <=, count);
-		}
+	if (kr != KERN_SUCCESS) {
+		named_buffer_unmap(resource);
+		lck_mtx_unlock(&resource->r_mutex);
+		return kr;
 	}
 
 	exclaves_resource_retain(resource);
@@ -1183,11 +1125,11 @@ exclaves_named_buffer_map(const char *domain, const char *name, size_t size,
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_NAMED_BUFFER);
+	    name, XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 	if (resource == NULL) {
 		return KERN_NOT_FOUND;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_NAMED_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 
 	kern_return_t kr = named_buffer_map(resource, size, perm);
 	if (kr != KERN_SUCCESS) {
@@ -1201,28 +1143,15 @@ exclaves_named_buffer_map(const char *domain, const char *name, size_t size,
 static void
 exclaves_named_buffer_unmap(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_NAMED_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NAMEDBUFFER);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), ==, 0);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_NAMED_BUFFER_DELETE,
-		.cmd_named_buf_delete.request.buffer_id = resource->r_id,
-	};
-
-	kern_return_t kr = exclaves_xnu_proxy_send(&msg, NULL);
+	kern_return_t kr = exclaves_xnuproxy_named_buffer_delete(resource->r_id);
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
 		    "exclaves: failed to delete named buffer: %s\n",
 		    resource->r_name);
-		return;
-	}
-	uint8_t status = msg.cmd_named_buf_delete.response.status;
-
-	if (status != XNUPROXY_NAMED_BUFFER_SUCCESS) {
-		exclaves_debug_printf(show_errors,
-		    "exclaves: failed to delete named buffer: %s, "
-		    "status: %d\n", resource->r_name, status);
 		return;
 	}
 
@@ -1241,11 +1170,11 @@ exclaves_audio_buffer_map(const char *domain, const char *name, size_t size,
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	    name, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 	if (resource == NULL) {
 		return KERN_NOT_FOUND;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 
 	kern_return_t kr = named_buffer_map(resource, size,
 	    EXCLAVES_BUFFER_PERM_READ);
@@ -1260,28 +1189,15 @@ exclaves_audio_buffer_map(const char *domain, const char *name, size_t size,
 static void
 exclaves_audio_buffer_delete(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), ==, 0);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_AUDIO_BUFFER_DELETE,
-		.cmd_audio_buf_delete.request.buffer_id = resource->r_id,
-	};
-
-	kern_return_t kr = exclaves_xnu_proxy_send(&msg, NULL);
+	kern_return_t kr = exclaves_xnuproxy_audio_buffer_delete(resource->r_id);
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
 		    "exclaves: failed to delete audio buffer: %s\n",
 		    resource->r_name);
-		return;
-	}
-	uint8_t status = msg.cmd_audio_buf_delete.response.status;
-
-	if (status != XNUPROXY_NAMED_BUFFER_SUCCESS) {
-		exclaves_debug_printf(show_errors,
-		    "exclaves: failed to delete audio buffer: %s, "
-		    "status: %d\n", resource->r_name, status);
 		return;
 	}
 
@@ -1295,28 +1211,11 @@ exclaves_audio_buffer_copyout(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_BUFFER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOBUFFER);
 
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_AUDIO_BUFFER_COPYOUT,
-		.cmd_audio_buf_copyout.request.buffer_id = resource->r_id,
-		.cmd_audio_buf_copyout.request.size1 = size1,
-		.cmd_audio_buf_copyout.request.offset1 = offset1,
-		.cmd_audio_buf_copyout.request.size2 = size2,
-		.cmd_audio_buf_copyout.request.offset2 = offset2,
-	};
-
-	kern_return_t kr = exclaves_xnu_proxy_send(&msg, NULL);
+	kern_return_t kr = exclaves_xnuproxy_audio_buffer_copyout(resource->r_id, size1, offset1, size2, offset2);
 	if (kr != KERN_SUCCESS) {
 		return kr;
-	}
-	uint8_t status = msg.cmd_audio_buf_copyout.response.status;
-
-	if (status != XNUPROXY_NAMED_BUFFER_SUCCESS) {
-		if (status == XNUPROXY_NAMED_BUFFER_EINVAL) {
-			return KERN_INVALID_ARGUMENT;
-		}
-		return KERN_FAILURE;
 	}
 
 	return exclaves_named_buffer_copyout(resource, buffer, size1, offset1,
@@ -1329,7 +1228,7 @@ exclaves_audio_buffer_copyout(exclaves_resource_t *resource,
 static void
 exclaves_conclave_init(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	tb_client_connection_t connection = NULL;
 	__assert_only kern_return_t kr = exclaves_conclave_launcher_init(resource->r_id,
@@ -1344,16 +1243,18 @@ exclaves_conclave_init(exclaves_resource_t *resource)
 }
 
 kern_return_t
-exclaves_conclave_attach(const char *domain, const char *name, task_t task)
+exclaves_conclave_attach(const char *name, task_t task)
 {
 	assert3p(task, !=, TASK_NULL);
 
-	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(
+		EXCLAVES_DOMAIN_KERNEL, name, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 	if (resource == NULL) {
-		return KERN_INVALID_ARGUMENT;
+		exclaves_requirement_assert(EXCLAVES_R_CONCLAVE,
+		    "failed to find conclave manager (%s)", name);
+		return KERN_SUCCESS;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 
@@ -1379,7 +1280,7 @@ exclaves_conclave_attach(const char *domain, const char *name, task_t task)
 kern_return_t
 exclaves_conclave_detach(exclaves_resource_t *resource, task_t task)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 
@@ -1410,7 +1311,7 @@ kern_return_t
 exclaves_conclave_inherit(exclaves_resource_t *resource, task_t old_task,
     task_t new_task)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 
@@ -1444,7 +1345,7 @@ exclaves_conclave_inherit(exclaves_resource_t *resource, task_t old_task,
 bool
 exclaves_conclave_is_attached(const exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 	const conclave_resource_t *conclave = &resource->r_conclave;
 
 	return conclave->c_state == CONCLAVE_S_ATTACHED;
@@ -1453,9 +1354,19 @@ exclaves_conclave_is_attached(const exclaves_resource_t *resource)
 kern_return_t
 exclaves_conclave_launch(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
+
+	if (exclaves_boot_wait(EXCLAVES_BOOT_STAGE_EXCLAVEKIT) != KERN_SUCCESS) {
+		/*
+		 * This should only ever happen if the EXCLAVEKIT requirement was
+		 * relaxed.
+		 */
+		exclaves_requirement_assert(EXCLAVES_R_EXCLAVEKIT,
+		    "failed to boot to exclavekit");
+		return KERN_NOT_SUPPORTED;
+	}
 
 	lck_mtx_lock(&resource->r_mutex);
 
@@ -1500,18 +1411,22 @@ const char *
 exclaves_conclave_get_domain(exclaves_resource_t *resource)
 {
 	if (resource != NULL) {
-		assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+		assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 		return resource->r_name;
 	}
 
-	assert(exclaves_has_priv(current_task(), EXCLAVES_PRIV_KERNEL_DOMAIN));
+	if (!exclaves_has_priv(current_task(), EXCLAVES_PRIV_KERNEL_DOMAIN)) {
+		exclaves_requirement_assert(EXCLAVES_R_CONCLAVE_RESOURCES,
+		    "no conclave manager present");
+	}
+
 	return EXCLAVES_DOMAIN_KERNEL;
 }
 
 kern_return_t
 exclaves_conclave_stop(exclaves_resource_t *resource, bool gather_crash_bt)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 
@@ -1559,13 +1474,11 @@ exclaves_conclave_stop(exclaves_resource_t *resource, bool gather_crash_bt)
 	return KERN_SUCCESS;
 }
 
-extern int exit_with_exclave_exception(void *p);
-
 kern_return_t
 exclaves_conclave_stop_upcall(exclaves_resource_t *resource)
 {
 	assert3p(resource, !=, NULL);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 	thread_t thread = current_thread();
@@ -1596,13 +1509,22 @@ kern_return_t
 exclaves_conclave_stop_upcall_complete(exclaves_resource_t *resource, task_t task)
 {
 	assert3p(resource, !=, NULL);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 	thread_t thread = current_thread();
 
 	thread->th_exclaves_state &= ~TH_EXCLAVES_STOP_UPCALL_PENDING;
-	exit_with_exclave_exception(get_bsdtask_info(task));
+
+	int flags = PX_DEBUG_NO_HONOR | PX_NO_EXCEPTION_UTHREAD;
+	exception_info_t info = {
+		.os_reason = OS_REASON_GUARD,
+		.exception_type = EXC_GUARD,
+		.mx_code = GUARD_REASON_EXCLAVES,
+		.mx_subcode = 0
+	};
+
+	exit_with_exclave_exception(get_bsdtask_info(task), info, flags);
 
 	lck_mtx_lock(&resource->r_mutex);
 
@@ -1620,13 +1542,15 @@ exclaves_conclave_has_service(exclaves_resource_t *resource, uint64_t id)
 
 	if (resource == NULL) {
 		/* There's no conclave, fallback to the kernel domain. */
-		assert(exclaves_has_priv(current_task(),
-		    EXCLAVES_PRIV_KERNEL_DOMAIN));
+		if (!exclaves_has_priv(current_task(), EXCLAVES_PRIV_KERNEL_DOMAIN)) {
+			exclaves_requirement_assert(EXCLAVES_R_CONCLAVE_RESOURCES,
+			    "no conclave manager present");
+		}
 		return bitmap_test(kernel_service_bitmap, (uint32_t)id);
 	}
 
 	assert3p(resource, !=, NULL);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_CONCLAVE_MANAGER);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
 
 	conclave_resource_t *conclave = &resource->r_conclave;
 
@@ -1640,7 +1564,7 @@ exclaves_conclave_has_service(exclaves_resource_t *resource, uint64_t id)
 static void
 exclaves_resource_sensor_reset(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SENSOR);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SENSOR);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), ==, 0);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -1662,13 +1586,13 @@ exclaves_resource_sensor_open(const char *domain, const char *id_name,
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *sensor = exclaves_resource_lookup_by_name(domain,
-	    id_name, XNUPROXY_RESOURCE_SENSOR);
+	    id_name, XNUPROXY_RESOURCETYPE_SENSOR);
 
 	if (sensor == NULL) {
 		return KERN_NOT_FOUND;
 	}
 
-	assert3u(sensor->r_type, ==, XNUPROXY_RESOURCE_SENSOR);
+	assert3u(sensor->r_type, ==, XNUPROXY_RESOURCETYPE_SENSOR);
 
 	lck_mtx_lock(&sensor->r_mutex);
 	exclaves_resource_retain(sensor);
@@ -1683,7 +1607,7 @@ kern_return_t
 exclaves_resource_sensor_start(exclaves_resource_t *resource, uint64_t flags,
     exclaves_sensor_status_t *status)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SENSOR);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SENSOR);
 
 	lck_mtx_lock(&resource->r_mutex);
 	if (resource->r_sensor.s_startcount == UINT64_MAX) {
@@ -1704,7 +1628,7 @@ kern_return_t
 exclaves_resource_sensor_status(exclaves_resource_t *resource, uint64_t flags,
     exclaves_sensor_status_t *status)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SENSOR);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SENSOR);
 
 	lck_mtx_lock(&resource->r_mutex);
 	kern_return_t kr = exclaves_sensor_status(
@@ -1718,7 +1642,7 @@ kern_return_t
 exclaves_resource_sensor_stop(exclaves_resource_t *resource, uint64_t flags,
     exclaves_sensor_status_t *status)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SENSOR);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SENSOR);
 
 	lck_mtx_lock(&resource->r_mutex);
 	if (resource->r_sensor.s_startcount == 0) {
@@ -1742,7 +1666,7 @@ exclaves_resource_sensor_stop(exclaves_resource_t *resource, uint64_t flags,
 static void
 exclaves_notification_init(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 	exclaves_notification_t *notification = &resource->r_notification;
 	klist_init(&notification->notification_klist);
 }
@@ -1758,7 +1682,7 @@ filt_exclaves_notification_attach(struct knote *kn, __unused struct kevent_qos_s
 		goto out;
 	}
 	assert3p(exclaves_resource, !=, NULL);
-	if (exclaves_resource->r_type != XNUPROXY_RESOURCE_NOTIFICATION) {
+	if (exclaves_resource->r_type != XNUPROXY_RESOURCETYPE_NOTIFICATION) {
 		exclaves_resource_release(exclaves_resource);
 		error = EINVAL;
 		goto out;
@@ -1789,7 +1713,7 @@ filt_exclaves_notification_detach(struct knote *kn)
 	exclaves_resource_t *exclaves_resource = kn->kn_exclaves_resource;
 
 	if (exclaves_resource != NULL) {
-		assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+		assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 		lck_mtx_lock(&exclaves_resource->r_mutex);
 		kn->kn_exclaves_resource = NULL;
 		KNOTE_DETACH(&exclaves_resource->r_notification.notification_klist, kn);
@@ -1827,7 +1751,7 @@ filt_exclaves_notification_touch(struct knote *kn, struct kevent_qos_s *kev)
 	int result;
 	exclaves_resource_t *exclaves_resource = kn->kn_exclaves_resource;
 	assert3p(exclaves_resource, !=, NULL);
-	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 
 	lck_mtx_lock(&exclaves_resource->r_mutex);
 	/* accept new mask and mask off output events no long interesting */
@@ -1849,7 +1773,7 @@ filt_exclaves_notification_process(struct knote *kn, struct kevent_qos_s *kev)
 	int result = 0;
 	exclaves_resource_t *exclaves_resource = kn->kn_exclaves_resource;
 	assert3p(exclaves_resource, !=, NULL);
-	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 
 	lck_mtx_lock(&exclaves_resource->r_mutex);
 	if (kn->kn_fflags) {
@@ -1875,12 +1799,12 @@ exclaves_notification_create(const char *domain, const char *name,
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_NOTIFICATION);
+	    name, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 
 	if (resource == NULL) {
 		return KERN_NOT_FOUND;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 
 	lck_mtx_lock(&resource->r_mutex);
 	exclaves_resource_retain(resource);
@@ -1895,7 +1819,7 @@ kern_return_t
 exclaves_notification_signal(exclaves_resource_t *exclaves_resource, long event_mask)
 {
 	assert3p(exclaves_resource, !=, NULL);
-	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCE_NOTIFICATION);
+	assert3u(exclaves_resource->r_type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
 
 	lck_mtx_lock(&exclaves_resource->r_mutex);
 	KNOTE(&exclaves_resource->r_notification.notification_klist, event_mask);
@@ -1908,7 +1832,7 @@ exclaves_resource_t *
 exclaves_notification_lookup_by_id(const char *domain, uint64_t id)
 {
 	return exclaves_resource_lookup_by_id(domain, id,
-	           XNUPROXY_RESOURCE_NOTIFICATION);
+	           XNUPROXY_RESOURCETYPE_NOTIFICATION);
 }
 
 uint64_t
@@ -1918,23 +1842,13 @@ exclaves_service_lookup(const char *domain, const char *name)
 	assert3p(name, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_SERVICE);
+	    name, XNUPROXY_RESOURCETYPE_SERVICE);
 	if (resource == NULL) {
-		return UINT64_C(~0);
+		return EXCLAVES_INVALID_ID;
 	}
 
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SERVICE);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SERVICE);
 	return resource->r_id;
-}
-
-kern_return_t
-exclaves_xnu_proxy_check_mem_usage(void)
-{
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_REPORT_MEMORY_USAGE,
-	};
-
-	return exclaves_xnu_proxy_send(&msg, NULL);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1944,8 +1858,8 @@ int
 exclaves_resource_shared_memory_io(exclaves_resource_t *resource, off_t offset,
     size_t len, int (^cb)(char *, size_t))
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_SHARED_MEMORY ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_SHAREDMEMORY ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
 
 	shared_memory_resource_t *sm = &resource->r_shared_memory;
@@ -2003,7 +1917,7 @@ exclaves_resource_shared_memory_copyin(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SHARED_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SHAREDMEMORY);
 
 	mach_vm_size_t umax = 0;
 	kern_return_t kr = KERN_FAILURE;
@@ -2067,8 +1981,8 @@ exclaves_resource_shared_memory_copyout(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert(resource->r_type == XNUPROXY_RESOURCE_SHARED_MEMORY ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_SHAREDMEMORY ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 
 	mach_vm_size_t umax = 0;
 	kern_return_t kr = KERN_FAILURE;
@@ -2111,7 +2025,7 @@ exclaves_resource_shared_memory_copyout(exclaves_resource_t *resource,
 static uint32_t
 audio_memory_get_endpoint(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	return resource->r_id << 32 >> 32;
 }
 
@@ -2119,7 +2033,7 @@ audio_memory_get_endpoint(exclaves_resource_t *resource)
 static uint32_t
 audio_memory_get_buffer_id(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	return resource->r_id >> 32;
 }
 
@@ -2127,8 +2041,8 @@ static kern_return_t
 shared_memory_map(exclaves_resource_t *resource, size_t size,
     exclaves_buffer_perm_t perm)
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_SHARED_MEMORY ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_SHAREDMEMORY ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	assert3u(perm & ~(EXCLAVES_BUFFER_PERM_READ | EXCLAVES_BUFFER_PERM_WRITE), ==, 0);
 
 	kern_return_t kr = KERN_FAILURE;
@@ -2164,7 +2078,7 @@ shared_memory_map(exclaves_resource_t *resource, size_t size,
 
 	/* This is lazily initialised and never de-initialised. */
 	if (sm->sm_client.connection == NULL) {
-		uint64_t endpoint = resource->r_type == XNUPROXY_RESOURCE_SHARED_MEMORY ?
+		uint64_t endpoint = resource->r_type == XNUPROXY_RESOURCETYPE_SHAREDMEMORY ?
 		    resource->r_id :
 		    audio_memory_get_endpoint(resource);
 
@@ -2217,7 +2131,7 @@ shared_memory_map(exclaves_resource_t *resource, size_t size,
 		                return;
 			}
 
-		        if (sm->sm_nranges == EXCLAVES_SHARED_BUFFER_MAX_RANGES - 1) {
+		        if (sm->sm_nranges >= EXCLAVES_SHARED_BUFFER_MAX_RANGES) {
 				exclaves_debug_printf(show_errors,
 				    "exclaves: too many ranges, can't fit\n");
 				success = false;
@@ -2259,11 +2173,11 @@ exclaves_resource_shared_memory_map(const char *domain, const char *name, size_t
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_SHARED_MEMORY);
+	    name, XNUPROXY_RESOURCETYPE_SHAREDMEMORY);
 	if (resource == NULL) {
 		return KERN_NOT_FOUND;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_SHARED_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_SHAREDMEMORY);
 
 	kern_return_t kr = shared_memory_map(resource, size, perm);
 	if (kr != KERN_SUCCESS) {
@@ -2278,8 +2192,8 @@ exclaves_resource_shared_memory_map(const char *domain, const char *name, size_t
 static void
 exclaves_resource_shared_memory_unmap(exclaves_resource_t *resource)
 {
-	assert(resource->r_type == XNUPROXY_RESOURCE_SHARED_MEMORY ||
-	    resource->r_type == XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert(resource->r_type == XNUPROXY_RESOURCETYPE_SHAREDMEMORY ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), ==, 0);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -2310,11 +2224,11 @@ exclaves_resource_audio_memory_map(const char *domain, const char *name,
 	assert3p(out, !=, NULL);
 
 	exclaves_resource_t *resource = exclaves_resource_lookup_by_name(domain,
-	    name, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	    name, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	if (resource == NULL) {
 		return KERN_NOT_FOUND;
 	}
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 
 	kern_return_t kr = shared_memory_map(resource, size,
 	    EXCLAVES_BUFFER_PERM_READ);
@@ -2329,7 +2243,7 @@ exclaves_resource_audio_memory_map(const char *domain, const char *name,
 static void
 exclaves_resource_audio_memory_unmap(exclaves_resource_t *resource)
 {
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), ==, 0);
 	LCK_MTX_ASSERT(&resource->r_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -2360,7 +2274,7 @@ exclaves_resource_audio_memory_copyout(exclaves_resource_t *resource,
     mach_vm_size_t size2, mach_vm_size_t offset2)
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
-	assert3u(resource->r_type, ==, XNUPROXY_RESOURCE_ARBITRATED_AUDIO_MEMORY);
+	assert3u(resource->r_type, ==, XNUPROXY_RESOURCETYPE_ARBITRATEDAUDIOMEMORY);
 
 	kern_return_t kr = KERN_FAILURE;
 	exclaves_sensor_status_t status;

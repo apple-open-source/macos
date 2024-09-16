@@ -31,3 +31,6 @@ PRODUCT_BUNDLE_NAME = WebContentExtension;
 
 // For simulator builds, entitlements are added to a special __entitlements section on the binary rather than the signature.
 CODE_SIGN_ENTITLEMENTS[sdk=*simulator] = Shared/AuxiliaryProcessExtensions/WebContentProcessExtension.entitlements;
+
+LD_ENVIRONMENT_YES_IOS_SINCE_18 = @$(WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH)/dlsym.WebKit.WebContent;
+LD_ENVIRONMENT[sdk=iphone*] = $(inherited) $(LD_ENVIRONMENT_$(USE_INTERNAL_SDK)$(WK_IOS_18));

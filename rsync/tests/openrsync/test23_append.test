@@ -1,0 +1,107 @@
+#! /bin/sh
+
+# Test that the --append option works correctly.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# If rsync supports the --append-verify option then we must
+# use it in lieu of --append in order to match the semantics
+# of --append prior to the introduction of --append-verify.
+#
+OPT_APPEND='--append'
+X=$(rsync -h 2>&1 | grep -- --append-verify || true)
+[ -n "$X" ] && OPT_APPEND='--append-verify'
+
+# Check to see if rsync supports --ignore-existing, which
+# is supported by rsync327 and openrsync but not rsync269.
+#
+OPT_IGNEXIST=''
+X=$(rsync -h 2>&1 | grep -- --ignore-existing || true)
+[ -n "$X" ] && OPT_IGNEXIST='--ignore-existing'
+
+rm -rf src dst
+
+# Create the source tree such that the first byte of src/big
+# is well known.
+#
+mkdir src
+date > src/small
+echo 0 > src/big
+jot -r -p9 1000000 >> src/big
+
+# Use cp to create the dest and reference dirs:
+#
+cp -a src/ dst/
+compare_trees -t src dst
+
+cp -a src/ ref/
+compare_trees -t src ref
+
+# Change the first byte in src/big from "0" to "1" and run
+# rsync --append, the dest file should not change.
+echo -n 1 | dd bs=1 count=1 conv=notrunc of=src/big 2>/dev/null
+rsync -a ${OPT_APPEND} -- src/ dst/
+compare_trees -t dst ref
+
+# Make the source file larger and newer than the dest file
+# then run rsync --append, the dest file should become
+# identical to the source file:
+#
+date >> src/big
+rsync -a ${OPT_APPEND} -- src/ dst/
+compare_trees -t src dst
+
+# Make the dest file larger and newer than the source file
+# the run rsync --append, the dest file should be ignored:
+#
+date >> dst/big
+rm -rf ref
+cp -a dst/ ref/
+compare_trees -t dst ref
+
+rsync -a ${OPT_APPEND} -- src/ dst/
+compare_trees -t dst ref
+
+# Run rsync --append --checksum, the dest file should be ignored:
+#
+rsync -a ${OPT_APPEND} --checksum -- src/ dst/
+compare_trees -t dst ref
+
+# Again, make the source file larger and newer than the dest file
+# then run rsync --append, the dest file should become identical
+# to the source file:
+#
+date >> src/big
+rsync -a ${OPT_APPEND} -- src/ dst/
+compare_trees -t src dst
+
+# Make the source file larger and newer than the dest file
+# then run rsync --append --ignore-exist, the dest file
+# should not be updated:
+#
+date >> src/big
+rm -rf src/ref
+cp -a dst/ ref/
+
+if [ -n "${OPT_IGNEXIST}" ] ; then
+   rsync -a ${OPT_APPEND} ${OPT_IGNEXIST} -- src/ dst/
+   compare_trees -t dst ref
+fi
+
+# Make the dest file newer than the source file and run
+# rsync --append --update, the dest file should not be updated:
+#
+touch -A -0100 src/big
+cp -a dst/ ref/
+rsync -a ${OPT_APPEND} --update -- src/ dst/
+compare_trees -t dst ref
+
+# Finally, rsync --append should update the dest file
+# since the source file is larger.
+#
+rsync -a ${OPT_APPEND} -- src/ dst/
+compare_trees -t src dst

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Apple Inc. All Rights Reserved.
+// Copyright (c) 2017-2023 Apple Inc. All Rights Reserved.
 // This is the list of Policies. To add a new policy put it in this file with the POLICYMACRO defined.
 // Arguments for the POLICYMACRO in arg order are:
 // POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION)
@@ -117,3 +117,7 @@ POLICYMACRO(QiSigning,                             111, E, QiSigning,           
 POLICYMACRO(PPMAggregatorConfigSigning,            112, E, PPMAggregatorConfigSigning,            ,  , PPMAggregatorConfigSigning)
 POLICYMACRO(XROSApplicationSigning,                113, E, AppleXROSApplicationSigning,           , Y, AppleXROSApplicationSigning)
 POLICYMACRO(EDPSigning,                            114, E, EDPSigning,                            , Y, EDPSigning)
+POLICYMACRO(VerifiedMark,                          115, E, VerifiedMark,                          ,  , VerifiedMark)
+POLICYMACRO(ParakeetSigning,                       116, E, ParakeetSigning,                       , Y, ParakeetSigning)
+POLICYMACRO(iAPAuthV4,                             117, E, iAPAuthV4,                             ,  , iAPAuthV4)
+POLICYMACRO(ParakeetService,                       118, E, ParakeetService,                       ,  , ParakeetService)

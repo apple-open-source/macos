@@ -26,7 +26,7 @@
 #include "config.h"
 #include "IncomingAudioMediaStreamTrackRendererUnit.h"
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
 
 #include "AudioMediaStreamTrackRendererUnit.h"
 #include "AudioSampleDataSource.h"
@@ -43,7 +43,7 @@ namespace WebCore {
 
 IncomingAudioMediaStreamTrackRendererUnit::IncomingAudioMediaStreamTrackRendererUnit(LibWebRTCAudioModule& audioModule)
     : m_audioModule(audioModule)
-    , m_queue(WorkQueue::create("IncomingAudioMediaStreamTrackRendererUnit", WorkQueue::QOS::UserInitiated))
+    , m_queue(WorkQueue::create("IncomingAudioMediaStreamTrackRendererUnit"_s, WorkQueue::QOS::UserInitiated))
 #if !RELEASE_LOG_DISABLED
     , m_logIdentifier(LoggerHelper::uniqueLogIdentifier())
 #endif
@@ -200,4 +200,4 @@ const void* IncomingAudioMediaStreamTrackRendererUnit::logIdentifier() const
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)

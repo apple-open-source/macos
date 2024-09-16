@@ -377,8 +377,10 @@ static bool DARequestKindWithResponse(_DARequestKind kind)
         case _kDADiskClaimCallback:
         case _kDADiskEjectCallback:
         case _kDADiskMountCallback:
+        case _kDADiskProbeCallback:
         case _kDADiskRenameCallback:
         case _kDADiskUnmountCallback:
+        case _kDADiskSetFSKitAdditionsCallback:
         {
             daRequest = true;
             break;
@@ -567,6 +569,21 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 
             break;
         }
+        case _kDADiskProbeCallback:
+        {
+#ifdef DA_FSKIT
+            if ( block )
+            {
+                ( ( DADiskProbeCallbackBlock ) address )( argument1 );
+            }
+            else
+            {
+                // This case isn't supported - the only way probe gets issued with a reply is via the block interface
+            }
+#endif /* DA_FSKIT */
+
+            break;
+        }
         case _kDADiskRenameCallback:
         {
             if ( block )
@@ -631,6 +648,12 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 
             break;
        }
+        case _kDADiskSetFSKitAdditionsCallback:
+#ifdef DA_FSKIT
+        {
+            ( ( DADiskSetFSKitAdditionsCallbackBlock ) address )( argument1 );
+        }
+#endif /* DA_FSKIT */
 
     }
 
@@ -943,24 +966,11 @@ __private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk
 
     if ( path )
     {
-        char * _path;
-
-        _path = ___CFURLCopyFileSystemRepresentation( path );
-
-        if ( _path )
+        CFURLRef id;
+        id = CFURLCopyAbsoluteURL( path );
+        if ( id )
         {
-            char name[MAXPATHLEN];
-
-            if ( realpath( _path, name ) )
-            {
-                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) name, strlen( name ), TRUE );
-            }
-            else
-            {
-                CFRetain( path );
-            }
-
-            free( _path );
+            path = id;
         }
         else
         {
@@ -1069,6 +1079,31 @@ __private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DA
     }
 }
 
+#ifdef DA_FSKIT
+__private_extern__ void DADiskProbeWithBlockCommon ( DADiskRef                             disk,
+                                                    DADiskProbeCallbackBlock __nullable   callback )
+{
+    DAReturn    status;
+
+    status = kDAReturnBadArgument;
+
+    if ( disk )
+    {
+        status = __DAQueueRequest( _DADiskGetSession( disk ) , _kDADiskProbe, disk, NULL, NULL, NULL, callback, NULL, true );
+    }
+
+    if ( status )
+    {
+        if ( callback )
+        {
+            // We know this callback is a block, so access directly
+            callback( status );
+            Block_release( callback );
+        }
+    }
+}
+#endif /* DA_FSKIT */
+
 void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context )
 {
     DADiskRenameCommon( disk, name, options, callback, context, false );
@@ -1088,6 +1123,36 @@ DAReturn DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value 
     return status;
 }
 #endif
+
+#if TARGET_OS_OSX || TARGET_OS_IOS
+__private_extern__
+DAReturn DADiskSetFSKitAdditionsCommon( DADiskRef                             disk,
+                                        CFDictionaryRef __nullable             additions,
+                                        DADiskSetFSKitAdditionsCallbackBlock   callback )
+{
+    DAReturn    status;
+
+    status = kDAReturnBadArgument;
+
+    if ( disk )
+    {
+
+        status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskSetFSKitAdditions, disk, NULL, additions, NULL, callback, NULL, true );
+
+    }
+
+    if ( status )
+    {
+        if ( callback )
+        {
+            // We know this callback is a block, so access directly
+            callback( status );
+            Block_release( callback );
+        }
+    }
+}
+
+#endif /* TARGET_OS_OSX || TARGET_OS_IOS */
 
 __private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context, bool block )
 {

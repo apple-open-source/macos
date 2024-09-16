@@ -2,11 +2,12 @@
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServer.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 #include "keychain/ckks/CKKS.h"
 #include "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/tests/CKKSMockLockStateProvider.h"

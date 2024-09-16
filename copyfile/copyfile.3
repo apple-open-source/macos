@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2024 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd March 26, 2024
+.Dd March 29, 2024
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -78,6 +78,16 @@ parameter controls which contents are copied:
 Copy the source file's access control lists.
 .It Dv COPYFILE_STAT
 Copy the source file's POSIX information (mode, modification time, etc.).
+Note that setuid and setgid bits are by default not copied
+from source files or to destination files that reside on volumes
+that are mounted with the
+.Dv MNT_NOSUID
+.Xr mount 2
+flag, but this can be overridden through the use of
+.Dv COPYFILE_STATE_PRESERVE_SUID
+in the
+.Vt copyfile_state_t
+object.
 .It Dv COPYFILE_XATTR
 Copy the source file's extended attributes.
 .It Dv COPYFILE_DATA
@@ -162,7 +172,7 @@ file, if it is a symbolic link.  (This is only applicable for the
 .Fn copyfile
 function.)
 .It Dv COPYFILE_MOVE
-Unlink (using 
+Unlink (using
 .Xr remove 3 )
 the
 .Fa from
@@ -184,21 +194,24 @@ function.)
 .It Dv COPYFILE_CLONE_FORCE
 Clone the file instead.
 This is a force flag i.e. if cloning fails, an error is returned.
-This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA
+This flag is equivalent to (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA
 | COPYFILE_NOFOLLOW_SRC).
-Note that if cloning is successful, progress callbacks will not be invoked.
+Note that if cloning is successful, progress callbacks will not be invoked,
+nor will any setuid or setgid bits be copied to the destination.
 Note also that there is no support for cloning directories: if a directory is provided as the source,
 an error will be returned.
 Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves will be cloned instead of their targets.
 (This is only applicable for the
 .Fn copyfile
 function.)
+Finally, note that ACLs will not be cloned unless COPYFILE_ACL is also passed.
 .It Dv COPYFILE_CLONE
 Try to clone the file instead.
 This is a best try flag i.e. if cloning fails, fallback to copying the file.
-This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA
+This flag is equivalent to (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA
 | COPYFILE_NOFOLLOW_SRC).
-Note that if cloning is successful, progress callbacks will not be invoked.
+Note that if cloning is successful, progress callbacks will not be invoked,
+nor will any setuid or setgid bits be copied to the destination.
 Note also that there is no support for cloning directories: if a directory is provided as the source and
 COPYFILE_CLONE_FORCE is not passed, this will instead copy the directory.
 Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves will be cloned instead of their targets.
@@ -206,6 +219,7 @@ Recursive copying however is supported, see below for more information.
 (This is only applicable for the
 .Fn copyfile
 function.)
+Finally, note that ACLs will not be cloned unless COPYFILE_ACL is also passed.
 .It Dv COPYFILE_DATA_SPARSE
 Copy a file sparsely.
 This requires that the source and destination file systems support sparse files with hole sizes
@@ -216,8 +230,7 @@ the source file descriptor's offset be a multiple of the minimum hole size.
 If COPYFILE_DATA is also specified, this will fall back to a full copy
 if sparse copying cannot be performed for any reason; otherwise, an error is returned.
 .It Dv COPYFILE_NOFOLLOW
-This is a convenience macro, equivalent to
-.Dv (COPYFILE_NOFOLLOW_DST | COPYFILE_NOFOLLOW_SRC) .
+This is a convenience macro, equivalent to (COPYFILE_NOFOLLOW_DST | COPYFILE_NOFOLLOW_SRC).
 .It Dv COPYFILE_RUN_IN_PLACE
 If the src file has quarantine information, add the QTN_FLAG_DO_NOT_TRANSLOCATE flag to the quarantine information of the dst file.
 This allows a bundle to run in place instead of being translocated.
@@ -302,7 +315,9 @@ Get or set the callback status function (currently
 only used for recursive copies; see below for details).
 The
 .Va src
-parameter is a pointer to a function of type
+parameter and the
+.Va dst
+parameter are pointers to a function of type
 .Vt copyfile_callback_t
 (see above).
 .It Dv COPYFILE_STATE_STATUS_CTX
@@ -310,8 +325,11 @@ Get or set the context parameter for the status
 call-back function (see below for details).
 The
 .Va src
-parameter is a
-.Vt void\ * .
+parameter and the
+.Va dst
+parameter are opaque pointers (type
+.Vt void\ *
+).
 .It Dv COPYFILE_STATE_QUARANTINE
 Get or set the quarantine information with the source file.
 The
@@ -369,8 +387,7 @@ The
 .Va dst
 parameter and the
 .Va src
-parameter
-are pointers to
+parameter are pointers to
 .Vt uint32_t
 (type
 .Vt uint32_t\ * ).
@@ -383,10 +400,38 @@ that have a different device number than the directory from which
 the descent began.
 The
 .Va dst
-parameter is a pointer to
+parameter and the
+.Va src
+parameter are pointers to
 .Vt bool
 (type
 .Vt bool\ * ).
+.It Dv COPYFILE_STATE_NOCPROTECT
+Get or set the current setting for copying content-protection
+classes from the source to the destination file.
+The
+.Va dst
+parameter and the
+.Va src
+parameter are pointers to
+.Vt uint32_t
+(type
+.Vt uint32_t\ * ).
+.It Dv COPYFILE_STATE_PRESERVE_SUID
+Get or set the current setting for preserving the setuid
+and setgid bits on the destination file during a copy.
+(See the descriptions above for
+.Dv COPYFILE_STAT
+and
+.Dv COPYFILE_CLONE
+for details.) The
+.Va dst
+parameter and the
+.Va src
+parameter are pointers to
+.Vt uint32_t
+(type
+.Vt uint32_t\ * ).
 .It Dv COPYFILE_STATE_RECURSIVE_SRC_FTSENT
 Get any available file entry information during a recursive copy.
 If none is available, the value will be
@@ -424,7 +469,7 @@ flag,
 .Fn copyfile
 (but not
 .Fn fcopyfile )
-will use the 
+will use the
 .Xr fts 3
 functions to recursively descend into the source file-system object.
 It then calls
@@ -690,15 +735,6 @@ return less than 0 on error, and 0 on success.
 All of the other functions return 0 on success, and less than 0
 on error.
 .Sh WARNING
-Both
-.Fn copyfile
-and
-.Fn fcopyfile
-can copy symbolic links; there is a gap between when the source
-link is examined and the actual copy is started, and this can
-be a potential security risk, especially if the process has
-elevated privileges.
-.Pp
 When performing a recursive copy, if the source hierarchy
 changes while the copy is occurring, the results are undefined;
 however, an effort is made to detect this and return an error

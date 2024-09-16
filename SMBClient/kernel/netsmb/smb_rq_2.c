@@ -217,28 +217,28 @@ smb2_rq_credit_check(struct smb_rq *rqp, uint32_t len)
 static int
 smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
 {
-    int32_t curr_credits;
-    int16_t credit_charge;
-    struct timespec ts;
+    int32_t curr_credits = 0;
+    int16_t credit_charge = 0;
+    struct timespec ts = {0};
     int ret = 0;
     int error = 0;
-    struct smb_session *sessionp;
-    uint32_t sleep_cnt, i;
+    struct smb_session *sessionp = NULL;
+    uint32_t sleep_cnt = 0, i = 0;
     uint64_t message_id_diff = 0;
-    struct smbiod *iod = rqp->sr_iod;
+    struct smbiod *iod = NULL;
     
 	if (rqp == NULL) {
         SMBERROR("rqp is NULL\n");
 		return ENOMEM;
     }
+    iod = rqp->sr_iod;
 
 	if (rqp->sr_session == NULL) {
         SMBERROR("rqp->sr_session is NULL\n");
 		return ENOMEM;
     }
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_START,
-                   iod->iod_id, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_START, smb_hideaddr(rqp), iod->iod_id, iod->iod_credits_max, rq_len != NULL ? *rq_len : 0, 0);
 
     sessionp = rqp->sr_session;
 
@@ -255,9 +255,9 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             rqp->sr_creditsrequested = 0;
             
             /* Reset starting credits to be 0 in case of reconnect */
-            rqp->sr_iod->iod_credits_granted = 0;
-            rqp->sr_iod->iod_credits_ss_granted = 0;
-            rqp->sr_iod->iod_credits_max = 0;
+            iod->iod_credits_granted = 0;
+            iod->iod_credits_ss_granted = 0;
+            iod->iod_credits_max = 0;
             
             goto out;
             
@@ -319,9 +319,12 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
      * 2) (curr message ID) - (oldest pending message ID) > current credits
      */
  	for (;;) {
-        curr_credits = OSAddAtomic(0, &rqp->sr_iod->iod_credits_granted);
+        curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
+
+        SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc001, iod->iod_id, curr_credits, 0, 0);
+
         if (curr_credits >= kCREDIT_MIN_AMT) {
-            if (rqp->sr_iod->iod_req_pending == 0) {
+            if (iod->iod_req_pending == 0) {
                 /* Have enough credits and no pending reqs, so go send it */
                 break;
             }
@@ -375,9 +378,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
                  iod->iod_message_id, iod->iod_oldest_message_id,
                  iod->iod_credits_wait, iod->iod_credits_granted);
 
-        SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE,
-                       iod->iod_id, 0xabc001,
-                       iod->iod_message_id, iod->iod_oldest_message_id, 0);
+        SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc002, iod->iod_id, iod->iod_message_id, iod->iod_oldest_message_id, 0);
 
         /* Only wait a max of 60 seconds waiting for credits */
         sleep_cnt = 60;
@@ -388,14 +389,18 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             /* Indicate that we are sleeping by incrementing wait counter */
             OSAddAtomic(1, &iod->iod_credits_wait);
             
+            SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc003, iod->iod_id, iod->iod_credits_wait, 0, 0);
+
             ret = msleep(&iod->iod_credits_wait, SMBC_CREDIT_LOCKPTR(iod),
                          PWAIT, "session-credits-wait", &ts);
-            
+
             if (ret == EWOULDBLOCK) {
                 /* Timed out, so decrement wait counter */
                 if (iod->iod_credits_wait) {
                     OSAddAtomic(-1, &iod->iod_credits_wait);
                 }
+
+                SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc004, iod->iod_id, iod->iod_credits_wait, 0, 0);
 
                 /* If the share is going away, just return immediately */
                 if ((rqp->sr_share) &&
@@ -435,9 +440,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
                      iod->iod_message_id, iod->iod_oldest_message_id,
                      iod->iod_credits_wait);
             
-            SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE,
-                           iod->iod_id, 0xabc002,
-                           iod->iod_message_id, iod->iod_oldest_message_id, 0);
+            SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc005, iod->iod_id, curr_credits, iod->iod_oldest_message_id, 0);
 
             /* Reconnect requests will need the credit lock so free it */
             SMBC_CREDIT_UNLOCK(iod);
@@ -471,8 +474,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
      */
     curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
 
-    SMB_LOG_KTRACE(SMB_DBG_CURR_CREDITS | DBG_FUNC_NONE,
-                   iod->iod_id, curr_credits, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc006, iod->iod_id, curr_credits, 0, 0);
 
     if (curr_credits < kCREDIT_MAX_AMT) {
         /*
@@ -494,8 +496,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
 out:
     SMBC_CREDIT_UNLOCK(iod);
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_CREDIT_DECREMENT | DBG_FUNC_END,
-                   iod->iod_id, error, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_END, error, smb_hideaddr(rqp), iod->iod_id, rq_len != NULL ? *rq_len : 0, 0);
     return error;
 }
 
@@ -506,8 +507,9 @@ out:
 int
 smb2_rq_credit_increment(struct smb_rq *rqp)
 {
-    int32_t curr_credits;
-    struct smb_session *sessionp;
+    int32_t curr_credits = 0;
+    struct smb_session *sessionp = NULL;
+    int error = 0;
     
 	if (rqp == NULL) {
         SMBERROR("rqp is NULL\n");
@@ -531,6 +533,8 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
         return (ENOMEM);
     }
 
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_START, smb_hideaddr(rqp), iod->iod_id, rqp->sr_rspcreditsgranted, 0, 0);
+
     switch (rqp->sr_command) {
         case SMB2_NEGOTIATE:
         case SMB2_LOGOFF:
@@ -538,7 +542,8 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
              * These commands are used during reconnect and we assume
              * they are always granted one credit back.
              */
-            return (0);
+            error = 0;
+            goto exit;
             
         case SMB2_SESSION_SETUP:
             /*
@@ -549,7 +554,8 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
             SMBC_CREDIT_LOCK(iod);
             OSAddAtomic(rqp->sr_rspcreditsgranted, &iod->iod_credits_ss_granted);
             SMBC_CREDIT_UNLOCK(iod);
-            return (0);
+            error = 0;
+            goto exit;
             
         case SMB2_TREE_CONNECT:
             if (rqp->sr_context == sessionp->session_iod->iod_context) {
@@ -563,7 +569,8 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
                 SMBC_CREDIT_LOCK(iod);
                 OSAddAtomic(rqp->sr_rspcreditsgranted, &iod->iod_credits_ss_granted);
                 SMBC_CREDIT_UNLOCK(iod);
-                return (0);
+                error = 0;
+                goto exit;
             }
 
             /*
@@ -585,7 +592,8 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
                  * More reconnect commands, assume that we always are granted
                  * one credit back
                  */
-                return (0);
+                error = 0;
+                goto exit;
             }
 
             /* All other responses must go through regular crediting code */
@@ -599,31 +607,83 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
     /* Keep track of max number of credits that server has granted us */
     curr_credits = OSAddAtomic(0, &iod->iod_credits_granted);
 
-    SMB_LOG_KTRACE(SMB_DBG_CURR_CREDITS | DBG_FUNC_NONE,
-                   iod->iod_id, curr_credits, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_NONE, 0xabc001, iod->iod_id, curr_credits, 0, 0);
 
     if ((iod->iod_credits_max < (uint32_t) curr_credits) &&
         (curr_credits < kCREDIT_MAX_AMT)) {
         
         iod->iod_credits_max = curr_credits;
         
-        SMB_LOG_KTRACE(SMB_DBG_MAX_CREDITS | DBG_FUNC_NONE,
-                       iod->iod_id, curr_credits, 0, 0, 0);
+        SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_NONE, 0xabc002, iod->iod_id, curr_credits, 0, 0);
     }
     
 	/* Wake up any requests waiting for more credits */
     if (iod->iod_credits_wait) {
+        SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_NONE, 0xabc003, iod->iod_id, iod->iod_credits_wait, 0, 0);
+
         OSAddAtomic(-1, &iod->iod_credits_wait);
         wakeup(&iod->iod_credits_wait);
 	}
     
     SMBC_CREDIT_UNLOCK(iod);
 
-    return 0;
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_END, error, smb_hideaddr(rqp), iod->iod_id, 0, 0);
+    return error;
+}
+
+void
+smb2_rq_credit_preprocess_reply(struct smb_rq *rqp)
+{
+    int error = 0;
+    struct mdchain *mdp = NULL, *shadow_mdp = NULL;
+    struct mdchain md_context_shadow = {0};
+
+    /* 
+     * We try to parse the SMB2 header now so that we can get the granted
+     * server credits sooner. Dont do the signing verification here as it
+     * would be single threaded and potentially slower.
+     */
+    
+    if (!(rqp->sr_extflags & SMB2_RESPONSE)) {
+        /* Only for SMB v2/3 */
+        return;
+    }
+    
+    if (rqp->sr_flags & SMBR_COMPOUND_RQ) {
+        /* 
+         * Skip If its a compound as they are usually small replies that do
+         * not use many credits. Maybe future enhancement will be to handle
+         * compound replies.
+         */
+        return;
+    }
+
+    /* Get pointer to response data */
+    smb_rq_getreply(rqp, &mdp);
+
+    /* Create a shadow copy so we dont alter original mdp */
+    md_shadow_copy(mdp, &md_context_shadow);
+    shadow_mdp = &md_context_shadow;
+
+    /* Try to parse out the header just enough to get granted credits */
+    error = smb2_rq_parse_header(rqp, &shadow_mdp, 1);
+    if (error) {
+        /* If it failed, then let regular reply code handle the error */
+        SMBERROR("smb2_rq_parse_header failed %d \n", error);
+    }
+    else {
+        /*
+         * smb2_rq_parse_header() got the credits granted and incremented
+         * current credits. Set flag so we dont double increment the granted
+         * credits.
+         */
+        rqp->sr_extflags |= SMB2_HDR_PREPARSED;
+    }
 }
 
 /*
- * Set starting number of credits. 
+ * Set starting number of credits.
  * For the Login/Reconnect commands of Negotiate, Session Setup, Tree Connect,
  * and Log Off, we assume we always have 1 credit and that we always get 1
  * credit back. The credit count is not incremented during this time.
@@ -957,16 +1017,16 @@ smb2_rq_new(struct smb_rq *rqp)
  * not from the rqp passed into this function. 
  */
 uint32_t
-smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
+smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp, uint32_t parse_for_credits)
 {
 	int error = 0, rperror = 0;
-    uint32_t protocol_id;
-	uint16_t length, credit_charge, command;
+    uint32_t protocol_id = 0;
+	uint16_t length = 0, credit_charge = 0, command = 0;
     uint64_t message_id = 0;
     uint64_t async_id = 0;
-    struct mdchain md_sign;
-    uint32_t encryption_on;
-    uint8_t signature[16];
+    struct mdchain md_sign = {0};
+    uint32_t encryption_on = 0;
+    uint8_t signature[16] = {0};
 
     /* 
      * Parse SMB 2/3 Header
@@ -979,11 +1039,12 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
         goto bad;
     }
     
-    /* 
+    /*
      * <14227703> If SMB2_RESPONSE is set, then the reply is in the rqp
      * Must be a server that does not support compound replies
      */
-    if (rqp->sr_extflags & SMB2_RESPONSE) {
+    if ((rqp->sr_extflags & SMB2_RESPONSE) &&
+        (parse_for_credits == 0)) {
         /* Get pointer to response data */
         smb_rq_getreply(rqp, mdp);
     }
@@ -1035,9 +1096,19 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     if (error) {
         goto bad;
     }
-   
-    /* Increment current credits granted */
-    smb2_rq_credit_increment(rqp);
+
+    if (rqp->sr_rspcreditsgranted != 0) {
+        /* Increment current credits granted */
+        if (!(rqp->sr_extflags & SMB2_HDR_PREPARSED)) {
+            /* Has not been preprocessed, so increment granted credits */
+            smb2_rq_credit_increment(rqp);
+        }
+    }
+    
+    if (parse_for_credits == 1) {
+        /* Thats all far as we need to parse for now, just leave */
+        goto bad;
+    }
 
     /* Get Flags */
     error = md_get_uint32le(*mdp, &rqp->sr_rspflags);
@@ -1104,7 +1175,7 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     if (error) {
         goto bad;
     }
-    
+
     /* Can skip signature verification if we're encrypting */
     encryption_on = 0;
     
@@ -1136,8 +1207,9 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
      * If the signature failed verification, do not bother with
      * looking at sr_ntstatus, just punt.
      */
-    if (error)
+    if (error) {
         goto bad;
+    }
     
     /* Convert NT Status to an errno value */
     rperror = smb_ntstatus_to_errno(rqp->sr_ntstatus);
@@ -1238,15 +1310,17 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     /* The tree has gone away, umount the volume. */
 	if ((rperror == ENETRESET) && rqp->sr_share) {
 		lck_mtx_lock(&rqp->sr_share->ss_shlock);
-		if ( rqp->sr_share->ss_dead)
-			rqp->sr_share->ss_dead(rqp->sr_share);
+        if (rqp->sr_share->ss_dead) {
+            rqp->sr_share->ss_dead(rqp->sr_share);
+        }
 		lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 	}
 	
     /* Need bigger buffer? */
 	if (rperror && (rqp->sr_ntstatus == STATUS_BUFFER_TOO_SMALL)) {
 		rqp->sr_flags |= SMBR_MOREDATA;
-	} else {
+	} 
+    else {
 		rqp->sr_flags &= ~SMBR_MOREDATA;
 	}
 

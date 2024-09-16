@@ -27,7 +27,6 @@
 #include "LayoutState.h"
 
 #include "BlockFormattingState.h"
-#include "FlexFormattingState.h"
 #include "InlineContentCache.h"
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
@@ -43,8 +42,10 @@ namespace Layout {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(LayoutState);
 
-LayoutState::LayoutState(const Document& document, const ElementBox& rootContainer)
-    : m_rootContainer(rootContainer)
+LayoutState::LayoutState(const Document& document, const ElementBox& rootContainer, Type type)
+    : m_type(type)
+    , m_rootContainer(rootContainer)
+    , m_securityOrigin(document.securityOrigin())
 {
     // It makes absolutely no sense to construct a dedicated layout state for a non-formatting context root (layout would be a no-op).
     ASSERT(root().establishesFormattingContext());
@@ -73,12 +74,14 @@ BoxGeometry& LayoutState::geometryForRootBox()
 
 BoxGeometry& LayoutState::ensureGeometryForBoxSlow(const Box& layoutBox)
 {
-    if (layoutBox.canCacheForLayoutState(*this)) {
-        ASSERT(!layoutBox.cachedGeometryForLayoutState(*this));
-        auto newBox = makeUnique<BoxGeometry>();
-        auto& newBoxPtr = *newBox;
-        layoutBox.setCachedGeometryForLayoutState(*this, WTFMove(newBox));
-        return newBoxPtr;
+    if (LIKELY(m_type == Type::Primary)) {
+#if ASSERT_ENABLED
+        ASSERT(!layoutBox.m_cachedGeometryForPrimaryLayoutState);
+        ASSERT(!layoutBox.m_primaryLayoutState);
+        layoutBox.m_primaryLayoutState = this;
+#endif
+        layoutBox.m_cachedGeometryForPrimaryLayoutState = makeUnique<BoxGeometry>();
+        return *layoutBox.m_cachedGeometryForPrimaryLayoutState;
     }
 
     return *m_layoutBoxToBoxGeometry.ensure(&layoutBox, [] {
@@ -89,9 +92,7 @@ BoxGeometry& LayoutState::ensureGeometryForBoxSlow(const Box& layoutBox)
 bool LayoutState::hasFormattingState(const ElementBox& formattingContextRoot) const
 {
     ASSERT(formattingContextRoot.establishesFormattingContext());
-    return m_blockFormattingStates.contains(&formattingContextRoot)
-        || m_tableFormattingStates.contains(&formattingContextRoot)
-        || m_flexFormattingStates.contains(&formattingContextRoot);
+    return m_blockFormattingStates.contains(&formattingContextRoot) || m_tableFormattingStates.contains(&formattingContextRoot);
 }
 
 FormattingState& LayoutState::formattingStateForFormattingContext(const ElementBox& formattingContextRoot) const
@@ -119,12 +120,6 @@ TableFormattingState& LayoutState::formattingStateForTableFormattingContext(cons
     return *m_tableFormattingStates.get(&tableFormattingContextRoot);
 }
 
-FlexFormattingState& LayoutState::formattingStateForFlexFormattingContext(const ElementBox& flexFormattingContextRoot) const
-{
-    ASSERT(flexFormattingContextRoot.establishesFlexFormattingContext());
-    return *m_flexFormattingStates.get(&flexFormattingContextRoot);
-}
-
 InlineContentCache& LayoutState::inlineContentCache(const ElementBox& formattingContextRoot)
 {
     ASSERT(formattingContextRoot.establishesInlineFormattingContext());
@@ -141,12 +136,6 @@ TableFormattingState& LayoutState::ensureTableFormattingState(const ElementBox& 
 {
     ASSERT(formattingContextRoot.establishesTableFormattingContext());
     return *m_tableFormattingStates.ensure(&formattingContextRoot, [&] { return makeUnique<TableFormattingState>(*this, formattingContextRoot); }).iterator->value;
-}
-
-FlexFormattingState& LayoutState::ensureFlexFormattingState(const ElementBox& formattingContextRoot)
-{
-    ASSERT(formattingContextRoot.establishesFlexFormattingContext());
-    return *m_flexFormattingStates.ensure(&formattingContextRoot, [&] { return makeUnique<FlexFormattingState>(*this); }).iterator->value;
 }
 
 void LayoutState::destroyBlockFormattingState(const ElementBox& formattingContextRoot)

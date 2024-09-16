@@ -302,7 +302,14 @@ initialize_shell_signals ()
 #endif /* JOB_CONTROL || HAVE_POSIX_SIGNALS */
 
   /* And, some signals that are specifically ignored by the shell. */
+#ifdef __APPLE__
+  if (interactive)
+    {
+	set_signal_handler (SIGQUIT, SIG_IGN);
+    }
+#else
   set_signal_handler (SIGQUIT, SIG_IGN);
+#endif
 
   if (interactive)
     {

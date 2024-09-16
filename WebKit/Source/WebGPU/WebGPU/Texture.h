@@ -31,12 +31,15 @@
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/Vector.h>
+#import <wtf/WeakHashSet.h>
+#import <wtf/WeakPtr.h>
 
 struct WGPUTextureImpl {
 };
 
 namespace WebGPU {
 
+class CommandEncoder;
 class Device;
 class TextureView;
 
@@ -59,10 +62,13 @@ public:
     void destroy();
     void setLabel(String&&);
 
-    bool isValid() const { return m_texture; }
+    bool isValid() const;
 
     static uint32_t texelBlockWidth(WGPUTextureFormat); // Texels
     static uint32_t texelBlockHeight(WGPUTextureFormat); // Texels
+    static NSUInteger bytesPerRow(WGPUTextureFormat, uint32_t textureWidth, uint32_t sampleCount);
+    static WGPUExtent3D physicalTextureExtent(WGPUTextureDimension, WGPUTextureFormat, WGPUExtent3D logicalExtent);
+
     // For depth-stencil textures, the input value to texelBlockSize()
     // needs to be the output of aspectSpecificFormat().
     static uint32_t texelBlockSize(WGPUTextureFormat); // Bytes
@@ -70,8 +76,8 @@ public:
     static bool containsStencilAspect(WGPUTextureFormat);
     static bool isDepthOrStencilFormat(WGPUTextureFormat);
     static WGPUTextureFormat aspectSpecificFormat(WGPUTextureFormat, WGPUTextureAspect);
-    static bool validateImageCopyTexture(const WGPUImageCopyTexture&, const WGPUExtent3D&);
-    static bool validateTextureCopyRange(const WGPUImageCopyTexture&, const WGPUExtent3D&);
+    static NSString* errorValidatingImageCopyTexture(const WGPUImageCopyTexture&, const WGPUExtent3D&);
+    static NSString* errorValidatingTextureCopyRange(const WGPUImageCopyTexture&, const WGPUExtent3D&);
     static bool refersToSingleAspect(WGPUTextureFormat, WGPUTextureAspect);
     static bool isValidDepthStencilCopySource(WGPUTextureFormat, WGPUTextureAspect);
     static bool isValidDepthStencilCopyDestination(WGPUTextureFormat, WGPUTextureAspect);
@@ -83,6 +89,11 @@ public:
     static WGPUTextureFormat removeSRGBSuffix(WGPUTextureFormat);
     static std::optional<WGPUTextureFormat> resolveTextureFormat(WGPUTextureFormat, WGPUTextureAspect);
     static bool isCompressedFormat(WGPUTextureFormat);
+    static bool isRenderableFormat(WGPUTextureFormat, const Device&);
+    static bool isColorRenderableFormat(WGPUTextureFormat, const Device&);
+    static bool isDepthStencilRenderableFormat(WGPUTextureFormat, const Device&);
+    static uint32_t renderTargetPixelByteCost(WGPUTextureFormat);
+    static uint32_t renderTargetPixelByteAlignment(WGPUTextureFormat);
 
     WGPUExtent3D logicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
     WGPUExtent3D physicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
@@ -101,9 +112,18 @@ public:
     Device& device() const { return m_device; }
 
     bool previouslyCleared(uint32_t mipLevel, uint32_t slice) const;
-    void setPreviouslyCleared(uint32_t mipLevel, uint32_t slice);
+    void setPreviouslyCleared(uint32_t mipLevel, uint32_t slice, bool = true);
     bool isDestroyed() const;
     static bool hasStorageBindingCapability(WGPUTextureFormat, const Device&, WGPUStorageTextureAccess = WGPUStorageTextureAccess_Undefined);
+    static bool supportsMultisampling(WGPUTextureFormat, const Device&);
+    static bool supportsResolve(WGPUTextureFormat, const Device&);
+    static bool supportsBlending(WGPUTextureFormat, const Device&);
+    void recreateIfNeeded();
+    void makeCanvasBacking();
+    void setCommandEncoder(CommandEncoder&) const;
+    static ASCIILiteral formatToString(WGPUTextureFormat);
+    bool isCanvasBacking() const;
+    void waitForCommandBufferCompletion();
 
 private:
     Texture(id<MTLTexture>, const WGPUTextureDescriptor&, Vector<WGPUTextureFormat>&& viewFormats, Device&);
@@ -130,7 +150,10 @@ private:
     using ClearedToZeroInnerContainer = HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
     using ClearedToZeroContainer = HashMap<uint32_t, ClearedToZeroInnerContainer, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
     ClearedToZeroContainer m_clearedToZero;
+    Vector<WeakPtr<TextureView>> m_textureViews;
     bool m_destroyed { false };
+    bool m_canvasBacking { false };
+    mutable WeakHashSet<CommandEncoder> m_commandEncoders;
 };
 
 } // namespace WebGPU

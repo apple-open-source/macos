@@ -86,6 +86,7 @@
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentInlines.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragController.h>
 #import <WebCore/DragImage.h>
@@ -112,6 +113,7 @@
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/MutableStyleProperties.h>
 #import <WebCore/Page.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
@@ -282,7 +284,7 @@ static std::optional<WebCore::ContextMenuAction> toAction(NSInteger tag)
     case WebMenuItemTagOther:
         return ContextMenuItemTagOther;
     case WebMenuItemTagSearchInSpotlight:
-        return ContextMenuItemTagSearchInSpotlight;
+        return ContextMenuItemTagNoAction;
     case WebMenuItemTagSearchWeb:
         return ContextMenuItemTagSearchWeb;
     case WebMenuItemTagLookUpInDictionary:
@@ -403,6 +405,8 @@ static std::optional<WebCore::ContextMenuAction> toAction(NSInteger tag)
         return ContextMenuItemTagEnterVideoFullscreen;
     case WebMenuItemTagToggleVideoEnhancedFullscreen:
         return ContextMenuItemTagToggleVideoEnhancedFullscreen;
+    case WebMenuItemTagToggleVideoViewer:
+        return ContextMenuItemTagToggleVideoViewer;
     case WebMenuItemTagMediaPlayPause:
         return ContextMenuItemTagMediaPlayPause;
     case WebMenuItemTagMediaMute:
@@ -411,6 +415,8 @@ static std::optional<WebCore::ContextMenuAction> toAction(NSInteger tag)
         return ContextMenuItemTagDictationAlternative;
     case WebMenuItemTagTranslate:
         return ContextMenuItemTagTranslate;
+    case WebMenuItemTagWritingTools:
+        return ContextMenuItemTagWritingTools;
     }
     return std::nullopt;
 }
@@ -457,8 +463,6 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
         return WebMenuItemTagLearnSpelling;
     case ContextMenuItemTagOther:
         return WebMenuItemTagOther;
-    case ContextMenuItemTagSearchInSpotlight:
-        return WebMenuItemTagSearchInSpotlight;
     case ContextMenuItemTagSearchWeb:
         return WebMenuItemTagSearchWeb;
     case ContextMenuItemTagLookUpInDictionary:
@@ -591,8 +595,12 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
         return WebMenuItemTagShareMenu;
     case ContextMenuItemTagToggleVideoEnhancedFullscreen:
         return WebMenuItemTagToggleVideoEnhancedFullscreen;
+    case ContextMenuItemTagToggleVideoViewer:
+        return WebMenuItemTagToggleVideoViewer;
     case ContextMenuItemTagTranslate:
         return WebMenuItemTagTranslate;
+    case ContextMenuItemTagWritingTools:
+        return WebMenuItemTagWritingTools;
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     case ContextMenuItemTagPlayAllAnimations:
         return WebMenuItemTagPlayAllAnimations;
@@ -1984,7 +1992,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         [pasteboard _web_writePromisedRTFDFromArchive:archive.get() containsImage:[[pasteboard types] containsObject:WebCore::legacyTIFFPasteboardType()]];
     } else if ([type isEqualToString:WebCore::legacyTIFFPasteboardType()] && _private->promisedDragTIFFDataSource) {
         if (auto* image = _private->promisedDragTIFFDataSource->image())
-            [pasteboard setData:(__bridge NSData *)image->tiffRepresentation() forType:WebCore::legacyTIFFPasteboardType()];
+            [pasteboard setData:(__bridge NSData *)image->adapter().tiffRepresentation() forType:WebCore::legacyTIFFPasteboardType()];
         [self setPromisedDragTIFFDataSource:nullptr];
     }
 }
@@ -2655,7 +2663,7 @@ static String commandNameForSelector(SEL selector)
     size_t selectorNameLength = strlen(selectorName);
     if (selectorNameLength < 2 || selectorName[selectorNameLength - 1] != ':')
         return String();
-    return String(selectorName, selectorNameLength - 1);
+    return String({ selectorName, selectorNameLength - 1 });
 }
 
 - (WebCore::Editor::Command)coreCommandBySelector:(SEL)selector
@@ -2960,11 +2968,11 @@ IGNORE_WARNINGS_END
         return [self _hasSelection];
 
     if (action == @selector(paste:) || action == @selector(pasteAsPlainText:))
-        return frame && (frame->editor().canDHTMLPaste() || frame->editor().canPaste());
+        return frame && (frame->editor().canDHTMLPaste() || frame->editor().canEdit());
 
     if (action == @selector(pasteAsRichText:))
         return frame && (frame->editor().canDHTMLPaste()
-            || (frame->editor().canPaste() && frame->selection().selection().isContentRichlyEditable()));
+            || (frame->editor().canEdit() && frame->selection().selection().isContentRichlyEditable()));
 
     if (action == @selector(performFindPanelAction:))
         return NO;
@@ -3608,6 +3616,11 @@ static RetainPtr<NSMenuItem> createMenuItem(const WebCore::HitTestResult& hitTes
 {
 #if HAVE(TRANSLATION_UI_SERVICES)
     if (item.action() == WebCore::ContextMenuItemTagTranslate && !WebView._canHandleContextMenuTranslation)
+        return nil;
+#endif
+
+#if ENABLE(WRITING_TOOLS)
+    if (item.action() == WebCore::ContextMenuItemTagWritingTools)
         return nil;
 #endif
 
@@ -5922,7 +5935,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
     if (!selectionRange)
         return;
 
-    [[self _webView] _showDictionaryLookupPopup:[WebImmediateActionController _dictionaryPopupInfoForRange:*selectionRange inFrame:coreFrame withLookupOptions:nil indicatorOptions:{ WebCore::TextIndicatorOption::IncludeSnapshotWithSelectionHighlight } transition:WebCore::TextIndicatorPresentationTransition::BounceAndCrossfade]];
+    [[self _webView] _showDictionaryLookupPopup:[WebImmediateActionController _dictionaryPopupInfoForRange:*selectionRange inFrame:coreFrame indicatorOptions: { WebCore::TextIndicatorOption::IncludeSnapshotWithSelectionHighlight } transition:WebCore::TextIndicatorPresentationTransition::BounceAndCrossfade]];
 }
 
 - (void)quickLookWithEvent:(NSEvent *)event
@@ -6126,7 +6139,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     WebFrame *webFrame = [self _frame];
     auto* coreFrame = core(webFrame);
     if (coreFrame && coreFrame->view())
-        coreFrame->view()->updateLayoutAndStyleIfNeededRecursive();
+        coreFrame->view()->updateLayoutAndStyleIfNeededRecursive(WebCore::LayoutOptions::UpdateCompositingLayers);
 }
 
 - (void) _destroyAllWebPlugins
@@ -7132,6 +7145,22 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
     auto* coreFrame = core([self _frame]);
     return coreFrame && coreFrame->editor().findString(string, coreOptions(options));
 }
+
+#if ENABLE(WRITING_TOOLS)
+
+// Disable Writing Tools in WebKitLegacy.
+
+- (NSInteger /* PlatformWritingToolsBehavior */)writingToolsBehavior
+{
+    return -1; // PlatformWritingToolsBehaviorNone
+}
+
+- (BOOL)providesWritingToolsContextMenu
+{
+    return YES;
+}
+
+#endif
 
 @end
 

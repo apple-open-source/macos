@@ -99,6 +99,8 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSValue);
 template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visitor&& visitor)
 {
     switch (classType()) {
+    case AnchorClass:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSAnchorValue>(*this));
     case AspectRatioClass:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSAspectRatioValue>(*this));
     case BackgroundRepeatClass:
@@ -229,10 +231,8 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSViewValue>(*this));
     case XywhShapeClass:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSXywhValue>(*this));
-#if ENABLE(CSS_PAINTING_API)
     case PaintImageClass:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<CSSPaintImageValue>(*this));
-#endif
     }
 
     RELEASE_ASSERT_NOT_REACHED();
@@ -271,6 +271,20 @@ void CSSValue::clearReplacementURLForSubresources()
     });
 }
 
+IterationStatus CSSValue::visitChildren(const Function<IterationStatus(CSSValue&)>& func) const
+{
+    return visitDerived([&](auto& value) {
+        return value.customVisitChildren(func);
+    });
+}
+
+bool CSSValue::mayDependOnBaseURL() const
+{
+    return visitDerived([&](auto& value) {
+        return value.customMayDependOnBaseURL();
+    });
+}
+
 ComputedStyleDependencies CSSValue::computedStyleDependencies() const
 {
     ComputedStyleDependencies dependencies;
@@ -294,10 +308,9 @@ void CSSValue::collectComputedStyleDependencies(ComputedStyleDependencies& depen
 bool CSSValue::equals(const CSSValue& other) const
 {
     if (classType() == other.classType()) {
-        return visitDerived([&](auto& typedThis) {
-            using ValueType = std::remove_reference_t<decltype(typedThis)>;
+        return visitDerived([&]<typename ValueType> (ValueType& typedThis) {
             static_assert(!std::is_same_v<decltype(&ValueType::equals), decltype(&CSSValue::equals)>);
-            return typedThis.equals(downcast<ValueType>(other));
+            return typedThis.equals(uncheckedDowncast<ValueType>(other));
         });
     }
     if (auto* thisList = dynamicDowncast<CSSValueList>(*this))
@@ -354,9 +367,9 @@ ASCIILiteral CSSValue::separatorCSSText(ValueSeparator separator)
 
 void CSSValue::operator delete(CSSValue* value, std::destroying_delete_t)
 {
-    value->visitDerived([](auto& value) {
+    value->visitDerived([]<typename ValueType> (ValueType& value) {
         std::destroy_at(&value);
-        std::decay_t<decltype(value)>::freeAfterDestruction(&value);
+        ValueType::freeAfterDestruction(&value);
     });
 }
 

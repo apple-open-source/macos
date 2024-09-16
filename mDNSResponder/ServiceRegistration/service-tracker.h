@@ -48,6 +48,7 @@ thread_service_t *NULLABLE service_tracker_verified_service_get(service_tracker_
 thread_service_t *NULLABLE service_tracker_unverified_service_get(service_tracker_t *NULLABLE tracker,
                                                                   thread_service_type_t service_type);
 void service_tracker_verify_next_service(service_tracker_t *NULLABLE tracker);
+void service_tracker_cancel_probes(service_tracker_t *NULLABLE tracker);
 #endif // __SERVICE_TRACKER_H__
 
 // Local Variables:

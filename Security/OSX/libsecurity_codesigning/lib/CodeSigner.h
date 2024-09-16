@@ -73,6 +73,7 @@ public:
 	CFRef<CFDateRef> mSigningTime;	// signing time desired (kCFNull for none)
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
 	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
+	bool mForceLibraryEntitlements; // force entitlements when signing libraries
 	vector<CFRef<CFDataRef>> mLaunchConstraints; // Array of Lightweight Code Requirements
 	CFRef<CFDataRef> mLibraryConstraints; // Library load Lightweight Code Requirement
 	CFRef<CFURLRef> mSDKRoot;		// substitute filesystem root for sub-component lookup

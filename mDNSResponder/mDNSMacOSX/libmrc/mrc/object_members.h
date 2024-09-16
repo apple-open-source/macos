@@ -23,13 +23,17 @@
 
 #define MRC_UNION_MEMBER(NAME)	struct mrc_ ## NAME ## _s *	_mrc_ ## NAME
 
-#define MRC_OBJECT_MEMBERS_EXTERNAL				\
-	MRC_UNION_MEMBER(object);					\
-	MRC_UNION_MEMBER(dns_proxy);				\
-	MRC_UNION_MEMBER(dns_proxy_parameters);		\
-	MRC_UNION_MEMBER(dns_proxy_state_inquiry);	\
-	MRC_UNION_MEMBER(dns_service_registration);	\
-	MRC_UNION_MEMBER(enabler);
+#define MRC_OBJECT_MEMBERS_EXTERNAL					\
+	MRC_UNION_MEMBER(object);						\
+	MRC_UNION_MEMBER(cached_local_records_inquiry);	\
+	MRC_UNION_MEMBER(discovery_proxy);				\
+	MRC_UNION_MEMBER(discovery_proxy_parameters);	\
+	MRC_UNION_MEMBER(dns_proxy);					\
+	MRC_UNION_MEMBER(dns_proxy_parameters);			\
+	MRC_UNION_MEMBER(dns_proxy_state_inquiry);		\
+	MRC_UNION_MEMBER(dns_service_registration);		\
+	MRC_UNION_MEMBER(record_cache_flush);			\
+	MRC_UNION_MEMBER(session);						\
 
 #if defined(MDNS_LIBMRC_BUILD) && MDNS_LIBMRC_BUILD
 	#include "mrc_object_members_internal.h"

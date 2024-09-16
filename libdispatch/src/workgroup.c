@@ -241,6 +241,17 @@ _os_workgroup_set_current(os_workgroup_t new_wg)
 	}
 }
 
+void
+_os_workgroup_join_token_tsd_cleanup(void *ctxt) /* Destructor for the tsd key */
+{
+	os_workgroup_join_token_t token = (os_workgroup_join_token_t)ctxt;
+	if (token) {
+		os_assert(token->old_wg == NULL);
+		_os_workgroup_leave_update_wg(token->new_wg);
+		free(token);
+	}
+}
+
 static inline bool
 _os_workgroup_telemetry_flavor_is_valid(os_workgroup_telemetry_flavor_t flavor)
 {
@@ -1601,17 +1612,27 @@ os_workgroup_join(os_workgroup_t wg, os_workgroup_join_token_t token)
 		return rv;
 	}
 
+	_os_workgroup_join_update_wg(wg, token);
+
+	return rv;
+}
+
+void
+_os_workgroup_join_update_wg(os_workgroup_t wg, os_workgroup_join_token_t token)
+{
+	os_workgroup_t cur_wg = _os_workgroup_get_current();
+	assert(cur_wg == NULL);
+
 	os_atomic_inc(&wg->joined_cnt, relaxed);
 
 	bzero(token, sizeof(struct os_workgroup_join_token_s));
 	token->sig = _OS_WORKGROUP_JOIN_TOKEN_SIG_INIT;
 
 	token->thread = _dispatch_thread_port();
-	token->old_wg = cur_wg; /* should be null */
+	token->old_wg = cur_wg;
 	token->new_wg = wg;
 
 	_os_workgroup_set_current(wg);
-	return rv;
 }
 
 void
@@ -1635,6 +1656,17 @@ os_workgroup_leave(os_workgroup_t wg, os_workgroup_join_token_t token)
 	if (_os_workgroup_has_backing_workinterval(wg)) {
 		dispatch_assume(work_interval_leave() == 0);
 	}
+
+	_os_workgroup_leave_update_wg(wg);
+}
+
+void
+_os_workgroup_leave_update_wg(os_workgroup_t wg) {
+
+	os_workgroup_t cur_wg = _os_workgroup_get_current();
+	 /* The workgroup we are asked to leave is the one we have adopted. */
+	os_assert(cur_wg == wg);
+
 	uint32_t old_joined_cnt = os_atomic_dec_orig(&wg->joined_cnt, relaxed);
 	if (old_joined_cnt == 0) {
 		DISPATCH_INTERNAL_CRASH(0, "Joined count underflowed");

@@ -723,10 +723,11 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     XCTAssertEqual(errSecReadOnly, SecTrustStoreSetTrustSettings(systemTS, root, NULL));
     XCTAssertEqual(errSecReadOnly, SecTrustStoreRemoveCertificate(systemTS, root));
 
-    /* Can't enumerate the system trust store */
+    /* can enumerate the system trust store */
     CFArrayRef store = NULL;
-    XCTAssertEqual(errSecUnimplemented, SecTrustStoreCopyAll(systemTS, &store));
-    XCTAssert(store == NULL);
+    XCTAssertEqual(errSecSuccess, SecTrustStoreCopyAll(systemTS, &store));
+    XCTAssert(store != NULL);
+    CFReleaseNull(store);
 
     /* returns correct results for contains */
     XCTAssert(SecTrustStoreContains(systemTS, (__bridge SecCertificateRef)appleRoot));
@@ -782,6 +783,38 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     nsTrustStore = CFBridgingRelease(trustStore);
     isnt(nsTrustStore, NULL, "no trust store");
     is([nsTrustStore count], 3, "didn't get 3 trust store entries");
+}
+
+- (void)testCopyUsageConstraints {
+#if TARGET_OS_OSX || TARGET_OS_BRIDGE
+    XCTSkip();
+#endif
+
+    CFArrayRef usageConstraints = NULL;
+    SecTrustStoreRef ts = SecTrustStoreForDomain(kSecTrustStoreDomainUser);
+
+    // Untrusted
+    ok_status(SecTrustStoreCopyUsageConstraints(ts, cert0, &usageConstraints), "no failure to fetch constraints for untrusted root");
+    is(usageConstraints, NULL, "no usage constraints for cert");
+    CFReleaseNull(usageConstraints);
+
+    // Trusted with no constraints
+    setTS(cert0, NULL);
+    ok_status(SecTrustStoreCopyUsageConstraints(ts, cert0, &usageConstraints), "no failure to fetch constraints for unconstrained root");
+    isnt(usageConstraints, NULL, "usage constraints for cert");
+    is(CFArrayGetCount(usageConstraints), 0, "empty usage constraints");
+    CFReleaseNull(usageConstraints);
+    removeTS(cert0);
+
+    // Trusted with constraints
+    NSDictionary *sslServerAllowed = @{ (__bridge NSString*)kSecTrustSettingsPolicy: (__bridge id)sslFrameworkPolicy,
+                                        (__bridge NSString*)kSecTrustSettingsResult: @(kSecTrustSettingsResultTrustRoot) };
+    setTS(cert0, (__bridge CFDictionaryRef)sslServerAllowed);
+    ok_status(SecTrustStoreCopyUsageConstraints(ts, cert0, &usageConstraints), "no failure to fetch constraints for unconstrained root");
+    isnt(usageConstraints, NULL, "usage constraints for cert");
+    is(CFArrayGetCount(usageConstraints), 1, "one constraints");
+    CFReleaseNull(usageConstraints);
+    removeTS(cert0);
 }
 
 @end

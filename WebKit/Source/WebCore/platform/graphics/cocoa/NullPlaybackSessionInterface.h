@@ -29,6 +29,7 @@
 
 #include "HTMLMediaElementEnums.h"
 #include "PlaybackSessionModel.h"
+#include <wtf/CheckedRef.h>
 
 OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIView;
@@ -40,7 +41,10 @@ class FloatSize;
 
 class NullPlaybackSessionInterface final
     : public PlaybackSessionModelClient
-    , public RefCounted<NullPlaybackSessionInterface> {
+    , public RefCounted<NullPlaybackSessionInterface>
+    , public CanMakeCheckedPtr<NullPlaybackSessionInterface> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NullPlaybackSessionInterface);
 public:
     static Ref<NullPlaybackSessionInterface> create(PlaybackSessionModel& model)
     {
@@ -71,6 +75,12 @@ private:
         : m_model(model)
     {
     }
+
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
 
     void durationChanged(double) final { }
     void currentTimeChanged(double, double) final { }

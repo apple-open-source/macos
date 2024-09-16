@@ -31,7 +31,11 @@
 #include "Connection.h"
 #include "ContentWorldShared.h"
 #include "DataTaskIdentifier.h"
+#include "DisplayLinkObserverID.h"
 #include "DownloadID.h"
+#include "DrawingAreaInfo.h"
+#include "GPUProcessConnectionIdentifier.h"
+#include "GeneratedSerializers.h"
 #include "GeolocationIdentifier.h"
 #include "GraphicsContextGLIdentifier.h"
 #include "IPCConnectionTesterIdentifier.h"
@@ -68,13 +72,20 @@
 #include "RemoteLegacyCDMSessionIdentifier.h"
 #endif
 #include "RemoteMediaResourceIdentifier.h"
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+#include "RemoteMediaSourceIdentifier.h"
+#endif
 #include "RemoteRemoteCommandListenerIdentifier.h"
 #include "RemoteSerializedImageBufferIdentifier.h"
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+#include "RemoteSourceBufferIdentifier.h"
+#endif
 #include "RemoteVideoFrameIdentifier.h"
 #include "RenderingBackendIdentifier.h"
 #include "RenderingUpdateID.h"
 #include "RetrieveRecordResponseBodyCallbackIdentifier.h"
 #include "SampleBufferDisplayLayerIdentifier.h"
+#include "ScriptMessageHandlerIdentifier.h"
 #include "ShapeDetectionIdentifier.h"
 #include "StorageAreaIdentifier.h"
 #include "StorageAreaImplIdentifier.h"
@@ -82,8 +93,11 @@
 #include "StorageNamespaceIdentifier.h"
 #include "TransactionID.h"
 #include "UserContentControllerIdentifier.h"
+#include "UserScriptIdentifier.h"
+#include "UserStyleSheetIdentifier.h"
 #include "VideoDecoderIdentifier.h"
 #include "VideoEncoderIdentifier.h"
+#include "VisitedLinkTableIdentifier.h"
 #include "WebExtensionContextIdentifier.h"
 #include "WebExtensionControllerIdentifier.h"
 #include "WebExtensionFrameIdentifier.h"
@@ -94,6 +108,9 @@
 #include "WebPageProxyIdentifier.h"
 #include "WebTransportSession.h"
 #include "WebURLSchemeHandlerIdentifier.h"
+#if PLATFORM(COCOA)
+#include <WebCore/AttributedString.h>
+#endif
 #include <WebCore/BackgroundFetchRecordIdentifier.h>
 #include <WebCore/BroadcastChannelIdentifier.h>
 #include <WebCore/DictationContext.h>
@@ -101,12 +118,18 @@
 #include <WebCore/FetchIdentifier.h>
 #include <WebCore/FileSystemHandleIdentifier.h>
 #include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
+#include <WebCore/GlobalWindowIdentifier.h>
+#include <WebCore/IDBDatabaseConnectionIdentifier.h>
 #include <WebCore/ImageDecoderIdentifier.h>
+#include <WebCore/InbandGenericCueIdentifier.h>
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <WebCore/MediaKeySystemRequestIdentifier.h>
+#include <WebCore/MediaPlayerClientIdentifier.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/MediaSessionIdentifier.h>
+#include <WebCore/MediaUniqueIdentifier.h>
+#include <WebCore/ModelPlayerIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
@@ -442,21 +465,38 @@ std::optional<JSC::JSValue> jsValueForReplyArguments(JSC::JSGlobalObject* global
 Vector<ASCIILiteral> serializedIdentifiers()
 {
     static_assert(sizeof(uint64_t) == sizeof(IPC::AsyncReplyID));
+#if PLATFORM(COCOA)
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::AttributedStringTextListID));
+#endif
+#if PLATFORM(COCOA)
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::AttributedStringTextTableBlockID));
+#endif
+#if PLATFORM(COCOA)
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::AttributedStringTextTableID));
+#endif
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::BackForwardItemIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::BackgroundFetchRecordIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::BroadcastChannelIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::DOMCacheIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::DictationContext));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ElementIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::FetchIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::FileSystemHandleIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::FileSystemSyncAccessHandleIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::FrameIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ImageDecoderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::InbandGenericCueIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::LayerHostingContextIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::LibWebRTCSocketIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaKeySystemRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaPlayerClientIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaPlayerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaSessionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ModelPlayerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaUniqueIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::OpaqueOriginIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::PageIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::PlatformLayerIdentifierID));
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     static_assert(sizeof(uint64_t) == sizeof(WebCore::PlaybackTargetClientContextIdentifier));
 #endif
@@ -468,23 +508,32 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebCore::RenderingResourceIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ResourceLoaderIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SWServerConnectionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ScrollingNodeIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerJobIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::ServiceWorkerRegistrationIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SharedWorkerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::SharedWorkerObjectIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SleepDisablerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::SpeechRecognitionConnectionClientIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextCheckingRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationItemIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationTokenIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::IDBDatabaseConnectionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::UserGestureTokenIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::UserMediaRequestIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::WebLockIdentifierID));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::WebSocketIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::WindowIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::AuthenticationChallengeIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::ContentWorldIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::DataTaskIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::DisplayLinkObserverID));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::DownloadID));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::DrawingAreaIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::GeolocationIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::GPUProcessConnectionIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::GraphicsContextGLIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::IPCConnectionTesterIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::IPCStreamTesterIdentifier));
@@ -519,23 +568,34 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteLegacyCDMSessionIdentifier));
 #endif
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteMediaResourceIdentifier));
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteMediaSourceIdentifier));
+#endif
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteRemoteCommandListenerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteSerializedImageBufferIdentifier));
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteSourceBufferIdentifier));
+#endif
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RemoteVideoFrameIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RenderingBackendIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RenderingUpdateID));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::RetrieveRecordResponseBodyCallbackIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::SampleBufferDisplayLayerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::ScriptMessageHandlerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::ShapeDetectionIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaImplIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageAreaMapIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::StorageNamespaceIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::TapIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::TextCheckerRequestID));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::TransactionID));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::UserContentControllerIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::UserScriptIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::UserStyleSheetIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::VideoDecoderIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::VideoEncoderIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebKit::VisitedLinkTableIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebExtensionContextIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebExtensionControllerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebExtensionFrameIdentifier));
@@ -549,21 +609,38 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebKit::WebURLSchemeHandlerIdentifier));
     return {
         "IPC::AsyncReplyID"_s,
+#if PLATFORM(COCOA)
+        "WebCore::AttributedStringTextListID"_s,
+#endif
+#if PLATFORM(COCOA)
+        "WebCore::AttributedStringTextTableBlockID"_s,
+#endif
+#if PLATFORM(COCOA)
+        "WebCore::AttributedStringTextTableID"_s,
+#endif
+        "WebCore::BackForwardItemIdentifierID"_s,
         "WebCore::BackgroundFetchRecordIdentifier"_s,
         "WebCore::BroadcastChannelIdentifier"_s,
+        "WebCore::DOMCacheIdentifierID"_s,
         "WebCore::DictationContext"_s,
         "WebCore::ElementIdentifier"_s,
         "WebCore::FetchIdentifier"_s,
         "WebCore::FileSystemHandleIdentifier"_s,
         "WebCore::FileSystemSyncAccessHandleIdentifier"_s,
+        "WebCore::FrameIdentifierID"_s,
         "WebCore::ImageDecoderIdentifier"_s,
+        "WebCore::InbandGenericCueIdentifier"_s,
         "WebCore::LayerHostingContextIdentifier"_s,
         "WebCore::LibWebRTCSocketIdentifier"_s,
         "WebCore::MediaKeySystemRequestIdentifier"_s,
+        "WebCore::MediaPlayerClientIdentifier"_s,
         "WebCore::MediaPlayerIdentifier"_s,
         "WebCore::MediaSessionIdentifier"_s,
+        "WebCore::ModelPlayerIdentifier"_s,
+        "WebCore::MediaUniqueIdentifier"_s,
         "WebCore::OpaqueOriginIdentifier"_s,
         "WebCore::PageIdentifier"_s,
+        "WebCore::PlatformLayerIdentifierID"_s,
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
         "WebCore::PlaybackTargetClientContextIdentifier"_s,
 #endif
@@ -575,23 +652,32 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebCore::RenderingResourceIdentifier"_s,
         "WebCore::ResourceLoaderIdentifier"_s,
         "WebCore::SWServerConnectionIdentifier"_s,
+        "WebCore::ScrollingNodeIdentifier"_s,
         "WebCore::ServiceWorkerIdentifier"_s,
         "WebCore::ServiceWorkerJobIdentifier"_s,
         "WebCore::ServiceWorkerRegistrationIdentifier"_s,
         "WebCore::SharedWorkerIdentifier"_s,
+        "WebCore::SharedWorkerObjectIdentifierID"_s,
         "WebCore::SleepDisablerIdentifier"_s,
         "WebCore::SpeechRecognitionConnectionClientIdentifier"_s,
         "WebCore::TextCheckingRequestIdentifier"_s,
         "WebCore::TextManipulationItemIdentifier"_s,
         "WebCore::TextManipulationTokenIdentifier"_s,
+        "WebCore::IDBDatabaseConnectionIdentifier"_s,
+        "WebCore::UserGestureTokenIdentifierID"_s,
         "WebCore::UserMediaRequestIdentifier"_s,
+        "WebCore::WebLockIdentifierID"_s,
         "WebCore::WebSocketIdentifier"_s,
+        "WebCore::WindowIdentifier"_s,
         "WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier"_s,
         "WebKit::AuthenticationChallengeIdentifier"_s,
         "WebKit::ContentWorldIdentifier"_s,
         "WebKit::DataTaskIdentifier"_s,
+        "WebKit::DisplayLinkObserverID"_s,
         "WebKit::DownloadID"_s,
+        "WebKit::DrawingAreaIdentifier"_s,
         "WebKit::GeolocationIdentifier"_s,
+        "WebKit::GPUProcessConnectionIdentifier"_s,
         "WebKit::GraphicsContextGLIdentifier"_s,
         "WebKit::IPCConnectionTesterIdentifier"_s,
         "WebKit::IPCStreamTesterIdentifier"_s,
@@ -626,23 +712,34 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebKit::RemoteLegacyCDMSessionIdentifier"_s,
 #endif
         "WebKit::RemoteMediaResourceIdentifier"_s,
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+        "WebKit::RemoteMediaSourceIdentifier"_s,
+#endif
         "WebKit::RemoteRemoteCommandListenerIdentifier"_s,
         "WebKit::RemoteSerializedImageBufferIdentifier"_s,
+#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_SOURCE)
+        "WebKit::RemoteSourceBufferIdentifier"_s,
+#endif
         "WebKit::RemoteVideoFrameIdentifier"_s,
         "WebKit::RenderingBackendIdentifier"_s,
         "WebKit::RenderingUpdateID"_s,
         "WebKit::RetrieveRecordResponseBodyCallbackIdentifier"_s,
         "WebKit::SampleBufferDisplayLayerIdentifier"_s,
+        "WebKit::ScriptMessageHandlerIdentifier"_s,
         "WebKit::ShapeDetectionIdentifier"_s,
         "WebKit::StorageAreaIdentifier"_s,
         "WebKit::StorageAreaImplIdentifier"_s,
         "WebKit::StorageAreaMapIdentifier"_s,
         "WebKit::StorageNamespaceIdentifier"_s,
         "WebKit::TapIdentifier"_s,
+        "WebKit::TextCheckerRequestID"_s,
         "WebKit::TransactionID"_s,
         "WebKit::UserContentControllerIdentifier"_s,
+        "WebKit::UserScriptIdentifier"_s,
+        "WebKit::UserStyleSheetIdentifier"_s,
         "WebKit::VideoDecoderIdentifier"_s,
         "WebKit::VideoEncoderIdentifier"_s,
+        "WebKit::VisitedLinkTableIdentifier"_s,
         "WebKit::WebExtensionContextIdentifier"_s,
         "WebKit::WebExtensionControllerIdentifier"_s,
         "WebKit::WebExtensionFrameIdentifier"_s,
@@ -664,12 +761,12 @@ std::optional<Vector<ArgumentDescription>> messageArgumentDescriptions(MessageNa
     switch (name) {
     case MessageName::TestWithSuperclass_LoadURL:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #if ENABLE(TEST_FEATURE)
     case MessageName::TestWithSuperclass_TestAsyncMessage:
         return Vector<ArgumentDescription> {
-            { "twoStateEnum", "bool", "WebKit::TestTwoStateEnum", false },
+            { "twoStateEnum"_s, "bool"_s, "WebKit::TestTwoStateEnum"_s, false },
         };
     case MessageName::TestWithSuperclass_TestAsyncMessageWithNoArguments:
         return Vector<ArgumentDescription> { };
@@ -677,232 +774,232 @@ std::optional<Vector<ArgumentDescription>> messageArgumentDescriptions(MessageNa
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithSuperclass_TestAsyncMessageWithConnection:
         return Vector<ArgumentDescription> {
-            { "value", "int", nullptr, false },
+            { "value"_s, "int"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithSuperclass_TestSyncMessage:
         return Vector<ArgumentDescription> {
-            { "param", "uint32_t", nullptr, false },
+            { "param"_s, "uint32_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSuperclass_TestSynchronousMessage:
         return Vector<ArgumentDescription> {
-            { "value", "bool", nullptr, false },
+            { "value"_s, "bool"_s, ASCIILiteral(), false },
         };
 #if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
     case MessageName::TestWithLegacyReceiver_LoadURL:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #if ENABLE(TOUCH_EVENTS)
     case MessageName::TestWithLegacyReceiver_LoadSomething:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #endif
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION || SOME_OTHER_MESSAGE_CONDITION))
     case MessageName::TestWithLegacyReceiver_TouchEvent:
         return Vector<ArgumentDescription> {
-            { "event", "WebKit::WebTouchEvent", nullptr, false },
+            { "event"_s, "WebKit::WebTouchEvent"_s, ASCIILiteral(), false },
         };
 #endif
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION && SOME_OTHER_MESSAGE_CONDITION))
     case MessageName::TestWithLegacyReceiver_AddEvent:
         return Vector<ArgumentDescription> {
-            { "event", "WebKit::WebTouchEvent", nullptr, false },
+            { "event"_s, "WebKit::WebTouchEvent"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(TOUCH_EVENTS)
     case MessageName::TestWithLegacyReceiver_LoadSomethingElse:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithLegacyReceiver_DidReceivePolicyDecision:
         return Vector<ArgumentDescription> {
-            { "frameID", "uint64_t", nullptr, false },
-            { "listenerID", "uint64_t", nullptr, false },
-            { "policyAction", "uint32_t", nullptr, false },
+            { "frameID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "listenerID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "policyAction"_s, "uint32_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_Close:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithLegacyReceiver_PreferencesDidChange:
         return Vector<ArgumentDescription> {
-            { "store", "WebKit::WebPreferencesStore", nullptr, false },
+            { "store"_s, "WebKit::WebPreferencesStore"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_SendDoubleAndFloat:
         return Vector<ArgumentDescription> {
-            { "d", "double", nullptr, false },
-            { "f", "float", nullptr, false },
+            { "d"_s, "double"_s, ASCIILiteral(), false },
+            { "f"_s, "float"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_SendInts:
         return Vector<ArgumentDescription> {
-            { "ints", "Vector<uint64_t>", nullptr, false },
-            { "intVectors", "Vector<Vector<uint64_t>>", nullptr, false },
+            { "ints"_s, "Vector<uint64_t>"_s, ASCIILiteral(), false },
+            { "intVectors"_s, "Vector<Vector<uint64_t>>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_CreatePlugin:
         return Vector<ArgumentDescription> {
-            { "pluginInstanceID", "uint64_t", nullptr, false },
-            { "parameters", "WebKit::Plugin::Parameters", nullptr, false },
+            { "pluginInstanceID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "parameters"_s, "WebKit::Plugin::Parameters"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_RunJavaScriptAlert:
         return Vector<ArgumentDescription> {
-            { "frameID", "uint64_t", nullptr, false },
-            { "message", "String", nullptr, false },
+            { "frameID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "message"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_GetPlugins:
         return Vector<ArgumentDescription> {
-            { "refresh", "bool", nullptr, false },
+            { "refresh"_s, "bool"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_GetPluginProcessConnection:
         return Vector<ArgumentDescription> {
-            { "pluginPath", "String", nullptr, false },
+            { "pluginPath"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_TestMultipleAttributes:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithLegacyReceiver_TestParameterAttributes:
         return Vector<ArgumentDescription> {
-            { "foo", "uint64_t", nullptr, false },
-            { "bar", "double", nullptr, false },
-            { "baz", "double", nullptr, false },
+            { "foo"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "bar"_s, "double"_s, ASCIILiteral(), false },
+            { "baz"_s, "double"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_TemplateTest:
         return Vector<ArgumentDescription> {
-            { "a", "HashMap<String, std::pair<String, uint64_t>>", nullptr, false },
+            { "a"_s, "HashMap<String, std::pair<String, uint64_t>>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_SetVideoLayerID:
         return Vector<ArgumentDescription> {
-            { "videoLayerID", "WebCore::PlatformLayerIdentifier", nullptr, false },
+            { "videoLayerID"_s, "WebCore::PlatformLayerIdentifier"_s, ASCIILiteral(), false },
         };
 #if PLATFORM(MAC)
     case MessageName::TestWithLegacyReceiver_DidCreateWebProcessConnection:
         return Vector<ArgumentDescription> {
-            { "connectionIdentifier", "MachSendRight", nullptr, false },
-            { "flags", "OptionSet<WebKit::SelectionFlags>", nullptr, false },
+            { "connectionIdentifier"_s, "MachSendRight"_s, ASCIILiteral(), false },
+            { "flags"_s, "OptionSet<WebKit::SelectionFlags>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_InterpretKeyEvent:
         return Vector<ArgumentDescription> {
-            { "type", "uint32_t", nullptr, false },
+            { "type"_s, "uint32_t"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(DEPRECATED_FEATURE)
     case MessageName::TestWithLegacyReceiver_DeprecatedOperation:
         return Vector<ArgumentDescription> {
-            { "dummy", "IPC::DummyType", nullptr, false },
+            { "dummy"_s, "IPC::DummyType"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(FEATURE_FOR_TESTING)
     case MessageName::TestWithLegacyReceiver_ExperimentalOperation:
         return Vector<ArgumentDescription> {
-            { "dummy", "IPC::DummyType", nullptr, false },
+            { "dummy"_s, "IPC::DummyType"_s, ASCIILiteral(), false },
         };
 #endif
 #endif
 #if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
     case MessageName::TestWithoutAttributes_LoadURL:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #if ENABLE(TOUCH_EVENTS)
     case MessageName::TestWithoutAttributes_LoadSomething:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #endif
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION || SOME_OTHER_MESSAGE_CONDITION))
     case MessageName::TestWithoutAttributes_TouchEvent:
         return Vector<ArgumentDescription> {
-            { "event", "WebKit::WebTouchEvent", nullptr, false },
+            { "event"_s, "WebKit::WebTouchEvent"_s, ASCIILiteral(), false },
         };
 #endif
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION && SOME_OTHER_MESSAGE_CONDITION))
     case MessageName::TestWithoutAttributes_AddEvent:
         return Vector<ArgumentDescription> {
-            { "event", "WebKit::WebTouchEvent", nullptr, false },
+            { "event"_s, "WebKit::WebTouchEvent"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(TOUCH_EVENTS)
     case MessageName::TestWithoutAttributes_LoadSomethingElse:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithoutAttributes_DidReceivePolicyDecision:
         return Vector<ArgumentDescription> {
-            { "frameID", "uint64_t", nullptr, false },
-            { "listenerID", "uint64_t", nullptr, false },
-            { "policyAction", "uint32_t", nullptr, false },
+            { "frameID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "listenerID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "policyAction"_s, "uint32_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_Close:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutAttributes_PreferencesDidChange:
         return Vector<ArgumentDescription> {
-            { "store", "WebKit::WebPreferencesStore", nullptr, false },
+            { "store"_s, "WebKit::WebPreferencesStore"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_SendDoubleAndFloat:
         return Vector<ArgumentDescription> {
-            { "d", "double", nullptr, false },
-            { "f", "float", nullptr, false },
+            { "d"_s, "double"_s, ASCIILiteral(), false },
+            { "f"_s, "float"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_SendInts:
         return Vector<ArgumentDescription> {
-            { "ints", "Vector<uint64_t>", nullptr, false },
-            { "intVectors", "Vector<Vector<uint64_t>>", nullptr, false },
+            { "ints"_s, "Vector<uint64_t>"_s, ASCIILiteral(), false },
+            { "intVectors"_s, "Vector<Vector<uint64_t>>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_CreatePlugin:
         return Vector<ArgumentDescription> {
-            { "pluginInstanceID", "uint64_t", nullptr, false },
-            { "parameters", "WebKit::Plugin::Parameters", nullptr, false },
+            { "pluginInstanceID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "parameters"_s, "WebKit::Plugin::Parameters"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_RunJavaScriptAlert:
         return Vector<ArgumentDescription> {
-            { "frameID", "uint64_t", nullptr, false },
-            { "message", "String", nullptr, false },
+            { "frameID"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "message"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_GetPlugins:
         return Vector<ArgumentDescription> {
-            { "refresh", "bool", nullptr, false },
+            { "refresh"_s, "bool"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_GetPluginProcessConnection:
         return Vector<ArgumentDescription> {
-            { "pluginPath", "String", nullptr, false },
+            { "pluginPath"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_TestMultipleAttributes:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutAttributes_TestParameterAttributes:
         return Vector<ArgumentDescription> {
-            { "foo", "uint64_t", nullptr, false },
-            { "bar", "double", nullptr, false },
-            { "baz", "double", nullptr, false },
+            { "foo"_s, "uint64_t"_s, ASCIILiteral(), false },
+            { "bar"_s, "double"_s, ASCIILiteral(), false },
+            { "baz"_s, "double"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_TemplateTest:
         return Vector<ArgumentDescription> {
-            { "a", "HashMap<String, std::pair<String, uint64_t>>", nullptr, false },
+            { "a"_s, "HashMap<String, std::pair<String, uint64_t>>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_SetVideoLayerID:
         return Vector<ArgumentDescription> {
-            { "videoLayerID", "WebCore::PlatformLayerIdentifier", nullptr, false },
+            { "videoLayerID"_s, "WebCore::PlatformLayerIdentifier"_s, ASCIILiteral(), false },
         };
 #if PLATFORM(MAC)
     case MessageName::TestWithoutAttributes_DidCreateWebProcessConnection:
         return Vector<ArgumentDescription> {
-            { "connectionIdentifier", "MachSendRight", nullptr, false },
-            { "flags", "OptionSet<WebKit::SelectionFlags>", nullptr, false },
+            { "connectionIdentifier"_s, "MachSendRight"_s, ASCIILiteral(), false },
+            { "flags"_s, "OptionSet<WebKit::SelectionFlags>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_InterpretKeyEvent:
         return Vector<ArgumentDescription> {
-            { "type", "uint32_t", nullptr, false },
+            { "type"_s, "uint32_t"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(DEPRECATED_FEATURE)
     case MessageName::TestWithoutAttributes_DeprecatedOperation:
         return Vector<ArgumentDescription> {
-            { "dummy", "IPC::DummyType", nullptr, false },
+            { "dummy"_s, "IPC::DummyType"_s, ASCIILiteral(), false },
         };
 #endif
 #if ENABLE(FEATURE_FOR_TESTING)
     case MessageName::TestWithoutAttributes_ExperimentalOperation:
         return Vector<ArgumentDescription> {
-            { "dummy", "IPC::DummyType", nullptr, false },
+            { "dummy"_s, "IPC::DummyType"_s, ASCIILiteral(), false },
         };
 #endif
 #endif
@@ -914,94 +1011,94 @@ std::optional<Vector<ArgumentDescription>> messageArgumentDescriptions(MessageNa
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithArgument:
         return Vector<ArgumentDescription> {
-            { "argument", "String", nullptr, false },
+            { "argument"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithArgumentAndEmptyReply:
         return Vector<ArgumentDescription> {
-            { "argument", "String", nullptr, false },
+            { "argument"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithArgumentAndReplyWithArgument:
         return Vector<ArgumentDescription> {
-            { "argument", "String", nullptr, false },
+            { "argument"_s, "String"_s, ASCIILiteral(), false },
         };
 #if PLATFORM(COCOA)
     case MessageName::TestWithIfMessage_LoadURL:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
 #endif
 #if PLATFORM(GTK)
     case MessageName::TestWithIfMessage_LoadURL:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
-            { "value", "int64_t", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
+            { "value"_s, "int64_t"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithSemaphore_SendSemaphore:
         return Vector<ArgumentDescription> {
-            { "s0", "IPC::Semaphore", nullptr, false },
+            { "s0"_s, "IPC::Semaphore"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSemaphore_ReceiveSemaphore:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithImageData_SendImageData:
         return Vector<ArgumentDescription> {
-            { "s0", "RefPtr<WebCore::ImageData>", nullptr, false },
+            { "s0"_s, "RefPtr<WebCore::ImageData>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithImageData_ReceiveImageData:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithStream_SendString:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_SendStringAsync:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_SendStringSync:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_CallWithIdentifier:
         return Vector<ArgumentDescription> { };
 #if PLATFORM(COCOA)
     case MessageName::TestWithStream_SendMachSendRight:
         return Vector<ArgumentDescription> {
-            { "a1", "MachSendRight", nullptr, false },
+            { "a1"_s, "MachSendRight"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_ReceiveMachSendRight:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithStream_SendAndReceiveMachSendRight:
         return Vector<ArgumentDescription> {
-            { "a1", "MachSendRight", nullptr, false },
+            { "a1"_s, "MachSendRight"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithStreamBatched_SendString:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStreamBuffer_SendStreamBuffer:
         return Vector<ArgumentDescription> {
-            { "stream", "IPC::StreamConnectionBuffer", nullptr, false },
+            { "stream"_s, "IPC::StreamConnectionBuffer"_s, ASCIILiteral(), false },
         };
 #if USE(AVFOUNDATION)
     case MessageName::TestWithCVPixelBuffer_SendCVPixelBuffer:
         return Vector<ArgumentDescription> {
-            { "s0", "RetainPtr<CVPixelBufferRef>", nullptr, false },
+            { "s0"_s, "RetainPtr<CVPixelBufferRef>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithCVPixelBuffer_ReceiveCVPixelBuffer:
         return Vector<ArgumentDescription> { };
 #endif
     case MessageName::TestWithStreamServerConnectionHandle_SendStreamServerConnection:
         return Vector<ArgumentDescription> {
-            { "handle", "IPC::StreamServerConnection::Handle", nullptr, false },
+            { "handle"_s, "IPC::StreamServerConnectionHandle"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithEnabledIf_AlwaysEnabled:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithEnabledIf_OnlyEnabledIfFeatureEnabled:
         return Vector<ArgumentDescription> {
-            { "url", "String", nullptr, false },
+            { "url"_s, "String"_s, ASCIILiteral(), false },
         };
     default:
         break;
@@ -1015,73 +1112,73 @@ std::optional<Vector<ArgumentDescription>> messageReplyArgumentDescriptions(Mess
 #if ENABLE(TEST_FEATURE)
     case MessageName::TestWithSuperclass_TestAsyncMessage:
         return Vector<ArgumentDescription> {
-            { "result", "uint64_t", nullptr, false },
+            { "result"_s, "uint64_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSuperclass_TestAsyncMessageWithNoArguments:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithSuperclass_TestAsyncMessageWithMultipleArguments:
         return Vector<ArgumentDescription> {
-            { "flag", "bool", nullptr, false },
-            { "value", "uint64_t", nullptr, false },
+            { "flag"_s, "bool"_s, ASCIILiteral(), false },
+            { "value"_s, "uint64_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSuperclass_TestAsyncMessageWithConnection:
         return Vector<ArgumentDescription> {
-            { "flag", "bool", nullptr, false },
+            { "flag"_s, "bool"_s, ASCIILiteral(), false },
         };
 #endif
     case MessageName::TestWithSuperclass_TestSyncMessage:
         return Vector<ArgumentDescription> {
-            { "reply", "uint8_t", nullptr, false },
+            { "reply"_s, "uint8_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSuperclass_TestSynchronousMessage:
         return Vector<ArgumentDescription> {
-            { "optionalReply", "WebKit::TestClassName", nullptr, true },
+            { "optionalReply"_s, "WebKit::TestClassName"_s, ASCIILiteral(), true },
         };
 #if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
     case MessageName::TestWithLegacyReceiver_CreatePlugin:
         return Vector<ArgumentDescription> {
-            { "result", "bool", nullptr, false },
+            { "result"_s, "bool"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_RunJavaScriptAlert:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithLegacyReceiver_GetPlugins:
         return Vector<ArgumentDescription> {
-            { "plugins", "Vector<WebCore::PluginInfo>", nullptr, false },
+            { "plugins"_s, "Vector<WebCore::PluginInfo>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_GetPluginProcessConnection:
         return Vector<ArgumentDescription> {
-            { "connectionHandle", "IPC::Connection::Handle", nullptr, false },
+            { "connectionHandle"_s, "IPC::Connection::Handle"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithLegacyReceiver_TestMultipleAttributes:
         return Vector<ArgumentDescription> { };
 #if PLATFORM(MAC)
     case MessageName::TestWithLegacyReceiver_InterpretKeyEvent:
         return Vector<ArgumentDescription> {
-            { "commandName", "Vector<WebCore::KeypressCommand>", nullptr, false },
+            { "commandName"_s, "Vector<WebCore::KeypressCommand>"_s, ASCIILiteral(), false },
         };
 #endif
 #endif
 #if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
     case MessageName::TestWithoutAttributes_CreatePlugin:
         return Vector<ArgumentDescription> {
-            { "result", "bool", nullptr, false },
+            { "result"_s, "bool"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_RunJavaScriptAlert:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutAttributes_GetPlugins:
         return Vector<ArgumentDescription> {
-            { "plugins", "Vector<WebCore::PluginInfo>", nullptr, false },
+            { "plugins"_s, "Vector<WebCore::PluginInfo>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_GetPluginProcessConnection:
         return Vector<ArgumentDescription> {
-            { "connectionHandle", "IPC::Connection::Handle", nullptr, false },
+            { "connectionHandle"_s, "IPC::Connection::Handle"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutAttributes_TestMultipleAttributes:
         return Vector<ArgumentDescription> { };
 #if PLATFORM(MAC)
     case MessageName::TestWithoutAttributes_InterpretKeyEvent:
         return Vector<ArgumentDescription> {
-            { "commandName", "Vector<WebCore::KeypressCommand>", nullptr, false },
+            { "commandName"_s, "Vector<WebCore::KeypressCommand>"_s, ASCIILiteral(), false },
         };
 #endif
 #endif
@@ -1089,46 +1186,46 @@ std::optional<Vector<ArgumentDescription>> messageReplyArgumentDescriptions(Mess
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithoutArgumentAndReplyWithArgument:
         return Vector<ArgumentDescription> {
-            { "reply", "String", nullptr, false },
+            { "reply"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithArgumentAndEmptyReply:
         return Vector<ArgumentDescription> { };
     case MessageName::TestWithoutUsingIPCConnection_MessageWithArgumentAndReplyWithArgument:
         return Vector<ArgumentDescription> {
-            { "reply", "String", nullptr, false },
+            { "reply"_s, "String"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithSemaphore_ReceiveSemaphore:
         return Vector<ArgumentDescription> {
-            { "r0", "IPC::Semaphore", nullptr, false },
+            { "r0"_s, "IPC::Semaphore"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithImageData_ReceiveImageData:
         return Vector<ArgumentDescription> {
-            { "r0", "RefPtr<WebCore::ImageData>", nullptr, false },
+            { "r0"_s, "RefPtr<WebCore::ImageData>"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_SendStringAsync:
         return Vector<ArgumentDescription> {
-            { "returnValue", "int64_t", nullptr, false },
+            { "returnValue"_s, "int64_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_SendStringSync:
         return Vector<ArgumentDescription> {
-            { "returnValue", "int64_t", nullptr, false },
+            { "returnValue"_s, "int64_t"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_CallWithIdentifier:
         return Vector<ArgumentDescription> { };
 #if PLATFORM(COCOA)
     case MessageName::TestWithStream_ReceiveMachSendRight:
         return Vector<ArgumentDescription> {
-            { "r1", "MachSendRight", nullptr, false },
+            { "r1"_s, "MachSendRight"_s, ASCIILiteral(), false },
         };
     case MessageName::TestWithStream_SendAndReceiveMachSendRight:
         return Vector<ArgumentDescription> {
-            { "r1", "MachSendRight", nullptr, false },
+            { "r1"_s, "MachSendRight"_s, ASCIILiteral(), false },
         };
 #endif
 #if USE(AVFOUNDATION)
     case MessageName::TestWithCVPixelBuffer_ReceiveCVPixelBuffer:
         return Vector<ArgumentDescription> {
-            { "r0", "RetainPtr<CVPixelBufferRef>", nullptr, false },
+            { "r0"_s, "RetainPtr<CVPixelBufferRef>"_s, ASCIILiteral(), false },
         };
 #endif
     default:

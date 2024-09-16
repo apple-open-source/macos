@@ -39,17 +39,10 @@ static NSString* tablePath = nil;
 
 @implementation SQLiteTests
 
-+ (void)setUp
-{
-    [super setUp];
-
-    tablePath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"test_table.db"];
-}
-
 - (void)setUp
 {
     [super setUp];
-
+    tablePath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_test_table.db", [[NSUUID UUID] UUIDString]]];
     [[NSFileManager defaultManager] removeItemAtPath:tablePath error:nil];
 }
 
@@ -101,19 +94,14 @@ static NSString* tablePath = nil;
     XCTAssertNil(error, "encountered error opening database: %@", error);
     XCTAssertNoThrow([sqlTable close], @"closing database threw an exception");
 
-    NSDictionary* originalAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:tablePath error:&error];
-    XCTAssertNil(error, @"encountered error getting database file attributes: %@", error);
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(S_IRUSR), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
 
-    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(400), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
     XCTAssertNil(error, @"encountered error setting database file attributes: %@", error);
     XCTAssertNoThrow([sqlTable openWithError:&error]);
     XCTAssertNil(error, @"encounterd error when opening file without permissions: %@", error);
 
     XCTAssertFalse([sqlTable executeSQL:@"insert or replace into test (test_column) VALUES (1)"],
                    @"writing to read-only database succeeded");
-
-    [[NSFileManager defaultManager] setAttributes:originalAttributes ofItemAtPath:tablePath error:&error];
-    XCTAssertNil(error, @"encountered error setting database file attributes back to original attributes: %@", error);
 }
 
 - (void)testDontCrashFromInternalErrors

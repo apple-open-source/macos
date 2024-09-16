@@ -446,10 +446,7 @@ const CSSM_OID *policyStringToOid(
 	else if(!strcmp(policy, "timestamping")) {
 		return &CSSMOID_APPLE_TP_TIMESTAMPING;
 	}
-	else {
-		fprintf(stderr, "***unknown policy spec (%s)\n", policy);
-		return NULL;
-	}
+	return NULL;
 }
 
 CFOptionFlags revCheckOptionStringToFlags(

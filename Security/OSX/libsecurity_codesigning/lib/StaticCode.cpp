@@ -177,11 +177,8 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 #if TARGET_OS_OSX
 	checkForSystemSignature();
 
-	// By default, platform code will no longer use the network.
-	if (os_feature_enabled(Security, SecCodeOCSPDefault)) {
-		if (isCurrentProcessPlatform()) {
-			mNetworkEnabledByDefault = false;
-		}
+	if (isCurrentProcessPlatform()) {
+		mNetworkEnabledByDefault = false;
 	}
 	secinfo("staticCode", "SecStaticCode network default: %{BOOL}d", mNetworkEnabledByDefault);
 #endif
@@ -2565,8 +2562,10 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
             if (CFRef<CFDictionaryRef> rdict = getDictionary(cdResourceDirSlot, false))	// suppress validation
                 CFDictionaryAddValue(dict, kSecCodeInfoResourceDirectory, rdict);
         }
-		if (CFRef<CFDictionaryRef> ddict = copyDiskRepInformation())
-			CFDictionaryAddValue(dict, kSecCodeInfoDiskRepInfo, ddict);
+		} catch (...) { }
+		try {
+			if (CFRef<CFDictionaryRef> ddict = copyDiskRepInformation())
+				CFDictionaryAddValue(dict, kSecCodeInfoDiskRepInfo, ddict);
 		} catch (...) { }
 		if (mNotarizationChecked && !isnan(mNotarizationDate)) {
 			CFRef<CFDateRef> date = CFDateCreate(NULL, mNotarizationDate);
@@ -3079,7 +3078,7 @@ void SecStaticCode::visitOtherArchitectures(void (^visitor)(SecStaticCode* other
 //
 bool SecStaticCode::isAppleDeveloperCert(CFArrayRef certs)
 {
-	static const std::string appleDeveloperRequirement = "(" + std::string(WWDRRequirement) + ") or (" + MACWWDRRequirement + ") or (" + developerID + ") or (" + distributionCertificate + ") or (" + iPhoneDistributionCert + ")";
+	[[clang::no_destroy]] static const std::string appleDeveloperRequirement = "(" + std::string(WWDRRequirement) + ") or (" + MACWWDRRequirement + ") or (" + developerID + ") or (" + distributionCertificate + ") or (" + iPhoneDistributionCert + ")";
 	SecPointer<SecRequirement> req = new SecRequirement(parseRequirement(appleDeveloperRequirement), true);
 	Requirement::Context ctx(certs, NULL, NULL, "", NULL, NULL, kSecCodeSignatureNoHash, false, NULL, "");
 

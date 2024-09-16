@@ -42,7 +42,7 @@ false/false.1	freebsd	usr.bin/false/false.1	fbbd9655e5107c68e4e0146ff22b73d73504
 false/false.c	freebsd	usr.bin/false/false.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
 find/extern.h	freebsd	usr.bin/find/extern.h	c305c18ed13bd804440f497c39204d091cb1ca7a
-find/find.1	freebsd	usr.bin/find/find.1	14ebab25e1231decd80a64194e9028a9ada8d6e6
+find/find.1	freebsd	usr.bin/find/find.1	45438f9c8b5b91ebf5606b4a98e891559913d25b
 find/find.c	freebsd	usr.bin/find/find.c	f2ef15fec455a662cfda392260d6b2bb08a82066
 find/find.h	freebsd	usr.bin/find/find.h	c3a6ea5ba6b5a84a0884ae398920378d8efce268
 find/function.c	freebsd	usr.bin/find/function.c	b422540a99094d2a7aa4a4c0b164af28dc50c5aa
@@ -210,6 +210,10 @@ locate/locate/pathnames.h	freebsd	usr.bin/locate/locate/pathnames.h	df57947f0830
 locate/locate/updatedb.sh	freebsd	usr.bin/locate/locate/updatedb.sh	1de7b4b805ddbf2429da511c053686ac4591ed89
 locate/locate/util.c	freebsd	usr.bin/locate/locate/util.c	df57947f083046d50552e99b91074927d2458708
 
+lockf/lockf.1	freebsd	usr.bin/lockf/lockf.1	09a7fe0a5523d53ff6c26ddef9a947f293e18c22
+lockf/lockf.c	freebsd	usr.bin/lockf/lockf.c	e4967d4d48b0a7d873e4f778c0a6e560e09d4dc3
+lockf/tests/lockf_test.sh	freebsd	usr.bin/lockf/tests/lockf_test.sh	09a7fe0a5523d53ff6c26ddef9a947f293e18c22
+
 logname/logname.1	freebsd	usr.bin/logname/logname.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 logname/logname.c	freebsd	usr.bin/logname/logname.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
 
@@ -251,9 +255,9 @@ pwd/pwd.c	freebsd	bin/pwd/pwd.c	377da671091605bda5554e1fda0371916527eb10
 realpath/realpath.1	freebsd	bin/realpath/realpath.1	76ec6f51b933d748c795339a4bd1c676a13a0d12
 realpath/realpath.c	freebsd	bin/realpath/realpath.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-renice/renice.8	freebsd	usr.bin/renice/renice.8	f8ae041a04ac3e6d926e983b7c226f56dc16303e
-renice/renice.c	freebsd	usr.bin/renice/renice.c	b03311cadd3a6f931e176f97b97bd72be3ef96d4
-renice/tests/renice_test.sh	freebsd	usr.bin/renice/tests/renice_test.sh	1bc6dcc287fa80af74768c4e2b2a1d7511ba1729
+renice/renice.8	freebsd	usr.bin/renice/renice.8	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+renice/renice.c	freebsd	usr.bin/renice/renice.c	0b8224d1cc9dc6c9778ba04a75b2c8d47e5d7481
+renice/tests/renice_test.sh	freebsd	usr.bin/renice/tests/renice_test.sh	afdce0837014fb7a41fced959c9457f89e878052
 
 script/script.1	freebsd	usr.bin/script/script.1	8e096e24d4344b6d3d16e24d58d5d8a0fa9733c9
 script/script.c	freebsd	usr.bin/script/script.c	473e9fcab4ea9379f53e1f7d8e41f5a5754d0007
@@ -265,9 +269,12 @@ seq/tests/seq_test.sh	freebsd	usr.bin/seq/tests/seq_test.sh	905fdc3ff1c2e58478d2
 shlock/shlock.1	netbsd	usr.bin/shlock/shlock.1	2adb3a73a81f06f72fc94ef43df77577292a540e
 shlock/shlock.c	netbsd	usr.bin/shlock/shlock.c	c362136502202d1ca300c6b9f9e44119f4b41564
 
-sleep/sleep.1	freebsd	bin/sleep/sleep.1	43d0803c4545861e8f2411aec0987968b2e4a299
-sleep/sleep.c	freebsd	bin/sleep/sleep.c	1cc908de3ab2e11fca648fc874df2f9d255fc087
+sleep/sleep.1	freebsd	bin/sleep/sleep.1	2295cae7e606d75016575927c3d8729745abb17a
+sleep/sleep.c	freebsd	bin/sleep/sleep.c	2295cae7e606d75016575927c3d8729745abb17a
 sleep/tests/t_sleep.sh	freebsd	contrib/netbsd-tests/bin/sleep/t_sleep.sh	57718be8fa0bd5edc11ab9a72e68cc71982939a6
+
+stdbuf/stdbuf.1	freebsd	usr.bin/stdbuf/stdbuf.1	4228c8a2b12b2e789c74bb397c4bce8168728612
+stdbuf/stdbuf.c	freebsd	usr.bin/stdbuf/stdbuf.c	78baa632092a87707481a47f47bfd45de9a072ef
 
 su/su.1	freebsd	usr.bin/su/su.1	68fbe6f0b3e8eff10667f63dae166f3c50e1f59a
 su/su.c	freebsd	usr.bin/su/su.c	aff7b6c709179f9a827ddd01c15e6e227bb7fe08

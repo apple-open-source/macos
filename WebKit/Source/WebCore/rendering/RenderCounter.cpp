@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2024 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -61,7 +61,8 @@ static CounterMaps& counterMaps()
 
 static Element* ancestorStyleContainmentObject(const Element& element)
 {
-    Element* ancestor = is<PseudoElement>(element) ? downcast<PseudoElement>(element).hostElement() : element.parentElement();
+    auto* pseudoElement = dynamicDowncast<PseudoElement>(element);
+    Element* ancestor = pseudoElement ? pseudoElement->hostElement() : element.parentElement();
     while (ancestor) {
         if (auto* style = ancestor->existingComputedStyle()) {
             if (style->containsStyle())
@@ -118,8 +119,8 @@ static Element* previousSiblingOrParentElement(const Element& element)
             return previous;
     }
 
-    if (is<PseudoElement>(element)) {
-        auto* hostElement = downcast<PseudoElement>(element).hostElement();
+    if (auto* pseudoElement = dynamicDowncast<PseudoElement>(element)) {
+        auto* hostElement = pseudoElement->hostElement();
         ASSERT(hostElement);
         if (hostElement->renderer())
             return hostElement;
@@ -163,20 +164,18 @@ static RenderElement* nextInPreOrder(const RenderElement& renderer, const Elemen
 
 static CounterDirectives listItemCounterDirectives(RenderElement& renderer)
 {
-    if (is<RenderListItem>(renderer)) {
-        auto& item = downcast<RenderListItem>(renderer);
+    if (auto* item = dynamicDowncast<RenderListItem>(renderer)) {
         return {
             .resetValue = std::nullopt,
-            .incrementValue = item.isInReversedOrderedList() ? -1 : 1,
+            .incrementValue = item->isInReversedOrderedList() ? -1 : 1,
             .setValue = std::nullopt
         };
     }
     if (auto element = renderer.element()) {
-        if (is<HTMLOListElement>(*element)) {
-            auto& list = downcast<HTMLOListElement>(*element);
+        if (auto* list = dynamicDowncast<HTMLOListElement>(*element)) {
             return {
-                .resetValue = list.start(),
-                .incrementValue = list.isReversed() ? 1 : -1,
+                .resetValue = list->start(),
+                .incrementValue = list->isReversed() ? 1 : -1,
                 .setValue = std::nullopt
             };
         }
@@ -204,7 +203,7 @@ static std::optional<CounterPlan> planCounter(RenderElement& renderer, const Ato
 
     auto& style = renderer.style();
 
-    switch (style.styleType()) {
+    switch (style.pseudoElementType()) {
     case PseudoId::None:
         // Sometimes elements have more then one renderer. Only the first one gets the counter
         // LayoutTests/http/tests/css/counter-crash.html
@@ -467,27 +466,24 @@ String RenderCounter::originalText() const
     RefPtr child = m_counterNode.get();
     int value = child->actsAsReset() ? child->value() : child->countInParent();
 
-    auto counterText = [](const ListStyleType& styleType, int value, CSSCounterStyle* counterStyle) {
-        if (styleType.type == ListStyleType::Type::None)
+    auto counterText = [&](int value) {
+        if (m_counter.listStyleType().type == ListStyleType::Type::None)
             return emptyString();
 
-        if (styleType.type == ListStyleType::Type::CounterStyle) {
-            ASSERT(counterStyle);
-            return counterStyle->text(value);
+        if (m_counter.listStyleType().type == ListStyleType::Type::CounterStyle) {
+            ASSERT(counterStyle());
+            return counterStyle()->text(value, makeTextFlow(style().writingMode(), style().direction()));
         }
 
         ASSERT_NOT_REACHED();
         return emptyString();
     };
-    auto counterStyle = this->counterStyle();
-    String text = counterText(m_counter.listStyleType(), value, counterStyle.get());
-
+    auto text = counterText(value);
     if (!m_counter.separator().isNull()) {
         if (!child->actsAsReset())
             child = child->parent();
         while (CounterNode* parent = child->parent()) {
-            text = counterText(m_counter.listStyleType(), child->countInParent(), counterStyle.get())
-                + m_counter.separator() + text;
+            text = makeString(counterText(child->countInParent()), m_counter.separator(), text);
             child = parent;
         }
     }
@@ -504,7 +500,7 @@ void RenderCounter::updateCounter()
                 return;
             if (!beforeAfterContainer->isAnonymous() && !beforeAfterContainer->isPseudoElement())
                 return;
-            auto containerStyle = beforeAfterContainer->style().styleType();
+            auto containerStyle = beforeAfterContainer->style().pseudoElementType();
             if (containerStyle == PseudoId::Before || containerStyle == PseudoId::After)
                 break;
             beforeAfterContainer = beforeAfterContainer->parent();
@@ -607,7 +603,7 @@ RefPtr<CSSCounterStyle> RenderCounter::counterStyle() const
 
 #if ENABLE(TREE_DEBUGGING)
 
-void showCounterRendererTree(const WebCore::RenderObject* renderer, const char* counterName)
+void showCounterRendererTree(const WebCore::RenderObject* renderer, ASCIILiteral counterName)
 {
     if (!renderer)
         return;
@@ -615,17 +611,18 @@ void showCounterRendererTree(const WebCore::RenderObject* renderer, const char* 
     while (root->parent())
         root = root->parent();
 
-    auto identifier = AtomString::fromLatin1(counterName);
+    AtomString identifier { counterName };
     for (auto* current = root; current; current = current->nextInPreOrder()) {
-        if (!is<WebCore::RenderElement>(*current))
+        auto* element = dynamicDowncast<WebCore::RenderElement>(*current);
+        if (!element)
             continue;
         fprintf(stderr, "%c", (current == renderer) ? '*' : ' ');
         for (auto* ancestor = current; ancestor && ancestor != root; ancestor = ancestor->parent())
             fprintf(stderr, "    ");
         fprintf(stderr, "%p N:%p P:%p PS:%p NS:%p C:%p\n",
             current, current->node(), current->parent(), current->previousSibling(),
-            current->nextSibling(), downcast<WebCore::RenderElement>(*current).hasCounterNodeMap() ?
-            counterName ? WebCore::counterMaps().find(*downcast<WebCore::RenderElement>(current))->value->get(identifier) : (WebCore::CounterNode*)1 : (WebCore::CounterNode*)0);
+            current->nextSibling(), element->hasCounterNodeMap() ?
+            !counterName.isNull() ? WebCore::counterMaps().find(*downcast<WebCore::RenderElement>(current))->value->get(identifier) : (WebCore::CounterNode*)1 : (WebCore::CounterNode*)0);
     }
     fflush(stderr);
 }

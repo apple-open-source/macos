@@ -68,7 +68,7 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node&, StringView, const Si
     WebCore::AXID _identifier;
 }
 
-- (id)initWithAccessibilityObject:(WebCore::AccessibilityObject*)axObject;
+- (id)initWithAccessibilityObject:(WebCore::AccessibilityObject&)axObject;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 - (void)attachIsolatedObject:(WebCore::AXIsolatedObject*)isolatedObject;
 - (BOOL)hasIsolatedObject;
@@ -118,7 +118,7 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node&, StringView, const Si
 
 - (NSDictionary<NSString *, id> *)baseAccessibilityResolvedEditingStyles;
 
-extern WebCore::AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicateParameterizedAttribute(const NSDictionary *);
+extern WebCore::AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicate(WebCore::AXCoreObject&, const NSDictionary *);
 
 extern NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector&);
 extern NSRange makeNSRange(std::optional<WebCore::SimpleRange>);

@@ -40,7 +40,15 @@
 #include <memory>
 #endif
 
+#if ENABLE(WEBXR)
+#include "PlatformXR.h"
+#include <wtf/EnumeratedArray.h>
+#endif
+
 OBJC_CLASS MTLSharedEventListener;
+#if ENABLE(WEBXR)
+OBJC_PROTOCOL(MTLRasterizationRateMap);
+#endif
 
 namespace WebCore {
 
@@ -68,14 +76,27 @@ public:
     void* createPbufferAndAttachIOSurface(GCGLenum target, PbufferAttachmentUsage, GCGLenum internalFormat, GCGLsizei width, GCGLsizei height, GCGLenum type, IOSurfaceRef, GCGLuint plane);
     void destroyPbufferAndDetachIOSurface(void* handle);
 
-    std::optional<EGLImageAttachResult> createAndBindEGLImage(GCGLenum, EGLImageSource) final;
+#if ENABLE(WEBXR)
+    GCGLExternalImage createExternalImage(ExternalImageSource&&, GCGLenum internalFormat, GCGLint layer) final;
+    void bindExternalImage(GCGLenum target, GCGLExternalImage) final;
+
+    bool addFoveation(IntSize, IntSize, IntSize, std::span<const GCGLfloat>, std::span<const GCGLfloat>, std::span<const GCGLfloat>) final;
+    void enableFoveation(GCGLuint) final;
+    void disableFoveation() final;
 
     RetainPtr<id> newSharedEventWithMachPort(mach_port_t);
-    GCEGLSync createEGLSync(ExternalEGLSyncEvent) final;
-    // Short term support for in-process WebGL.
-    GCEGLSync createEGLSync(id, uint64_t);
+    GCGLExternalSync createExternalSync(ExternalSyncSource&&) final;
+#endif
+    GCGLExternalSync createExternalSync(id, uint64_t);
 
+#if ENABLE(WEBXR)
     bool enableRequiredWebXRExtensions() final;
+
+    // GL_EXT_discard_framebuffer
+    void framebufferDiscard(GCGLenum, std::span<const GCGLenum>) final;
+    // GL_WEBKIT_explicit_resolve_target
+    void framebufferResolveRenderbuffer(GCGLenum, GCGLenum, GCGLenum, PlatformGLObject) final;
+#endif
 
     void waitUntilWorkScheduled();
 
@@ -151,6 +172,10 @@ protected:
 #endif
     RetainPtr<MTLSharedEventListener> m_finishedMetalSharedEventListener;
     RetainPtr<id> m_finishedMetalSharedEvent; // FIXME: Remove all C++ includees and use id<MTLSharedEvent>.
+#if ENABLE(WEBXR)
+    using RasterizationRateMapArray =  EnumeratedArray<PlatformXR::Layout, RetainPtr<MTLRasterizationRateMap>, PlatformXR::Layout::Layered>;
+    RasterizationRateMapArray m_rasterizationRateMap;
+#endif
 
     static constexpr size_t maxReusedDrawingBuffers { 3 };
     size_t m_currentDrawingBufferIndex { 0 };

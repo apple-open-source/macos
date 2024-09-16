@@ -27,7 +27,7 @@
     type of keychain item that represents a key.  A key can be stored in a
     keychain, but a key can also be a transient object.
 
-	On OSX, you can use a SecKey as a SecKeychainItem in most functions.
+	On macOS, you can use a SecKey as a SecKeychainItem in most functions.
 */
 
 #ifndef _SECURITY_SECKEY_H_

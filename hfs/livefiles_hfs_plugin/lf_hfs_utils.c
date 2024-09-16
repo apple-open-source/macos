@@ -1,4 +1,4 @@
-/*  Copyright © 2017-2018 Apple Inc. All rights reserved.
+/*  Copyright © 2017-2023 Apple Inc. All rights reserved.
  *
  *  lf_hfs_utils.c
  *  livefiles_hfs
@@ -54,14 +54,24 @@ hashDeinit(void* pvHashTbl)
  *         to BSD time (seconds since 1/1/1970)
  */
 time_t
-to_bsd_time(u_int32_t hfs_time)
+to_bsd_time(u_int32_t hfs_time, bool expanded)
 {
     u_int32_t gmt = hfs_time;
 
-    if (gmt > MAC_GMT_FACTOR)
+	if (expanded) {
+		/*
+		 * If expanded times are in use, then we are using
+		 * BSD time as native. Do not convert it.
+		 */
+		return (time_t) gmt;
+	}
+
+    if (gmt > MAC_GMT_FACTOR) {
         gmt -= MAC_GMT_FACTOR;
-    else
+	}
+    else {
         gmt = 0;    /* don't let date go negative! */
+	}
 
     return (time_t)gmt;
 }
@@ -71,13 +81,30 @@ to_bsd_time(u_int32_t hfs_time)
  *         to Mac OS time (seconds since 1/1/1904)
  */
 u_int32_t
-to_hfs_time(time_t bsd_time)
+to_hfs_time(time_t bsd_time, bool expanded)
 {
-    u_int32_t hfs_time = (u_int32_t)bsd_time;
+	bool negative = (bsd_time < 0);
+	u_int32_t hfs_time = (u_int32_t)bsd_time;
+
+	if (expanded) {
+		/*
+		 * If expanded times are in use, then the BSD time
+		 * is native. Do not convert it with the Mac factor.
+		 * In this mode, zero is legitimate (now implying 1/1/1970).
+		 *
+		 * In addition, clip the timestamp to 0, ensuring that we treat
+		 * the value as an unsigned int32.
+		 */
+		if (negative) {
+			hfs_time = 0;
+		}
+		return hfs_time;
+	}
 
     /* don't adjust zero - treat as uninitialzed */
-    if (hfs_time != 0)
+    if (hfs_time != 0) {
         hfs_time += MAC_GMT_FACTOR;
+	}
 
     return (hfs_time);
 }

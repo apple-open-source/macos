@@ -39,6 +39,12 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/lmessages.c,v 1.14 2003/06/26 10:46:16 p
 #define LCMESSAGES_SIZE_MIN \
 		(offsetof(struct lc_messages_T, yesstr) / sizeof(char *))
 
+struct xlocale_messages {
+	struct xlocale_component header;
+	char *buffer;
+	struct lc_messages_T locale;
+};
+
 static char empty[] = "";
 
 static const struct lc_messages_T _C_messages_locale = {
@@ -52,47 +58,48 @@ __private_extern__ int
 __messages_load_locale(const char *name, locale_t loc)
 {
 	int ret;
-	struct __xlocale_st_messages *xp;
-	static struct __xlocale_st_messages *cache = NULL;
+	struct xlocale_messages *xp;
+	static struct xlocale_messages *cache = NULL;
 
 	/* 'name' must be already checked. */
-	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0) {
+	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0 ||
+	    strncmp(name, "C.", 2) == 0) {
 		loc->_messages_using_locale = 0;
-		XL_RELEASE(loc->__lc_messages);
-		loc->__lc_messages = NULL;
+		xlocale_release(loc->components[XLC_MESSAGES]);
+		loc->components[XLC_MESSAGES] = NULL;
 		return (_LDP_CACHE);
 	}
 
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
-	if (cache && cache->_messages_locale_buf && strcmp(name, cache->_messages_locale_buf) == 0) {
+	if (cache && cache->buffer && strcmp(name, cache->buffer) == 0) {
 		loc->_messages_using_locale = 1;
-		XL_RELEASE(loc->__lc_messages);
-		loc->__lc_messages = cache;
-		XL_RETAIN(loc->__lc_messages);
+		xlocale_release(loc->components[XLC_MESSAGES]) ;
+		loc->components[XLC_MESSAGES]= (void *)cache;
+		xlocale_retain(cache);
 		return (_LDP_CACHE);
 	}
-	if ((xp = (struct __xlocale_st_messages *)malloc(sizeof(*xp))) == NULL)
+	if ((xp = (struct xlocale_messages *)malloc(sizeof(*xp))) == NULL)
 		return _LDP_ERROR;
-	xp->__refcount = 1;
-	xp->__free_extra = (__free_extra_t)__ldpart_free_extra;
-	xp->_messages_locale_buf = NULL;
+	xp->header.header.retain_count = 1;
+	xp->header.header.destructor = destruct_ldpart;
+	xp->buffer = NULL;
 
 	ret = __part_load_locale(name, &loc->_messages_using_locale,
-		  &xp->_messages_locale_buf, "LC_MESSAGES/LC_MESSAGES",
+		  &xp->buffer, "LC_MESSAGES/LC_MESSAGES",
 		  LCMESSAGES_SIZE_FULL, LCMESSAGES_SIZE_MIN,
-		  (const char **)&xp->_messages_locale);
+		  (const char **)&xp->locale);
 	if (ret == _LDP_LOADED) {
-		if (xp->_messages_locale.yesstr == NULL)
-			xp->_messages_locale.yesstr = empty;
-		if (xp->_messages_locale.nostr == NULL)
-			xp->_messages_locale.nostr = empty;
-		XL_RELEASE(loc->__lc_messages);
-		loc->__lc_messages = xp;
-		XL_RELEASE(cache);
+		if (xp->locale.yesstr == NULL)
+			xp->locale.yesstr = empty;
+		if (xp->locale.nostr == NULL)
+			xp->locale.nostr = empty;
+		xlocale_release(loc->components[XLC_MESSAGES]);
+		loc->components[XLC_MESSAGES] = (void *)xp;
+		xlocale_release(cache);
 		cache = xp;
-		XL_RETAIN(cache);
+		xlocale_retain(cache);
 	} else if (ret == _LDP_ERROR)
 		free(xp);
 	return (ret);
@@ -102,7 +109,7 @@ __private_extern__ struct lc_messages_T *
 __get_current_messages_locale(locale_t loc)
 {
 	return (loc->_messages_using_locale
-		? &loc->__lc_messages->_messages_locale
+		? &XLOCALE_MESSAGES(loc)->locale
 		: (struct lc_messages_T *)&_C_messages_locale);
 }
 
@@ -114,10 +121,10 @@ printf(	"yesexpr = %s\n"
 	"noexpr = %s\n"
 	"yesstr = %s\n"
 	"nostr = %s\n",
-	loc->__lc_messages->_messages_locale.yesexpr,
-	loc->__lc_messages->_messages_locale.noexpr,
-	loc->__lc_messages->_messages_locale.yesstr,
-	loc->__lc_messages->_messages_locale.nostr
+	XLOCALE_MESSAGES(loc)->locale.yesexpr,
+	XLOCALE_MESSAGES(loc)->locale.noexpr,
+	XLOCALE_MESSAGES(loc)->locale.yesstr,
+	XLOCALE_MESSAGES(loc)->locale.nostr
 );
 }
 #endif /* LOCALE_DEBUG */

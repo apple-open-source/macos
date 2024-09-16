@@ -26,37 +26,32 @@
 #pragma once
 
 #include "WebPageProxyIdentifier.h"
-#include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
-class RemotePageProxy;
+class FrameProcess;
 class VisitedLinkStore;
 class WebFrameProxy;
 class WebProcessProxy;
 
-class ProvisionalFrameProxy : public CanMakeWeakPtr<ProvisionalFrameProxy> {
+class ProvisionalFrameProxy {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ProvisionalFrameProxy(WebFrameProxy&, WebProcessProxy&, RefPtr<RemotePageProxy>&&);
+    explicit ProvisionalFrameProxy(WebFrameProxy&, Ref<FrameProcess>&&);
+
     ~ProvisionalFrameProxy();
 
-    WebProcessProxy& process() const { return m_process.get(); }
+    WebProcessProxy& process() const;
     Ref<WebProcessProxy> protectedProcess() const;
-    RefPtr<RemotePageProxy> takeRemotePageProxy();
 
-    WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier() const { return m_layerHostingContextIdentifier; }
+    RefPtr<FrameProcess> takeFrameProcess();
 
 private:
     WeakRef<WebFrameProxy> m_frame;
-    Ref<WebProcessProxy> m_process;
-    RefPtr<RemotePageProxy> m_remotePageProxy;
+    RefPtr<FrameProcess> m_frameProcess;
     Ref<VisitedLinkStore> m_visitedLinkStore;
-    WebCore::PageIdentifier m_pageID;
-    WebPageProxyIdentifier m_webPageID;
-    WebCore::LayerHostingContextIdentifier m_layerHostingContextIdentifier;
 };
 
 } // namespace WebKit

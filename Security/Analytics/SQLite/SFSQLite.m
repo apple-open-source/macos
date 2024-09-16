@@ -361,7 +361,7 @@ allDone:
     if (![self executeSQL:@"pragma journal_mode = WAL"]) {
         goto done;
     }
-    if (![self executeSQL:@"pragma synchronous = %@", [self _synchronousModeString]]) {
+    if (![self executeSQL:[NSString stringWithFormat:@"pragma synchronous = %@", [self _synchronousModeString]]]) {
         goto done;
     }
     if ([self autoVacuumSetting] != kSFSQLiteAutoVacuumFull) {
@@ -410,7 +410,7 @@ allDone:
     }
     if (create) {
         [self executeSQL:kSFSQLiteCreatePropertiesTableSQL];
-        [self executeSQL:@"%@", self.schema];
+        [self executeSQL:self.schema];
         NSString *createdDateString = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSinceReferenceDate]];
         [self setProperty:createdDateString forKey:kSFSQLiteCreatedDateKey];
     }
@@ -428,7 +428,7 @@ allDone:
     if (create || _hasMigrated) {
         [self setProperty:self.schemaVersion forKey:kSFSQLiteSchemaVersionKey];
         if (self.userVersion) {
-            [self executeSQL:@"pragma user_version = %ld", (long)self.userVersion];
+            [self executeSQL:[NSString stringWithFormat:@"pragma user_version = %ld", (long)self.userVersion]];
         }
     }
 
@@ -523,16 +523,7 @@ done:
     return sqlite3_changes(_db);
 }
 
-- (BOOL)executeSQL:(NSString *)format, ... {
-    va_list args;
-    va_start(args, format);
-    BOOL result = [self executeSQL:format arguments:args];
-    va_end(args);
-    return result;
-}
-
-- (BOOL)executeSQL:(NSString *)format arguments:(va_list)args {
-    NS_VALID_UNTIL_END_OF_SCOPE NSString *SQL = [[NSString alloc] initWithFormat:format arguments:args];
+- (BOOL)executeSQL:(NSString *)SQL {
     if (!_db) {
         secerror("sfsqlite: Database is closed");
         return NO;
@@ -592,7 +583,7 @@ done:
 
 - (void)dropAllTables {
     for (NSString *tableName in [self allTableNames]) {
-        [self executeSQL:@"drop table %@", tableName];
+        [self executeSQL:[NSString stringWithFormat:@"drop table %@", tableName]];
     }
 }
 

@@ -2,7 +2,7 @@
  * Copyright (c) 2007-2011 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -39,14 +39,14 @@
  */
 #include <NetAuth/NetAuth.h>
 
-#define ALT_SOFT	0x00000001
+#define ALT_SOFT        0x00000001
 
 static const struct mntopt mopts_std[] = {
 	MOPT_STDOPTS,
 	MOPT_UPDATE,
 	MOPT_RELOAD,
-	{ "soft",	0, ALT_SOFT, 1 },
-	{ NULL,		0, 0, 0 }
+	{ "soft", 0, ALT_SOFT, 1 },
+	{ NULL, 0, 0, 0 }
 };
 
 static void usage(void);
@@ -73,7 +73,6 @@ main(int argc, char **argv)
 	getmnt_silent = 1;
 	while ((c = getopt(argc, argv, "no:rw")) != -1) {
 		switch (c) {
-
 		case 'n':
 			usenetauth = 1;
 			break;
@@ -103,26 +102,30 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 2)
+	if (argc != 2) {
 		usage();
+	}
 
 	/*
 	 * Nothing can stop the Duke of...
 	 */
 	URL = CFURLCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)argv[0],
 	    strlen(argv[0]), kCFStringEncodingUTF8, NULL);
-	if (URL == NULL)
+	if (URL == NULL) {
 		exit(ENOMEM);
+	}
 
 	mountdir_CFString = CFStringCreateWithCString(kCFAllocatorDefault,
 	    argv[1], kCFStringEncodingUTF8);
-	if (mountdir_CFString == NULL)
+	if (mountdir_CFString == NULL) {
 		exit(ENOMEM);
+	}
 
 	open_options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 	    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (open_options == NULL)
+	if (open_options == NULL) {
 		exit(ENOMEM);
+	}
 	/*
 	 * It's OK to use an existing session.
 	 */
@@ -146,8 +149,9 @@ main(int argc, char **argv)
 
 	mount_options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 	    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (mount_options == NULL)
+	if (mount_options == NULL) {
 		exit(ENOMEM);
+	}
 	/*
 	 * It's OK to use an existing session.
 	 */
@@ -187,19 +191,21 @@ main(int argc, char **argv)
 	 */
 	CFDictionaryAddValue(mount_options, kUIOptionKey, kUIOptionNoUI);
 
-	if (usenetauth)
+	if (usenetauth) {
 		res = NAConnectToServerSync(URL, mountdir_CFString,
 		    open_options, mount_options, &mount_info);
-	else
+	} else {
 		res = do_mount_direct(URL, mountdir_CFString, open_options,
 		    mount_options, &mount_info);
+	}
 	/*
 	 * 0 means "no error", EEXIST means "that's already mounted, and
 	 * mountinfo says where it's mounted".  In those cases, a
 	 * directory of mount information was returned; release it.
 	 */
-	if ((res == 0 || res == EEXIST) && (mount_info != NULL))
+	if ((res == 0 || res == EEXIST) && (mount_info != NULL)) {
 		CFRelease(mount_info);
+	}
 	CFRelease(mount_options);
 	CFRelease(open_options);
 	CFRelease(mountdir_CFString);
@@ -216,7 +222,6 @@ main(int argc, char **argv)
 			    argv[0], argv[1], res);
 
 			switch (res) {
-
 			case ENETFSACCOUNTRESTRICTED:
 			case ENETFSPWDNEEDSCHANGE:
 			case ENETFSPWDPOLICY:
@@ -250,8 +255,9 @@ do_mount_direct(CFURLRef server_URL, CFStringRef mountdir,
 
 	*mount_infop = NULL;
 	ret = netfs_CreateSessionRef(server_URL, &session_ref);
-	if (ret != 0)
+	if (ret != 0) {
 		return ret;
+	}
 	ret = netfs_OpenSession(server_URL, session_ref, open_options, NULL);
 	if (ret != 0) {
 		netfs_CloseSession(session_ref);

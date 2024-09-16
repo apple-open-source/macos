@@ -31,7 +31,6 @@
 #if CONFIG_EXCLAVES
 
 #include <mach/kern_return.h>
-#include <xnuproxy/messages.h>
 #include <vm/pmap.h>
 
 __BEGIN_DECLS

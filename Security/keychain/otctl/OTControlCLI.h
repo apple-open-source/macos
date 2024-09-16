@@ -118,6 +118,10 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 
 - (int)joinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey;
 
+- (int)checkRecoveryKeyWithArguments:(OTControlArguments*)arguments;
+
+- (int)preflightJoinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey;
+
 - (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
                               uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
@@ -153,8 +157,23 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
                              uuidString:(NSString*)uuidString
                                 timeout:(NSTimeInterval)timeout;
 
+- (int)recreateInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+                                uuidString:(NSString*_Nullable)uuidString
+                               wrappingKey:(NSString*)wrappingKey
+                                wrappedKey:(NSString*)wrappedKey
+                                claimToken:(NSString*)claimToken
+                                      json:(bool)json
+                                   timeout:(NSTimeInterval)timeout;
+
+- (int)createInheritanceKeyWithClaimTokenAndWrappingKey:(OTControlArguments*)argumentsName
+                                             uuidString:(NSString*_Nullable)uuidString
+                                             claimToken:(NSString*)claimToken
+                                            wrappingKey:(NSString*)wrappingKey
+                                                   json:(bool)json
+                                                timeout:(NSTimeInterval)timeout;
+
 - (int)setMachineIDOverride:(OTControlArguments*)arguments
-                  machineID:(NSString*)machineID
+                  machineID:(NSString* _Nullable)machineID
                        json:(bool)json;
 
 - (int)fetchAccountSettingsWithArguments:(OTControlArguments*)argumentsName

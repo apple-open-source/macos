@@ -205,11 +205,9 @@ class OctagonSOSTests: OctagonTestsBase {
     func testDisablingSOSFeatureFlag() throws {
         self.startCKAccountStatusMock()
         OctagonSetSOSFeatureEnabled(false)
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = "recoveryContext"
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
-
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: "recoveryContext",
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         var clique: OTClique
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext,
@@ -262,10 +260,9 @@ class OctagonSOSTests: OctagonTestsBase {
 
         // And a reset does the right thing with preapprovals as well
         do {
-            let arguments = OTConfigurationContext()
-            arguments.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
-            arguments.context = self.cuttlefishContext.contextID
-            arguments.otControl = self.otControl
+            let arguments = self.createOTConfigurationContextForTests(contextID: self.cuttlefishContext.contextID,
+                                                                      otControl: self.otControl,
+                                                                      altDSID: try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID))
 
             let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2014 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,8 @@
  */
 #define CC_CHANGEFUNCTION_28544056_cccmac_init
 
+#define COMPRESSION_PERFORMANCE 0
+
 #include <sys/param.h>
 #include <sys/malloc.h>
 #include <sys/kernel.h>
@@ -44,6 +46,7 @@
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <libkern/crypto/md5.h>
+#include <compression/compression_kext.h>
 #include <sys/kauth.h>
 
 #include <sys/smb_apple.h>
@@ -54,12 +57,14 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_dev.h>
 #include <netsmb/md4.h>
 #include <netsmb/smb_packets_2.h>
 
 #include <smbfs/smbfs_subr.h>
 #include <netsmb/smb_converter.h>
+#include <smbclient/smbclient_internal.h>
 
 #include <crypto/des.h>
 #include <corecrypto/cchmac.h>
@@ -96,6 +101,11 @@ static int smb3_verify(struct smb_rq *rqp, struct mdchain *mdp,
 static void smb3_sign(struct smb_rq *rqp);
 
 static u_char N8[] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
+
+int smb2_compress_data(uint8_t *data_startp, uint32_t data_len,
+                       uint8_t *compress_startp, uint32_t compress_len,
+                       uint16_t algorithm, int compress_flag,
+                       size_t *actual_len);
 
 
 static void
@@ -687,7 +697,7 @@ smb2_rq_sign(struct smb_rq *rqp)
 {
 	struct smb_session *sessionp;
     struct smb_rq *this_rqp;
-    uint32_t      do_smb3_sign = 0;
+    uint32_t do_smb3_sign = 0;
     
     if (rqp == NULL) {
         SMBDEBUG("Called with NULL rqp\n");
@@ -715,7 +725,7 @@ smb2_rq_sign(struct smb_rq *rqp)
         do_smb3_sign = 1;
     }
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_SIGN | DBG_FUNC_START,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_SIGN | DBG_FUNC_START,
                    do_smb3_sign, 0, 0, 0, 0);
 
     this_rqp = rqp;
@@ -728,7 +738,7 @@ smb2_rq_sign(struct smb_rq *rqp)
         this_rqp = this_rqp->sr_next_rqp;
     }
      
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_SIGN | DBG_FUNC_END,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_SIGN | DBG_FUNC_END,
                    0, 0, 0, 0, 0);
     return (0);
 }
@@ -997,7 +1007,7 @@ smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature)
 		return (0);
     }
     
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_VERIFY | DBG_FUNC_START,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_VERIFY | DBG_FUNC_START,
                    0, 0, 0, 0, 0);
 
     if (SMBV_SMB3_OR_LATER(sessionp)) {
@@ -1012,7 +1022,7 @@ smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature)
         err = EAUTH;
     }
     
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_VERIFY | DBG_FUNC_END,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_VERIFY | DBG_FUNC_END,
                    err, 0, 0, 0, 0);
 
     return (err);
@@ -1789,7 +1799,7 @@ int smb3_rq_encrypt(struct smb_rq *rqp)
     struct mbchain          *mbp, *tmp_mbp;
     struct smb_rq           *tmp_rqp;
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_ENCRYPT | DBG_FUNC_START,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_ENCRYPT | DBG_FUNC_START,
                    0, 0, 0, 0, 0);
 
     switch (sessionp->session_smb3_encrypt_ciper) {
@@ -1823,9 +1833,7 @@ int smb3_rq_encrypt(struct smb_rq *rqp)
         DBG_ASSERT(rqp->sr_next_rqp != NULL);
         
         /*
-         * Create the first chain
-         * Save current sr_rq.mp_top into "m", set sr_rq.mp_top to NULL,
-         * then send "m"
+         * Copy all the requests to just one mbuf chain
          */
         mb = mb_detach(mbp);
         
@@ -1848,14 +1856,41 @@ int smb3_rq_encrypt(struct smb_rq *rqp)
     else {
         /*
          * Not a compound request
-         * Save current sr_rq.mp_top into "m", set sr_rq.mp_top to NULL,
-         * then send "m"
+         * Just get the mbuf chain from the request
          */
-        mb = mb_detach(mbp);
+        if (rqp->sr_flags & SMBR_COMPRESSED) {
+            mb = NULL;
+
+            if (rqp->sr_command == SMB2_WRITE) {
+                /* Get compressed mbuf chain */
+                mbp = &rqp->sr_rq_compressed;
+                mb = mb_detach(mbp);
+                
+                if (mb == NULL) {
+                    /* Sanity checks */
+                    SMBERROR("Compressed write missing mbuf? \n");
+                }
+            }
+            else {
+                /* Sanity check */
+                SMBERROR("Found compressed req <%d> that is not a write? \n",
+                         rqp->sr_command);
+            }
+            
+            if (mb == NULL) {
+                /* Something went wrong, just fall back to normal mbp */
+                smb_rq_getrequest(rqp, &mbp);
+                mb = mb_detach(mbp);
+            }
+        }
+        else {
+            /* Not compressed request */
+            mb = mb_detach(mbp);
+        }
     }
     
     mb_hdr = NULL;
-    
+
     /* Declare ciphers */
     ccccm_ctx_decl(ccmode->size, ctx);
     ccccm_nonce_decl(ccmode->nonce_size, nonce_ctx);
@@ -2074,7 +2109,11 @@ int smb3_rq_encrypt(struct smb_rq *rqp)
     m_fixhdr(mb_hdr);
     mb = mb_hdr;
     
-    /* Store it back into the rqp */
+    /*
+     * Store it back into the rqp's mbchain_t
+     * If it was a compressed request, then mbp should still be pointing at
+     * the compressed mbchain_t
+     */
     mb_initm(mbp, mb);
     
 out:
@@ -2091,7 +2130,7 @@ out:
     
     ccgcm_ctx_clear(gcmode->size, gcm_ctx);
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_ENCRYPT | DBG_FUNC_END,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_ENCRYPT | DBG_FUNC_END,
                    error, 0, 0, 0, 0);
 
     return (error);
@@ -2121,7 +2160,7 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
     nanotime(&start);
 #endif
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_DECRYPT | DBG_FUNC_START,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_DECRYPT | DBG_FUNC_START,
                    0, 0, 0, 0, 0);
 
     switch (sessionp->session_smb3_encrypt_ciper) {
@@ -2411,7 +2450,7 @@ out:
     
     ccgcm_ctx_clear(gcmode->size, gcm_ctx);
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RQ_DECRYPT | DBG_FUNC_END,
+    SMB_LOG_KTRACE(SMB_DBG_RQ_DECRYPT | DBG_FUNC_END,
                    error, 0, 0, 0, 0);
 
     return (error);
@@ -2939,3 +2978,1354 @@ smb_test_crypt_performance(struct smb_session *sessionp,
 	}
 }
 #endif
+
+int smb2_compress_data(uint8_t *data_startp, uint32_t data_len,
+                       uint8_t *compress_startp, uint32_t compress_len,
+                       uint16_t algorithm, int compress_flag,
+                       size_t *actual_len)
+{
+    int error = 0;
+    size_t scratch_size = 0;
+    char *scratch_bufferp = NULL;
+    size_t actual_size = 0;
+    compression_algorithm compress_algorithm = 0;
+#if COMPRESSION_PERFORMANCE
+    struct timespec start, stop;
+    nanotime(&start);
+#endif
+
+    switch(algorithm) {
+        case SMB2_COMPRESSION_LZNT1:
+            compress_algorithm = COMPRESSION_SMB_LZNT1;
+            break;
+    
+        case SMB2_COMPRESSION_LZ77:
+            compress_algorithm = COMPRESSION_SMB_LZ77;
+            break;
+
+        case SMB2_COMPRESSION_LZ77_HUFFMAN:
+            compress_algorithm = COMPRESSION_SMB_LZ77H;
+            break;
+
+        default:
+            SMBERROR("Unknown algorithm %d \n", algorithm);
+            error = EINVAL;
+            goto bad;
+    }
+    
+    if (compress_flag == COMPRESSION_STREAM_ENCODE) {
+        scratch_size = compression_encode_scratch_buffer_size(compress_algorithm);
+    }
+    else {
+        scratch_size = compression_decode_scratch_buffer_size(compress_algorithm);
+    }
+
+    /* Malloc scratch buffer if needed */
+    if (scratch_size > 0) {
+        SMB_MALLOC_DATA(scratch_bufferp, scratch_size, Z_WAITOK);
+        if (scratch_bufferp == NULL) {
+            error = ENOMEM;
+            goto bad;
+        }
+    }
+
+    SMB_LOG_COMPRESS("compress_algorithm %u scratch buffer size %zu compress_len %d data_len %d\n",
+                     compress_algorithm, scratch_size, compress_len, data_len);
+
+#if COMPRESSION_PERFORMANCE
+    nanotime(&stop);
+    
+    SMBERROR("%s start. algorithm %d data_len %u compress_len %d elapsed %ld:%ld \n",
+             (compress_flag == COMPRESSION_STREAM_ENCODE) ? "Encode" : "Decode",
+             algorithm, data_len, compress_len,
+             stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+    if (compress_flag == COMPRESSION_STREAM_ENCODE) {
+        actual_size = compression_encode_buffer(compress_startp, compress_len,
+                                                data_startp, data_len,
+                                                scratch_bufferp, compress_algorithm);
+    }
+    else {
+        actual_size = compression_decode_buffer(data_startp, data_len,
+                                                compress_startp, compress_len,
+                                                scratch_bufferp, compress_algorithm);
+    }
+#if COMPRESSION_PERFORMANCE
+    nanotime(&stop);
+    
+    SMBERROR("%s done. actual_size %zu elapsed %ld:%ld \n",
+             (compress_flag == COMPRESSION_STREAM_ENCODE) ? "Encode" : "Decode",
+             actual_size,
+             stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+    if (actual_size == 0) {
+        if (compress_flag == COMPRESSION_STREAM_ENCODE) {
+            /*
+             * We can get an (actual_size == 0) when the compressed data is
+             * going to end up larger than the original data. This is not
+             * really an error to log but it does mean that we should just
+             * send the uncompressed write data instead
+             */
+            SMB_LOG_COMPRESS("Compression failed \n");
+        }
+        else {
+            /* Being unable to decompress read data is an error */
+            SMBERROR("Decompression failed \n");
+            
+            error = EINVAL;
+            goto bad;
+        }
+    }
+    else {
+        SMB_LOG_COMPRESS("actual_size %zu (0x%zx) \n", actual_size, actual_size);
+    }
+
+    /* Compression worked, return actual compression size */
+    *actual_len = actual_size;
+    
+    error = 0;
+
+bad:
+    if (scratch_bufferp != NULL) {
+        SMB_FREE_DATA(scratch_bufferp, scratch_size);
+    }
+    
+    return(error);
+}
+
+int
+smb2_rq_compress_chunk(struct smb_session *sessionp, uint16_t algorithm,
+                       uint8_t *write_bufferp, uint32_t write_buffer_len,
+                       uint32_t *forward_data_repetitions, char *forward_data_char,
+                       uint32_t *backward_data_repetitions, char *backward_data_char,
+                       uint8_t *compress_startp, uint32_t *data_len,
+                       size_t *actual_len)
+{
+    int error = 0;
+    uint32_t i = 0;
+    uint32_t backward_data_stop = 0;
+    uint8_t *data_startp = NULL;
+    uint32_t compress_len = 0, RemainingChunkSize = write_buffer_len;
+#if COMPRESSION_PERFORMANCE
+    struct timespec start, stop;
+    nanotime(&start);
+#endif
+
+    *data_len = 0;
+    *actual_len = 0;
+    *forward_data_repetitions = 1;
+    *backward_data_repetitions = 1;
+
+    /*
+     * Scan for forward data pattern
+     */
+    *forward_data_char = write_bufferp[0];
+    *forward_data_repetitions = 1;
+    for (i = 1; i < write_buffer_len; i++) {
+        if (write_bufferp[i] == *forward_data_char) {
+            *forward_data_repetitions += 1;
+        }
+        else {
+            break;
+        }
+    }
+    
+    if (*forward_data_repetitions > 1) {
+        sessionp->write_cnt_fwd_pattern += 1;
+
+        /* Update uncompressed data length */
+        RemainingChunkSize -= *forward_data_repetitions;
+        SMB_LOG_COMPRESS("Forward Pattern: forward_data_repetitions %d (0x%x) RemainingChunkSize %d \n",
+                         *forward_data_repetitions,
+                         *forward_data_repetitions,
+                         RemainingChunkSize);
+
+#if COMPRESSION_PERFORMANCE
+        nanotime(&stop);
+    
+        SMBERROR("Forward. forward_data_repetitions %d RemainingChunkSize %u elapsed %ld:%ld\n",
+                 forward_data_repetitions, RemainingChunkSize,
+                 stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+    }
+
+    /*
+     * Any uncompressed data left to check for backwards data pattern?
+     */
+    if (RemainingChunkSize) {
+        /*
+         * Scan for backwards data pattern
+         */
+        if (*forward_data_repetitions > 1) {
+            /* adjust for write buffer offset starting at 0 */
+            backward_data_stop = *forward_data_repetitions - 1;
+        }
+        else {
+            /*
+             * Can skip write_bufferp[0] since forward scan would have
+             * covered that case
+             */
+            backward_data_stop = 1;
+        }
+        
+        *backward_data_char = write_bufferp[write_buffer_len - 1];
+        *backward_data_repetitions = 1;
+        for (i = write_buffer_len - 2; i > backward_data_stop; i--) {
+            if (write_bufferp[i] == *backward_data_char) {
+                *backward_data_repetitions += 1;
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (*backward_data_repetitions > 1) {
+            sessionp->write_cnt_bwd_pattern += 1;
+
+            /* Update uncompressed data length */
+            RemainingChunkSize -= *backward_data_repetitions;
+            SMB_LOG_COMPRESS("Backward Pattern: backward_data_repetitions %d (0x%x) RemainingChunkSize %d \n",
+                             *backward_data_repetitions,
+                             *backward_data_repetitions,
+                             RemainingChunkSize);
+
+#if COMPRESSION_PERFORMANCE
+            nanotime(&stop);
+    
+            SMBERROR("Backward. backward_data_repetitions %d RemainingChunkSize %u elapsed %ld:%ld \n",
+                     backward_data_repetitions, RemainingChunkSize,
+                     stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+        }
+    }
+
+    /*
+     * Any uncompressed data left to check for algorithm compression?
+     * Start is write_bufferp[forward_data_repetitions - 1]
+     * Length is write_buffer_len - backward_data_repetitions
+     */
+    if (RemainingChunkSize) {
+        data_startp = write_bufferp;
+        *data_len = write_buffer_len;
+        
+        /* Any forward data repetitions to skip over? */
+        if (*forward_data_repetitions > 1) {
+            data_startp += *forward_data_repetitions;
+            *data_len -= *forward_data_repetitions;
+        }
+        
+        /* Any backwards data repetitions to skip over? */
+        if (*backward_data_repetitions > 1) {
+            *data_len -= *backward_data_repetitions;
+        }
+        
+        if (RemainingChunkSize != *data_len) {
+            /* Sanity check */
+            SMB_LOG_COMPRESS("RemainingChunkSize %u != data_len %u??? \n",
+                             RemainingChunkSize, *data_len);
+        }
+        
+        /*
+         * Do algorithmic compression here
+         * Use preallocated buffer in compress_startp that is same size of
+         * original write data with assumption that compressed data will be
+         * smaller.
+         */
+        compress_len = *data_len;
+        
+        error = smb2_compress_data(data_startp, *data_len,
+                                   compress_startp, compress_len,
+                                   algorithm, COMPRESSION_STREAM_ENCODE,
+                                   actual_len);
+        if (error) {
+            SMBERROR("smb2_compress_decompress_data failed %d \n", error);
+        }
+        else {
+            /* Update uncompressed data length */
+            RemainingChunkSize -= compress_len;
+
+            if (*actual_len == 0) {
+                /*
+                 * Failed to compress data, so just copy uncompressed data
+                 * into compress_startp
+                 */
+                memcpy(compress_startp, data_startp, compress_len);
+                
+                SMB_LOG_COMPRESS("None: compress_len %d (0x%x) RemainingChunkSize %d\n",
+                                 compress_len, compress_len,
+                                 RemainingChunkSize);
+                
+            }
+            else {
+                SMB_LOG_COMPRESS("Algorithm %d: compress_len %d (0x%x) RemainingChunkSize %d\n",
+                                 algorithm, compress_len, compress_len,
+                                 RemainingChunkSize);
+            }
+            
+        }
+        
+#if COMPRESSION_PERFORMANCE
+        nanotime(&stop);
+    
+        SMBERROR("Algorithm %d. compress_len %d RemainingChunkSize %u elapsed %ld:%ld \n",
+                 algorithm, compress_len, RemainingChunkSize,
+                 stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+    }
+
+    return (error);
+}
+
+
+/*
+ * SMB 3 Compress a Write request
+ */
+int
+smb2_rq_compress_write(struct smb_rq *rqp)
+{
+    struct smb_session *sessionp = NULL;
+    uint32_t chained_compress = 1, RemainingUncompressedDataSize = 0;
+    uint32_t forward_data_repetitions = 0, backward_data_repetitions = 0;
+    char forward_data_char = 0, backward_data_char = 0;
+    mbuf_t m;
+    struct mbchain *original_mbp = NULL, *compressed_mbp = NULL;
+    struct mdchain temp_mbdata;
+    int error = 0;
+    struct smb2_hdr_and_write {
+        struct smb2_header smb2_hdr;
+        uint16_t structure_size;
+        uint16_t data_offset;
+        uint32_t length;
+        uint64_t offset;
+        uint64_t file_id[2];
+        uint32_t channel;
+        uint32_t remaining_bytes;
+        uint16_t write_channel_info_offset;
+        uint16_t write_channel_info_length;
+        uint32_t flags;
+    } __attribute((packed)) hdr_write;
+    uint8_t *bufferp = NULL, *write_bufferp = NULL, *data_startp = NULL, *compress_startp = NULL;
+    uint32_t originalCompressedSegmentSize = 0, write_buffer_len = 0;
+    uint32_t buffer_len = 0, data_len = 0, compress_len = 0;
+    size_t actual_len = 0;
+    uint16_t algorithm = 0;
+    uint32_t chunk_len = 0, one_chunk_compressed = 0;
+#if COMPRESSION_PERFORMANCE
+    struct timespec start, stop;
+    nanotime(&start);
+#endif
+    
+    if (rqp == NULL) {
+        SMBERROR("Called with NULL rqp\n");
+        return(EINVAL);
+    }
+
+    sessionp = rqp->sr_session;
+    
+    if (sessionp == NULL) {
+        SMBERROR("sessionp is NULL\n");
+        return(EINVAL);
+    }
+
+    /* If not SMB 3, then just return */
+    if (!SMBV_SMB3_OR_LATER(sessionp)) {
+        /* Should have been checked before calling this function */
+        SMB_LOG_COMPRESS("Not SMB 3 or later \n");
+        return(0);
+    }
+
+    /* Is compression supported by server? */
+    if (sessionp->server_compression_algorithms_map == 0) {
+        /* Should have been checked before calling this function */
+        SMB_LOG_COMPRESS("Server does not support compression \n");
+        return(0);
+    }
+
+    if (rqp->sr_flags & SMBR_COMPOUND_RQ) {
+        /*
+         * Compound writes are not compressed since its probably a small
+         * write.
+         */
+        return(0);
+    }
+    
+    if (rqp->sr_command != SMB2_WRITE) {
+        SMB_LOG_COMPRESS("Trying to compress non write request <%d>? \n",
+                         rqp->sr_command);
+        return(0);
+    }
+
+    if (rqp->sr_extflags & SMB2_NO_COMPRESS_WRITE) {
+        /* This write not allowed to be compressed */
+        return(0);
+    }
+
+    if (sessionp->server_compression_algorithms_map & SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED) {
+        sessionp->write_cnt_LZ77Huff += 1;
+        algorithm = SMB2_COMPRESSION_LZ77_HUFFMAN;
+    }
+    else {
+        if (sessionp->server_compression_algorithms_map & SMB2_COMPRESSION_LZ77_ENABLED) {
+            sessionp->write_cnt_LZ77 += 1;
+            algorithm = SMB2_COMPRESSION_LZ77;
+        }
+        else {
+            if (sessionp->server_compression_algorithms_map & SMB2_COMPRESSION_LZNT1_ENABLED) {
+                sessionp->write_cnt_LZNT1 += 1;
+                algorithm = SMB2_COMPRESSION_LZNT1;
+            }
+            else {
+                SMB_LOG_COMPRESS("Unknown server compression 0x%x \n",
+                                 sessionp->server_compression_algorithms_map);
+                return(0);
+            }
+        }
+    }
+
+    /* Is chained compression supported by server? */
+    if (sessionp->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF) {
+        //SMB_LOG_COMPRESS("Chained compression disabled \n");
+        chained_compress = 0;
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_WRITE_COMPRESS | DBG_FUNC_START,
+                   sessionp->server_compression_algorithms_map,
+                   chained_compress,
+                   0, 0, 0);
+
+    /*
+     * Will need a new mbp to build the compressed request to send out
+     * Note that it is attached to rqp->sr_rq_compressed and SMBR_COMPRESSED
+     * is set in rqp->sr_flags.
+     */
+    compressed_mbp = &rqp->sr_rq_compressed;
+    if (compressed_mbp == NULL) {
+        SMBERROR("sr_rq_compressed is NULL? \n");
+        return(EINVAL);
+    }
+    
+    error = mb_init(compressed_mbp);
+    if (error) {
+        return error;
+    }
+    
+    /* Need a temp_mbdata to parse some data out of original request */
+    smb_rq_getrequest(rqp, &original_mbp);
+    m = original_mbp->mb_top;
+    md_initm(&temp_mbdata, m);    /* DO NOT FREE temp_mbdata! */
+
+    
+    /*
+     * If its NOT a write, then compress everything.
+     * If its a write, then skip first 70 bytes and then compress
+     * the rest. At this time we only compress write requests.
+     */
+
+
+    /*
+     * Get SMB2 hdr and Write request from original request
+     * Windows 11 Client behavior
+     * 1. If chained compression, then first compression payload is the
+     *    the non compressed SMB2 hdr and write request
+     * 2. If non chained compression, then the Offset is set to skip
+     *    the non compressed SMB2 hdr and write request thus the compression
+     *    is only done to the actual write payload.
+     */
+    error = md_get_mem(&temp_mbdata, (caddr_t) &hdr_write, sizeof(hdr_write),
+                       MB_MSYSTEM);
+    if (error) {
+        SMBERROR("md_get_mem for header and write failed %d \n", error);
+        goto bad;
+    }
+
+    if (hdr_write.length == 0) {
+        /* Paranoid check */
+        SMBERROR("Write length is zero? \n");
+        error = EINVAL;
+        goto bad;
+    }
+    
+    /*
+     * Do we have enough write data to compress?
+     * Minimum of two for the data pattern checks later on in this code
+     */
+    write_buffer_len = hdr_write.length;
+    if ((write_buffer_len < 2) ||
+        (write_buffer_len < sessionp->compression_io_threshold)) {
+        /*SMB_LOG_COMPRESS("Write too small to compress %u < %u \n",
+                         write_buffer_len, sessionp->compression_io_threshold);*/
+        error = 0;
+        goto bad;
+    }
+
+    SMB_LOG_COMPRESS("Algorithm: %s, %s, MessageID %llu, Write length %d, offset %llu \n",
+                     algorithm == SMB2_COMPRESSION_LZNT1 ? "LZNT1" :
+                     (algorithm == SMB2_COMPRESSION_LZ77 ? "LZ77" : "LZ77Huffman"),
+                     (chained_compress == 1) ? "Chained" : "Nonchained",
+                     hdr_write.smb2_hdr.message_id,
+                     hdr_write.length, hdr_write.offset);
+
+    if (chained_compress) {
+        /* For chained compression, update original segment size */
+        originalCompressedSegmentSize += sizeof(hdr_write);
+        SMB_LOG_COMPRESS("Chained Hdr/Write length: originalCompressedSegmentSize %d (0x%x)\n",
+                         originalCompressedSegmentSize,
+                         originalCompressedSegmentSize);
+    }
+
+    /*
+     * Do just one malloc of (2 x write_buffer_len) to reduce
+     * doing a bunch of smaller mallocs. 2x because need one buffer to hold
+     * compressed data and another to hold the decompressed data.
+     */
+    buffer_len = write_buffer_len * 2;
+    SMB_MALLOC_DATA(bufferp, buffer_len, Z_WAITOK);
+    if (bufferp == NULL) {
+        error = ENOMEM;
+        goto bad;
+    }
+
+    compress_startp = bufferp;
+    //compress_len = write_buffer_len;  /* Should get set later */
+    
+    write_bufferp = bufferp + write_buffer_len;
+    //data_len = write_buffer_len;      /* Should get set later */
+
+    /* Copy Write data from original request into local buffer */
+    error = md_get_mem(&temp_mbdata, (caddr_t) write_bufferp, write_buffer_len,
+                       MB_MSYSTEM);
+    if (error) {
+        SMBERROR("md_get_mem for write data failed %d \n", error);
+        goto bad;
+    }
+
+    /* Update original segment size */
+    originalCompressedSegmentSize += write_buffer_len;
+    SMB_LOG_COMPRESS("Add write len: originalCompressedSegmentSize %d \n",
+                     originalCompressedSegmentSize);
+
+    /* Update uncompressed data length */
+    RemainingUncompressedDataSize = originalCompressedSegmentSize;
+    SMB_LOG_COMPRESS("RemainingUncompressedDataSize %d \n",
+                     RemainingUncompressedDataSize);
+
+#if COMPRESSION_PERFORMANCE
+    nanotime(&stop);
+    
+    SMBERROR("Setup done. RemainingUncompressedDataSize %u elapsed %ld:%ld \n",
+             RemainingUncompressedDataSize,
+             stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+    if (chained_compress) {
+        /*
+         * Build Compression Transform Header Chained
+         */
+        mb_put_mem(compressed_mbp, SMB2_SIGNATURE_COMPRESSION, SMB2_SIGLEN_COMPRESSION,
+                   MB_MSYSTEM);                                             /* Protocol ID */
+        mb_put_uint32le(compressed_mbp, originalCompressedSegmentSize);     /* Original Compressed Segment Size*/
+        
+        /*
+         * Add uncompressed SMB2 header and write request
+         */
+        mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_NONE);             /* CompressionAlgorithm */
+        mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_CHAINED);     /* Flags */
+        mb_put_uint32le(compressed_mbp, sizeof(hdr_write));                 /* CompressedDataLength */
+        /* Since not LZNT1, LZ77 or LZ77+Huffman, can skip OrignalPayloadSize */
+
+        /* Put SMB2 hdr and Write request into compression payload */
+        mb_put_mem(compressed_mbp, (caddr_t)&hdr_write, sizeof(hdr_write), MB_MSYSTEM);
+
+        RemainingUncompressedDataSize -= sizeof(hdr_write); /* non compressed part */
+        SMB_LOG_COMPRESS("None: hdr size %lu RemainingUncompressedDataSize %d \n",
+                         sizeof(hdr_write),
+                         RemainingUncompressedDataSize);
+
+        /*
+         * Process the rest of the uncompressed data in MAX_CHUNK_LEN chunks
+         * checking for forward/algorithm/backward
+         */
+        while (RemainingUncompressedDataSize > 0) {
+            SMB_LOG_COMPRESS("Processing RemainingUncompressedDataSize %d compression_chunk_len %d\n",
+                             RemainingUncompressedDataSize, sessionp->compression_chunk_len);
+
+            chunk_len = RemainingUncompressedDataSize;
+            if (chunk_len > (uint32_t) sessionp->compression_chunk_len) {
+                chunk_len = (uint32_t) sessionp->compression_chunk_len;
+            }
+            
+            /* Process this write chunk */
+            error = smb2_rq_compress_chunk(sessionp, algorithm,
+                                           write_bufferp, chunk_len,
+                                           &forward_data_repetitions, &forward_data_char,
+                                           &backward_data_repetitions, &backward_data_char,
+                                           compress_startp, &data_len,
+                                           &actual_len);
+            if (error) {
+                SMBERROR("smb2_rq_compress_chunk failed %d \n", error);
+                goto bad;
+            }
+
+            /* Did we save any space at all in this chunk? */
+            if (one_chunk_compressed == 0) {
+                if ((actual_len != 0) ||
+                    (forward_data_repetitions > 1) ||
+                    (backward_data_repetitions > 1)) {
+                    /* Save that one chunk did save some space */
+                    one_chunk_compressed = 1;
+                }
+            }
+            
+            /*
+             * Check to see if forward data pattern was found
+             */
+            if (forward_data_repetitions > 1) {
+                mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_PATTERN_V1);   /* CompressionAlgorithm */
+                mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_NONE);    /* Flags */
+                mb_put_uint32le(compressed_mbp, 8);                             /* CompressedDataLength */
+                /* Since not LZNT1, LZ77 or LZ77+Huffman, can skip OrignalPayloadSize */
+
+                /* Pattern_V1 payload */
+                mb_put_uint8(compressed_mbp, forward_data_char);                /* Pattern */
+                mb_put_uint8(compressed_mbp, 0);                                /* Reserved1 */
+                mb_put_uint16le(compressed_mbp, 0);                             /* Reserved2 */
+                mb_put_uint32le(compressed_mbp, forward_data_repetitions);      /* Repetitions */
+            }
+
+            /*
+             * Check for algorithmic compressed data to add
+             * actual_len is the compressed data length
+             */
+            if (actual_len != 0) {
+                /* Add compressed data */
+                mb_put_uint16le(compressed_mbp, algorithm);                     /* CompressionAlgorithm */
+                mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_NONE);    /* Flags */
+                /*
+                 * Note that compress_len includes the OriginalPayloadSize
+                 * thus need to add in it's size
+                 */
+                mb_put_uint32le(compressed_mbp, (uint32_t) actual_len + 4);     /* CompressedDataLength */
+                mb_put_uint32le(compressed_mbp, data_len);                      /* OriginalDataLength */
+
+                /* Put compressed data into compression payload */
+                mb_put_mem(compressed_mbp, (caddr_t)compress_startp, actual_len, MB_MSYSTEM);
+            }
+            else {
+                if (data_len != 0) {
+                    /* Data failed to compress so add uncompressed data */
+                    mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_NONE);             /* CompressionAlgorithm */
+                    mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_NONE);        /* Flags */
+                    mb_put_uint32le(compressed_mbp, data_len);                          /* CompressedDataLength */
+                    /* Since not LZNT1, LZ77 or LZ77+Huffman, can skip OrignalPayloadSize */
+
+                    /* Put uncompressed data into compression payload */
+                    mb_put_mem(compressed_mbp, (caddr_t)compress_startp, data_len, MB_MSYSTEM);
+                }
+            }
+            
+            /*
+             * Check to see if backward data pattern was found
+             */
+            if (backward_data_repetitions > 1) {
+                mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_PATTERN_V1);   /* CompressionAlgorithm */
+                mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_NONE);    /* Flags */
+                mb_put_uint32le(compressed_mbp, 8);                             /* CompressedDataLength */
+                /* Since not LZNT1, LZ77 or LZ77+Huffman, can skip OrignalPayloadSize */
+
+                /* Pattern_V1 payload */
+                mb_put_uint8(compressed_mbp, backward_data_char);               /* Pattern */
+                mb_put_uint8(compressed_mbp, 0);                                /* Reserved1 */
+                mb_put_uint16le(compressed_mbp, 0);                             /* Reserved2 */
+                mb_put_uint32le(compressed_mbp, backward_data_repetitions);     /* Repetitions */
+            }
+
+            /* Update values and loop around again */
+            write_bufferp += chunk_len;
+            RemainingUncompressedDataSize -= chunk_len;
+        }
+        
+        /*
+         * If none of the chunks saved any space, then just send the original
+         * write request instead
+         */
+        if (one_chunk_compressed == 0) {
+            /* Mark that this write failed to compress */
+            rqp->sr_extflags |= SMB2_FAILED_COMPRESS_WRITE;
+            
+            /* free the compressed mbp we have been building */
+            mb_done(compressed_mbp);
+
+            /*
+             * Leave WITHOUT setting the SMBR_COMPRESSED flags so that
+             * original write request will be sent instead
+             */
+            error = 0;
+            goto bad;
+        }
+
+        /* Mark the request as compressed */
+        rqp->sr_flags |= SMBR_COMPRESSED;
+        
+        error = 0;
+    }
+    else {
+        /* For non chained compression, just compress everything */
+        data_startp = write_bufferp;
+        data_len = write_buffer_len;
+
+        /*
+         * Do algorithmic compression here
+         * Use preallocated buffer in compress_startp that is same size of
+         * original write data with assumption that compressed data will be
+         * smaller.
+         */
+        compress_len = data_len;
+
+        error = smb2_compress_data(data_startp, data_len,
+                                   compress_startp, compress_len,
+                                   algorithm, COMPRESSION_STREAM_ENCODE,
+                                   &actual_len);
+        if (error) {
+            SMBERROR("smb2_compress_decompress_data failed %d \n", error);
+            goto bad;
+        }
+        
+#if COMPRESSION_PERFORMANCE
+        nanotime(&stop);
+    
+        SMBERROR("Algorithm %d. compress_len %u elapsed %ld:%ld \n",
+                 algorithm, compress_len,
+                 stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+        /*
+         * This should be very rare since we are compressing all the write
+         * data, but we will have this check just to be paranoid.
+         *
+         * If the compressed data would be larger than original data,
+         * then (error == 0) and (actual_len == 0). In this case, just
+         * send the original write request instead.
+         */
+        if (actual_len == 0) {
+            /* Mark that this write failed to compress */
+            rqp->sr_extflags |= SMB2_FAILED_COMPRESS_WRITE;
+            
+            /* free the compressed mbp we have been building */
+            mb_done(compressed_mbp);
+
+            /*
+             * Leave WITHOUT setting the SMBR_COMPRESSED flags so that
+             * original write request will be sent instead
+             */
+            error = 0;
+            goto bad;
+        }
+
+        /* Update uncompressed data length */
+        RemainingUncompressedDataSize -= data_len;
+
+        /*
+         * Build Compression Transform Header Non Chained
+         */
+        mb_put_mem(compressed_mbp, SMB2_SIGNATURE_COMPRESSION, SMB2_SIGLEN_COMPRESSION,
+                   MB_MSYSTEM);                                             /* Protocol ID */
+        mb_put_uint32le(compressed_mbp, originalCompressedSegmentSize);     /* Original Compressed Segment Size*/
+        mb_put_uint16le(compressed_mbp, algorithm);                         /* CompressionAlgorithm */
+        mb_put_uint16le(compressed_mbp, SMB2_COMPRESSION_FLAG_NONE);        /* Flags */
+        mb_put_uint32le(compressed_mbp, sizeof(hdr_write));                 /* Offset */
+
+        /* Put SMB2 hdr and Write request into compression payload */
+        mb_put_mem(compressed_mbp, (caddr_t)&hdr_write, sizeof(hdr_write), MB_MSYSTEM);
+
+        /* Put compressed data into compression payload */
+        mb_put_mem(compressed_mbp, (caddr_t)compress_startp, actual_len, MB_MSYSTEM);
+        
+        /* Mark the request as compressed */
+        rqp->sr_flags |= SMBR_COMPRESSED;
+        
+        error = 0;
+    }
+ 
+#if COMPRESSION_PERFORMANCE
+    nanotime(&stop);
+    
+    SMBERROR("Done. elapsed %ld:%ld \n",
+             stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+    /* Paranoid check */
+    if (RemainingUncompressedDataSize > 0) {
+        SMBERROR("Why is there still uncompressed data %d? \n",
+                 RemainingUncompressedDataSize);
+    }
+
+    sessionp->write_compress_cnt += 1;
+    
+bad:
+    SMB_LOG_KTRACE(SMB_DBG_WRITE_COMPRESS | DBG_FUNC_END,
+                   error, 0, 0, 0, 0);
+    
+    if (bufferp != NULL) {
+        SMB_FREE_DATA(bufferp, buffer_len);
+        bufferp = NULL;
+    }
+
+    return (error);
+}
+
+/*
+ * SMB 3 Decompress a Read reply
+ */
+int
+smb2_rq_decompress_read(struct smb_session *sessionp, mbuf_t *mpp)
+{
+    uint32_t chained_compress = 1, CurrentDecompressedDataSize = 0;
+    uint32_t pattern_repetitions = 0;
+    char pattern_char = 0;
+    struct mdchain compressed_mdp = {0};
+    struct mbchain decompressed_mbp = {0};
+    int error = 0, decompress_called = 0;
+    uint32_t originalCompressedSegmentSize = 0, offset = 0, read_smb_hdr = 0;
+    uint8_t *bufferp = NULL, *data_startp = NULL, *compress_startp = NULL;
+    uint32_t buffer_len = 0, data_len = 0, compress_len = 0;
+    uint32_t protocol_id = 0, original_payload_size = 0;
+    uint16_t algorithm, flags;
+    size_t actual_len = 0;
+    struct smb2_header smb2_hdr = {0}, *smb2_hdrp = NULL;
+    
+#if COMPRESSION_PERFORMANCE
+    struct timespec start, stop;
+    nanotime(&start);
+#endif
+
+    if ((mpp == NULL) || (sessionp == NULL))  {
+        SMBERROR("Called with NULL mpp or sessionp \n");
+        return(EINVAL);
+    }
+
+    /* If not SMB 3, then just return */
+    if (!SMBV_SMB3_OR_LATER(sessionp)) {
+        /* Should have been checked before calling this function */
+        SMB_LOG_COMPRESS("Not SMB 3 or later \n");
+        return(0);
+    }
+
+    /* Is compression supported by server? */
+    if (sessionp->server_compression_algorithms_map == 0) {
+        /* Should have been checked before calling this function */
+        SMB_LOG_COMPRESS("Server does not support compression \n");
+        return(0);
+    }
+
+    /* Is chained compression supported by server? */
+    if (sessionp->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF) {
+        //SMB_LOG_COMPRESS("Chained compression disabled \n");
+        chained_compress = 0;
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_READ_DECOMPRESS | DBG_FUNC_START,
+                   sessionp->server_compression_algorithms_map,
+                   chained_compress,
+                   0, 0, 0);
+
+    /* Will need a new mbp to build the decompressed reply */
+    error = mb_init(&decompressed_mbp); /* DO NOT FREE decompressed_mbp! */
+    if (error) {
+        SMBERROR("mb_init failed %d \n", error);
+        return error;
+    }
+
+    /* Get compressed mdp to parse */
+    md_initm(&compressed_mdp, *mpp);    /* DO NOT FREE compressed_mdp! */
+    
+    /*
+     * Parse Compression Transform Header Chained/Unchained common part
+     */
+
+    /* Get Protocol ID */
+    error = md_get_uint32le(&compressed_mdp, &protocol_id);
+    if (error) {
+        goto bad;
+    }
+
+    /* Get Original */
+    error = md_get_uint32le(&compressed_mdp, &originalCompressedSegmentSize);
+    if (error) {
+        goto bad;
+    }
+
+    /* Sanity check originalCompressedSegmentSize */
+    if (originalCompressedSegmentSize > kDefaultMaxIOSize) {
+        SMBERROR("originalCompressedSegmentSize too big %d \n",
+                 originalCompressedSegmentSize);
+        error = E2BIG;
+        return error;
+    }
+
+    SMB_LOG_COMPRESS("originalCompressedSegmentSize: %d (0x%x) \n",
+                     originalCompressedSegmentSize, originalCompressedSegmentSize);
+
+    /*
+     * Do just one malloc of (2 x originalCompressedSegmentSize) to reduce
+     * doing a bunch of smaller mallocs. 2x because need one buffer to hold
+     * compressed data and another to hold the decompressed data.
+     */
+    buffer_len = originalCompressedSegmentSize * 2;
+    SMB_MALLOC_DATA(bufferp, buffer_len, Z_WAITOK);
+    if (bufferp == NULL) {
+        error = ENOMEM;
+        goto bad;
+    }
+
+    compress_startp = bufferp;
+    //compress_len = originalCompressedSegmentSize; /* Should get set later */
+    
+    data_startp = bufferp + originalCompressedSegmentSize;
+    //data_len = originalCompressedSegmentSize;     /* Should get set later */
+
+    while (CurrentDecompressedDataSize < originalCompressedSegmentSize) {
+        /*
+         * Get compression chained payload header
+         */
+        
+        /* Get CompressionAlgorithm */
+        error = md_get_uint16le(&compressed_mdp, &algorithm);
+        if (error) {
+            goto bad;
+        }
+
+        /* Get Flags */
+        error = md_get_uint16le(&compressed_mdp, &flags);
+        if (error) {
+            goto bad;
+        }
+        SMB_LOG_COMPRESS("Flags: %s (0x%x) \n",
+                         (flags & SMB2_COMPRESSION_FLAG_CHAINED) ? "Chained" : "Nonchained",
+                         flags);
+
+        if (chained_compress) {
+            /* Chained compression - Get CompressedDataLength */
+            error = md_get_uint32le(&compressed_mdp, &compress_len);
+            if (error) {
+                goto bad;
+            }
+            SMB_LOG_COMPRESS("compress_len: %d (0x%x) \n", compress_len, compress_len);
+        }
+        else {
+            /* Nonchained compression - Get Offset */
+            error = md_get_uint32le(&compressed_mdp, &offset);
+            if (error) {
+                goto bad;
+            }
+            
+            /* Sanity check the offset */
+            if (offset > (originalCompressedSegmentSize - CurrentDecompressedDataSize)) {
+                SMBERROR("offset %d > remaining to decompress len %d? \n",
+                         offset, (originalCompressedSegmentSize - CurrentDecompressedDataSize));
+                error = EINVAL;
+                goto bad;
+            }
+            compress_len = offset;
+
+#if COMPRESSION_PERFORMANCE
+            nanotime(&stop);
+    
+            SMBERROR("Setup done. compress_len %u elapsed %ld:%ld \n",
+                     compress_len,
+                     stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+            SMB_LOG_COMPRESS("offset: %d (0x%x) \n", offset, offset);
+
+            /*
+             * Even non chained reads can have an offset of 0 meaning the
+             * entire read reply is compressed
+             */
+            if (compress_len > 0) {
+                if ((smbfs_loglevel & SMB_COMPRESSION_LOG_LEVEL) &&
+                    (compress_len > sizeof(smb2_hdr))) {
+                    /* Get SMB header so we can log the MessageID for debugging */
+                    error = md_get_mem(&compressed_mdp, (caddr_t) &smb2_hdr, sizeof(smb2_hdr),
+                                       MB_MSYSTEM);
+                    if (error) {
+                        goto bad;
+                    }
+
+                    SMB_LOG_COMPRESS("Non chained MessageID %llu \n",
+                                     smb2_hdr.message_id);
+                    
+                    /* Read the SMB header, so dont do it again */
+                    read_smb_hdr = 1;
+
+                    /* Copy SMB header to decompressed mbp */
+                    mb_put_mem(&decompressed_mbp, (caddr_t) &smb2_hdr, sizeof(smb2_hdr),
+                               MB_MSYSTEM);
+                    
+                    /* Copy rest of non compressed data directly to decompressed mdp */
+                    error = md_get_mem_put_mem(&compressed_mdp, &decompressed_mbp,
+                                               compress_len - sizeof(smb2_hdr),
+                                               MB_MSYSTEM);
+                }
+                else {
+                    /* Copy entire non compressed data directly to decompressed mdp */
+                    error = md_get_mem_put_mem(&compressed_mdp, &decompressed_mbp,
+                                               compress_len, MB_MSYSTEM);
+                }
+
+                if (error) {
+                    goto bad;
+                }
+            }
+        }
+        
+        switch(algorithm) {
+            case SMB2_COMPRESSION_NONE:
+                /* Sanity check the length */
+                if (compress_len > (originalCompressedSegmentSize - CurrentDecompressedDataSize)) {
+                    SMBERROR("Noncompressed compress_len %d > remaining to decompress len %d? \n",
+                             compress_len, (originalCompressedSegmentSize - CurrentDecompressedDataSize));
+                    error = EINVAL;
+                    goto bad;
+                }
+
+                if ((smbfs_loglevel & SMB_COMPRESSION_LOG_LEVEL) &&
+                    (compress_len > sizeof(smb2_hdr)) &&
+                    (read_smb_hdr == 0)) {
+                    /* Get SMB header so we can log the MessageID for debugging */
+                    error = md_get_mem(&compressed_mdp, (caddr_t) &smb2_hdr, sizeof(smb2_hdr),
+                                       MB_MSYSTEM);
+                    if (error) {
+                        goto bad;
+                    }
+
+                    SMB_LOG_COMPRESS("Algorithm: None, MessageID %llu \n",
+                                     smb2_hdr.message_id);
+
+                    /*
+                     * For chained compression, usually the first compressed
+                     * None is the smb header and read request.
+                     *
+                     * Read the SMB header, so dont do it again
+                     */
+                    read_smb_hdr = 1;
+
+                    /* Copy SMB header to decompressed mbp */
+                    mb_put_mem(&decompressed_mbp, (caddr_t) &smb2_hdr, sizeof(smb2_hdr),
+                               MB_MSYSTEM);
+                    
+                    /* Copy rest of non compressed data directly to decompressed mdp */
+                    error = md_get_mem_put_mem(&compressed_mdp, &decompressed_mbp,
+                                               compress_len - sizeof(smb2_hdr),
+                                               MB_MSYSTEM);
+                }
+                else {
+                    /* Copy entire non compressed data directly to decompressed mdp */
+                    error = md_get_mem_put_mem(&compressed_mdp, &decompressed_mbp,
+                                               compress_len, MB_MSYSTEM);
+                }
+                
+                if (error) {
+                    goto bad;
+                }
+
+                /* Update decompressed length */
+                CurrentDecompressedDataSize += compress_len;
+                SMB_LOG_COMPRESS("CurrentDecompressedDataSize: %d \n", CurrentDecompressedDataSize);
+
+#if COMPRESSION_PERFORMANCE
+                nanotime(&stop);
+    
+                SMBERROR("None. CurrentDecompressedDataSize %u elapsed %ld:%ld \n",
+                         CurrentDecompressedDataSize,
+                         stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+                break;
+                
+            case SMB2_COMPRESSION_PATTERN_V1:
+                SMB_LOG_COMPRESS("Algorithm: PatternV1 \n");
+
+                if (decompress_called == 0) {
+                    /* Must be forward pattern */
+                    sessionp->read_cnt_fwd_pattern += 1;
+
+                    /*
+                     * Set flag indicating some algorithm decompress was done
+                     * to distiguish foward versus backward pattern if they occur
+                     */
+                    decompress_called = 1;
+                }
+                else {
+                    /*
+                     * Must be backward pattern since called after some
+                     * algorithmic decompression has occured
+                     */
+                    sessionp->read_cnt_bwd_pattern += 1;
+                }
+
+                /* Get Pattern */
+                error = md_get_uint8(&compressed_mdp, (uint8_t*) &pattern_char);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Reserved1 and discard */
+                error = md_get_uint8(&compressed_mdp, NULL);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Reserved2 and discard */
+                error = md_get_uint16le(&compressed_mdp, NULL);
+                if (error) {
+                    goto bad;
+                }
+
+                /* Get Repetitions */
+                error = md_get_uint32le(&compressed_mdp, &pattern_repetitions);
+                if (error) {
+                    goto bad;
+                }
+                SMB_LOG_COMPRESS("pattern_repetitions: %d \n", pattern_repetitions);
+
+                /* Sanity check the length */
+                if (pattern_repetitions > (originalCompressedSegmentSize - CurrentDecompressedDataSize)) {
+                    SMBERROR("PatternV1 repetitions %d > remaining to decompress len %d? \n",
+                             pattern_repetitions, (originalCompressedSegmentSize - CurrentDecompressedDataSize));
+                    error = EINVAL;
+                    goto bad;
+                }
+
+                /* Use preallocated buffer in compress_startp to hold pattern */
+                compress_len = pattern_repetitions;
+
+                /* Create buffer of repeating char */
+                memset(compress_startp, pattern_char, compress_len);
+                
+                /* Copy buffer to decompressed mbp */
+                mb_put_mem(&decompressed_mbp, (caddr_t) compress_startp, compress_len,
+                           MB_MSYSTEM);
+
+                /* Update decompressed length */
+                CurrentDecompressedDataSize += compress_len;
+                SMB_LOG_COMPRESS("CurrentDecompressedDataSize: %d \n", CurrentDecompressedDataSize);
+
+#if COMPRESSION_PERFORMANCE
+                nanotime(&stop);
+    
+                SMBERROR("Pattern. pattern_repetitions %u elapsed %ld:%ld \n",
+                         pattern_repetitions,
+                         stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+                break;
+
+            case SMB2_COMPRESSION_LZNT1:
+            case SMB2_COMPRESSION_LZ77:
+            case SMB2_COMPRESSION_LZ77_HUFFMAN:
+                if (algorithm == SMB2_COMPRESSION_LZ77_HUFFMAN) {
+                    sessionp->read_cnt_LZ77Huff += 1;
+                    SMB_LOG_COMPRESS("Algorithm: LZ77Huffman \n");
+                }
+                else {
+                    if (algorithm == SMB2_COMPRESSION_LZ77) {
+                        SMB_LOG_COMPRESS("Algorithm: LZ77 \n");
+                        sessionp->read_cnt_LZ77 += 1;
+                    }
+                    else {
+                        SMB_LOG_COMPRESS("Algorithm: LZNT1 \n");
+                        sessionp->read_cnt_LZNT1 += 1;
+                    }
+                }
+
+                /*
+                 * Set flag indicating some algorithm decompress was done
+                 * to distiguish foward versus backward pattern if they occur
+                 */
+                decompress_called = 1;
+                
+                if (chained_compress) {
+                    /*
+                     * Handle Chained Compression
+                     * Get OriginalPayloadSize
+                     */
+                    error = md_get_uint32le(&compressed_mdp, &original_payload_size);
+                    if (error) {
+                        goto bad;
+                    }
+                    SMB_LOG_COMPRESS("original_payload_size: %d \n", original_payload_size);
+
+#if 0
+                    /*
+                     * Oddly, Windows server will send a compress length that
+                     * is bigger than the decompressed length which will cause
+                     * this check to fail. Why they dont just send the non
+                     * compressed data?
+                     *
+                     * Sanity check the compress length
+                     */
+                    if (compress_len > (originalCompressedSegmentSize - CurrentDecompressedDataSize)) {
+                        SMBERROR("Algorithm %d compress_len %d > remaining to decompress len %d? \n",
+                                 algorithm, compress_len,
+                                 (originalCompressedSegmentSize - CurrentDecompressedDataSize));
+                        error = EINVAL;
+                        goto bad;
+                    }
+#endif
+
+                    /* Sanity check the original payload size */
+                    if (original_payload_size > (originalCompressedSegmentSize - CurrentDecompressedDataSize)) {
+                        SMBERROR("Algorithm %d original payload size %d > remaining to decompress len %d? \n",
+                                 algorithm, original_payload_size,
+                                 (originalCompressedSegmentSize - CurrentDecompressedDataSize));
+                        error = EINVAL;
+                        goto bad;
+                    }
+
+                    /*
+                     * Note that compress_len includes the OriginalPayloadSize
+                     * thus need to subtract it's size
+                     */
+                    if (compress_len <= 4) {
+                        SMBERROR("compress_len too small %d? \n", compress_len);
+                        error = EINVAL;
+                        goto bad;
+                    }
+                    compress_len -= 4;
+                }
+                else {
+                    /*
+                     * Handle Non Chained Compression
+                     * compressed data length = (replyLen - offset)
+                     */
+                    compress_len = (uint32_t) mbuf_get_chain_len(*mpp);
+                    
+                    /* Sanity check the length */
+                    if (offset > compress_len) {
+                        SMBERROR("Algorithm %d offset %d > compress_len %d? \n",
+                                 algorithm, offset, compress_len);
+                        error = EINVAL;
+                        goto bad;
+                    }
+
+                    /* Subtract out the uncompressed part */
+                    compress_len -= offset;
+                    
+                    /* Sanity check the length */
+                    if (16 > compress_len) {
+                        SMBERROR("Algorithm %d 16 > compress_len %d? \n",
+                                 algorithm, compress_len);
+                        error = EINVAL;
+                        goto bad;
+                    }
+
+                    /* Subtract already parsed transform hdr unchained bytes */
+                    compress_len -= 16;
+                    
+                    original_payload_size = originalCompressedSegmentSize;
+                }
+
+                /* Copy compressed data to preallocated buffer in compress_startp */
+                error = md_get_mem(&compressed_mdp, (caddr_t) compress_startp, compress_len,
+                                   MB_MSYSTEM);
+                if (error) {
+                    goto bad;
+                }
+                
+                /* Use preallocated buffer in data_startp to hold decompressed data */
+                data_len = original_payload_size;
+
+                /*
+                 * Do algorithmic decompression here
+                 */
+                error = smb2_compress_data(data_startp, data_len,
+                                           compress_startp, compress_len,
+                                           algorithm, COMPRESSION_STREAM_DECODE,
+                                           &actual_len);
+                if (error) {
+                    SMBERROR("smb2_compress_decompress_data failed %d \n", error);
+                    goto bad;
+                }
+                
+                if (actual_len != original_payload_size) {
+                    SMBERROR("actual_len <%zu> != original_payload_size <%d> \n",
+                             actual_len, original_payload_size);
+                    error = EINVAL;
+                    goto bad;
+                }
+                
+                if ((smbfs_loglevel & SMB_COMPRESSION_LOG_LEVEL) &&
+                    (actual_len > sizeof(smb2_hdr)) &&
+                    (read_smb_hdr == 0)) {
+                    /* Get SMB header so we can log the MessageID for debugging */
+                    smb2_hdrp = (struct smb2_header*) data_startp;
+                    
+                    SMB_LOG_COMPRESS("Algorithm: %d, MessageID %llu \n",
+                                     algorithm, smb2_hdrp->message_id);
+
+                    /* Read the SMB header, so dont do it again */
+                    read_smb_hdr = 1;
+                }
+
+                /*
+                 * At this point,
+                 * data_len = original_payload_size = actual_len
+                 */
+                                    
+                /* Copy decompressed data to decompressed mbp */
+                mb_put_mem(&decompressed_mbp, (caddr_t) data_startp, data_len,
+                           MB_MSYSTEM);
+
+                /* Update decompressed length */
+                CurrentDecompressedDataSize += data_len;
+                SMB_LOG_COMPRESS("CurrentDecompressedDataSize: %d \n", CurrentDecompressedDataSize);
+
+#if COMPRESSION_PERFORMANCE
+                nanotime(&stop);
+    
+                SMBERROR("Algorithm %d. CurrentDecompressedDataSize %u elapsed %ld:%ld \n",
+                         algorithm, CurrentDecompressedDataSize,
+                         stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+                break;
+
+            default:
+                SMBERROR("Unknown algorithm %d \n", algorithm);
+                error = EINVAL;
+                goto bad;
+        }
+    }
+    
+    if (CurrentDecompressedDataSize != originalCompressedSegmentSize) {
+        SMBERROR("Decompressed size %d != Original segment size %d \n",
+                 CurrentDecompressedDataSize, originalCompressedSegmentSize);
+        error = EINVAL;
+        goto bad;
+    }
+        
+    /* Remove the current reply mbufs and replace with decompressed mbufs */
+    mbuf_freem(*mpp);
+    *mpp = decompressed_mbp.mb_top;
+
+    sessionp->read_compress_cnt += 1;
+    
+    error = 0;
+        
+#if COMPRESSION_PERFORMANCE
+    nanotime(&stop);
+    
+    SMBERROR("Done. elapsed %ld:%ld \n",
+             stop.tv_sec - start.tv_sec, (stop.tv_nsec - start.tv_nsec) / 1000);
+#endif
+
+bad:
+    if (bufferp != NULL) {
+        SMB_FREE_DATA(bufferp, buffer_len);
+        bufferp = NULL;
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_READ_DECOMPRESS | DBG_FUNC_END,
+                   error, 0, 0, 0, 0);
+    
+    return (error);
+}

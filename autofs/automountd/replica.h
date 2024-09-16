@@ -27,7 +27,7 @@
  */
 
 #ifndef _REPLICA_H
-#define	_REPLICA_H
+#define _REPLICA_H
 
 #pragma ident	"@(#)replica.h	1.4	05/06/08 SMI"
 
@@ -43,11 +43,11 @@ struct replica {
 	char *path;
 };
 
-struct replica	*parse_replica(char *, int *);
-void		free_replica(struct replica *, int);
+struct replica  *parse_replica(char *, int *);
+void            free_replica(struct replica *, int);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif	/* _REPLICA_H */
+#endif  /* _REPLICA_H */

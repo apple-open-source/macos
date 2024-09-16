@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -964,6 +964,10 @@ _SC_copyInterfaceUUID(CFStringRef bsdName);
 	}					\
 	while (0)
 #endif /* __SC_CFRELEASE_NEEDED */
+
+CF_RETURNS_RETAINED
+CFDictionaryRef
+_SC_IONetworkInterfaceBSDNameMatching(const char * bsdName);
 
 __END_DECLS
 

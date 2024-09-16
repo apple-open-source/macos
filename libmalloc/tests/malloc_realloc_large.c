@@ -39,7 +39,8 @@ static bool memchk(void *ptr, uint8_t contents, size_t size)
 }
 
 T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY,
+		T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	// Large allocation shrink in place
 	size_t size1 = LARGE_BLOCK_SIZE_MAX;
@@ -73,6 +74,10 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	T_ASSERT_TRUE(memchk(ptr2, 'C', size2), "contents unchanged after realloc");
 	T_ASSERT_LE(size2, malloc_size(ptr2),
 			"realloc HUGE smaller");
+
+#if MALLOC_TARGET_EXCLAVES
+	T_EXPECTFAIL_WITH_REASON("Exclaves don't support resizing mappings");
+#endif // MALLOC_TARGET_EXCLAVES
 	T_ASSERT_EQ(ptr1, ptr2, "realloc HUGE smaller in-place");
 	free(ptr2);
 
@@ -111,7 +116,6 @@ T_DECL(realloc_large_huge, "call realloc on LARGE and HUGE allocations",
 	T_ASSERT_TRUE(memchk(ptr2, 'E', size2), "contents unchanged after realloc");
 	T_ASSERT_LE(size2, malloc_size(ptr2),
 			"realloc LARGE aligned");
-	T_ASSERT_NE(ptr1, ptr2, "realloc aligned allocation not in-place");
 	free(ptr2);
 
 	// Large allocation to huge reallocation
@@ -160,6 +164,17 @@ T_DECL(realloc_overlap_mmap,
 
 	// mmap some anonymous memory just past the end of that allocation
 	void *map_addr = (void*)((uintptr_t)ptr + LARGE_BLOCK_SIZE_MAX * 3);
+#if MALLOC_TARGET_EXCLAVES
+	plat_map_t plat_map = { 0 };
+	_liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
+			LIBLIBC_MAP_TYPE_FIXED | LIBLIBC_MAP_TYPE_NORAND;
+	// liblibc errors if you try to mmap with PROT_NONE
+	void *map = mmap_plat(&plat_map, (uintptr_t)map_addr, LARGE_BLOCK_SIZE_MAX,
+			PROT_READ, type, 0, 0);
+	if (map == NULL) {
+		T_SKIP("VM isn't setup to mmap after the huge allocation");
+	}
+#else // MALLOC_TARGET_EXCLAVES
 	void *map = mmap(map_addr, LARGE_BLOCK_SIZE_MAX, PROT_NONE, MAP_ANON | MAP_PRIVATE, 0, 0);
 	if (map == MAP_FAILED || map != map_addr) {
 		// Couldn't map memory just past the end of the huge allocation, due to
@@ -171,6 +186,7 @@ T_DECL(realloc_overlap_mmap,
 		// test if we get really unlucky here.
 		T_SKIP("VM isn't setup to mmap after the huge allocation");
 	}
+#endif // MALLOC_TARGET_EXCLAVES
 
 	T_ASSERT_EQ(map_addr, map, "mmap'd at expected address");
 
@@ -180,5 +196,10 @@ T_DECL(realloc_overlap_mmap,
 	T_ASSERT_NE(ptr2, ptr, "realloc overwrote existing mmap");
 	memset(ptr2, 0xaa, LARGE_BLOCK_SIZE_MAX * 4);
 	free(ptr2);
+
+#if MALLOC_TARGET_EXCLAVES
+	munmap_plat(&plat_map, map, LARGE_BLOCK_SIZE_MAX);
+#else
 	munmap(map, LARGE_BLOCK_SIZE_MAX);
+#endif // MALLOC_TARGET_EXCLAVES
 }

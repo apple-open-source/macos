@@ -101,6 +101,7 @@ static void attestationTest(CFStringRef protection, BOOL withACL) {
     id uik = generateKey((id)kSecAttrKeyTypeSecureEnclaveAttestation, protection, withACL, NO);
     id sik = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeSIK, (void *)&error));
     ok(sik != nil, "get SIK key: %@", error);
+    id dcik = CFBridgingRelease(SecKeyCopySystemKey(kSecKeySystemKeyTypeDCIK, (void *)&error));
 
     error = nil;
     NSData *attSIKPlain = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)sik, (__bridge SecKeyRef)uik, (void *)&error));
@@ -109,6 +110,16 @@ static void attestationTest(CFStringRef protection, BOOL withACL) {
     error = nil;
     NSData *attUIKPlain = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)uik, (__bridge SecKeyRef)privKey, (void *)&error));
     ok(attUIKPlain != nil, "UIK attesting privKey, no nonce: %@", error);
+
+    if (dcik != nil) {
+        error = nil;
+        NSData *attDCIKPlain = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)dcik, (__bridge SecKeyRef)privKey, (void *)&error));
+        ok(attDCIKPlain != nil, "DCIK attesting privKey, no nonce: %@", error);
+
+        error = nil;
+        NSData *attSIKDCIK = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)sik, (__bridge SecKeyRef)dcik, (void *)&error));
+        ok(attSIKDCIK != nil, "SIK attesting DCIK, no nonce: %@", error);
+    }
 
     error = nil;
     NSData *nonce = [@"TESTnonce" dataUsingEncoding:NSUTF8StringEncoding];
@@ -179,7 +190,7 @@ static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const ch
         ok(attSysKeyPN != nil, "%s-proposed attesting privKey: %@", name, error);
     }
 
-    ok(![pubSysKeyPN isEqual:pubSysKeyC], "%s proposed and committed differ after bump", name);
+    ok(![pubSysKeyPN isEqual:pubSysKeyC], "%s proposed and committed differ after bump (p:%@, c:%@)", name, pubSysKeyPN, pubSysKeyC);
 
     res = SecKeyControlLifetime((__bridge SecKeyRef)sysKeyP, kSecKeyControlLifetimeTypeCommit, (void *)&error);
     ok(res, "committing %s: %@", name, error);
@@ -198,7 +209,7 @@ static void sysKeyAttestationTest(CFStringRef protection, BOOL withACL, const ch
         ok(attSysKeyPNN != nil, "%s-proposed attesting privKey: %@", name, error);
     }
 
-    ok([pubSysKeyPN isEqual:pubSysKeyCN], "%s proposed and committed same after commit", name);
+    ok([pubSysKeyPN isEqual:pubSysKeyCN], "%s proposed and committed same after commit (p:%@, c:%@)", name, pubSysKeyPN, pubSysKeyCN);
 
     // Attest system key with SIK
     NSData *attSIKSysKeyP = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)sik, (__bridge SecKeyRef)sysKeyP, (void *)&error));
@@ -646,6 +657,8 @@ int si_44_seckey_aks(int argc, char *const *argv) {
         sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "DAK", kSecKeySystemKeyTypeDAKCommitted, kSecKeySystemKeyTypeDAKProposed, YES);
 
         sysKeyAttestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, YES, "SDAK", kSecKeySystemKeyTypeSDAKCommitted, kSecKeySystemKeyTypeSDAKProposed, NO /* canAttest */);
+        sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "SDAK", kSecKeySystemKeyTypeSDAKCommitted, kSecKeySystemKeyTypeSDAKProposed, NO /* canAttest */);
+
         sysKeyAttestationTest(kSecAttrAccessibleUntilReboot, NO, "SDAK", kSecKeySystemKeyTypeSDAKCommitted, kSecKeySystemKeyTypeSDAKProposed, NO /* canAttest */);
 
         keyFromBlobTest();

@@ -103,6 +103,7 @@ PropertyListMapTable[] = {
 	{ 'N', 'n', XATTR_FLAG_NEVER_PRESERVE },
 	{ 'S', 's', XATTR_FLAG_SYNCABLE },
 	{ 'B', 'b', XATTR_FLAG_ONLY_BACKUP },
+	{ 'X', 'x', XATTR_FLAG_ONLY_SAVING },
 	{ 0, 0, 0 },
 };
 	
@@ -121,7 +122,7 @@ static const struct divineIntent {
 	int (^checker)(xattr_flags_t);
 } intentTable[] = {
 	{ XATTR_OPERATION_INTENT_COPY, ^(xattr_flags_t flags) {
-			if (flags & (XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
+			if (flags & (XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP | XATTR_FLAG_ONLY_SAVING))
 				return 0;
 			return 1;
 		} },
@@ -131,7 +132,7 @@ static const struct divineIntent {
 			return 1;
 		} },
 	{ XATTR_OPERATION_INTENT_SHARE, ^(xattr_flags_t flags) {
-			if (flags & (XATTR_FLAG_NO_EXPORT | XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP))
+			if (flags & (XATTR_FLAG_NO_EXPORT | XATTR_FLAG_NEVER_PRESERVE | XATTR_FLAG_ONLY_BACKUP | XATTR_FLAG_ONLY_SAVING))
 				return 0;
 			return 1;
 		} },

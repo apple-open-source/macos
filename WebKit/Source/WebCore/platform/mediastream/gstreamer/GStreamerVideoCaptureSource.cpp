@@ -27,8 +27,8 @@
 
 #include "DisplayCaptureManager.h"
 #include "GStreamerCaptureDeviceManager.h"
-
 #include <gst/app/gstappsink.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -71,14 +71,14 @@ CaptureSourceOrError GStreamerVideoCaptureSource::create(String&& deviceID, Medi
 {
     auto device = GStreamerVideoCaptureDeviceManager::singleton().gstreamerDeviceWithUID(deviceID);
     if (!device) {
-        auto errorMessage = makeString("GStreamerVideoCaptureSource::create(): GStreamer did not find the device: ", deviceID, '.');
+        auto errorMessage = makeString("GStreamerVideoCaptureSource::create(): GStreamer did not find the device: "_s, deviceID, '.');
         return CaptureSourceOrError({ WTFMove(errorMessage), MediaAccessDenialReason::HardwareError });
     }
 
     auto source = adoptRef(*new GStreamerVideoCaptureSource(WTFMove(*device), WTFMove(hashSalts)));
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
-            return CaptureSourceOrError({ WTFMove(result->badConstraint), MediaAccessDenialReason::InvalidConstraint });
+            return CaptureSourceOrError(CaptureSourceError { result->invalidConstraint });
     }
     return CaptureSourceOrError(WTFMove(source));
 }
@@ -88,7 +88,7 @@ CaptureSourceOrError GStreamerVideoCaptureSource::createPipewireSource(String&& 
     auto source = adoptRef(*new GStreamerVideoCaptureSource(WTFMove(deviceID), { }, WTFMove(hashSalts), "pipewiresrc", deviceType, nodeAndFd));
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
-            return CaptureSourceOrError({ WTFMove(result->badConstraint), MediaAccessDenialReason::InvalidConstraint });
+            return CaptureSourceOrError(CaptureSourceError { result->invalidConstraint });
     }
     return CaptureSourceOrError(WTFMove(source));
 }
@@ -153,7 +153,7 @@ void GStreamerVideoCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourc
         if (m_deviceType == CaptureDevice::DeviceType::Window || m_deviceType == CaptureDevice::DeviceType::Screen)
             ensureIntrinsicSizeMaintainsAspectRatio();
 
-        if (m_capturer->setSize(size().width(), size().height()))
+        if (m_capturer->setSize(size()))
             reconfigure = true;
     }
 
@@ -183,13 +183,10 @@ void GStreamerVideoCaptureSource::captureEnded()
 
 void GStreamerVideoCaptureSource::startProducingData()
 {
-    if (m_capturer->pipeline())
-        return;
-
     m_capturer->setupPipeline();
 
     if (m_deviceType == CaptureDevice::DeviceType::Camera)
-        m_capturer->setSize(size().width(), size().height());
+        m_capturer->setSize(size());
 
     m_capturer->setFrameRate(frameRate());
     m_capturer->reconfigure();
@@ -251,7 +248,7 @@ const RealtimeMediaSourceSettings& GStreamerVideoCaptureSource::settings()
 void GStreamerVideoCaptureSource::generatePresets()
 {
     Vector<VideoPreset> presets;
-    GRefPtr<GstCaps> caps = adoptGRef(m_capturer->caps());
+    auto caps = m_capturer->caps();
     for (unsigned i = 0; i < gst_caps_get_size(caps.get()); i++) {
         GstStructure* str = gst_caps_get_structure(caps.get(), i);
 
@@ -305,6 +302,15 @@ void GStreamerVideoCaptureSource::generatePresets()
     }
 
     setSupportedPresets(WTFMove(presets));
+}
+
+void GStreamerVideoCaptureSource::setSizeFrameRateAndZoom(const VideoPresetConstraints& constraints)
+{
+    RealtimeVideoCaptureSource::setSizeFrameRateAndZoom(constraints);
+    if (!constraints.width || !constraints.height)
+        return;
+
+    m_capturer->setSize({ *constraints.width, *constraints.height });
 }
 
 #undef GST_CAT_DEFAULT

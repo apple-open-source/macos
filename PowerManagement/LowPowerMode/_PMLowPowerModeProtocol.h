@@ -6,11 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
-
-typedef NS_ENUM(NSInteger, PMPowerMode) {
-    PMNormalPowerMode = 0,
-    PMLowPowerMode = 1
-};
+#import <LowPowerMode/_PMPowerModeState.h>
 
 typedef void (^PMSetPowerModeCompletionHandler)(BOOL success, NSError *error);
 

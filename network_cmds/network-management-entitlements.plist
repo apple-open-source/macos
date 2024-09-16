@@ -8,5 +8,7 @@
 	<true/>
 	<key>com.apple.private.network.management.data.development</key>
 	<true/>
+	<key>com.apple.private.virtualswitch.underlay-scoped</key>
+	<true/>
 </dict>
 </plist>

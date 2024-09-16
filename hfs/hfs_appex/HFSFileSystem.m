@@ -103,12 +103,11 @@ exit:
 }
 
 -(void)probeResource:(FSResource *)resource
-               reply:(void (^)(FSMatchResult,
-                               NSString * _Nullable,
-                               NSUUID * _Nullable,
-                               NSError * _Nullable))reply
+        replyHandler:(nonnull void (^)(FSProbeResult *result,
+                                       NSError * _Nullable error))reply
 {
     int result;
+    FSProbeResult *probeResult;
     void *masterBlockBuffer = NULL;
     __block NSError *error = nil;
     __block NSString *volumeName = nil;
@@ -122,7 +121,9 @@ exit:
     device = [FSBlockDeviceResource dynamicCast:resource];
     if (device == nil) {
         os_log_fault(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
-        reply(match, nil, nil, nil);
+        return reply([FSProbeResult resultWithResult:FSMatchNotRecognized
+                                                name:nil
+                                         containerID:nil], nil);
     }
     
     masterBlock = malloc(kMDBSize);
@@ -222,7 +223,11 @@ exit:
     if (masterBlock) {
         free(masterBlock);
     }
-    reply(match, volumeName, volUUID, error);
+    probeResult = [FSProbeResult resultWithResult:match
+                                             name:volumeName
+                                      containerID:volUUID.fs_containerIdentifier];
+
+    return reply(probeResult, error);
 }
 
 -(void)checkResource:(FSResource *)resource
@@ -230,7 +235,7 @@ exit:
           connection:(FSMessageConnection *)connection
               taskID:(NSUUID *)taskID
             progress:(NSProgress *)progress
-               reply:(void (^)(NSError * _Nullable))reply
+        replyHandler:(void (^)(NSError * _Nullable))reply
 {
     reply(fs_errorForPOSIXError(ENOTSUP));
 }
@@ -240,7 +245,7 @@ exit:
            connection:(FSMessageConnection *)connection
                taskID:(NSUUID *)taskID
              progress:(NSProgress *)progress
-                reply:(void (^)(NSError * _Nullable))reply
+         replyHandler:(void (^)(NSError * _Nullable))reply
 {
     reply(fs_errorForPOSIXError(ENOTSUP));
 }

@@ -73,9 +73,11 @@ typedef enum {
 
 TCCAccessPreflightResult TCCAccessPreflight(CFStringRef service, __unused CFDictionaryRef options);
 void TCCAccessRequest(CFStringRef service, CFDictionaryRef options, void (^callback)(Boolean granted));
+Boolean TCCAccessCheckAuditToken(CFStringRef service, audit_token_t token, CFDictionaryRef options);
 
 static typeof (TCCAccessPreflight) *_preflightFunc = NULL;
 static typeof (TCCAccessRequest) *_requestFunc = NULL;
+static typeof (TCCAccessCheckAuditToken) *_checkAuditTokenFunc = NULL;
 
 static void *__loadTCCFramework()
 {
@@ -99,6 +101,12 @@ static void *__loadTCCFramework()
         _requestFunc = dlsym(tccFramework, "TCCAccessRequest");
         if (_requestFunc == NULL) {
             IOHIDLogError("Could not find TCC symbol \"TCCAccessRequest\"");
+            return;
+        }
+        
+        _checkAuditTokenFunc = dlsym(tccFramework, "TCCAccessCheckAuditToken");
+        if (_requestFunc == NULL) {
+            IOHIDLogError("Could not find TCC symbol \"TCCAccessCheckAuditToken\"");
             return;
         }
     });
@@ -166,6 +174,29 @@ bool IOHIDRequestAccess(IOHIDRequestType requestType) {
     
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     dispatch_release(semaphore);
+    
+exit:
+    return result;
+}
+
+bool IOHIDAccessCheckAuditToken(IOHIDRequestType requestType, audit_token_t token) {
+    bool result = false;
+    CFStringRef request = NULL;
+    
+    if(!(__loadTCCFramework() && _checkAuditTokenFunc)) {
+        //if TCC framework isn't present, bypass the performed check
+        return true;
+    }
+    
+    if (requestType == kIOHIDRequestTypePostEvent) {
+        request = CFSTR("kTCCServicePostEvent");
+    } else if (requestType == kIOHIDRequestTypeListenEvent) {
+        request = CFSTR("kTCCServiceListenEvent");
+    }
+    
+    require(request, exit);
+    
+    result = _checkAuditTokenFunc(request, token, NULL);
     
 exit:
     return result;

@@ -10,6 +10,7 @@
 #include "threads.h"
 #include "vanilla.h"
 #include "sparse.h"
+#include "notes.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -56,7 +57,7 @@ simple_region_optimization(struct region *r, __unused void *arg)
      * Elide submaps (here for debugging purposes?)
      */
     if (r->r_info.is_submap) {
-        if (OPTIONS_DEBUG(opt))
+        if (OPTIONS_DEBUG(opt, 2))
             printr(r, "eliding submap\n");
         return WALK_DELETE_REGION;
     }
@@ -74,6 +75,15 @@ simple_region_optimization(struct region *r, __unused void *arg)
             }
             return WALK_DELETE_REGION;
         }
+
+    /*
+     * Elide "Owned unmapped memory". These regions are useful for accounting purposes
+     * but don't contain any backing memory, so we shouldn't try to dump them.
+     */
+    const unsigned owned_unmapped_memory_tag = (unsigned)-1;
+    if (r->r_info.user_tag == owned_unmapped_memory_tag) {
+        return WALK_DELETE_REGION;
+    }
 
     /*
      * Regions full of clean zfod data e.g. VM_MEMORY_MALLOC_LARGE can be recorded as zfod
@@ -251,6 +261,13 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
                 } while ((caddr_t) wbuf < (caddr_t)tc + tc->cmdsize);
                 break;
             }
+            case LC_NOTE: {
+                const struct note_command *nc = (const void *)lc;
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printf("LC_NOTE with data owner %s\n", nc->data_owner);
+                }
+                break;
+            }
             default:
                 warnx("unknown cmd %u in header", lc->cmd);
                 abort();
@@ -301,7 +318,9 @@ coredump_pwrite(
     struct regionhead *rhead,
     const uuid_t aout_uuid,
     mach_vm_offset_t aout_load_addr,
-    mach_vm_offset_t dyld_aii_addr)
+    mach_vm_offset_t dyld_aii_addr,
+    const struct task_crashinfo_note_data *task_crashinfo_note_data,
+    const struct region_infos_note_data *region_infos_note_data)
 {
     struct size_segment_data ssda;
     bzero(&ssda, sizeof (ssda));
@@ -336,8 +355,14 @@ coredump_pwrite(
         ssda.ssd_zfod.headersize +
         ssda.ssd_vanilla.headersize +
         ssda.ssd_sparse.headersize;
+
     if (opt->extended)
         headersize += sizeof (struct proto_coreinfo_command);
+
+    if (opt->notes) {
+        /* make room for the two "task crashinfo" and "vm info" LC_NOTEs */
+        headersize += 2 * sizeof(struct note_command);
+    }
 
     void *header = calloc(1, headersize);
     if (NULL == header)
@@ -377,7 +402,30 @@ coredump_pwrite(
         .wsd_nwritten = 0,
     };
 
-	int ecode = 0;
+    int ecode = 0;
+    
+    if (task_crashinfo_note_data) {
+        assert(NULL != region_infos_note_data);
+        
+        /* cast to void* first to avoid alignment warnings */
+        const struct note_command *task_crashinfo_note_command = make_task_crashinfo_note(mh, (struct note_command*)(void*)lc, &wsda, task_crashinfo_note_data);
+        
+        lc = (void *)((caddr_t)task_crashinfo_note_command + task_crashinfo_note_command->cmdsize);
+        wsda.wsd_lc = lc; /* make sure the lc is always kept up-to-date */
+    }
+    
+    if (region_infos_note_data) {
+        assert(NULL != task_crashinfo_note_data);
+        
+        const struct note_command *region_infos_note_command = make_region_infos_note(mh, (struct note_command*)(void*)lc, &wsda, region_infos_note_data);
+        
+        lc = (void *)((caddr_t)region_infos_note_command + region_infos_note_command->cmdsize);
+        wsda.wsd_lc = lc; /* make sure the lc is always kept up-to-date */
+    }
+    
+    task_crashinfo_note_data = NULL;
+    region_infos_note_data = NULL;
+
     if (0 != walk_region_list(rhead, pwrite_memory_region, &wsda))
         ecode = EX_IOERR;
 
@@ -398,7 +446,7 @@ coredump_pwrite(
     if (0 != bounded_pwrite(fd, header, headersize, 0, &wsda.wsd_nocache, NULL))
         ecode = EX_IOERR;
     if (0 == ecode && headersize != sizeof (*mh) + mh->sizeofcmds)
-       ecode = EX_SOFTWARE;
+        ecode = EX_SOFTWARE;
     if (0 == ecode)
         wsda.wsd_nwritten += headersize;
 
@@ -567,11 +615,11 @@ addfileref(struct region *r, const struct libent *le, const char *nm)
 	r->r_fileref = calloc(1, sizeof (*r->r_fileref));
 	if (r->r_fileref) {
 		if (le) {
-			assert(NULL == nm);
+            assert(NULL == nm);
 			r->r_fileref->fr_libent = le;
 			r->r_fileref->fr_pathname = le->le_pathname;
 		} else {
-			assert(NULL == le);
+            assert(NULL == le);
 			r->r_fileref->fr_pathname = strdup(nm);
 		}
 		r->r_fileref->fr_offset = r->r_pageinfo.offset;
@@ -698,6 +746,13 @@ coredump(task_t task, int fd, const struct proc_bsdinfo *__unused pbi)
     mach_vm_offset_t aout_load_addr = 0;
     uuid_t aout_uuid;
     uuid_clear(aout_uuid);
+    
+    struct task_crashinfo_note_data *task_crashinfo_note_data = NULL;
+    struct region_infos_note_data *region_infos_note_data = NULL;
+    if (opt->notes) {
+        task_crashinfo_note_data = prepare_task_crashinfo_note(task);
+        region_infos_note_data = prepare_region_infos_note(task);
+    }
 
     /*
      * Walk the address space
@@ -776,9 +831,18 @@ done:
         if (opt->stream) {
             ecode = coredump_stream(task, fd, rhead);
         } else {
-            ecode = coredump_pwrite(task, fd, rhead, aout_uuid, aout_load_addr, dyld_addr);
+            ecode = coredump_pwrite(task, fd, rhead, aout_uuid, aout_load_addr, dyld_addr, task_crashinfo_note_data, region_infos_note_data);
         }
     }
+    
+    if (task_crashinfo_note_data) {
+        destroy_task_crash_info_note_data(task_crashinfo_note_data);
+    }
+    
+    if (region_infos_note_data) {
+        destroy_region_infos_note_data(region_infos_note_data);
+    }
+    
     return ecode;
 }
 
@@ -976,7 +1040,7 @@ label_shared_cache(struct region *r, void *arg)
 struct regionhead *
 coredump_prepare(task_t task, uuid_t sc_uuid)
 {
-    struct regionhead *rhead = build_region_list(task);
+    struct regionhead *rhead = build_region_list(task, false);
 
     if (OPTIONS_DEBUG(opt, 2)) {
 		printf("Region list built\n");

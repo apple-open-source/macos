@@ -205,7 +205,6 @@ list(APPEND WebCore_SOURCES
     platform/cf/KeyedEncoderCF.cpp
     platform/cf/MainThreadSharedTimerCF.cpp
     platform/cf/MediaAccessibilitySoftLink.cpp
-    platform/cf/RunLoopObserver.cpp
     platform/cf/SharedBufferCF.cpp
 
     platform/cocoa/ContentFilterUnblockHandlerCocoa.mm
@@ -220,6 +219,7 @@ list(APPEND WebCore_SOURCES
     platform/cocoa/RuntimeApplicationChecksCocoa.mm
     platform/cocoa/SearchPopupMenuCocoa.mm
     platform/cocoa/SharedBufferCocoa.mm
+    platform/cocoa/SharedMemoryCocoa.mm
     platform/cocoa/SystemBattery.mm
     platform/cocoa/SystemVersion.mm
     platform/cocoa/TelephoneNumberDetectorCocoa.cpp
@@ -252,7 +252,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
     platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm
     platform/graphics/avfoundation/objc/CDMSessionAVFoundationObjC.mm
-    platform/graphics/avfoundation/objc/CDMSessionAVStreamSession.mm
     platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.mm
     platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm
     platform/graphics/avfoundation/objc/InbandTextTrackPrivateAVFObjC.mm
@@ -306,7 +305,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cg/PathCG.cpp
     platform/graphics/cg/PatternCG.cpp
     platform/graphics/cg/TransformationMatrixCG.cpp
-    platform/graphics/cg/UTIRegistry.cpp
+    platform/graphics/cg/UTIRegistry.mm
 
     platform/graphics/cocoa/CMUtilities.mm
     platform/graphics/cocoa/FloatRectCocoa.mm
@@ -370,7 +369,6 @@ list(APPEND WebCore_SOURCES
     platform/mac/PlatformPasteboardMac.mm
     platform/mac/PlatformScreenMac.mm
     platform/mac/PowerObserverMac.cpp
-    platform/mac/PublicSuffixMac.mm
     platform/mac/RevealUtilities.mm
     platform/mac/ScrollAnimatorMac.mm
     platform/mac/ScrollingEffectsController.mm
@@ -433,9 +431,11 @@ list(APPEND WebCore_SOURCES
     platform/text/mac/TextBoundaries.mm
     platform/text/mac/TextCheckingMac.mm
 
-    rendering/RenderThemeCocoa.mm
-    rendering/RenderThemeMac.mm
     rendering/TextAutoSizing.cpp
+
+    rendering/cocoa/RenderThemeCocoa.mm
+
+    rendering/mac/RenderThemeMac.mm
 )
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
@@ -593,7 +593,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/mac/SharedRoutingArbitrator.h
 
     platform/cf/MediaAccessibilitySoftLink.h
-    platform/cf/RunLoopObserver.h
 
     platform/cocoa/AGXCompilerService.h
     platform/cocoa/CoreVideoSoftLink.h
@@ -604,12 +603,11 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/cocoa/PlaybackSessionModel.h
     platform/cocoa/PlaybackSessionModelMediaElement.h
     platform/cocoa/PowerSourceNotifier.h
+    platform/cocoa/PublicSuffixCocoa.mm
     platform/cocoa/SearchPopupMenuCocoa.h
     platform/cocoa/SharedVideoFrameInfo.h
     platform/cocoa/SystemBattery.h
     platform/cocoa/SystemVersion.h
-    platform/cocoa/VideoFullscreenModel.h
-    platform/cocoa/VideoFullscreenModelVideoElement.h
 
     platform/gamepad/cocoa/GameControllerGamepadProvider.h
 
@@ -658,7 +656,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cg/IOSurfacePool.h
     platform/graphics/cg/ImageBufferCGBackend.h
     platform/graphics/cg/ImageBufferCGBitmapBackend.h
-    platform/graphics/cg/ImageBufferIOSurface.h
     platform/graphics/cg/ImageBufferIOSurfaceBackend.h
     platform/graphics/cg/ImageBufferUtilitiesCG.h
     platform/graphics/cg/PDFDocumentImage.h
@@ -709,7 +706,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mac/PasteboardWriter.h
     platform/mac/PlatformEventFactoryMac.h
     platform/mac/PlaybackSessionInterfaceMac.h
-    platform/mac/PluginBlocklist.h
     platform/mac/PowerObserverMac.h
     platform/mac/RevealUtilities.h
     platform/mac/SerializedPlatformDataCueMac.h
@@ -722,7 +718,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mac/WebCoreNSURLExtras.h
     platform/mac/WebCoreObjCExtras.h
     platform/mac/WebCoreView.h
-    platform/mac/WebGLBlocklist.h
     platform/mac/WebNSAttributedStringExtras.h
     platform/mac/WebPlaybackControlsManager.h
 
@@ -762,6 +757,10 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/mac/UTIUtilities.h
     platform/network/mac/WebCoreURLResponse.h
 
+    rendering/cocoa/RenderThemeCocoa.h
+
+    rendering/ios/RenderThemeIOS.h
+
     testing/MockWebAuthenticationConfiguration.h
 
     testing/cocoa/WebViewVisualIdentificationOverlay.h
@@ -786,6 +785,7 @@ list(APPEND WebCore_IDL_FILES
     Modules/applepay/ApplePayInstallmentItemType.idl
     Modules/applepay/ApplePayInstallmentConfiguration.idl
     Modules/applepay/ApplePayInstallmentRetailChannel.idl
+    Modules/applepay/ApplePayLaterAvailability.idl
     Modules/applepay/ApplePayLineItem.idl
     Modules/applepay/ApplePayMerchantCapability.idl
     Modules/applepay/ApplePayPayment.idl

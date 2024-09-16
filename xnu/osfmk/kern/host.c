@@ -94,9 +94,10 @@
 #include <kern/processor.h>
 #include <kern/mach_node.h>     // mach_node_port_changed()
 
-#include <vm/vm_map.h>
-#include <vm/vm_purgeable_internal.h>
+#include <vm/vm_map_xnu.h>
+#include <vm/vm_purgeable_xnu.h>
 #include <vm/vm_pageout.h>
+#include <vm/vm_kern_xnu.h>
 
 #include <IOKit/IOBSD.h> // IOTaskHasEntitlement
 #include <IOKit/IOKitKeys.h> // DriverKit entitlement strings
@@ -429,6 +430,7 @@ host_statistics(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_ty
 		vm_statistics64_data_t host_vm_stat;
 		vm_statistics_t stat32;
 		mach_msg_type_number_t original_count;
+		natural_t speculative_count = vm_page_speculative_count;
 
 		if (*count < HOST_VM_INFO_REV0_COUNT) {
 			return KERN_FAILURE;
@@ -438,7 +440,7 @@ host_statistics(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_ty
 
 		stat32 = (vm_statistics_t)info;
 
-		stat32->free_count = VM_STATISTICS_TRUNCATE_TO_32_BIT(vm_page_free_count + vm_page_speculative_count);
+		stat32->free_count = VM_STATISTICS_TRUNCATE_TO_32_BIT(vm_page_free_count + speculative_count);
 		stat32->active_count = VM_STATISTICS_TRUNCATE_TO_32_BIT(vm_page_active_count);
 
 		if (vm_page_local_q) {
@@ -477,7 +479,7 @@ host_statistics(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_ty
 
 		if (original_count >= HOST_VM_INFO_REV2_COUNT) {
 			/* rev2 added "speculative" info */
-			stat32->speculative_count = VM_STATISTICS_TRUNCATE_TO_32_BIT(vm_page_speculative_count);
+			stat32->speculative_count = VM_STATISTICS_TRUNCATE_TO_32_BIT(speculative_count);
 			*count = HOST_VM_INFO_REV2_COUNT;
 		}
 
@@ -578,7 +580,8 @@ static LCK_MTX_DECLARE(host_statistics_lck, &host_statistics_lck_grp);
 #define HOST_CPU_LOAD_INFO_REV0         7
 #define HOST_EXPIRED_TASK_INFO_REV0     8
 #define HOST_EXPIRED_TASK_INFO_REV1     9
-#define NUM_HOST_INFO_DATA_TYPES        10
+#define HOST_VM_COMPRESSOR_Q_LEN_REV0   10
+#define NUM_HOST_INFO_DATA_TYPES        11
 
 static vm_statistics64_data_t host_vm_info64_rev0 = {};
 static vm_statistics64_data_t host_vm_info64_rev1 = {};
@@ -590,6 +593,7 @@ static vm_statistics_data_t host_vm_info_rev2 = {};
 static host_cpu_load_info_data_t host_cpu_load_info = {};
 static task_power_info_data_t host_expired_task_info = {};
 static task_power_info_v2_data_t host_expired_task_info2 = {};
+static vm_compressor_q_lens_data_t host_vm_compressor_q_lens = {};
 
 struct host_stats_cache {
 	uint64_t last_access;
@@ -610,6 +614,7 @@ static struct host_stats_cache g_host_stats_cache[NUM_HOST_INFO_DATA_TYPES] = {
 	[HOST_CPU_LOAD_INFO_REV0] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_cpu_load_info, .count = HOST_CPU_LOAD_INFO_COUNT },
 	[HOST_EXPIRED_TASK_INFO_REV0] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_expired_task_info, .count = TASK_POWER_INFO_COUNT },
 	[HOST_EXPIRED_TASK_INFO_REV1] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_expired_task_info2, .count = TASK_POWER_INFO_V2_COUNT},
+	[HOST_VM_COMPRESSOR_Q_LEN_REV0] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_vm_compressor_q_lens, .count = VM_COMPRESSOR_Q_LENS_COUNT},
 };
 
 
@@ -712,6 +717,13 @@ get_host_info_data_index(bool is_stat64, host_flavor_t flavor, mach_msg_type_num
 		}
 		return HOST_EXPIRED_TASK_INFO_REV0;
 
+	case HOST_VM_COMPRESSOR_Q_LENS:
+		if (*count < VM_COMPRESSOR_Q_LENS_COUNT) {
+			*ret = KERN_FAILURE;
+			return -1;
+		}
+		return HOST_VM_COMPRESSOR_Q_LEN_REV0;
+
 	default:
 		*ret = KERN_INVALID_ARGUMENT;
 		return -1;
@@ -775,6 +787,8 @@ vm_stats(void *info, unsigned int *count)
 	mach_msg_type_number_t original_count;
 	unsigned int local_q_internal_count;
 	unsigned int local_q_external_count;
+	natural_t speculative_count = vm_page_speculative_count;
+	natural_t throttled_count = vm_page_throttled_count;
 
 	if (*count < HOST_VM_INFO64_REV0_COUNT) {
 		return KERN_FAILURE;
@@ -783,7 +797,7 @@ vm_stats(void *info, unsigned int *count)
 
 	vm_statistics64_t stat = (vm_statistics64_t)info;
 
-	stat->free_count = vm_page_free_count + vm_page_speculative_count;
+	stat->free_count = vm_page_free_count + speculative_count;
 	stat->active_count = vm_page_active_count;
 
 	local_q_internal_count = 0;
@@ -799,7 +813,7 @@ vm_stats(void *info, unsigned int *count)
 #if !XNU_TARGET_OS_OSX
 	stat->wire_count = vm_page_wire_count;
 #else /* !XNU_TARGET_OS_OSX */
-	stat->wire_count = vm_page_wire_count + vm_page_throttled_count + vm_lopage_free_count;
+	stat->wire_count = vm_page_wire_count + throttled_count + vm_lopage_free_count;
 #endif /* !XNU_TARGET_OS_OSX */
 	stat->zero_fill_count = host_vm_stat.zero_fill_count;
 	stat->reactivations = host_vm_stat.reactivations;
@@ -813,7 +827,7 @@ vm_stats(void *info, unsigned int *count)
 	stat->purgeable_count = vm_page_purgeable_count;
 	stat->purges = vm_page_purged_count;
 
-	stat->speculative_count = vm_page_speculative_count;
+	stat->speculative_count = speculative_count;
 
 	/*
 	 * Fill in extra info added in later revisions of the
@@ -824,7 +838,7 @@ vm_stats(void *info, unsigned int *count)
 	*count = HOST_VM_INFO64_REV0_COUNT; /* rev0 already filled in */
 	if (original_count >= HOST_VM_INFO64_REV1_COUNT) {
 		/* rev1 added "throttled count" */
-		stat->throttled_count = vm_page_throttled_count;
+		stat->throttled_count = throttled_count;
 		/* rev1 added "compression" info */
 		stat->compressor_page_count = VM_PAGE_COMPRESSOR_COUNT;
 		stat->compressions = host_vm_stat.compressions;
@@ -844,6 +858,54 @@ vm_stats(void *info, unsigned int *count)
 
 	return KERN_SUCCESS;
 }
+
+#if DEVELOPMENT || DEBUG
+extern uint32_t        c_segment_count;
+extern uint32_t        c_age_count;
+extern uint32_t        c_early_swappedin_count, c_regular_swappedin_count, c_late_swappedin_count;
+extern uint32_t        c_early_swapout_count, c_regular_swapout_count, c_late_swapout_count;
+extern uint32_t        c_swapio_count;
+extern uint32_t        c_swappedout_count;
+extern uint32_t        c_swappedout_sparse_count;
+extern uint32_t        c_major_count;
+extern uint32_t        c_filling_count;
+extern uint32_t        c_empty_count;
+extern uint32_t        c_bad_count;
+extern uint32_t        c_minor_count;
+extern uint32_t        c_segments_available;
+
+static kern_return_t
+vm_compressor_queue_lens(void *info, unsigned int *count)
+{
+	if (*count < VM_COMPRESSOR_Q_LENS_COUNT) {
+		return KERN_NO_SPACE;
+	}
+
+	struct vm_compressor_q_lens *qc = (struct vm_compressor_q_lens *)info;
+	qc->qcc_segments_available = c_segments_available;
+	qc->qcc_segment_count = c_segment_count;
+	qc->qcc_age_count = c_age_count;
+	qc->qcc_early_swappedin_count = c_early_swappedin_count;
+	qc->qcc_regular_swappedin_count = c_regular_swappedin_count;
+	qc->qcc_late_swappedin_count = c_late_swappedin_count;
+	qc->qcc_early_swapout_count = c_early_swapout_count;
+	qc->qcc_regular_swapout_count = c_regular_swapout_count;
+	qc->qcc_late_swapout_count = c_late_swapout_count;
+	qc->qcc_swapio_count = c_swapio_count;
+	qc->qcc_swappedout_count = c_swappedout_count;
+	qc->qcc_swappedout_sparse_count = c_swappedout_sparse_count;
+	qc->qcc_major_count = c_major_count;
+	qc->qcc_filling_count = c_filling_count;
+	qc->qcc_empty_count = c_empty_count;
+	qc->qcc_bad_count = c_bad_count;
+	qc->qcc_minor_count = c_minor_count;
+
+	*count = VM_COMPRESSOR_Q_LENS_COUNT;
+
+	return KERN_SUCCESS;
+}
+
+#endif /* DEVELOPMENT || DEBUG */
 
 kern_return_t host_statistics64(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_type_number_t * count);
 
@@ -873,6 +935,13 @@ host_statistics64(host_t host, host_flavor_t flavor, host_info64_t info, mach_ms
 
 		return KERN_SUCCESS;
 	}
+
+	case HOST_VM_COMPRESSOR_Q_LENS:
+#if DEVELOPMENT || DEBUG
+		return vm_compressor_queue_lens(info, count);
+#else
+		return KERN_NOT_SUPPORTED;
+#endif
 
 	default: /* If we didn't recognize the flavor, send to host_statistics */
 		return host_statistics(host, flavor, (host_info_t)info, count);

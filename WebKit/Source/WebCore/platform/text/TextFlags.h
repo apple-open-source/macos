@@ -29,7 +29,6 @@
 #include <optional>
 #include <variant>
 #include <vector>
-#include <wtf/EnumTraits.h>
 #include <wtf/Hasher.h>
 #include <wtf/Markable.h>
 
@@ -239,7 +238,7 @@ private:
     FontVariantAlternates() = default;
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, FontVariantAlternates);
+WTF::TextStream& operator<<(WTF::TextStream&, const FontVariantAlternates&);
 
 enum class FontVariantEastAsianVariant : uint8_t {
     Normal,
@@ -477,16 +476,3 @@ enum class ColorGlyphType : uint8_t {
 };
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::ResolvedEmojiPolicy> {
-    using values = EnumValues<
-        WebCore::ResolvedEmojiPolicy,
-        WebCore::ResolvedEmojiPolicy::NoPreference,
-        WebCore::ResolvedEmojiPolicy::RequireText,
-        WebCore::ResolvedEmojiPolicy::RequireEmoji
-    >;
-};
-
-} // namespace WTF

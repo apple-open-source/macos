@@ -48,12 +48,12 @@
 +LAUNCHD_JOB="/System/Library/LaunchDaemons/org.apache.httpd.plist"
 +
 +run_launchctl() {
-+    if [ $UID != 0 ]; then
++    if [ "$(id -u)" != 0 ]; then
 +        echo This operation requires root.
 +        exit 1
 +    fi
 +
-+    $LAUNCHCTL $@
++    $LAUNCHCTL "$@"
 +}
 +
 +

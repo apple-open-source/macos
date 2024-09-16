@@ -73,7 +73,6 @@ extern OctagonState* const OctagonStateSetUserControllableViewsToPeerConsensus;
 
 // Enter this state if you'd like the state machine to double-check everything
 extern OctagonState* const OctagonStateEnsureConsistency;
-extern OctagonState* const OctagonStateEnsureOctagonKeysAreConsistent;
 extern OctagonState* const OctagonStateEnsureUpdatePreapprovals;
 
 // The boot-up sequence looks as follows:
@@ -166,9 +165,6 @@ extern OctagonState* const OctagonStateHealthCheckLeaveClique;
 extern OctagonState* const OctagonStateNoAccountDoReset;
 //
 
-// Used if the local device no longer can talk to the account
-extern OctagonState* const OctagonStateLostAccountAuth;
-
 // Used if Cuttlefish tells us that our peer is gone
 extern OctagonState* const OctagonStatePeerMissingFromServer;
 
@@ -179,7 +175,6 @@ extern OctagonState* const OctagonStateEscrowTriggerUpdate;
 extern OctagonState* const OctagonStateUpdateSOSPreapprovals;
 
 extern OctagonState* const OctagonStateError;
-extern OctagonState* const OctagonStateDisabled;
 
 extern OctagonState* const OctagonStateAttemptSOSUpgradeDetermineCDPState;
 extern OctagonState* const OctagonStateAttemptSOSUpgrade;
@@ -250,14 +245,17 @@ extern OctagonFlag* const OctagonFlagUnlocked;
 extern OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals;
 extern OctagonFlag* const OctagonFlagAttemptSOSConsistency;
 
-extern OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction;
-extern OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction;
-
 extern OctagonFlag* const OctagonFlagSecureElementIdentityChanged;
 
 extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
 
 extern OctagonFlag* const OctagonFlagCheckOnRTCMetrics;
+
+extern OctagonFlag* const OctagonFlagPendingNetworkAvailablity;
+
+extern OctagonFlag* const OctagonFlagCheckTrustState;
+
+extern OctagonFlag* const OctagonFlagAppleAccountSignedOut;
 
 NS_ASSUME_NONNULL_END
 

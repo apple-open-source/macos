@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -826,12 +826,12 @@ hfs_reload(struct mount *mountp)
 		return (EIO);
 	}
 
-	vcb->vcbLsMod		= to_bsd_time(SWAP_BE32(vhp->modifyDate));
 	vcb->vcbAtrb		= SWAP_BE32 (vhp->attributes);
+	vcb->vcbLsMod		= to_bsd_time(SWAP_BE32(vhp->modifyDate), (vcb->vcbAtrb & kHFSExpandedTimesMask));
 	vcb->vcbJinfoBlock  = SWAP_BE32(vhp->journalInfoBlock);
 	vcb->vcbClpSiz		= SWAP_BE32 (vhp->rsrcClumpSize);
 	vcb->vcbNxtCNID		= SWAP_BE32 (vhp->nextCatalogID);
-	vcb->vcbVolBkUp		= to_bsd_time(SWAP_BE32(vhp->backupDate));
+	vcb->vcbVolBkUp		= to_bsd_time(SWAP_BE32(vhp->backupDate), (vcb->vcbAtrb & kHFSExpandedTimesMask));
 	vcb->vcbWrCnt		= SWAP_BE32 (vhp->writeCount);
 	vcb->vcbFilCnt		= SWAP_BE32 (vhp->fileCount);
 	vcb->vcbDirCnt		= SWAP_BE32 (vhp->folderCount);
@@ -3531,6 +3531,11 @@ hfs_flushvolumeheader(struct hfsmount *hfsmp,
 	u_int16_t  hfsversion;
 	daddr64_t avh_sector;
 	bool altflush = ISSET(options, HFS_FVH_WRITE_ALT);
+	bool hfs_extime = false;
+
+	if (hfsmp->hfs_flags & HFS_EXPANDED_TIMES) {
+		hfs_extime = true;
+	}
 
 	if (ISSET(options, HFS_FVH_FLUSH_IF_DIRTY)
 		&& !hfs_header_needs_flushing(hfsmp)) {
@@ -3714,8 +3719,8 @@ hfs_flushvolumeheader(struct hfsmount *hfsmp,
 		volumeHeader->lastMountedVersion = SWAP_BE32 (kHFSPlusMountVersion);
 	}
 	volumeHeader->createDate	= SWAP_BE32 (vcb->localCreateDate);  /* volume create date is in local time */
-	volumeHeader->modifyDate	= SWAP_BE32 (to_hfs_time(vcb->vcbLsMod));
-	volumeHeader->backupDate	= SWAP_BE32 (to_hfs_time(vcb->vcbVolBkUp));
+	volumeHeader->modifyDate	= SWAP_BE32 (to_hfs_time(vcb->vcbLsMod, hfs_extime));
+	volumeHeader->backupDate	= SWAP_BE32 (to_hfs_time(vcb->vcbVolBkUp, hfs_extime));
 	volumeHeader->fileCount		= SWAP_BE32 (vcb->vcbFilCnt);
 	volumeHeader->folderCount	= SWAP_BE32 (vcb->vcbDirCnt);
 	volumeHeader->totalBlocks	= SWAP_BE32 (vcb->totalBlocks);

@@ -709,7 +709,7 @@ xsltFormatNumberFunction(xmlXPathParserContextPtr ctxt, int nargs)
 static void
 _initBaseValue()
 {
-    srandom(time(NULL));
+    srandom((unsigned)time(NULL));
     base_value = random() || random();
 }
 

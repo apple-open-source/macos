@@ -42,6 +42,15 @@ OBJC_CLASS UIView;
 #endif
 
 namespace WebKit {
+class RemoteLayerTreeNode;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerTreeNode> : std::true_type { };
+}
+
+namespace WebKit {
 
 class RemoteLayerTreeHost;
 class RemoteLayerTreeScrollbars;
@@ -58,7 +67,7 @@ public:
     static std::unique_ptr<RemoteLayerTreeNode> createWithPlainLayer(WebCore::PlatformLayerIdentifier);
 
     CALayer *layer() const { return m_layer.get(); }
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+#if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
     struct VisibleRectMarkableTraits {
         static bool isEmptyValue(const WebCore::FloatRect& value)
         {
@@ -110,6 +119,8 @@ public:
     Markable<WebCore::LayerHostingContextIdentifier> remoteContextHostingIdentifier() const { return m_remoteContextHostingIdentifier; }
     Markable<WebCore::LayerHostingContextIdentifier> remoteContextHostedIdentifier() const { return m_remoteContextHostedIdentifier; }
     void setRemoteContextHostedIdentifier(WebCore::LayerHostingContextIdentifier identifier) { m_remoteContextHostedIdentifier = identifier; }
+    void addToHostingNode(RemoteLayerTreeNode&);
+    void removeFromHostingNode();
 
     // A cached CAIOSurface object to retain CA render resources.
     struct CachedContentsBuffer {
@@ -128,15 +139,19 @@ public:
         return m_asyncContentsIdentifier;
     }
 
-    void setAsyncContentsIdentifier(const WebCore::RenderingResourceIdentifier& identifier)
+    void setAsyncContentsIdentifier(std::optional<WebCore::RenderingResourceIdentifier> identifier)
     {
         m_asyncContentsIdentifier = identifier;
     }
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     void setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects&, const WebCore::AcceleratedEffectValues&, RemoteLayerTreeHost&);
+    const RemoteAcceleratedEffectStack* effectStack() const { return m_effectStack.get(); }
     RefPtr<RemoteAcceleratedEffectStack> takeEffectStack() { return std::exchange(m_effectStack, nullptr); }
 #endif
+
+    bool backdropRootIsOpaque() const { return m_backdropRootIsOpaque; }
+    void setBackdropRootIsOpaque(bool backdropRootIsOpaque) { m_backdropRootIsOpaque = backdropRootIsOpaque; }
 
 private:
     void initializeLayer();
@@ -146,7 +161,7 @@ private:
     Markable<WebCore::LayerHostingContextIdentifier> m_remoteContextHostedIdentifier;
 
     RetainPtr<CALayer> m_layer;
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+#if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
     Markable<WebCore::FloatRect, VisibleRectMarkableTraits> m_visibleRect;
 
     void repositionInteractionRegionsContainerIfNeeded();
@@ -167,7 +182,7 @@ private:
     WebCore::EventRegion m_eventRegion;
 
 #if ENABLE(SCROLLING_THREAD)
-    WebCore::ScrollingNodeID m_scrollingNodeID { 0 };
+    WebCore::ScrollingNodeID m_scrollingNodeID;
 #endif
 
     WebCore::PlatformLayerIdentifier m_actingScrollContainerID;
@@ -179,6 +194,7 @@ private:
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     RefPtr<RemoteAcceleratedEffectStack> m_effectStack;
 #endif
+    bool m_backdropRootIsOpaque { false };
 };
 
 }

@@ -218,7 +218,7 @@ public:
     Vector<std::unique_ptr<MutationObserverRegistration>> registry;
     WeakHashSet<MutationObserverRegistration> transientRegistry;
 
-    NodeMutationObserverData() { }
+    NodeMutationObserverData() = default;
 };
 
 DECLARE_COMPACT_ALLOCATOR_WITH_HEAP_IDENTIFIER(NodeRareData);
@@ -254,7 +254,7 @@ public:
         Nonce = 1 << 23,
         ExplicitlySetAttrElementsMap = 1 << 24,
         Popover = 1 << 25,
-        DisplayContentsStyle = 1 << 26,
+        DisplayContentsOrNoneStyle = 1 << 26,
         CustomStateSet = 1 << 27,
     };
 #endif

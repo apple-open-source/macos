@@ -22,6 +22,8 @@
 
 headers: "ArgumentCoders.h"
 
+enum class WebCore::UserInterfaceLayoutDirection : bool;
+
 [RValue] struct WebKit::WebPageCreationParameters {
     WebCore::IntSize viewSize;
 
@@ -46,12 +48,15 @@ headers: "ArgumentCoders.h"
 
     std::optional<WebCore::FloatRect> viewExposedRect;
 
+    std::optional<uint32_t> displayID;
+    std::optional<unsigned> nominalFramesPerSecond;
+
     bool alwaysShowsHorizontalScroller;
     bool alwaysShowsVerticalScroller;
 
     bool suppressScrollbarAnimations;
 
-    WebCore::Pagination::Mode paginationMode;
+    WebCore::PaginationMode paginationMode;
     bool paginationBehavesLikeColumns;
     double pageLength;
     double gapBetweenPages;
@@ -61,7 +66,7 @@ headers: "ArgumentCoders.h"
     bool itemStatesWereRestoredByAPIRequest;
     Vector<WebKit::BackForwardListItemState> itemStates;
 
-    uint64_t visitedLinkTableID;
+    WebKit::VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
@@ -113,7 +118,7 @@ headers: "ArgumentCoders.h"
 #if ENABLE(META_VIEWPORT)
     bool ignoresViewportScaleLimits;
     WebCore::FloatSize viewportConfigurationViewLayoutSize;
-    double viewportConfigurationLayoutSizeScaleFactor;
+    double viewportConfigurationLayoutSizeScaleFactorFromClient;
     double viewportConfigurationMinimumEffectiveDeviceWidth;
     WebCore::FloatSize viewportConfigurationViewSize;
     std::optional<WebCore::ViewportArguments> overrideViewportArguments;
@@ -122,9 +127,10 @@ headers: "ArgumentCoders.h"
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
     WebCore::FloatSize overrideScreenSize;
+    WebCore::FloatSize overrideAvailableScreenSize;
     float textAutosizingWidth;
     WebCore::IntDegrees deviceOrientation;
-    bool keyboardIsAttached;
+    WebKit::HardwareKeyboardState hardwareKeyboardState;
     bool canShowWhileLocked;
     bool isCapturingScreen;
     WebCore::Color insertionPointColor;
@@ -132,11 +138,14 @@ headers: "ArgumentCoders.h"
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
-    Vector<WebKit::SandboxExtension::Handle> gpuIOKitExtensionHandles;
-    Vector<WebKit::SandboxExtension::Handle> gpuMachExtensionHandles;
+    Vector<WebKit::SandboxExtensionHandle> gpuIOKitExtensionHandles;
+    Vector<WebKit::SandboxExtensionHandle> gpuMachExtensionHandles;
+#endif
+#if PLATFORM(MAC)
+    WebKit::SandboxExtensionHandle renderServerMachExtensionHandle;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
-    Vector<WebKit::SandboxExtension::Handle> fontMachExtensionHandles;
+    Vector<WebKit::SandboxExtensionHandle> fontMachExtensionHandles;
 #endif
 #if HAVE(APP_ACCENT_COLORS)
     WebCore::Color accentColor;
@@ -189,6 +198,7 @@ headers: "ArgumentCoders.h"
     bool userScriptsShouldWaitUntilNotification;
     bool loadsSubresources;
     std::optional<MemoryCompactLookupOnlyRobinHoodHashSet<String>> allowedNetworkHosts;
+    std::optional<std::pair<uint16_t, uint16_t>> portsForUpgradingInsecureSchemeForTesting;
 
     bool crossOriginAccessControlCheckEnabled;
     String processDisplayName;
@@ -207,7 +217,6 @@ headers: "ArgumentCoders.h"
 #endif
     bool shouldEnableVP8Decoder;
     bool shouldEnableVP9Decoder;
-    bool shouldEnableVP9SWDecoder;
 #if ENABLE(APP_BOUND_DOMAINS)
     bool limitsNavigationsToAppBoundDomains;
 #endif
@@ -234,7 +243,7 @@ headers: "ArgumentCoders.h"
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension;
 
-    std::optional<WebKit::WebPageCreationParameters::SubframeProcessPageParameters> subframeProcessPageParameters;
+    std::optional<WebKit::RemotePageParameters> remotePageParameters;
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier;
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;
 
@@ -244,15 +253,20 @@ headers: "ArgumentCoders.h"
 #endif
 
 #if HAVE(MACH_BOOTSTRAP_EXTENSION)
-    WebKit::SandboxExtension::Handle machBootstrapHandle;
+    WebKit::SandboxExtensionHandle machBootstrapHandle;
 #endif
 
 #if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
     Vector<WebKit::DMABufRendererBufferFormat> preferredBufferFormats;
 #endif
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    WebCore::ShouldRequireExplicitConsentForGamepadAccess gamepadAccessRequiresExplicitConsent;
+#endif
 }
 
-[Nested] struct WebKit::WebPageCreationParameters::SubframeProcessPageParameters {
+[Nested] struct WebKit::RemotePageParameters {
     URL initialMainDocumentURL;
     WebKit::FrameTreeCreationParameters frameTreeParameters;
+    std::optional<WebKit::WebsitePoliciesData> websitePoliciesData;
 }

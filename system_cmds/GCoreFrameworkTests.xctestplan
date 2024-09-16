@@ -1,0 +1,26 @@
+{
+  "configurations" : [
+    {
+      "id" : "4B480BEE-2B3C-41D8-A924-90E5BEFE6186",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "mallocStackLoggingOptions" : {
+      "loggingType" : "allAllocations"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:system_cmds.xcodeproj",
+        "identifier" : "88B9BF3F2B1F2B17007E2871",
+        "name" : "GCoreFrameworkTests"
+      }
+    }
+  ],
+  "version" : 1
+}

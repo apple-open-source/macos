@@ -42,4 +42,12 @@ SOFT_LINK_CLASS_FOR_SOURCE(WebCore, UIFoundation, NSTextTableBlock)
 SOFT_LINK_CLASS_FOR_SOURCE(WebCore, UIFoundation, NSTextTable)
 SOFT_LINK_CLASS_FOR_SOURCE(WebCore, UIFoundation, NSTextTab)
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+
+SOFT_LINK_CLASS_FOR_SOURCE(WebCore, UIFoundation, NSAdaptiveImageGlyph)
+
+SOFT_LINK_CONSTANT_FOR_SOURCE(WebCore, UIFoundation, NSAdaptiveImageGlyphAttributeName, NSString *)
+
+#endif
+
 #endif

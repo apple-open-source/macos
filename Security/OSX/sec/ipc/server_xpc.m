@@ -47,6 +47,7 @@
 
 #include <Security/SecEntitlements.h>
 #include <Security/SecItemPriv.h>
+#include <Security/SecItemFetchOutOfBandPriv.h>
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include "keychain/securityd/SecItemDb.h"
@@ -54,6 +55,7 @@
 #include "keychain/ckks/CKKSViewManager.h"
 
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 
 @interface SecOSTransactionHolder : NSObject
 @property os_transaction_t transaction;
@@ -368,6 +370,139 @@
 #else // ! OCTAGON
     xpcComplete(NULL, NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"SecItemFetchCurrentItemAcrossAllDevices not implemented on this platform"}]);
 #endif // OCTAGON
+}
+
+- (void)secItemFetchCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*)currentItemQueries
+                              forceFetch:(bool)forceFetch
+                                complete:(void (^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* operror))xpcComplete
+{
+#if OCTAGON
+    // Sanitization
+    void (^complete)(NSArray<CKKSCurrentItemQueryResult*>*, NSError*) = ^(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* error) {
+        xpcComplete(currentItems, XPCSanitizeError(error));
+    };
+
+    CFErrorRef cferror = NULL;
+    if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("secItemFetchCurrentItemOutOfBand: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
+        complete(NULL, (__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    if(![self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementPrivateCKKSReadCurrentItemPointers]) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("secItemFetchCurrentItemOutOfBand: %@ does not have entitlement %@"), _client.task, kSecEntitlementPrivateCKKSReadCurrentItemPointers);
+        complete(NULL, (__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    NSString* accessGroup = currentItemQueries.count > 0 ? currentItemQueries[0].accessGroup : nil;
+    if (accessGroup && !accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchCurrentItemOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
+        complete(NULL, (__bridge NSError*)cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
+    if([[CKKSViewManager manager].completedSecCKKSInitialize wait:10] != 0) {
+        secerror("secItemFetchCurrentItemOutOfBand: CKKSViewManager not initialized?");
+        complete(NULL, [NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS not yet initialized"]);
+        return;
+    }
+
+    SecurityClient* client = nil;
+    if (OctagonSupportsPersonaMultiuser()) {
+        client = malloc(sizeof(struct SecurityClient));
+        SecSecurityFixUpClientWithPersona(&_client, client);
+    } else {
+        client = &self->_client;
+    }
+
+    [[CKKSViewManager manager] getCurrentItemOutOfBand:currentItemQueries
+                                            forceFetch:forceFetch
+                                              complete:^(NSArray<CKKSCurrentItemQueryResult*>* data, NSError* error) {
+        if (error || !data) {
+            secnotice("ckkscurrent", "CKKS didn't find a current item for (%@): %@", currentItemQueries, error);
+            complete(NULL, error);
+        } else {
+            complete(data, error);
+        }
+        
+        if (OctagonSupportsPersonaMultiuser()) {
+            CFReleaseNull(client->musr);
+            free(client);
+        }
+    }];
+    
+#else // ! OCTAGON
+    xpcComplete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"secItemFetchCurrentItemOutOfBand not implemented on this platform"}]);
+#endif // OCTAGON
+    
+}
+
+- (void)secItemFetchPCSIdentityByKeyOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*)pcsIdentityQueries
+                                   forceFetch:(bool)forceFetch
+                                     complete:(void (^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* operror))xpcComplete
+{
+#if OCTAGON
+    // Sanitization
+    void (^complete)(NSArray<CKKSPCSIdentityQueryResult*>*, NSError*) = ^(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* error) {
+        xpcComplete(pcsIdentities, XPCSanitizeError(error));
+    };
+
+    CFErrorRef cferror = NULL;
+    if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
+        complete(NULL, (__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    NSString* accessGroup = pcsIdentityQueries.count > 0 ? pcsIdentityQueries[0].accessGroup : nil;
+    if (accessGroup && !accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
+        complete(NULL, (__bridge NSError*)cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
+    if([[CKKSViewManager manager].completedSecCKKSInitialize wait:10] != 0) {
+        secerror("secItemFetchPCSIdentityByKeyOutOfBand: CKKSViewManager not initialized?");
+        complete(NULL, [NSError errorWithDomain:CKKSErrorDomain code:CKKSNotInitialized description:@"CKKS not yet initialized"]);
+        return;
+    }
+
+    SecurityClient* client = nil;
+    if (OctagonSupportsPersonaMultiuser()) {
+        client = malloc(sizeof(struct SecurityClient));
+        SecSecurityFixUpClientWithPersona(&_client, client);
+    } else {
+        client = &self->_client;
+    }
+
+    [[CKKSViewManager manager] fetchPCSIdentityOutOfBand:pcsIdentityQueries
+                                              forceFetch:forceFetch
+                                                complete:^(NSArray<CKKSPCSIdentityQueryResult*>* data, NSError* error) {
+        if (error || !data) {
+            secnotice("ckkscurrent", "CKKS didn't find a PCS Identity for (%@): %@", pcsIdentityQueries, error);
+            complete(NULL, error);
+        } else {
+            complete(data, error);
+        }
+        
+        if (OctagonSupportsPersonaMultiuser()) {
+            CFReleaseNull(client->musr);
+            free(client);
+        }
+    }];
+    
+#else // ! OCTAGON
+    xpcComplete(NULL, [NSError errorWithDomain:@"securityd" code:errSecParam userInfo:@{NSLocalizedDescriptionKey: @"secItemFetchPCSIdentityByKeyOutOfBand not implemented on this platform"}]);
+#endif // OCTAGON
+    
 }
 
 -(void)findItemPersistentRefByUUID:(NSString*)uuid

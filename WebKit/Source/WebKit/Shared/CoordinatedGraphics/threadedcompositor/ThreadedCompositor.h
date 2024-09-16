@@ -41,12 +41,22 @@
 #include "ThreadedDisplayRefreshMonitor.h"
 #endif
 
+namespace WebCore {
+class Damage;
+}
+
 namespace WebKit {
 
 class ThreadedCompositor : public CoordinatedGraphicsSceneClient, public ThreadSafeRefCounted<ThreadedCompositor> {
     WTF_MAKE_NONCOPYABLE(ThreadedCompositor);
     WTF_MAKE_FAST_ALLOCATED;
 public:
+    enum class DamagePropagation : uint8_t {
+        None,
+        Region,
+        Unified,
+    };
+
     class Client {
     public:
         virtual uint64_t nativeSurfaceHandleForCompositing() = 0;
@@ -56,21 +66,22 @@ public:
 
         virtual void resize(const WebCore::IntSize&) = 0;
         virtual void willRenderFrame() = 0;
-        virtual void didRenderFrame() = 0;
+        virtual void clearIfNeeded() = 0;
+        virtual void didRenderFrame(uint32_t, const WebCore::Damage&) = 0;
         virtual void displayDidRefresh(WebCore::PlatformDisplayID) = 0;
     };
 
 #if HAVE(DISPLAY_LINK)
-    static Ref<ThreadedCompositor> create(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY);
+    static Ref<ThreadedCompositor> create(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY, DamagePropagation);
 #else
-    static Ref<ThreadedCompositor> create(Client&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY);
+    static Ref<ThreadedCompositor> create(Client&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY, DamagePropagation);
 #endif
     virtual ~ThreadedCompositor();
 
     void setScrollPosition(const WebCore::IntPoint&, float scale);
     void setViewportSize(const WebCore::IntSize&, float scale);
 
-    void updateSceneState(const RefPtr<Nicosia::Scene>&);
+    void updateSceneState(const RefPtr<Nicosia::Scene>&, uint32_t);
     void updateScene();
     void updateSceneWithoutRendering();
 
@@ -91,9 +102,9 @@ public:
 
 private:
 #if HAVE(DISPLAY_LINK)
-    ThreadedCompositor(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY);
+    ThreadedCompositor(Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY, DamagePropagation);
 #else
-    ThreadedCompositor(Client&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY);
+    ThreadedCompositor(Client&, ThreadedDisplayRefreshMonitor::Client&, WebCore::PlatformDisplayID, const WebCore::IntSize&, float scaleFactor, bool flipY, DamagePropagation);
 #endif
 
     // CoordinatedGraphicsSceneClient
@@ -114,6 +125,7 @@ private:
 
     uintptr_t m_nativeSurfaceHandle;
     bool m_flipY { false };
+    DamagePropagation m_damagePropagation { DamagePropagation::None };
     unsigned m_suspendedCount { 0 };
 
     std::unique_ptr<CompositingRunLoop> m_compositingRunLoop;
@@ -127,6 +139,7 @@ private:
         Vector<RefPtr<Nicosia::Scene>> states;
 
         bool clientRendersNextFrame { false };
+        uint32_t compositionRequestID { 0 };
     } m_attributes;
 
 #if !HAVE(DISPLAY_LINK)

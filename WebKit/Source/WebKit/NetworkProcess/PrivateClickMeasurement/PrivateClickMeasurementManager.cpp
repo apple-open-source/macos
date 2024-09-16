@@ -41,6 +41,7 @@
 #include <WebCore/RuntimeApplicationChecks.h>
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 
@@ -497,10 +498,9 @@ void PrivateClickMeasurementManager::fireConversionRequest(const PrivateClickMea
                 return;
 
             auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-            crypto->addBytes(publicKeyData->data(), publicKeyData->size());
-            auto publicKeyDataHash = crypto->computeHash();
+            crypto->addBytes(publicKeyData->span());
 
-            auto keyID = base64URLEncodeToString(publicKeyDataHash.data(), publicKeyDataHash.size());
+            auto keyID = base64URLEncodeToString(crypto->computeHash());
             if (keyID != attribution.sourceSecretToken()->keyIDBase64URL)
                 return;
 
@@ -517,10 +517,9 @@ void PrivateClickMeasurementManager::fireConversionRequest(const PrivateClickMea
                         return;
 
                     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-                    crypto->addBytes(publicKeyData->data(), publicKeyData->size());
-                    auto publicKeyDataHash = crypto->computeHash();
+                    crypto->addBytes(publicKeyData->span());
 
-                    auto keyID = base64URLEncodeToString(publicKeyDataHash.data(), publicKeyDataHash.size());
+                    auto keyID = base64URLEncodeToString(crypto->computeHash());
                     if (keyID != attribution.attributionTriggerData()->destinationSecretToken->keyIDBase64URL)
                         return;
 
@@ -543,10 +542,9 @@ void PrivateClickMeasurementManager::fireConversionRequest(const PrivateClickMea
             return;
 
         auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-        crypto->addBytes(publicKeyData->data(), publicKeyData->size());
-        auto publicKeyDataHash = crypto->computeHash();
+        crypto->addBytes(publicKeyData->span());
 
-        auto keyID = base64URLEncodeToString(publicKeyDataHash.data(), publicKeyDataHash.size());
+        auto keyID = base64URLEncodeToString(crypto->computeHash());
         if (!attribution.attributionTriggerData()->destinationSecretToken || keyID != attribution.attributionTriggerData()->destinationSecretToken->keyIDBase64URL)
             return;
 

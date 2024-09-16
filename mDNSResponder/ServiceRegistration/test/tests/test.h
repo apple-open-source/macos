@@ -1,6 +1,6 @@
 /* test.h
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,14 @@
 #define DUP_TEST_VARIANT_TWO_KEYS  6
 #define DUP_TEST_VARIANT_NO_DUP    7
 
+#define PUSH_TEST_VARIANT_HARDWIRED     1
+#define PUSH_TEST_VARIANT_MDNS          2
+#define PUSH_TEST_VARIANT_DAEMON_CRASH  3
+#define PUSH_TEST_VARIANT_DNS_HARDWIRED 4
+#define PUSH_TEST_VARIANT_DNS_MDNS      5
+#define PUSH_TEST_VARIANT_DNS_CRASH     6
+#define PUSH_TEST_VARIANT_TWO_QUESTIONS 7
+
 void test_change_text_record_start(test_state_t *NULLABLE next_state);
 void test_lease_expiry_start(test_state_t *NULLABLE next_state);
 void test_lease_renewal_start(test_state_t *NULLABLE next_state);
@@ -41,6 +49,12 @@ void test_srpl_host_2i(test_state_t *NULLABLE next_test, int variant);
 void test_srpl_host_2ir(test_state_t *NULLABLE next_test);
 void test_srpl_host_0i2s(test_state_t *NULLABLE next_test);
 void test_srpl_lease_time(test_state_t *NULLABLE next_state);
+void test_dns_dangling_query(test_state_t *NULLABLE next_state);
+void test_srpl_cycle_through_peers(test_state_t *NULLABLE next_state);
+void test_srpl_update_after_remove(test_state_t *NULLABLE next_state);
+void test_dns_push(test_state_t *NULLABLE next_state, int variant);
+void test_listen_longevity_start(test_state_t *NULLABLE next_state);
+void test_ifaddrs_start(test_state_t *NULLABLE next_state);
 
 // Local Variables:
 // mode: C

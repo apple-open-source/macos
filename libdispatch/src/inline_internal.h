@@ -713,6 +713,15 @@ _dispatch_queue_targets_special_wlh(dispatch_queue_class_t dqu)
 }
 
 DISPATCH_ALWAYS_INLINE
+static inline bool
+_dispatch_queue_targets_special_wlh_with_bound_thread(
+	dispatch_queue_class_t dqu)
+{
+	return _dispatch_queue_targets_special_wlh(dqu) &&
+		_dispatch_queue_is_thread_bound(dqu);
+}
+
+DISPATCH_ALWAYS_INLINE
 static inline dispatch_invoke_flags_t
 _dispatch_queue_autorelease_frequency(dispatch_queue_class_t dqu)
 {
@@ -1992,12 +2001,15 @@ _dispatch_queue_class_probe(dispatch_lane_class_t dqu)
 }
 
 extern const struct dispatch_queue_global_s _dispatch_custom_workloop_root_queue;
+extern const struct dispatch_queue_global_s _dispatch_custom_workloop_overcommit_root_queue;
 
 DISPATCH_ALWAYS_INLINE DISPATCH_CONST
 inline bool
 _dispatch_is_custom_pri_workloop(dispatch_queue_t dq)
 {
-	return (dq->do_targetq) == (dispatch_queue_t) _dispatch_custom_workloop_root_queue._as_dq;
+	return
+	(((dq->do_targetq) == (dispatch_queue_t) _dispatch_custom_workloop_root_queue._as_dq) ||
+	((dq->do_targetq) == (dispatch_queue_t) _dispatch_custom_workloop_overcommit_root_queue._as_dq));
 }
 
 DISPATCH_ALWAYS_INLINE DISPATCH_CONST
@@ -2063,6 +2075,13 @@ _dispatch_queue_set_bound_thread(dispatch_queue_class_t dqu)
 {
 	// Tag thread-bound queues with the owning thread
 	dispatch_assert(_dispatch_queue_is_thread_bound(dqu));
+
+	// This is used by traditional usecases of thread bound queues such as
+	// main queue or _dispatch_runloop_root_queue_create_4CF.
+	// See dispatch_workloop_set_uses_bound_thread for other usecases of
+	// DQF_THREAD_BOUND.
+	dispatch_assert(!_dispatch_queue_targets_special_wlh(dqu));
+
 	uint64_t old_state, new_state;
 	os_atomic_rmw_loop(&dqu._dq->dq_state, old_state, new_state, relaxed, {
 		new_state = old_state;
@@ -2076,6 +2095,13 @@ static inline void
 _dispatch_queue_clear_bound_thread(dispatch_queue_class_t dqu)
 {
 	dispatch_assert(_dispatch_queue_is_thread_bound(dqu));
+
+	// This is used by traditional usecases of thread bound queues such as
+	// main queue or _dispatch_runloop_root_queue_create_4CF.
+	// See dispatch_workloop_set_uses_bound_thread for other usecases of
+	// DQF_THREAD_BOUND.
+	dispatch_assert(!_dispatch_queue_targets_special_wlh(dqu));
+
 	os_atomic_and(&dqu._dq->dq_state,
 			~DISPATCH_QUEUE_DRAIN_OWNER_MASK, relaxed);
 }

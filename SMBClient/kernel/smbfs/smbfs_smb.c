@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1044,7 +1044,8 @@ smbfs_smb_create_windows_symlink(struct smb_share *share, struct smbnode *dnp,
     int error;
     SMBFID fid = 0;
     uint64_t create_flags = SMB2_CREATE_DO_CREATE | SMB2_CREATE_GET_MAX_ACCESS;
-    
+    uint32_t allow_compression = 0; /* Dont allow compression for symlinks */
+
     wdata = smbfs_create_windows_symlink_data(target, targetlen, &wlen);
     if (!wdata) {
         error = ENOMEM;
@@ -1077,7 +1078,8 @@ smbfs_smb_create_windows_symlink(struct smb_share *share, struct smbnode *dnp,
             goto done;
         }
         
-        error = smb_smb_write(share, fid, uio, 0, context);
+        error = smb_smb_write(share, fid, uio, 0,
+                              &allow_compression, context);
         
         (void) smbfs_smb_close(share, fid, context);
     }
@@ -1451,7 +1453,7 @@ smbfs_smb_windows_read_symlink(struct smb_share *share, struct smbnode *np,
             goto out;
         }
         
-        error = smb_smb_read(share, fid, uio, context);
+        error = smb_smb_read(share, fid, uio, 0, context);
         
         (void)smbfs_tmpclose(share, np, fid, context);
     }
@@ -5550,13 +5552,8 @@ smbfs_smb_trans2find2(struct smbfs_fctx *ctx, vfs_context_t context)
 	 */
      m_fixhdr(mdp->md_top);
 	 if (mbuf_get_chain_len(mdp->md_top) == 0) {
-#ifdef SMB_DEBUG
-         SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = %p (please report)\n",
-                  ctx->f_ecnt, mbuf_next(mbp->mb_top));
-#else
-         SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = <private> (please report)\n",
-                  ctx->f_ecnt);
-#endif
+         SMBERROR("bug: ecnt = %d, but m_len = 0 and m_next = 0x%lx (please report)\n",
+                  ctx->f_ecnt, smb_hideaddr(mbuf_next(mbp->mb_top)));
 		/*
 		 * Something bad has happened we did not get all the data. We
 		 * need to close the directory listing, otherwise we may cause 
@@ -6396,47 +6393,47 @@ done:
 	return error;
 }
 
-/*
- * Close the network search, reset the offset count and if there is 
- * a next entry remove it.
- */
+void smbfs_remove_dir_lease(struct smbnode *np, const char *reason) {
+    int warning = 0;
+
+    smbnode_lease_lock(&np->n_lease, smbfs_closedirlookup);
+
+    if (np->n_lease.flags != 0) {
+        np->n_lease.flags |= SMB2_LEASE_BROKEN;
+        np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
+
+        /*
+         * Remove the lease from the lease hash table
+         *
+         * Note: Don't have the share here so just pass in NULL here
+         * as we only call this when we know we had a dir lease, so
+         * dont need the check for dir leases being supported.
+         */
+        warning = smbfs_add_update_lease(NULL, np->n_vnode, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
+                                          "CloseDir");
+        if (warning) {
+            /* Shouldnt ever happen */
+            SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
+                          warning, np->n_name);
+        }
+
+        SMB_LOG_LEASING_LOCK(np, "Lost dir lease on <%s> due to <%s> \n",
+                             np->n_name, reason);
+    }
+
+    smbnode_lease_unlock(&np->n_lease);
+}
+
 void smbfs_closedirlookup(struct smbnode *np, int32_t is_readdir,
                           const char *reason, vfs_context_t context)
 {
-    int warning = 0;
-
     if (is_readdir == 0) {
         /* Not vnop_readdir */
         if (np->d_fctx) {
             smbfs_smb_findclose(np->d_fctx, context);
 
             /* If we closed the dir, then the dir lease is gone */
-            smbnode_lease_lock(&np->n_lease, smbfs_closedirlookup);
-
-            if (np->n_lease.flags != 0) {
-                np->n_lease.flags |= SMB2_LEASE_BROKEN;
-                np->n_lease.flags &= ~SMB2_LEASE_GRANTED;
-
-                /*
-                 * Remove the lease from the lease hash table
-                 *
-                 * Note: Dont have the share here so just pass in NULL here
-                 * as we only call this when we know we had a dir lease, so
-                 * dont need the check for dir leases being supported.
-                 */
-                warning = smbfs_add_update_lease(NULL, np->n_vnode, &np->n_lease, SMBFS_LEASE_REMOVE, 1,
-                                                 "CloseDir");
-                if (warning) {
-                    /* Shouldnt ever happen */
-                    SMBERROR_LOCK(np, "smbfs_add_update_lease remove failed <%d> on <%s>\n",
-                                  warning, np->n_name);
-                }
-
-                SMB_LOG_LEASING_LOCK(np, "Lost dir lease on <%s> due to <%s> \n",
-                                       np->n_name, reason);
-            }
-            
-            smbnode_lease_unlock(&np->n_lease);
+            smbfs_remove_dir_lease(np, reason);
         }
 
         np->d_fctx = NULL;

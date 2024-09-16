@@ -34,7 +34,6 @@
 #include "NetworkSessionCreationParameters.h"
 #include "NotificationPermissionRequestManager.h"
 #include "UserData.h"
-#include "WebConnectionToUIProcess.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
@@ -53,8 +52,6 @@
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
-#include <WebCore/ApplicationCache.h>
-#include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Document.h>
@@ -65,7 +62,6 @@
 #include <WebCore/GeolocationPositionData.h>
 #include <WebCore/JSDOMConvertBufferSource.h>
 #include <WebCore/JSDOMExceptionHandling.h>
-#include <WebCore/JSLocalDOMWindow.h>
 #include <WebCore/JSNotification.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
@@ -143,11 +139,6 @@ void InjectedBundle::postSynchronousMessage(const String& messageName, API::Obje
         returnData = webProcess.transformHandlesToObjects(returnUserData.object());
     } else
         returnData = nullptr;
-}
-
-WebConnection* InjectedBundle::webConnectionToUIProcess() const
-{
-    return WebProcess::singleton().webConnectionToUIProcess();
 }
 
 void InjectedBundle::addOriginAccessAllowListEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
@@ -253,11 +244,7 @@ void InjectedBundle::reportException(JSContextRef context, JSValueRef exception)
     JSC::JSGlobalObject* globalObject = toJS(context);
     JSLockHolder lock(globalObject);
 
-    // Make sure the context has a LocalDOMWindow global object, otherwise this context didn't originate from a Page.
-    if (!globalObject->inherits<JSLocalDOMWindow>())
-        return;
-
-    WebCore::reportException(globalObject, toJS(globalObject, exception));
+    WebCore::reportExceptionIfJSDOMWindow(globalObject, toJS(globalObject, exception));
 }
 
 void InjectedBundle::didCreatePage(WebPage& page)
@@ -285,17 +272,6 @@ void InjectedBundle::setUserStyleSheetLocation(const String& location)
     Page::forEachPage([location](Page& page) {
         page.settings().setUserStyleSheetLocation(URL { location });
     });
-}
-
-void InjectedBundle::setWebNotificationPermission(WebPage* page, const String& originString, bool allowed)
-{
-#if ENABLE(NOTIFICATIONS)
-    page->notificationPermissionRequestManager()->setPermissionLevelForTesting(originString, allowed);
-#else
-    UNUSED_PARAM(page);
-    UNUSED_PARAM(originString);
-    UNUSED_PARAM(allowed);
-#endif
 }
 
 void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
@@ -327,7 +303,7 @@ Ref<API::Data> InjectedBundle::createWebDataFromUint8Array(JSContextRef context,
     JSC::JSGlobalObject* globalObject = toJS(context);
     JSLockHolder lock(globalObject);
     RefPtr<Uint8Array> arrayData = WebCore::toUnsharedUint8Array(globalObject->vm(), toJS(globalObject, data));
-    return API::Data::create(static_cast<unsigned char*>(arrayData->baseAddress()), arrayData->byteLength());
+    return API::Data::create(arrayData->span());
 }
 
 InjectedBundle::DocumentIDToURLMap InjectedBundle::liveDocumentURLs(bool excludeDocumentsInPageGroupPages)

@@ -91,31 +91,57 @@ ip_pluginX.o: Makefile ip_plugin.c
 dns-configurationX.o: Makefile dns-configuration.h dns-configuration.c dnsinfo_create.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DMAIN ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o dns-configurationX.o dns-configuration.c
 
-test_dns: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configurationX.o nat64-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o
+test_dns: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configurationX.o nat64-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o SCControlPrefsX.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o $@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -framework Foundation -framework Network -framework NetworkExtension
+
+
+# ----------
+
+SCControlPrefsX.o: ../../SystemConfiguration.fproj/SCControlPrefs.c
+	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o $@ $^
 
 # ----------
 
 proxy-configurationX.o: Makefile proxy-configuration.h proxy-configuration.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DMAIN ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o proxy-configurationX.o proxy-configuration.c
 
-test_proxy: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o nat64-configuration.o proxy-configurationX.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o
+test_proxy: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o nat64-configuration.o proxy-configurationX.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o SCControlPrefsX.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o $@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -framework Foundation -framework Network -framework NetworkExtension
 
 # ----------
 
 set-hostnameX.o: Makefile set-hostname.h set-hostname.c
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DMAIN -DDEBUG ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o set-hostnameX.o set-hostname.c
+	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_SET_HOSTNAME -DDEBUG ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o set-hostnameX.o set-hostname.c
 
 test_hostname: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o nat64-configuration.o proxy-configuration.o set-hostnameX.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o $@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -framework Foundation -framework Network -framework NetworkExtension
 
 # ----------
 
-smb-configurationX.o: smb-configuration.h smb-configuration.c
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DMAIN -DDEBUG ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o smb-configurationX.o smb-configuration.c
+test-set-hostname: set-hostname.c
+	$(CC) -DTEST_SET_HOSTNAME  $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
 
-test_smb: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o nat64-configuration.o proxy-configuration.o set-hostname.o smb-configurationX.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o
+# ----------
+
+test-set-hostname-debug: set-hostname.c
+	$(CC) -DDEBUG -DTEST_SET_HOSTNAME  $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
+
+# ----------
+
+test-smb-configuration: smb-configuration.c
+	$(CC) -DTEST_SMB_CONFIGURATION  $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
+
+# ----------
+
+test-smb-configuration-debug: smb-configuration.c
+	$(CC) -DDEBUG -DTEST_SMB_CONFIGURATION  $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
+
+# ----------
+
+smb-configurationX.o: smb-configuration.h smb-configuration.c
+	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_SMB_CONFIGURATION -DDEBUG ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o smb-configurationX.o smb-configuration.c
+
+test_smb: ip_pluginX.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o nat64-configuration.o proxy-configuration.o set-hostname.o smb-configurationX.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o SCControlPrefsX.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o$@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -framework Foundation -framework Network -framework NetworkExtension
 
 # ----------
@@ -131,7 +157,7 @@ test_dns_order: test_dns_order.o IPMonitorControlPrefs.o agent-monitor.o configA
 test_ipv4_routelist.o: ip_plugin.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_IPV4_ROUTELIST ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o $@ $^
 
-test_ipv4_routelist: test_ipv4_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o test_ifutil.o
+test_ipv4_routelist: test_ipv4_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o test_ifutil.o SCControlPrefsX.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o test_ipv4_routelist $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension -framework CoreServices
 
 test_ipv4_routelist_reference.txt: test_ipv4_routelist
@@ -148,7 +174,7 @@ test_ipv4_routelist_coverage: test_ipv4_routelist
 test_ipv6_routelist.o: ip_plugin.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_IPV6_ROUTELIST=1 ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o $@ $^
 
-test_ipv6_routelist: test_ipv6_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o test_ifutil.o
+test_ipv6_routelist: test_ipv6_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o test_ifutil.o SCControlPrefsX.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o test_ipv6_routelist $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension -framework CoreServices
 
 test_ipv6_routelist_reference.txt: test_ipv6_routelist
@@ -165,8 +191,8 @@ test_ipv6_routelist_coverage: test_ipv6_routelist
 IPMonitor.o: ip_plugin.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_IPMONITOR ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o IPMonitor.o ip_plugin.c
 
-IPMonitor: IPMonitor.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o network_information_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o IPMonitorControlServer.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o nat64-configuration.o
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o $@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension -framework CoreServices
+IPMonitor: IPMonitor.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o controller.o dnsAgent.o proxyAgent.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o network_information_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o IPMonitorControlServer.o libSystemConfiguration_client.o libSystemConfiguration_server.o ifutil.o nat64-configuration.o SCControlPrefsX.o
+	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o $@ $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension -framework CoreServices -framework WatchdogClient
 
 # ----------
 
@@ -181,4 +207,4 @@ test_if_nameindex: ifutil.c
 # ----------
 
 clean:
-	rm -rf *.dSYM *.o test_dns test_hostname test_proxy test_smb test_ipv4_routelist test_ipv6_routelist test_dns_order IPMonitor nat64 test_if_nameindex
+	rm -rf *.dSYM *.o test_dns test_hostname test_proxy test_smb test_ipv4_routelist test_ipv6_routelist test_dns_order IPMonitor nat64 test_if_nameindex test-set-hostname test-set-hostname-debug test-smb-configuration test-smb-configuration-debug

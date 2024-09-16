@@ -77,6 +77,7 @@
 #include "thread-service.h"
 #include "omr-watcher.h"
 
+
 icmp_listener_t icmp_listener;
 
 void
@@ -543,6 +544,7 @@ icmp_send(uint8_t *message, size_t length, interface_t *interface, const struct 
     cmsg_pointer->cmsg_len = CMSG_LEN(sizeof(int));
     memcpy(CMSG_DATA(cmsg_pointer), &hop_limit, sizeof(hop_limit));
 
+
     // Send it
     rv = sendmsg(icmp_listener.io_state->fd, &msg_header, 0);
     if (rv < 0) {
@@ -741,7 +743,6 @@ router_solicit_send(interface_t *interface)
         ) {
         return;
     }
-
 #define MAX_ICMP_MESSAGE 1280
     message = malloc(MAX_ICMP_MESSAGE);
     if (message == NULL) {
@@ -772,6 +773,12 @@ router_solicit_send(interface_t *interface)
     if (towire.error) {
         ERROR("No space in ICMP output buffer for " PUB_S_SRP " at route.c:%d", interface->name, towire.line);
     } else {
+        if (interface->have_link_layer_address) {
+            INFO("sending router solicit on " PUB_S_SRP " to all routers with source " PRI_MAC_ADDR_SRP,
+                 interface->name, MAC_ADDR_PARAM_SRP(interface->link_layer));
+        } else {
+            INFO("sending router solicit on " PUB_S_SRP " to all routers", interface->name);
+        }
         icmp_send(message, towire.p - message, interface, &in6addr_linklocal_allrouters);
     }
     free(message);
@@ -815,8 +822,13 @@ neighbor_solicit_send(interface_t *interface, struct in6_addr *destination)
         ERROR("No space in ICMP output buffer for " PUB_S_SRP " at route.c:%d", interface->name, towire.line);
     } else {
         SEGMENTED_IPv6_ADDR_GEN_SRP(destination, dest_buf);
-        INFO("sending neighbor solicit on " PUB_S_SRP " to " PRI_SEGMENTED_IPv6_ADDR_SRP,
-             interface->name, SEGMENTED_IPv6_ADDR_PARAM_SRP(destination, dest_buf));
+        if (interface->have_link_layer_address) {
+            INFO("sending neighbor solicit on " PUB_S_SRP " to " PRI_SEGMENTED_IPv6_ADDR_SRP " with source " PRI_MAC_ADDR_SRP,
+                 interface->name, SEGMENTED_IPv6_ADDR_PARAM_SRP(destination, dest_buf), MAC_ADDR_PARAM_SRP(interface->link_layer));
+        } else {
+            INFO("sending neighbor solicit on " PUB_S_SRP " to " PRI_SEGMENTED_IPv6_ADDR_SRP,
+                 interface->name, SEGMENTED_IPv6_ADDR_PARAM_SRP(destination, dest_buf));
+        }
         icmp_send(message, towire.p - message, interface, destination);
     }
     free(message);

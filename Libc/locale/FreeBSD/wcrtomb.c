@@ -39,7 +39,7 @@ wcrtomb_l(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_wcrtomb;
-	return (loc->__lc_ctype->__wcrtomb(s, wc, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__wcrtomb(s, wc, ps, loc));
 }
 
 size_t

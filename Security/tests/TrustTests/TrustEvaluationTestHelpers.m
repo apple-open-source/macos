@@ -31,6 +31,7 @@
 @property NSMutableArray *certificates;
 @property NSMutableArray *policies;
 @property BOOL enableTestCertificates;
+@property BOOL disableCT;
 @end
 
 @implementation TestTrustEvaluation
@@ -157,6 +158,7 @@ const NSString *kSecTrustTestExpectedResult = @"ExpectedResult";    /* Required;
 const NSString *kSecTrustTestChainLength    = @"ChainLength";       /* Optional; value: number */
 const NSString *kSecTrustTestEnableTestCerts= @"EnableTestCertificates"; /* Optional; value: string */
 const NSString *kSecTrustTestDisableBridgeOS= @"BridgeOSDisable";   /* Optional; value: boolean */
+const NSString *kSecTrustTestDisableCT      = @"DisableCT";         /* Optional; value: boolean */
 const NSString *kSecTrustTestDirectory      = @"CertDirectory";     /* Required; value: string */
 
 /* Key Constants for Policies Dictionaries */
@@ -340,7 +342,13 @@ errOut:
     policy = SecPolicyCreateWithProperties((__bridge CFStringRef)policyIdentifier,
                                            properties);
     require_string(policy, errOut, "failed to create properties for policy OID");
+
     require_string([self addThirdPartyPinningPolicyChecks:properties policy:policy], errOut, "failed to parse properties for third-party-pinning policy checks");
+
+    if (self.disableCT) {
+        SecPolicySetOptionsValue(policy, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanFalse);
+    }
+
     [self.policies addObject:(__bridge id)policy];
     CFReleaseNull(policy);
 
@@ -418,6 +426,9 @@ errOut:
      * determine whether to expect failure for production devices. */
     self.enableTestCertificates = [testDict[kSecTrustTestEnableTestCerts] boolValue];
 
+    /* We need to skip CT checks on some of these to prevent needing to replace test certs regularly (see rdar://132272332) */
+    self.disableCT = [testDict[kSecTrustTestDisableCT] boolValue];
+
     /* Test name, for documentation purposes */
     majorTestName = testDict[kSecTrustTestMajorTestName];
     minorTestName = testDict[kSecTrustTestMinorTestName];
@@ -425,7 +436,7 @@ errOut:
     [self setMajorTestName:majorTestName minorTestName:minorTestName];
 
 #if DEBUG
-    fprintf(stderr, "BEGIN trust creation for %s", [self.fullTestName cStringUsingEncoding:NSUTF8StringEncoding]);
+    fprintf(stderr, "BEGIN trust creation for %s\n", [self.fullTestName cStringUsingEncoding:NSUTF8StringEncoding]);
 #endif
 
     /* Cert directory */
@@ -481,7 +492,7 @@ errOut:
     self.expectedChainLength = testDict[kSecTrustTestChainLength];
 
 #if DEBUG
-    fprintf(stderr, "END trust creation for %s", [self.fullTestName cStringUsingEncoding:NSUTF8StringEncoding]);
+    fprintf(stderr, "END trust creation for %s\n", [self.fullTestName cStringUsingEncoding:NSUTF8StringEncoding]);
 #endif
 
     return self;
@@ -532,12 +543,14 @@ errOut:
     }
 
     if (!result) {
+        NSString *failureDescription = CFBridgingRelease(SecTrustCopyFailureDescription(self.trust));
         if (outError) {
-            NSString *errorDescription = [NSString stringWithFormat:@"Test %@: Expected result %@ %s does not match actual result %u %s",
+            NSString *errorDescription = [NSString stringWithFormat:@"Test %@: Expected result %@ %s does not match actual result %u %s with eval failure %@",
                                           self.fullTestName, self.expectedResult,
                                           (self.enableTestCertificates ? "for test cert" : ""),
                                           trustResult,
-                                          SecIsInternalRelease() ? "" : "on prod device"];
+                                          SecIsInternalRelease() ? "" : "on prod device",
+                                          failureDescription];
             *outError = [NSError errorWithDomain:@"TrustTestsError" code:(-3)
                                         userInfo:@{ NSLocalizedFailureReasonErrorKey : errorDescription}];
         }

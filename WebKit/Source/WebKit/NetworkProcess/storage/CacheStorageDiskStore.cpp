@@ -36,6 +36,7 @@
 #include <wtf/persistence/PersistentCoders.h>
 #include <wtf/persistence/PersistentDecoder.h>
 #include <wtf/persistence/PersistentEncoder.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -54,8 +55,8 @@ static bool shouldStoreBodyAsBlob(const Vector<uint8_t>& bodyData)
 static SHA1::Digest computeSHA1(std::span<const uint8_t> span, FileSystem::Salt salt)
 {
     SHA1 sha1;
-    sha1.addBytes(salt.data(), salt.size());
-    sha1.addBytes(span.data(), span.size());
+    sha1.addBytes(salt);
+    sha1.addBytes(span);
     SHA1::Digest digest;
     sha1.computeHash(digest);
     return digest;
@@ -107,7 +108,7 @@ CacheStorageDiskStore::CacheStorageDiskStore(const String& cacheName, const Stri
     , m_path(path)
     , m_salt(valueOrDefault(FileSystem::readOrMakeSalt(saltFilePath())))
     , m_callbackQueue(WTFMove(queue))
-    , m_ioQueue(WorkQueue::create("com.apple.WebKit.CacheStorageCache"))
+    , m_ioQueue(WorkQueue::create("com.apple.WebKit.CacheStorageCache"_s))
 {
     ASSERT(!m_cacheName.isEmpty());
     ASSERT(!m_path.isEmpty());
@@ -135,7 +136,7 @@ String CacheStorageDiskStore::recordFilePath(const NetworkCache::Key& key) const
 
 String CacheStorageDiskStore::recordBlobFilePath(const String& recordPath) const
 {
-    return recordPath + blobSuffix;
+    return makeString(recordPath, blobSuffix);
 }
 
 String CacheStorageDiskStore::blobsDirectoryPath() const
@@ -313,20 +314,19 @@ std::optional<CacheStorageRecord> CacheStorageDiskStore::readRecordFromFileData(
         if (bodyOffset + bodySize != buffer.size())
             return std::nullopt;
 
-        auto bodyData = std::span(buffer.data() + bodyOffset, bodySize);
+        auto bodyData = buffer.subspan(bodyOffset, bodySize);
         if (storedInfo->metaData.bodyHash != computeSHA1(bodyData, m_salt))
             return std::nullopt;
 
         // FIXME: avoid copying inline body data here, perhaps by adding offset support to
         // MappedFileData, or by taking a read-only virtual copy of bodyData.
-        responseBody = WebCore::SharedBuffer::create(bodyData.data(), bodyData.size());
+        responseBody = WebCore::SharedBuffer::create(bodyData);
     } else {
         if (!blobBuffer)
             return std::nullopt;
 
         auto sharedBuffer = WebCore::SharedBuffer::create(WTFMove(blobBuffer));
-        auto bodyData = std::span(sharedBuffer->data(), sharedBuffer->size());
-        if (storedInfo->metaData.bodyHash != computeSHA1(bodyData, m_salt))
+        if (storedInfo->metaData.bodyHash != computeSHA1(sharedBuffer->span(), m_salt))
             return std::nullopt;
 
         responseBody = sharedBuffer;
@@ -368,7 +368,7 @@ void CacheStorageDiskStore::readAllRecordInfos(ReadAllRecordInfosCallback&& call
 {
     readAllRecordInfosInternal([this, protectedThis = Ref { *this }, callback = WTFMove(callback)](auto fileDatas) mutable {
         auto result = WTF::compactMap(fileDatas, [&](auto& fileData) -> std::optional<CacheStorageRecordInformation> {
-            if (auto storedInfo = readRecordInfoFromFileData(m_salt, fileData.toSpan()))
+            if (auto storedInfo = readRecordInfoFromFileData(m_salt, fileData.span()))
                 return WTFMove(storedInfo->info);
             RELEASE_LOG(CacheStorage, "%p - CacheStorageDiskStore::readAllRecordInfos fails to decode record from file", this);
             return std::nullopt;
@@ -407,7 +407,7 @@ void CacheStorageDiskStore::readRecords(const Vector<CacheStorageRecordInformati
 
         Vector<std::optional<CacheStorageRecord>> result;
         for (size_t index = 0; index < recordInfos.size(); ++index) {
-            auto record = readRecordFromFileData(fileDatas[index].toSpan(), WTFMove(blobDatas[index]));
+            auto record = readRecordFromFileData(fileDatas[index].span(), WTFMove(blobDatas[index]));
             if (record) {
                 auto recordInfo = recordInfos[index];
                 if (recordInfo.insertionTime != record->info.insertionTime || recordInfo.size != record->info.size || recordInfo.url != record->info.url)
@@ -467,7 +467,7 @@ static Vector<uint8_t> encodeRecordHeader(CacheStorageRecord&& record)
     encoder << record.responseBodySize;
     encoder.encodeChecksum();
 
-    return { encoder.buffer(), encoder.bufferSize() };
+    return { encoder.span() };
 }
 
 static Vector<uint8_t> encodeRecordBody(const CacheStorageRecord& record)
@@ -476,7 +476,7 @@ static Vector<uint8_t> encodeRecordBody(const CacheStorageRecord& record)
         // FIXME: Store form data body.
         return Vector<uint8_t> { };
     }, [&](const Ref<WebCore::SharedBuffer>& buffer) {
-        return Vector<uint8_t> { buffer->data(), buffer->size() };
+        return Vector<uint8_t> { buffer->span() };
     }, [](const std::nullptr_t&) {
         return Vector<uint8_t> { };
     });
@@ -495,17 +495,11 @@ static Vector<uint8_t> encodeRecord(const NetworkCache::Key& key, const Vector<u
     encoder << isBodyInline;
     encoder.encodeChecksum();
 
-    auto metaData = Vector<uint8_t> { encoder.buffer(), encoder.bufferSize() };
+    auto metaData = encoder.span();
     Vector<uint8_t> result;
-    result.appendVector(metaData);
+    result.append(metaData);
     result.appendVector(headerData);
 
-    StringBuilder sb;
-    for (auto& data : bodyData) {
-        sb.append(data);
-        sb.append(",");
-    }
-    
     if (isBodyInline)
         result.appendVector(bodyData);
 

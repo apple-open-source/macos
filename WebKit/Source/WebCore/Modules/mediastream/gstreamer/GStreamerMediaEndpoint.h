@@ -26,6 +26,7 @@
 #include "GStreamerPeerConnectionBackend.h"
 #include "GStreamerRtpSenderBackend.h"
 #include "GStreamerStatsCollector.h"
+#include "GStreamerWebRTCCommon.h"
 #include "GUniquePtrGStreamer.h"
 #include "RTCRtpReceiver.h"
 
@@ -36,9 +37,11 @@
 #include <wtf/LoggerHelper.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/glib/WTFGType.h>
 
 namespace WebCore {
 
+class GStreamerIncomingTrackProcessor;
 class GStreamerRtpReceiverBackend;
 class GStreamerRtpTransceiverBackend;
 class MediaStreamTrack;
@@ -46,7 +49,7 @@ class RTCSessionDescription;
 class RealtimeOutgoingMediaSourceGStreamer;
 class UniqueSSRCGenerator;
 
-class GStreamerMediaEndpoint : public ThreadSafeRefCounted<GStreamerMediaEndpoint, WTF::DestructionThread::Main>
+class GStreamerMediaEndpoint : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GStreamerMediaEndpoint, WTF::DestructionThread::Main>
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
@@ -64,6 +67,7 @@ public:
     void doCreateAnswer();
 
     void getStats(GstPad*, const GstStructure*, Ref<DeferredPromise>&&);
+    void getStats(RTCRtpReceiver&, Ref<DeferredPromise>&&);
 
     std::unique_ptr<RTCDataChannelHandler> createDataChannel(const String&, const RTCDataChannelInit&);
 
@@ -78,6 +82,8 @@ public:
 
     void gatherDecoderImplementationName(Function<void(String&&)>&&);
     bool isNegotiationNeeded(uint32_t eventId) const { return eventId == m_negotiationNeededEventId; }
+
+    std::optional<bool> canTrickleIceCandidates() const;
 
     void configureAndLinkSource(RealtimeOutgoingMediaSourceGStreamer&, bool shouldLookForUnusedPads = false);
 
@@ -101,11 +107,14 @@ public:
     void createSessionDescriptionFailed(RTCSdpType, GUniquePtr<GError>&&);
 
     GstElement* pipeline() const { return m_pipeline.get(); }
+    GstElement* webrtcBin() const { return m_webrtcBin.get(); }
     bool handleMessage(GstMessage*);
 
 #if !RELEASE_LOG_DISABLED
     void processStats(const GValue*);
 #endif
+
+    void connectIncomingTrack(WebRTCTrackData&);
 
 protected:
 #if !RELEASE_LOG_DISABLED
@@ -139,7 +148,7 @@ private:
 
     MediaStream& mediaStreamFromRTCStream(String mediaStreamId);
 
-    void addRemoteStream(GstPad*);
+    void connectPad(GstPad*);
     void removeRemoteStream(GstPad*);
 
     int pickAvailablePayloadType();
@@ -149,7 +158,7 @@ private:
 
     void processSDPMessage(const GstSDPMessage*, Function<void(unsigned index, const char* mid, const GstSDPMedia*)>);
 
-    GRefPtr<GstPad> requestPad(std::optional<unsigned> mlineIndex, const GRefPtr<GstCaps>&, const String& mediaStreamID);
+    WARN_UNUSED_RETURN GRefPtr<GstPad> requestPad(const GRefPtr<GstCaps>&, const String& mediaStreamID);
 
     std::optional<bool> isIceGatheringComplete(const String& currentLocalDescription);
 
@@ -160,7 +169,7 @@ private:
 
     const Logger& logger() const final { return m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const final { return "GStreamerMediaEndpoint"; }
+    ASCIILiteral logClassName() const final { return "GStreamerMediaEndpoint"_s; }
     WTFLogChannel& logChannel() const final;
 
     Seconds statsLogInterval(Seconds) const;
@@ -178,8 +187,6 @@ private:
 
     Ref<GStreamerStatsCollector> m_statsCollector;
 
-    unsigned m_requestPadCounter { 0 };
-    unsigned m_pendingIncomingStreams { 0 };
     uint32_t m_negotiationNeededEventId { 0 };
 
 #if !RELEASE_LOG_DISABLED
@@ -195,6 +202,8 @@ private:
     HashMap<DataChannelHandlerIdentifier, UniqueRef<GStreamerDataChannelHandler>> m_incomingDataChannels;
 
     RefPtr<UniqueSSRCGenerator> m_ssrcGenerator;
+
+    HashMap<GRefPtr<GstWebRTCRTPTransceiver>, RefPtr<GStreamerIncomingTrackProcessor>> m_trackProcessors;
 };
 
 } // namespace WebCore

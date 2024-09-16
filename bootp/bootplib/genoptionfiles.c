@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 1999-2021 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 1999-2024 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -185,6 +185,9 @@ struct {
     { 61,	"uint8_mult",	"client_identifier" },
     { 66,	"ip_mult",	"tftp_server_name" },
     { 67,	"string",	"bootfile_name" },
+    { COMMENT, "/* timezone options (RFC 4833) */", 0 },
+    { 100,	"string",	"posix_timezone" },
+    { 101,	"string",	"tzdb_timezone" },
     { COMMENT, "/* IPv6-only preferred (RFC 8925) */", 0 },
     { 108,	"uint32",	"ipv6_only_preferred" },
     { COMMENT, "/* netinfo parent tags: 112, 113 */", 0 },

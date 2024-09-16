@@ -31,6 +31,7 @@
 #include "SessionHost.h"
 #include <wtf/RunLoop.h>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/WTFString.h>
 
@@ -50,20 +51,16 @@ static void printUsageStatement(const char* programName)
     printf("  -h,          --help             Prints this help message\n");
     printf("  -p <port>,   --port=<port>      Port number the driver will use\n");
     printf("               --host=<host>      Host IP the driver will use, or either 'local' or 'all' (default: 'local')\n");
-#if USE(INSPECTOR_SOCKET_SERVER)
-    printf("  -t <ip:port> --target=<ip:port> [WinCairo] Target IP and port\n");
-#endif
+    printf("  -t <ip:port> --target=<ip:port> Target IP and port\n");
 }
 
 int WebDriverService::run(int argc, char** argv)
 {
     String portString;
     std::optional<String> host;
-#if USE(INSPECTOR_SOCKET_SERVER)
     String targetString;
     if (const char* targetEnvVar = getenv("WEBDRIVER_TARGET_ADDR"))
         targetString = String::fromLatin1(targetEnvVar);
-#endif
     for (int i = 1 ; i < argc; ++i) {
         const char* arg = argv[i];
         if (!strcmp(arg, "-h") || !strcmp(arg, "--help")) {
@@ -92,7 +89,6 @@ int WebDriverService::run(int argc, char** argv)
             continue;
         }
 
-#if USE(INSPECTOR_SOCKET_SERVER)
         if (!strcmp(arg, "-t") && targetString.isNull()) {
             if (++i == argc) {
                 printUsageStatement(argv[0]);
@@ -107,7 +103,6 @@ int WebDriverService::run(int argc, char** argv)
             targetString = String::fromLatin1(arg + targetStrLength);
             continue;
         }
-#endif
     }
 
     if (portString.isNull()) {
@@ -115,7 +110,6 @@ int WebDriverService::run(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-#if USE(INSPECTOR_SOCKET_SERVER)
     if (!targetString.isEmpty()) {
         auto position = targetString.reverseFind(':');
         if (position != notFound) {
@@ -123,7 +117,6 @@ int WebDriverService::run(int argc, char** argv)
             m_targetPort = parseIntegerAllowingTrailingJunk<uint16_t>(StringView { targetString }.substring(position + 1)).value_or(0);
         }
     }
-#endif
 
     auto port = parseInteger<uint16_t>(portString);
     if (!port) {
@@ -269,19 +262,19 @@ void WebDriverService::handleRequest(HTTPRequestHandler::Request&& request, Func
 {
     auto method = toCommandHTTPMethod(request.method);
     if (!method) {
-        sendResponse(WTFMove(replyHandler), CommandResult::fail(CommandResult::ErrorCode::UnknownCommand, String("Unknown method: " + request.method)));
+        sendResponse(WTFMove(replyHandler), CommandResult::fail(CommandResult::ErrorCode::UnknownCommand, makeString("Unknown method: "_s, request.method)));
         return;
     }
     CommandHandler handler;
     HashMap<String, String> parameters;
     if (!findCommand(method.value(), request.path, &handler, parameters)) {
-        sendResponse(WTFMove(replyHandler), CommandResult::fail(CommandResult::ErrorCode::UnknownCommand, String("Unknown command: " + request.path)));
+        sendResponse(WTFMove(replyHandler), CommandResult::fail(CommandResult::ErrorCode::UnknownCommand, makeString("Unknown command: "_s, request.path)));
         return;
     }
 
     RefPtr<JSON::Object> parametersObject;
     if (method.value() == HTTPMethod::Post) {
-        auto messageValue = JSON::Value::parseJSON(String::fromUTF8(request.data, request.dataLength));
+        auto messageValue = JSON::Value::parseJSON(String::fromUTF8({ request.data, request.dataLength }));
         if (!messageValue) {
             sendResponse(WTFMove(replyHandler), CommandResult::fail(CommandResult::ErrorCode::InvalidArgument));
             return;
@@ -428,7 +421,7 @@ static std::optional<Proxy> deserializeProxy(JSON::Object& proxyObject)
             if (!ftpProxy)
                 return std::nullopt;
 
-            proxy.ftpURL = URL({ }, makeString("ftp://", ftpProxy));
+            proxy.ftpURL = URL({ }, makeString("ftp://"_s, ftpProxy));
             if (!proxy.ftpURL->isValid())
                 return std::nullopt;
         }
@@ -437,7 +430,7 @@ static std::optional<Proxy> deserializeProxy(JSON::Object& proxyObject)
             if (!httpProxy)
                 return std::nullopt;
 
-            proxy.httpURL = URL({ }, makeString("http://", httpProxy));
+            proxy.httpURL = URL({ }, makeString("http://"_s, httpProxy));
             if (!proxy.httpURL->isValid())
                 return std::nullopt;
         }
@@ -446,7 +439,7 @@ static std::optional<Proxy> deserializeProxy(JSON::Object& proxyObject)
             if (!sslProxy)
                 return std::nullopt;
 
-            proxy.httpsURL = URL({ }, makeString("https://", sslProxy));
+            proxy.httpsURL = URL({ }, makeString("https://"_s, sslProxy));
             if (!proxy.httpsURL->isValid())
                 return std::nullopt;
         }
@@ -455,7 +448,7 @@ static std::optional<Proxy> deserializeProxy(JSON::Object& proxyObject)
             if (!socksProxy)
                 return std::nullopt;
 
-            proxy.socksURL = URL({ }, makeString("socks://", socksProxy));
+            proxy.socksURL = URL({ }, makeString("socks://"_s, socksProxy));
             if (!proxy.socksURL->isValid())
                 return std::nullopt;
 
@@ -774,7 +767,7 @@ Vector<Capabilities> WebDriverService::processCapabilities(const JSON::Object& p
         for (auto it = firstMatchCapabilities->begin(); it != firstMatchEnd; ++it) {
             if (requiredCapabilities->find(it->key) != requiredEnd) {
                 completionHandler(CommandResult::fail(CommandResult::ErrorCode::InvalidArgument,
-                    makeString("Invalid firstMatch capabilities: key ", it->key, " is present in alwaysMatch")));
+                    makeString("Invalid firstMatch capabilities: key "_s, it->key, " is present in alwaysMatch"_s)));
                 return { };
             }
         }
@@ -834,12 +827,10 @@ void WebDriverService::connectToBrowser(Vector<Capabilities>&& capabilitiesList,
 
     auto sessionHost = makeUnique<SessionHost>(capabilitiesList.takeLast());
     auto* sessionHostPtr = sessionHost.get();
-#if USE(INSPECTOR_SOCKET_SERVER)
     sessionHostPtr->setHostAddress(m_targetAddress, m_targetPort);
-#endif
     sessionHostPtr->connectToBrowser([this, capabilitiesList = WTFMove(capabilitiesList), sessionHost = WTFMove(sessionHost), completionHandler = WTFMove(completionHandler)](std::optional<String> error) mutable {
         if (error) {
-            completionHandler(CommandResult::fail(CommandResult::ErrorCode::SessionNotCreated, makeString("Failed to connect to browser: ", error.value())));
+            completionHandler(CommandResult::fail(CommandResult::ErrorCode::SessionNotCreated, makeString("Failed to connect to browser: "_s, error.value())));
             return;
         }
 

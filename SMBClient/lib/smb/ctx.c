@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2020 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -912,14 +912,26 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
     if (rq.ioc_extra_flags & (SMB_SMB2_ENABLED | SMB_SMB3_ENABLED)) {
         if (ctx->prefs.altflags & SMBFS_MNT_MULTI_CHANNEL_ON) {  // obtained from nsmb.conf
             rq.ioc_extra_flags |= SMB_MULTICHANNEL_ENABLE;
+            
+            /* Get max channels and max rss channels */
             rq.ioc_mc_max_channel = ctx->prefs.mc_max_channels;
-            rq.ioc_mc_max_rss_channel = ctx->prefs.mc_max_rss_channels;
+            rq.ioc_mc_srvr_rss_channel = ctx->prefs.mc_srvr_rss_channels;
+            rq.ioc_mc_clnt_rss_channel = ctx->prefs.mc_clnt_rss_channels;
+
+            /* Get client NIC ignore list if any */
             bcopy(ctx->prefs.mc_client_if_ignorelist,
                   rq.ioc_mc_client_if_ignorelist,
                   sizeof(rq.ioc_mc_client_if_ignorelist));
             rq.ioc_mc_client_if_ignorelist_len = ctx->prefs.mc_client_if_ignorelist_len;
+            
+            /* Is prefer wired set? */
             if (ctx->prefs.altflags & SMBFS_MNT_MC_PREFER_WIRED) {
                 rq.ioc_extra_flags |= SMB_MC_PREFER_WIRED;
+            }
+            
+            /* Is force client side RSS on? */
+            if (ctx->prefs.altflags & SMBFS_MNT_MC_CLIENT_RSS_FORCE_ON) {
+                rq.ioc_extra_flags |= SMB_MC_CLIENT_RSS_FORCE_ON;
             }
         }
     }
@@ -959,7 +971,16 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
     if (ctx->prefs.force_share_encrypt) {
         rq.ioc_extra_flags |= SMB_FORCE_SHARE_ENCRYPT;
     }
-        
+       
+    /* Is chained compressions disabled? */
+    if (ctx->prefs.altflags & SMBFS_MNT_COMPRESSION_CHAINING_OFF) {
+        rq.ioc_extra_flags |= SMB_COMPRESSION_CHAINING_OFF;
+    }
+
+    /* Pass in compression algorithms supported */
+    rq.ioc_compression_algorithms_map = ctx->prefs.compression_algorithms_map;
+
+    
     /*
      * See if "cifs://" was specified. 
 	 * Specifying "cifs://" forces us to only try SMB 1
@@ -3077,6 +3098,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
 	CFNumberRef numRef;
 	struct smb_ctx *dfs_ctx = ctx;
     CFStringRef strRef = NULL;
+    uint32_t i = 0;
 
 	if (!ForceNewSession) {
 		/* 
@@ -3210,8 +3232,8 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
         /* Connection went down, make sure we return the correct error */
   		if ((error == ENOTCONN) || (smb_ctx_connstate(ctx) == ENOTCONN)) {
 			ctx->ct_flags &= ~SMBCF_CONNECT_STATE;
-			error =  EPIPE;
-		}
+			error = EPIPE;
+        }
         dfs_ctx = ctx;  /* Clean up code requires this to be set */
         goto WeAreDone;
     }
@@ -3448,8 +3470,32 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
     mdata.write_count[1] = ctx->prefs.write_count[1];
     mdata.write_count[2] = ctx->prefs.write_count[2];
 
-    /* User defined rw thread control */
-    mdata.rw_thread_control = ctx->prefs.rw_thread_control;
+    /* User defined rw_max_check_time */
+    mdata.rw_max_check_time = ctx->prefs.rw_max_check_time;
+
+    /* User defined rw_gb_threshold */
+    mdata.rw_gb_threshold = ctx->prefs.rw_gb_threshold;
+    
+    /*
+     * Compression values
+     */
+    
+    /* Client compression algorithm map passed into session via ioctl */
+    mdata.compression_io_threshold = ctx->prefs.compression_io_threshold;
+    mdata.compression_chunk_len = ctx->prefs.compression_chunk_len;
+    mdata.compression_max_fail_cnt = ctx->prefs.compression_max_fail_cnt;
+
+    /* Copy user exclusion list if any */
+    for (i = 0; i < ctx->prefs.compression_exclude_cnt; i++) {
+        strlcpy(mdata.compression_exclude[i], ctx->prefs.compression_exclude[i], kClientCompressMaxExtLen);
+    }
+    mdata.compression_exclude_cnt = ctx->prefs.compression_exclude_cnt;
+
+    /* Copy user inclusion list if any */
+    for (i = 0; i < ctx->prefs.compression_include_cnt; i++) {
+        strlcpy(mdata.compression_include[i], ctx->prefs.compression_include[i], kClientCompressMaxExtLen);
+    }
+    mdata.compression_include_cnt = ctx->prefs.compression_include_cnt;
 
     mdata.dev = dfs_ctx->ct_fd;
 	
@@ -3510,7 +3556,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,
 		(smb_tree_conn_optional_support_flags(ctx) & SMB_SHARE_IS_IN_DFS)) {
 	    mdata.altflags |= SMBFS_MNT_DFS_SHARE;
 	}
-	os_log_debug(OS_LOG_DEFAULT, "%s: Volume name = %s mntflags = 0x%x altflags = 0x%x",
+    os_log_debug(OS_LOG_DEFAULT, "%s: Volume name = %s mntflags = 0x%x altflags = 0x%llx",
 				 __FUNCTION__, mdata.volume_name,
 				 mntflags, mdata.altflags);
 	error = mount(SMBFS_VFSNAME, mount_point, mntflags, (void*)&mdata);
@@ -3812,7 +3858,8 @@ failed:
 void smb_ctx_done(void *inRef)
 {
 	struct smb_ctx *ctx = (struct smb_ctx *)inRef;
-	
+    uint32_t i = 0;
+    
 	if (ctx == NULL)
 		return; /* Nothing to do here */
 
@@ -3846,7 +3893,22 @@ void smb_ctx_done(void *inRef)
 		CFRelease(ctx->mechDict);
 		ctx->mechDict = NULL;
 	}
-	pthread_mutex_unlock(&ctx->ctx_mutex);
+
+    for (i = 0; i < ctx->prefs.compression_exclude_cnt; i++) {
+        if (ctx->prefs.compression_exclude[i] != NULL) {
+            free(ctx->prefs.compression_exclude[i]);
+        }
+    }
+    ctx->prefs.compression_exclude_cnt = 0;
+    
+    for (i = 0; i < ctx->prefs.compression_include_cnt; i++) {
+        if (ctx->prefs.compression_include[i] != NULL) {
+            free(ctx->prefs.compression_include[i]);
+        }
+    }
+    ctx->prefs.compression_include_cnt = 0;
+    
+    pthread_mutex_unlock(&ctx->ctx_mutex);
 	pthread_mutex_destroy(&ctx->ctx_mutex);
 	free(ctx);
 }

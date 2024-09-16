@@ -4422,7 +4422,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "usr_sh=\"$DSTROOT/usr/share/man\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$usr_sh/man5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$usr_sh/man8\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudoers.man\" \"$usr_sh/man5/sudoers.5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudo.man\"    \"$usr_sh/man8/sudo.8\"\n";
+			shellScript = "usr_sh=\"$DSTROOT/usr/share/man\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$usr_sh/man5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$usr_sh/man8\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudoers.man\" \"$usr_sh/man5/sudoers.5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudo.conf.man\" \"$usr_sh/man5/sudo.conf.5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudo_plugin.man\" \"$usr_sh/man5/sudo_plugin.5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudoers_timestamp.man\" \"$usr_sh/man5/sudoers_timestamp.5\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudo.man\"    \"$usr_sh/man8/sudo.8\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/sudo/docs/sudoreplay.man\"    \"$usr_sh/man8/sudoreplay.8\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FE801D211C6ADB6A006A214E /* Install PAM configuration */ = {

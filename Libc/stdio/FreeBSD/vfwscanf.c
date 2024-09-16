@@ -180,7 +180,7 @@ __vfwscanf(FILE * __restrict fp, locale_t loc, const wchar_t * __restrict fmt,
 		if (iswspace_l(c, loc)) {
 			while ((c = __fgetwc(fp, loc)) != WEOF &&
 			    iswspace_l(c, loc))
-				;
+				nread++;
 			if (c != WEOF)
 				__ungetwc(c, fp, loc);
 			continue;

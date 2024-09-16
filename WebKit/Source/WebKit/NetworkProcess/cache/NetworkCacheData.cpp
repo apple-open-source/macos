@@ -28,6 +28,7 @@
 
 #include <fcntl.h>
 #include <wtf/FileSystem.h>
+#include <wtf/StdLibExtras.h>
 
 #if !OS(WINDOWS)
 #include <sys/mman.h>
@@ -82,9 +83,9 @@ Data adoptAndMapFile(FileSystem::PlatformFileHandle handle, size_t offset, size_
 SHA1::Digest computeSHA1(const Data& data, const Salt& salt)
 {
     SHA1 sha1;
-    sha1.addBytes(salt.data(), salt.size());
+    sha1.addBytes(salt);
     data.apply([&sha1](std::span<const uint8_t> span) {
-        sha1.addBytes(span.data(), span.size());
+        sha1.addBytes(span);
         return true;
     });
 
@@ -97,9 +98,7 @@ bool bytesEqual(const Data& a, const Data& b)
 {
     if (a.isNull() || b.isNull())
         return false;
-    if (a.size() != b.size())
-        return false;
-    return !memcmp(a.data(), b.data(), a.size());
+    return equalSpans(a.span(), b.span());
 }
 
 } // namespace NetworkCache

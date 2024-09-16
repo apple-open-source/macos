@@ -28,6 +28,7 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "RTCDTMFSenderBackend.h"
 #include "RTCDTMFToneChangeEvent.h"
 #include "RTCRtpSender.h"
@@ -148,11 +149,6 @@ void RTCDTMFSender::stop()
     m_isPendingPlayoutTask = false;
     m_backend = nullptr;
     m_toneTimer.stop();
-}
-
-const char* RTCDTMFSender::activeDOMObjectName() const
-{
-    return "RTCDTMFSender";
 }
 
 } // namespace WebCore

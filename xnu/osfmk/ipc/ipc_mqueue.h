@@ -113,10 +113,10 @@ typedef struct ipc_mqueue {
 		 * - PORT_SYNC_LINK_RCV_THREAD: imq_inheritor_thread_ref
 		 */
 		struct klist            imq_klist;
-		struct knote            *imq_inheritor_knote;
-		struct turnstile        *imq_inheritor_turnstile;
-		thread_t                imq_inheritor_thread_ref;
-		thread_t                imq_srp_owner_thread;
+		struct knote            *XNU_PTRAUTH_SIGNED_PTR("ipc_mqueue.knote") imq_inheritor_knote;
+		struct turnstile        *XNU_PTRAUTH_SIGNED_PTR("ipc_mqueue.turnstile") imq_inheritor_turnstile;
+		thread_t                XNU_PTRAUTH_SIGNED_PTR("ipc_mqueue.thread_ref") imq_inheritor_thread_ref;
+		thread_t                XNU_PTRAUTH_SIGNED_PTR("ipc_mqueue.srp_owner_thread") imq_srp_owner_thread;
 	};
 } *ipc_mqueue_t;
 

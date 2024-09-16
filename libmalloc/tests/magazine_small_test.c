@@ -15,7 +15,7 @@
 bool aggressive_madvise_enabled = DEFAULT_AGGRESSIVE_MADVISE_ENABLED;
 malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
 
 static inline void
 small_test_rack_setup(rack_t *rack)

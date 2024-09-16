@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -44,44 +44,31 @@
 struct timezone gTimeZone = {8*60,1};
 
 /*
- * GetTimeUTC - get the GMT Mac OS time (in seconds since 1/1/1904)
+ * GetTimeUTC - get the current GMT Mac OS time
+ * Account for either classic time (in seconds since 1/1/1904)
+ * or expanded time (BSD epoch)
  *
  * called by the Catalog Manager when creating/updating HFS Plus records
  */
-u_int32_t GetTimeUTC(void)
+u_int32_t GetTimeUTC(bool expanded)
 {
 	struct timeval tv;
-
 	microtime(&tv);
-
-	return (tv.tv_sec + MAC_GMT_FACTOR);
-}
-
-
-/*
- * LocalToUTC - convert from Mac OS local time to Mac OS GMT time.
- * This should only be called for HFS volumes (not for HFS Plus).
- */
-u_int32_t LocalToUTC(u_int32_t localTime)
-{
-	u_int32_t gtime = localTime;
-	
-	if (gtime != 0) {
-		gtime += (gTimeZone.tz_minuteswest * 60);
-	/*
-	 * We no longer do DST adjustments here since we don't
-	 * know if time supplied needs adjustment!
-	 *
-	 * if (gTimeZone.tz_dsttime)
-	 *     gtime -= 3600;
-	 */
+	uint32_t mac_time = tv.tv_sec;
+	if (!expanded) {
+		mac_time += MAC_GMT_FACTOR;
 	}
-    return (gtime);
+
+	return mac_time;
 }
+
 
 /*
  * UTCToLocal - convert from Mac OS GMT time to Mac OS local time.
- * This should only be called for HFS volumes (not for HFS Plus).
+ * This should only be called for HFS Standard (not for HFS+) in normal runtime.
+ *
+ * However this function *is* used in newfs_hfs to convert the UTC time to
+ * local time for writing into the volume header.
  */
 u_int32_t UTCToLocal(u_int32_t utcTime)
 {
@@ -101,32 +88,64 @@ u_int32_t UTCToLocal(u_int32_t utcTime)
 }
 
 /*
- * to_bsd_time - convert from Mac OS time (seconds since 1/1/1904)
- *		 to BSD time (seconds since 1/1/1970)
+ * to_bsd_time:
+ * convert from Mac OS classic time (seconds since 1/1/1904)
+ * to BSD time (seconds since 1/1/1970), depending on if
+ * expanded times are in use.
  */
-time_t to_bsd_time(u_int32_t hfs_time)
+time_t to_bsd_time(u_int32_t hfs_time, bool expanded)
 {
 	u_int32_t gmt = hfs_time;
 
-	if (gmt > MAC_GMT_FACTOR)
+	if (expanded) {
+		/*
+		 * If expanded times are in use, then we are using
+		 * BSD time as native. Do not convert it. It is assumed
+		 * to be a non-negative value.
+		 */
+		return (time_t) gmt;
+	}
+
+	if (gmt > MAC_GMT_FACTOR) {
 		gmt -= MAC_GMT_FACTOR;
-	else
+	}
+	else {
 		gmt = 0;	/* don't let date go negative! */
+	}
 
 	return (time_t)gmt;
 }
 
 /*
- * to_hfs_time - convert from BSD time (seconds since 1/1/1970)
- *		 to Mac OS time (seconds since 1/1/1904)
+ * to_hfs_time:
+ * convert from BSD time (seconds since 1/1/1970)
+ * to Mac OS classic time (seconds since 1/1/1904), depending
+ * on if expanded times are in use.
  */
-u_int32_t to_hfs_time(time_t bsd_time)
+u_int32_t to_hfs_time(time_t bsd_time, bool expanded)
 {
+	bool negative = (bsd_time < 0);
 	u_int32_t hfs_time = (u_int32_t)bsd_time;
 
-	/* don't adjust zero - treat as uninitialzed */
-	if (hfs_time != 0)
+	if (expanded) {
+		/*
+		 * If expanded times are in use, then the BSD time
+		 * is native. Do not convert it with the Mac factor.
+		 * In this mode, zero is legitimate (now implying 1/1/1970).
+		 *
+		 * In addition, clip the timestamp to 0, ensuring that we treat
+		 * the value as an unsigned int32.
+		 */
+		if (negative) {
+			hfs_time = 0;
+		}
+		return hfs_time;
+	}
+
+	/* don't adjust zero - treat as uninitialized */
+	if (hfs_time != 0) {
 		hfs_time += MAC_GMT_FACTOR;
+	}
 
 	return (hfs_time);
 }

@@ -87,7 +87,7 @@ GStreamerDataChannelHandler::GStreamerDataChannelHandler(GRefPtr<GstWebRTCDataCh
     : m_channel(WTFMove(channel))
 {
     static Atomic<uint64_t> nChannel = 0;
-    m_channelId = makeString("webkit-webrtc-data-channel-", nChannel.exchangeAdd(1));
+    m_channelId = makeString("webkit-webrtc-data-channel-"_s, nChannel.exchangeAdd(1));
 
     ASSERT(m_channel);
     static std::once_flag debugRegisteredFlag;
@@ -167,9 +167,10 @@ void GStreamerDataChannelHandler::setClient(RTCDataChannelHandlerClient& client,
     for (auto& message : messages) {
         switchOn(message, [&](Ref<FragmentedSharedBuffer>& data) {
             DC_DEBUG("Notifying queued raw data (size: %zu)", data->size());
-            const auto* rawData = data->makeContiguous()->data();
-            DC_MEMDUMP("Notifying raw data", rawData, data->size());
-            client.didReceiveRawData(rawData, data->size());
+            Ref contiguousData = data->makeContiguous();
+            auto span = contiguousData->span();
+            DC_MEMDUMP("Notifying raw data", span.data(), span.size());
+            client.didReceiveRawData(span);
         }, [&](String& text) {
             DC_DEBUG("Notifying queued string of size %d", text.sizeInBytes());
             DC_TRACE("Notifying queued string %s", text.ascii().data());
@@ -192,17 +193,35 @@ bool GStreamerDataChannelHandler::sendStringData(const CString& text)
 {
     DC_DEBUG("Sending string of length: %zu", text.length());
     DC_TRACE("Sending string %s", text.data());
+#if GST_CHECK_VERSION(1, 22, 0)
+    GUniqueOutPtr<GError> error;
+    // https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1958
+    gst_webrtc_data_channel_send_string_full(GST_WEBRTC_DATA_CHANNEL(m_channel.get()), text.data(), &error.outPtr());
+    if (error)
+        DC_WARNING("Unable to send string, error: %s", error->message);
+    return !error;
+#else
     g_signal_emit_by_name(m_channel.get(), "send-string", text.data());
     return true;
+#endif
 }
 
-bool GStreamerDataChannelHandler::sendRawData(const uint8_t* data, size_t length)
+bool GStreamerDataChannelHandler::sendRawData(std::span<const uint8_t> data)
 {
-    DC_DEBUG("Sending raw data of length: %zu", length);
-    DC_MEMDUMP("Sending raw data", data, length);
-    auto bytes = adoptGRef(g_bytes_new(data, length));
+    DC_DEBUG("Sending raw data of length: %zu", data.size());
+    DC_MEMDUMP("Sending raw data", data.data(), data.size());
+    auto bytes = adoptGRef(g_bytes_new(data.data(), data.size()));
+#if GST_CHECK_VERSION(1, 22, 0)
+    GUniqueOutPtr<GError> error;
+    // https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/1958
+    gst_webrtc_data_channel_send_data_full(GST_WEBRTC_DATA_CHANNEL(m_channel.get()), bytes.get(), &error.outPtr());
+    if (error)
+        DC_WARNING("Unable to send raw data, error: %s", error->message);
+    return !error;
+#else
     g_signal_emit_by_name(m_channel.get(), "send-data", bytes.get());
     return true;
+#endif
 }
 
 void GStreamerDataChannelHandler::close()
@@ -239,7 +258,7 @@ bool GStreamerDataChannelHandler::checkState()
 
     RTCDataChannelState state;
     switch (channelState) {
-#if !GST_CHECK_VERSION(1, 21, 1)
+#if !GST_CHECK_VERSION(1, 22, 0)
     // Removed in https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/2099.
     case GST_WEBRTC_DATA_CHANNEL_STATE_NEW:
 #endif
@@ -344,7 +363,7 @@ void GStreamerDataChannelHandler::onMessageData(GBytes* bytes)
         gsize size = 0;
         const auto* data = reinterpret_cast<const uint8_t*>(g_bytes_get_data(bytes.get(), &size));
         DC_MEMDUMP("Incoming raw data", data, size);
-        client.value()->didReceiveRawData(data, size);
+        client.value()->didReceiveRawData(std::span { data, size });
     });
 }
 

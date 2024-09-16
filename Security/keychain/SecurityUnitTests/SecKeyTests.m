@@ -136,7 +136,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create CDSA key: %@", error);
         XCTAssert([self isCDSAKey:key], @"expected to create CDSA key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecUseDataProtectionKeychain: @YES,
@@ -145,7 +145,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create modern key: %@", error);
         XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecUseSystemKeychainAlways: @YES,
@@ -154,7 +154,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create modern key in syskeychain: %@", error);
         XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecAttrAccessControl: ac,
@@ -163,7 +163,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create modern key: %@", error);
         XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecUseDataProtectionKeychain: @NO,
@@ -172,7 +172,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create CDSA key: %@", error);
         XCTAssert([self isCDSAKey:key], @"expected to create CDSA key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecPrivateKeyAttrs: @{
@@ -183,7 +183,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
         XCTAssertNotNil(key, @"failed to create modern key: %@", error);
         XCTAssertFalse([self isCDSAKey:key], @"expected to create modern key, but got %@", key);
     }
-    
+
     @autoreleasepool {
         params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256,
                     (id)kSecPublicKeyAttrs: @{
@@ -271,7 +271,7 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
 
         SecKeyAlgorithm algorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
         NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
-        
+
         NSData *sig1 = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)message, (void *)&error));
         XCTAssertNotNil(sig1, "EC privKey sign: %@", error);
         XCTAssert(SecKeyVerifySignature((SecKeyRef)pubKey2, algorithm, (CFDataRef)message, (CFDataRef)sig1, (void *)&error), @"EC pubKey2 verify: %@", error);
@@ -373,9 +373,9 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     id privKey = CFBridgingRelease(SecKeyCreate(kCFAllocatorDefault, &SecTestKeyDescriptor, 0, 0, 0));
     XCTAssertNotNil(privKey);
     SecKeyRef key = (__bridge SecKeyRef)privKey;
-    
+
     secTestKeySupportedAlgorithm = kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
-    
+
     XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestX962SHA256));
     XCTAssert(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureMessageX962SHA256));
     XCTAssertFalse(SecKeyIsAlgorithmSupported(key, kSecKeyOperationTypeSign, kSecKeyAlgorithmECDSASignatureDigestX962));
@@ -409,5 +409,148 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureDigestRFC4754SHA224, (CFDataRef)digestSHA224, (void *)&error)));
     XCTAssertNil(CFBridgingRelease(SecKeyCreateSignature(key, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA384, (CFDataRef)message, (void *)&error)));
 }
+
+- (void)testSecKeyCreationAttributes {
+    id sac = CFBridgingRelease(SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleUntilReboot, kSecAccessControlPrivateKeyUsage, NULL));
+    XCTAssertNotNil(sac);
+
+    NSDictionary *attrs = @{
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits: @256,
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+        (id)kSecKeyOSBound: @YES,
+        (id)kSecKeySealedHashesBound: @YES,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyCreationAttributes",
+        (id)kSecPrivateKeyAttrs: @{
+            (id)kSecAttrAccessControl: sac,
+        },
+    };
+
+    NSError *error;
+    id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)attrs, (void *)&error));
+    XCTAssertNotNil(key, @"Failed to create key, %@", error);
+
+    attrs = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecReturnRef: @YES,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyCreationAttributes",
+    };
+    id retrievedKey;
+    OSStatus status = SecItemCopyMatching((CFDictionaryRef)attrs, (void *)&retrievedKey);
+    XCTAssertEqual(status, errSecSuccess, @"query created key from keychain");
+
+    attrs = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyCreationAttributes",
+    };
+    status = SecItemDelete((CFDictionaryRef)attrs);
+    XCTAssertEqual(status, errSecSuccess, @"delete created key from keychain");
+}
+
+- (void)testSecKeyControlLifetimeFailure {
+    NSError *error;
+    id key = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+        (id)kSecAttrIsPermanent: @NO,
+    }, (void *)&error));
+    XCTAssertNotNil(key, "Failed to create key: %@", error);
+    BOOL result = SecKeyControlLifetime((__bridge SecKeyRef)key, kSecKeyControlLifetimeTypeBump, (void *)&error);
+    XCTAssertFalse(result);
+}
+
+- (void)testPermanentSecKeyCreateRandomKeyFailure {
+    @autoreleasepool {
+        NSError *error;
+        NSDictionary *params = @{
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+            (id)kSecAttrKeySizeInBits: @1000000,
+            (id)kSecAttrIsPermanent: @YES,
+            (id)kSecAttrLabel: @"testPermanentSecKeyCreateRandomKeyFailure-1",
+        };
+        id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNil(privKey);
+        XCTAssertNotNil(error);
+
+        NSDictionary *query = @{
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecAttrLabel: @"testPermanentSecKeyCreateRandomKeyFailure-1",
+        };
+
+        OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, nil);
+        XCTAssertEqual(status, errSecItemNotFound);
+    }
+
+    @autoreleasepool {
+        NSError *error;
+        NSDictionary *params = @{
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+            (id)kSecAttrKeySizeInBits: @256,
+            (id)kSecAttrIsPermanent: @YES,
+            (id)kSecAttrAccessGroup: @"nonexistent-access-group",
+            (id)kSecAttrLabel: @"testPermanentSecKeyCreateRandomKeyFailure-2",
+        };
+        id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+        XCTAssertNil(privKey);
+        XCTAssertNotNil(error);
+
+        NSDictionary *query = @{
+            (id)kSecUseDataProtectionKeychain: @YES,
+            (id)kSecClass: (id)kSecClassKey,
+            (id)kSecAttrLabel: @"testPermanentSecKeyCreateRandomKeyFailure-2",
+        };
+
+        OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, nil);
+        XCTAssertEqual(status, errSecItemNotFound);
+    }
+}
+
+- (void)_generateCopyAndDeleteKeyPairAndReqirePublicKey:(bool)requirePublicKey requirePrivate:(BOOL)requirePrivateKey {
+    NSDictionary *keyAttrs = @{
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecAttrKeySizeInBits: @256,
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyGeneratePair",
+        (id)kSecPrivateKeyAttrs: @ {
+            (id)kSecAttrIsPermanent: @YES
+        }
+    };
+    id publicKey;
+    id privateKey;
+    OSStatus status = SecKeyGeneratePair((CFDictionaryRef)keyAttrs, requirePublicKey ? (void *)&publicKey : nil, requirePrivateKey ? (void *)&privateKey : nil);
+    XCTAssertEqual(status, errSecSuccess, @"Failed to generate public key");
+    if (requirePublicKey) {
+        XCTAssertNotNil(publicKey);
+    }
+    if (requirePrivateKey) {
+        XCTAssertNotNil(privateKey);
+    }
+
+    NSDictionary *copyQueryAttrs = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecReturnRef: @YES,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyGeneratePair",
+    };
+    id retrievedKey;
+    status = SecItemCopyMatching((CFDictionaryRef)copyQueryAttrs, (void *)&retrievedKey);
+    XCTAssertEqual(status, errSecSuccess, @"query created key from keychain");
+    
+    NSDictionary *deleteQueryAttrs = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrLabel: @"SecKeyTests:testSecKeyGeneratePair",
+    };
+    status = SecItemDelete((CFDictionaryRef)deleteQueryAttrs);
+    XCTAssertEqual(status, errSecSuccess, @"delete created key from keychain");
+}
+
+- (void)testSecKeyGeneratePair {
+    [self _generateCopyAndDeleteKeyPairAndReqirePublicKey:YES requirePrivate:NO];
+    [self _generateCopyAndDeleteKeyPairAndReqirePublicKey:NO requirePrivate:YES];
+    [self _generateCopyAndDeleteKeyPairAndReqirePublicKey:YES requirePrivate:YES];
+}
+
 
 @end

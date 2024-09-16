@@ -74,7 +74,7 @@ get_magazine(struct rack_s *rack, void *ptr)
 
 
 T_DECL(medium_realloc_madvise_headers, "medium realloc in place maintains madvise headers",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),T_META_TAG_VM_PREFERRED)
 {
 	struct rack_s rack;
 	medium_test_rack_setup(&rack);
@@ -103,7 +103,7 @@ T_DECL(medium_realloc_madvise_headers, "medium realloc in place maintains madvis
 }
 
 T_DECL(free_end_of_region, "End of region's footer is marked dirty",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
 {
 	// Check that the headers for the last block in a region are correct
 	// when the block has been coalesced and is using an intrusive free list.
@@ -158,7 +158,7 @@ T_DECL(free_end_of_region, "End of region's footer is marked dirty",
 }
 
 T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
 {
 	struct rack_s rack;
 	medium_test_rack_setup(&rack);
@@ -195,7 +195,7 @@ T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
 }
 
 T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
-		T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+		T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR), T_META_TAG_VM_PREFERRED)
 {
 	struct rack_s rack;
 	memset(&rack, 'a', sizeof(rack));

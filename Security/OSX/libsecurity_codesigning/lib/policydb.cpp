@@ -52,7 +52,7 @@ static const char *dbPath()
 {
 	if (const char *s = getenv("SYSPOLICYDATABASE"))
 		return s;
-	return defaultDatabase;
+	return policyDatabase;
 }
 
 
@@ -640,7 +640,6 @@ void setAssessment(bool masterSwitch)
 	/* reset the automatic rearm timer */
 	resetRearmTimer("masterswitch");
 }
-
 
 //
 // Reset or query the automatic rearm timer

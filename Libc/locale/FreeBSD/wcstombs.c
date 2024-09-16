@@ -45,7 +45,7 @@ wcstombs_l(char * __restrict s, const wchar_t * __restrict pwcs, size_t n,
 	NORMALIZE_LOCALE(loc);
 	mbs = initial;
 	pwcsp = pwcs;
-	return (loc->__lc_ctype->__wcsnrtombs(s, &pwcsp, SIZE_T_MAX, n, &mbs, loc));
+	return (XLOCALE_CTYPE(loc)->__wcsnrtombs(s, &pwcsp, SIZE_T_MAX, n, &mbs, loc));
 }
 
 size_t

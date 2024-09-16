@@ -34,7 +34,6 @@
 #include "DAStage.h"
 #include "DASupport.h"
 #include "DAThread.h"
-#include "FSKitdWatcher.h"
 
 #include <assert.h>
 #include <dirent.h>
@@ -98,7 +97,7 @@ CFMutableArrayRef      gDASessionList                  = NULL;
 CFMutableDictionaryRef gDAUnitList                     = NULL;
 Boolean                gDAUnlockedState                = FALSE;
 
-Boolean                gFSKitMissing                   = FALSE; // Set when watcher starts
+Boolean                gFSKitMissing                   = TRUE; // Cleared when we know FSKit is around
 
 #if __CODECOVERAGE__
 #define __segment_start_sym(_sym, _seg) extern void *_sym __asm("segment$start$" #_seg)
@@ -136,6 +135,19 @@ static void __usage( void )
     fprintf( stderr, "\t-d\tenable debugging\n" );
 
     exit( EX_USAGE );
+}
+
+static void __DACreateRootDADisk( void )
+{
+    struct statfs fs;
+    int           status;
+
+    status = ___statfs( "/", &fs, MNT_NOWAIT );
+
+    if ( status == 0 )
+    {
+        _DADiskCreateFromFSStat( &fs );
+    }
 }
 
 #if TARGET_OS_OSX
@@ -458,7 +470,7 @@ static void __DAMain( void *__unused context )
      * Create the I/O Kit notification run loop source.
      */
 
-    gDAMediaPort = IONotificationPortCreate( kIOMasterPortDefault );
+    gDAMediaPort = IONotificationPortCreate( kIOMainPortDefault );
 
     if ( gDAMediaPort == NULL )
     {
@@ -688,6 +700,13 @@ static void __DAMain( void *__unused context )
     DAPreferenceListRefresh( );
 
     /*
+     * If FSKit is defined, check to see if it's here
+     */
+#ifdef DA_FSKIT
+    DACheckForFSKit();
+#endif
+
+    /*
      * Freshen the file system list.
      */
 
@@ -706,22 +725,17 @@ static void __DAMain( void *__unused context )
     DAMountMapListRefresh2( );
 
     /*
-     * Start watching fskitd.
-     */
-#ifdef DA_FSKIT
-
-    DAStartFSKitdWatcher( );
-#endif /* DA_FSKIT */
-
-    /*
      * Process the initial set of media objects in I/O Kit.
      */
 
     _DAMediaDisappearedCallback( NULL, gDAMediaDisappearedNotification );
 
     _DAMediaAppearedCallback( NULL, gDAMediaAppearedNotification );
+    
 
 #if !TARGET_OS_OSX
+    
+    __DACreateRootDADisk( );
 	xpc_set_event_stream_handler("com.apple.iokit.matching",
                                  DAServerWorkLoop(),
                                  ^(xpc_object_t event)

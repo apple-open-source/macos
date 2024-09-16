@@ -88,7 +88,7 @@ srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
     SecKeyAlgorithm verify_algorithm;
     switch (key->data.key.algorithm) {
         case dnssec_keytype_ecdsa:
-            verify_algorithm = kSecKeyAlgorithmECDSASignatureRFC4754;
+            verify_algorithm = kSecKeyAlgorithmECDSASignatureDigestRFC4754;
             break;
 
         default:

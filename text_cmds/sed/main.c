@@ -135,12 +135,25 @@ main(int argc, char *argv[])
 	fflagstdin = 0;
 	inplace = NULL;
 
+#ifdef __APPLE__
+	while ((c = getopt(argc, argv, "EHI:ae:f:i:lnru")) != -1)
+#else
 	while ((c = getopt(argc, argv, "EI:ae:f:i:lnru")) != -1)
+#endif
 		switch (c) {
 		case 'r':		/* Gnu sed compat */
 		case 'E':
+#ifdef __APPLE__
+			rflags |= REG_EXTENDED;
+#else
 			rflags = REG_EXTENDED;
+#endif
 			break;
+#ifdef __APPLE__
+		case 'H':
+			rflags |= REG_ENHANCED;
+			break;
+#endif
 		case 'I':
 			inplace = optarg;
 			ispan = 1;	/* span across input files */
@@ -211,8 +224,13 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
+#ifdef __APPLE__
+	    "usage: %s script [-EHalnru] [-i extension] [file ...]\n"
+	    "\t%s [-EHalnu] [-i extension] [-e script] ... [-f script_file]"
+#else
 	    "usage: %s script [-Ealnru] [-i extension] [file ...]\n"
 	    "\t%s [-Ealnu] [-i extension] [-e script] ... [-f script_file]"
+#endif
 	    " ... [file ...]\n", getprogname(), getprogname());
 	exit(1);
 }

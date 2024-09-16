@@ -345,8 +345,7 @@ static int
 /*ARGSUSED*/
 #ifdef __APPLE__
 _citrus_mapper_zone_mapper_convert(struct _citrus_mapper * __restrict cm,
-    _citrus_index_t * __restrict dst, _citrus_index_t * __restrict src,
-    int * __restrict cnt, void * __restrict ps __unused)
+    struct _citrus_mapper_convert_ctx * __restrict ctx)
 #else
 _citrus_mapper_zone_mapper_convert(struct _citrus_mapper * __restrict cm,
     _citrus_index_t * __restrict dst, _citrus_index_t src,
@@ -355,15 +354,23 @@ _citrus_mapper_zone_mapper_convert(struct _citrus_mapper * __restrict cm,
 {
 	struct _citrus_mapper_zone *mz = cm->cm_closure;
 	uint32_t col, row;
+#ifdef __APPLE__
+	_index_t *dst = ctx->dst, *src = ctx->src;
+	int *cnt = ctx->cnt;
+	int dir;
+#endif
 
 #ifdef __APPLE__
+	dir = cm->cm_dir;
+
 	for (int i = 0; i < *cnt; i++) {
 		if (mz->mz_col_bits == 32) {
 			col = src[i];
 			row = 0;
 			if (col < mz->mz_col.z_begin || col > mz->mz_col.z_end) {
 				*cnt = i;
-				return (_CITRUS_MAPPER_CONVERT_NONIDENTICAL);
+				return (_CITRUS_MAPPER_CONVERT_COMBINE(dir,
+				    _CITRUS_MAPPER_CONVERT_NONIDENTICAL));
 			}
 			if (mz->mz_col_offset > 0)
 				col += (uint32_t)mz->mz_col_offset;
@@ -376,7 +383,8 @@ _citrus_mapper_zone_mapper_convert(struct _citrus_mapper * __restrict cm,
 			if (row < mz->mz_row.z_begin || row > mz->mz_row.z_end ||
 			    col < mz->mz_col.z_begin || col > mz->mz_col.z_end) {
 				*cnt = i;
-				return (_CITRUS_MAPPER_CONVERT_NONIDENTICAL);
+				return (_CITRUS_MAPPER_CONVERT_COMBINE(dir,
+				    _CITRUS_MAPPER_CONVERT_NONIDENTICAL));
 			}
 			if (mz->mz_col_offset > 0)
 				col += (uint32_t)mz->mz_col_offset;

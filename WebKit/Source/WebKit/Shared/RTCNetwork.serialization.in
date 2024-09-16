@@ -55,6 +55,7 @@ struct WebKit::RTCNetwork {
     Vector<WebKit::RTC::Network::InterfaceAddress> ips;
 };
 
+#if USE(LIBWEBRTC) && PLATFORM(COCOA)
 header: "RTCWebKitEncodedFrameInfo.h"
 [CustomHeader] struct webrtc::WebKitEncodedFrameInfo {
     uint32_t width
@@ -79,7 +80,7 @@ enum class webrtc::WebKitEncodedVideoRotation : uint8_t {
     kVideoRotation_270
 };
 
-using WebKitEncodedFrameTiming = webrtc::EncodedImage::Timing
+using webrtc::WebKitEncodedFrameTiming = webrtc::EncodedImage::Timing
 
 [Nested] struct webrtc::EncodedImage::Timing {
     uint8_t flags
@@ -103,5 +104,6 @@ enum class webrtc::VideoContentType : uint8_t {
   UNSPECIFIED,
   SCREENSHARE,
 };
+#endif
 
 #endif

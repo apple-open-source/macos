@@ -1,7 +1,7 @@
 /*
 	File:		MBCController.h
 	Contains:	Managing the entire user interface
-	Copyright:	� 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -84,6 +84,8 @@
 - (void) loadMatch:(NSString *)matchID;
 - (void) setValue:(float)value forAchievement:(NSString *)ident;
 - (void) updateApplicationBadge;
+- (void)stopRecordingForWindow:(NSWindow *)window;
+- (NSWindowController *)currentWindowController;
 
 #if HAS_FLOATING_BOARD
 - (IBAction) toggleFloating:(id)sender;

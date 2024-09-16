@@ -35,6 +35,15 @@
 #include <WebCore/Timer.h>
 
 namespace WebKit {
+class DrawingAreaWC;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::DrawingAreaWC> : std::true_type { };
+}
+
+namespace WebKit {
 
 class DrawingAreaWC final
     : public DrawingArea
@@ -49,7 +58,7 @@ private:
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
+    void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
     void triggerRenderingUpdate() override;
     void didChangeViewportAttributes(WebCore::ViewportAttributes&&) override { }
     void deviceOrPageScaleFactorChanged() override { }
@@ -59,7 +68,7 @@ private:
 #if USE(GRAPHICS_LAYER_TEXTURE_MAPPER)    
     void updateGeometry(const WebCore::IntSize&, CompletionHandler<void()>&&) override { }
 #endif
-    void updateGeometryWC(uint64_t, WebCore::IntSize) override;
+    void updateGeometryWC(uint64_t, WebCore::IntSize, float deviceScaleFactor) override;
     void setRootCompositingLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;
     void addRootFrame(WebCore::FrameIdentifier) override;
     void attachViewOverlayGraphicsLayer(WebCore::FrameIdentifier, WebCore::GraphicsLayer*) override;
@@ -70,13 +79,14 @@ private:
     void graphicsLayerAdded(GraphicsLayerWC&) override;
     void graphicsLayerRemoved(GraphicsLayerWC&) override;
     void commitLayerUpdateInfo(WCLayerUpdateInfo&&) override;
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize) override;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize, float deviceScaleFactor) override;
 
     bool isCompositingMode();
     void updateRendering();
     void sendUpdateAC();
     void sendUpdateNonAC();
     void updateRootLayers();
+    void updateRootLayerDeviceScaleFactor(WebCore::GraphicsLayer&);
 
     struct RootLayerInfo {
         Ref<WebCore::GraphicsLayer> layer;

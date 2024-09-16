@@ -8,7 +8,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(int64_t, KCJoiningError) {
+extern NSString* KCErrorDomain;
+
+typedef NS_ERROR_ENUM(KCErrorDomain, KCJoiningError) {
     kAllocationFailure = 0,
     kDERUnknownEncoding = 1,
     kDERStringEncodingFailed = 2,

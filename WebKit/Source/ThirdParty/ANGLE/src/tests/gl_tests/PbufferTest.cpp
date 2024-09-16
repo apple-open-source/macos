@@ -302,7 +302,6 @@ TEST_P(PbufferTest, BindTexImageOverwrite)
     // Test skipped because Pbuffers are not supported or Pbuffer does not support binding to RGBA
     // textures.
     ANGLE_SKIP_TEST_IF(!mSupportsPbuffers || !mSupportsBindTexImage);
-
     EGLWindow *window = getEGLWindow();
     window->makeCurrent();
 
@@ -532,7 +531,6 @@ TEST_P(PbufferTest, BindTexImageOverwriteReleasesOrphanedPbuffer)
     // Test skipped because Pbuffers are not supported or Pbuffer does not support binding to RGBA
     // textures.
     ANGLE_SKIP_TEST_IF(!mSupportsPbuffers || !mSupportsBindTexImage);
-
     EGLWindow *window = getEGLWindow();
     window->makeCurrent();
 
@@ -647,7 +645,7 @@ TEST_P(PbufferTest, ClearAndBindTexImageSrgb)
     ANGLE_SKIP_TEST_IF(!mSupportsPbuffers || !mSupportsBindTexImage);
     ANGLE_SKIP_TEST_IF(
         !IsEGLDisplayExtensionEnabled(window->getDisplay(), "EGL_KHR_gl_colorspace"));
-    // Possible GLES driver bug on Pixel2 devices: http://anglebug.com/5321
+    // Possible GLES driver bug on Pixel2 devices: http://anglebug.com/42263865
     ANGLE_SKIP_TEST_IF(IsPixel2() && IsOpenGLES());
 
     GLubyte kLinearColor[] = {132, 55, 219, 255};
@@ -720,7 +718,7 @@ TEST_P(PbufferTest, ClearAndBindTexImageSrgbSkipDecode)
     ANGLE_SKIP_TEST_IF(
         !IsEGLDisplayExtensionEnabled(window->getDisplay(), "EGL_KHR_gl_colorspace"));
     ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_texture_sRGB_decode"));
-    // Possible GLES driver bug on Pixel devices: http://anglebug.com/5321
+    // Possible GLES driver bug on Pixel devices: http://anglebug.com/42263865
     ANGLE_SKIP_TEST_IF((IsPixel2() || IsPixel4()) && IsOpenGLES());
 
     GLubyte kLinearColor[] = {132, 55, 219, 255};

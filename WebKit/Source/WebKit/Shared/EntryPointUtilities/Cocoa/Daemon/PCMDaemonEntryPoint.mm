@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,8 +38,6 @@
 #import <wtf/FileSystem.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/OSObjectPtr.h>
-#import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/spi/darwin/XPCSPI.h>
@@ -71,7 +69,7 @@ static void connectionEventHandler(xpc_object_t request)
     auto messageType { static_cast<PCM::MessageType>(xpc_dictionary_get_uint64(request, PCM::protocolMessageTypeKey)) };
     size_t dataSize { 0 };
     const void* data = xpc_dictionary_get_data(request, PCM::protocolEncodedMessageKey, &dataSize);
-    std::span<const uint8_t> encodedMessage { static_cast<const uint8_t*>(data), dataSize };
+    std::span encodedMessage { static_cast<const uint8_t*>(data), dataSize };
     decodeMessageAndSendToManager(Daemon::Connection(xpc_dictionary_get_remote_connection(request)), messageType, encodedMessage, replySender(messageType, request));
 }
 
@@ -83,7 +81,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     xpc_activity_register("com.apple.webkit.adattributiond.activity", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         if (xpc_activity_get_state(activity) == XPC_ACTIVITY_STATE_CHECK_IN) {
             NSLog(@"Activity checking in");
-            auto criteria = adoptNS(xpc_activity_copy_criteria(activity));
+            auto criteria = adoptOSObject(xpc_activity_copy_criteria(activity));
 
             // These values should align with values from com.apple.webkit.adattributiond.plist
             constexpr auto oneHourSeconds = 3600;

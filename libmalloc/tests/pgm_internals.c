@@ -12,7 +12,8 @@
 
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
+		T_META_TAG_VM_PREFERRED);
 
 // Use extra weird page size (not even a power of 2) to expose implicit
 // assumptions and help prevent issues caused by different page sizes on macOS
@@ -205,18 +206,13 @@ T_DECL(is_power_of_2, "is_power_of_2")
 
 T_DECL(block_size, "block_size")
 {
-	T_EXPECT_EQ(block_size( 0, 16), 16ul, NULL);
-	T_EXPECT_EQ(block_size( 1, 16), 16ul, NULL);
-	T_EXPECT_EQ(block_size(15, 16), 16ul, NULL);
-	T_EXPECT_EQ(block_size(16, 16), 16ul, NULL);
-	T_EXPECT_EQ(block_size(17, 16), 32ul, NULL);
-	T_EXPECT_EQ(block_size(32, 16), 32ul, NULL);
-	T_EXPECT_EQ(block_size(33, 16), 48ul, NULL);
-
-	T_EXPECT_EQ(block_size(0, 1), 1ul, NULL);
-	T_EXPECT_EQ(block_size(1, 1), 1ul, NULL);
-	T_EXPECT_EQ(block_size(2, 1), 2ul, NULL);
-	T_EXPECT_EQ(block_size(3, 1), 3ul, NULL);
+	T_EXPECT_EQ(block_size( 0), 16ul, NULL);
+	T_EXPECT_EQ(block_size( 1), 16ul, NULL);
+	T_EXPECT_EQ(block_size(15), 16ul, NULL);
+	T_EXPECT_EQ(block_size(16), 16ul, NULL);
+	T_EXPECT_EQ(block_size(17), 32ul, NULL);
+	T_EXPECT_EQ(block_size(32), 32ul, NULL);
+	T_EXPECT_EQ(block_size(33), 48ul, NULL);
 }
 
 T_DECL(choose_available_slot, "choose_available_slot")

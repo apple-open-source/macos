@@ -12,11 +12,11 @@ cmp/tests/cmp_test2.sh	freebsd	usr.bin/cmp/tests/cmp_test2.sh	80445b7a3f738e0b0a
 cmp/tests/t_cmp.sh	freebsd	contrib/netbsd-tests/usr.bin/cmp/t_cmp.sh	57718be8fa0bd5edc11ab9a72e68cc71982939a6
 
 diff/TODO	freebsd	usr.bin/diff/TODO	89fd163c4edb8b2a0aca00bec4144116080ab78f
-diff/diff.1	freebsd	usr.bin/diff/diff.1	8cf449db88b2c7a505bc241a78f9736b43f2ede5
+diff/diff.1	freebsd	usr.bin/diff/diff.1	312b1076c6b0aff9bbcaff058b93385eaf607685
 diff/diff.c	freebsd	usr.bin/diff/diff.c	93b7af1d854db2a92dc9fcca70e068a159385f4d
 diff/diff.h	freebsd	usr.bin/diff/diff.h	f4be3645a14d4faa5a51846054318ccf77c9cd5e
 diff/diffdir.c	freebsd	usr.bin/diff/diffdir.c	3931c072c63d5a51d83157009e7f7510e08da80c
-diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	54d65fdd5643f61a816c1d028b53039290ed1d92
+diff/diffreg.c	freebsd	usr.bin/diff/diffreg.c	53de23f4d140becc3166e87665b0064f215a220e
 diff/pr.c	freebsd	usr.bin/diff/pr.c	f7d6e97e4bf1fe4c70d5b0ef9fdf649bf07e1c91
 diff/pr.h	freebsd	usr.bin/diff/pr.h	6fa5bf0832efe8a894f612968c5afe1ad91f3a03
 diff/tests/Bflag_C.out	freebsd	usr.bin/diff/tests/Bflag_C.out	e68edb8cf06a796453378b98d963692c838c400f
@@ -99,14 +99,14 @@ patch/tests/PR74127-cline.diff	freebsd	usr.bin/patch/tests/PR74127-cline.diff	b2
 patch/tests/PR74127-good.diff	freebsd	usr.bin/patch/tests/PR74127-good.diff	b27524973cda910697949980e95ad62e5e4be3d1
 patch/tests/PR74127-repro.diff	freebsd	usr.bin/patch/tests/PR74127-repro.diff	b27524973cda910697949980e95ad62e5e4be3d1
 patch/tests/PR74127.in	freebsd	usr.bin/patch/tests/PR74127.in	b27524973cda910697949980e95ad62e5e4be3d1
-patch/tests/unified_patch_test.sh	freebsd	usr.bin/patch/tests/unified_patch_test.sh	50dacbf6c2a3d32f7e3f20ca98cda23f38817e7f
+patch/tests/unified_patch_test.sh	freebsd	usr.bin/patch/tests/unified_patch_test.sh	851a9da38f070675c42a6d69c41c47a5d29ee3d0
 patch/util.c	freebsd	usr.bin/patch/util.c	50dacbf6c2a3d32f7e3f20ca98cda23f38817e7f
 patch/util.h	freebsd	usr.bin/patch/util.h	e678759c309d8840ca620c77e6a6668b704c3220
 
-sdiff/edit.c	freebsd	usr.bin/sdiff/edit.c	db1fcc80089e8723047ff2a15069b43692e7477c
-sdiff/extern.h	freebsd	usr.bin/sdiff/extern.h	13b5b5486570cd88287ae97d741de8468428a6d3
-sdiff/sdiff.1	freebsd	usr.bin/sdiff/sdiff.1	85bb63bd290cb773ae8fe960fbd91ad828c12ca6
-sdiff/sdiff.c	freebsd	usr.bin/sdiff/sdiff.c	0ace12afe47711d31418305e3ebbdac8aa038164
+sdiff/edit.c	freebsd	usr.bin/sdiff/edit.c	5e3934b15a2741b2de6b217e77dc9d798d740804
+sdiff/extern.h	freebsd	usr.bin/sdiff/extern.h	2a63c3be158216222d89a073dcbd6a72ee4aab5a
+sdiff/sdiff.1	freebsd	usr.bin/sdiff/sdiff.1	a834edfccd14a8c0f152a3b0078469af8e05f3fd
+sdiff/sdiff.c	freebsd	usr.bin/sdiff/sdiff.c	ad7bef8b890768e68a48bbfa6b92ebf635068504
 sdiff/tests/d_dot.in	freebsd	usr.bin/sdiff/tests/d_dot.in	13b5b5486570cd88287ae97d741de8468428a6d3
 sdiff/tests/d_flags_l.out	freebsd	usr.bin/sdiff/tests/d_flags_l.out	13b5b5486570cd88287ae97d741de8468428a6d3
 sdiff/tests/d_flags_s.out	freebsd	usr.bin/sdiff/tests/d_flags_s.out	13b5b5486570cd88287ae97d741de8468428a6d3
@@ -133,4 +133,4 @@ sdiff/tests/d_tabends_c.out	freebsd	usr.bin/sdiff/tests/d_tabends_c.out	13b5b548
 sdiff/tests/d_tabs.out	freebsd	usr.bin/sdiff/tests/d_tabs.out	13b5b5486570cd88287ae97d741de8468428a6d3
 sdiff/tests/d_tabs1.in	freebsd	usr.bin/sdiff/tests/d_tabs1.in	13b5b5486570cd88287ae97d741de8468428a6d3
 sdiff/tests/d_tabs2.in	freebsd	usr.bin/sdiff/tests/d_tabs2.in	13b5b5486570cd88287ae97d741de8468428a6d3
-sdiff/tests/sdiff_test.sh	freebsd	usr.bin/sdiff/tests/sdiff_test.sh	458cbf0ae6c08a8198470358697fe9064443b11b
+sdiff/tests/sdiff_test.sh	freebsd	usr.bin/sdiff/tests/sdiff_test.sh	ad7bef8b890768e68a48bbfa6b92ebf635068504

@@ -48,8 +48,9 @@
 /**
  * The main function for bc. It just sets variables and passes its arguments
  * through to @a bc_vm_boot().
+ * @return  A status.
  */
-void
+BcStatus
 bc_main(int argc, char* argv[]);
 
 // These are references to the help text, the library text, and the "filename"

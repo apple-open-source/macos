@@ -6,6 +6,7 @@
 #import <ProtocolBuffer/PBCodable.h>
 
 @class OTEscrowRecordMetadataClientMetadata;
+@class OTEscrowRecordMetadataPasscodeGeneration;
 
 #ifdef __cplusplus
 #define OTESCROWRECORDMETADATA_FUNCTION extern "C"
@@ -20,8 +21,10 @@
     NSData *_backupKeybagDigest;
     NSString *_bottleId;
     NSString *_bottleValidity;
+    NSString *_build;
     OTEscrowRecordMetadataClientMetadata *_clientMetadata;
     NSData *_escrowedSpki;
+    OTEscrowRecordMetadataPasscodeGeneration *_passcodeGeneration;
     NSData *_peerInfo;
     NSString *_serial;
     struct {
@@ -57,6 +60,12 @@
 
 @property (nonatomic, readonly) BOOL hasSerial;
 @property (nonatomic, retain) NSString *serial;
+
+@property (nonatomic, readonly) BOOL hasBuild;
+@property (nonatomic, retain) NSString *build;
+
+@property (nonatomic, readonly) BOOL hasPasscodeGeneration;
+@property (nonatomic, retain) OTEscrowRecordMetadataPasscodeGeneration *passcodeGeneration;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTEscrowRecordMetadata *)other;

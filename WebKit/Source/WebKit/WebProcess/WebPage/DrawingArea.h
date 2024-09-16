@@ -90,8 +90,8 @@ public:
     virtual void sendEnterAcceleratedCompositingModeIfNeeded() { }
 
     // FIXME: These should be pure virtual.
-    virtual void forceRepaint() { }
-    virtual void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) = 0;
+    virtual void updateRenderingWithForcedRepaint() { }
+    virtual void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) = 0;
     virtual void setLayerTreeStateIsFrozen(bool) { }
     virtual bool layerTreeStateIsFrozen() const { return false; }
 
@@ -154,7 +154,7 @@ public:
 #endif
 
 #if USE(GRAPHICS_LAYER_WC)
-    virtual void updateGeometryWC(uint64_t, WebCore::IntSize) { };
+    virtual void updateGeometryWC(uint64_t, WebCore::IntSize, float deviceScaleFactor) { };
 #endif
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
@@ -162,6 +162,7 @@ public:
     virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
     virtual void deviceOrPageScaleFactorChanged() = 0;
     virtual bool enterAcceleratedCompositingModeIfNeeded() = 0;
+    virtual void backgroundColorDidChange() { };
 #endif
 
 #if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)

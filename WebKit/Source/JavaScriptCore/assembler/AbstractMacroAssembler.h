@@ -38,6 +38,7 @@
 #include "MacroAssemblerHelpers.h"
 #include "Options.h"
 #include <wtf/Noncopyable.h>
+#include <wtf/SetForScope.h>
 #include <wtf/SharedTask.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/TZoneMalloc.h>
@@ -99,6 +100,7 @@ class AbstractMacroAssembler : public AbstractMacroAssemblerBase {
 public:
     typedef AbstractMacroAssembler<AssemblerType> AbstractMacroAssemblerType;
     typedef AssemblerType AssemblerType_T;
+    friend class SuppressRegisetrAllocationValidation;
 
     template<PtrTag tag> using CodeRef = MacroAssemblerCodeRef<tag>;
 
@@ -117,17 +119,17 @@ public:
     static constexpr RegisterID firstRegister() { return AssemblerType::firstRegister(); }
     static constexpr RegisterID lastRegister() { return AssemblerType::lastRegister(); }
     static constexpr unsigned numberOfRegisters() { return AssemblerType::numberOfRegisters(); }
-    static const char* gprName(RegisterID id) { return AssemblerType::gprName(id); }
+    static ASCIILiteral gprName(RegisterID id) { return AssemblerType::gprName(id); }
 
     static constexpr SPRegisterID firstSPRegister() { return AssemblerType::firstSPRegister(); }
     static constexpr SPRegisterID lastSPRegister() { return AssemblerType::lastSPRegister(); }
     static constexpr unsigned numberOfSPRegisters() { return AssemblerType::numberOfSPRegisters(); }
-    static const char* sprName(SPRegisterID id) { return AssemblerType::sprName(id); }
+    static ASCIILiteral sprName(SPRegisterID id) { return AssemblerType::sprName(id); }
 
     static constexpr FPRegisterID firstFPRegister() { return AssemblerType::firstFPRegister(); }
     static constexpr FPRegisterID lastFPRegister() { return AssemblerType::lastFPRegister(); }
     static constexpr unsigned numberOfFPRegisters() { return AssemblerType::numberOfFPRegisters(); }
-    static const char* fprName(FPRegisterID id) { return AssemblerType::fprName(id); }
+    static ASCIILiteral fprName(FPRegisterID id) { return AssemblerType::fprName(id); }
 
     // Section 1: MacroAssembler operand types
     //
@@ -295,6 +297,14 @@ public:
             : m_value(reinterpret_cast<void*>(value))
         {
         }
+
+#if OS(WINDOWS)
+        template<typename ReturnType, typename... Arguments>
+        explicit TrustedImmPtr(ReturnType(SYSV_ABI *value)(Arguments...))
+            : m_value(reinterpret_cast<void*>(value))
+        {
+        }
+#endif
 
         explicit constexpr TrustedImmPtr(std::nullptr_t)
         {
@@ -775,10 +785,10 @@ public:
     // All jumps in the set will be linked to the same destination.
     class JumpList {
     public:
-        typedef Vector<Jump, 2> JumpVector;
-        
-        JumpList() { }
-        
+        using JumpVector = Vector<Jump, 2>;
+
+        JumpList() = default;
+
         JumpList(Jump jump)
         {
             if (jump.isSet())
@@ -813,7 +823,7 @@ public:
         
         void append(const JumpList& other)
         {
-            m_jumps.append(other.m_jumps.begin(), other.m_jumps.size());
+            m_jumps.appendVector(other.m_jumps);
         }
 
         bool empty() const
@@ -825,7 +835,12 @@ public:
         {
             m_jumps.clear();
         }
-        
+
+        void shrink(size_t size)
+        {
+            m_jumps.shrink(size);
+        }
+
         const JumpVector& jumps() const { return m_jumps; }
 
     private:
@@ -872,6 +887,22 @@ public:
         return Label(this);
     }
 
+    // DFG register allocation validation is broken in various cases. We need suppression mechanism otherwise, it introduces a new bug rather to bypass the issue.
+    class SuppressRegisetrAllocationValidation {
+    public:
+#if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+        SuppressRegisetrAllocationValidation(AbstractMacroAssemblerType& assembler)
+            : m_suppressRegisterValidation(assembler.m_suppressRegisterValidation, true)
+        {
+        }
+
+    private:
+        SetForScope<bool> m_suppressRegisterValidation;
+#else
+        SuppressRegisetrAllocationValidation(AbstractMacroAssemblerType&) { }
+#endif
+    };
+
 #if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
     class RegisterAllocationOffset {
     public:
@@ -901,12 +932,14 @@ public:
 
     void checkRegisterAllocationAgainstBranchRange(unsigned offset1, unsigned offset2)
     {
+        if (m_suppressRegisterValidation)
+            return;
+
         if (offset1 > offset2)
             std::swap(offset1, offset2);
 
-        size_t size = m_registerAllocationForOffsets.size();
-        for (size_t i = 0; i < size; ++i)
-            m_registerAllocationForOffsets[i].checkOffsets(offset1, offset2);
+        for (auto& offset : m_registerAllocationForOffsets)
+            offset.checkOffsets(offset1, offset2);
     }
 #endif
 
@@ -1037,7 +1070,7 @@ public:
         size_t startCodeSize = buffer.codeSize();
         size_t targetCodeSize = startCodeSize + memoryToFillWithNopsInBytes;
         buffer.ensureSpace(memoryToFillWithNopsInBytes);
-        AssemblerType::template fillNops<memcpy>(static_cast<char*>(buffer.data()) + startCodeSize, memoryToFillWithNopsInBytes);
+        AssemblerType::template fillNops<MachineCodeCopyMode::Memcpy>(static_cast<char*>(buffer.data()) + startCodeSize, memoryToFillWithNopsInBytes);
         buffer.setCodeSize(targetCodeSize);
 #endif
     }
@@ -1074,6 +1107,7 @@ public:
 protected:
 
 #if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
+    bool m_suppressRegisterValidation { false };
     Vector<RegisterAllocationOffset, 10> m_registerAllocationForOffsets;
 #endif
 

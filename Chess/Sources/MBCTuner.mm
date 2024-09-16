@@ -1,7 +1,7 @@
 /*
 	File:		MBCTuner.h
 	Contains:	Manage a window to set graphics options
-	Copyright:	© 2003-2010 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,10 +44,12 @@
 */
 
 #import "MBCTuner.h"
-#import "MBCBoardView.h"
 #import "MBCBoardViewDraw.h"
 #import "MBCBoardViewTextures.h"
 #import "MBCController.h"
+#import "MBCDrawStyle.h"
+
+#import <simd/simd.h>
 
 static MBCTuner *	sTuner;
 
@@ -94,17 +96,19 @@ static MBCTuner *	sTuner;
 - (void) loadStyles
 {
 	fView	= [[MBCController controller] view];
-	[fWhitePieceStyle updateFrom:fView->fPieceDrawStyle[0]];
-	[fBlackPieceStyle updateFrom:fView->fPieceDrawStyle[1]];
-	[fWhiteBoardStyle updateFrom:fView->fBoardDrawStyle[0]];
-	[fBlackBoardStyle updateFrom:fView->fBoardDrawStyle[1]];
-	[fBorderStyle updateFrom:fView->fBorderDrawStyle];
-	[fBoardReflectivity setFloatValue:fView->fBoardReflectivity];
-	[fLabelIntensity setFloatValue:fView->fLabelIntensity];
-	[fLightPosX	setFloatValue:fView->fLightPos[0]];
-	[fLightPosY	setFloatValue:fView->fLightPos[1]];
-	[fLightPosZ	setFloatValue:fView->fLightPos[2]];
-	[fAmbient setFloatValue:fView->fAmbient];
+	[fWhitePieceStyle updateFrom:[fView pieceDrawStyleAtIndex:0]];
+    [fBlackPieceStyle updateFrom:[fView pieceDrawStyleAtIndex:1]];
+    [fWhiteBoardStyle updateFrom:[fView boardDrawStyleAtIndex:0]];
+	[fBlackBoardStyle updateFrom:[fView boardDrawStyleAtIndex:1]];
+	[fBorderStyle updateFrom:[fView borderDrawStyle]];
+	[fBoardReflectivity setFloatValue:fView.boardReflectivity];
+	[fLabelIntensity setFloatValue:fView.labelIntensity];
+    
+    vector_float3 lightPosition = [fView lightPosition];
+	[fLightPosX	setFloatValue:lightPosition.x];
+	[fLightPosY	setFloatValue:lightPosition.y];
+	[fLightPosZ	setFloatValue:lightPosition.z];
+	[fAmbient setFloatValue:fView.ambient];
 }
 
 + (void) loadStyles
@@ -125,33 +129,33 @@ static MBCTuner *	sTuner;
 
 - (IBAction) updateWhitePieceStyle:(id)sender
 {
-	[fWhitePieceStyle updateTo:fView->fPieceDrawStyle[0]];
+    [fWhitePieceStyle updateTo:[fView pieceDrawStyleAtIndex:0]];
 	[fView setNeedsDisplay:YES];
 }
 
 - (IBAction) updateBlackPieceStyle:(id)sender
 {
-	[fBlackPieceStyle updateTo:fView->fPieceDrawStyle[1]];
+    [fBlackPieceStyle updateTo:[fView pieceDrawStyleAtIndex:1]];
 	[fView setNeedsDisplay:YES];
 }
 
 - (IBAction) updateWhiteBoardStyle:(id)sender
 {
-	[fWhiteBoardStyle updateTo:fView->fBoardDrawStyle[0]];
+	[fWhiteBoardStyle updateTo:[fView boardDrawStyleAtIndex:0]];
 	[fView setNeedsDisplay:YES];
 }
 
 - (IBAction) updateBlackBoardStyle:(id)sender
 {
-	[fBlackBoardStyle updateTo:fView->fBoardDrawStyle[1]];
+	[fBlackBoardStyle updateTo:[fView boardDrawStyleAtIndex:1]];
 	[fView setNeedsDisplay:YES];
 }
 
 - (IBAction) updateBoardStyle:(id)sender
 {
-	[fBorderStyle updateTo:fView->fBorderDrawStyle];	
-	fView->fBoardReflectivity	= [fBoardReflectivity floatValue];
-	fView->fLabelIntensity		= [fLabelIntensity floatValue];
+	[fBorderStyle updateTo:[fView borderDrawStyle]];
+	fView.boardReflectivity	= [fBoardReflectivity floatValue];
+	fView.labelIntensity = [fLabelIntensity floatValue];
 	[fView setNeedsDisplay:YES];
 }
 
@@ -171,18 +175,16 @@ static const char * sLightParams =
 
 - (IBAction) updateLight:(id)sender
 {
-	fView->fLightPos[0]	= [fLightPosX floatValue];
-	fView->fLightPos[1]	= [fLightPosY floatValue];
-	fView->fLightPos[2]	= [fLightPosZ floatValue];
-	fView->fAmbient		= [fAmbient floatValue];
+    [fView setLightPosition:simd_make_float3([fLightPosX floatValue],
+                                             [fLightPosY floatValue],
+                                             [fLightPosZ floatValue])];
+	fView.ambient = [fAmbient floatValue];
 	[fView setNeedsDisplay:YES];
-	[fLightParams setStringValue:
-					  [NSString stringWithFormat:
-									[NSString stringWithUTF8String:sLightParams],
-								fView->fAmbient,
-								fView->fLightPos[0],
-								fView->fLightPos[1],
-								fView->fLightPos[2]]];
+    
+    vector_float3 lightPosition = [fView lightPosition];
+    NSString *textString = [NSString stringWithFormat:[NSString stringWithUTF8String:sLightParams],
+                            fView.ambient, lightPosition.x, lightPosition.y, lightPosition.z];
+	[fLightParams setStringValue:textString];
 }
 
 @end

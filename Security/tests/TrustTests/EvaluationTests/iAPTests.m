@@ -475,6 +475,18 @@ trustFail:
     XCTAssertNotNil(capabilities);
     XCTAssertEqualObjects(capabilities, expectedCapabilities);
 
+    const uint8_t _test_expected_data_baa[] = {
+        0x30, 0x1c, 0x30, 0x1a, 0xa1, 0x04, 0x04, 0x02, 0x53, 0x50, 0xa2, 0x12, 0x04, 0x10, 0x4a, 0x6f,
+        0x68, 0x6e, 0x6e, 0x79, 0x20, 0x41, 0x70, 0x70, 0x6c, 0x65, 0x73, 0x65, 0x65, 0x64
+    };
+    NSData *expectedAccData = [NSData dataWithBytes:_test_expected_data_baa length:sizeof(_test_expected_data_baa)];
+
+    bool isCritical = false;
+    NSData *accData = CFBridgingRelease(SecCertificateCopyExtensionValue(baa_leaf, CFSTR("1.2.840.113635.100.6.71.3"), &isCritical));
+    XCTAssertFalse(isCritical);
+    XCTAssertNotNil(accData);
+    XCTAssertEqualObjects(accData, expectedAccData);
+
     capabilities = CFBridgingRelease(SecCertificateCopyiAPAuthCapabilities(chip_ca));
     XCTAssertNil(capabilities);
 
@@ -508,7 +520,11 @@ trustFail:
     NSArray *baaCerts = @[ (__bridge id)baa_leaf, (__bridge id)baa_ca ];
     NSArray *provisioningCerts = @[ (__bridge id)provisioning_leaf, (__bridge id)provisioning_ca ];
     SecPolicyRef iAPPolicy = SecPolicyCreateiAP();
+    SecPolicyRef accPolicy = SecPolicyCreateiAPAuthV4(SeciAPAuthV4TypeAccessory);
+    SecPolicyRef attPolicy = SecPolicyCreateiAPAuthV4(SeciAPAuthV4TypeAttestation);
+    SecPolicyRef provPolicy = SecPolicyCreateiAPAuthV4(SeciAPAuthV4TypeProvisioning);
 
+    /* iAP policy */
     TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:chipCerts
                                                                          policies:@[(__bridge id)iAPPolicy]];
     [eval setAnchors:@[(__bridge id)root]];
@@ -524,6 +540,54 @@ trustFail:
     [eval setAnchors:@[(__bridge id)root]];
     XCTAssertFalse([eval evaluate:nil]);
 
+    /** authV4 accessory policy **/
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:chipCerts
+                                                    policies:@[(__bridge id)accPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssert([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:baaCerts
+                                                    policies:@[(__bridge id)accPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:provisioningCerts
+                                                    policies:@[(__bridge id)accPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    /** authV4 attestation policy **/
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:chipCerts
+                                                    policies:@[(__bridge id)attPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:baaCerts
+                                                    policies:@[(__bridge id)attPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssert([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:provisioningCerts
+                                                    policies:@[(__bridge id)attPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    /** authV4 provisioning policy **/
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:chipCerts
+                                                    policies:@[(__bridge id)provPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:baaCerts
+                                                    policies:@[(__bridge id)provPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    eval = [[TestTrustEvaluation alloc] initWithCertificates:provisioningCerts
+                                                    policies:@[(__bridge id)provPolicy]];
+    [eval setAnchors:@[(__bridge id)root]];
+    XCTAssert([eval evaluate:nil]);
+
     CFReleaseNull(chip_leaf);
     CFReleaseNull(chip_ca);
     CFReleaseNull(baa_leaf);
@@ -532,6 +596,9 @@ trustFail:
     CFReleaseNull(provisioning_ca);
     CFReleaseNull(root);
     CFReleaseNull(iAPPolicy);
+    CFReleaseNull(accPolicy);
+    CFReleaseNull(attPolicy);
+    CFReleaseNull(provPolicy);
 }
 
 - (void)testMFIv4Compression {

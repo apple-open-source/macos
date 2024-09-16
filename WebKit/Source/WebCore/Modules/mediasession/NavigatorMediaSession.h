@@ -48,7 +48,7 @@ public:
 
 private:
     static NavigatorMediaSession* from(Navigator&);
-    static const char* supplementName();
+    static ASCIILiteral supplementName();
 
     RefPtr<MediaSession> m_mediaSession;
     Navigator& m_navigator;

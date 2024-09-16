@@ -32,7 +32,7 @@ static bool verify_test_xattrs(const char *dest_name) {
 }
 
 static int do_copy(const char *source_name, const char *dest_name, uint32_t flags) {
-	CopyOperationIntent_t intent = XATTR_OPERATION_INTENT_SHARE;
+	CopyOperationIntent_t intent = CopyOperationIntentShare;
 	copyfile_state_t cpf_state;
 	int error;
 

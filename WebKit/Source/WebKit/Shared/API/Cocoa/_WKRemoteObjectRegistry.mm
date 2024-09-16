@@ -32,7 +32,6 @@
 #import "RemoteObjectInvocation.h"
 #import "UIRemoteObjectRegistry.h"
 #import "UserData.h"
-#import "WKConnectionRef.h"
 #import "WKRemoteObject.h"
 #import "WKRemoteObjectCoder.h"
 #import "WKSharedAPICast.h"
@@ -225,7 +224,7 @@ static NSString *replyBlockSignature(Protocol *protocol, SEL selector, NSUIntege
     NSInvocation *invocation = [decoder decodeObjectOfClass:[NSInvocation class] forKey:invocationKey];
 
     NSMethodSignature *methodSignature = invocation.methodSignature;
-    auto* replyInfo = remoteObjectInvocation.replyInfo();
+    auto& replyInfo = remoteObjectInvocation.replyInfo();
 
     // Look for the block argument (if any).
     for (NSUInteger i = 0, count = methodSignature.numberOfArguments; i < count; ++i) {

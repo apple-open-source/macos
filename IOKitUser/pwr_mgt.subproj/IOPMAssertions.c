@@ -523,18 +523,22 @@ void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction log
         }
         insertIntoTimedList(assertion);
     }
-    if (!timeout_secs || (timeout_secs > kAsyncAssertionsDefaultOffloadDelay)) {
-        timeout_secs = kAsyncAssertionsDefaultOffloadDelay;
-        timeout_ts = getMonotonicTime() + timeout_secs;
-    }
-    if (!gCurrentAssertion && (!nextOffload_ts || (timeout_ts != 0 && timeout_ts < nextOffload_ts))) {
-        INFO_LOG("Setting gAssertionsOffloader timeout to %llu\n", timeout_secs);
-        dispatch_source_set_timer(gAssertionsOffloader,
-                                  dispatch_time(DISPATCH_TIME_NOW, timeout_secs*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
-        if (!nextOffload_ts) {
-            dispatch_resume(gAssertionsOffloader);
+    if (kAsyncAssertionsDefaultOffloadDelay == 0) {
+        offloadAssertions(false);
+    } else {
+        if (!timeout_secs || (timeout_secs > kAsyncAssertionsDefaultOffloadDelay)) {
+            timeout_secs = kAsyncAssertionsDefaultOffloadDelay;
+            timeout_ts = getMonotonicTime() + timeout_secs;
         }
-        nextOffload_ts = getMonotonicTime() + timeout_secs;
+        if (!gCurrentAssertion && (!nextOffload_ts || (timeout_ts != 0 && timeout_ts < nextOffload_ts))) {
+            INFO_LOG("Setting gAssertionsOffloader timeout to %llu\n", timeout_secs);
+            dispatch_source_set_timer(gAssertionsOffloader,
+                                      dispatch_time(DISPATCH_TIME_NOW, timeout_secs*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+            if (!nextOffload_ts) {
+                dispatch_resume(gAssertionsOffloader);
+            }
+            nextOffload_ts = getMonotonicTime() + timeout_secs;
+        }
     }
 }
 
@@ -560,6 +564,13 @@ bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *
               CFEqual(assertionTypeString, kIOPMAssertionTypeNoIdleSleep)) ) {
         return false;
     }
+
+    // Do not use async mode if the assertion has resources associated with it since async/coalescing
+    // hides useful information from powerd.
+    if (CFDictionaryContainsKey(AssertionProperties, kIOPMAssertionResourcesUsed)) {
+        return false;
+    }
+
     dispatch_queue_t pmQ = getPMQueue();
     if (!pmQ) {
         return false;
@@ -1711,7 +1722,7 @@ CFDictionaryRef IOPMGetCurrentAsycnRemoteAssertion(void)
  */
 CFDictionaryRef IOPMCopyActiveAsyncAssertionsByProcess()
 {
-#if !TARGET_OS_IOS
+#if !TARGET_OS_IOS && !TARGET_OS_WATCHOS
     return NULL;
 #endif
     xpc_object_t connection = NULL;

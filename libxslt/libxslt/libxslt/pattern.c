@@ -1244,7 +1244,8 @@ xsltScanLiteral(xsltParserContextPtr ctxt) {
 	    ctxt->error = 1;
 	    return(NULL);
 	} else {
-	    ret = xmlStrndup(q, cur - q);
+	    long q_len = cur - q;
+	    ret = xmlStrndup(q, CLAMP_TO_INT_MAX(q_len));
         }
 	cur += len;
 	CUR_PTR = cur;
@@ -1260,7 +1261,8 @@ xsltScanLiteral(xsltParserContextPtr ctxt) {
 	    ctxt->error = 1;
 	    return(NULL);
 	} else {
-	    ret = xmlStrndup(q, cur - q);
+	    long q_len = cur - q;
+	    ret = xmlStrndup(q, CLAMP_TO_INT_MAX(q_len));
         }
 	cur += len;
 	CUR_PTR = cur;
@@ -1302,7 +1304,8 @@ xsltScanNCName(xsltParserContextPtr ctxt) {
 	cur += len;
 	val = xmlStringCurrentChar(NULL, cur, &len);
     }
-    ret = xmlStrndup(q, cur - q);
+    long q_len = cur - q;
+    ret = xmlStrndup(q, CLAMP_TO_INT_MAX(q_len));
     CUR_PTR = cur;
     return(ret);
 }
@@ -1681,7 +1684,8 @@ parse_predicate:
 	    ctxt->error = 1;
 	    return;
         }
-	ret = xmlStrndup(q, CUR_PTR - q);
+	long q_len = CUR_PTR - q;
+	ret = xmlStrndup(q, CLAMP_TO_INT_MAX(q_len));
 	PUSH(XSLT_OP_PREDICATE, ret, NULL, novar);
 	ret = NULL;
 	/* push the predicate lower than local test */

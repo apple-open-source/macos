@@ -939,12 +939,15 @@ class Instruction
             $asm.puts "dmb sy"
         when "fence"
             $asm.puts "dmb ish"
+        when "writefence"
+            $asm.puts "dmb ishst"
         when "clrbp"
             $asm.puts "bic #{operands[2].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "globaladdr"
             labelRef = operands[0]
             dest = operands[1]
             temp = operands[2]
+            raise "Destination interferes with scratch in #{self.inspect} at #{codeOriginString}" unless dest.armOperand != temp.armOperand
 
             uid = $asm.newUID
 

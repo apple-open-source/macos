@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,6 +47,9 @@ __BEGIN_DECLS
 #define OVERRIDE_EXPENSIVE	"override-expensive"
 #define DISABLE_SERVICE_COUPLING "disable-service-coupling"
 
+#define ALLOW_NEW_INTERFACES	"allow-new-interfaces"
+#define CONFIGURE_NEW_INTERFACES "configure-new-interfaces"
+
 AuthorizationRef	_prefs_AuthorizationCreate	(void);
 void			_prefs_AuthorizationFree	(AuthorizationRef authorization);
 
@@ -84,8 +87,9 @@ void	do_override_expensive	(int argc, char * const argv[]);
 
 
 #if	!TARGET_OS_IPHONE
-void	do_ifnamer		(char *pref, int argc, char * const argv[]);
+void	do_allow_new_interfaces	(char *pref, int argc, char * const argv[]);
 #endif	// !TARGET_OS_IPHONE
+void	do_configure_new_interfaces(char *pref, int argc, char * const argv[]);
 
 __END_DECLS
 

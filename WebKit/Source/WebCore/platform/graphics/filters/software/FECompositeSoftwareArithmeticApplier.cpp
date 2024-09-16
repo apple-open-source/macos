@@ -38,7 +38,7 @@ namespace WebCore {
 FECompositeSoftwareArithmeticApplier::FECompositeSoftwareArithmeticApplier(const FEComposite& effect)
     : Base(effect)
 {
-    ASSERT(m_effect.operation() == FECOMPOSITE_OPERATOR_ARITHMETIC);
+    ASSERT(m_effect.operation() == CompositeOperationType::FECOMPOSITE_OPERATOR_ARITHMETIC);
 }
 
 uint8_t FECompositeSoftwareArithmeticApplier::clampByte(int c)
@@ -149,11 +149,11 @@ bool FECompositeSoftwareArithmeticApplier::apply(const Filter&, const FilterImag
     IntRect effectBDrawingRect = result.absoluteImageRectRelativeTo(input2);
     input2.copyPixelBuffer(*destinationPixelBuffer, effectBDrawingRect);
 
-    auto* sourcePixelBytes = sourcePixelBuffer->bytes();
-    auto* destinationPixelBytes = destinationPixelBuffer->bytes();
+    auto* sourcePixelBytes = sourcePixelBuffer->bytes().data();
+    auto* destinationPixelBytes = destinationPixelBuffer->bytes().data();
 
-    auto length = sourcePixelBuffer->sizeInBytes();
-    ASSERT(length == destinationPixelBuffer->sizeInBytes());
+    auto length = sourcePixelBuffer->bytes().size();
+    ASSERT(length == destinationPixelBuffer->bytes().size());
 
     applyPlatform(sourcePixelBytes, destinationPixelBytes, length, m_effect.k1(), m_effect.k2(), m_effect.k3(), m_effect.k4());
     return true;
@@ -161,4 +161,4 @@ bool FECompositeSoftwareArithmeticApplier::apply(const Filter&, const FilterImag
 
 } // namespace WebCore
 
-#endif // HAVE(ARM_NEON_INTRINSICS)
+#endif // !HAVE(ARM_NEON_INTRINSICS)

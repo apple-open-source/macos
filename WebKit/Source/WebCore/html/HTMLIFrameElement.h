@@ -23,14 +23,15 @@
 
 #pragma once
 
-#include "FeaturePolicy.h"
 #include "HTMLFrameElementBase.h"
+#include "PermissionsPolicy.h"
 
 namespace WebCore {
 
 class DOMTokenList;
 class LazyLoadFrameObserver;
 class RenderIFrame;
+class TrustedHTML;
 
 class HTMLIFrameElement final : public HTMLFrameElementBase {
     WTF_MAKE_ISO_ALLOCATED(HTMLIFrameElement);
@@ -43,10 +44,11 @@ public:
     String referrerPolicyForBindings() const;
     ReferrerPolicy referrerPolicy() const final;
 
-    const FeaturePolicy& featurePolicy() const;
-
     const AtomString& loadingForBindings() const;
     void setLoadingForBindings(const AtomString&);
+
+    String srcdoc() const;
+    ExceptionOr<void> setSrcdoc(std::variant<RefPtr<TrustedHTML>, String>&&);
 
     LazyLoadFrameObserver& lazyLoadFrameObserver();
 
@@ -74,7 +76,6 @@ private:
     bool isLazyLoadObserverActive() const final;
 
     std::unique_ptr<DOMTokenList> m_sandbox;
-    mutable std::optional<FeaturePolicy> m_featurePolicy;
 #if ENABLE(FULLSCREEN_API)
     bool m_IFrameFullscreenFlag { false };
 #endif

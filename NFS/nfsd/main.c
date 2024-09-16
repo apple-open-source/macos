@@ -1501,7 +1501,12 @@ nfsd_kickstart(void)
 		return rv;
 	}
 
-	const char *const args[] = { _PATH_LAUNCHCTL, "kickstart", "-k", _NFSD_KICKSTART_LABEL, NULL };
+	pid_t pid = get_nfsd_pid();
+	if (pid > 0) {
+		kill(pid, SIGKILL);
+	}
+
+	const char *const args[] = { _PATH_LAUNCHCTL, "kickstart", _NFSD_KICKSTART_LABEL, NULL };
 	return safe_exec((char *const*)args);
 }
 

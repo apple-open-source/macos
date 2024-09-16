@@ -31,7 +31,13 @@ NS_ASSUME_NONNULL_BEGIN
 @interface NSError (Octagon)
 - (bool)isRetryable;
 - (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode;
+
+// Cuttlefish retry-after only
+- (NSTimeInterval)cuttlefishRetryAfter;
+
+// MAX(CloudKit retry-after, Cuttlefish retry-after); otherwise 30 (2 in tests)
 - (NSTimeInterval)retryInterval;
+
 + (void)setDefaultRetryIntervalForTests:(NSTimeInterval)retryInterval;
 @end
 

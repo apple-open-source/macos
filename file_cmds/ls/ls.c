@@ -81,6 +81,7 @@ __FBSDID("$FreeBSD$");
 #include <get_compat.h>
 #include <sys/sysctl.h>
 #include <System/sys/fsctl.h>
+#include <TargetConditionals.h>
 #endif /* __APPLE__ */
 #include "ls.h"
 #include "extern.h"
@@ -309,7 +310,7 @@ main(int argc, char *argv[])
 #endif
 	while ((ch = getopt_long(argc, argv,
 #ifdef __APPLE__
-	    "+@1ABCD:FGHILOPRSTUWabcdefghiklmnopqrstuvwxy%,", long_opts,
+	    "+@1ABCD:FGHILOPRSTUWXabcdefghiklmnopqrstuvwxy%,", long_opts,
 #else
 	    "+1ABCD:FGHILPRSTUWXZabcdfghiklmnopqrstuwxy,", long_opts,
 #endif
@@ -435,6 +436,11 @@ main(int argc, char *argv[])
 		case 'W':
 			f_whiteout = 1;
 			break;
+#ifdef __APPLE__
+		case 'X':
+			fts_options |= FTS_XDEV;
+			break;
+#endif
 #ifndef __APPLE__
 		case 'Z':
 			f_label = 1;
@@ -696,14 +702,16 @@ main(int argc, char *argv[])
 		printfcn = printcol;
 
 #ifdef __APPLE__
+#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
 	if (f_dataless) {
 		// don't materialize dataless directories from the cloud
 		// (particularly useful when listing recursively)
 		int state = 1;
 		if (sysctlbyname("vfs.nspace.prevent_materialization", NULL, NULL, &state, sizeof(state)) < 0) {
-			err(1, "prevent_materialization");
+			err(1, "prevent materialization sysctl failed");
 		}
 	}
+#endif
 #endif /* __APPLE__ */
 	if (argc)
 		traverse(argc, argv, fts_options);
@@ -779,6 +787,12 @@ traverse(int argc, char *argv[], int options)
 
 #ifdef __APPLE__
 			if (IS_DATALESS(p->fts_statp)) {
+				fts_set(ftsp, p, FTS_SKIP);
+				break;
+			}
+
+			if ((options & FTS_XDEV) &&
+			    (p->fts_dev != ftsp->fts_dev)) {
 				fts_set(ftsp, p, FTS_SKIP);
 				break;
 			}

@@ -312,19 +312,8 @@ bool SecCKKSDisable(void);
 
 bool SecCKKSResetSyncing(void);
 
-bool SecCKKSSyncManifests(void);
-bool SecCKKSEnableSyncManifests(void);
-bool SecCKKSSetSyncManifests(bool value);
-
-bool SecCKKSEnforceManifests(void);
-bool SecCKKSEnableEnforceManifests(void);
-bool SecCKKSSetEnforceManifests(bool value);
-
 bool SecCKKSReduceRateLimiting(void);
 bool SecCKKSSetReduceRateLimiting(bool value);
-
-bool SecCKKSHighPriorityOperations(void);
-bool SecCKKSSetHighPriorityOperations(bool value);
 
 // Testing support
 bool SecCKKSTestsEnabled(void);
@@ -403,6 +392,7 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
     CKKSErrorNotSupported = 65,
 
     CKKSErrorFetchNotCompleted = 66,
+    CKKSErrorOutOfBandFetchingDisallowed = 67,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

@@ -1,6 +1,6 @@
 .\"
 .\"
-.\" Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+.\" Copyright (c) 1999-2024 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -232,6 +232,9 @@ ignore the DHCP client identifier option (code 61) in the client's
 DHCP packet.   Instead, the DHCP server tries to use the hardware address
 fields (bp_htype, bp_hlen, bp_chaddr) of the DHCP packet to identify the
 client.  The default value of this property is false.
+.It Sy dhcp_supply_bootfile
+(Boolean) If this property is set to true, the DHCP server supplies the
+bootfile specified in the static binding for a client in \fI/etc/bootptab\fR.
 .It Sy use_server_config_for_dhcp_options
 (Boolean) If this property is set to true, the DHCP server tries to use its own
 configuration to supply the subnet mask, router, DNS server addresses,

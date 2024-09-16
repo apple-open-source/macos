@@ -21,6 +21,10 @@
 
 #include "rnserver.h"
 
+T_GLOBAL_META(
+	T_META_ENVVAR("DarwinNotificationLogging=1")
+);
+
 extern char **environ;
 static bool has_port_been_notified_1, has_port_been_notified_2;
 static int key_1_token, key_2_token;

@@ -65,6 +65,31 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.arg_selector_simple_varsel</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.arg_selector_simple_varsel.results.txt</string>
+				<string>arg_selector_simple_varsel</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>adv_cmds.genwrap_test.sh.arg_selector_complex</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -82,6 +107,31 @@
 				<string>-r</string>
 				<string>genwrap_test.sh.arg_selector_complex.results.txt</string>
 				<string>arg_selector_complex</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.arg_selector_complex_logonly_args</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.arg_selector_complex_logonly_args.results.txt</string>
+				<string>arg_selector_complex_logonly_args</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>
@@ -132,6 +182,31 @@
 				<string>-r</string>
 				<string>genwrap_test.sh.env_selector_addarg.results.txt</string>
 				<string>env_selector_addarg</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>adv_cmds.genwrap_test.sh.env_selector_varsel</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap/genwrap_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/adv_cmds/genwrap</string>
+				<string>-r</string>
+				<string>genwrap_test.sh.env_selector_varsel.results.txt</string>
+				<string>env_selector_varsel</string>
 			</array>
 			<key>MayRunConcurrently</key>
 			<true/>

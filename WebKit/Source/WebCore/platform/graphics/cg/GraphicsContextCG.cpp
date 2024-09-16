@@ -785,31 +785,12 @@ void GraphicsContextCG::strokePath(const Path& path)
     drawPathWithCGContext(context, kCGPathStroke, path);
 }
 
-void GraphicsContextCG::fillRect(const FloatRect& rect)
+void GraphicsContextCG::fillRect(const FloatRect& rect, RequiresClipToRect requiresClipToRect)
 {
     CGContextRef context = platformContext();
 
-    if (auto fillGradient = this->fillGradient()) {
-        CGContextStateSaver stateSaver(context);
-        if (hasDropShadow()) {
-            FloatSize layerSize = getCTM().mapSize(rect.size());
-
-            auto layer = adoptCF(CGLayerCreateWithContext(context, layerSize, 0));
-            CGContextRef layerContext = CGLayerGetContext(layer.get());
-
-            CGContextScaleCTM(layerContext, layerSize.width() / rect.width(), layerSize.height() / rect.height());
-            CGContextTranslateCTM(layerContext, -rect.x(), -rect.y());
-            CGContextAddRect(layerContext, rect);
-            CGContextClip(layerContext);
-
-            CGContextConcatCTM(layerContext, fillGradientSpaceTransform());
-            fillGradient->paint(layerContext);
-            CGContextDrawLayerInRect(context, rect, layer.get());
-        } else {
-            CGContextClipToRect(context, rect);
-            CGContextConcatCTM(context, fillGradientSpaceTransform());
-            fillGradient->paint(*this);
-        }
+    if (auto* fillGradient = this->fillGradient()) {
+        fillRect(rect, *fillGradient, fillGradientSpaceTransform(), requiresClipToRect);
         return;
     }
 
@@ -829,6 +810,34 @@ void GraphicsContextCG::fillRect(const FloatRect& rect)
     }
 
     CGContextFillRect(context, rect);
+}
+
+void GraphicsContextCG::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
+{
+    CGContextRef context = platformContext();
+
+    CGContextStateSaver stateSaver(context);
+    if (hasDropShadow()) {
+        FloatSize layerSize = getCTM().mapSize(rect.size());
+
+        auto layer = adoptCF(CGLayerCreateWithContext(context, layerSize, 0));
+        CGContextRef layerContext = CGLayerGetContext(layer.get());
+
+        CGContextScaleCTM(layerContext, layerSize.width() / rect.width(), layerSize.height() / rect.height());
+        CGContextTranslateCTM(layerContext, -rect.x(), -rect.y());
+        CGContextAddRect(layerContext, rect);
+        CGContextClip(layerContext);
+
+        CGContextConcatCTM(layerContext, gradientSpaceTransform);
+        gradient.paint(layerContext);
+        CGContextDrawLayerInRect(context, rect, layer.get());
+    } else {
+        if (requiresClipToRect == RequiresClipToRect::Yes)
+            CGContextClipToRect(context, rect);
+
+        CGContextConcatCTM(context, gradientSpaceTransform);
+        gradient.paint(*this);
+    }
 }
 
 void GraphicsContextCG::fillRect(const FloatRect& rect, const Color& color)
@@ -1021,6 +1030,11 @@ void GraphicsContextCG::beginTransparencyLayer(float opacity)
     CGContextBeginTransparencyLayer(context, 0);
 
     m_userToDeviceTransformKnownToBeIdentity = false;
+}
+
+void GraphicsContextCG::beginTransparencyLayer(CompositeOperator, BlendMode)
+{
+    beginTransparencyLayer(1);
 }
 
 void GraphicsContextCG::endTransparencyLayer()
@@ -1389,10 +1403,30 @@ void GraphicsContextCG::drawLinesForText(const FloatPoint& point, float thicknes
         if (!dashWidth)
             dashBounds.append(CGRectMake(bounds.x() + left, bounds.y(), width, bounds.height()));
         else {
-            auto startParticle = static_cast<int>(std::ceil(left / (2 * dashWidth)));
-            auto endParticle = static_cast<int>((left + width) / (2 * dashWidth));
-            for (auto j = startParticle; j < endParticle; ++j)
-                dashBounds.append(CGRectMake(bounds.x() + j * 2 * dashWidth, bounds.y(), dashWidth, bounds.height()));
+            auto doubleWidth = 2 * dashWidth;
+            auto quotient = static_cast<int>(left / doubleWidth);
+            auto startOffset = left - quotient * doubleWidth;
+            auto effectiveLeft = left + startOffset;
+            auto startParticle = static_cast<int>(std::floor(effectiveLeft / doubleWidth));
+            auto endParticle = static_cast<int>(std::ceil((left + width) / doubleWidth));
+
+            for (auto j = startParticle; j < endParticle; ++j) {
+                auto actualDashWidth = dashWidth;
+                auto dashStart = bounds.x() + j * doubleWidth;
+
+                if (j == startParticle && startOffset > 0 && startOffset < dashWidth) {
+                    actualDashWidth -= startOffset;
+                    dashStart += startOffset;
+                }
+
+                if (j == endParticle - 1) {
+                    auto remainingWidth = left + width - (j * doubleWidth);
+                    if (remainingWidth < dashWidth)
+                        actualDashWidth = remainingWidth;
+                }
+
+                dashBounds.append(CGRectMake(dashStart, bounds.y(), actualDashWidth, bounds.height()));
+            }
         }
     }
 
@@ -1500,7 +1534,9 @@ bool GraphicsContextCG::canUseShadowBlur() const
 
 bool GraphicsContextCG::consumeHasDrawn()
 {
-    return std::exchange(m_hasDrawn, false);
+    bool hasDrawn = m_hasDrawn;
+    m_hasDrawn = false;
+    return hasDrawn;
 }
 
 }

@@ -1167,7 +1167,7 @@ replay_journal(journal *jnl)
 	size_t		max_bsize = 0;		/* protected by block_ptr */
 	block_list_header *blhdr;
 	off_t		offset, txn_start_offset=0, blhdr_offset, orig_jnl_start;
-	char		*buff, *block_ptr=NULL;
+	char		*buff, *data_buff, *block_ptr=NULL;
 	struct bucket	*co_buf;
 	int		num_buckets = STARTING_BUCKETS, num_full, check_past_jnl_end = 1, in_uncharted_territory=0;
 	uint32_t	last_sequence_num = 0;
@@ -1191,6 +1191,7 @@ replay_journal(journal *jnl)
 	// When replaying a journal, the in-memory representation is the same as on disk representation, so no need to use
 	// block_list_header_in_memory structure when replaying
 	buff = hfs_new_with_hdr(block_list_header, block_info, journal_max_blocks(jnl));
+	data_buff = hfs_malloc_data(jnl->jhdr->blhdr_size);
 
 	// allocate memory for the coalesce buffer
 	co_buf = hfs_new_data(struct bucket, num_buckets);
@@ -1207,15 +1208,19 @@ restart_replay:
 	printf("jnl: %s: replay_journal: from: %lld to: %lld (joffset 0x%llx)\n",
 	       jnl->jdev_name, jnl->jhdr->start, jnl->jhdr->end, jnl->jdev_offset);
 
+	block_ptr = hfs_malloc_data(max_bsize);
 	while (check_past_jnl_end || jnl->jhdr->start != jnl->jhdr->end) {
 		offset = blhdr_offset = jnl->jhdr->start;
-		ret = read_journal_data(jnl, &offset, buff, jnl->jhdr->blhdr_size);
+
+		// Read block list header into a data buffer (that does not contain any pointers)
+		ret = read_journal_data(jnl, &offset, data_buff, jnl->jhdr->blhdr_size);
 		if (ret != (size_t)jnl->jhdr->blhdr_size) {
 			printf("jnl: %s: replay_journal: Could not read block list header block @ 0x%llx!\n", jnl->jdev_name, offset);
 			bad_blocks = 1;
 			goto bad_txn_handling;
 		}
-
+		// Copy the data buffer to the non data only buffer
+		memcpy(buff, data_buff, jnl->jhdr->blhdr_size);
 		blhdr = (block_list_header *)buff;
 		
 		orig_checksum = blhdr->checksum;
@@ -1336,7 +1341,13 @@ restart_replay:
 
 			size = blhdr->binfo[i].u.bi.bsize;
 			number = blhdr->binfo[i].bnum;
-			
+
+			if (size == 0) {
+				printf("jnl: replay_journal: invalid bsize\n");
+				bad_blocks = 1;
+				goto bad_txn_handling;
+			}
+
 			// don't add "killed" blocks
 			if (number == (off_t)-1) {
 				//printf("jnl: replay_journal: skipping killed fs block (index %d)\n", i);
@@ -1515,6 +1526,7 @@ restart_replay:
 
 	blhdr = (block_list_header *)buff;
 	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
+	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
 	return 0;
 
 bad_replay:
@@ -1525,7 +1537,7 @@ bad_replay:
 
 	blhdr = (block_list_header *)buff;
 	hfs_delete_with_hdr(blhdr, block_list_header, block_info, journal_max_blocks(jnl));
-
+	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
 	return -1;
 }
 
@@ -4104,6 +4116,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 	int		bufs_written = 0;
 	int		ret_val = 0;
 	boolean_t	was_vm_privileged = FALSE;
+	char *data_buff = hfs_malloc_data(jnl->jhdr->blhdr_size);
 
 	KERNEL_DEBUG(0xbbbbc028|DBG_FUNC_START, jnl, tr, 0, 0, 0);
 
@@ -4238,7 +4251,9 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 				header_amt = jnl->jhdr->blhdr_size;
 				buffers_amt = amt - header_amt;
 			}
-			ret = write_journal_data(jnl, &end, blhdr, header_amt);
+			// Copy the non data only buffer to the data buffer, and write it to disk
+			memcpy(data_buff, blhdr, header_amt);
+			ret = write_journal_data(jnl, &end, data_buff, header_amt);
 			if (buffers_amt) {
 				ret += write_journal_data(jnl, &end, blhdrim->buffers, buffers_amt);
 			}
@@ -4395,6 +4410,8 @@ bad_journal:
 
 	if (vfs_isswapmount(jnl->fsmount) && (was_vm_privileged == FALSE))
 		set_vm_privilege(FALSE);
+
+	hfs_free_data(data_buff, jnl->jhdr->blhdr_size);
 
 	KERNEL_DEBUG(0xbbbbc028|DBG_FUNC_END, jnl, tr, bufs_written, ret_val, 0);
 

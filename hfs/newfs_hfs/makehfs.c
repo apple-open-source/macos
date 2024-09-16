@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -692,6 +692,11 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	if (defaults->flags & kMakeContentProtect) {
 		hp->attributes |= kHFSContentProtectionMask;	
 	}
+
+	if (defaults->flags & kMakeExpandedTimes) {
+		hp->attributes |= kHFSExpandedTimesMask;
+	}
+
 	hp->lastMountedVersion = kHFSPlusMountVersion;
 
 	/* NOTE: create date is in local time, not GMT!  */

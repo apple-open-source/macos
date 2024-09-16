@@ -114,6 +114,7 @@ struct _citrus_iconv {
 	struct _citrus_iconv_shared			*cv_shared;
 	void						*cv_closure;
 #ifdef __APPLE__
+	struct iconv_fallbacks				*cv_fallbacks;
 	int						 cv_wchar_dir;
 #endif
 };

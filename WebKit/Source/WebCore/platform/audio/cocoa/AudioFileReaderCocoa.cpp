@@ -139,17 +139,16 @@ public:
     Vector<Ref<MediaSampleAVFObjC>> m_samples;
 };
 
-AudioFileReader::AudioFileReader(const void* data, size_t dataSize)
+AudioFileReader::AudioFileReader(std::span<const uint8_t> data)
     : m_data(data)
-    , m_dataSize(dataSize)
 #if !RELEASE_LOG_DISABLED
     , m_logger(Logger::create(this))
     , m_logIdentifier(LoggerHelper::uniqueLogIdentifier())
 #endif
 {
 #if ENABLE(MEDIA_SOURCE)
-    if (isMaybeWebM(static_cast<const uint8_t*>(data), dataSize)) {
-        m_webmData = demuxWebMData(static_cast<const uint8_t*>(data), dataSize);
+    if (isMaybeWebM(data)) {
+        m_webmData = demuxWebMData(data);
         if (m_webmData)
             return;
     }
@@ -175,18 +174,18 @@ AudioFileReader::~AudioFileReader()
 }
 
 #if ENABLE(MEDIA_SOURCE)
-bool AudioFileReader::isMaybeWebM(const uint8_t* data, size_t dataSize) const
+bool AudioFileReader::isMaybeWebM(std::span<const uint8_t> data) const
 {
     // From https://mimesniff.spec.whatwg.org/#signature-for-webm
-    return dataSize >= 4 && data[0] == 0x1A && data[1] == 0x45 && data[2] == 0xDF && data[3] == 0xA3;
+    return data.size() >= 4 && data[0] == 0x1A && data[1] == 0x45 && data[2] == 0xDF && data[3] == 0xA3;
 }
 
-std::unique_ptr<AudioFileReaderWebMData> AudioFileReader::demuxWebMData(const uint8_t* data, size_t dataSize) const
+std::unique_ptr<AudioFileReaderWebMData> AudioFileReader::demuxWebMData(std::span<const uint8_t> data) const
 {
     auto parser = SourceBufferParserWebM::create();
     if (!parser)
         return nullptr;
-    auto buffer = SharedBuffer::create(data, dataSize);
+    auto buffer = SharedBuffer::create(data);
 
     std::optional<uint64_t> audioTrackId;
     MediaTime duration;
@@ -414,13 +413,13 @@ OSStatus AudioFileReader::readProc(void* clientData, SInt64 position, UInt32 req
     auto* audioFileReader = static_cast<AudioFileReader*>(clientData);
 
     auto dataSize = audioFileReader->dataSize();
-    auto* data = audioFileReader->data();
+    auto dataSpan = audioFileReader->span();
     size_t bytesToRead = 0;
 
     if (static_cast<UInt64>(position) < dataSize) {
         size_t bytesAvailable = dataSize - static_cast<size_t>(position);
         bytesToRead = requestCount <= bytesAvailable ? requestCount : bytesAvailable;
-        memcpy(buffer, static_cast<const uint8_t*>(data) + position, bytesToRead);
+        memcpy(buffer, dataSpan.subspan(position).data(), bytesToRead);
     }
 
     if (actualCount)
@@ -646,9 +645,9 @@ RefPtr<AudioBus> AudioFileReader::createBus(float sampleRate, bool mixToMono)
     return audioBus;
 }
 
-RefPtr<AudioBus> createBusFromInMemoryAudioFile(const void* data, size_t dataSize, bool mixToMono, float sampleRate)
+RefPtr<AudioBus> createBusFromInMemoryAudioFile(std::span<const uint8_t> data, bool mixToMono, float sampleRate)
 {
-    AudioFileReader reader(data, dataSize);
+    AudioFileReader reader(data);
     return reader.createBus(sampleRate, mixToMono);
 }
 

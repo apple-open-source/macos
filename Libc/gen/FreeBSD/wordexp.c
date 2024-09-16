@@ -508,7 +508,9 @@ we_check(const char *words, int flags)
 				dquote ^= 1;
 			break;
 		case '`':
-			if (quote + squote == 0 && flags & WRDE_NOCMD)
+			if (quote + squote != 0)
+				break;
+			if (flags & WRDE_NOCMD)
 				return (WRDE_CMDSUB);
 			while ((c = *words++) != '\0' && c != '`')
 				if (c == '\\' && (c = *words++) == '\0')

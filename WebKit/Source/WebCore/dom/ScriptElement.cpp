@@ -58,9 +58,11 @@
 #include "ScriptableDocumentParser.h"
 #include "Settings.h"
 #include "TextNodeTraversal.h"
+#include "TrustedType.h"
 #include <JavaScriptCore/ImportMap.h>
 #include <wtf/Scope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -93,6 +95,15 @@ void ScriptElement::childrenChanged(const ContainerNode::ChildChange& childChang
 {
     if (m_parserInserted == ParserInserted::No && childChange.isInsertion() && element().isConnected())
         prepareScript(); // FIXME: Provide a real starting line number here.
+
+    if (childChange.source == ContainerNode::ChildChange::Source::API)
+        m_childrenChangedByAPI = true;
+}
+
+void ScriptElement::finishParsingChildren()
+{
+    if (!m_childrenChangedByAPI)
+        m_trustedScriptText = scriptContent();
 }
 
 void ScriptElement::handleSourceAttribute(const String& sourceURL)
@@ -119,7 +130,7 @@ std::optional<ScriptType> ScriptElement::determineScriptType(const String& type,
     if (type.isNull()) {
         if (language.isEmpty())
             return ScriptType::Classic;
-        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
+        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(makeString("text/"_s, language)))
             return ScriptType::Classic;
         return std::nullopt;
     }
@@ -170,7 +181,15 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition)
     if (wasParserInserted && !hasAsyncAttribute())
         m_forceAsync = true;
 
-    auto sourceText = scriptContent();
+    String sourceText = scriptContent();
+    Ref context = *element().scriptExecutionContext();
+    if (context->settingsValues().trustedTypesEnabled && sourceText != m_trustedScriptText) {
+        auto trustedText = trustedTypeCompliantString(TrustedType::TrustedScript, context, sourceText, is<HTMLScriptElement>(element()) ? "HTMLScriptElement text"_s : "SVGScriptElement text"_s);
+        if (trustedText.hasException())
+            return false;
+        sourceText = trustedText.releaseReturnValue();
+    }
+
     if (!hasSourceAttribute() && sourceText.isEmpty())
         return false;
 
@@ -346,7 +365,10 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         }
 
         m_isExternalScript = true;
-        Ref script = LoadableModuleScript::create(nonce, element->attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(), fetchPriorityHint(), crossOriginMode,
+        AtomString integrity = element->attributeWithoutSynchronization(HTMLNames::integrityAttr);
+        if (integrity.isNull())
+            integrity = AtomString { document->globalObject()->importMap().integrityForURL(moduleScriptRootURL) };
+        Ref script = LoadableModuleScript::create(nonce, integrity, referrerPolicy(), fetchPriorityHint(), crossOriginMode,
             scriptCharset(), element->localName(), element->isInUserAgentShadowTree());
         m_loadableScript = script.copyRef();
         if (RefPtr frame = element->document().frame())
@@ -598,6 +620,11 @@ String ScriptElement::scriptContent() const
     return TextNodeTraversal::childTextContent(protectedElement());
 }
 
+void ScriptElement::setTrustedScriptText(const String& text)
+{
+    m_trustedScriptText = text;
+}
+
 void ScriptElement::ref() const
 {
     element().ref();
@@ -613,11 +640,11 @@ bool isScriptElement(Element& element)
     return is<HTMLScriptElement>(element) || is<SVGScriptElement>(element);
 }
 
-ScriptElement& downcastScriptElement(Element& element)
+ScriptElement* dynamicDowncastScriptElement(Element& element)
 {
     if (auto* htmlElement = dynamicDowncast<HTMLScriptElement>(element))
-        return *htmlElement;
-    return downcast<SVGScriptElement>(element);
+        return htmlElement;
+    return dynamicDowncast<SVGScriptElement>(element);
 }
 
 }

@@ -16,6 +16,7 @@ CKKSState* const CKKSStateWaitForTrust = (CKKSState*) @"waitfortrust";
 CKKSState* const CKKSStateInitializing = (CKKSState*) @"initializing";
 CKKSState* const CKKSStateInitialized = (CKKSState*) @"initialized";
 CKKSState* const CKKSStateZoneCreationFailed = (CKKSState*) @"zonecreationfailed";
+CKKSState* const CKKSStateZoneCreationFailedDueToNetworkError = (CKKSState*) @"zone_creation_failed_due_to_network_error";
 
 CKKSState* const CKKSStateFixupRefetchCurrentItemPointers = (CKKSState*) @"fixup_fetch_cip";
 CKKSState* const CKKSStateFixupFetchTLKShares = (CKKSState*) @"fixup_fetch_tlkshares";
@@ -42,6 +43,7 @@ CKKSState* const CKKSStateUnhealthy = (CKKSState*) @"unhealthy";
 
 CKKSState* const CKKSStateResettingZone = (CKKSState*) @"resetzone";
 CKKSState* const CKKSStateResettingLocalData = (CKKSState*) @"resetlocal";
+CKKSState* const CKKSStateZoneDeletionFailedDueToNetworkError = (CKKSState*) @"zone_deletion_failed_due_to_network_error";
 
 CKKSState* const CKKSStateReady = (CKKSState*) @"ready";
 CKKSState* const CKKSStateBecomeReady = (CKKSState*) @"become_ready";
@@ -109,6 +111,8 @@ NSDictionary<CKKSState*, NSNumber*>* CKKSStateMap(void)
             CKKSStateOutgoingQueueOperationFailed    : @34,
 
             CKKSStateExpandToHandleAllViews          : @35,
+            CKKSStateZoneCreationFailedDueToNetworkError: @36,
+            CKKSStateZoneDeletionFailedDueToNetworkError: @37,
         };
     });
     return stateMap;
@@ -156,6 +160,8 @@ CKKSFlag* const CKKSFlagProcessIncomingQueueWithFreshPolicy = (CKKSFlag*) @"poli
 CKKSFlag* const CKKSFlagOutgoingQueueOperationRateToken = (CKKSFlag*) @"oqo_token";
 
 CKKSFlag* const CKKSFlagNewPriorityViews = (CKKSFlag*)@"new_priority_views";
+CKKSFlag* const CKKSFlagZoneCreation = (CKKSFlag*)@"zone_creation";
+CKKSFlag* const CKKSFlagZoneDeletion = (CKKSFlag*)@"zone_deletion";
 
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
 {
@@ -184,6 +190,8 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagProcessIncomingQueueWithFreshPolicy,
             CKKSFlagOutgoingQueueOperationRateToken,
             CKKSFlagNewPriorityViews,
+            CKKSFlagZoneCreation,
+            CKKSFlagZoneDeletion,
         ]];
     });
     return s;

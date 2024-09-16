@@ -553,7 +553,6 @@ main (argc, argv)
 
       if (flocal && !fsysdep_file_exists(zfrom)) {
 	  wordexp_t w;
-	  bzero(&w,sizeof(wordexp_t));
 	  int rc = wordexp(zfrom, &w, WRDE_NOCMD|WRDE_SHOWERR|WRDE_UNDEF);
 	  if (rc == 0) {
 	      if (w.we_wordc > 1) {

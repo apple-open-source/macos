@@ -166,6 +166,12 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
         return TRUSTD_XPC(sec_trust_store_contains, string_cert_to_bool_bool_error, ts, certificate, &contains, error);
     }) == errSecSuccess);
 
+    if (!ok) {
+        secerror("Failed to read trust settings for %{mask.hash}@", certificate);
+    } else if (!gTrustd) {
+        // trustd uses this same interface in the TrustStore CertificateSource. We don't need it to log.
+        secnotice("truststore", "Trust settings %{public}s exist for %{mask.hash}@", contains ? "" : "do not ", certificate);
+    }
 errOut:
 	return ok && contains;
 }
@@ -269,6 +275,11 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     });
 
 out:
+    if (result == errSecSuccess) {
+        secnotice("truststore", "Set TrustSettings for %{mask.hash}@", certificate);
+    } else {
+        secerror("Failed set trust settings for %{mask.hash}@, %d", certificate, (int)result);
+    }
     CFReleaseNull(validatedTrustSettings);
     return result;
 }
@@ -287,6 +298,11 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
     });
 
 errOut:
+    if (status == errSecSuccess) {
+        secnotice("truststore", "Removed TrustSettings for %{mask.hash}@", certificate);
+    } else {
+        secerror("Failed to remove trust settings for %{mask.hash}@, %d", certificate, (int)status);
+    }
     os_release(activity);
 	return status;
 }
@@ -388,6 +404,17 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     *usageConstraints = results;
 
 errOut:
+    if (status == errSecSuccess) {
+        if (!results) {
+            secnotice("truststore", "Found no trust settings for %{mask.hash}@", certificate);
+        } else if (CFArrayGetCount(results) == 0) {
+            secnotice("truststore", "Found no usage constraints for %{mask.hash}@", certificate);
+        } else {
+            secnotice("truststore", "Found usage constraints for %{mask.hash}@", certificate);
+        }
+    } else {
+        secerror("Failed to get usage contraints for %{mask.hash}@, %d", certificate, (int)status);
+    }
     os_release(activity);
     return status;
 }
@@ -414,6 +441,11 @@ OSStatus SecTrustStoreRemoveAll(SecTrustStoreRef ts)
     });
 
 errOut:
+    if (status == errSecSuccess) {
+        secnotice("truststore", "Removed all trust settings");
+    } else {
+        secerror("Failed to remove all trust settings, %d", (int)status);
+    }
     os_release(activity);
     return status;
 }

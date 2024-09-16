@@ -37,10 +37,14 @@ NSErrorDomain const OTInheritanceKeyErrorDomain = @"com.apple.security.OctagonTr
 
 @implementation OTInheritanceKey
 
+
 - (BOOL)generateWrappingWithError:(NSError**)error {
     NSMutableData *wrappingKey = [NSMutableData dataWithLength:32];
     ccrng_generate(ccrng(NULL), wrappingKey.length, wrappingKey.mutableBytes);
-    
+    return [self wrapWithWrappingKey:wrappingKey error:error];
+}
+
+- (BOOL)wrapWithWrappingKey:(NSData*)wrappingKey error:(NSError**)error {
     size_t wrapped_size = ccwrap_wrapped_size(_recoveryKeyData.length);
     NSMutableData *wrapped = [NSMutableData dataWithLength:wrapped_size];
     const struct ccmode_ecb *aes_ecb = ccaes_ecb_encrypt_mode();
@@ -386,7 +390,11 @@ static ssize_t alphaIndex(unsigned char c)
     return YES;
 }
 
-- (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData wrappingKeyData:(NSData*)wrappingKeyData uuid:(NSUUID*)uuid error:(NSError**)error {
+- (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData
+                                wrappingKeyData:(NSData*)wrappingKeyData
+                                 claimTokenData:(NSData*_Nullable)claimTokenData
+                                           uuid:(NSUUID*)uuid
+                                          error:(NSError**)error {
     if ((self = [super init])) {
         _uuid = uuid;
         _wrappedKeyData = wrappedKeyData;
@@ -403,10 +411,24 @@ static ssize_t alphaIndex(unsigned char c)
         if (_wrappedKeyString == nil) {
             return nil;
         }
-        _claimTokenData = nil;
-        _claimTokenString = nil;
+        _claimTokenData = claimTokenData;
+        if (claimTokenData != nil) {
+            _claimTokenString = [OTInheritanceKey printableWithData:_claimTokenData checksumSize:4 error:error];
+            if (_claimTokenString == nil) {
+                return nil;
+            }
+        } else {
+            _claimTokenString = nil;
+        }
     }
     return self;
+}
+
+- (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData
+                                wrappingKeyData:(NSData*)wrappingKeyData
+                                           uuid:(NSUUID*)uuid
+                                          error:(NSError**)error {
+    return [self initWithWrappedKeyData:wrappedKeyData wrappingKeyData:wrappingKeyData claimTokenData:nil uuid:uuid error:error];
 }
 
 - (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData wrappingKeyString:(NSString*)wrappingKeyString uuid:(NSUUID*)uuid error:(NSError**)error {
@@ -423,6 +445,61 @@ static ssize_t alphaIndex(unsigned char c)
         return nil;
     }
     return [self initWithWrappedKeyData:wrappedKeyData wrappingKeyData:wrappingKeyData uuid:uuid error:error];
+}
+
+- (nullable instancetype)initWithUUID:(NSUUID*)uuid oldIK:(OTInheritanceKey*)oldIK error:(NSError**)error {
+    if ((self = [super init]) ) {
+        if ([uuid isEqual:oldIK.uuid]) {
+            if (error) {
+                *error = [NSError errorWithDomain:OTInheritanceKeyErrorDomain
+                                             code:OTInheritanceKeyErrorCannotRecreateWithSameUUID
+                                      description:@"recreate needs a different UUID"];
+            }
+            return nil;
+        }
+        _uuid = uuid;
+        _wrappingKeyData = oldIK.wrappingKeyData;
+        _wrappingKeyString = oldIK.wrappingKeyString;
+        _wrappedKeyData = oldIK.wrappedKeyData;
+        _wrappedKeyString = oldIK.wrappedKeyString;
+        _claimTokenData = oldIK.claimTokenData;
+        _claimTokenString = oldIK.claimTokenString;
+        _recoveryKeyData = oldIK.recoveryKeyData;
+    }
+    return self;
+}    
+
+- (nullable instancetype)initWithUUID:(NSUUID*)uuid
+                       claimTokenData:(NSData*)claimTokenData
+                      wrappingKeyData:(NSData*)wrappingKeyData
+                                error:(NSError**)error
+{
+    if ((self = [super init]) ) {
+        _uuid = uuid;
+        _claimTokenData = claimTokenData;
+        _claimTokenString = [OTInheritanceKey printableWithData:_claimTokenData checksumSize:4 error:error];
+        if (_claimTokenString == nil) {
+            return nil;
+        }
+        unsigned char buf_recovery_key[RECOVERY_KEY_BYTES];
+        int ret = SecRandomCopyBytes(kSecRandomDefault, sizeof(buf_recovery_key), buf_recovery_key);
+        if (ret != errSecSuccess) {
+            memset_s(buf_recovery_key, sizeof(buf_recovery_key), 0, sizeof(buf_recovery_key));
+            if (error != nil) {
+                *error = [NSError errorWithDomain:OTInheritanceKeyErrorDomain
+                                             code:OTInheritanceKeyErrorSecRandom
+                                      description:[NSString stringWithFormat:@"SecRandomCopyBytes: %d", ret]];
+            }
+            return nil;
+        }
+        _recoveryKeyData = [NSData dataWithBytes:buf_recovery_key length:sizeof(buf_recovery_key)];
+        memset_s(buf_recovery_key, sizeof(buf_recovery_key), 0, sizeof(buf_recovery_key));
+
+        if (![self wrapWithWrappingKey:wrappingKeyData error:error]) {
+            return nil;
+        }
+    }
+    return self;
 }
 
 - (BOOL)isEqualToOTInheritanceKey:(OTInheritanceKey *)other {
@@ -459,6 +536,34 @@ static ssize_t alphaIndex(unsigned char c)
         [self.wrappedKeyData isEqualToData:other.wrappedKeyData] &&
         [self.wrappedKeyString isEqualToString:other.wrappedKeyString] &&
         [self.recoveryKeyData isEqualToData:other.recoveryKeyData];
+}
+
+- (BOOL)isKeyEquals:(OTInheritanceKey*)other {
+    if (self == other) {
+        return YES;
+    }
+    return
+        [self.wrappingKeyData isEqualToData:other.wrappingKeyData] &&
+        [self.wrappingKeyString isEqualToString:other.wrappingKeyString] &&
+        [self.wrappedKeyData isEqualToData:other.wrappedKeyData] &&
+        [self.wrappedKeyString isEqualToString:other.wrappedKeyString] &&
+        [self.claimTokenData isEqualToData:other.claimTokenData] &&
+        [self.claimTokenString isEqualToString:other.claimTokenString] &&
+        [self.recoveryKeyData isEqualToData:other.recoveryKeyData];
+}
+
+- (NSDictionary*)dictionary {
+    NSMutableDictionary *d = [@{
+        @"uuid": [self.uuid description],
+        @"wrappingKeyData": [self.wrappingKeyData base64EncodedStringWithOptions:0],
+        @"wrappingKeyString": self.wrappingKeyString,
+        @"wrappedKeyData": [self.wrappedKeyData base64EncodedStringWithOptions:0],
+        @"wrappedKeyString": self.wrappedKeyString,
+        @"recoveryKeyData": [self.recoveryKeyData base64EncodedStringWithOptions:0],
+    } mutableCopy];
+    d[@"claimTokenData"] = [self.claimTokenData base64EncodedStringWithOptions:0];
+    d[@"claimTokenString"] = self.claimTokenString;
+    return d;
 }
 
 + (BOOL)supportsSecureCoding {

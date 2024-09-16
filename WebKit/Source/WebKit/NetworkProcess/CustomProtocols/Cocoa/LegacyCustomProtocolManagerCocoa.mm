@@ -36,6 +36,7 @@
 #import <pal/spi/cocoa/NSURLConnectionSPI.h>
 #import <pal/text/TextEncoding.h>
 #import <wtf/URL.h>
+#import <wtf/cocoa/SpanCocoa.h>
 
 using namespace WebKit;
 
@@ -182,13 +183,13 @@ void LegacyCustomProtocolManager::didFailWithError(LegacyCustomProtocolID custom
     removeCustomProtocol(customProtocolID);
 }
 
-void LegacyCustomProtocolManager::didLoadData(LegacyCustomProtocolID customProtocolID, const IPC::DataReference& data)
+void LegacyCustomProtocolManager::didLoadData(LegacyCustomProtocolID customProtocolID, std::span<const uint8_t> data)
 {
     RetainPtr<WKCustomProtocol> protocol = protocolForID(customProtocolID);
     if (!protocol)
         return;
 
-    RetainPtr<NSData> nsData = adoptNS([[NSData alloc] initWithBytes:data.data() length:data.size()]);
+    RetainPtr nsData = toNSData(data);
 
     dispatchOnInitializationRunLoop(protocol.get(), ^ {
         [[protocol client] URLProtocol:protocol.get() didLoadData:nsData.get()];

@@ -182,6 +182,15 @@ SecCodeStatus KernelCode::getGuestStatus(SecCode *iguest)
 		MacOSError::throwMe(errSecCSNoSuchCode);
 }
 
+void KernelCode::guestMatchesLightweightCodeRequirement(SecCode *iguest, const Requirement* lwcr)
+{
+	if (ProcessCode *guest = dynamic_cast<ProcessCode *>(iguest)) {
+		CFRef<CFDataRef> lwcrData = lwcr->createlwcrFormData();
+		guest->codeMatchesLightweightCodeRequirementData(lwcrData);
+	} else
+		MacOSError::throwMe(errSecCSNoSuchCode);
+}
+
 
 //
 // We tell the kernel to make status changes

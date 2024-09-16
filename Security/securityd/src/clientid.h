@@ -78,9 +78,11 @@ private:
 		CFRef<SecCodeRef> code;
 		mutable bool gotHash;
 		mutable SHA1::Digest legacyHash;
+		mutable dispatch_time_t lastTouchTime; // so we can eject the LRU entries
 	};
 	typedef std::map<SecGuestRef, GuestState> GuestMap;
 	mutable GuestMap mGuests;
+	const static size_t kMaxGuestMapSize = 20;
 
 	mutable std::string mClientPartitionId;
 	mutable bool mGotPartitionId;

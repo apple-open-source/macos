@@ -182,8 +182,8 @@ angle::Result MemoryProgramCache::putProgram(const egl::BlobCache::Key &programH
         return angle::Result::Continue;
     }
 
-    angle::MemoryBuffer serializedProgram;
-    ANGLE_TRY(program->serialize(context, &serializedProgram));
+    ANGLE_TRY(program->serialize(context));
+    const angle::MemoryBuffer &serializedProgram = program->getSerializedBinary();
 
     angle::MemoryBuffer compressedData;
     if (!angle::CompressBlob(serializedProgram.size(), serializedProgram.data(), &compressedData))
@@ -194,11 +194,11 @@ angle::Result MemoryProgramCache::putProgram(const egl::BlobCache::Key &programH
     }
 
     {
-        std::scoped_lock<std::mutex> lock(mBlobCache.getMutex());
-        // TODO: http://anglebug.com/7568
+        std::scoped_lock<angle::SimpleMutex> lock(mBlobCache.getMutex());
+        // TODO: http://anglebug.com/42266037
         // This was a workaround for Chrome until it added support for EGL_ANDROID_blob_cache,
-        // tracked by http://anglebug.com/2516. This issue has since been closed, but removing this
-        // still causes a test failure.
+        // tracked by http://anglebug.com/42261225. This issue has since been closed, but removing
+        // this still causes a test failure.
         auto *platform = ANGLEPlatformCurrent();
         platform->cacheProgram(platform, programHash, compressedData.size(), compressedData.data());
     }

@@ -24,7 +24,7 @@
 #include "stack_trace.h"
 
 #include <TargetConditionals.h>
-#include <thread_stack_pcs.h>
+#include <execinfo.h>
 
 
 // Note: Shifts on signed types are a minefield.  Avoid doing it!
@@ -140,20 +140,17 @@ MALLOC_NOINLINE
 size_t
 trace_collect(uint8_t *buffer, size_t size)
 {
-	// frame 0: thread_stack_pcs() itself
-	// frame 1: this function (no inline)
-	// last frame: usually garbage value
-	const uint32_t dropped_frames = 3;
+	// frame 0: this function (no inline)
+	const uint32_t dropped_frames = 1;
 	const uint32_t good_frames = 64;
 	const uint32_t max_frames = good_frames + dropped_frames;
 	vm_address_t frames[max_frames];
 
-	uint32_t num_frames;
-	thread_stack_pcs(frames, max_frames, &num_frames);
+	uint32_t num_frames = backtrace((void **)frames, max_frames);
 	if (num_frames <= dropped_frames) {
 		return 0;
 	}
 
 	uint32_t num_addrs = num_frames - dropped_frames;
-	return trace_encode(buffer, size, &frames[2], num_addrs);
+	return trace_encode(buffer, size, &frames[1], num_addrs);
 }

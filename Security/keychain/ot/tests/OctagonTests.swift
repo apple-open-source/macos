@@ -130,7 +130,7 @@ class OTMockDeviceInfoAdapter: OTDeviceInformationAdapter {
     func register(forDeviceNameUpdates listener: OTDeviceInformationNameUpdateListener) {
     }
 
-    func setOverriddenMachineID(_ machineID: String) {
+    func setOverriddenMachineID(_ machineID: String?) {
         self.mockMachineID = machineID
     }
 
@@ -304,6 +304,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var otControlCLI: OTControlCLI!
 
     var otFollowUpController: OTMockFollowUpController!
+    var rpcTimeoutScalingFactor: UInt64 = 1
 
     override static func setUp() {
         UserDefaults.standard.register(defaults: ["com.apple.CoreData.ConcurrencyDebug": 1])
@@ -431,11 +432,15 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         self.otControl = OTControl(connection: self.otXPCProxy.connection(), sync: true)
         self.otControlCLI = OTControlCLI(otControl: self.otControl)
 
-        self.otcliqueContext = OTConfigurationContext()
-        self.otcliqueContext.context = OTDefaultContext
-        self.otcliqueContext.altDSID = OTMockPersonaAdapter.defaultMockPersonaString()
-        self.otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-        self.otcliqueContext.otControl = self.otControl
+        self.otcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: OTMockPersonaAdapter.defaultMockPersonaString(),
+                                                                         sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
+        let realDeviceInfo = OTDeviceInformationActualAdapter()
+        if realDeviceInfo.isHomePod() || realDeviceInfo.isWatch() {
+            // increase default test RPC timeout on slow devices
+            self.rpcTimeoutScalingFactor = 10
+        }
     }
 
     override func setUpOTManager(_ cloudKitClassDependencies: CKKSCloudKitClassDependencies) -> OTManager {
@@ -681,10 +686,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         }
         self.wait(for: [cachedStatusexpectation], timeout: 10)
 
-        let cliqueConfiguration = OTConfigurationContext()
-        cliqueConfiguration.context = context.contextID
-        cliqueConfiguration.altDSID = try! XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        cliqueConfiguration.otControl = self.otControl
+        let cliqueConfiguration = self.createOTConfigurationContextForTests(contextID: context.contextID,
+                                                                            otControl: self.otControl,
+                                                                            altDSID: try! XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         let otclique = OTClique(contextData: cliqueConfiguration)
 
         let status = otclique.fetchStatus(nil)
@@ -737,10 +741,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     }
 
     func fetchCDPStatus(context: OTCuttlefishContext) -> OTCDPStatus {
-        let config = OTConfigurationContext()
-        config.context = context.contextID
-        config.otControl = self.otControl
 
+        let config = self.createOTConfigurationContextForTests(contextID: context.contextID,
+                                                               otControl: self.otControl)
         var error: NSError?
         let cdpstatus = OTClique.getCDPStatus(config, error: &error)
         XCTAssertNil(error, "Should have no error fetching CDP status")
@@ -1324,10 +1327,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         let ucvStatusChangeNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTUserControllableViewStatusChanged))
 
         do {
-            let arguments = OTConfigurationContext()
-            arguments.altDSID = try XCTUnwrap(context.activeAccount?.altDSID)
-            arguments.context = context.contextID
-            arguments.otControl = self.otControl
+            let arguments = self.createOTConfigurationContextForTests(contextID: context.contextID,
+                                                                                otControl: self.otControl,
+                                                                                altDSID: try XCTUnwrap(context.activeAccount?.altDSID))
 
             let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil", file: file, line: line)
@@ -2615,10 +2617,9 @@ class OctagonTests: OctagonTestsBase {
         let status = clique.fetchStatus(nil)
         XCTAssertEqual(status, CliqueStatus.notIn, "clique should return Not In")
 
-        let newOTCliqueContext = OTConfigurationContext()
-        newOTCliqueContext.context = "newCliqueContext"
-        newOTCliqueContext.altDSID = self.otcliqueContext.altDSID
-        newOTCliqueContext.otControl = self.otcliqueContext.otControl
+        let newOTCliqueContext = self.createOTConfigurationContextForTests(contextID: "newCliqueContext",
+                                                                            otControl: self.otcliqueContext.otControl,
+                                                                            altDSID: self.otcliqueContext.altDSID)
         let newClique: OTClique
 
         do {
@@ -2952,10 +2953,14 @@ class OctagonTests: OctagonTestsBase {
             "WiFi",
         ])
         #else
-        let expectedViews = Set(["LimitedPeersAllowed",
+        var maybeExpectedViews = Set(["LimitedPeersAllowed",
                                  "Home",
                                  "ProtectedCloudStorage",
                                  "WiFi", ])
+        if OTDeviceInformationActualAdapter().isAppleTV() {
+            maybeExpectedViews.insert("Photos")
+        }
+        let expectedViews = maybeExpectedViews
         #endif
 
         let getViewsExpectation = self.expectation(description: "getViews callback happens")
@@ -4081,6 +4086,36 @@ class OctagonTests: OctagonTestsBase {
 
         XCTAssertNil(self.cuttlefishContext.checkMetricsTrigger, "check metrics nfs should be nil")
     }
+
+    func testFetchPeerIDAndReturnError() throws {
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        let otControl = OctagonTrustCliqueBridge.makeMockFetchEgoPeerID()
+        clique.ctx.otControl = otControl
+
+        var error: NSError?
+        let result = clique.cliqueMemberIdentifier(&error)
+        XCTAssertNotNil(error, "error should not be nil")
+        XCTAssertEqual(error!.domain, NSOSStatusErrorDomain, "error domain should be NSOSStatusErrorDomain")
+        XCTAssertEqual(error!.code, Int(errSecInteractionNotAllowed), "error code should be errSecInteractionNotAllowed")
+        XCTAssertNil(result, "result should be nil")
+    }
 }
 
 class OctagonTestsOverrideModelBase: OctagonTestsBase {
@@ -4095,6 +4130,9 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
 #if SEC_XR
         TPSetBecomeiPadOverride(false)
 #endif
+#if TARGET_OS_TV
+        TPSetBecomeAppleTVOverride(false)
+#endif
         TPClearBecomeiProdOverride()
         super.setUp()
     }
@@ -4102,6 +4140,9 @@ class OctagonTestsOverrideModelBase: OctagonTestsBase {
     override func tearDown() {
 #if SEC_XR
         TPClearBecomeiPadOverride()
+#endif
+#if TARGET_OS_TV
+        TPClearBecomeAppleTVOverride()
 #endif
         super.tearDown()
     }
@@ -4390,10 +4431,6 @@ class OctagonTestsOverrideModelTV: OctagonTestsOverrideModelBase {
         super.setUp()
     }
 
-    override func tearDown() {
-        super.tearDown()
-    }
-
     func testVoucherFromTV() throws {
         try self._testVouchers(expectations: [TestCase(model: "AppleTV5,3", success: true, manateeTLKs: false, limitedTLKs: true),
                                               TestCase(model: "MacFoo", success: false, manateeTLKs: false, limitedTLKs: false),
@@ -4419,10 +4456,6 @@ class OctagonTestsOverrideModelWindows: OctagonTestsOverrideModelBase {
                                                       osVersion: "Windows (whatever Windows version)")
 
         super.setUp()
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     func testVoucherFromTV() throws {
@@ -4451,10 +4484,6 @@ class OctagonTestsOverrideModelMac: OctagonTestsOverrideModelBase {
                                                       serialNumber: "456",
                                                       osVersion: "OSX 11")
         super.setUp()
-    }
-
-    override func tearDown() {
-        super.tearDown()
     }
 
     func testVoucherFromMac() throws {

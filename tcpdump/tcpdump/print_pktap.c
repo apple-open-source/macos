@@ -267,6 +267,20 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 				  pktp_hdr->pth_dlt);
 			prsep = ", ";
 		}
+		if (pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
+			struct droptap_header *dtap_hdr = (struct droptap_header *)pktp_hdr;
+			ND_PRINT("%s" "%s",
+				prsep,
+				drop_reason_str(dtap_hdr->dth_dropreason));
+			prsep = ", ";
+			if (dtap_hdr->dth_dropfunc_size > 0) {
+				ND_PRINT("%s" "%s:%u",
+					prsep,
+					dtap_hdr->dth_dropfunc,
+					dtap_hdr->dth_dropline);
+				prsep = ", ";
+			}
+		}
 		ND_PRINT(") ");
 	}
 }
@@ -556,11 +570,15 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 	bcopy(h, &nhdr, sizeof(struct pcap_pkthdr));
 	nhdr.caplen -= pktp_hdr->pth_length;
 	nhdr.len -= pktp_hdr->pth_length;
-	p += pktp_hdr->pth_length;
-
+	if (pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
+		p += DROPTAP_HDR_SIZE((struct droptap_header *)p);
+	} else {
+		p += pktp_hdr->pth_length;
+	}
 	dlt = pktp_hdr->pth_dlt;
 
-	if (pktp_hdr->pth_type_next == PTH_TYPE_PACKET) {
+	if (pktp_hdr->pth_type_next == PTH_TYPE_PACKET ||
+	    pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
 		if ((printer = lookup_printer(dlt)) != NULL) {
 			printer(ndo, &nhdr, p);
 		} else {

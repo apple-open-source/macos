@@ -93,6 +93,35 @@ static FILE	*overfile;	/* Overflow file for toomuch() */
 static off_t	 truncofs;	/* Offset this file should be truncated at */
 static int	 doclean;	/* Should cleanup() remove output? */
 
+#ifdef __APPLE__
+/*
+ * Install the requested action, but *only* if the signal's not currently being
+ * ignored.  csplit(1) won't ignore anything itself, so this would indicate that
+ * the caller is ignoring it for one reason or another and we shouldn't override
+ * that just for cleanup purposes.
+ */
+static int
+sigaction_notign(int sig, const struct sigaction *act, struct sigaction *poact)
+{
+	struct sigaction oact;
+	int error;
+
+	if ((error = sigaction(sig, NULL, &oact)) < 0)
+		return (error);
+
+	/* Silently succeed. */
+	if (oact.sa_handler == SIG_IGN) {
+		if (poact != NULL)
+			*poact = oact;
+		return (0);
+	}
+
+	return (sigaction(sig, act, poact));
+}
+
+#define	sigaction(s, a, o)	sigaction_notign(s, a, o)
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -221,13 +250,29 @@ usage(void)
 }
 
 static void
+#ifdef __APPLE__
+handlesig(int sig)
+#else
 handlesig(int sig __unused)
+#endif
 {
+#ifndef __APPLE__
 	const char msg[] = "csplit: caught signal, cleaning up\n";
 
 	write(STDERR_FILENO, msg, sizeof(msg) - 1);
+#endif
 	cleanup();
+#ifdef __APPLE__
+	/*
+	 * For conformance purposes, we can't just exit with a single static
+	 * exit code -- we must actually re-raise the error once we've finished
+	 * our cleanup to get the signal-exit bits correct.
+	 */
+	signal(sig, SIG_DFL);
+	raise(sig);
+#else
 	_exit(2);
+#endif
 }
 
 /* Create a new output file. */

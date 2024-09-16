@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,6 @@
  * March 26, 2013	Dieter Siegmund (dieter@apple)
  * - created (from EAPOLControlPrefs.h)
  */
-#include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCPreferences.h>
 
 #include "DHCPDUID.h"
@@ -44,7 +43,7 @@
 typedef void (*IPConfigurationControlPrefsCallBack)(SCPreferencesRef prefs);
 
 SCPreferencesRef
-IPConfigurationControlPrefsInit(CFRunLoopRef runloop,
+IPConfigurationControlPrefsInit(dispatch_queue_t queue,
 				IPConfigurationControlPrefsCallBack callback);
 
 void
@@ -99,5 +98,8 @@ IPConfigurationControlPrefsGetHideBSSID(Boolean default_val,
                                         Boolean * ret_was_set);
 Boolean
 IPConfigurationControlPrefsSetHideBSSID(Boolean hide);
+
+Boolean
+IPConfigurationControlPrefsSetHideBSSIDDefault(void);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

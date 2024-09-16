@@ -39,6 +39,7 @@ extern "C" {
 #endif
 
 #define WEBKIT2_LOG_CHANNELS(M) \
+    M(API) \
     M(ActivityState) \
     M(AdvancedPrivacyProtections) \
     M(AppSSO) \
@@ -85,6 +86,8 @@ extern "C" {
     M(NetworkScheduling) \
     M(NetworkSession) \
     M(Notifications) \
+    M(PDF) \
+    M(PDFAsyncRendering) \
     M(PageLoadObserver) \
     M(PerformanceLogging) \
     M(Plugins) \

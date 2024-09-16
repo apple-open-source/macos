@@ -15,6 +15,8 @@
         <string>2023-03-22</string>
 	<key>OpenSourceModifications</key>
 	<array>
+		<string>Apply upstream fix for crash on I/O error at exit (124127836).</string>
+		<string>vm.c: re-raise signal errors to propagate correct exit status (128142972)</string>
 	</array>
         <key>OpenSourceLicense</key>
         <string>BSD</string>

@@ -39,6 +39,7 @@
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/PlatformEvent.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/glib/Sandbox.h>
 
 namespace WebKit {
 
@@ -54,8 +55,9 @@ GtkWidget* WebPageProxy::viewWidget()
 void WebPageProxy::bindAccessibilityTree(const String& plugID)
 {
 #if USE(GTK4)
-    // FIXME: We need a way to override accessible interface of WebView and send the atspi reference to the web process.
-    ASSERT_NOT_IMPLEMENTED_YET();
+    // FIXME(273245): Make a11y work under Flatpak.
+    if (!isInsideFlatpak())
+        webkitWebViewBaseSetPlugID(WEBKIT_WEB_VIEW_BASE(viewWidget()), plugID);
 #else
     auto* accessible = gtk_widget_get_accessible(viewWidget());
     atk_socket_embed(ATK_SOCKET(accessible), const_cast<char*>(plugID.utf8().data()));
@@ -110,7 +112,7 @@ void WebPageProxy::accentColorDidChange()
 
     WebCore::Color accentColor = pageClient().accentColor();
 
-    send(Messages::WebPage::SetAccentColor(accentColor));
+    legacyMainFrameProcess().send(Messages::WebPage::SetAccentColor(accentColor), webPageIDInMainFrameProcess());
 }
 
 OptionSet<WebCore::PlatformEvent::Modifier> WebPageProxy::currentStateOfModifierKeys()

@@ -34,6 +34,8 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sysexits.h>
+#include <Foundation/Foundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <paths.h>
@@ -70,8 +72,10 @@ enum {
     kDASessionKeepAliveWithDADiskDescriptionChanged,
     kDAForce,
     kDAWhole,
+    kDANoFollow,
     kDAName,
     kDAUseBlockCallback,
+    kDASetFSKitAdditions,
     kDAHelp,
     kDALast
 } options;
@@ -108,7 +112,9 @@ static struct option opts[] = {
 { "testDASessionKeepAliveWithDADiskDescriptionChanged",no_argument,            0,              kDASessionKeepAliveWithDADiskDescriptionChanged},
 { "force",                                      no_argument,            0,              kDAForce},
 { "whole",                                      no_argument,            0,              kDAWhole},
+{ "nofollow",                                   no_argument,            0,              kDANoFollow},
 { "useBlockCallback",                           no_argument,            0,              kDAUseBlockCallback},
+{ "testSetFSKitAdditions",                      no_argument,            0,              kDASetFSKitAdditions},
 { "help",                                       no_argument,            0,              kDAHelp },
 { 0,                   0,                      0,              0 }
 };
@@ -140,6 +146,9 @@ static void usage(void)
 "datest --testDASessionKeepAliveWithDADiskAppeared  \n"
 "datest --testDASessionKeepAliveWithDARegisterDiskAppeared  \n"
 "datest --testDASessionKeepAliveWithDADiskDescriptionChanged \n"
+#ifdef DA_FSKIT
+"datest --testSetFSKitAdditions --device <device> \n"
+#endif
 
 "\n"
 ,
@@ -334,6 +343,9 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             
         if (actargs[kDAWhole].present) {
             options |= kDADiskUnmountOptionWhole;
+        }
+        if (actargs[kDANoFollow].present) {
+            options |= kDADiskMountOptionNoFollow;
         }
         
         if ( approval == true )
@@ -761,6 +773,134 @@ exit:
     return ret;
 }
 
+static int testDASetFSKitAdditions(struct clarg actargs[kDALast])
+{
+#ifdef DA_FSKIT
+    __block int              ret = 1;
+    DASessionRef             _session = DASessionCreate(kCFAllocatorDefault);
+    int                      validArgs[] = {kDADevice};
+    CFDictionaryRef          description = NULL;
+    __block DADiskRef        retrievedDisk = NULL;
+    NSString                *aString = @"AddedStringsAreWonderful";
+
+    if (validateArguments(validArgs, sizeof(validArgs)/sizeof(int), actargs))
+    {
+        goto exit;
+    }
+    DADiskRef _disk = DADiskCreateFromBSDName(kCFAllocatorDefault, _session, actargs[kDADevice].argument);
+
+    if (!_disk)      {
+        printf( "%s does not exist", actargs[kDADevice].argument);
+        goto exit;
+    }
+
+    myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
+
+    if ( _session ) {
+
+        DADiskDescriptionChangedCallbackBlock block =  ^( DADiskRef disk, CFArrayRef keys )
+        {
+            CFRetain( disk );
+            retrievedDisk = disk;
+            done = 1;
+        };
+        DARegisterDiskDescriptionChangedCallbackBlock(_session, NULL, NULL, block );
+
+        DASessionSetDispatchQueue(_session, myDispatchQueue);
+        ret = 0;
+    }
+    else
+    {
+        goto exit;
+    }
+
+    DADiskSetFSKitAdditions( _disk, (__bridge CFDictionaryRef)@{@"FSTestKey":aString}, ^(DAReturn error) {
+        // We could do some coordinated wait w.r.t. this block running and 'block'. But we really want to test
+        // that a disk gets updated, so just test for that.
+        if (error)
+        {
+            printf( "DADiskSetFSKitAdditions failed, error %d", error );
+            ret = -1; // Fall through the !retrievedDisk test
+        }
+    });
+    if ( ret == 0 && WaitForCallback() == false )
+    {
+        ret = -1;
+        goto exit;
+    }
+
+    if ( !retrievedDisk )
+    {
+        ret = -1;
+        goto exit;
+    }
+
+    // We got a disk, get its description and forget the disk.
+    description = DADiskCopyDescription( retrievedDisk );
+    CFRelease( retrievedDisk );
+    retrievedDisk = NULL;
+
+    // Make sure the description includes the right key/value
+    if ( ![ aString isEqualToString: (__bridge NSString *)CFDictionaryGetValue( description, CFSTR("FSTestKey") ) ] )
+    {
+        printf( "Disk description didn't contain FSTestKey : %s\n", aString.description.UTF8String );
+        CFShow( description );
+        ret = -1;
+        goto exit;
+    }
+
+    // Now set up to try again but w/o any addition
+    CFRelease( description );
+    description = NULL;
+    ret = 0;
+    done = 0;
+
+    DADiskSetFSKitAdditions( _disk, NULL, ^(DAReturn error) {
+        // We could do some coordinated wait w.r.t. this block running and 'block'. But we really want to test
+        // that a disk gets updated, so just test for that.
+        if (error)
+        {
+            printf( "DADiskSetFSKitAdditions failed clearing dict, error %d", error );
+            ret = -1; // Fall through the !retrievedDisk test
+        }
+    });
+    // Remember the session still has the disk change callback set above
+    if ( ret == 0 && WaitForCallback() == false )
+    {
+        ret = -1;
+        goto exit;
+    }
+
+    if ( !retrievedDisk )
+    {
+        ret = -1;
+        goto exit;
+    }
+
+    // We got a disk, get its description and forget the disk.
+    description = DADiskCopyDescription( retrievedDisk );
+    CFRelease( retrievedDisk );
+    retrievedDisk = NULL;
+
+    // Make sure the description does NOT include the right key
+    if ( CFDictionaryGetValue( description, CFSTR("FSTestKey") ) )
+    {
+        NSObject *whatsThere = (__bridge NSObject *) CFDictionaryGetValue( description, CFSTR("FSTestKey") );
+        printf( "Disk description contained FSTestKey : %s\n", whatsThere.description.UTF8String );
+        CFShow( description );
+        ret = -1;
+        goto exit;
+    }
+    CFRelease( description );
+
+exit:
+    return ret;
+#else
+    printf("FSKit not supported, skipping test\n");
+    return 0;
+#endif
+}
+
 static int testDAIdle(struct clarg actargs[kDALast])
 {
     int             ret = 1;
@@ -875,11 +1015,12 @@ exit:
 static int TerminateDaemonToTriggerRelaunch()
 {
     pid_t pid = 0;
+    int status;
     char command[256];
 
     pid = pgrep("diskarbitrationd");
-    snprintf(command, sizeof(command), "kill -9 %d", pid);
-    system( command );
+    kill(pid, SIGKILL);
+    waitpid(pid, &status, 0);
 #if !TARGET_OS_OSX
     sleep(1);
 #endif
@@ -1160,6 +1301,10 @@ int main (int argc, char * argv[])
     }
     if(actargs[kDASessionKeepAliveWithDADiskDescriptionChanged].present) {
         return testDASessionKeepAliveWithDADiskDescriptionChanged(actargs);
+    }
+
+    if(actargs[kDASetFSKitAdditions].present) {
+        return testDASetFSKitAdditions(actargs);
     }
 
     /* default */

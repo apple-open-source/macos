@@ -172,6 +172,7 @@
 		070DB019268FCDF500ACF231 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
 		070DB046268FD5A200ACF231 /* hfsutil_fuzzmain.c in Sources */ = {isa = PBXBuildFile; fileRef = 070DB045268FD59300ACF231 /* hfsutil_fuzzmain.c */; };
 		07C2BF891CB43F5E00D8327D /* test-renamex.c in Sources */ = {isa = PBXBuildFile; fileRef = 07C2BF881CB43F5E00D8327D /* test-renamex.c */; };
+		07DE6A2F2B8D2C01005FEFA1 /* test-fsctls.c in Sources */ = {isa = PBXBuildFile; fileRef = 07DE6A2E2B8D2C01005FEFA1 /* test-fsctls.c */; };
 		09D6B7D71E317ED2003C20DC /* test_disklevel.c in Sources */ = {isa = PBXBuildFile; fileRef = 09D6B7D61E317ED2003C20DC /* test_disklevel.c */; };
 		18B450692104D958002052BF /* lf_hfs_journal.c in Sources */ = {isa = PBXBuildFile; fileRef = 18B450682104D958002052BF /* lf_hfs_journal.c */; };
 		2A386A3B1C22209C007FEDAC /* test-list-ids.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A386A3A1C221E67007FEDAC /* test-list-ids.c */; };
@@ -205,7 +206,6 @@
 		2A9399D31BE2C06800FB075B /* test-uncached-io.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399D21BE2C06000FB075B /* test-uncached-io.c */; };
 		2A9399D51BE2C17800FB075B /* test-unicode-file-names.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399D41BE2C14800FB075B /* test-unicode-file-names.c */; };
 		2ABDCEA71BF3DAA100CFC70C /* test-journal-toggle.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399CB1BE2BB1600FB075B /* test-journal-toggle.c */; };
-		41FEC6282BC9DDCE00418FFA /* test-fsctls.c in Sources */ = {isa = PBXBuildFile; fileRef = 41FEC6272BC9DDCE00418FFA /* test-fsctls.c */; };
 		4D07DCC41538EF92002B57CB /* fstyp_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D07DCC31538EF92002B57CB /* fstyp_hfs.c */; };
 		4D07DCC51538EFB7002B57CB /* fstyp_hfs.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = 4D07DCC21538EF92002B57CB /* fstyp_hfs.8 */; };
 		4D0E89AA1534FF48004CD678 /* mount_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E89A71534FF48004CD678 /* mount_hfs.c */; };
@@ -951,6 +951,7 @@
 		070DB044268FD04800ACF231 /* Fuzzing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Fuzzing.xcconfig; sourceTree = "<group>"; };
 		070DB045268FD59300ACF231 /* hfsutil_fuzzmain.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hfsutil_fuzzmain.c; sourceTree = "<group>"; };
 		07C2BF881CB43F5E00D8327D /* test-renamex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-renamex.c"; sourceTree = "<group>"; };
+		07DE6A2E2B8D2C01005FEFA1 /* test-fsctls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-fsctls.c"; sourceTree = "<group>"; };
 		09D6B7D61E317ED2003C20DC /* test_disklevel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_disklevel.c; sourceTree = "<group>"; };
 		18B450682104D958002052BF /* lf_hfs_journal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lf_hfs_journal.c; sourceTree = "<group>"; };
 		2A386A3A1C221E67007FEDAC /* test-list-ids.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-list-ids.c"; sourceTree = "<group>"; };
@@ -984,7 +985,6 @@
 		2A9399D01BE2BFF400FB075B /* test-throttled-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-throttled-io.c"; sourceTree = "<group>"; };
 		2A9399D21BE2C06000FB075B /* test-uncached-io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-uncached-io.c"; sourceTree = "<group>"; };
 		2A9399D41BE2C14800FB075B /* test-unicode-file-names.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-unicode-file-names.c"; sourceTree = "<group>"; };
-		41FEC6272BC9DDCE00418FFA /* test-fsctls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-fsctls.c"; sourceTree = "<group>"; };
 		4D07DCB81538EF3A002B57CB /* fstyp_hfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fstyp_hfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D07DCC21538EF92002B57CB /* fstyp_hfs.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fstyp_hfs.8; sourceTree = "<group>"; };
 		4D07DCC31538EF92002B57CB /* fstyp_hfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fstyp_hfs.c; sourceTree = "<group>"; };
@@ -1966,7 +1966,6 @@
 		FB55AE551B7CD89600701D03 /* cases */ = {
 			isa = PBXGroup;
 			children = (
-				41FEC6272BC9DDCE00418FFA /* test-fsctls.c */,
 				2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */,
 				07C2BF881CB43F5E00D8327D /* test-renamex.c */,
 				2A386A3A1C221E67007FEDAC /* test-list-ids.c */,
@@ -1989,6 +1988,7 @@
 				2A9399B51BE131A000FB075B /* test-resize.m */,
 				2A9399B31BE12DE400FB075B /* test-fsinfo.c */,
 				2A9399B11BE12A6300FB075B /* test-fsinfo-cprotect.c */,
+				07DE6A2E2B8D2C01005FEFA1 /* test-fsctls.c */,
 				2A9399AB1BE128B700FB075B /* test-invalid-ranges.m */,
 				2A9399A91BE0401D00FB075B /* test-hard-links.m */,
 				2A9399A71BE03A6200FB075B /* test-getattrlist-dprotect.m */,
@@ -3357,7 +3357,7 @@
 				2A9399B61BE131A400FB075B /* test-resize.m in Sources */,
 				2A9399B41BE12DE900FB075B /* test-fsinfo.c in Sources */,
 				2A9399B21BE12A6E00FB075B /* test-fsinfo-cprotect.c in Sources */,
-				41FEC6282BC9DDCE00418FFA /* test-fsctls.c in Sources */,
+				07DE6A2F2B8D2C01005FEFA1 /* test-fsctls.c in Sources */,
 				2A9399AA1BE0402600FB075B /* test-hard-links.m in Sources */,
 				2A9399A81BE03A6800FB075B /* test-getattrlist-dprotect.m in Sources */,
 				2A9399A61BE0366E00FB075B /* test-fsync.c in Sources */,
@@ -3921,7 +3921,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_MASTER_OBJECT_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
@@ -4366,6 +4366,7 @@
 		070DB03D268FD00800ACF231 /* Fuzzing */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Fuzzing;
@@ -4664,6 +4665,7 @@
 		07828B5A1E3FDD25009D2106 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -4671,6 +4673,7 @@
 		07828B5B1E3FDD25009D2106 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -4678,6 +4681,7 @@
 		07828B5C1E3FDD25009D2106 /* Coverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Coverage;
@@ -4883,7 +4887,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_MASTER_OBJECT_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
@@ -7295,7 +7299,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_MASTER_OBJECT_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";
@@ -7582,7 +7586,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_MASTER_OBJECT_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				STRIPFLAGS = "";

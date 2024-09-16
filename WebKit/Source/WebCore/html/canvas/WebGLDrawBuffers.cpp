@@ -37,14 +37,14 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(WebGLDrawBuffers);
 WebGLDrawBuffers::WebGLDrawBuffers(WebGLRenderingContextBase& context)
     : WebGLExtension(context, WebGLExtensionName::WebGLDrawBuffers)
 {
-    context.graphicsContextGL()->ensureExtensionEnabled("GL_EXT_draw_buffers"_s);
+    context.protectedGraphicsContextGL()->ensureExtensionEnabled("GL_EXT_draw_buffers"_s);
 }
 
 WebGLDrawBuffers::~WebGLDrawBuffers() = default;
 
 bool WebGLDrawBuffers::supported(WebGLRenderingContextBase& context)
 {
-    return context.graphicsContextGL()->supportsExtension("GL_EXT_draw_buffers"_s);
+    return context.protectedGraphicsContextGL()->supportsExtension("GL_EXT_draw_buffers"_s);
 }
 
 void WebGLDrawBuffers::drawBuffersWEBGL(const Vector<GCGLenum>& buffers)
@@ -56,25 +56,25 @@ void WebGLDrawBuffers::drawBuffersWEBGL(const Vector<GCGLenum>& buffers)
     const GCGLenum* bufs = buffers.data();
     if (!context.m_framebufferBinding) {
         if (n != 1) {
-            context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL", "more or fewer than one buffer");
+            context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL"_s, "more or fewer than one buffer"_s);
             return;
         }
         if (bufs[0] != GraphicsContextGL::BACK && bufs[0] != GraphicsContextGL::NONE) {
-            context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL", "BACK or NONE");
+            context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL"_s, "BACK or NONE"_s);
             return;
         }
         // Because the backbuffer is simulated on all current WebKit ports, we need to change BACK to COLOR_ATTACHMENT0.
         GCGLenum value[1] { bufs[0] == GraphicsContextGL::BACK ? GraphicsContextGL::COLOR_ATTACHMENT0 : GraphicsContextGL::NONE };
-        context.graphicsContextGL()->drawBuffersEXT(value);
+        context.protectedGraphicsContextGL()->drawBuffersEXT(value);
         context.setBackDrawBuffer(bufs[0]);
     } else {
         if (n > context.maxDrawBuffers()) {
-            context.synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "drawBuffersWEBGL", "more than max draw buffers");
+            context.synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "drawBuffersWEBGL"_s, "more than max draw buffers"_s);
             return;
         }
         for (GCGLsizei i = 0; i < n; ++i) {
             if (bufs[i] != GraphicsContextGL::NONE && bufs[i] != GraphicsContextGL::COLOR_ATTACHMENT0_EXT + i) {
-                context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL", "COLOR_ATTACHMENTi_EXT or NONE");
+                context.synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "drawBuffersWEBGL"_s, "COLOR_ATTACHMENTi_EXT or NONE"_s);
                 return;
             }
         }

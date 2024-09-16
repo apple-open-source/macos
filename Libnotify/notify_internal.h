@@ -85,6 +85,7 @@
 #define NOTIFY_STATUS_INVALID_PORT_INTERNAL 59
 #define NOTIFY_STATUS_NO_NID 60
 #define NOTIFY_STATUS_FILTER_ENABLED 61
+#define NOTIFY_STATUS_TOKEN_BACKPRESSURE 62
 
 #define IS_INTERNAL_ERROR(X) (X >= 11)
 
@@ -92,6 +93,9 @@
 #define USER_PROTECTED_UID_PREFIX_LEN 9
 
 #define CANARY_COUNT 13
+
+#define INFLIGHT_XPC_EVENT_SOFT_LIMIT 32
+#define INFLIGHT_XPC_EVENT_HARD_LIMIT (2 * INFLIGHT_XPC_EVENT_SOFT_LIMIT)
 
 struct notify_globals_s
 {
@@ -140,6 +144,20 @@ struct notify_globals_s
 		int         mpl_refs;
 		bool        mpl_mine;
 	} *mp_list;
+
+	struct _notify_introspect_s {
+		struct _notify_introspect_exempt_s {
+			const char *str;
+			size_t len;
+		} *exempt_notifications;
+		size_t num_exempt_notifications;
+		bool enabled;
+	} introspect;
+
+	struct _notify_logging_s {
+		bool global;
+		os_set_str_ptr_t notifications;
+	} *logging;
 
 	/* shared memory base address */
 	uint32_t *shm_base;

@@ -124,7 +124,7 @@ _configopen(mach_port_t			server,
 	*newServer = mySession->key;
 	__MACH_PORT_DEBUG(TRUE, "*** _configopen (after addClient)", *newServer);
 
-	SC_trace("open    : %5d : %@",
+	SC_trace("open    : %5u : %@",
 		 *newServer,
 		 name);
 

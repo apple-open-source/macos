@@ -130,6 +130,7 @@ TextureState::TextureState(TextureType type)
       mIsInternalIncompleteTexture(false),
       mHasBeenBoundAsImage(false),
       mHasBeenBoundAsAttachment(false),
+      mHasBeenBoundToMSRTTFramebuffer(false),
       mImmutableFormat(false),
       mImmutableLevels(0),
       mUsage(GL_NONE),
@@ -184,8 +185,8 @@ GLuint TextureState::getMipmapMaxLevel() const
     GLuint expectedMipLevels       = 0;
     if (mType == TextureType::_3D)
     {
-        const int maxDim  = std::max(std::max(baseImageDesc.size.width, baseImageDesc.size.height),
-                                     baseImageDesc.size.depth);
+        const int maxDim = std::max(
+            {baseImageDesc.size.width, baseImageDesc.size.height, baseImageDesc.size.depth});
         expectedMipLevels = static_cast<GLuint>(log2(maxDim));
     }
     else
@@ -317,10 +318,15 @@ SamplerFormat TextureState::computeRequiredSamplerFormat(const SamplerState &sam
 bool TextureState::computeSamplerCompleteness(const SamplerState &samplerState,
                                               const State &state) const
 {
-    // Buffer textures cannot be incomplete.
+    // Buffer textures cannot be incomplete. But if they are, the spec says -
+    //
+    //     If no buffer object is bound to the buffer texture,
+    //     the results of the texel access are undefined.
+    //
+    // Mark as incomplete so we use the default IncompleteTexture instead
     if (mType == TextureType::Buffer)
     {
-        return true;
+        return mBuffer.get() != nullptr;
     }
 
     // Check for all non-format-based completeness rules
@@ -397,10 +403,15 @@ bool TextureState::computeSamplerCompleteness(const SamplerState &samplerState,
 bool TextureState::computeSamplerCompletenessForCopyImage(const SamplerState &samplerState,
                                                           const State &state) const
 {
-    // Buffer textures cannot be incomplete.
+    // Buffer textures cannot be incomplete. But if they are, the spec says -
+    //
+    //     If no buffer object is bound to the buffer texture,
+    //     the results of the texel access are undefined.
+    //
+    // Mark as incomplete so we use the default IncompleteTexture instead
     if (mType == TextureType::Buffer)
     {
-        return true;
+        return mBuffer.get() != nullptr;
     }
 
     if (!mImmutableFormat && mBaseLevel > mMaxLevel)
@@ -583,7 +594,7 @@ GLuint TextureState::getEnabledLevelCount() const
 {
     GLuint levelCount      = 0;
     const GLuint baseLevel = getEffectiveBaseLevel();
-    const GLuint maxLevel  = std::min(getEffectiveMaxLevel(), getMipmapMaxLevel());
+    const GLuint maxLevel  = getMipmapMaxLevel();
 
     // The mip chain will have either one or more sequential levels, or max levels,
     // but not a sparse one.
@@ -1885,6 +1896,58 @@ angle::Result Texture::generateMipmap(Context *context)
     return angle::Result::Continue;
 }
 
+angle::Result Texture::clearImage(Context *context,
+                                  GLint level,
+                                  GLenum format,
+                                  GLenum type,
+                                  const uint8_t *data)
+{
+    ANGLE_TRY(mTexture->clearImage(context, level, format, type, data));
+
+    ANGLE_TRY(handleMipmapGenerationHint(context, level));
+
+    ImageIndexIterator it = ImageIndexIterator::MakeGeneric(
+        mState.mType, level, level + 1, ImageIndex::kEntireLevel, ImageIndex::kEntireLevel);
+    while (it.hasNext())
+    {
+        const ImageIndex index = it.next();
+        setInitState(GL_NONE, index, InitState::Initialized);
+    }
+
+    onStateChange(angle::SubjectMessage::ContentsChanged);
+
+    return angle::Result::Continue;
+}
+
+angle::Result Texture::clearSubImage(Context *context,
+                                     GLint level,
+                                     const Box &area,
+                                     GLenum format,
+                                     GLenum type,
+                                     const uint8_t *data)
+{
+    const ImageIndexIterator allImagesIterator = ImageIndexIterator::MakeGeneric(
+        mState.mType, level, level + 1, area.z, area.z + area.depth);
+
+    ImageIndexIterator initImagesIterator = allImagesIterator;
+    while (initImagesIterator.hasNext())
+    {
+        const ImageIndex index     = initImagesIterator.next();
+        const Box cubeFlattenedBox = index.getType() == TextureType::CubeMap
+                                         ? Box(area.x, area.y, 0, area.width, area.height, 1)
+                                         : area;
+        ANGLE_TRY(ensureSubImageInitialized(context, index, cubeFlattenedBox));
+    }
+
+    ANGLE_TRY(mTexture->clearSubImage(context, level, area, format, type, data));
+
+    ANGLE_TRY(handleMipmapGenerationHint(context, level));
+
+    onStateChange(angle::SubjectMessage::ContentsChanged);
+
+    return angle::Result::Continue;
+}
+
 angle::Result Texture::bindTexImageFromSurface(Context *context, egl::Surface *surface)
 {
     ASSERT(surface);
@@ -1967,7 +2030,7 @@ angle::Result Texture::releaseTexImageInternal(Context *context)
     {
         // Notify the surface
         egl::Error eglErr = mBoundSurface->releaseTexImageFromTexture(context);
-        // TODO(jmadill): Remove this once refactor is complete. http://anglebug.com/3041
+        // TODO(jmadill): Remove this once refactor is complete. http://anglebug.com/42261727
         if (eglErr.isError())
         {
             context->handleError(GL_INVALID_OPERATION, "Error releasing tex image from texture",
@@ -2538,6 +2601,15 @@ void Texture::onBufferContentsChange()
     mState.mInitState = InitState::MayNeedInit;
     signalDirtyState(DIRTY_BIT_IMPLEMENTATION);
     onStateChange(angle::SubjectMessage::ContentsChanged);
+}
+
+void Texture::onBindToMSRTTFramebuffer()
+{
+    if (!mState.mHasBeenBoundToMSRTTFramebuffer)
+    {
+        mDirtyBits.set(DIRTY_BIT_BOUND_TO_MSRTT_FRAMEBUFFER);
+        mState.mHasBeenBoundToMSRTTFramebuffer = true;
+    }
 }
 
 GLenum Texture::getImplementationColorReadFormat(const Context *context) const

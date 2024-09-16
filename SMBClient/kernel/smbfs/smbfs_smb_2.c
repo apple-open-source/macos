@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@
 #include <netsmb/smb2_mc_support.h>
 
 extern lck_mtx_t global_Lease_hash_lock;
-
+extern uint32_t g_max_dir_entries_cached;
 int
 smb2fs_smb_cmpd_set_get_security(struct smb_share *share, struct smb2_set_info_rq *infop,
                                  size_t *acl_cache_len, struct ntsecdesc **acl_cache_data,
@@ -337,7 +337,7 @@ parse_ioctl:
     /*
      * Parse IOCTL SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp, 0);
     ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
     if (tmp_error) {
         /* IOCTL got an error, try parsing the Close */
@@ -382,7 +382,7 @@ parse_close:
     /*
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -833,7 +833,7 @@ parse_query:
         /*
          * Parse Query Info SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
         queryp->ret_ntstatus = query_rqp->sr_ntstatus;
         if (tmp_error) {
             /* Query Info got an error, try parsing next Query Info */
@@ -883,7 +883,7 @@ parse_query2:
         /*
          * Parse Query Info SMB 2/3 header to get ACL
          */
-        tmp_error = smb2_rq_parse_header(query_rqp2, &mdp);
+        tmp_error = smb2_rq_parse_header(query_rqp2, &mdp, 0);
         queryp2->ret_ntstatus = query_rqp2->sr_ntstatus;
         if (tmp_error) {
             /* Query Info got an error, try parsing the Close */
@@ -963,7 +963,7 @@ parse_close:
         /*
          * Parse Close SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
         if (tmp_error) {
             if (!error) {
@@ -1187,7 +1187,11 @@ resend:
     /* assume we can read it all in one request */
 	len = uio_resid(readp->auio);
     
-    error = smb2_smb_read_one(share, readp, &len, &resid, &read_rqp, create_rqp->sr_iod, context);
+    /* Read compression never allowed for compound requests */
+    error = smb2_smb_read_one(share, readp,
+                              &len, &resid,
+                              &read_rqp, create_rqp->sr_iod,
+                              0, context);
     if (error) {
         SMBERROR("smb2_smb_read_one failed %d\n", error);
         goto bad;
@@ -1334,7 +1338,7 @@ parse_read:
     /* 
      * Parse Read SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(read_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(read_rqp, &mdp, 0);
     readp->ret_ntstatus = read_rqp->sr_ntstatus;
     
     if (tmp_error == ENODATA) {
@@ -1401,7 +1405,7 @@ parse_close:
         /* 
          * Parse Close SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
         if (tmp_error) {
             if (!error) {
@@ -1561,6 +1565,7 @@ smb2fs_smb_cmpd_create_write(struct smb_share *share, struct smbnode *dnp,
     uint64_t inode_number = 0;
     uint32_t inode_number_len;
     enum vtype vnode_type = VREG;
+    uint32_t allow_compression = 0; /* Dont allow compression for compounds */
 
     /*
      * This function can do Create/Write, Create/Query/Write, 
@@ -1711,7 +1716,9 @@ resend:
     /* assume we can write it all in one request */
     len = uio_resid(writep->auio);
     
-    error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp, create_rqp->sr_iod, context);
+    /* Write compression never allowed for compound requests */
+    error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp, create_rqp->sr_iod,
+                               &allow_compression, context);
     if (error) {
         SMBERROR("smb2_smb_write_one failed %d\n", error);
         goto bad;
@@ -1865,7 +1872,7 @@ parse_query:
         /*
          * Parse Query Info SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
         queryp->ret_ntstatus = query_rqp->sr_ntstatus;
         if (tmp_error) {
             /* Query Info got an error, try parsing the Close */
@@ -1914,7 +1921,7 @@ parse_write:
     /*
      * Parse Write SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(write_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(write_rqp, &mdp, 0);
     writep->ret_ntstatus = write_rqp->sr_ntstatus;
     
     if (tmp_error) {
@@ -1964,7 +1971,7 @@ parse_close:
         /*
          * Parse Close SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
         if (tmp_error) {
             if (!error) {
@@ -2074,6 +2081,7 @@ smb2fs_smb_cmpd_create_write_xattr(struct smb_share *share, struct smbnode *np,
     uint32_t create_options = 0;
     uint32_t write_mode = 0;    /* Never supports write through */
     enum vtype vnode_type = VREG;
+    uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
 
     /*
      * This function does a Create/Write/SetInfo(mod date)/Close.
@@ -2172,7 +2180,8 @@ resend:
     len = uio_resid(writep->auio);
     
     error = smb2_smb_write_one(share, writep, &len, &resid, &write_rqp,
-                               create_rqp->sr_iod, context);
+                               create_rqp->sr_iod,
+                               &allow_compression, context);
     if (error) {
         SMBERROR("smb2_smb_write_one failed %d\n", error);
         goto bad;
@@ -2362,7 +2371,7 @@ parse_write:
     /*
      * Parse Write SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(write_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(write_rqp, &mdp, 0);
     writep->ret_ntstatus = write_rqp->sr_ntstatus;
     
     if (tmp_error) {
@@ -2408,7 +2417,7 @@ parse_setinfo:
         /*
          * Parse Set Info SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(setinfo_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(setinfo_rqp, &mdp, 0);
         infop->ret_ntstatus = setinfo_rqp->sr_ntstatus;
         if (tmp_error) {
             /* Set Info got an error, try parsing the Close */
@@ -2460,7 +2469,7 @@ parse_close:
         /*
          * Parse Close SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
         closep->ret_ntstatus = close_rqp->sr_ntstatus;
         if (tmp_error) {
             if (!error) {
@@ -2686,7 +2695,7 @@ parse_close:
     /*
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     in_closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -3095,7 +3104,7 @@ parse_query:
     /* 
      * Parse Query Info SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Query Info got an error, try parsing the Close */
@@ -3149,7 +3158,7 @@ parse_close:
     /* 
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Close got an error */
@@ -3721,9 +3730,11 @@ smb2fs_smb_cmpd_query_async_fill(struct smb_share *share, struct smbnode *dnp,
         /* assume we can read it all in one request */
         len = uio_resid(pb->readp->auio);
         
-        error = smb2_smb_read_one(share, pb->readp, &len, &resid,
+        /* Read compression never allowed for compound requests */
+        error = smb2_smb_read_one(share, pb->readp,
+                                  &len, &resid,
                                   &pb->read_rqp, pb->create_rqp->sr_iod,
-                                  context);
+                                  0, context);
         if (error) {
 			if (error != ENOBUFS) {
 				SMBERROR("smb2_smb_read_one failed %d\n", error);
@@ -3863,7 +3874,7 @@ parse_query:
         /*
          * Parse Query Info SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(pb->query_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(pb->query_rqp, &mdp, 0);
         pb->queryp->ret_ntstatus = pb->query_rqp->sr_ntstatus;
         pb->entryp->query_ntstatus = pb->queryp->ret_ntstatus;
         if (tmp_error) {
@@ -3894,7 +3905,7 @@ parse_query:
         /*
          * Parse Read SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(pb->read_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(pb->read_rqp, &mdp, 0);
         pb->readp->ret_ntstatus = pb->read_rqp->sr_ntstatus;
         pb->entryp->read_ntstatus = pb->readp->ret_ntstatus;
         if (tmp_error) {
@@ -3958,7 +3969,7 @@ parse_close:
     /*
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(pb->close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(pb->close_rqp, &mdp, 0);
     pb->closep->ret_ntstatus = pb->close_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Close got an error */
@@ -4176,6 +4187,51 @@ bad:
 }
 
 /*
+ * Add a node to the saved queries list
+ */
+struct smbfs_fctx_query_t*
+smb2fs_smb_add_fctx_query(struct smbfs_fctx *ctx)
+{
+    struct smbfs_fctx_query_t *queryp;
+    if (ctx == NULL) {
+        SMBERROR("ctx is NULL");
+        return NULL;
+    }
+    SMB_MALLOC_TYPE(queryp, struct smbfs_fctx_query_t, Z_WAITOK_ZERO);
+    if (queryp == NULL) {
+        SMBERROR("out of memory");
+        return NULL;
+    }
+    SLIST_INSERT_HEAD(&ctx->f_queries, queryp, next);
+    return queryp;
+}
+
+int
+smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx) {
+    struct smbfs_fctx_query_t *query_first = NULL;
+
+    if (ctx == NULL) {
+        return EINVAL;
+    }
+
+    if (!SLIST_EMPTY(&ctx->f_queries)) {
+        /* Free the saved query if there is one */
+        query_first = SLIST_FIRST(&ctx->f_queries);
+        if (query_first->create_rqp != NULL) {
+            smb_rq_done(query_first->create_rqp);
+        }
+        if (query_first->query_rqp != NULL) {
+            smb_rq_done(query_first->query_rqp);
+        }
+    }
+    SLIST_REMOVE_HEAD(&ctx->f_queries, next);
+    if (query_first != NULL) {
+        SMB_FREE_TYPE(struct smbfs_fctx_query_t, query_first);
+    }
+    return 0;
+}
+
+/*
  * This does a Create/QueryDir for doing dir enumerations from
  * smb2fs_smb_findnext() which is smart enough to decide on whether to do a
  * Create/QueryDir or just a QueryDir if the dir is currently open.
@@ -4206,7 +4262,7 @@ smb2fs_smb_cmpd_query_dir(struct smbfs_fctx *ctx,
 	struct smb_session *sessionp = NULL;
 	int remove_lease = 0;
     struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
-
+    struct smbfs_fctx_query_t *query_first;
     /*
      * For this function, vnode_type is VDIR as the Open will be done on the
      * parent dir and then the Query Dir will be done on that directory.
@@ -4477,7 +4533,7 @@ parse_query:
     /* 
      * Parse Query Dir SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Query Dir got an error */
@@ -4504,8 +4560,9 @@ parse_query:
     }
 
 bad:
-    ctx->f_create_rqp = create_rqp;   /* save rqp so it can be freed later */
-    ctx->f_query_rqp = query_rqp;     /* save rqp so it can be freed later */
+    query_first = SLIST_FIRST(&ctx->f_queries);
+    query_first->create_rqp = create_rqp; /* save rqp so it can be freed later */
+    query_first->query_rqp = query_rqp; /* save rqp so it can be freed later */
 	
 	/* Something failed or did not get granted a lease, remove it from table */
 	if (remove_lease == 1) {
@@ -4870,7 +4927,7 @@ parse_query:
     /*
      * Parse Query Dir SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Query Dir got an error */
@@ -4972,7 +5029,7 @@ parse_close:
     /*
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         /* Close got an error */
@@ -5266,7 +5323,7 @@ parse_ioctl:
     /* 
      * Parse IOCTL SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp, 0);
     ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
     if (tmp_error) {
         /* IOCTL got an error, try parsing the Close */
@@ -5338,7 +5395,7 @@ parse_close:
     /* 
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -5710,7 +5767,7 @@ parse_query:
         /*
          * Parse Query Info SMB 2/3 header
          */
-        tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+        tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
         queryp->ret_ntstatus = query_rqp->sr_ntstatus;
         if (tmp_error) {
             /* Query Info got an error, try parsing the Close */
@@ -5758,7 +5815,7 @@ parse_ioctl:
     /* 
      * Parse IOCTL SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(ioctl_rqp, &mdp, 0);
     ioctlp->ret_ntstatus = ioctl_rqp->sr_ntstatus;
     ioctl_error = tmp_error;
     if (tmp_error) {
@@ -5799,7 +5856,7 @@ parse_close:
     /* 
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -6091,7 +6148,7 @@ parse_close:
     /*
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -6480,7 +6537,7 @@ parse_setinfo:
     /* 
      * Parse Set Info SMB 2/3 header 
      */
-    tmp_error = smb2_rq_parse_header(setinfo_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(setinfo_rqp, &mdp, 0);
     infop->ret_ntstatus = setinfo_rqp->sr_ntstatus;
     *setinfo_ntstatus = setinfo_rqp->sr_ntstatus;
     if (tmp_error) {
@@ -6525,7 +6582,7 @@ parse_close:
     /* 
      * Parse Close SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(close_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(close_rqp, &mdp, 0);
     closep->ret_ntstatus = close_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -6764,7 +6821,7 @@ parse_query:
     /*
      * Parse QueryInfo SMB 2/3 header
      */
-    tmp_error = smb2_rq_parse_header(query_rqp, &mdp);
+    tmp_error = smb2_rq_parse_header(query_rqp, &mdp, 0);
     queryp->ret_ntstatus = query_rqp->sr_ntstatus;
     if (tmp_error) {
         if (!error) {
@@ -7970,15 +8027,11 @@ smbfs_smb_findclose(struct smbfs_fctx *ctx, vfs_context_t context)
     int error;
     
     if (SS_TO_SESSION(ctx->f_share)->session_flags & SMBV_SMB2) {
-        if (ctx->f_create_rqp) {
-            smb_rq_done(ctx->f_create_rqp);
-            ctx->f_create_rqp = NULL;
+        while(!SLIST_EMPTY(&ctx->f_queries)) {
+            /* free all saved queries */
+            smb2fs_smb_free_fctx_query_head(ctx);
         }
-        if (ctx->f_query_rqp) {
-            smb_rq_done(ctx->f_query_rqp);
-            ctx->f_query_rqp = NULL;
-        }
-        
+
         /* Close Create FID if we need to */
         if (ctx->f_need_close == TRUE) {
             error = smb2_smb_close_fid(ctx->f_share, ctx->f_create_fid, 
@@ -8018,42 +8071,52 @@ smbfs_smb_findclose(struct smbfs_fctx *ctx, vfs_context_t context)
 static int
 smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
 {
-	struct timespec ts;
+    struct timespec ts;
     int error = EINVAL;
-	struct mdchain *mdp;
+    struct mdchain *mdp;
     struct smb2_query_dir_rq *queryp = NULL;
-    uint8_t info_class, flags; 
+    struct smbfs_fctx_query_t *current_query = NULL;
+    uint8_t info_class, flags;
     uint32_t file_index;
     int attempts = 0;
-    
-    SMB_MALLOC_TYPE(queryp, struct smb2_query_dir_rq, Z_WAITOK_ZERO);
-    if (queryp == NULL) {
-        SMBERROR("SMB_MALLOC_TYPE failed\n");
-        error = ENOMEM;
-        goto bad;
-    }
-    
-	if (ctx->f_output_buf_len == 0) {
+    off_t total_entries;
+
+    if (!SLIST_EMPTY(&ctx->f_queries)) {
+        /* We have at least one query saved */
+        current_query = SLIST_FIRST(&ctx->f_queries);
+        if (current_query->output_buf_len == 0) {
+             /*
+              * The current query is finished, free it
+              * Shouldn't happen:
+              * we free the query when we parse the last entry below
+              * but just to be safe
+              */
+            smb2fs_smb_free_fctx_query_head(ctx);
+            current_query = NULL;
+            if (SLIST_EMPTY(&ctx->f_queries)) {
+                /* We had one query only, and we finished parsing it, send query dir */
+                goto fetch_entries;
+            }
+        }
+    } else {
+    fetch_entries:
         /*
-         * if no more output buffer bytes to parse, then we have finished
-         * parsing out all the entries from this search.
+         * if no more output buffer bytes to parse and no more queries,
+         * we have finished parsing out all the entries from the last search.
          */
-		if (ctx->f_flags & SMBFS_RDD_EOF) {
+        SMB_MALLOC_TYPE(queryp, struct smb2_query_dir_rq, Z_WAITOK_ZERO);
+        if (queryp == NULL) {
+            SMBERROR("SMB_MALLOC_TYPE failed\n");
+            error = ENOMEM;
+            goto bad;
+        }
+    do_query:
+        if (ctx->f_flags & SMBFS_RDD_EOF) {
             error = ENOENT;
             goto bad;
         }
-        
-		nanouptime(&ts);
-        
-        /* free any previous search requests */
-        if (ctx->f_create_rqp) {
-            smb_rq_done(ctx->f_create_rqp);
-            ctx->f_create_rqp = NULL;
-        }
-        if (ctx->f_query_rqp) {
-            smb_rq_done(ctx->f_query_rqp);
-            ctx->f_query_rqp = NULL;
-        }
+
+        nanouptime(&ts);
         
         /* Clear resume file name */
         ctx->f_flags &= ~SMBFS_RDD_GOTRNAME;
@@ -8068,7 +8131,7 @@ smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
         }
         
         /*
-         * Set up for the Query Dir call 
+         * Set up for the Query Dir call
          */
         
         /* If not a wildcard search, then want first search entry returned */
@@ -8084,7 +8147,7 @@ smb2fs_smb_findnext(struct smbfs_fctx *ctx, vfs_context_t context)
             /* Because this is first search, set some flags */
             flags |= SMB2_RESTART_SCANS;    /* start search from beginning */
             file_index = 0;                 /* no FileIndex from prev search */
-        } 
+        }
 
         switch (ctx->f_infolevel) {
             case SMB_FIND_FULL_DIRECTORY_INFO:
@@ -8118,9 +8181,10 @@ again:
             queryp->output_buffer_len = MIN(SS_TO_SESSION(ctx->f_share)->session_txmax,
                                             kSMB_MAX_TX);
         }
+        queryp->output_buffer_len = kSMB_64K;
 
-        /* 
-         * Copy in whether to use UTF_SFM_CONVERSIONS or not 
+        /*
+         * Copy in whether to use UTF_SFM_CONVERSIONS or not
          * Seems like if NOT a wildcard, then use UTF_SFM_CONVERSIONS
          */
         queryp->name_flags = ctx->f_sfm_conversion;
@@ -8130,6 +8194,13 @@ again:
         queryp->name_len = (uint32_t) ctx->f_lookupNameLen;
         queryp->name_allocsize = ctx->f_lookupNameLen;
 
+        /* allocate a node in the saved queries list */
+        current_query = smb2fs_smb_add_fctx_query(ctx);
+        if (current_query == NULL) {
+            error = ENOMEM;
+            goto bad;
+        }
+        
         if (ctx->f_need_close == FALSE) {
             /* Build and send a Create/Query dir */
             error = smb2fs_smb_cmpd_query_dir(ctx, queryp, context);
@@ -8137,58 +8208,45 @@ again:
         else {
             /* Just send a single Query Dir */
             error = smb2_smb_query_dir(ctx->f_share, queryp, NULL, NULL, context);
-
-            /* save f_query_rqp so it can be freed later */
-            ctx->f_query_rqp = queryp->ret_rqp;
+            
+            /* save query_rqp so it can be freed later */
+            current_query->query_rqp = queryp->ret_rqp;
         }
 
         if (error) {
+            /* Free the saved query first */
+            smb2fs_smb_free_fctx_query_head(ctx);
             if (error == ENOENT) {
                 ctx->f_flags |= SMBFS_RDD_EOF;
-
-                /*
-                 * If there are no more entries, then free the f_create_rqp
-                 * and f_query_rqp now to free up the iod reference being held
-                 * by those rqp's. Since the Query Dir return ENOENT, there
-                 * are no entries to parse so we dont need to hang on to those
-                 * rqp's.
-                 */
-
-                if (ctx->f_create_rqp) {
-                    smb_rq_done(ctx->f_create_rqp);
-                    ctx->f_create_rqp = NULL;
+                if (SLIST_EMPTY(&ctx->f_queries)) {
+                    /*
+                     * ENOENT received and we parsed all saved queries
+                     */
+                    error = ENOENT;
+                    goto bad;
                 }
-                if (ctx->f_query_rqp) {
-                    smb_rq_done(ctx->f_query_rqp);
-                    ctx->f_query_rqp = NULL;
+                else {
+                    /* we have more saved queries to parse */
+                    goto parse_query;
                 }
             }
             
             /* handle servers that dislike large output buffer lens */
-            if ((error == EINVAL) && 
+            if ((error == EINVAL) &&
                 (queryp->ret_ntstatus == STATUS_INVALID_PARAMETER) &&
                 !((SS_TO_SESSION(ctx->f_share)->session_misc_flags) & SMBV_64K_QUERY_DIR) &&
                 (attempts == 0)) {
                 SMBWARNING("SMB 2/3 server cant handle large OutputBufferLength in Query_Dir. Reducing to 64Kb.\n");
                 SS_TO_SESSION(ctx->f_share)->session_misc_flags |= SMBV_64K_QUERY_DIR;
                 attempts += 1;
-                
-                if (ctx->f_create_rqp) {
-                    smb_rq_done(ctx->f_create_rqp);
-                    ctx->f_create_rqp = NULL;
-                }
-                if (ctx->f_query_rqp) {
-                    smb_rq_done(ctx->f_query_rqp);
-                    ctx->f_query_rqp = NULL;
-                }
+
                 goto again;
             }
-            
             goto bad;
         }
 
-        ctx->f_output_buf_len = queryp->ret_buffer_len;
-        
+        current_query->output_buf_len = queryp->ret_buffer_len;
+        ctx->f_queries_total_memory += current_query->output_buf_len;
         if (ctx->f_flags & SMBFS_RDD_FINDFIRST) {
             /* next find will be a Find Next */
             ctx->f_flags &= ~SMBFS_RDD_FINDFIRST;
@@ -8196,33 +8254,47 @@ again:
         
         ctx->f_eofs = 0;
         ctx->f_attr.fa_reqtime = ts;
-	}
-    
+
+        /* Limit saved queries to the size of the cache
+         * When we parse entries they will be removed from the saved query
+         * and stored in the cache
+         */
+        total_entries = ctx->f_dnp->d_overflow_cache.count + ctx->f_queries_total_memory/k_entry_struct_size;
+        if ((total_entries < g_max_dir_entries_cached) &&
+            ((flags & SMB2_RETURN_SINGLE_ENTRY) == 0)) {
+            /* we can store more queries*/
+            goto do_query;
+        }
+    }
+
+parse_query:
     /*
      * Either we did a new search and we are parsing the first entry out or
      * we are just parsing more names out of a previous search.
      */
+    current_query = SLIST_FIRST(&ctx->f_queries);
+
     ctx->f_NetworkNameLen = 0;
     
     /* at this point, mdp is pointing to output buffer */
-    if (ctx->f_create_rqp != NULL) {
+    if (current_query->create_rqp != NULL) {
         /*
          * <14227703> Check to see if server is using non compound replies.
          * If SMB2_RESPONSE is set in queyr_rqp, then server is not using 
          * compound replies and thusreply is in the query_rqp
          */
-        if (!(ctx->f_query_rqp->sr_extflags & SMB2_RESPONSE)) {
+        if (!(current_query->query_rqp->sr_extflags & SMB2_RESPONSE)) {
             /* Did a compound request so data is in create_rqp */
-            smb_rq_getreply(ctx->f_create_rqp, &mdp);
+            smb_rq_getreply(current_query->create_rqp, &mdp);
         }
         else {
             /* Server does not support compound replies */
-            smb_rq_getreply(ctx->f_query_rqp, &mdp);
+            smb_rq_getreply(current_query->query_rqp, &mdp);
         }
     }
     else {
         /* Only a Query Dir, so data is in query_rqp */
-        smb_rq_getreply(ctx->f_query_rqp, &mdp);
+        smb_rq_getreply(current_query->query_rqp, &mdp);
     }
     
     /* 
@@ -8242,9 +8314,14 @@ again:
             }            
             break;
         default:
-            SMBERROR("unexpected info level %d\n", ctx->f_infolevel);
-            return EINVAL;
+            SMBERROR("Unexpected info level %d\n", ctx->f_infolevel);
+            goto bad;
 	}
+    if (current_query->output_buf_len == 0) {
+        /* The current query is finished, free it */
+        smb2fs_smb_free_fctx_query_head(ctx);
+        current_query = NULL;
+    }
     
 bad:
     if (queryp != NULL) {
@@ -9588,8 +9665,7 @@ smb2fs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np, enum vtype v
     
     if (namep == NULL) {
         /* Not readdirattr case */
-        if ((np->n_fstatus & kNO_SUBSTREAMS) ||
-            (np->n_dosattr & SMB_EFA_REPARSE_POINT)) {
+        if (np->n_fstatus & kNO_SUBSTREAMS) {
             error = ENOATTR;
             goto bad;
         }
@@ -10940,7 +11016,12 @@ smb2fs_smb_query_network_interface_info(struct smb_share *share, vfs_context_t c
      * Build interface tables
      */
     /* Parse the server interfaces response */
-    error = smb2_mc_query_info_response_event(&sessionp->session_interface_table, ioctlp->rcv_output_buffer, ioctlp->ret_output_len);
+    error = smb2_mc_query_info_response_event(&sessionp->session_interface_table,
+                                              sessionp->max_channels,
+                                              sessionp->srvr_rss_channels,
+                                              sessionp->clnt_rss_channels,
+                                              ioctlp->rcv_output_buffer,
+                                              ioctlp->ret_output_len);
     if (error) {
         SMBERROR("smb2_mc_query_info_response_event returned %d.\n", error);
         goto bad;

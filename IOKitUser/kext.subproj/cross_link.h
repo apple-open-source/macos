@@ -29,7 +29,7 @@
 #define __CROSS_LINK_H__
 
 
-#include <Kernel/mach/vm_param.h>
+#include <mach/vm_param.h>
 
 boolean_t isCrossLinking(void);
 boolean_t setCrossLinkPageSize(vm_size_t crossLinkPageSize);

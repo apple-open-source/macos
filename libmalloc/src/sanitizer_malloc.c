@@ -126,7 +126,7 @@ sanitizer_vm_map(size_t size, vm_prot_t protection, int tag)
 	kern_return_t kr = mach_vm_map(target, &address, size_rounded, mask, flags,
 		object, offset, copy, cur_protection, max_protection, inheritance);
 	MALLOC_ASSERT(kr == KERN_SUCCESS);
-	return address;
+	return (vm_address_t)address;
 }
 
 static void
@@ -193,7 +193,7 @@ insert_current_stacktrace_into_depo(struct stacktrace_depo_t *depo, uint32_t top
 	ssize_t num_pcs = backtrace(pcs, countof(pcs));
 #else
 	uint32_t num_pcs;
-	thread_stack_pcs((uintptr_t *)pcs, (unsigned)countof(pcs), &num_pcs);
+	thread_stack_pcs((vm_address_t *)pcs, (unsigned)countof(pcs), &num_pcs);
 #endif // MALLOC_TARGET_EXCLAVES
 	if (num_pcs <= top_frames_to_ignore) {
 		return 0;
@@ -384,7 +384,9 @@ static void
 murmur2_add_uintptr(uint32_t *hstate, uintptr_t ptr)
 {
 	murmur2_add_uint32(hstate, (uint32_t)ptr);
+#if MALLOC_TARGET_64BIT
 	murmur2_add_uint32(hstate, (uint32_t)(ptr >> 32));
+#endif
 }
 
 static uint32_t
@@ -474,7 +476,7 @@ stacktrace_depo_insert(stacktrace_depo_t *depo, uintptr_t * __counted_by(count) 
 	uint32_t index_pos = wrap(hash, depo->index);
 
 	index_entry entry;
-	entry.i = os_atomic_load(&depo->index[index_pos], relaxed);
+	entry.i = os_atomic_load_wide(&depo->index[index_pos], relaxed);
 	if (entry.parts.count == count && entry.parts.hash == hash) {
 		return hash;
 	}
@@ -484,10 +486,10 @@ stacktrace_depo_insert(stacktrace_depo_t *depo, uintptr_t * __counted_by(count) 
 	entry.parts.hash = hash;
 	entry.parts.pos = (uint32_t)old_storage_pos;
 	entry.parts.count = (uint32_t)count;
-	os_atomic_store(&depo->index[index_pos], entry.i, relaxed);
+	os_atomic_store_wide(&depo->index[index_pos], entry.i, relaxed);
 	for (int i = 0; i < count; i++) {
 		uint32_t pos = wrap(old_storage_pos + i, depo->storage);
-		os_atomic_store(&depo->storage[pos], pcs[i], relaxed);
+		os_atomic_store_wide(&depo->storage[pos], pcs[i], relaxed);
 	}
 	return hash;
 }
@@ -509,7 +511,8 @@ stacktrace_depo_find(stacktrace_depo_t *depo, uint32_t hash, uintptr_t * __count
 	for (int i = 0; i < entry.parts.count; i++) {
 		uint32_t pos = wrap(entry.parts.pos + i, depo->storage);
 		if (i < max_size) {
-			pcs[i] = depo->storage[pos];
+		    // Explicit cast as it doesn't otherwise compile on watchOS (error: implicit conversion loses integer precision)
+			pcs[i] = (uintptr_t)depo->storage[pos];
 		}
 		murmur2_add_uintptr(&hstate, pcs[i]);
 	}
@@ -604,7 +607,12 @@ static size_t get_redzone_size(sanitizer_zone_t *zone, const void * __sized_by(s
 	// checks against the shadow map, instead of letting the compiled program's
 	// instrumentation handle it. This means we need to bypass it since the size
 	// is stored within the allocation redzone
-	const size_t redzone_size = _malloc_read_uint64_via_rsp(redzone_size_ptr);
+    // Explicit cast as it doesn't otherwise compile on watchOS (error: implicit conversion loses integer precision)
+#if MALLOC_TARGET_64BIT
+	const size_t redzone_size = (size_t)_malloc_read_uint64_via_rsp(redzone_size_ptr);
+#else
+	const size_t redzone_size = (size_t)*(uint32_t *)redzone_size_ptr;
+#endif
 	MALLOC_ASSERT(redzone_size >= zone->redzone_size && redzone_size < size);
 	return redzone_size;
 }
@@ -616,7 +624,11 @@ static void set_redzone_size(sanitizer_zone_t *zone, void * __sized_by(usr_size 
 			sizeof(size_t) + (usr_size + redzone_size) % sizeof(size_t);
 	size_t *redzone_size_ptr = ptr + (usr_size + redzone_size - offset);
 	// Same as above, this may be a reallocation that has not yet been unpoisoned
+#if MALLOC_TARGET_64BIT
 	_malloc_write_uint64_via_rsp(redzone_size_ptr, redzone_size);
+#else
+	*(uint32_t *)redzone_size_ptr = redzone_size;
+#endif
 }
 
 static void poison_alloc(sanitizer_zone_t *zone, void * __sized_by(usr_size + redzone_size) ptr, size_t usr_size, size_t redzone_size)
@@ -671,6 +683,10 @@ static size_t
 sanitizer_size(sanitizer_zone_t *zone, const void * __unsafe_indexable ptr)
 {
 	size_t size = DELEGATE(size, ptr);
+	if (!size) {
+		return 0;
+	}
+
 	if (zone->do_poisoning) {
 		const size_t redzone_size = get_redzone_size(zone, __unsafe_forge_bidi_indexable(void *, ptr, size), size);
 		if (zone->debug) malloc_report(ASL_LEVEL_INFO, "size(%p) = 0x%lx - redzone 0x%lx\n", ptr, size, redzone_size);
@@ -686,6 +702,9 @@ sanitizer_size(sanitizer_zone_t *zone, const void * __unsafe_indexable ptr)
 static void * __alloc_size(2)
 sanitizer_malloc(sanitizer_zone_t *zone, size_t size)
 {
+	if (!size) {
+		size = 1;
+	}
 	size_t redzone_size = zone->redzone_size;
 	const size_t usr_size = size;
 	if (zone->do_poisoning) {
@@ -721,7 +740,9 @@ static void * __alloc_size(2,3)
 sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 {
 	size_t usr_size;
-	if (calloc_get_size(num_items, size, 0, &usr_size)) {
+	if (!size || !num_items) {
+		usr_size = 1;
+	} else if (calloc_get_size(num_items, size, 0, &usr_size)) {
 		malloc_set_errno_fast(MZ_POSIX, ENOMEM);
 		return NULL;
 	}
@@ -759,6 +780,9 @@ sanitizer_calloc(sanitizer_zone_t *zone, size_t num_items, size_t size)
 static void * __alloc_size(2)
 sanitizer_valloc(sanitizer_zone_t *zone, size_t size)
 {
+	if (!size) {
+		size = 1;
+	}
 	size_t redzone_size = zone->redzone_size;
 	const size_t usr_size = size;
 	if (zone->do_poisoning) {
@@ -879,6 +903,9 @@ sanitizer_destroy(sanitizer_zone_t *zone)
 static void * __alloc_align(2) __alloc_size(3)
 sanitizer_memalign(sanitizer_zone_t *zone, size_t alignment, size_t size)
 {
+	if (!size) {
+		size = 1;
+	}
 	size_t redzone_size = zone->redzone_size;
 	const size_t usr_size = size;
 	if (zone->do_poisoning) {
@@ -918,12 +945,6 @@ sanitizer_free_definite_size(sanitizer_zone_t *zone, void * __sized_by(size) ptr
 		poison_free(zone, ptr, size);
 	}
 	place_into_quarantine(zone, ptr, size);
-}
-
-static size_t
-sanitizer_pressure_relief(sanitizer_zone_t *zone, size_t goal)
-{
-	return DELEGATE(pressure_relief, goal);
 }
 
 static bool
@@ -1086,12 +1107,14 @@ sanitizer_diagnose_fault_from_crash_reporter(vm_address_t fault_address, sanitiz
 		uint32_t dealloc_handle = (uint32_t)(chunk->stacktrace_hashes >> 32);
 
 		report->alloc_trace.thread_id = 0;
+		// Explicit cast (report->alloc_trace.frames) as it doesn't otherwise compile on watchOS (error: implicit conversion loses integer precision)
 		report->alloc_trace.num_frames = (uint32_t)stacktrace_depo_find(remote_depo, alloc_handle,
-				report->alloc_trace.frames, countof(report->alloc_trace.frames));
+				(uintptr_t *)report->alloc_trace.frames, countof(report->alloc_trace.frames));
 
 		report->dealloc_trace.thread_id = 0;
+		// Explicit cast (report->dealloc_trace.frames) as it doesn't otherwise compile on watchOS (error: implicit conversion loses integer precision)
 		report->dealloc_trace.num_frames = (uint32_t)stacktrace_depo_find(remote_depo, dealloc_handle,
-				report->dealloc_trace.frames, countof(report->dealloc_trace.frames));
+				(uintptr_t *)report->dealloc_trace.frames, countof(report->dealloc_trace.frames));
 
 		_free(chunk);
 	}
@@ -1174,7 +1197,7 @@ static const malloc_zone_t malloc_zone_template = {
 	// Specialized operations
 	.memalign = FN_PTR(sanitizer_memalign),
 	.free_definite_size = FN_PTR(sanitizer_free_definite_size),
-	.pressure_relief = FN_PTR(sanitizer_pressure_relief),
+	.pressure_relief = malloc_zone_pressure_relief_fallback,
 	.claimed_address = FN_PTR(sanitizer_claimed_address),
 	.try_free_default = NULL,
 };

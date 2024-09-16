@@ -84,15 +84,12 @@ public:
     ExceptionOr<void> abort();
     ExceptionOr<void> commit();
 
-    EventTargetInterface eventTargetInterface() const final { return IDBTransactionEventTargetInterfaceType; }
+    enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::IDBTransaction; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
     void refEventTarget() final { ThreadSafeRefCounted::ref(); }
     void derefEventTarget() final { ThreadSafeRefCounted::deref(); }
     using EventTarget::dispatchEvent;
     void dispatchEvent(Event&) final;
-
-    using ThreadSafeRefCounted<IDBTransaction>::ref;
-    using ThreadSafeRefCounted<IDBTransaction>::deref;
 
     const IDBTransactionInfo& info() const { return m_info; }
     IDBDatabase& database() { return m_database.get(); }
@@ -156,12 +153,13 @@ public:
 
     // ActiveDOMObject.
     void stop() final;
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
 
 private:
     IDBTransaction(IDBDatabase&, const IDBTransactionInfo&, IDBOpenDBRequest*);
 
     // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
     bool virtualHasPendingActivity() const final;
 
     void commitInternal();
@@ -182,7 +180,7 @@ private:
 
     Ref<IDBRequest> requestIndexRecord(IDBIndex&, IndexedDB::IndexRecordType, const IDBKeyRangeData&);
 
-    void commitOnServer(IDBClient::TransactionOperation&, uint64_t pendingRequestCount);
+    void commitOnServer(IDBClient::TransactionOperation&, uint64_t handledRequestResultsCount);
     void abortOnServerAndCancelRequests(IDBClient::TransactionOperation&);
 
     void createObjectStoreOnServer(IDBClient::TransactionOperation&, const IDBObjectStoreInfo&);
@@ -269,6 +267,7 @@ private:
     uint64_t m_lastWriteOperationID { 0 };
     std::optional<IDBResourceIdentifier> m_lastTransactionOperationBeforeCommit;
     std::optional<IDBError> m_commitResult;
+    uint64_t m_handledRequestResultsCount { 0 };
 };
 
 class TransactionActivator {

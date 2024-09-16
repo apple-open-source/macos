@@ -96,9 +96,11 @@ bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *e
 // this will always return true because upgrade phase3 always returns true
 bool SecKeychainUpgradePersistentReferences(bool *inProgress, CFErrorRef *error);
 
-/* For whitebox testing only */
+/* For open box testing only */
 SecDbRef SecKeychainDbGetDb(CFErrorRef* error);
 void SecKeychainDbForceClose(void);
+void SecKeychainDelayAsyncBlocks(bool);
+void SecKeychainDbWaitForAsyncBlocks(void);
 void SecKeychainDbReset(dispatch_block_t inbetween);
 
 /* V V test routines V V */

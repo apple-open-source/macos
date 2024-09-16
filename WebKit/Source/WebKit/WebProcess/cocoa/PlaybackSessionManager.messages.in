@@ -39,10 +39,18 @@ messages -> PlaybackSessionManager {
     SelectLegibleMediaOption(WebKit::PlaybackSessionContextIdentifier contextId, uint64_t index)
     HandleControlledElementIDRequest(WebKit::PlaybackSessionContextIdentifier contextId)
     TogglePictureInPicture(WebKit::PlaybackSessionContextIdentifier contextId)
+    EnterFullscreen(WebKit::PlaybackSessionContextIdentifier contextId)
+    ExitFullscreen(WebKit::PlaybackSessionContextIdentifier contextId)
+    EnterInWindow(WebKit::PlaybackSessionContextIdentifier contextId)
+    ExitInWindow(WebKit::PlaybackSessionContextIdentifier contextId)
     ToggleMuted(WebKit::PlaybackSessionContextIdentifier contextId)
     SetMuted(WebKit::PlaybackSessionContextIdentifier contextId, bool muted)
     SetVolume(WebKit::PlaybackSessionContextIdentifier contextId, double volume)
     SetPlayingOnSecondScreen(WebKit::PlaybackSessionContextIdentifier contextId, bool value)
-    SendRemoteCommand(WebKit::PlaybackSessionContextIdentifier contextId, enum:uint8_t WebCore::PlatformMediaSession::RemoteControlCommandType type, struct WebCore::PlatformMediaSession::RemoteCommandArgument argument)
+    SendRemoteCommand(WebKit::PlaybackSessionContextIdentifier contextId, enum:uint8_t WebCore::PlatformMediaSessionRemoteControlCommandType type, struct WebCore::PlatformMediaSession::RemoteCommandArgument argument)
+    SetSoundStageSize(WebKit::PlaybackSessionContextIdentifier contextId, enum:uint8_t WebCore::AudioSessionSoundStageSize size)
+#if HAVE(SPATIAL_TRACKING_LABEL)
+    SetSpatialTrackingLabel(WebKit::PlaybackSessionContextIdentifier contextId, String label)
+#endif
 }
 #endif

@@ -60,6 +60,10 @@
 #include "MediaElementAudioSourceOptions.h"
 #endif
 
+#if PLATFORM(VISION) && ENABLE(WEBXR)
+#include "Page.h"
+#endif
+
 namespace WebCore {
 
 #define AUDIOCONTEXT_RELEASE_LOG(fmt, ...) RELEASE_LOG(Media, "%p - AudioContext::" fmt, this, ##__VA_ARGS__)
@@ -436,11 +440,6 @@ void AudioContext::resume()
     document()->updateIsPlayingMedia();
 }
 
-const char* AudioContext::activeDOMObjectName() const
-{
-    return "AudioContext";
-}
-
 void AudioContext::suspendPlayback()
 {
     if (state() == State::Closed || !isInitialized())
@@ -546,32 +545,34 @@ std::optional<NowPlayingInfo> AudioContext::nowPlayingInfo() const
         return { };
 
     NowPlayingInfo nowPlayingInfo {
-        { },
-        { },
-        { },
-        { },
+        {
+            { },
+            { },
+            { },
+            { },
+            { }
+        },
         MediaPlayer::invalidTime(),
         MediaPlayer::invalidTime(),
         1.0,
         false,
         m_currentIdentifier,
         isPlaying(),
-        !page->isVisibleAndActive(),
-        { }
+        !page->isVisibleAndActive()
     };
 
     if (page->usesEphemeralSession())
         return nowPlayingInfo;
 
 #if ENABLE(MEDIA_SESSION)
-    if (RefPtr mediaSession = NavigatorMediaSession::mediaSessionIfExists(Ref { window->navigator() }))
+    if (RefPtr mediaSession = NavigatorMediaSession::mediaSessionIfExists(window->protectedNavigator()))
         mediaSession->updateNowPlayingInfo(nowPlayingInfo);
 #endif
 
-    if (nowPlayingInfo.title.isEmpty()) {
+    if (nowPlayingInfo.metadata.title.isEmpty()) {
         RegistrableDomain domain { document->securityOrigin().data() };
         if (!domain.isEmpty())
-            nowPlayingInfo.title = domain.string();
+            nowPlayingInfo.metadata.title = domain.string();
     }
 
     return nowPlayingInfo;
@@ -643,6 +644,15 @@ bool AudioContext::shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSess
         return true;
 
     RefPtr document = this->document();
+    if (!document)
+        return false;
+
+#if PLATFORM(VISION) && ENABLE(WEBXR)
+    RefPtr page = document->page();
+    if (page && page->hasActiveImmersiveSession())
+        return true;
+#endif
+
     return hasPlayBackAudioSession(document.get());
 }
 
@@ -660,6 +670,14 @@ void AudioContext::defaultDestinationWillBecomeConnected()
     m_canOverrideBackgroundPlaybackRestriction = false;
     m_mediaSession->beginInterruption(PlatformMediaSession::InterruptionType::EnteringBackground);
     m_canOverrideBackgroundPlaybackRestriction = true;
+}
+
+void AudioContext::isActiveNowPlayingSessionChanged()
+{
+    if (RefPtr document = this->document()) {
+        if (RefPtr page = document->protectedPage())
+            page->hasActiveNowPlayingSessionChanged();
+    }
 }
 
 #if !RELEASE_LOG_DISABLED

@@ -63,13 +63,15 @@ public:
     void strokePath(const Path&) final;
 
     void beginTransparencyLayer(float opacity) final;
+    void beginTransparencyLayer(CompositeOperator, BlendMode) final;
     void endTransparencyLayer() final;
 
     void applyDeviceScaleFactor(float factor) final;
 
     using GraphicsContext::fillRect;
-    void fillRect(const FloatRect&) final;
+    void fillRect(const FloatRect&, RequiresClipToRect = RequiresClipToRect::Yes) final;
     void fillRect(const FloatRect&, const Color&) final;
+    void fillRect(const FloatRect&, Gradient&, const AffineTransform&, RequiresClipToRect = RequiresClipToRect::Yes) final;
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) final;
     void fillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect& roundedHoleRect, const Color&) final;
     void clearRect(const FloatRect&) final;
@@ -151,12 +153,12 @@ private:
     CGContextRef contextForState() const;
 
     const RetainPtr<CGContextRef> m_cgContext;
-    const RenderingMode m_renderingMode;
-    const bool m_isLayerCGContext;
-    mutable bool m_userToDeviceTransformKnownToBeIdentity { false };
-    // Flag for pending draws. Start with true because we do not know what commands have been scheduled to the context.
-    bool m_hasDrawn { true };
     mutable std::optional<DestinationColorSpace> m_colorSpace;
+    const RenderingMode m_renderingMode : 1; // NOLINT
+    const bool m_isLayerCGContext : 1;
+    mutable bool m_userToDeviceTransformKnownToBeIdentity : 1 { false };
+    // Flag for pending draws. Start with true because we do not know what commands have been scheduled to the context.
+    bool m_hasDrawn : 1 { true };
 };
 
 CGAffineTransform getUserToBaseCTM(CGContextRef);

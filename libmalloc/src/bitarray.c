@@ -338,6 +338,7 @@ bitarray_set(bitarray_t bits, unsigned log_size, index_t index)
 		if (!SET_GO_DOWN(bits + LEVEL2 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 2:
 		bit = index & MASKNB;
@@ -345,6 +346,7 @@ bitarray_set(bitarray_t bits, unsigned log_size, index_t index)
 		if (!SET_GO_DOWN(bits + LEVEL1 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 1:
 		bit = index & MASKNB;
@@ -352,6 +354,7 @@ bitarray_set(bitarray_t bits, unsigned log_size, index_t index)
 		if (!SET_GO_DOWN(bits + LEVEL0 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 0:
 		SET_SIMPLE(bits, index & MASKNB);
@@ -387,6 +390,7 @@ bitarray_zap(bitarray_t bits, unsigned log_size, index_t index)
 		if (!ZAP_GO_DOWN(bits + LEVEL2 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 2:
 		bit = index & MASKNB;
@@ -394,6 +398,7 @@ bitarray_zap(bitarray_t bits, unsigned log_size, index_t index)
 		if (!ZAP_GO_DOWN(bits + LEVEL1 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 1:
 		bit = index & MASKNB;
@@ -401,6 +406,7 @@ bitarray_zap(bitarray_t bits, unsigned log_size, index_t index)
 		if (!ZAP_GO_DOWN(bits + LEVEL0 + index * NUM_64b, bit)) {
 			return 1;
 		}
+		MALLOC_FALLTHROUGH;
 	/* no break */
 	case 0:
 		ZAP_SIMPLE(bits, index & MASKNB);
@@ -451,18 +457,21 @@ bitarray_zap(bitarray_t bits, unsigned log_size, index_t index)
 			if (!ZAP_GO_DOWN(bits + LEVEL2 + ix * NUM_64b, bit)) { \
 				break;                                             \
 			}                                                      \
+			MALLOC_FALLTHROUGH;                                    \
 		case 2:                                                    \
 			bit = ix & MASKNB;                                     \
 			ix >>= NB;                                             \
 			if (!ZAP_GO_DOWN(bits + LEVEL1 + ix * NUM_64b, bit)) { \
 				break;                                             \
 			}                                                      \
+			MALLOC_FALLTHROUGH;                                    \
 		case 1:                                                    \
 			bit = ix & MASKNB;                                     \
 			ix >>= NB;                                             \
 			if (!ZAP_GO_DOWN(bits + LEVEL0 + ix * NUM_64b, bit)) { \
 				break;                                             \
 			}                                                      \
+			MALLOC_FALLTHROUGH;                                    \
 		case 0:                                                    \
 			ZAP_SIMPLE(bits, ix &MASKNB);                          \
 			break;                                                 \

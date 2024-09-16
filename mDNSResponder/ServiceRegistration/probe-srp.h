@@ -24,6 +24,7 @@ void probe_srp_service(thread_service_t *NONNULL service, void *NULLABLE context
                        void (*NONNULL callback)(thread_service_t *NONNULL service,
                                                 void *NULLABLE context, bool succeeded),
                        void (*NULLABLE context_release_callback)(void *NONNULL context));
+void probe_srp_service_probe_cancel(thread_service_t *NONNULL service);
 #endif // __PROBE_SRP_H__
 
 // Local Variables:

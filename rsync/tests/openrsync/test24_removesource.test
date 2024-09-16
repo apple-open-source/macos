@@ -1,0 +1,33 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+
+rsync_one() {
+	rsync -a "$@" --remove-source-files -- dir1/ dir3
+	compare_trees dir2 dir3
+
+	find dir1 -type f > files
+	if [ -s "files" ]; then
+		1>&2 echo "Failed to remove source files"
+		1>&2 cat files
+		exit 1
+	fi
+}
+
+cd ..
+rsync_one
+rm -rf dir1
+mv dir3 dir1
+
+rsync_one --delay-updates

@@ -217,6 +217,9 @@
 >>>4		belong&0x00ffffff	434		\b_g14s
 >>>4		belong&0x00ffffff	498		\b_g14d
 >>>4		belong&0x00ffffff	610		\b_g15p
+>>>4		belong&0x00ffffff	275		\b_g15g
+>>>4		belong&0x00ffffff	419		\b_g15s
+>>>4		belong&0x00ffffff	435		\b_g16p
 #
 # AMD GPUs
 #

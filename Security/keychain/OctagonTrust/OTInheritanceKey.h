@@ -33,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 extern NSErrorDomain const OTInheritanceKeyErrorDomain;
 
-typedef NS_ENUM(NSInteger, OTInheritanceKeyErrorCode) {
+typedef NS_ERROR_ENUM(OTInheritanceKeyErrorDomain, OTInheritanceKeyErrorCode) {
     OTInheritanceKeyErrorCannotParseBase32 = 1,
     OTInheritanceKeyErrorChecksumMismatch = 2,
     OTInheritanceKeyErrorBadChecksumSize = 3,
@@ -44,6 +44,7 @@ typedef NS_ENUM(NSInteger, OTInheritanceKeyErrorCode) {
     OTInheritanceKeyErrorBadWrappingKeyLength = 8,
     OTInheritanceKeyErrorEcbInitFailed = 9,
     OTInheritanceKeyErrorBadWrappedKeyLength = 10,
+    OTInheritanceKeyErrorCannotRecreateWithSameUUID = 11,
 };
 
 // All the information related to an inheritance key
@@ -51,13 +52,20 @@ typedef NS_ENUM(NSInteger, OTInheritanceKeyErrorCode) {
 
 - (nullable instancetype)initWithUUID:(NSUUID*)uuid error:(NSError**)error;
 - (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData wrappingKeyData:(NSData*)wrappingKeyData uuid:(NSUUID*)uuid error:(NSError**)error;
+- (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData wrappingKeyData:(NSData*)wrappingKeyData claimTokenData:(NSData*_Nullable)claimTokenData uuid:(NSUUID*)uuid error:(NSError**)error;
 - (nullable instancetype)initWithWrappedKeyData:(NSData*)wrappedKeyData wrappingKeyString:(NSString*)wrappingKeyString uuid:(NSUUID*)uuid error:(NSError**)error;
 - (nullable instancetype)initWithWrappedKeyString:(NSString*)wrappedKeyString wrappingKeyData:(NSData*)wrappingKeyData uuid:(NSUUID*)uuid error:(NSError**)error;
+- (nullable instancetype)initWithUUID:(NSUUID*)uuid oldIK:(OTInheritanceKey*)oldIK error:(NSError**)error;
+- (nullable instancetype)initWithUUID:(NSUUID*)uuid claimTokenData:(NSData*)claimTokenData wrappingKeyData:(NSData*)wrappingKeyData error:(NSError**)error;
 
 - (BOOL)isEqualToOTInheritanceKey:(OTInheritanceKey*)other;
 - (BOOL)isEqual:(nullable id)object;
 
 - (BOOL)isRecoveryKeyEqual:(OTInheritanceKey*)other;
+
+- (BOOL)isKeyEquals:(OTInheritanceKey*)other;
+
+- (NSDictionary*)dictionary;
 
 @property (strong, nonatomic, readonly) NSUUID *uuid;               // Unique identifier for each inheritance key
 

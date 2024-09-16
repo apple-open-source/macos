@@ -27,6 +27,7 @@
 #import "TextureView.h"
 
 #import "APIConversions.h"
+#import "CommandEncoder.h"
 
 namespace WebGPU {
 
@@ -53,49 +54,133 @@ void TextureView::setLabel(String&& label)
     m_texture.label = label;
 }
 
-bool TextureView::previouslyCleared() const
+id<MTLTexture> TextureView::parentTexture() const
 {
-    return m_parentTexture.previouslyCleared(m_texture.parentRelativeLevel, m_texture.parentRelativeSlice);
+    return m_parentTexture->texture();
 }
 
-void TextureView::setPreviouslyCleared()
+bool TextureView::previouslyCleared() const
 {
-    m_parentTexture.setPreviouslyCleared(m_texture.parentRelativeLevel, m_texture.parentRelativeSlice);
+    return m_parentTexture->previouslyCleared(m_texture.parentRelativeLevel, m_texture.parentRelativeSlice);
+}
+
+void TextureView::setPreviouslyCleared(uint32_t mipLevel, uint32_t slice)
+{
+    m_parentTexture->setPreviouslyCleared(m_texture.parentRelativeLevel + mipLevel, m_texture.parentRelativeSlice + slice);
+}
+
+uint32_t TextureView::parentRelativeMipLevel() const
+{
+    RELEASE_ASSERT(baseMipLevel() == m_texture.parentRelativeLevel);
+    return m_texture.parentRelativeLevel;
+}
+
+uint32_t TextureView::parentRelativeSlice() const
+{
+    return m_texture.parentRelativeSlice;
 }
 
 uint32_t TextureView::width() const
 {
-    return static_cast<uint32_t>(m_texture.width);
+    return m_parentTexture->physicalMiplevelSpecificTextureExtent(baseMipLevel()).width;
 }
 
 uint32_t TextureView::height() const
 {
-    return static_cast<uint32_t>(m_texture.height);
+    return m_parentTexture->physicalMiplevelSpecificTextureExtent(baseMipLevel()).height;
+}
+
+uint32_t TextureView::depthOrArrayLayers() const
+{
+    return m_parentTexture->physicalMiplevelSpecificTextureExtent(baseMipLevel()).depthOrArrayLayers;
 }
 
 WGPUTextureUsageFlags TextureView::usage() const
 {
-    return m_parentTexture.usage();
+    return m_parentTexture->usage();
+}
+
+id<MTLTexture> TextureView::texture() const
+{
+    return isDestroyed() ? parentTexture() : m_texture;
 }
 
 uint32_t TextureView::sampleCount() const
 {
-    return m_parentTexture.sampleCount();
+    return m_parentTexture->sampleCount();
+}
+
+WGPUTextureFormat TextureView::parentFormat() const
+{
+    return m_parentTexture->format();
 }
 
 WGPUTextureFormat TextureView::format() const
 {
-    return m_parentTexture.format();
+    return m_descriptor.format;
+}
+
+uint32_t TextureView::parentMipLevelCount() const
+{
+    return m_parentTexture->mipLevelCount();
 }
 
 uint32_t TextureView::mipLevelCount() const
 {
-    return m_parentTexture.mipLevelCount();
+    return m_descriptor.mipLevelCount;
+}
+
+uint32_t TextureView::baseMipLevel() const
+{
+    return m_descriptor.baseMipLevel;
+}
+
+WGPUTextureAspect TextureView::aspect() const
+{
+    return m_descriptor.aspect;
+}
+
+uint32_t TextureView::arrayLayerCount() const
+{
+    return m_descriptor.arrayLayerCount;
+}
+
+uint32_t TextureView::baseArrayLayer() const
+{
+    return m_descriptor.baseArrayLayer;
+}
+
+WGPUTextureViewDimension TextureView::dimension() const
+{
+    return m_descriptor.dimension;
 }
 
 bool TextureView::isDestroyed() const
 {
-    return m_parentTexture.isDestroyed();
+    return m_parentTexture->isDestroyed();
+}
+
+bool TextureView::isValid() const
+{
+    return m_texture || isDestroyed();
+}
+
+void TextureView::destroy()
+{
+    m_texture = m_device->placeholderTexture(format());
+    if (!m_parentTexture->isCanvasBacking()) {
+        for (auto& commandEncoder : m_commandEncoders)
+            commandEncoder.makeSubmitInvalid();
+    }
+
+    m_commandEncoders.clear();
+}
+
+void TextureView::setCommandEncoder(CommandEncoder& commandEncoder) const
+{
+    m_commandEncoders.add(commandEncoder);
+    if (isDestroyed() && !m_parentTexture->isCanvasBacking())
+        commandEncoder.makeSubmitInvalid();
 }
 
 } // namespace WebGPU

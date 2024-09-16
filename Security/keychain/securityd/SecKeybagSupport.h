@@ -85,8 +85,6 @@ bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_
 #endif
 bool ks_open_keybag(CFDataRef keybag, CFDataRef password, keybag_handle_t *handle, CFErrorRef *error);
 bool ks_close_keybag(keybag_handle_t keybag, CFErrorRef *error);
-bool ks_is_key_diversification_enabled(void);
-void ks_key_diversification_set_is_enabled(bool value);
 __END_DECLS
 
 #endif /* _SECURITYD_SECKEYBAGSUPPORT_H_ */

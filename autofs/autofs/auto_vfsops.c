@@ -89,33 +89,33 @@ static struct vfsops autofs_vfsops = {
 	auto_start,
 	auto_unmount,
 	auto_root,
-	NULL,			/* auto_quotactl */
-	auto_vfs_getattr, 	/* was auto_statfs */
+	NULL,                   /* auto_quotactl */
+	auto_vfs_getattr,       /* was auto_statfs */
 	auto_sync,
 	auto_vget,
-	NULL,			/* auto_fhtovp */
-	NULL,			/* auto_vptofh */
-	NULL,			/* auto_init */
+	NULL,                   /* auto_fhtovp */
+	NULL,                   /* auto_vptofh */
+	NULL,                   /* auto_init */
 	autofs_sysctl,
-	NULL,			/* auto_vfs_setattr */
-        // Remaining ops unused
+	NULL,                   /* auto_vfs_setattr */
+	// Remaining ops unused
 };
 
 #pragma clang diagnostic pop
 
 extern struct vnodeopv_desc autofsfs_vnodeop_opv_desc;
 struct vnodeopv_desc * autofs_vnodeop_opv_descs[] =
-	{&autofsfs_vnodeop_opv_desc, NULL};
+{&autofsfs_vnodeop_opv_desc, NULL};
 
 struct vfs_fsentry autofs_fsentry = {
-	&autofs_vfsops,			/* vfs operations */
-	1,				/* # of vnodeopv_desc being registered (reg, spec, fifo ...) */
-	autofs_vnodeop_opv_descs,	/* null terminated;  */
-	0,				/* historic filesystem type number [ unused w. VFS_TBLNOTYPENUM specified ] */
-	MNTTYPE_AUTOFS,			/* filesystem type name */
+	&autofs_vfsops,                 /* vfs operations */
+	1,                              /* # of vnodeopv_desc being registered (reg, spec, fifo ...) */
+	autofs_vnodeop_opv_descs,       /* null terminated;  */
+	0,                              /* historic filesystem type number [ unused w. VFS_TBLNOTYPENUM specified ] */
+	MNTTYPE_AUTOFS,                 /* filesystem type name */
 	VFS_TBLTHREADSAFE | VFS_TBLNOTYPENUM | VFS_TBL64BITREADY | VFS_TBLNATIVEXATTR,
-					/* defines the FS capabilities */
-	{ NULL, NULL }			/* reserved for future use; set this to zero*/
+	/* defines the FS capabilities */
+	{ NULL, NULL }                  /* reserved for future use; set this to zero*/
 };
 
 
@@ -128,7 +128,7 @@ static struct autofs_globals *global_fngp;
 struct autofs_globals *
 autofs_zone_get_globals(void)
 {
-	return (global_fngp);
+	return global_fngp;
 }
 
 static void
@@ -180,7 +180,7 @@ autofs_zone_init(void)
 	fnp->fn_mode = AUTOFS_MODE;
 	microtime(&now);
 	fnp->fn_crtime = fnp->fn_atime = fnp->fn_mtime = fnp->fn_ctime = now;
-	fnp->fn_nodeid = 1;	/* XXX - could just be zero?  XXXab: should be 2 actually */
+	fnp->fn_nodeid = 1;     /* XXX - could just be zero?  XXXab: should be 2 actually */
 	fnp->fn_globals = fngp;
 	fnp->fn_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 	if (fnp->fn_lock == NULL) {
@@ -208,28 +208,33 @@ autofs_zone_init(void)
 		goto fail;
 	}
 
-	return (fngp);
+	return fngp;
 
 fail:
 	if (fnp != NULL) {
-		if (fnp->fn_mnt_lock != NULL)
+		if (fnp->fn_mnt_lock != NULL) {
 			lck_mtx_free(fnp->fn_mnt_lock, autofs_lck_grp);
-		if (fnp->fn_rwlock != NULL)
+		}
+		if (fnp->fn_rwlock != NULL) {
 			lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
-		if (fnp->fn_lock != NULL)
+		}
+		if (fnp->fn_lock != NULL) {
 			lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
-		if (fnp->fn_name != NULL)
+		}
+		if (fnp->fn_name != NULL) {
 			kfree_data(fnp->fn_name, fnp->fn_namelen + 1);
+		}
 		kfree_type(struct fnnode, fnp);
 	}
 
 	if (fngp != NULL) {
-		if (fngp->fng_flush_notification_lock != NULL)
+		if (fngp->fng_flush_notification_lock != NULL) {
 			lck_mtx_free(fngp->fng_flush_notification_lock, autofs_lck_grp);
+		}
 		kfree_type(struct autofs_globals, fngp);
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -245,13 +250,14 @@ strstr(const char *s, const char *find)
 		len = strlen(find);
 		do {
 			do {
-				if ((sc = *s++) == 0)
-					return (NULL);
+				if ((sc = *s++) == 0) {
+					return NULL;
+				}
 			} while (sc != c);
 		} while (strncmp(s, find, len) != 0);
 		s--;
 	}
-	return ((char *)s);
+	return (char *)s;
 }
 
 /*
@@ -262,7 +268,7 @@ strstr(const char *s, const char *find)
 static const struct mntopt restropts[] = {
 	RESTRICTED_MNTOPTS
 };
-#define	NROPTS	((sizeof (restropts)/sizeof (restropts[0])) - 1)
+#define NROPTS  ((sizeof (restropts)/sizeof (restropts[0])) - 1)
 
 /*
  * Check whether the specified option is set in the specified file
@@ -272,12 +278,13 @@ static uint64_t
 optionisset(mount_t mp, const struct mntopt *opt)
 {
 	uint64_t flags;
-	
+
 	flags = vfs_flags(mp) & opt->m_flag;
-	if (opt->m_inverse)
+	if (opt->m_inverse) {
 		return !flags;
-	else
+	} else {
 		return flags;
+	}
 }
 
 /*
@@ -300,8 +307,9 @@ autofs_restrict_opts(mount_t mp, char *buf, size_t maxlen, size_t *curlen)
 	size_t len = *curlen - 1;
 
 	/* Unrestricted */
-	if (!(fnip->fi_mntflags & AUTOFS_MNT_RESTRICT))
-		return (0);
+	if (!(fnip->fi_mntflags & AUTOFS_MNT_RESTRICT)) {
+		return 0;
+	}
 
 	for (i = 0; i < NROPTS; i++) {
 		size_t olen = strlen(restropts[i].m_option);
@@ -311,21 +319,23 @@ autofs_restrict_opts(mount_t mp, char *buf, size_t maxlen, size_t *curlen)
 		    ((p = strstr(buf, restropts[i].m_option)) == NULL ||
 		    !((p == buf || p[-1] == ',') &&
 		    (p[olen] == '\0' || p[olen] == ',')))) {
+			if (len + olen + 1 > maxlen) {
+				return -1;
+			}
 
-			if (len + olen + 1 > maxlen)
-				return (-1);
-
-			if (*buf != '\0')
+			if (*buf != '\0') {
 				buf[len++] = ',';
+			}
 			bcopy(restropts[i].m_option, &buf[len], olen);
 			len += olen;
 		}
 	}
-	if (len + 1 > maxlen)
-		return (-1);
+	if (len + 1 > maxlen) {
+		return -1;
+	}
 	buf[len++] = '\0';
 	*curlen = len;
-	return (0);
+	return 0;
 }
 
 /* ARGSUSED */
@@ -340,7 +350,7 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	fninfo_t *fnip = NULL;
 	vnode_t myrootvp = NULL;
 	fnnode_t *rootfnp = NULL;
-	char strbuff[PATH_MAX+1];
+	char strbuff[PATH_MAX + 1];
 	uint64_t flags;
 #ifdef DEBUG
 	lck_attr_t *lckattr;
@@ -357,28 +367,29 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 		autofs_zone_set_globals(fngp);
 	}
 	lck_mtx_unlock(autofs_global_lock);
-	if (fngp == NULL)
-		return (ENOMEM);
+	if (fngp == NULL) {
+		return ENOMEM;
+	}
 
 	/*
 	 * Get argument version
 	 */
-	error = copyin(data, (caddr_t)&argsvers, sizeof (argsvers));
-	if (error)
-		return (error);
+	error = copyin(data, (caddr_t)&argsvers, sizeof(argsvers));
+	if (error) {
+		return error;
+	}
 
 	/*
 	 * Get arguments
 	 */
 	switch (argsvers) {
-
 	case 2:
-		if (vfs_context_is64bit(context))
-			error = copyin(data, &args, sizeof (args));
-		else {
+		if (vfs_context_is64bit(context)) {
+			error = copyin(data, &args, sizeof(args));
+		} else {
 			struct autofs_args_32 args32;
 
-			error = copyin(data, &args32, sizeof (args32));
+			error = copyin(data, &args32, sizeof(args32));
 			if (error == 0) {
 				args.path = CAST_USER_ADDR_T(args32.path);
 				args.opts = CAST_USER_ADDR_T(args32.opts);
@@ -391,12 +402,13 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 				args.node_type = args32.node_type;
 			}
 		}
-		if (error)
-			return (error);
+		if (error) {
+			return error;
+		}
 		break;
 
 	default:
-		return (EINVAL);
+		return EINVAL;
 	}
 
 	/*
@@ -404,15 +416,17 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	 * should be used for that.
 	 */
 	flags = vfs_flags(mp) & MNT_CMDFLAGS;
-	if (flags & MNT_UPDATE)
-		return (EINVAL);
+	if (flags & MNT_UPDATE) {
+		return EINVAL;
+	}
 
 	/*
 	 * Allocate fninfo struct and attach it to vfs
 	 */
 	fnip = kalloc_type(struct fninfo, Z_WAITOK | Z_ZERO);
-	if (fnip == NULL)
-		return (ENOMEM);
+	if (fnip == NULL) {
+		return ENOMEM;
+	}
 
 	/*
 	 * Assign a unique fsid to the mount
@@ -423,7 +437,7 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Get path for mountpoint
 	 */
-	error = copyinstr(args.path, strbuff, sizeof (strbuff), &len);
+	error = copyinstr(args.path, strbuff, sizeof(strbuff), &len);
 	if (error) {
 		error = EFAULT;
 		goto errout;
@@ -439,11 +453,12 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Get default options
 	 */
-	error = copyinstr(args.opts, strbuff, sizeof (strbuff), &len);
-	if (error != 0)
+	error = copyinstr(args.opts, strbuff, sizeof(strbuff), &len);
+	if (error != 0) {
 		goto errout;
+	}
 
-	if (autofs_restrict_opts(mp, strbuff, sizeof (strbuff), &len) != 0) {
+	if (autofs_restrict_opts(mp, strbuff, sizeof(strbuff), &len) != 0) {
 		error = EFAULT;
 		goto errout;
 	}
@@ -458,9 +473,10 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Get context/map name
 	 */
-	error = copyinstr(args.map, strbuff, sizeof (strbuff), &len);
-	if (error)
+	error = copyinstr(args.map, strbuff, sizeof(strbuff), &len);
+	if (error) {
 		goto errout;
+	}
 
 	fnip->fi_map = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_map == NULL) {
@@ -471,7 +487,6 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	bcopy(strbuff, fnip->fi_map, len);
 
 	switch (args.mount_type) {
-
 	case MOUNT_TYPE_MAP:
 		/*
 		 * Top-level mount of a map, done by automount.
@@ -503,8 +518,8 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 		 * doesn't mention it.
 		 */
 		strncpy(vfs_statfs(mp)->f_mntfromname, "subtrigger",
-		    sizeof(vfs_statfs(mp)->f_mntfromname)-1);
-		vfs_statfs(mp)->f_mntfromname[sizeof(vfs_statfs(mp)->f_mntfromname)-1] = (char)0;
+		    sizeof(vfs_statfs(mp)->f_mntfromname) - 1);
+		vfs_statfs(mp)->f_mntfromname[sizeof(vfs_statfs(mp)->f_mntfromname) - 1] = (char)0;
 
 		/*
 		 * Flag it as a (sub)trigger for our purposes as well.
@@ -516,9 +531,10 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Get subdirectory within map
 	 */
-	error = copyinstr(args.subdir, strbuff, sizeof (strbuff), &len);
-	if (error)
+	error = copyinstr(args.subdir, strbuff, sizeof(strbuff), &len);
+	if (error) {
 		goto errout;
+	}
 	fnip->fi_subdir = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_subdir == NULL) {
 		error = ENOMEM;
@@ -530,9 +546,10 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Get the key
 	 */
-	error = copyinstr(args.key, strbuff, sizeof (strbuff), &len);
-	if (error)
+	error = copyinstr(args.key, strbuff, sizeof(strbuff), &len);
+	if (error) {
 		goto errout;
+	}
 	fnip->fi_key = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_key == NULL) {
 		error = ENOMEM;
@@ -546,8 +563,9 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Is this a direct mount?
 	 */
-	if (args.direct == 1)
+	if (args.direct == 1) {
 		fnip->fi_flags |= MF_DIRECT;
+	}
 
 	/*
 	 * Get an rwlock.
@@ -586,9 +604,9 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 		 * if a map changes from direct to indirect, or
 		 * vice versa, the vnode type can't change.
 		 */
-		if (args.mount_type == MOUNT_TYPE_SUBTRIGGER)
+		if (args.mount_type == MOUNT_TYPE_SUBTRIGGER) {
 			node_type = NT_TRIGGER;
-		else {
+		} else {
 			error = auto_lookup_request(fnip, fnip->fi_key,
 			    fnip->fi_keylen, fnip->fi_subdir,
 			    context, &node_type, &lu_verbose);
@@ -614,15 +632,16 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	 */
 	error = auto_makefnnode(&rootfnp, node_type, mp, NULL, "", NULL,
 	    1, fngp);
-	if (error)
+	if (error) {
 		goto errout;
+	}
 	myrootvp = fntovn(rootfnp);
 
 	rootfnp->fn_mode = AUTOFS_MODE;
 	rootfnp->fn_parent = rootfnp;
 	/* account for ".." entry (fn_parent) */
 	rootfnp->fn_linkcnt = 1;
-	error = vnode_ref(myrootvp);	/* released in auto_unmount */
+	error = vnode_ref(myrootvp);    /* released in auto_unmount */
 	if (error) {
 		vnode_recycle(myrootvp);
 		vnode_put(myrootvp);
@@ -658,31 +677,38 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	AUTOFS_DPRINT((5, "auto_mount: mp %p root %p fnip %p return %d\n",
 	    mp, myrootvp, fnip, error));
 
-	return (0);
+	return 0;
 
 errout:
 	assert(fnip != NULL);
 
-	if (fnip->fi_rwlock != NULL)
+	if (fnip->fi_rwlock != NULL) {
 		lck_rw_free(fnip->fi_rwlock, autofs_lck_grp);
-	if (fnip->fi_busy_mtx)
+	}
+	if (fnip->fi_busy_mtx) {
 		lck_mtx_free(fnip->fi_busy_mtx, autofs_lck_grp);
-	if (fnip->fi_path != NULL)
+	}
+	if (fnip->fi_path != NULL) {
 		kfree_data(fnip->fi_path, fnip->fi_pathlen);
-	if (fnip->fi_opts != NULL)
+	}
+	if (fnip->fi_opts != NULL) {
 		kfree_data(fnip->fi_opts, fnip->fi_optslen);
-	if (fnip->fi_map != NULL)
+	}
+	if (fnip->fi_map != NULL) {
 		kfree_data(fnip->fi_map, fnip->fi_maplen);
-	if (fnip->fi_subdir != NULL)
+	}
+	if (fnip->fi_subdir != NULL) {
 		kfree_data(fnip->fi_subdir, fnip->fi_subdirlen);
-	if (fnip->fi_key != NULL)
+	}
+	if (fnip->fi_key != NULL) {
 		kfree_data(fnip->fi_key, fnip->fi_keylen);
+	}
 	kfree_type(struct fninfo, fnip);
 
 	AUTOFS_DPRINT((5, "auto_mount: vfs %p root %p fnip %p return %d\n",
 	    (void *)mp, (void *)myrootvp, (void *)fnip, error));
 
-	return (error);
+	return error;
 }
 
 static int
@@ -691,7 +717,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	mount_t mp;
 	fninfo_t *fnip;
 	fnnode_t *fnp;
-	char strbuff[PATH_MAX+1];
+	char strbuff[PATH_MAX + 1];
 	int error;
 	char *opts, *map;
 	size_t optslen, maplen;
@@ -703,18 +729,20 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	 * us?
 	 */
 	mp = vfs_getvfs(&update_argsp->fsid);
-	if (mp == NULL)
-		return (ENOENT);	/* no such mount */
-
+	if (mp == NULL) {
+		return ENOENT;        /* no such mount */
+	}
 	/*
 	 * Make sure this is an autofs mount.
 	 */
-	if (!auto_is_autofs(mp))
-		return (EINVAL);
+	if (!auto_is_autofs(mp)) {
+		return EINVAL;
+	}
 
 	fnip = vfstofni(mp);
-	if (fnip == NULL)
-		return (EINVAL);
+	if (fnip == NULL) {
+		return EINVAL;
+	}
 
 	/*
 	 * We can't change the map type if the top-level directory has
@@ -725,20 +753,23 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	if ((update_argsp->direct == 1 && !(fnip->fi_flags & MF_DIRECT)) ||
 	    (update_argsp->direct != 1 && (fnip->fi_flags & MF_DIRECT))) {
 		fnp = vntofn(fnip->fi_rootvp);
-		if (fnp->fn_dirents != NULL)
-			return (EINVAL);
+		if (fnp->fn_dirents != NULL) {
+			return EINVAL;
+		}
 	}
 
 	/*
 	 * Get default options
 	 */
-	error = copyinstr(update_argsp->opts, strbuff, sizeof (strbuff),
+	error = copyinstr(update_argsp->opts, strbuff, sizeof(strbuff),
 	    &optslen);
-	if (error)
-		return (error);
+	if (error) {
+		return error;
+	}
 
-	if (autofs_restrict_opts(mp, strbuff, sizeof (strbuff), &optslen) != 0)
-		return (EFAULT);
+	if (autofs_restrict_opts(mp, strbuff, sizeof(strbuff), &optslen) != 0) {
+		return EFAULT;
+	}
 
 	opts = kalloc_data(optslen, Z_WAITOK);
 	bcopy(strbuff, opts, optslen);
@@ -746,11 +777,11 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	/*
 	 * Get context/map name
 	 */
-	error = copyinstr(update_argsp->map, strbuff, sizeof (strbuff),
+	error = copyinstr(update_argsp->map, strbuff, sizeof(strbuff),
 	    &maplen);
 	if (error) {
 		kfree_data(opts, optslen);
-		return (error);
+		return error;
 	}
 	map = kalloc_data(maplen, Z_WAITOK);
 	bcopy(strbuff, map, maplen);
@@ -767,10 +798,11 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	kfree_data(fnip->fi_map, fnip->fi_maplen);
 	fnip->fi_map = map;
 	fnip->fi_maplen = (int)maplen;
-	if (update_argsp->direct == 1)
+	if (update_argsp->direct == 1) {
 		fnip->fi_flags |= MF_DIRECT;
-	else
+	} else {
 		fnip->fi_flags &= ~MF_DIRECT;
+	}
 	fnip->fi_flags &= ~MF_UNMOUNTING;
 	fnip->fi_mntflags = update_argsp->mntflags;
 
@@ -799,14 +831,14 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 		auto_get_attributes(fnip->fi_rootvp, &vattr);
 		vnode_notify(fnip->fi_rootvp, VNODE_EVENT_WRITE, &vattr);
 	}
-	return (0);
+	return 0;
 }
 
 int
 auto_start(__unused mount_t mp, __unused int flags,
     __unused vfs_context_t context)
 {
-	return (0);
+	return 0;
 }
 
 /* ARGSUSED */
@@ -821,7 +853,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 
 	fnip = vfstofni(mp);
 	AUTOFS_DPRINT((4, "auto_unmount mp %p fnip %p\n", (void *)mp,
-			(void *)fnip));
+	    (void *)fnip));
 
 	/*
 	 * forced unmount is not supported by this file system
@@ -830,8 +862,9 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	 * XXX - forced unmounts are done at system shutdown time;
 	 * do we need to make them work?
 	 */
-	if (mntflags & MNT_FORCE)
-		return (ENOTSUP);
+	if (mntflags & MNT_FORCE) {
+		return ENOTSUP;
+	}
 
 	rvp = fnip->fi_rootvp;
 	rfnp = vntofn(rvp);
@@ -899,7 +932,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	error = autofs_mount_set_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
 	if (error) {
 		/* looks like we won't be able to grab the lock */
-		return (error);
+		return error;
 	}
 	lck_rw_lock_exclusive(fnip->fi_rwlock);
 
@@ -912,7 +945,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	if (error) {
 		lck_rw_unlock_exclusive(fnip->fi_rwlock);
 		autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
-		return (error);
+		return error;
 	}
 
 	/*
@@ -925,7 +958,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 		 */
 		lck_rw_unlock_exclusive(fnip->fi_rwlock);
 		autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
-		return (EBUSY);
+		return EBUSY;
 	}
 
 	/*
@@ -948,12 +981,13 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 				lck_rw_unlock_exclusive(myrootfnnodep->fn_rwlock);
 				lck_rw_unlock_exclusive(fnip->fi_rwlock);
 				autofs_mount_clear_busy(fnip, MOUNT_BUSY_EXCLUSIVE);
-				return (EBUSY);
+				return EBUSY;
 			}
-			if (pfnp)
+			if (pfnp) {
 				pfnp->fn_next = fnp->fn_next;
-			else
+			} else {
 				myrootfnnodep->fn_dirents = fnp->fn_next;
+			}
 			fnp->fn_next = NULL;
 			break;
 		}
@@ -994,7 +1028,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	/*
 	 * release last reference to the root vnode
 	 */
-	vnode_rele(rvp);	/* release reference from auto_mount() */
+	vnode_rele(rvp);        /* release reference from auto_mount() */
 
 	/*
 	 * Wait for in-flight operations to complete on any remaining vnodes
@@ -1013,7 +1047,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	kfree_data(fnip->fi_key, fnip->fi_keylen);
 	kfree_data(fnip->fi_opts, fnip->fi_optslen);
 	kfree_type(struct fninfo, fnip);
-	
+
 	/*
 	 * One fewer mounted file system.
 	 */
@@ -1023,7 +1057,7 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 
 	AUTOFS_DPRINT((5, "auto_unmount: return=0\n"));
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -1041,7 +1075,7 @@ auto_root(mount_t mp, vnode_t *vpp, __unused vfs_context_t context)
 
 	AUTOFS_DPRINT((5, "auto_root: mp %p, *vpp %p, error %d\n",
 	    mp, *vpp, error));
-	return (error);
+	return error;
 }
 
 /*
@@ -1074,52 +1108,52 @@ auto_vfs_getattr(__unused mount_t mp, struct vfs_attr *vfap,
 		 * We set the hidden bit on some directories.
 		 */
 		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_FORMAT] =
-			VOL_CAP_FMT_SYMBOLICLINKS |
-			VOL_CAP_FMT_HARDLINKS |
-			VOL_CAP_FMT_NO_ROOT_TIMES |
-			VOL_CAP_FMT_CASE_SENSITIVE |
-			VOL_CAP_FMT_CASE_PRESERVING |
-			VOL_CAP_FMT_FAST_STATFS | 
-			VOL_CAP_FMT_2TB_FILESIZE |
-			VOL_CAP_FMT_HIDDEN_FILES;
+		    VOL_CAP_FMT_SYMBOLICLINKS |
+		    VOL_CAP_FMT_HARDLINKS |
+		    VOL_CAP_FMT_NO_ROOT_TIMES |
+		    VOL_CAP_FMT_CASE_SENSITIVE |
+		    VOL_CAP_FMT_CASE_PRESERVING |
+		    VOL_CAP_FMT_FAST_STATFS |
+		    VOL_CAP_FMT_2TB_FILESIZE |
+		    VOL_CAP_FMT_HIDDEN_FILES;
 		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
-			VOL_CAP_INT_ATTRLIST;
+		    VOL_CAP_INT_ATTRLIST;
 		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
 		vfap->f_capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
 
 		vfap->f_capabilities.valid[VOL_CAPABILITIES_FORMAT] =
-			VOL_CAP_FMT_PERSISTENTOBJECTIDS |
-			VOL_CAP_FMT_SYMBOLICLINKS |
-			VOL_CAP_FMT_HARDLINKS |
-			VOL_CAP_FMT_JOURNAL |
-			VOL_CAP_FMT_JOURNAL_ACTIVE |
-			VOL_CAP_FMT_NO_ROOT_TIMES |
-			VOL_CAP_FMT_SPARSE_FILES |
-			VOL_CAP_FMT_ZERO_RUNS |
-			VOL_CAP_FMT_CASE_SENSITIVE |
-			VOL_CAP_FMT_CASE_PRESERVING |
-			VOL_CAP_FMT_FAST_STATFS |
-			VOL_CAP_FMT_2TB_FILESIZE |
-			VOL_CAP_FMT_OPENDENYMODES |
-			VOL_CAP_FMT_HIDDEN_FILES |
-			VOL_CAP_FMT_PATH_FROM_ID |
-			VOL_CAP_FMT_NO_VOLUME_SIZES;
+		    VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+		    VOL_CAP_FMT_SYMBOLICLINKS |
+		    VOL_CAP_FMT_HARDLINKS |
+		    VOL_CAP_FMT_JOURNAL |
+		    VOL_CAP_FMT_JOURNAL_ACTIVE |
+		    VOL_CAP_FMT_NO_ROOT_TIMES |
+		    VOL_CAP_FMT_SPARSE_FILES |
+		    VOL_CAP_FMT_ZERO_RUNS |
+		    VOL_CAP_FMT_CASE_SENSITIVE |
+		    VOL_CAP_FMT_CASE_PRESERVING |
+		    VOL_CAP_FMT_FAST_STATFS |
+		    VOL_CAP_FMT_2TB_FILESIZE |
+		    VOL_CAP_FMT_OPENDENYMODES |
+		    VOL_CAP_FMT_HIDDEN_FILES |
+		    VOL_CAP_FMT_PATH_FROM_ID |
+		    VOL_CAP_FMT_NO_VOLUME_SIZES;
 		vfap->f_capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
-			VOL_CAP_INT_SEARCHFS |
-			VOL_CAP_INT_ATTRLIST |
-			VOL_CAP_INT_NFSEXPORT |
-			VOL_CAP_INT_READDIRATTR |
-			VOL_CAP_INT_EXCHANGEDATA |
-			VOL_CAP_INT_COPYFILE |
-			VOL_CAP_INT_ALLOCATE |
-			VOL_CAP_INT_VOL_RENAME |
-			VOL_CAP_INT_ADVLOCK |
-			VOL_CAP_INT_FLOCK |
-			VOL_CAP_INT_EXTENDED_SECURITY |
-			VOL_CAP_INT_USERACCESS |
-			VOL_CAP_INT_MANLOCK |
-			VOL_CAP_INT_EXTENDED_ATTR |
-			VOL_CAP_INT_NAMEDSTREAMS;
+		    VOL_CAP_INT_SEARCHFS |
+		    VOL_CAP_INT_ATTRLIST |
+		    VOL_CAP_INT_NFSEXPORT |
+		    VOL_CAP_INT_READDIRATTR |
+		    VOL_CAP_INT_EXCHANGEDATA |
+		    VOL_CAP_INT_COPYFILE |
+		    VOL_CAP_INT_ALLOCATE |
+		    VOL_CAP_INT_VOL_RENAME |
+		    VOL_CAP_INT_ADVLOCK |
+		    VOL_CAP_INT_FLOCK |
+		    VOL_CAP_INT_EXTENDED_SECURITY |
+		    VOL_CAP_INT_USERACCESS |
+		    VOL_CAP_INT_MANLOCK |
+		    VOL_CAP_INT_EXTENDED_ATTR |
+		    VOL_CAP_INT_NAMEDSTREAMS;
 		vfap->f_capabilities.valid[VOL_CAPABILITIES_RESERVED1] = 0;
 		vfap->f_capabilities.valid[VOL_CAPABILITIES_RESERVED2] = 0;
 		VFSATTR_SET_SUPPORTED(vfap, f_capabilities);
@@ -1127,48 +1161,48 @@ auto_vfs_getattr(__unused mount_t mp, struct vfs_attr *vfap,
 
 	if (VFSATTR_IS_ACTIVE(vfap, f_attributes)) {
 		vfap->f_attributes.validattr.commonattr =
-			ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
-			ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
-			ATTR_CMN_PAROBJID |
-			ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
-			ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
-			ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
+		    ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
+		    ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
+		    ATTR_CMN_PAROBJID |
+		    ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
+		    ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
+		    ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
 		vfap->f_attributes.validattr.volattr =
-			ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
-			ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
-			ATTR_VOL_ATTRIBUTES;
+		    ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
+		    ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
+		    ATTR_VOL_ATTRIBUTES;
 		vfap->f_attributes.validattr.dirattr =
-			ATTR_DIR_LINKCOUNT | ATTR_DIR_MOUNTSTATUS;
+		    ATTR_DIR_LINKCOUNT | ATTR_DIR_MOUNTSTATUS;
 		vfap->f_attributes.validattr.fileattr =
-			ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
-			ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
-			ATTR_FILE_DATALENGTH;
+		    ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
+		    ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
+		    ATTR_FILE_DATALENGTH;
 		vfap->f_attributes.validattr.forkattr = 0;
-		
+
 		vfap->f_attributes.nativeattr.commonattr =
-			ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
-			ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
-			ATTR_CMN_PAROBJID |
-			ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
-			ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
-			ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
+		    ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
+		    ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID |
+		    ATTR_CMN_PAROBJID |
+		    ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME | ATTR_CMN_ACCTIME |
+		    ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
+		    ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS | ATTR_CMN_FILEID;
 		vfap->f_attributes.nativeattr.volattr =
-			ATTR_VOL_OBJCOUNT |
-			ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
-			ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
-			ATTR_VOL_ATTRIBUTES;
+		    ATTR_VOL_OBJCOUNT |
+		    ATTR_VOL_MOUNTPOINT | ATTR_VOL_MOUNTFLAGS |
+		    ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_CAPABILITIES |
+		    ATTR_VOL_ATTRIBUTES;
 		vfap->f_attributes.nativeattr.dirattr =
-			ATTR_DIR_MOUNTSTATUS;
+		    ATTR_DIR_MOUNTSTATUS;
 		vfap->f_attributes.nativeattr.fileattr =
-			ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
-			ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
-			ATTR_FILE_DATALENGTH;
+		    ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE |
+		    ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_DEVTYPE |
+		    ATTR_FILE_DATALENGTH;
 		vfap->f_attributes.nativeattr.forkattr = 0;
 
 		VFSATTR_SET_SUPPORTED(vfap, f_attributes);
 	}
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -1179,7 +1213,7 @@ static int
 auto_sync(__unused mount_t mp, __unused int waitfor,
     __unused vfs_context_t context)
 {
-	return (0);
+	return 0;
 }
 
 /*
@@ -1190,7 +1224,7 @@ static int
 auto_vget(__unused mount_t mp, __unused ino64_t ino, __unused vnode_t *vpp,
     __unused vfs_context_t context)
 {
-	return (ENOTSUP);
+	return ENOTSUP;
 }
 
 static int
@@ -1203,13 +1237,13 @@ autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
 	struct sysctl_req *req = NULL;
 	uint32_t debug;
 #endif
-	
+
 	/*
 	 * All names at this level are terminal
 	 */
-	if (namelen > 1)
-		return ENOTDIR;		/* overloaded error code */
-
+	if (namelen > 1) {
+		return ENOTDIR;         /* overloaded error code */
+	}
 #ifdef DEBUG
 	req = CAST_DOWN(struct sysctl_req *, oldp);
 #endif
@@ -1219,8 +1253,9 @@ autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
 #ifdef DEBUG
 	case AUTOFS_CTL_DEBUG:
 		error = SYSCTL_IN(req, &debug, sizeof(debug));
-		if (error)
+		if (error) {
 			break;
+		}
 		auto_debug_set(debug);
 		break;
 #endif
@@ -1229,7 +1264,7 @@ autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
 		break;
 	}
 
-	return (error);
+	return error;
 }
 
 /*
@@ -1243,28 +1278,28 @@ autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
  * Closing /dev/autofs clears automounter_pid, so nobody's the automounter;
  * that means if the automounter exits, it ceases to be the automounter.
  */
-static d_open_t	 autofs_dev_open;
+static d_open_t  autofs_dev_open;
 static d_close_t autofs_dev_close;
 static d_ioctl_t autofs_ioctl;
 
 struct cdevsw autofs_cdevsw = {
 	autofs_dev_open,
 	autofs_dev_close,
-	eno_rdwrt,	/* d_read */
-	eno_rdwrt,	/* d_write */
+	eno_rdwrt,      /* d_read */
+	eno_rdwrt,      /* d_write */
 	autofs_ioctl,
 	eno_stop,
 	eno_reset,
-	0,		/* struct tty ** d_ttys */
+	0,              /* struct tty ** d_ttys */
 	eno_select,
 	eno_mmap,
 	eno_strat,
 	eno_getc,
 	eno_putc,
-	0		/* d_type */
+	0               /* d_type */
 };
 
-int	automounter_pid;
+int     automounter_pid;
 lck_rw_t *autofs_automounter_pid_rwlock;
 
 static int
@@ -1274,11 +1309,11 @@ autofs_dev_open(__unused dev_t dev, __unused int oflags, __unused int devtype,
 	lck_rw_lock_exclusive(autofs_automounter_pid_rwlock);
 	if (automounter_pid != 0) {
 		lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-		return (EBUSY);
+		return EBUSY;
 	}
 	automounter_pid = proc_pid(p);
 	lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-	return (0);
+	return 0;
 }
 
 static int
@@ -1288,7 +1323,7 @@ autofs_dev_close(__unused dev_t dev, __unused int flag, __unused int fmt,
 	lck_rw_lock_exclusive(autofs_automounter_pid_rwlock);
 	automounter_pid = 0;
 	lck_rw_unlock_exclusive(autofs_automounter_pid_rwlock);
-	return (0);
+	return 0;
 }
 
 static int
@@ -1309,11 +1344,11 @@ autofs_ioctl(__unused dev_t dev, u_long cmd, __unused caddr_t data,
 		autofs_zone_set_globals(fngp);
 	}
 	lck_mtx_unlock(autofs_global_lock);
-	if (fngp == NULL)
-		return (ENOMEM);
+	if (fngp == NULL) {
+		return ENOMEM;
+	}
 
 	switch (cmd) {
-
 	case AUTOFS_NOTIFYCHANGE:
 		if (fngp != NULL) {
 			/*
@@ -1339,9 +1374,10 @@ autofs_ioctl(__unused dev_t dev, u_long cmd, __unused caddr_t data,
 			for (fnp = fngp->fng_rootfnnodep->fn_dirents;
 			    fnp != NULL; fnp = fnp->fn_next) {
 				vp = fntovn(fnp);
-			    	fnip = vfstofni(vnode_mount(vp));
-			    	if (fnip->fi_flags & MF_DIRECT)
-			    		continue;	/* direct map */
+				fnip = vfstofni(vnode_mount(vp));
+				if (fnip->fi_flags & MF_DIRECT) {
+					continue;       /* direct map */
+				}
 				fnp->fn_mtime = now;
 				if (vnode_ismonitored(vp) &&
 				    !auto_nobrowse(vp)) {
@@ -1377,7 +1413,7 @@ autofs_ioctl(__unused dev_t dev, u_long cmd, __unused caddr_t data,
 		break;
 	}
 
-	return (error);
+	return error;
 }
 
 /*
@@ -1392,7 +1428,7 @@ auto_is_automounter(int pid)
 	is_automounter = (automounter_pid != 0 &&
 	    (pid == automounter_pid || proc_isinferior(pid, automounter_pid)));
 	lck_rw_unlock_shared(autofs_automounter_pid_rwlock);
-	return (is_automounter);
+	return is_automounter;
 }
 
 /*
@@ -1401,8 +1437,8 @@ auto_is_automounter(int pid)
  */
 struct tracked_process {
 	LIST_ENTRY(tracked_process) entries;
-	int	pid;			/* PID of the nowait process */
-	int	minor;			/* minor device they opened */
+	int     pid;                    /* PID of the nowait process */
+	int     minor;                  /* minor device they opened */
 };
 LIST_HEAD(tracked_process_list, tracked_process);
 
@@ -1416,19 +1452,18 @@ tracked_process_alloc(size_t size, int pid, int minor)
 		tp->pid = pid;
 		tp->minor = minor;
 	}
-	return (tp);
+	return tp;
 }
 
 static void
 tracked_process_free(struct tracked_process *tp)
 {
-
 	kfree_type(struct tracked_process, tp);
 }
 
 static int
 tracked_process_insert(struct tracked_process_list *list,
-		       struct tracked_process *newtp)
+    struct tracked_process *newtp)
 {
 	struct tracked_process *tp;
 
@@ -1444,45 +1479,47 @@ tracked_process_insert(struct tracked_process_list *list,
 			 * This should never happen; caller
 			 * will log error.
 			 */
-			return (EBUSY);
+			return EBUSY;
 		}
 	}
 
 	LIST_INSERT_HEAD(list, newtp, entries);
-	return (0);
+	return 0;
 }
 
 static void
 tracked_process_remove(__unused struct tracked_process_list *list,
-		       struct tracked_process *tp)
+    struct tracked_process *tp)
 {
 	LIST_REMOVE(tp, entries);
 }
 
 static struct tracked_process *
 tracked_process_find_minor(struct tracked_process_list *list,
-			   int minor)
+    int minor)
 {
 	struct tracked_process *tp;
 
 	LIST_FOREACH(tp, list, entries) {
-		if (tp->minor == minor)
-			return (tp);
+		if (tp->minor == minor) {
+			return tp;
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 static struct tracked_process *
 tracked_process_find_pid(struct tracked_process_list *list,
-			 pid_t pid)
+    pid_t pid)
 {
 	struct tracked_process *tp;
 
 	LIST_FOREACH(tp, list, entries) {
-		if (tp->pid == pid)
-			return (tp);
+		if (tp->pid == pid) {
+			return tp;
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -1494,24 +1531,24 @@ tracked_process_find_pid(struct tracked_process_list *list,
  * Closing /dev/autofs_nowait makes you no longer a nowait process;
  * it's closed on exit, so if you exit, you cease to be a nowait process.
  */
-static d_open_t	 autofs_nowait_dev_open;
+static d_open_t  autofs_nowait_dev_open;
 static d_close_t autofs_nowait_dev_close;
 
 struct cdevsw autofs_nowait_cdevsw = {
 	autofs_nowait_dev_open,
 	autofs_nowait_dev_close,
-	eno_rdwrt,	/* d_read */
-	eno_rdwrt,	/* d_write */
+	eno_rdwrt,      /* d_read */
+	eno_rdwrt,      /* d_write */
 	eno_ioctl,
 	eno_stop,
 	eno_reset,
-	0,		/* struct tty ** d_ttys */
+	0,              /* struct tty ** d_ttys */
 	eno_select,
 	eno_mmap,
 	eno_strat,
 	eno_getc,
 	eno_putc,
-	0		/* d_type */
+	0               /* d_type */
 };
 
 struct tracked_process_list nowait_processes;
@@ -1541,14 +1578,14 @@ autofs_nowait_dev_clone(__unused dev_t dev, int action)
 		lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
 		rv = autofs_nowait_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		return (rv);
+		return rv;
 	}
 
 	if (action == DEVFS_CLONE_FREE) {
-		return (0);
+		return 0;
 	}
 
-	return (-1);
+	return -1;
 }
 
 static int
@@ -1570,10 +1607,11 @@ autofs_nowait_dev_open(dev_t dev, __unused int oflags, __unused int devtype,
 	if (error) {
 		printf("autofs_nowait_dev_open: *** error %d for minor %d\n",
 		    error, minor(dev));
-		if (tp != NULL)
+		if (tp != NULL) {
 			tracked_process_free(tp);
+		}
 	}
-	return (error);
+	return error;
 }
 
 static int
@@ -1584,12 +1622,14 @@ autofs_nowait_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 
 	lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
 	tp = tracked_process_find_minor(&nowait_processes, minor(dev));
-	if (tp != NULL)
+	if (tp != NULL) {
 		tracked_process_remove(&nowait_processes, tp);
+	}
 	lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-	if (tp != NULL)
+	if (tp != NULL) {
 		tracked_process_free(tp);
-	return (0);
+	}
+	return 0;
 }
 
 /*
@@ -1603,10 +1643,11 @@ auto_is_nowait_process(int pid)
 
 	lck_rw_lock_shared(autofs_nowait_processes_rwlock);
 	tp = tracked_process_find_pid(&nowait_processes, pid);
-	if (tp != NULL)
+	if (tp != NULL) {
 		rv = 1;
+	}
 	lck_rw_unlock_shared(autofs_nowait_processes_rwlock);
-	return (rv);
+	return rv;
 }
 
 /*
@@ -1617,24 +1658,24 @@ auto_is_nowait_process(int pid)
  * Closing /dev/autofs_notrigger makes you no longer a notrigger process;
  * it's closed on exit, so if you exit, you cease to be a notrigger process.
  */
-static d_open_t	 autofs_notrigger_dev_open;
+static d_open_t  autofs_notrigger_dev_open;
 static d_close_t autofs_notrigger_dev_close;
 
 struct cdevsw autofs_notrigger_cdevsw = {
 	autofs_notrigger_dev_open,
 	autofs_notrigger_dev_close,
-	eno_rdwrt,	/* d_read */
-	eno_rdwrt,	/* d_write */
+	eno_rdwrt,      /* d_read */
+	eno_rdwrt,      /* d_write */
 	eno_ioctl,
 	eno_stop,
 	eno_reset,
-	0,		/* struct tty ** d_ttys */
+	0,              /* struct tty ** d_ttys */
 	eno_select,
 	eno_mmap,
 	eno_strat,
 	eno_getc,
 	eno_putc,
-	0		/* d_type */
+	0               /* d_type */
 };
 
 struct tracked_process_list notrigger_processes;
@@ -1664,14 +1705,14 @@ autofs_notrigger_dev_clone(__unused dev_t dev, int action)
 		lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
 		rv = autofs_notrigger_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		return (rv);
+		return rv;
 	}
 
 	if (action == DEVFS_CLONE_FREE) {
-		return (0);
+		return 0;
 	}
 
-	return (-1);
+	return -1;
 }
 
 static int
@@ -1693,10 +1734,11 @@ autofs_notrigger_dev_open(dev_t dev, __unused int oflags, __unused int devtype,
 	if (error) {
 		printf("autofs_notrigger_dev_open: *** error %d for minor %d\n",
 		    error, minor(dev));
-		if (tp != NULL)
+		if (tp != NULL) {
 			tracked_process_free(tp);
+		}
 	}
-	return (error);
+	return error;
 }
 
 static int
@@ -1707,12 +1749,14 @@ autofs_notrigger_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 
 	lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
 	tp = tracked_process_find_minor(&notrigger_processes, minor(dev));
-	if (tp != NULL)
+	if (tp != NULL) {
 		tracked_process_remove(&notrigger_processes, tp);
+	}
 	lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-	if (tp != NULL)
+	if (tp != NULL) {
 		tracked_process_free(tp);
-	return (0);
+	}
+	return 0;
 }
 
 /*
@@ -1727,15 +1771,17 @@ auto_is_notrigger_process(int pid)
 	/*
 	 * automountd, and anything it runs, is a notrigger process.
 	 */
-	if (auto_is_automounter(pid))
-		return (1);
+	if (auto_is_automounter(pid)) {
+		return 1;
+	}
 
 	lck_rw_lock_shared(autofs_notrigger_processes_rwlock);
 	tp = tracked_process_find_pid(&notrigger_processes, pid);
-	if (tp != NULL)
+	if (tp != NULL) {
 		rv = 1;
+	}
 	lck_rw_unlock_shared(autofs_notrigger_processes_rwlock);
-	return (rv);
+	return rv;
 }
 
 /*
@@ -1750,24 +1796,24 @@ auto_is_notrigger_process(int pid)
  * reverts to triggering mounts; it's closed on exit, so if you exit, you
  * cease to be a homedirmounter process.
  */
-static d_open_t	 autofs_homedirmounter_dev_open;
+static d_open_t  autofs_homedirmounter_dev_open;
 static d_close_t autofs_homedirmounter_dev_close;
 
 struct cdevsw autofs_homedirmounter_cdevsw = {
 	autofs_homedirmounter_dev_open,
 	autofs_homedirmounter_dev_close,
-	eno_rdwrt,	/* d_read */
-	eno_rdwrt,	/* d_write */
+	eno_rdwrt,      /* d_read */
+	eno_rdwrt,      /* d_write */
 	eno_ioctl,
 	eno_stop,
 	eno_reset,
-	0,		/* struct tty ** d_ttys */
+	0,              /* struct tty ** d_ttys */
 	eno_select,
 	eno_mmap,
 	eno_strat,
 	eno_getc,
 	eno_putc,
-	0		/* d_type */
+	0               /* d_type */
 };
 
 /*
@@ -1776,7 +1822,7 @@ struct cdevsw autofs_homedirmounter_cdevsw = {
  */
 struct homedirmounter_process {
 	struct tracked_process tracker;
-	vnode_t mount_point;	/* autofs vnode on which they're doing a mount, if any */
+	vnode_t mount_point;    /* autofs vnode on which they're doing a mount, if any */
 };
 
 static void
@@ -1792,12 +1838,12 @@ homedirmounter_process_free(struct homedirmounter_process *hp)
 			 * homedirmounter
 			 */
 			if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
-			        lck_mtx_unlock(fnp->fn_mnt_lock);
+				lck_mtx_unlock(fnp->fn_mnt_lock);
 			}
 
 			lck_mtx_lock(fnp->fn_lock);
 			fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
-			                   MF_HOMEDIRMOUNT_LOCKED);
+			    MF_HOMEDIRMOUNT_LOCKED);
 			lck_mtx_unlock(fnp->fn_lock);
 		}
 		vnode_rele(vp);
@@ -1832,14 +1878,14 @@ autofs_homedirmounter_dev_clone(__unused dev_t dev, int action)
 		lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
 		rv = autofs_homedirmounter_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		return (rv);
+		return rv;
 	}
 
 	if (action == DEVFS_CLONE_FREE) {
-		return (0);
+		return 0;
 	}
 
-	return (-1);
+	return -1;
 }
 
 static int
@@ -1864,10 +1910,11 @@ autofs_homedirmounter_dev_open(dev_t dev, __unused int oflags, __unused int devt
 	if (error) {
 		printf("autofs_homedirmounter_dev_open: *** error %d for minor %d\n",
 		    error, minor(dev));
-		if (hp != NULL)
+		if (hp != NULL) {
 			homedirmounter_process_free(hp);
+		}
 	}
-	return (error);
+	return error;
 }
 
 static int
@@ -1879,12 +1926,14 @@ autofs_homedirmounter_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 	lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
 	hp = (struct homedirmounter_process *)
 	    tracked_process_find_minor(&homedirmounter_processes, minor(dev));
-	if (hp != NULL)
+	if (hp != NULL) {
 		tracked_process_remove(&homedirmounter_processes, &hp->tracker);
+	}
 	lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-	if (hp != NULL)
+	if (hp != NULL) {
 		homedirmounter_process_free(hp);
-	return (0);
+	}
+	return 0;
 }
 
 /*
@@ -1901,10 +1950,11 @@ auto_is_homedirmounter_process(vnode_t vp, int pid)
 	lck_rw_lock_shared(autofs_homedirmounter_processes_rwlock);
 	hp = (struct homedirmounter_process *)
 	    tracked_process_find_pid(&homedirmounter_processes, pid);
-	if (hp != NULL)
+	if (hp != NULL) {
 		rv = (vp == NULL) || (vp == hp->mount_point);
+	}
 	lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-	return (rv);
+	return rv;
 }
 
 /*
@@ -1979,27 +2029,27 @@ auto_mark_vnode_homedirmount(vnode_t vp, int pid, int need_lock)
 			}
 		}
 		lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-		return (error);
+		return error;
 	}
 	lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-        
-        if ((fnp != NULL) && (need_lock)) {
-                /* 
-                 * <13595777> homedirmounter is getting ready to do a 
-                 * mount. To keep from racing with an autofs mount already
-                 * in progress, take the fn_mnt_lock. This lock will be freed
-                 * in autofs_homedirmounter_dev_close(). Its expected that 
-                 * homedirmounter will open the magic autofs dev, do the magic
-                 * fsctl, then close the magic autofs dev.
-                 */
-                lck_mtx_lock(fnp->fn_mnt_lock);
 
-                lck_mtx_lock(fnp->fn_lock);
-                fnp->fn_flags |= MF_HOMEDIRMOUNT_LOCKED;
-                lck_mtx_unlock(fnp->fn_lock);
-        }
-        
-	return (EINVAL);
+	if ((fnp != NULL) && (need_lock)) {
+		/*
+		 * <13595777> homedirmounter is getting ready to do a
+		 * mount. To keep from racing with an autofs mount already
+		 * in progress, take the fn_mnt_lock. This lock will be freed
+		 * in autofs_homedirmounter_dev_close(). Its expected that
+		 * homedirmounter will open the magic autofs dev, do the magic
+		 * fsctl, then close the magic autofs dev.
+		 */
+		lck_mtx_lock(fnp->fn_mnt_lock);
+
+		lck_mtx_lock(fnp->fn_lock);
+		fnp->fn_flags |= MF_HOMEDIRMOUNT_LOCKED;
+		lck_mtx_unlock(fnp->fn_lock);
+	}
+
+	return EINVAL;
 }
 
 /*
@@ -2010,28 +2060,28 @@ auto_mark_vnode_homedirmount(vnode_t vp, int pid, int need_lock)
  * This is used to ensure that only one instance of the automount command
  * is running at a time.
  */
-static d_open_t	 auto_control_dev_open;
+static d_open_t  auto_control_dev_open;
 static d_close_t auto_control_dev_close;
 static d_ioctl_t auto_control_ioctl;
 
 struct cdevsw autofs_control_cdevsw = {
 	auto_control_dev_open,
 	auto_control_dev_close,
-	eno_rdwrt,	/* d_read */
-	eno_rdwrt,	/* d_write */
+	eno_rdwrt,      /* d_read */
+	eno_rdwrt,      /* d_write */
 	auto_control_ioctl,
 	eno_stop,
 	eno_reset,
-	0,		/* struct tty ** d_ttys */
+	0,              /* struct tty ** d_ttys */
 	eno_select,
 	eno_mmap,
 	eno_strat,
 	eno_getc,
 	eno_putc,
-	0		/* d_type */
+	0               /* d_type */
 };
 
-int	autofs_control_isopen;
+int     autofs_control_isopen;
 lck_mtx_t *autofs_control_isopen_lock;
 
 static int
@@ -2041,11 +2091,11 @@ auto_control_dev_open(__unused dev_t dev, __unused int oflags,
 	lck_mtx_lock(autofs_control_isopen_lock);
 	if (autofs_control_isopen) {
 		lck_mtx_unlock(autofs_control_isopen_lock);
-		return (EBUSY);
+		return EBUSY;
 	}
 	autofs_control_isopen = 1;
 	lck_mtx_unlock(autofs_control_isopen_lock);
-	return (0);
+	return 0;
 }
 
 static int
@@ -2055,7 +2105,7 @@ auto_control_dev_close(__unused dev_t dev, __unused int flag,
 	lck_mtx_lock(autofs_control_isopen_lock);
 	autofs_control_isopen = 0;
 	lck_mtx_unlock(autofs_control_isopen_lock);
-	return (0);
+	return 0;
 }
 
 static int
@@ -2075,11 +2125,11 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 		autofs_zone_set_globals(fngp);
 	}
 	lck_mtx_unlock(autofs_global_lock);
-	if (fngp == NULL)
-		return (ENOMEM);
+	if (fngp == NULL) {
+		return ENOMEM;
+	}
 
 	switch (cmd) {
-
 	case AUTOFS_SET_MOUNT_TO:
 		trigger_set_mount_to(*(int *)data);
 		error = 0;
@@ -2095,7 +2145,7 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 		update_args.node_type = update_argsp_32->node_type;
 		error = auto_update_options(&update_args);
 		break;
-		
+
 	case AUTOFS_UPDATE_OPTIONS_64:
 		error = auto_update_options((struct autofs_update_args_64 *)data);
 		break;
@@ -2152,7 +2202,7 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 			lck_rw_lock_exclusive(fnip->fi_rwlock);
 			fnip->fi_flags |= MF_UNMOUNTING;
 			lck_rw_unlock_exclusive(fnip->fi_rwlock);
-			
+
 			/*
 			 * Unmount the file system with the specified
 			 * fsid; that will provoke an unmount of
@@ -2185,5 +2235,5 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 		break;
 	}
 
-	return (error);
+	return error;
 }

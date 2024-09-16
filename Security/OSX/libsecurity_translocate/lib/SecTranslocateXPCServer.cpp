@@ -25,6 +25,8 @@
 #include <vector>
 
 #include <dispatch/dispatch.h>
+#include <os/log.h>
+#include <libproc.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
 #include <sandbox.h>
@@ -146,11 +148,25 @@ XPCServer::XPCServer(dispatch_queue_t q):notificationQ(q)
                         xpc_connection_get_audit_token(connection, &audit_token);
                         secdebug("sectranslocate","SecTranslocate: XPCServer, pid %d requested %s", xpc_connection_get_pid(connection), function);
                         xpc_object_t reply = xpc_dictionary_create_reply(msg);
+                        // We expect to send a reply in all cases except for the check-in function.
+                        if (reply == NULL && (function == NULL || strcmp(function, kSecTranslocateXPCFuncCheckIn))) {
+                            secerror("SecTranslocate: unable to create XPC reply (missing reply context?)");
+                            xpc_release(msg);
+                            return;
+                        }
                         try {
                             if (function == NULL) {
                                 xpc_dictionary_set_int64(reply, kSecTranslocateXPCReplyError, EINVAL);
                             } else if (!strcmp(function, kSecTranslocateXPCFuncCreate)) {
-                                doCreate(msg, reply, audit_token);
+                                xpc_object_t ent = xpc_connection_copy_entitlement_value(connection, "com.apple.private.app-translocation.create");
+                                if (ent) {
+                                    doCreate(msg, reply, audit_token);
+                                } else {
+                                    char processPath[MAXPATHLEN+1] = {0};
+                                    proc_pidpath(xpc_connection_get_pid(connection), processPath, sizeof(processPath));
+                                    os_log_fault(OS_LOG_DEFAULT, "unentitled caller attempting to create app translocation: %s", processPath);
+                                    UnixError::throwMe(EPERM);
+                                }
                             } else if (!strcmp(function, kSecTranslocateXPCFuncCheckIn)) {
                                 doCheckIn(msg);
                             } else {

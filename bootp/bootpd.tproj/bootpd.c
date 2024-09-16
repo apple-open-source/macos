@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -130,6 +130,7 @@
 #endif /* NETBOOT_SERVER_SUPPORT */
 #define CFGPROP_RELAY_ENABLED		"relay_enabled"
 #define CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER	"dhcp_ignore_client_identifier"
+#define CFGPROP_DHCP_SUPPLY_BOOTFILE	"dhcp_supply_bootfile"
 #define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
 #define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
 #define CFGPROP_IPV6_ONLY_PREFERRED	"ipv6_only_preferred"
@@ -180,7 +181,8 @@ static const char *	S_bootpd_plist_path = BOOTPD_PLIST_PATH;
 char		boot_tftp_dir[128] = "/private/tftpboot";
 int		bootp_socket = -1;
 bool		debug;
-bool		dhcp_ignore_client_identifier = FALSE;
+bool		dhcp_ignore_client_identifier;
+bool		dhcp_supply_bootfile;
 int		quiet = 0;
 uint32_t	reply_threshold_seconds = 0;
 unsigned short	server_priority = BSDP_PRIORITY_BASE;
@@ -978,13 +980,24 @@ S_update_services()
 
 
     /* ignore the DHCP client identifier */
-    dhcp_ignore_client_identifier = FALSE;
+    dhcp_ignore_client_identifier = false;
     num = 0;
     SET_NUMBER_FROM_PLIST(plist,
 			  CFGPROP_DHCP_IGNORE_CLIENT_IDENTIFIER,
 			  &num);
     if (num != 0) {
-	dhcp_ignore_client_identifier = TRUE;
+	dhcp_ignore_client_identifier = true;
+    }
+    /* DHCP should supply the bootfile if so configured in bootptab */
+    dhcp_supply_bootfile = false;
+    num = 0;
+    SET_NUMBER_FROM_PLIST(plist,
+			  CFGPROP_DHCP_SUPPLY_BOOTFILE,
+			  &num);
+    if (num != 0) {
+	dhcp_supply_bootfile = true;
+	my_log(LOG_INFO, "%s is enabled",
+	       CFGPROP_DHCP_SUPPLY_BOOTFILE);
     }
 #if USE_OPEN_DIRECTORY
     /* use open directory [for bootpent queries] */

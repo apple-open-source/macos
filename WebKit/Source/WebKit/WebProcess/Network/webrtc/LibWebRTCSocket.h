@@ -30,6 +30,7 @@
 #include <WebCore/LibWebRTCProvider.h>
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <wtf/Forward.h>
+#include <wtf/Identified.h>
 #include <wtf/WeakPtr.h>
 
 ALLOW_COMMA_BEGIN
@@ -37,6 +38,15 @@ ALLOW_COMMA_BEGIN
 #include <webrtc/rtc_base/async_packet_socket.h>
 
 ALLOW_COMMA_END
+
+namespace WebKit {
+class LibWebRTCSocket;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::LibWebRTCSocket> : std::true_type { };
+}
 
 namespace IPC {
 class Connection;
@@ -47,7 +57,7 @@ namespace WebKit {
 
 class LibWebRTCSocketFactory;
 
-class LibWebRTCSocket final : public rtc::AsyncPacketSocket, public CanMakeWeakPtr<LibWebRTCSocket> {
+class LibWebRTCSocket final : public rtc::AsyncPacketSocket, public CanMakeWeakPtr<LibWebRTCSocket>, public Identified<WebCore::LibWebRTCSocketIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Type { UDP, ClientTCP, ServerConnectionTCP };
@@ -56,7 +66,6 @@ public:
     ~LibWebRTCSocket();
 
     WebCore::ScriptExecutionContextIdentifier contextIdentifier() const { return m_contextIdentifier; }
-    WebCore::LibWebRTCSocketIdentifier identifier() const { return m_identifier; }
     const rtc::SocketAddress& localAddress() const { return m_localAddress; }
     const rtc::SocketAddress& remoteAddress() const { return m_remoteAddress; }
 
@@ -70,8 +79,8 @@ private:
     bool willSend(size_t);
 
     friend class LibWebRTCNetwork;
-    void signalReadPacket(const uint8_t*, size_t, rtc::SocketAddress&&, int64_t);
-    void signalSentPacket(int, int64_t);
+    void signalReadPacket(std::span<const uint8_t>, rtc::SocketAddress&&, int64_t);
+    void signalSentPacket(int64_t, int64_t);
     void signalAddressReady(const rtc::SocketAddress&);
     void signalConnect();
     void signalClose(int);
@@ -90,7 +99,6 @@ private:
     int SetOption(rtc::Socket::Option, int) final;
 
     LibWebRTCSocketFactory& m_factory;
-    WebCore::LibWebRTCSocketIdentifier m_identifier;
     Type m_type;
     rtc::SocketAddress m_localAddress;
     rtc::SocketAddress m_remoteAddress;

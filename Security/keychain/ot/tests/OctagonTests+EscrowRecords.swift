@@ -22,10 +22,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                  otControl: self.otControl,
+                                                                  altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -53,6 +52,13 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords: [OTEscrowRecord] = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 1, "should be 1 escrow record")
+
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            XCTAssertEqual(firstRecord.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+
             let reduced = escrowRecords.compactMap { $0.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -77,10 +83,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -152,6 +157,26 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -166,6 +191,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -188,6 +231,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow record")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -213,10 +274,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -286,6 +346,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -299,6 +377,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -349,6 +445,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
             uncachedViableBottlesFetchExpectation.fulfill()
@@ -376,10 +490,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -438,6 +551,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let escrowRecordDatas1 = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
         let escrowRecords1 = escrowRecordDatas1.map { OTEscrowRecord(data: $0) }
         XCTAssertNotNil(escrowRecords1, "escrowRecords should not be nil")
+        var firstRecord = escrowRecords1[0]
+        XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+        XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+        XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+        if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+            XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+        } else {
+            XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+        }
+        var secondRecord = escrowRecords1[1]
+        XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+        XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+        XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+        if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+            XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+        } else {
+            XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+        }
         XCTAssertEqual(escrowRecords1.count, 2, "should be 2 escrow records")
 
         let fakeAccount2 = FakeCKAccountInfo()
@@ -452,6 +583,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let escrowRecordDatas2 = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
         let escrowRecords2 = escrowRecordDatas2.map { OTEscrowRecord(data: $0) }
         XCTAssertNotNil(escrowRecords2, "escrowRecords should not be nil")
+        firstRecord = escrowRecords2[0]
+        XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+        XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+        XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+        if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+            XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+        } else {
+            XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+        }
+        secondRecord = escrowRecords2[1]
+        XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+        XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+        XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+        if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+            XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+        } else {
+            XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+        }
         XCTAssertEqual(escrowRecords2.count, 2, "should be 2 escrow records")
     }
 
@@ -471,10 +620,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         bottlerotcliqueContext.overrideEscrowCache = false
 
         do {
@@ -532,6 +680,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -557,6 +723,24 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             let escrowRecords = escrowRecordDatas.map { OTEscrowRecord(data: $0) }
             XCTAssertNotNil(escrowRecords, "escrowRecords should not be nil")
             XCTAssertEqual(escrowRecords.count, 2, "should be 2 escrow records")
+            let firstRecord = escrowRecords[0]
+            XCTAssertNotNil(firstRecord, "escrow record should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(firstRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if firstRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(firstRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
+            let secondRecord = escrowRecords[1]
+            XCTAssertNotNil(secondRecord, "escrow record should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.build, "build should not be nil")
+            XCTAssertNotNil(secondRecord!.escrowInformationMetadata.passcodeGeneration, "passcode generation should not be nil")
+            if secondRecord?.escrowInformationMetadata.clientMetadata.deviceName == "establish device" {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 1, "passcode generation should be 1")
+            } else {
+                XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
+            }
             let reduced = escrowRecords.compactMap { $0!.escrowInformationMetadata.bottleId }
             XCTAssert(reduced.contains(bottle.bottleID), "The bottle we're about to restore should be viable")
         } catch {
@@ -672,12 +856,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.startCKAccountStatusMock()
 
-        let initiatorContextID = "joiner"
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
-
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         // SOS TLK shares will be uploaded after the establish
@@ -690,6 +871,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
 
+        let initiatorContextID = "joiner"
         let joinerContext = self.makeInitiatorContext(contextID: initiatorContextID)
         self.assertJoinViaEscrowRecovery(joiningContext: joinerContext, sponsor: self.cuttlefishContext)
 
@@ -801,10 +983,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -865,10 +1046,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -991,10 +1171,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1082,10 +1261,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1168,10 +1346,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = contextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: contextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1234,10 +1411,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1314,10 +1490,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1397,11 +1572,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
-
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         let clique = OTClique(contextData: bottlerotcliqueContext)
         OctagonSetSOSFeatureEnabled(false)
         XCTAssertNoThrow(try clique.leave(), "Should be NO error departing clique")
@@ -1494,11 +1667,10 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
     /// Tests the -[OTClique initWithContextData] initializer method and ensures supported
     /// properties are transferred correctly.
     func testCliqueInitWithContextData() throws {
-        let ctx = OTConfigurationContext()
-        ctx.context = "testctx"
+        let ctx = self.createOTConfigurationContextForTests(contextID: "testctx",
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         ctx.containerName = "testname"
-        ctx.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        ctx.otControl = self.otControl
         ctx.ckksControl = self.ckksControl
         ctx.escrowFetchSource = .cache
         ctx.overrideForSetupAccountScript = true
@@ -1517,10 +1689,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1601,10 +1772,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1683,10 +1853,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         let initiatorContextID = "initiator-context-id"
         try self.setupTLKRecoverability(contextID: initiatorContextID)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = OTDefaultContext
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
         var fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")

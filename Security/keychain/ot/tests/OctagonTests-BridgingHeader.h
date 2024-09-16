@@ -37,7 +37,6 @@
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTManager.h"
-#import "keychain/ot/OTClientStateMachine.h"
 
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTDefines.h"
@@ -63,6 +62,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 
 #import "keychain/ot/OctagonControlServer.h"
 
@@ -87,6 +87,7 @@
 
 // Also, we're going to need whatever TPH needs.
 #import "keychain/TrustedPeersHelper/TrustedPeersHelper-Bridging-Header.h"
+#import "keychain/trust/TrustedPeersTests/TPModelInMemoryDb.h"
 
 #import "keychain/SecureObjectSync/SOSControlServer.h"
 #import "KeychainCircle/Tests/FakeSOSControl.h"
@@ -104,3 +105,7 @@
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServer.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestController.h"
 #import "keychain/keychainupgrader/KeychainItemUpgradeRequestServerHelpers.h"
+
+#import <CloudKit/CKError.h>
+#import <AuthKit/AKError.h>
+#import <CloudServices/SecureBackup.h>

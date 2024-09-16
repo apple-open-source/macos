@@ -44,6 +44,7 @@
 #include <utilities/array_size.h>
 #include <keychain/ckks/CKKS.h>
 #include "keychain/ot/OTConstants.h"
+#include "keychain/ot/Affordance_OTConstants.h"
 
 /*
  *

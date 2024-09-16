@@ -26,9 +26,9 @@
 #include "config.h"
 #include "WebPasteboardProxy.h"
 
-#include "SharedMemory.h"
 #include "WebPasteboardProxyMessages.h"
 #include "WebProcessProxy.h"
+#include <WebCore/SharedMemory.h>
 #include <mutex>
 #include <wtf/CompletionHandler.h>
 #include <wtf/NeverDestroyed.h>
@@ -39,6 +39,10 @@
 #endif
 
 namespace WebKit {
+
+#if PLATFORM(COCOA)
+WebPasteboardProxy::PasteboardAccessInformation::~PasteboardAccessInformation() = default;
+#endif
 
 WebPasteboardProxy& WebPasteboardProxy::singleton()
 {

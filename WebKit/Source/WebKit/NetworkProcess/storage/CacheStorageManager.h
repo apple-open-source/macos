@@ -29,6 +29,15 @@
 #include <WebCore/DOMCacheEngine.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebKit {
+class CacheStorageManager;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::CacheStorageManager> : std::true_type { };
+}
+
 namespace WebCore {
 struct ClientOrigin;
 }
@@ -69,6 +78,7 @@ public:
     void requestSpace(uint64_t size, CompletionHandler<void(bool)>&&);
     void sizeIncreased(uint64_t amount);
     void sizeDecreased(uint64_t amount);
+    void reset();
 
 private:
     void makeDirty();
@@ -81,7 +91,7 @@ private:
     bool m_isInitialized { false };
     uint64_t m_updateCounter;
     std::optional<uint64_t> m_size;
-    std::pair<uint64_t, size_t> m_pendingSize;
+    std::pair<uint64_t, HashSet<WebCore::DOMCacheIdentifier>> m_pendingSize;
     String m_path;
     FileSystem::Salt m_salt;
     CacheStorageRegistry& m_registry;

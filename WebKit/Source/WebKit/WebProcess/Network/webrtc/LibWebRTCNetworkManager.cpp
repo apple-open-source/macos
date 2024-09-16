@@ -30,9 +30,14 @@
 
 #include "LibWebRTCNetwork.h"
 #include "Logging.h"
+#include "NetworkProcessConnection.h"
+#include "NetworkRTCProviderMessages.h"
+#include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/Document.h>
 #include <WebCore/LibWebRTCUtils.h>
+#include <WebCore/Page.h>
+#include <wtf/EnumTraits.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -123,7 +128,11 @@ void LibWebRTCNetworkManager::StopUpdating()
 
 webrtc::MdnsResponderInterface* LibWebRTCNetworkManager::GetMdnsResponder() const
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    return nullptr;
+#else
     return m_useMDNSCandidates ? const_cast<LibWebRTCNetworkManager*>(this) : nullptr;
+#endif
 }
 
 void LibWebRTCNetworkManager::networksChanged(const Vector<RTCNetwork>& networks, const RTCNetwork::IPAddress& ipv4, const RTCNetwork::IPAddress& ipv6)
@@ -141,8 +150,27 @@ void LibWebRTCNetworkManager::networksChanged(const Vector<RTCNetwork>& networks
     if (m_enableEnumeratingAllNetworkInterfaces)
         filteredNetworks = networks;
     else {
+#if PLATFORM(COCOA)
+        if (!m_useMDNSCandidates && m_enableEnumeratingVisibleNetworkInterfaces && m_allowedInterfaces.isEmpty() && !m_hasQueriedInterface) {
+            RefPtr document = WebCore::Document::allDocumentsMap().get(m_documentIdentifier);
+            RefPtr page = document ? document->page() : nullptr;
+            RefPtr webPage = page ? WebPage::fromCorePage(*page) : nullptr;
+            if (webPage) {
+                m_hasQueriedInterface = true;
+
+                RegistrableDomain domain { document->url() };
+                bool isFirstParty = domain == RegistrableDomain(document->firstPartyForCookies());
+                bool isRelayDisabled = true;
+                WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkRTCProvider::GetInterfaceName { document->url(), webPage->webPageProxyIdentifier(), isFirstParty, isRelayDisabled, WTFMove(domain) }, [weakThis = WeakPtr { *this }] (auto&& interfaceName) {
+                    RefPtr protectedThis = weakThis.get();
+                    if (protectedThis && !interfaceName.isNull())
+                        protectedThis->signalUsedInterface(WTFMove(interfaceName));
+                }, 0);
+            }
+        }
+#endif
         for (auto& network : networks) {
-            if (WTF::anyOf(network.ips, [&](const auto& ip) { return ipv4.rtcAddress() == ip.rtcAddress() || ipv6.rtcAddress() == ip.rtcAddress(); }) || (!m_useMDNSCandidates && m_enableEnumeratingVisibleNetworkInterfaces && m_allowedInterfaces.contains(String::fromUTF8(network.name.data(), network.name.size()))))
+            if (WTF::anyOf(network.ips, [&](const auto& ip) { return ipv4.rtcAddress() == ip.rtcAddress() || ipv6.rtcAddress() == ip.rtcAddress(); }) || (!m_useMDNSCandidates && m_enableEnumeratingVisibleNetworkInterfaces && m_allowedInterfaces.contains(String::fromUTF8(network.name))))
                 filteredNetworks.append(network);
         }
     }
@@ -159,6 +187,14 @@ void LibWebRTCNetworkManager::networksChanged(const Vector<RTCNetwork>& networks
             SignalNetworksChanged();
     });
 
+}
+
+const String& LibWebRTCNetworkManager::interfaceNameForTesting() const
+{
+    ASSERT(isMainRunLoop());
+    for (auto& name : m_allowedInterfaces)
+        return name;
+    return emptyString();
 }
 
 void LibWebRTCNetworkManager::signalUsedInterface(String&& name)
@@ -192,7 +228,7 @@ void LibWebRTCNetworkManager::CreateNameForAddress(const rtc::IPAddress& address
 
         WebProcess::singleton().libWebRTCNetwork().mdnsRegister().registerMDNSName(weakThis->m_documentIdentifier, fromStdString(address.ToString()), [address, callback = std::move(callback)](auto name, auto error) mutable {
             WebCore::LibWebRTCProvider::callOnWebRTCNetworkThread([address, callback = std::move(callback), name = WTFMove(name).isolatedCopy(), error] {
-                RELEASE_LOG_ERROR_IF(error, WebRTC, "MDNS registration of a host candidate failed with error %hhu", *error);
+                RELEASE_LOG_ERROR_IF(error, WebRTC, "MDNS registration of a host candidate failed with error %hhu", enumToUnderlyingType(*error));
                 // In case of error, we provide the name to let gathering complete.
                 callback(address, name.utf8().data());
             });

@@ -10,6 +10,12 @@
 	<real>7.2982454299926758</real>
 	<key>BlackSpecular</key>
 	<real>0.82894736528396606</real>
+	<key>BlackRoughness</key>
+	<real>0.2</real>
+	<key>BlackMetallic</key>
+	<real>0</real>
+	<key>BlackAmbientOcclusion</key>
+	<real>1</real>
 	<key>WhiteAlpha</key>
 	<real>1</real>
 	<key>WhiteDiffuse</key>
@@ -17,6 +23,12 @@
 	<key>WhiteShininess</key>
 	<real>17.403509140014648</real>
 	<key>WhiteSpecular</key>
+	<real>1</real>
+	<key>WhiteRoughness</key>
+	<real>0.2</real>
+	<key>WhiteMetallic</key>
+	<real>0</real>
+	<key>WhiteAmbientOcclusion</key>
 	<real>1</real>
 </dict>
 </plist>

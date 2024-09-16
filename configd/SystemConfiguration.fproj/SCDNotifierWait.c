@@ -96,7 +96,7 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
 		/* the server closed the notifier port */
 #ifdef	DEBUG
-		SC_log(LOG_DEBUG, "notifier port closed, port %d", port);
+		SC_log(LOG_DEBUG, "notifier port closed, port %u", port);
 #endif	/* DEBUG */
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;
@@ -105,7 +105,7 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	if (msgid == -1) {
 		/* one of the mach routines returned an error */
 #ifdef	DEBUG
-		SC_log(LOG_DEBUG, "communication with server failed, remove port right %d", port);
+		SC_log(LOG_DEBUG, "communication with server failed, remove port right %u", port);
 #endif	/* DEBUG */
 		(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE , -1);
 		_SCErrorSet(kSCStatusNoStoreServer);

@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fread.c,v 1.16 2009/07/12 13:09:43 ed Exp
 #include "un-namespace.h"
 #include "local.h"
 #include "libc_private.h"
+#include "libc_hooks_impl.h"
 
 /*
  * MT-safe version
@@ -51,6 +52,8 @@ size_t
 fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
 {
 	size_t ret;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	FLOCKFILE(fp);
 	ret = __fread(buf, size, count, fp);
@@ -145,6 +148,8 @@ __fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
 	size_t resid;
 	int r, ret;
 	size_t total;
+
+	libc_hooks_will_write(buf, size * count);
 
 	/*
 	 * ANSI and SUSv2 require a return value of 0 if size or count are 0.

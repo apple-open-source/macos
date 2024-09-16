@@ -50,15 +50,14 @@ public:
     bool isSupportedPropertyIndex(unsigned index) const { return index < m_inbandTracks.size(); }
     VideoTrack* item(unsigned) const;
     VideoTrack* lastItem() const { return item(length() - 1); }
+    VideoTrack* selectedItem() const;
     void append(Ref<VideoTrack>&&);
 
     // EventTarget
-    EventTargetInterface eventTargetInterface() const override;
+    enum EventTargetInterfaceType eventTargetInterface() const override;
 
 private:
     VideoTrackList(ScriptExecutionContext*);
-
-    const char* activeDOMObjectName() const final;
 };
 static_assert(sizeof(VideoTrackList) == sizeof(TrackListBase));
 

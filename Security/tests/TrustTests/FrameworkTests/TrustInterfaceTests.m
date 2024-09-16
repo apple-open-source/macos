@@ -688,12 +688,14 @@ errOut:
     /* correct API behavior */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     is(SecTrustSerialize(NULL, &error), NULL, "serialize succeeded with null input");
     is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad serialization input");
     CFReleaseNull(error);
     is(SecTrustDeserialize(NULL, &error), NULL, "deserialize succeeded with null input");
     is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad deserialization input");
     CFReleaseNull(error);
+#endif
 #pragma clang diagnostic pop
 
 errOut:
@@ -823,14 +825,17 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     XCTAssert(errSecParam == SecTrustEvaluateFastAsync(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
         XCTAssert(false, "callback called with invalid parameter");
     }));
+#endif
 #pragma clang diagnostic pop
 
     /* expect success */
     dispatch_async(queue, ^{
         XCTAssert(errSecSuccess == SecTrustEvaluateFastAsync(trust, queue, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
+            dispatch_assert_queue(queue);
             XCTAssert(trustRef != NULL);
             XCTAssert(trustResult == kSecTrustResultUnspecified);
             [blockExpectation fulfill];
@@ -847,6 +852,7 @@ errOut:
     blockExpectation = [self expectationWithDescription:@"callback occurs"];
     dispatch_async(queue, ^{
         XCTAssert(errSecSuccess == SecTrustEvaluateFastAsync(trust, queue, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
+            dispatch_assert_queue(queue);
             XCTAssert(trustRef != NULL);
             XCTAssert(trustResult == kSecTrustResultRecoverableTrustFailure);
             [blockExpectation fulfill];
@@ -854,6 +860,20 @@ errOut:
     });
 
     [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
+    
+    /* expect not crash when we abandon queue while in SecTrustEvaluateFastAsync */
+    dispatch_group_t group = dispatch_group_create();
+    for (int i = 0; i < 100; i++) {
+        dispatch_queue_t q = dispatch_queue_create("foo", NULL);
+        dispatch_group_enter(group);
+        dispatch_async(q, ^{
+            (void)SecTrustEvaluateFastAsync(trust, q, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
+                dispatch_group_leave(group);
+            });
+        });
+    }
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+
 
     CFReleaseNull(cert0);
     CFReleaseNull(cert1);
@@ -889,9 +909,11 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     XCTAssert(errSecParam == SecTrustEvaluateAsyncWithError(trust, NULL, ^(SecTrustRef  _Nonnull trustRef, bool result, CFErrorRef  _Nullable error) {
         XCTAssert(false, "callback called with invalid parameter");
     }));
+#endif
 #pragma clang diagnostic pop
 
     /* expect success */
@@ -931,6 +953,68 @@ errOut:
     CFReleaseNull(trust);
 }
 
+- (void)testEvaluateAsyncWithError_VeryAsync {
+    SecCertificateRef cert0 = NULL, cert1 = NULL, cert2 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    NSArray *certificates = nil, *roots = nil;
+    NSDate *validDate = nil;
+    dispatch_queue_t queue = dispatch_queue_create("com.apple.trusttests.EvalAsync", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+    dispatch_queue_t concurrentQueue = dispatch_queue_create("com.apple.trusttests.EvalAsync.concurrent", DISPATCH_QUEUE_CONCURRENT_WITH_AUTORELEASE_POOL);
+    __block XCTestExpectation *blockExpectation = [self expectationWithDescription:@"callback occurs"];
+
+    cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl));
+    cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss));
+    cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root));
+
+    certificates = @[ (__bridge id)cert0, (__bridge id)cert1 ];
+    roots = @[ (__bridge id)cert2 ];
+
+    policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com"));
+    XCTAssert(errSecSuccess == SecTrustCreateWithCertificates((__bridge CFArrayRef)certificates, policy, &trust));
+    XCTAssert(errSecSuccess == SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)roots));
+
+    /* April 10 2015 (cert expired in 2015) */
+    validDate = CFBridgingRelease(CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0));
+    XCTAssert(errSecSuccess == SecTrustSetVerifyDate(trust, (__bridge CFDateRef)validDate));
+
+    /* trigger 10 asynchronous evaluations on serial queue */
+    blockExpectation.expectedFulfillmentCount = 10;
+    for (int i = 0; i < 10; i++) {
+        dispatch_async(queue, ^{
+            XCTAssert(errSecSuccess == SecTrustEvaluateAsyncWithError(trust, queue, ^(SecTrustRef  _Nonnull trustRef, bool result, CFErrorRef  _Nullable error) {
+                XCTAssertEqual(result, true);
+                XCTAssertEqual(error, NULL, "error: %@", error);
+                [blockExpectation fulfill];
+            }));
+        });
+    }
+
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
+
+    /* trigger 10 asynchronous evaluations on concurrent queue */
+    SecTrustSetNeedsEvaluation(trust);
+    blockExpectation = [self expectationWithDescription:@"callback occurs"];
+    blockExpectation.expectedFulfillmentCount = 10;
+    for (int i = 0; i < 10; i++) {
+        dispatch_async(concurrentQueue, ^{
+            XCTAssert(errSecSuccess == SecTrustEvaluateAsyncWithError(trust, concurrentQueue, ^(SecTrustRef  _Nonnull trustRef, bool result, CFErrorRef  _Nullable error) {
+                XCTAssertEqual(result, true);
+                XCTAssertEqual(error, NULL);
+                [blockExpectation fulfill];
+            }));
+        });
+    }
+
+    [self waitForExpectations:@[blockExpectation] timeout:4.0]; // timeout should be more than the OCSP timeout
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(cert2);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)testCopyProperties_ios
@@ -938,11 +1022,13 @@ errOut:
     /* Test null input */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
 #if TARGET_OS_IPHONE
     XCTAssertEqual(NULL, SecTrustCopyProperties(NULL));
 #else
     XCTAssertEqual(NULL, SecTrustCopyProperties_ios(NULL));
-#endif
+#endif // TARGET_OS_IPHONE
+#endif // __clang_analyzer__
 #pragma clang diagnostic pop
 
     NSURL *testPlist = nil;
@@ -1087,8 +1173,10 @@ errOut:
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     // NULL passed as 'trust' newly generates a warning, we need to suppress it in order to compile
     is_status(SecTrustSetOCSPResponse(NULL, resp), errSecParam, "SecTrustSetOCSPResponse param 1 check OK");
+#endif
 #pragma clang diagnostic pop
     is_status(SecTrustSetOCSPResponse(trust, NULL), errSecSuccess, "SecTrustSetOCSPResponse param 2 check OK");
     is_status(SecTrustSetOCSPResponse(trust, resp), errSecSuccess, "SecTrustSetOCSPResponse OK");

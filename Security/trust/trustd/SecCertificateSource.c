@@ -52,11 +52,7 @@
  ***************** OTA Trust support ********************
  ********************************************************/
 
-
 //#ifndef SECITEM_SHIM_OSX
-
-static CFArrayRef subject_to_anchors(CFDataRef nic);
-static CFArrayRef CopyCertsFromIndices(CFArrayRef offsets);
 
 static CFArrayRef subject_to_anchors(CFDataRef nic)
 {
@@ -92,6 +88,59 @@ static CFArrayRef subject_to_anchors(CFDataRef nic)
     CFReleaseSafe(lookupTable);
     CFReleaseSafe(sha1Digest);
 
+    return result;
+}
+
+static CFArrayRef copy_anchor_offsets(void)
+{
+    CFMutableArrayRef result = NULL;
+    CFDictionaryRef lookupTable = NULL;
+    CFTypeRef *values = NULL;
+    SecOTAPKIRef otapkiref = NULL;
+
+    result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (!result) { secerror("Unable to allocate anchor array"); }
+    require_quiet(result, errOut);
+
+    otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+    if (!otapkiref) { secerror("Unable to retrieve current OTAPKIRef"); }
+    require_quiet(otapkiref, errOut);
+
+    lookupTable = SecOTAPKICopyAnchorLookupTable(otapkiref);
+    if (!lookupTable) { secerror("Unable to retrieve anchor lookup table"); }
+    require_quiet(lookupTable, errOut);
+
+    CFIndex ix, jx, count = CFDictionaryGetCount(lookupTable);
+    bool countOk = (count >= 1 && count <= 8192);
+    if (!countOk) { secerror("Unexpected system store count: %lld", (long long)count); }
+    require_quiet(countOk, errOut);
+
+    values = (CFTypeRef*)calloc((size_t)count, sizeof(CFTypeRef*));
+    if (!values) { secerror("Failed to allocate buffer for %lld values", (long long)count); }
+    require_quiet(values, errOut);
+
+    CFDictionaryGetKeysAndValues(lookupTable, NULL, (const void **)values);
+    for (ix = 0; ix < count; ix++) {
+        CFArrayRef offsets = (CFArrayRef)values[ix];
+        if (offsets) {
+            if (CFGetTypeID(offsets) != CFArrayGetTypeID()) {
+                secerror("Failed to get CFArray type in values, skipping item");
+            } else {
+                CFIndex offsetCount = CFArrayGetCount(offsets);
+                for (jx = 0; jx < offsetCount; jx++) {
+                    CFTypeRef value = CFArrayGetValueAtIndex(offsets, jx);
+                    if (value) {
+                        CFArrayAppendValue(result, value);
+                    }
+                }
+            }
+        }
+    }
+
+errOut:
+    free(values);
+    CFReleaseNull(lookupTable);
+    CFReleaseNull(otapkiref);
     return result;
 }
 
@@ -406,6 +455,24 @@ errOut:
     CFReleaseSafe(cert_datas);
     CFReleaseSafe(otapkiref);
     return result;
+}
+
+CFArrayRef SecSystemAnchorSourceCopyCertificates(void) {
+    CFArrayRef anchors = NULL;
+    SecOTAPKIRef otapkiref = NULL;
+    CFArrayRef certDatas = NULL;
+
+    otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+    require_quiet(otapkiref, errOut);
+    anchors = copy_anchor_offsets();
+    require_quiet(anchors, errOut);
+    certDatas = CopyCertDataFromIndices(anchors);
+    require_quiet(certDatas, errOut);
+
+errOut:
+    CFReleaseNull(anchors);
+    CFReleaseNull(otapkiref);
+    return certDatas;
 }
 
 struct SecCertificateSource _kSecSystemAnchorSource = {

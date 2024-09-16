@@ -27,11 +27,11 @@ compress/zopen.3	freebsd	usr.bin/compress/zopen.3	fbbd9655e5107c68e4e0146ff22b73
 compress/zopen.c	freebsd	usr.bin/compress/zopen.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 compress/zopen.h	freebsd	usr.bin/compress/zopen.h	1de7b4b805ddbf2429da511c053686ac4591ed89
 
-cp/cp.1	freebsd	bin/cp/cp.1	97e13037915c22162f199461f56951793d669f57
-cp/cp.c	freebsd	bin/cp/cp.c	cb96a0ef0040fa7968245ab203ab70a7ed2d275d
-cp/extern.h	freebsd	bin/cp/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-cp/utils.c	freebsd	bin/cp/utils.c	cb96a0ef0040fa7968245ab203ab70a7ed2d275d
-cp/tests/cp_test.sh	freebsd	bin/cp/tests/cp_test.sh	8b418c83d175fde3b1f65210509ddcf2ac248d9f
+cp/cp.1	freebsd	bin/cp/cp.1	aaa1806f68ef3102a9b888a03360f166b88618c8
+cp/cp.c	freebsd	bin/cp/cp.c	f070188c3ad6b87ee9ce220b21718333d1bd9d52
+cp/extern.h	freebsd	bin/cp/extern.h	5a52e3d00dd5e0209f6fcb1e41b5985191e6f4e7
+cp/utils.c	freebsd	bin/cp/utils.c	9075d4cfad5b339aabdf8033623a2164898c2786
+cp/tests/cp_test.sh	freebsd	bin/cp/tests/cp_test.sh	0729d1e8fd90afc2f19e9b9834533181caf6ddee
 cp/tests/sparse.c	freebsd	bin/cp/tests/sparse.c	8b418c83d175fde3b1f65210509ddcf2ac248d9f
 
 dd/args.c	freebsd	bin/dd/args.c	f4b4526f233c5a84388390279fc40ef8ecaa359f
@@ -94,6 +94,10 @@ mkdir/mkdir.c	freebsd	bin/mkdir/mkdir.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 mkfifo/mkfifo.1	freebsd	usr.bin/mkfifo/mkfifo.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 mkfifo/mkfifo.c	freebsd	usr.bin/mkfifo/mkfifo.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
+install/install.1	freebsd	usr.bin/xinstall/install.1	b2c76c41be32f904179efed29c0ca04d53f3996c
+install/tests/install_test.sh	freebsd	usr.bin/xinstall/tests/install_test.sh	767c97c501ae72eb3d74bc23ddf5a1d570d8f841
+install/xinstall.c	freebsd	usr.bin/xinstall/xinstall.c	767c97c501ae72eb3d74bc23ddf5a1d570d8f841
+
 mknod/mknod.8	netbsd-src	sbin/mknod/mknod.8	56b14ee00121a3a960d2fbe103c85e147ac57103
 mknod/mknod.c	netbsd-src	sbin/mknod/mknod.c	82d6c74c103b8f86833bfbcfbe0f88027f658b9c
 mknod/pack_dev.c	netbsd-src	sbin/mknod/pack_dev.c	7c50b071195db1a2b106fcebf5f4475683a2e57c
@@ -126,7 +130,7 @@ pax/pax.1	freebsd	bin/pax/pax.1	d05e43bc0d5705919d057793aaa3e6d3df65f815
 pax/pax.c	freebsd	bin/pax/pax.c	0266a5d610be4fb546475934125a037ca5748184
 pax/pax.h	freebsd	bin/pax/pax.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 pax/sel_subs.c	freebsd	bin/pax/sel_subs.c	d05e43bc0d5705919d057793aaa3e6d3df65f815
-pax/sel_subs.h	freebsd	bin/pax/sel_subs.h      d05e43bc0d5705919d057793aaa3e6d3df65f815
+pax/sel_subs.h	freebsd	bin/pax/sel_subs.h	d05e43bc0d5705919d057793aaa3e6d3df65f815
 pax/tables.c	freebsd	bin/pax/tables.c	0266a5d610be4fb546475934125a037ca5748184
 pax/tables.h	freebsd	bin/pax/tables.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 pax/tar.c	freebsd	bin/pax/tar.c	0266a5d610be4fb546475934125a037ca5748184

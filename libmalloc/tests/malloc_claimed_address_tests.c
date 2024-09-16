@@ -8,12 +8,15 @@
 #include <darwintest.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <mach/mach.h>
-#include <mach/mach_vm.h>
 #include <malloc/malloc.h>
 #include <malloc_private.h>
 #include <sys/mman.h>
 #include "base.h"
+
+#if !MALLOC_TARGET_EXCLAVES
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
+#endif // !MALLOC_TARGET_EXCLAVES
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
@@ -22,7 +25,8 @@ T_DECL(malloc_claimed_address_default_zone_test,
 #if TARGET_OS_IPHONE
 		T_META_TAG_XZONE,
 #endif // TARGET_OS_IPHONE
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"),
+	    T_META_TAG_VM_NOT_PREFERRED)
 {
 	// NULL is never a possible pointer.
 	boolean_t result = malloc_claimed_address(NULL);
@@ -58,6 +62,7 @@ T_DECL(malloc_claimed_address_default_zone_test,
 	T_EXPECT_TRUE(result, "allocation from large with offset");
 	free(ptr);
 
+#if !MALLOC_TARGET_EXCLAVES
 	// Allocate some memory with vm_allocate() and make sure it's not claimed.
 	mach_vm_address_t addr;
 	kern_return_t kr = mach_vm_allocate(mach_task_self(), &addr, 1024, VM_FLAGS_ANYWHERE);
@@ -65,15 +70,17 @@ T_DECL(malloc_claimed_address_default_zone_test,
 	result = malloc_claimed_address((void *)addr);
 	T_EXPECT_FALSE(result, "address in VM allocated memory");
 	mach_vm_deallocate(mach_task_self(), addr, 1024);
+#endif // !MALLOC_TARGET_EXCLAVES
 }
 
 
+#if !MALLOC_TARGET_EXCLAVES
+// Don't test on xzones because non-default xzones can claim allocations
+// from the main zone
 T_DECL(malloc_zone_claimed_address_test,
 		"Tests for malloc_zone_claimed_address",
-#if TARGET_OS_IPHONE
-		T_META_TAG_XZONE,
-#endif // TARGET_OS_IPHONE
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"),
+	    T_META_TAG_VM_NOT_PREFERRED)
 {
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
 
@@ -145,13 +152,16 @@ T_DECL(malloc_zone_claimed_address_test,
 
 	malloc_destroy_zone(zone);
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
+#if !MALLOC_TARGET_EXCLAVES
 T_DECL(malloc_claimed_address_zone_test,
 		"Tests for malloc_claimed_address with another zone",
 #if TARGET_OS_IPHONE
 		T_META_TAG_XZONE,
 #endif // TARGET_OS_IPHONE
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"),
+	    T_META_TAG_VM_NOT_PREFERRED)
 {
 	// Allocate in a custom zone, check that we can still use
 	// malloc_claimed_address() to check whether an address is claimed.
@@ -189,10 +199,12 @@ T_DECL(malloc_claimed_address_zone_test,
 
 	malloc_destroy_zone(zone);
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 T_DECL(malloc_claimed_address_nanozone_test,
 		"Tests for malloc_claimed_address with nano",
-		T_META_ENVVAR("MallocNanoZone=1"))
+		T_META_ENVVAR("MallocNanoZone=1"),
+	    T_META_TAG_VM_NOT_PREFERRED)
 {
 	// NULL is never a possible pointer.
 	boolean_t result = malloc_claimed_address(NULL);
@@ -219,6 +231,7 @@ T_DECL(malloc_claimed_address_nanozone_test,
 	T_EXPECT_TRUE(result, "Above nano pointer check via default zone");
 	free(ptr);
 
+#if !MALLOC_TARGET_EXCLAVES
 	// Allocate some memory with vm_allocate() and make sure it's not claimed.
 	mach_vm_address_t addr;
 	kern_return_t kr = mach_vm_allocate(mach_task_self(), &addr, 1024, VM_FLAGS_ANYWHERE);
@@ -226,15 +239,15 @@ T_DECL(malloc_claimed_address_nanozone_test,
 	result = malloc_claimed_address((void *)addr);
 	T_EXPECT_FALSE(result, "address in VM allocated memory");
 	mach_vm_deallocate(mach_task_self(), addr, 1024);
+#endif // !MALLOC_TARGET_EXCLAVES
 }
 
-
+#if !MALLOC_TARGET_EXCLAVES
+// Don't run this test on xzone malloc, since the test assumes that it's safe
+// to mprotect the zone returned by malloc_create_zone
 T_DECL(malloc_claimed_address_custom_zone_test,
 		"Tests for malloc_claimed_address in a zone that does not implement it",
-#if TARGET_OS_IPHONE
-		T_META_TAG_XZONE,
-#endif // TARGET_OS_IPHONE
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_PREFERRED)
 {
 	// Custom zones that do not support claimed_address must always appear
 	// to return true.
@@ -280,12 +293,11 @@ T_DECL(malloc_claimed_address_custom_zone_test,
 
 	malloc_destroy_zone(zone);
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
-#if TARGET_OS_IPHONE
 T_DECL(malloc_claimed_address_xzone_test,
 		"Specific xzone malloc tests for malloc_claimed_address",
-		T_META_TAG_XZONE_ONLY,
-		T_META_ENVVAR("MallocProbGuard=0"))
+		T_META_TAG_XZONE_ONLY)
 {
 	// Allocate a HUGE buffer, and then check that both the start and end of it
 	// are claimed by malloc
@@ -295,4 +307,3 @@ T_DECL(malloc_claimed_address_xzone_test,
 			"end of HUGE allocation");
 	free(ptr);
 }
-#endif // TARGET_OS_IPHONE

@@ -25,7 +25,7 @@
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
-/*	  All Rights Reserved  	*/
+/*	  All Rights Reserved   */
 
 /*	Copyright (c) 1987, 1988 Microsoft Corporation	*/
 /*	  All Rights Reserved	*/
@@ -44,14 +44,14 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#define	TSTBITS(flags, mask)	(((flags) & (mask)) == (mask))
+#define TSTBITS(flags, mask)    (((flags) & (mask)) == (mask))
 
 static void strip_quotes(char *);
 
 static  pthread_key_t thr_key;
 
 struct thr_data {
-	int  Dcflags;	/* [re-]initialized on each call to defopen() */
+	int  Dcflags;   /* [re-]initialized on each call to defopen() */
 	FILE *fp;
 	char buf[PATH_MAX];
 };
@@ -64,8 +64,9 @@ free_thr_data(void *arg)
 {
 	struct thr_data *thr_data = (struct thr_data *)arg;
 
-	if (thr_data->fp)
+	if (thr_data->fp) {
 		fclose(thr_data->fp);
+	}
 	free(thr_data);
 }
 
@@ -84,14 +85,14 @@ _get_thr_data(void)
 	}
 	thr_data = pthread_getspecific(thr_key);
 	if (thr_data == NULL) {
-		thr_data = malloc(sizeof (struct thr_data));
+		thr_data = malloc(sizeof(struct thr_data));
 		if (thr_data != NULL) {
 			thr_data->fp = NULL;
 			thr_data->Dcflags = DC_STD;
 			pthread_setspecific(thr_key, thr_data);
 		}
 	}
-	return (thr_data);
+	return thr_data;
 }
 
 /*
@@ -114,22 +115,25 @@ defopen(char *fn)
 {
 	struct thr_data *thr_data = _get_thr_data();
 
-	if (thr_data == NULL)
-		return (-1);
+	if (thr_data == NULL) {
+		return -1;
+	}
 
-	if (thr_data->fp != NULL)
+	if (thr_data->fp != NULL) {
 		(void) fclose(thr_data->fp);
+	}
 
 	if (fn == NULL) {
 		thr_data->fp = NULL;
-		return (0);
+		return 0;
 	}
 
-	if ((thr_data->fp = fopen(fn, "r")) == NULL)
-		return (-1);
+	if ((thr_data->fp = fopen(fn, "r")) == NULL) {
+		return -1;
+	}
 	thr_data->Dcflags = DC_STD;
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -159,29 +163,35 @@ defread(char *cp)
 	char *buf_tmp, *ret_ptr = NULL;
 	size_t off, patlen;
 
-	if (thr_data == NULL)
-		return (NULL);
+	if (thr_data == NULL) {
+		return NULL;
+	}
 
-	if (thr_data->fp == NULL)
-		return (NULL);
+	if (thr_data->fp == NULL) {
+		return NULL;
+	}
 
 	compare = TSTBITS(thr_data->Dcflags, DC_CASE) ? strncmp : strncasecmp;
 	patlen = strlen(cp);
 
-	if (!TSTBITS(thr_data->Dcflags, DC_NOREWIND))
+	if (!TSTBITS(thr_data->Dcflags, DC_NOREWIND)) {
 		rewind(thr_data->fp);
+	}
 
-	while (fgets(thr_data->buf, sizeof (thr_data->buf), thr_data->fp)) {
-		for (buf_tmp = thr_data->buf; *buf_tmp == ' '; buf_tmp++)
+	while (fgets(thr_data->buf, sizeof(thr_data->buf), thr_data->fp)) {
+		for (buf_tmp = thr_data->buf; *buf_tmp == ' '; buf_tmp++) {
 			;
+		}
 		off = strlen(buf_tmp);
-		if (off == 0)
-			continue;	/* empty string */
+		if (off == 0) {
+			continue;       /* empty string */
+		}
 		off = off - 1;
-		if (buf_tmp[off] == '\n')
+		if (buf_tmp[off] == '\n') {
 			buf_tmp[off] = 0;
-		else
-			break;	/* line too long */
+		} else {
+			break;  /* line too long */
+		}
 		if ((*compare)(cp, buf_tmp, patlen) == 0) {
 			/* found it */
 			/* strip quotes if requested */
@@ -193,7 +203,7 @@ defread(char *cp)
 		}
 	}
 
-	return (ret_ptr);
+	return ret_ptr;
 }
 
 /*
@@ -221,23 +231,24 @@ defcntl(int cmd, int newflags)
 	struct thr_data *thr_data = _get_thr_data();
 	int  oldflags;
 
-	if (thr_data == NULL)
-		return (-1);
+	if (thr_data == NULL) {
+		return -1;
+	}
 
 	switch (cmd) {
-	case DC_GETFLAGS:		/* query */
+	case DC_GETFLAGS:               /* query */
 		oldflags = thr_data->Dcflags;
 		break;
-	case DC_SETFLAGS:		/* set */
+	case DC_SETFLAGS:               /* set */
 		oldflags = thr_data->Dcflags;
 		thr_data->Dcflags = newflags;
 		break;
-	default:			/* error */
+	default:                        /* error */
 		oldflags = -1;
 		break;
 	}
 
-	return (oldflags);
+	return oldflags;
 }
 
 /*
@@ -256,8 +267,9 @@ strip_quotes(char *ptr)
 
 	while (*ptr != '\0') {
 		if ((*ptr == '"') || (*ptr == '\'')) {
-			if (strip_ptr == NULL)
-				strip_ptr = ptr;	/* skip over quote */
+			if (strip_ptr == NULL) {
+				strip_ptr = ptr;        /* skip over quote */
+			}
 		} else {
 			if (strip_ptr != NULL) {
 				*strip_ptr = *ptr;

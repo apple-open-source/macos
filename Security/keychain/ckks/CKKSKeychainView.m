@@ -29,6 +29,7 @@
 #import "CloudKitDependencies.h"
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
+#import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #endif
 
 #import "CKKS.h"
@@ -50,8 +51,6 @@
 #import "CKKSScanLocalItemsOperation.h"
 #import "CKKSSynchronizeOperation.h"
 #import "CKKSRateLimiter.h"
-#import "CKKSManifest.h"
-#import "CKKSManifestLeafRecord.h"
 #import "CKKSZoneChangeFetcher.h"
 #import "CKKSAnalytics.h"
 #import "keychain/ckks/CKKSCloudKitClassDependencies.h"
@@ -155,6 +154,8 @@
                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                    personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                  accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
+                cuttlefishAdapter:(id<CKKSCuttlefishAdapterProtocol>)cuttlefishAdapter
 {
     if((self = [super init])) {
         _container = container;
@@ -163,6 +164,7 @@
         _lockStateTracker = lockStateTracker;
         _cloudKitClassDependencies = cloudKitClassDependencies;
         _personaAdapter = personaAdapter;
+        _accountsAdapter = accountsAdapter;
         
         _zoneName = @"all";
 
@@ -229,10 +231,6 @@
             [self.stateMachine handleFlag:CKKSFlagOutgoingQueueOperationRateToken];
         }];
 
-        CKKSZoneModifier* zoneModifier = [[CKKSZoneModifier alloc] initWithContainer:container
-                                                                 reachabilityTracker:reachabilityTracker
-                                                                cloudkitDependencies:cloudKitClassDependencies];
-
         SecLaunchSequence* overallLaunch = [[SecLaunchSequence alloc] initWithRocketName:@"com.apple.security.ckks.launch"];
         [overallLaunch addAttribute:@"view" value:@"global"];
 
@@ -241,7 +239,6 @@
         _operationDependencies = [[CKKSOperationDependencies alloc] initWithViewStates:[NSSet set]
                                                                              contextID:contextID
                                                                          activeAccount:activeAccount
-                                                                          zoneModifier:zoneModifier
                                                                             ckdatabase:[_container privateCloudDatabase]
                                                              cloudKitClassDependencies:_cloudKitClassDependencies
                                                                       ckoperationGroup:nil
@@ -273,6 +270,8 @@
                                                                                        sendMetric:YES];
         [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
 
+        _cuttlefishAdapter = cuttlefishAdapter;
+        
         [_stateMachine startOperation];
     }
     return self;
@@ -638,8 +637,8 @@
         CKKSCreateCKZoneOperation* pendingInitializeOp = [[CKKSCreateCKZoneOperation alloc] initWithDependencies:self.operationDependencies
                                                                                                    intendedState:CKKSStateInitialized
                                                                                                       errorState:CKKSStateZoneCreationFailed];
-        [pendingInitializeOp addNullableDependency:self.operationDependencies.zoneModifier.cloudkitRetryAfter.operationDependency];
-        [self.operationDependencies.zoneModifier.cloudkitRetryAfter trigger];
+        [pendingInitializeOp addNullableDependency:self.operationDependencies.cloudkitRetryAfter.operationDependency];
+        [self.operationDependencies.cloudkitRetryAfter trigger];
 
         return pendingInitializeOp;
     }
@@ -713,6 +712,21 @@
                                                          intendedState:CKKSStateResettingLocalData
                                                             errorState:CKKSStateResettingZone];
     }
+    
+    if([currentState isEqualToString:CKKSStateZoneDeletionFailedDueToNetworkError]) {
+        // If we've failed deletion due to a network failure and the network has come back, go back into CKKSStateResettingZone
+        if([flags _onqueueContains:CKKSFlagZoneDeletion]) {
+            [flags _onqueueRemoveFlag:CKKSFlagZoneDeletion];
+            return [OctagonStateTransitionOperation named:@"recover-from-zone-deletion-network-failure" entering:CKKSStateResettingZone];
+        }
+        
+        // Otherwise, add a pending flag and wait till we've gotten network back.
+        OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagZoneDeletion
+                                                                        conditions:OctagonPendingConditionsNetworkReachable
+                                                                    delayInSeconds:.2];
+        [self.stateMachine _onqueueHandlePendingFlagLater:pendingFlag];
+        return nil;
+    }
 
     if([currentState isEqualToString:CKKSStateResettingLocalData]) {
         ckksnotice("ckkskey", self, "Resetting local data for %@", self.operationDependencies.views);
@@ -730,10 +744,25 @@
         //Prepare to go back into initializing, as soon as the cloudkitRetryAfter is happy
         OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"recover-from-cloudkit-failure" entering:CKKSStateInitializing];
 
-        [op addNullableDependency:self.operationDependencies.zoneModifier.cloudkitRetryAfter.operationDependency];
-        [self.operationDependencies.zoneModifier.cloudkitRetryAfter trigger];
+        [op addNullableDependency:self.operationDependencies.cloudkitRetryAfter.operationDependency];
+        [self.operationDependencies.cloudkitRetryAfter trigger];
 
         return op;
+    }
+
+    if([currentState isEqualToString:CKKSStateZoneCreationFailedDueToNetworkError]) {
+        // If we've failed due to a network failure and the network has come back, go back into initializing
+        if([flags _onqueueContains:CKKSFlagZoneCreation]) {
+            [flags _onqueueRemoveFlag:CKKSFlagZoneCreation];
+            return [OctagonStateTransitionOperation named:@"recover-from-zone-creation-network-failure" entering:CKKSStateInitializing];
+        }
+        
+        // Otherwise, add a pending flag and wait till we've gotten network back.
+        OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:CKKSFlagZoneCreation
+                                                                        conditions:OctagonPendingConditionsNetworkReachable
+                                                                    delayInSeconds:.2];
+        [self.stateMachine _onqueueHandlePendingFlagLater:pendingFlag];
+        return nil;
     }
 
     if([currentState isEqualToString:CKKSStateLoseTrust]) {
@@ -1540,6 +1569,46 @@
     }
 
     return earliestFetchTime ?: [NSDate distantPast];
+}
+
+- (BOOL)allowOutOfBandFetch:(NSError* __autoreleasing*)error
+{
+    // Allow Out of Band Fetch if we haven't finished a full fetch cycle.
+    BOOL fetchAllowed = NO;
+    for (CKKSKeychainViewState* viewState in self.operationDependencies.allCKKSManagedViews) {
+
+        // Has there been a fetch for this zone? If so, have we fully fetched, or are more items coming?
+        CKKSZoneStateEntry* zse = [CKKSZoneStateEntry contextID:self.operationDependencies.contextID zoneName:viewState.zoneName];
+        if ((zse.lastFetchTime == nil) || (zse.moreRecordsInCloudKit)) {
+            fetchAllowed = YES;
+            break;
+        }
+
+        // Do we have any incoming items to process?
+        NSError* localError = nil;
+        NSArray<CKKSIncomingQueueEntry*>* queueEntries = [CKKSIncomingQueueEntry fetch:SecCKKSIncomingQueueItemsAtOnce
+                                      startingAtUUID:nil
+                                               state:SecCKKSStateNew
+                                              action:nil
+                                           contextID:self.operationDependencies.contextID
+                                              zoneID:viewState.zoneID
+                                               error:&localError];
+        if (localError) {
+            ckkserror("ckks", viewState.zoneID, "Error fetching IQEs for zone %@: %@", viewState.zoneName, localError);
+            if (error) {
+                *error = localError;
+                fetchAllowed = NO;
+                break;
+            }
+        } else {
+            if (queueEntries.count != 0) {
+                fetchAllowed = YES;
+                break;
+            }
+        }
+    }
+
+    return fetchAllowed;
 }
 
 - (OctagonStateTransitionOperation*)tlkMissingOperation:(CKKSState*)newState
@@ -2396,6 +2465,246 @@
         [self scheduleOperation:getCurrentItem];
     }
 }
+
+- (void)getCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*) currentItemRequests
+                     forceFetch:(bool)forceFetch
+                       complete:(void(^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* error))complete
+{
+    
+    [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
+    
+    CKKSAccountStatus accountStatus = self.accountStatus;
+    if(accountStatus != CKKSAccountStatusAvailable || !self.cuttlefishAdapter) {
+        NSError* localError = nil;
+        if(accountStatus == CKKSAccountStatusUnknown) {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSErrorAccountStatusUnknown
+                                      description:@"iCloud account status unknown."];
+        } else {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotLoggedIn
+                                      description:@"User is not signed into iCloud."];
+        }
+        ckksnotice("ckkscurrent", self, "Rejecting current item requests since we don't have an iCloud account: %@", localError);
+        complete(nil, localError);
+        return;
+    }
+
+    NSError* allowOOBFetchError = nil;
+    BOOL OOBFetchAllowed = [self allowOutOfBandFetch:&allowOOBFetchError] || forceFetch;
+    if (allowOOBFetchError) {
+        ckksnotice_global("ckkscurrent", "Error fetching out of band fetch permission, relying on forceFetch enablement (%@) : %@", forceFetch ? @"ENABLED" : @"DISABLED", allowOOBFetchError);
+    }
+
+    if (!OOBFetchAllowed) {
+        ckkserror_global("ckks", "Out of band fetch disabled due to CKKS readiness");
+        NSError* error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorOutOfBandFetchingDisallowed description:@"Out of band fetch disabled due to CKKS readiness"];
+        complete(nil, error);
+        return;
+    }
+
+    // Transform currentItemRequests to Cuttlefish types (NSArray<CuttlefishCurrentItemSpecifier *>)
+    NSMutableArray<CuttlefishCurrentItemSpecifier*>* cfishCurrentItemSpecifiers = [[NSMutableArray alloc] init];
+    for (CKKSCurrentItemQuery* request in currentItemRequests) {
+        if (request.zoneID == nil || request.accessGroup == nil) {
+            ckksnotice("ckkscurrent", self, "Rejecting current item pointer for identifier(%@) get since no access group(%@) or zoneID(%@) given", request.identifier, request.accessGroup, request.zoneID);
+            complete(NULL, [NSError errorWithDomain:CKKSErrorDomain
+                                               code:errSecParam
+                                        description:[NSString stringWithFormat:@"No access group or view given for identifier(%@)", request.identifier]]);
+            return;
+        }
+        [cfishCurrentItemSpecifiers addObject:[[CuttlefishCurrentItemSpecifier alloc] init:[NSString stringWithFormat:@"%@-%@", request.accessGroup, request.identifier]
+                                                                                    zoneID:request.zoneID]];
+    }
+    
+    TPSpecificUser* account = nil;
+    if (!SecCKKSTestsEnabled()) {
+        NSError* accountError = nil;
+        account = [self.accountsAdapter findAccountForCurrentThread:self.personaAdapter
+                                                                    optionalAltDSID:nil
+                                                              cloudkitContainerName:OTCKContainerName
+                                                                   octagonContextID:self.operationDependencies.contextID
+                                                                              error:&accountError];
+        
+        if (account == nil || accountError != nil) {
+            ckkserror_global("ckks-cuttlefish", "unable to determine active account for context(%@). Issues ahead: %@", OTDefaultContext, accountError);
+            complete(nil, accountError);
+            return;
+        }
+    }
+    [self.cuttlefishAdapter fetchCurrentItem:account
+                                       items:cfishCurrentItemSpecifiers
+                                       reply:^(NSArray<CuttlefishCurrentItem *> * _Nullable currentItemRecords, NSArray<CKRecord *> * _Nullable syncKeys, NSError * _Nullable operror) {
+        if (operror) {
+            ckkserror_global("ckks", "error getting current items: %@", operror);
+            complete(nil, operror);
+            return;
+        }
+        
+        // Create key cache for use in decrypting
+        CKKSMemoryKeyCache* cache = [[CKKSMemoryKeyCache alloc] init];
+        [syncKeys enumerateObjectsUsingBlock:^(CKRecord * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            CKKSKey* key = [[CKKSKey alloc] initWithCKRecord:obj contextID:self.operationDependencies.contextID];
+            [cache addKeyToCache:key.uuid key:key];
+        }];
+
+        __block NSError* error = nil;
+        __block NSMutableArray<CKKSCurrentItemQueryResult*>* currentItemsDecrypted = [[NSMutableArray alloc] init];
+
+        [currentItemRecords enumerateObjectsUsingBlock:^(CuttlefishCurrentItem * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            @autoreleasepool {
+                NSError* decryptError = nil;
+                CKKSItem* currentItem = [[CKKSItem alloc] initWithCKRecord:obj.item contextID:self.operationDependencies.contextID];
+                NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:currentItem
+                                                                                          keyCache:cache
+                                                                       ckksOperationalDependencies:self.operationDependencies
+                                                                                             error:&decryptError];
+                if (decryptError) {
+                    ckkserror_global("ckks", "error decrypting item record(%@): %@", currentItem, decryptError);
+                    currentItemsDecrypted = nil;
+                    error = decryptError;
+                    *stop = YES;
+                    return;
+                }
+                
+                // Current item pointer name is "<accessGroup>-<identifier>" --> split it up into its components for ease of caller
+                NSArray *items = [obj.itemPtr.itemPtrName componentsSeparatedByString:@"-"];
+                if (items.count != 2) {
+                    ckkserror_global("ckks", "unexpected item pointer name format: %@", obj.itemPtr.itemPtrName);
+                    currentItemsDecrypted = nil;
+                    error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSDataMismatch description:[NSString stringWithFormat:@"Item pointer name %@ does not match expected format", obj.itemPtr.itemPtrName]];
+                    *stop = YES;
+                    return;
+                }
+                NSString* accessGroup = items[0];
+                NSString* identifier = items[1];
+                
+                [currentItemsDecrypted addObject:[[CKKSCurrentItemQueryResult alloc] initWithIdentifier:identifier accessGroup:accessGroup zoneID:obj.itemPtr.zoneID decryptedRecord:attributes]];
+
+                if ([obj.itemPtr.zoneID isEqualToString:(id)kSecAttrViewHintManatee] && !self.firstManateeKeyFetched) {
+                    self.firstManateeKeyFetched = true;
+                    [self sendMetricForFirstManateeAccess];
+                }
+            }
+        }];
+
+        complete(currentItemsDecrypted, error);
+
+    }];
+    
+}
+
+- (void)fetchPCSIdentityOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*) pcsServices
+                       forceFetch:(bool)forceFetch
+                         complete:(void(^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* error))complete {
+    
+    [self.accountStateKnown wait:(SecCKKSTestsEnabled() ? 1*NSEC_PER_SEC : 30*NSEC_PER_SEC)];
+    
+    CKKSAccountStatus accountStatus = self.accountStatus;
+    if (accountStatus != CKKSAccountStatusAvailable || !self.cuttlefishAdapter) {
+        NSError* localError = nil;
+        if(accountStatus == CKKSAccountStatusUnknown) {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSErrorAccountStatusUnknown
+                                      description:@"iCloud account status unknown."];
+        } else {
+            localError = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSNotLoggedIn
+                                      description:@"User is not signed into iCloud."];
+        }
+        
+        ckksnotice("ckkscurrent", self, "Rejecting PCS Identity requests since we don't have an iCloud account: %@", localError);
+        complete(nil, localError);
+        return;
+    }
+
+    NSError* allowOOBFetchError = nil;
+    BOOL OOBFetchAllowed = [self allowOutOfBandFetch:&allowOOBFetchError] || forceFetch;
+    if (allowOOBFetchError) {
+        ckksnotice_global("ckkscurrent", "Error fetching out of band fetch permission, relying on forceFetch enablement (%@) : %@", forceFetch ? @"ENABLED" : @"DISABLED", allowOOBFetchError);
+    }
+
+    if (!OOBFetchAllowed) {
+        ckkserror_global("ckks", "Out of band fetch disabled due to CKKS readiness");
+        NSError* error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorOutOfBandFetchingDisallowed description:@"Out of band fetch disabled due to CKKS readiness"];
+        complete(nil, error);
+        return;
+    }
+
+    // Transform pcsIdentityRequests to Cuttlefish types (NSArray<CuttlefishPCSServiceIdentifier *>)
+    NSMutableArray<CuttlefishPCSServiceIdentifier*>* pcsServiceIdentifiers = [[NSMutableArray alloc] init];
+    for (CKKSPCSIdentityQuery* pcsService in pcsServices) {
+        if (pcsService.accessGroup == nil || pcsService.zoneID == nil) {
+            ckksnotice("ckkscurrent", self, "Rejecting pcs service (%@) get since no access group(%@) or zoneID(%@) given", pcsService, pcsService.accessGroup, pcsService.zoneID);
+            complete(nil, [NSError errorWithDomain:CKKSErrorDomain
+                                               code:errSecParam
+                                        description:[NSString stringWithFormat:@"No access group or view given for PCS Service(%@)", pcsService]]);
+            return;
+        }
+        
+        [pcsServiceIdentifiers addObject:[[CuttlefishPCSServiceIdentifier alloc] init:pcsService.serviceNumber
+                                                                         PCSPublicKey:[[NSData alloc] initWithBase64EncodedString:pcsService.publicKey options:0]
+                                                                               zoneID:pcsService.zoneID]];
+    }
+    
+    TPSpecificUser* account = nil;
+    if (!SecCKKSTestsEnabled()) {
+        NSError* accountError = nil;
+        account = [self.accountsAdapter findAccountForCurrentThread:self.personaAdapter
+                                                                    optionalAltDSID:nil
+                                                              cloudkitContainerName:OTCKContainerName
+                                                                   octagonContextID:self.operationDependencies.contextID
+                                                                              error:&accountError];
+        
+        if (account == nil || accountError != nil) {
+            ckkserror_global("ckks-cuttlefish", "unable to determine active account for context(%@). Issues ahead: %@", OTDefaultContext, accountError);
+            complete(nil, accountError);
+            return;
+        }
+    }
+    [self.cuttlefishAdapter fetchPCSIdentityByKey:account pcsservices:pcsServiceIdentifiers reply:^(NSArray<CuttlefishPCSIdentity *> * _Nullable pcsItemRecords, NSArray<CKRecord *> * _Nullable syncKeys, NSError * _Nullable operror) {
+        
+        if (operror) {
+            ckkserror_global("ckks", "error getting pcs identities: %@", operror);
+            complete(nil, operror);
+            return;
+        }
+
+        // Create key cache for use in decrypting
+        CKKSMemoryKeyCache* cache = [[CKKSMemoryKeyCache alloc] init];
+        [syncKeys enumerateObjectsUsingBlock:^(CKRecord * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            CKKSKey* key = [[CKKSKey alloc] initWithCKRecord:obj contextID:self.operationDependencies.contextID];
+            [cache addKeyToCache:key.uuid key:key];
+        }];
+
+        __block NSError* error = nil;
+        __block NSMutableArray<CKKSPCSIdentityQueryResult*>* pcsItemsDecrypted = [[NSMutableArray alloc] init];
+
+        [pcsItemRecords enumerateObjectsUsingBlock:^(CuttlefishPCSIdentity * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            @autoreleasepool {
+                NSError* decryptError = nil;
+                CKKSItem* pcsItem = [[CKKSItem alloc] initWithCKRecord:obj.item contextID:self.operationDependencies.contextID];
+                NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:pcsItem
+                                                                                          keyCache:cache
+                                                                       ckksOperationalDependencies:self.operationDependencies
+                                                                                             error:&decryptError];
+                if (decryptError) {
+                    ckkserror_global("ckks", "error decrypting pcs item record(%@): %@", pcsItem, decryptError);
+                    pcsItemsDecrypted = nil;
+                    error = decryptError;
+                    *stop = YES;
+                    return;
+                }
+                
+                [pcsItemsDecrypted addObject:[[CKKSPCSIdentityQueryResult alloc] initWithServiceNumber:obj.service.PCSServiceID publicKey:[obj.service.PCSPublicKey base64EncodedStringWithOptions:0] zoneID:obj.service.zoneID decryptedRecord:attributes]];
+            }
+        }];
+
+        complete(pcsItemsDecrypted, error);
+
+    }];
+}
+
 
 -(void)sendMetricForFirstManateeAccess {
 
@@ -3386,6 +3695,10 @@
             [self.stateMachine _onqueueHandleFlag:CKKSFlagNewPriorityViews];
         }
 
+        if(newViews && policyIsFresh) {
+            [self.stateMachine _onqueueHandleFlag:CKKSFlagKeyStateProcessRequested];
+        }
+
         for(CKKSKeychainViewState* viewState in viewStates) {
             [self.zoneChangeFetcher registerClient:self zoneID:viewState.zoneID];
         }
@@ -3753,7 +4066,7 @@
         ckkserror("ckks", zoneID, "Received notice that our change token is out of date (for %@). Resetting local data...", zoneID);
 
         [self.stateMachine handleFlag:CKKSFlagChangeTokenExpired];
-        return true;
+        return false;
     }
 
     bool isDeletedZoneError = [self ckErrorOrPartialError:error
@@ -3806,16 +4119,23 @@
 
 - (BOOL)waitForFetchAndIncomingQueueProcessing
 {
-    CKKSCondition* fetchComplete = self.stateMachine.stateConditions[CKKSStateFetchComplete];
-
     NSOperation* op = [self.zoneChangeFetcher inflightFetch];
     if(op) {
         [op waitUntilFinished];
-        [fetchComplete wait:5*NSEC_PER_SEC];
+    }
+
+    BOOL ret = YES;
+
+    // Did the fetch cause a ProcessIncomingQueue request to occur? If so, wait for that flag to be picked up by the state machine.
+    CKKSCondition* incomingQueueProcessNeeded = [self.stateMachine.flags conditionForFlagIfPresent:CKKSFlagProcessIncomingQueue];
+    if(incomingQueueProcessNeeded) {
+        if(0 != [incomingQueueProcessNeeded wait:117*NSEC_PER_SEC]) {
+            ret = NO;
+        }
     }
 
     // If that fetch did anything to the state machine, wait for it to shake out. 109 chosen as a long time that isn't used elsewhere.
-    BOOL ret = 0 == [self.stateMachine.paused wait:109 * NSEC_PER_SEC];
+    ret &= (0 == [self.stateMachine.paused wait:109 * NSEC_PER_SEC]);
     return ret;
 }
 
@@ -3910,7 +4230,6 @@
         [viewState.notifyViewReadyScheduler cancel];
     }
 
-    [self.operationDependencies.zoneModifier halt];
     [self.zoneChangeFetcher halt];
 }
 
@@ -4120,7 +4439,7 @@
                 @"ckdeviceID":          CKKSNilToNSNull(deviceID),
                 @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
                 @"lockstatetracker":    stringify(self.lockStateTracker),
-                @"cloudkitRetryAfter":  stringify(self.operationDependencies.zoneModifier.cloudkitRetryAfter),
+                @"cloudkitRetryAfter":  stringify(self.operationDependencies.cloudkitRetryAfter),
                 @"lastCKKSPush":        CKKSNilToNSNull(lastCKKSPush),
                 @"policy":              stringify(self.syncingPolicy),
                 @"viewsFromPolicy":     @"yes",

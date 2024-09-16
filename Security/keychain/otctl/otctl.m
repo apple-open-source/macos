@@ -63,6 +63,8 @@ int main(int argc, char** argv)
     int setRecoveryKey = false;
     int removeRecoveryKey = false;
     int joinWithRecoveryKey = false;
+    int checkRecoveryKey = false;
+    int preflightJoinWithRecoveryKey = false;
 
     int createInheritanceKey = false;
     int generateInheritanceKey = false;
@@ -71,6 +73,8 @@ int main(int argc, char** argv)
     int preflightJoinWithInheritanceKey = false;
     int removeInheritanceKey = false;
     int checkInheritanceKey = false;
+    int recreateInheritanceKey = false;
+    int createInheritanceKeyWithClaimTokenAndWrappingKey = false;
 
     int fetchAccountSettings = false;
     int fetchAccountWideSettings = false;
@@ -122,6 +126,7 @@ int main(int argc, char** argv)
     char* dsidArg = NULL;
     char* wrappingKeyArg = NULL;
     char* wrappedKeyArg = NULL;
+    char* claimTokenArg = NULL;
     char* custodianUUIDArg = NULL;
     char* inheritanceUUIDArg = NULL;
     char* timeoutInS = NULL;
@@ -160,6 +165,7 @@ int main(int argc, char** argv)
 
         {.longname = "wrapping-key", .argument = &wrappingKeyArg, .description = "Wrapping key (for joinWithCustodianRecoveryKey)", .internal_only = true},
         {.longname = "wrapped-key", .argument = &wrappedKeyArg, .description = "Wrapped key (for joinWithCustodianRecoveryKey)", .internal_only = true},
+        {.longname = "claim-token", .argument = &claimTokenArg, .description = "Claim token for inheritance", .internal_only = true},
         {.longname = "custodianUUID", .argument = &custodianUUIDArg, .description = "UUID for joinWithCustodianRecoveryKey", .internal_only = true},
         {.longname = "inheritanceUUID", .argument = &inheritanceUUIDArg, .description = "UUID for joinWithInheritanceKey", .internal_only = true},
         {.longname = "timeout", .argument = &timeoutInS, .description = "timeout for command (in s)"},
@@ -213,12 +219,16 @@ int main(int argc, char** argv)
         {.command = "preflight-join-with-inheritance-key", .flag = &preflightJoinWithInheritanceKey, .flagval = true, .description = "Preflight join with an inheritance key", .internal_only = true},
         {.command = "remove-inheritance-key", .flag = &removeInheritanceKey, .flagval = true, .description = "Remove an inheritance key", .internal_only = true},
         {.command = "check-inheritance-key", .flag = &checkInheritanceKey, .flagval = true, .description = "Check an inheritance key for existence", .internal_only = true},
+        {.command = "recreate-inheritance-key", .flag = &recreateInheritanceKey, .flagval = true, .description = "Recreate an inheritance key", .internal_only = true},
+        {.command = "create-inheritance-key-with-claim-wrapping", .flag = &createInheritanceKeyWithClaimTokenAndWrappingKey, .flagval = true, .description = "Create an inheritance key given claim+wrapping key", .internal_only = true},
 
         {.command = "tlk-recoverability", .flag = &tlkRecoverability, .flagval = true, .description = "Evaluate tlk recoverability for an account", .internal_only = true},
         {.command = "set-machine-id-override", .flag = &machineIDOverride, .flagval = true, .description = "Set machineID override"},
         {.command = "remove-recovery-key", .flag = &removeRecoveryKey, .flagval = true, .description = "Remove a recovery key", .internal_only = true},
         {.command = "set-recovery-key", .flag = &setRecoveryKey, .flagval = true, .description = "Set a recovery key", .internal_only = true},
         {.command = "join-with-recovery-key", .flag = &joinWithRecoveryKey, .flagval = true, .description = "Join with a recovery key", .internal_only = true},
+        {.command = "check-recovery-key", .flag = &checkRecoveryKey, .flagval = true, .description = "Check a recovery key", .internal_only = true},
+        {.command = "preflight-join-with-recovery-key", .flag = &preflightJoinWithRecoveryKey, .flagval = true, .description = "Preflight join with a recovery key", .internal_only = true},
         {.longname = "recoveryKey", .argument = &recoveryKeyArg, .description = "recovery key"},
 
         {.command = "enable-walrus", .flag = &enableWalrus, .flagval = true, .description = "Enable Walrus Setting", .internal_only = true},
@@ -269,6 +279,7 @@ int main(int argc, char** argv)
 
         NSString* wrappingKey = wrappingKeyArg ? [NSString stringWithCString:wrappingKeyArg encoding:NSUTF8StringEncoding] : nil;
         NSString* wrappedKey = wrappedKeyArg ? [NSString stringWithCString:wrappedKeyArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* claimToken = claimTokenArg ? [NSString stringWithCString:claimTokenArg encoding:NSUTF8StringEncoding] : nil;
         NSString* custodianUUIDString = custodianUUIDArg ? [NSString stringWithCString:custodianUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSString* inheritanceUUIDString = inheritanceUUIDArg ? [NSString stringWithCString:inheritanceUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSTimeInterval timeout = timeoutInS ? [[NSString stringWithCString:timeoutInS encoding:NSUTF8StringEncoding] integerValue] : 600;
@@ -361,10 +372,14 @@ int main(int argc, char** argv)
         if(fetch_all_escrow_records) {
             return [ctl fetchAllEscrowRecords:arguments json:json overrideEscrowCache:overrideEscrowCache];
         }
-        if(machineIDOverride) {
-            NSString* machineID = machineIDArg ? [NSString stringWithCString:machineIDArg encoding:NSUTF8StringEncoding] : nil;
-            printf("machineID: %s\n", machineID.description.UTF8String);
-                       
+        if (machineIDOverride) {
+            NSString* machineID;
+            if (machineIDArg != NULL) {
+                machineID = [NSString stringWithCString:machineIDArg encoding:NSUTF8StringEncoding];
+                printf("machineID: %s\n", machineID.description.UTF8String);
+            } else {
+                printf("unsetting machineID\n");
+            }
             return [ctl setMachineIDOverride:arguments machineID:machineID json:json];
         }
         if(recoverRecord) {
@@ -484,6 +499,18 @@ int main(int argc, char** argv)
             return [ctl joinWithRecoveryKeyWithArguments:arguments recoveryKey:recoveryKey];
         }
 
+        if (checkRecoveryKey) {
+            return [ctl checkRecoveryKeyWithArguments:arguments];
+        }
+
+        if (preflightJoinWithRecoveryKey) {
+            if (!recoveryKey) {
+                print_usage(&args);
+                return 1;
+            }
+            return [ctl preflightJoinWithRecoveryKeyWithArguments:arguments recoveryKey:recoveryKey];
+        }
+
         if(createInheritanceKey) {
             return [ctl createInheritanceKeyWithArguments:arguments uuidString:inheritanceUUIDString json:json timeout:timeout];
         }
@@ -540,6 +567,33 @@ int main(int argc, char** argv)
             return [ctl checkInheritanceKeyWithArguments:arguments
                                               uuidString:inheritanceUUIDString
                                                  timeout:timeout];
+        }
+        if(recreateInheritanceKey) {
+            if (!wrappingKey || !wrappedKey || !claimToken) {
+                print_usage(&args);
+                return 1;
+            }
+
+            return [ctl recreateInheritanceKeyWithArguments:arguments
+                                                 uuidString:inheritanceUUIDString
+                                                wrappingKey:wrappingKey
+                                                 wrappedKey:wrappedKey
+                                                 claimToken:claimToken
+                                                       json:json
+                                                    timeout:timeout];
+        }
+        if(createInheritanceKeyWithClaimTokenAndWrappingKey) {
+            if (!wrappingKey || !claimToken) {
+                print_usage(&args);
+                return 1;
+            }
+
+            return [ctl createInheritanceKeyWithClaimTokenAndWrappingKey:arguments
+                                                              uuidString:inheritanceUUIDString
+                                                              claimToken:claimToken
+                                                             wrappingKey:wrappingKey
+                                                                    json:json
+                                                                 timeout:timeout];
         }
 
         if(enableWalrus) {

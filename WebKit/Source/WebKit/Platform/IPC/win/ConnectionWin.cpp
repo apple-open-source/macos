@@ -26,13 +26,13 @@
 #include "config.h"
 #include "Connection.h"
 
-#include "DataReference.h"
 #include "Decoder.h"
 #include "Encoder.h"
 #include "IPCUtilities.h"
 #include <wtf/ArgumentCoder.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>
+#include <wtf/text/MakeString.h>
 
 namespace IPC {
 
@@ -44,7 +44,7 @@ bool createServerAndClientIdentifiers(HANDLE& serverIdentifier, HANDLE& clientId
     String pipeName;
 
     do {
-        pipeName = makeString("\\\\.\\pipe\\com.apple.WebKit.", hex(cryptographicallyRandomNumber<unsigned>()));
+        pipeName = makeString("\\\\.\\pipe\\com.apple.WebKit."_s, hex(cryptographicallyRandomNumber<unsigned>()));
 
         serverIdentifier = ::CreateNamedPipe(pipeName.wideCharacters().data(),
             PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED,
@@ -146,7 +146,7 @@ void Connection::readEventHandler()
             ASSERT(decoder);
             if (!decoder)
                 return;
-            processIncomingMessage(WTFMove(decoder));
+            processIncomingMessage(makeUniqueRefFromNonNullUniquePtr(WTFMove(decoder)));
         }
 
         // Find out the size of the next message in the pipe (if there is one) so that we can read
@@ -288,7 +288,8 @@ bool Connection::sendOutgoingMessage(UniqueRef<Encoder>&& encoder)
 
     // Write the outgoing message.
 
-    if (::WriteFile(m_connectionPipe, encoder->buffer(), encoder->bufferSize(), 0, &m_writeListener.state())) {
+    auto buffer = encoder->span();
+    if (::WriteFile(m_connectionPipe, buffer.data(), buffer.size(), 0, &m_writeListener.state())) {
         // We successfully sent this message.
         return true;
     }

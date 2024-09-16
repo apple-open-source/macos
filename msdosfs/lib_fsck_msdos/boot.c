@@ -67,11 +67,12 @@
 #include "lib_fsck_msdos.h"
 
 int
-readboot(int dosfs, struct bootblock *boot)
+readboot(struct bootblock *boot, check_context *context)
 {
+    u_char fsinfo[MAX_SECTOR_SIZE];
 	u_char block[MAX_SECTOR_SIZE];
-	u_char fsinfo[MAX_SECTOR_SIZE];
 	u_int32_t result = 0;
+    size_t res = 0;
 	int ret = FSOK;
 	
 	/*
@@ -79,10 +80,11 @@ readboot(int dosfs, struct bootblock *boot)
 	 * tend to return errors if you try to read less than a sector, so we try reading
 	 * the maximum sector size (which may end up reading more than one sector).
 	 */
-	if (read(dosfs, block, MAX_SECTOR_SIZE) != MAX_SECTOR_SIZE) {
-		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read boot block", strerror(errno));
-		return FSFATAL;
-	}
+    res = context->readHelper(context->resource, block, MAX_SECTOR_SIZE, 0);
+    if (res != MAX_SECTOR_SIZE) {
+        fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read boot block", strerror(errno));
+        return FSFATAL;
+    }
 
 	/* [2699033]
 	*
@@ -169,13 +171,11 @@ readboot(int dosfs, struct bootblock *boot)
 		boot->FSInfo = block[48] + (block[49] << 8);
 		boot->Backup = block[50] + (block[51] << 8);
 
-		if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
-			!= boot->FSInfo * boot->BytesPerSec
-			|| read(dosfs, fsinfo, boot->BytesPerSec)
-			!= boot->BytesPerSec) {
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read fsinfo block", strerror(errno));
-			return FSFATAL;
-		}
+        if (context->readHelper(context->resource, fsinfo, boot->BytesPerSec, boot->FSInfo * boot->BytesPerSec) != boot->BytesPerSec) {
+            fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read fsinfo block", strerror(errno));
+            return FSFATAL;
+        }
+
 		if (memcmp(fsinfo, "RRaA", 4)
 		    || memcmp(fsinfo + 0x1e4, "rrAa", 4)
 		    || fsinfo[0x1fc]
@@ -192,13 +192,10 @@ readboot(int dosfs, struct bootblock *boot)
 				fsinfo[0x3fc] = fsinfo[0x3fd] = 0;
 				fsinfo[0x3fe] = 0x55;
 				fsinfo[0x3ff] = 0xaa;
-				if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
-				    != boot->FSInfo * boot->BytesPerSec
-				    || write(dosfs, fsinfo, boot->BytesPerSec)
-				    != boot->BytesPerSec) {
-					fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FSInfo", strerror(errno));
-					return FSFATAL;
-				}
+                if (context->writeHelper(context->resource, fsinfo, boot->BytesPerSec, boot->FSInfo * boot->BytesPerSec) != boot->BytesPerSec) {
+                    fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FSInfo", strerror(errno));
+                    return FSFATAL;
+                }
 				ret = FSBOOTMOD;
 			} else {
 				boot->FSInfo = 0;
@@ -320,12 +317,11 @@ readboot(int dosfs, struct bootblock *boot)
 				block[34] = (boot->NumSectors >> 16) & 0xFF;
 				block[35] = (boot->NumSectors >> 24) & 0xFF;
 			}
-			if (lseek(dosfs, 0, SEEK_SET) != 0 ||
-				write(dosfs, block, boot->BytesPerSec) != boot->BytesPerSec)
-			{
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not write boot sector", strerror(errno));
-				return FSFATAL;
-			}
+            res = 0;
+            if (context->writeHelper(context->resource, block, boot->BytesPerSec, 0) != boot->BytesPerSec) {
+                fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not write boot sector", strerror(errno));
+                return FSFATAL;
+            }
 			ret |= FSBOOTMOD;	/* This flag is currently ignored by checkfilesys() */
 		} else {
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: Continuing, assuming %u clusters\n", boot->NumFatEntries-2);
@@ -345,17 +341,17 @@ readboot(int dosfs, struct bootblock *boot)
 }
 
 int
-writefsinfo(int dosfs, struct bootblock *boot)
+writefsinfo(struct bootblock *boot, check_context *context)
 {
 	u_char fsinfo[MAX_SECTOR_SIZE];
+    off_t fd_offset = boot->FSInfo * boot->BytesPerSec;
 
-	if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
-	    != boot->FSInfo * boot->BytesPerSec
-	    || read(dosfs, fsinfo, boot->BytesPerSec) != boot->BytesPerSec) {
+	if (context->readHelper(context->resource, fsinfo, boot->BytesPerSec, fd_offset) != boot->BytesPerSec) {
 		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "could not read fsinfo block", strerror(errno));
 		return FSFATAL;
 	}
-	fsinfo[0x1e8] = (u_char)boot->FSFree;
+
+    fsinfo[0x1e8] = (u_char)boot->FSFree;
 	fsinfo[0x1e9] = (u_char)(boot->FSFree >> 8);
 	fsinfo[0x1ea] = (u_char)(boot->FSFree >> 16);
 	fsinfo[0x1eb] = (u_char)(boot->FSFree >> 24);
@@ -363,13 +359,11 @@ writefsinfo(int dosfs, struct bootblock *boot)
 	fsinfo[0x1ed] = (u_char)(boot->FSNext >> 8);
 	fsinfo[0x1ee] = (u_char)(boot->FSNext >> 16);
 	fsinfo[0x1ef] = (u_char)(boot->FSNext >> 24);
-	if (lseek(dosfs, boot->FSInfo * boot->BytesPerSec, SEEK_SET)
-	    != boot->FSInfo * boot->BytesPerSec
-	    || write(dosfs, fsinfo, boot->BytesPerSec)
-	    != boot->BytesPerSec) {
-		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FSInfo", strerror(errno));
-		return FSFATAL;
-	}
+
+    if (context->writeHelper(context->resource, fsinfo, boot->BytesPerSec, fd_offset) != boot->BytesPerSec) {
+        fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write FSInfo", strerror(errno));
+        return FSFATAL;
+    }
 	/*
 	 * Technically, we should return FSBOOTMOD here.
 	 *

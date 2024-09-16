@@ -1,0 +1,101 @@
+#! /bin/sh
+
+# Test that the --copy-dest option works as expected.
+
+set -e
+set -u
+set -o pipefail
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# Number of regular files to create at each of the top-level
+# and one subdir of the source dir.
+#
+NUMFILES=17
+
+# Clean up from prior run:
+#
+[ -f ref ] && chmod -f 755 ref
+rm -rf src dst ref
+
+# Create the source tree:
+#
+mkdir src src/dir
+for i in $(seq ${NUMFILES}) ; do
+    jot 1 $i > src/file$i
+    jot 262144 $i > src/dir/file$i
+done
+
+cp -a src ref
+
+MINSZ=$(du -s src | awk '{print $1}')
+
+# A normal transfer should report the number of bytes transferred
+# as being greater than what du reports.
+#
+rm -rf dst
+X=$(rsync -av --stats -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -gt ${MINSZ} ]
+compare_trees -t src dst
+
+
+# A --copy-dest transfer such that the copy-dest-dir is the same as
+# the source dir should report zero bytes transferred:
+#
+rm -rf dst
+X=$(rsync -av --stats --copy-dest="$PWD/src" -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -eq 0 ]
+compare_trees -t src dst
+
+
+# A --copy-dest transfer such that the copy-dest-dir does not exist
+# should report the number of bytes transferred as being greater
+# than what du reports.
+#
+rm -rf dst
+X=$(rsync -av --stats --copy-dest="$PWD/dne$$" -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -gt ${MINSZ} ]
+[ ! -e "$PWD/dne$$" ]
+compare_trees -t src dst
+
+
+# A --copy-dest transfer such that the copy-dest-dir is not relevant
+# should report the number of bytes transferred as being greater
+# than what du reports.
+#
+rm -rf dst
+X=$(rsync -av --stats --copy-dest="$PWD" -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -gt ${MINSZ} ]
+compare_trees -t src dst
+
+
+# A --copy-dest transfer such that the copy-dest-dir is not relevant
+# should report the number of bytes transferred as being greater
+# than what du reports.
+#
+rm -rf dst
+X=$(rsync -av --stats --copy-dest="$PWD/dst" -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -gt ${MINSZ} ]
+compare_trees -t src dst
+
+# Remove this exit once the problem with openrsync failing after
+# being unable to open the --copy-dest directory is fixed.
+#
+exit
+
+# A --copy-dest transfer such that the copy-dest-dir is not readable
+# should succeed and report the number of bytes transferred as being
+# greater than what du reports:
+#
+chmod 0 ref
+rm -rf dst
+X=$(rsync -av --stats --copy-dest="$PWD/ref" -- src/ dst/ 2>&1 | awk '$1 == "Total" && $2 == "transferred" {print $5}' | sed 's/,//g')
+[ $? -eq 0 ]
+[ $X -gt ${MINSZ} ]
+compare_trees -t src dst

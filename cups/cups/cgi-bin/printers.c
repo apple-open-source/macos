@@ -351,7 +351,7 @@ show_all_printers(http_t     *http,	/* I - Connection to server */
     * Get a list of matching job objects.
     */
 
-    if ((var = cgiGetVariable("QUERY")) != NULL &&
+    if ((var = cgiGetTextfield("QUERY")) != NULL &&
         !cgiGetVariable("CLEAR"))
       search = cgiCompileSearch(var);
     else

@@ -215,7 +215,7 @@ static NSDictionary* makeEDAParameters(NSString* label, NSURL* acmeServerURL, CF
         (id)kSecAttrKeyType : (id)CFBridgingRelease(keyType),
         (id)kSecAttrKeySizeInBits : keySize,
         /* certificate creation attributes */
-        (id)kSecCertificateLifetime : @(31536000), /* lifetime in seconds */
+        (id)kSecCertificateLifetime : @(60*60*24*365), /* lifetime in seconds (365 days) */
         (id)kSecCertificateKeyUsage : @(kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment),
         (id)kSecCertificateExtendedKeyUsage : ekuArray,
         (__bridge NSString*)kSecCMSSignHashAlgorithm : (__bridge NSString*)kSecCMSHashingAlgorithmSHA256,
@@ -272,7 +272,7 @@ static NSDictionary* makeParameters(NSString* label, NSURL* acmeServerURL, CFStr
         (id)kSecAttrKeyType : (id)CFBridgingRelease(keyType),
         (id)kSecAttrKeySizeInBits : keySize,
         /* certificate creation attributes */
-        (id)kSecCertificateLifetime : @(3600*24*825), /* lifetime in seconds */
+        (id)kSecCertificateLifetime : @(60*60*24*825), /* lifetime in seconds (825 days) */
         (id)kSecCertificateKeyUsage : @(kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment),
         (id)kSecCertificateExtendedKeyUsage : @[(__bridge NSString*)kSecEKUClientAuth],
         (__bridge NSString*)kSecCMSSignHashAlgorithm : (__bridge NSString*)kSecCMSHashingAlgorithmSHA256,

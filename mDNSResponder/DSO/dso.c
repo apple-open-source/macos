@@ -1,6 +1,6 @@
 /* dso.c
  *
- * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@
 
 #include "DNSCommon.h"
 #include "mDNSEmbeddedAPI.h"
+#include "PlatformCommon.h"
 #include "dso.h"
 #include "DebugServices.h"   // For check_compile_time
 
@@ -282,6 +283,9 @@ dso_state_t *dso_state_create(bool is_server, int max_outstanding_queries, const
     // Set up additional additional pointer.
     dso->additl = dso->additl_buf;
     dso->max_additls = MAX_ADDITLS;
+
+    dso->keepalive_interval = 3600 * MSEC_PER_SEC;
+    dso->inactivity_timeout = 15 * MSEC_PER_SEC;
 
     dso->next = dso_connections;
     dso_connections = dso;
@@ -704,7 +708,7 @@ void dso_retry_delay(dso_state_t *dso, const DNSMessageHeader *header)
     }
 }
 
-void dso_keepalive(dso_state_t *dso, const DNSMessageHeader *header)
+void dso_keepalive(dso_state_t *dso, const DNSMessageHeader *header, bool response)
 {
     dso_keepalive_context_t context;
     memset(&context, 0, sizeof context);
@@ -715,6 +719,11 @@ void dso_keepalive(dso_state_t *dso, const DNSMessageHeader *header)
         }
         return;
     }
+    if (dso->is_server && response) {
+        LogMsg("Dropping Keepalive Response received by DSO server");
+        return;
+    }
+
     memcpy(&context, dso->primary.payload, dso->primary.length);
     context.inactivity_timeout = ntohl(context.inactivity_timeout);
     context.keepalive_interval = ntohl(context.keepalive_interval);
@@ -923,7 +932,7 @@ void dso_message_received(dso_state_t *dso, const uint8_t *message, size_t messa
     // Call the callback with the message or response
     if (dso->cb) {
         if (message_length != 12 && dso->primary.opcode == kDSOType_Keepalive) {
-            dso_keepalive(dso, header);
+            dso_keepalive(dso, header, response);
         } else if (message_length != 12 && dso->primary.opcode == kDSOType_RetryDelay) {
             dso_retry_delay(dso, header);
         } else {
@@ -990,6 +999,8 @@ const char *dso_event_type_to_string(const dso_event_type_t dso_event_type)
         CASE_TO_STR(Keepalive);
         CASE_TO_STR(KeepaliveRcvd);
         CASE_TO_STR(RetryDelay);
+        MDNS_COVERED_SWITCH_DEFAULT:
+            break;
     }
 #undef CASE_TO_STR
     LogMsg("Invalid dso_event_type - dso_event_type: %d.", dso_event_type);

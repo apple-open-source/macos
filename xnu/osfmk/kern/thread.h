@@ -128,6 +128,10 @@
 #include <kern/turnstile.h>
 #include <kern/mpsc_queue.h>
 
+#if CONFIG_EXCLAVES
+#include <mach/exclaves.h>
+#endif /* CONFIG_EXCLAVES */
+
 #include <kern/waitq.h>
 #include <san/kasan.h>
 #include <san/kcov_data.h>
@@ -201,7 +205,9 @@ struct thread_ro {
 	struct task                *tro_task;
 
 	struct ipc_port            *tro_self_port;
+#if CONFIG_CSR
 	struct ipc_port            *tro_settable_self_port;             /* send right */
+#endif /* CONFIG_CSR */
 	struct ipc_port            *tro_ports[THREAD_SELF_PORT_COUNT];  /* no right */
 
 	struct exception_action    *tro_exc_actions;
@@ -242,6 +248,12 @@ __options_decl(thread_set_status_flags_t, uint32_t, {
 
 	/* Check for entitlement */
 	TSSF_CHECK_ENTITLEMENT = 0x200,
+
+	/* Stash diversifier from task */
+	TSSF_TASK_USER_DIV = 0x400,
+
+	/* Only take the PC from the new thread state */
+	TSSF_ONLY_PC = 0x800,
 });
 
 /*
@@ -302,6 +314,9 @@ __options_decl(thread_exclaves_state_flags_t, uint16_t, {
 	 * downcall, exit_with_reason needs to be called on the task.
 	 */
 	TH_EXCLAVES_STOP_UPCALL_PENDING        = 0x20,
+	/* Thread is expecting that an exclaves-side thread may be spawned.
+	 */
+	TH_EXCLAVES_SPAWN_EXPECTED             = 0x40,
 });
 #define TH_EXCLAVES_STATE_ANY           ( \
     TH_EXCLAVES_RPC               | \
@@ -624,10 +639,6 @@ struct thread {
 	struct thread_group     *thread_group;
 #endif
 
-#if defined(CONFIG_SCHED_MULTIQ)
-	sched_group_t           sched_group;
-#endif /* defined(CONFIG_SCHED_MULTIQ) */
-
 	/* Data used during setrun/dispatch */
 	processor_t             bound_processor;        /* bound to a processor? */
 	processor_t             last_processor;         /* processor last dispatched on */
@@ -641,10 +652,6 @@ struct thread {
 
 	/* Call out from scheduler */
 	void                  (*sched_call)(int type, thread_t thread);
-
-#if defined(CONFIG_SCHED_PROTO)
-	uint32_t                runqueue_generation;    /* last time runqueue was drained */
-#endif
 
 	/* Statistics and timesharing calculations */
 #if defined(CONFIG_SCHED_TIMESHARE_CORE)
@@ -741,6 +748,9 @@ struct thread {
 #endif
 	circle_queue_head_t     ith_messages;           /* messages to reap */
 	mach_port_t             ith_kernel_reply_port;  /* reply port for kernel RPCs */
+
+	/* VM Fault Tolerance */
+	bool                    th_vm_faults_disabled;
 
 	/* Ast/Halt data structures */
 	vm_offset_t             recover;                /* page fault recover(copyin/out) */
@@ -998,13 +1008,9 @@ struct thread {
 #endif
 
 #if CONFIG_EXCLAVES
-	/* Per-thread IPC buffer for exclaves communication. Only modified by the
+	/* Per-thread IPC context for exclaves communication. Only modified by the
 	 * current thread on itself. */
-	void                    *th_exclaves_ipc_buffer;
-	/* Exclaves scheduling context ID corresponding to IPC buffer, communicated
-	 * to the exclaves scheduler component. Only modified by the current
-	 * thread on itself. */
-	uint64_t                th_exclaves_scheduling_context_id;
+	exclaves_ctx_t      th_exclaves_ipc_ctx;
 	/* Thread exclaves interrupt-safe state. Only mutated by the current thread
 	 * on itself with interrupts disabled, and only ever read by the current
 	 * thread (with no locking), including from interrupt context, or during
@@ -1440,7 +1446,8 @@ extern kern_return_t main_thread_create_waiting(task_t    task,
 extern kern_return_t    thread_create_workq_waiting(
 	task_t                  task,
 	thread_continue_t       thread_return,
-	thread_t                *new_thread);
+	thread_t                *new_thread,
+	bool                    is_permanently_bound);
 
 extern  void    thread_yield_internal(
 	mach_msg_timeout_t      interval);
@@ -1628,6 +1635,8 @@ extern boolean_t        thread_should_halt(
 
 extern boolean_t        thread_should_abort(
 	thread_t);
+
+extern bool current_thread_in_kernel_fault(void);
 
 extern int is_64signalregset(void);
 

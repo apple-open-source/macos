@@ -301,6 +301,23 @@ pdfjs-editor-ink-button-label = ਵਾਹੋ
 pdfjs-editor-stamp-button =
     .title = ਚਿੱਤਰ ਜੋੜੋ ਜਾਂ ਸੋਧੋ
 pdfjs-editor-stamp-button-label = ਚਿੱਤਰ ਜੋੜੋ ਜਾਂ ਸੋਧੋ
+pdfjs-editor-highlight-button =
+    .title = ਹਾਈਲਾਈਟ
+pdfjs-editor-highlight-button-label = ਹਾਈਲਾਈਟ
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = ਡਰਾਇੰਗ ਨੂੰ ਹਟਾਓ
+pdfjs-editor-remove-freetext-button =
+    .title = ਲਿਖਤ ਨੂੰ ਹਟਾਓ
+pdfjs-editor-remove-stamp-button =
+    .title = ਚਿੱਤਰ ਨੂੰ ਹਟਾਓ
+pdfjs-editor-remove-highlight-button =
+    .title = ਹਾਈਲਾਈਟ ਨੂੰ ਹਟਾਓ
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = ਰੰਗ
 pdfjs-editor-free-text-size-input = ਆਕਾਰ
@@ -310,6 +327,10 @@ pdfjs-editor-ink-opacity-input = ਧੁੰਦਲਾਪਨ
 pdfjs-editor-stamp-add-image-button =
     .title = ਚਿੱਤਰ ਜੋੜੋ
 pdfjs-editor-stamp-add-image-button-label = ਚਿੱਤਰ ਜੋੜੋ
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = ਮੋਟਾਈ
+pdfjs-editor-free-highlight-thickness-title =
+    .title = ਚੀਜ਼ਾਂ ਨੂੰ ਹੋਰ ਲਿਖਤਾਂ ਤੋਂ ਉਘਾੜਨ ਸਮੇਂ ਮੋਟਾਈ ਨੂੰ ਬਦਲੋ
 pdfjs-free-text =
     .aria-label = ਲਿਖਤ ਐਡੀਟਰ
 pdfjs-free-text-default-content = …ਲਿਖਣਾ ਸ਼ੁਰੂ ਕਰੋ
@@ -347,3 +368,22 @@ pdfjs-editor-resizer-label-bottom-right = ਹੇਠਾਂ ਸੱਜਾ ਕੋਨ
 pdfjs-editor-resizer-label-bottom-middle = ਹੇਠਾਂ ਮੱਧ — ਮੁੜ-ਆਕਾਰ ਕਰੋ
 pdfjs-editor-resizer-label-bottom-left = ਹੇਠਾਂ ਖੱਬਾ ਕੋਨਾ — ਮੁੜ-ਆਕਾਰ ਕਰੋ
 pdfjs-editor-resizer-label-middle-left = ਮੱਧ ਖੱਬਾ — ਮੁੜ-ਆਕਾਰ ਕਰੋ
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = ਹਾਈਟਲਾਈਟ ਦਾ ਰੰਗ
+pdfjs-editor-colorpicker-button =
+    .title = ਰੰਗ ਨੂੰ ਬਦਲੋ
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = ਰੰਗ ਚੋਣਾਂ
+pdfjs-editor-colorpicker-yellow =
+    .title = ਪੀਲਾ
+pdfjs-editor-colorpicker-green =
+    .title = ਹਰਾ
+pdfjs-editor-colorpicker-blue =
+    .title = ਨੀਲਾ
+pdfjs-editor-colorpicker-pink =
+    .title = ਗੁਲਾਬੀ
+pdfjs-editor-colorpicker-red =
+    .title = ਲਾਲ

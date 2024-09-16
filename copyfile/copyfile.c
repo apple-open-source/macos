@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 Apple, Inc. All rights reserved.
+ * Copyright (c) 2004-2024 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,6 +39,7 @@
 #include <sys/attr.h>
 #include <sys/syscall.h>
 #include <sys/param.h>
+#include <sys/paths.h>
 #include <sys/mount.h>
 #include <sys/acl.h>
 #include <libkern/OSByteOrder.h>
@@ -80,18 +81,30 @@ static int qtn_file_set_flags(__unused void *x, __unused uint32_t flags) { retur
 #include "copyfile_private.h"
 #include "xattr_flags.h"
 
+#define XATTR_MAX_BUFFER_SIZE     (32 * 1024 * 1024) // 32 MiB
+#define XATTR_MAX_GET_RETRIES     3
+#define XATTR_MAX_GET_RSRC_SIZE   (1024 * 1024) // 1 MiB
 #define XATTR_ROOT_INSTALLED_NAME "com.apple.root.installed"
 
+#define S_ISSUD                   (S_ISUID | S_ISGID) // Mask for setuid/setgid bits
+
 enum cfInternalFlags {
-	cfDelayAce                = 1 << 0, /* set if ACE shouldn't be set until post-order traversal */
-	cfMakeFileInvisible       = 1 << 1, /* set if kFinderInvisibleMask is on src */
-	cfPreserveCompression     = 1 << 2, /* set if we should preserve compression onto dst */
-	cfSrcProtSupportValid     = 1 << 3, /* set if cfSrcSupportsCProtect is valid */
-	cfSrcSupportsCProtect     = 1 << 4, /* set if src supports MNT_CPROTECT */
-	cfDstProtSupportValid     = 1 << 5, /* set if cfDstSupportsCProtect is valid */
-	cfDstSupportsCProtect     = 1 << 6, /* set if dst supports MNT_CPROTECT */
-	cfSrcFdOpenedByUs         = 1 << 7, /* set if src_fd opened by copyfile_open() */
-	cfDstFdOpenedByUs         = 1 << 8, /* set if dst_fd opened by copyfile_open() */
+	cfDelayAce                = 1 << 0,  /* set if ACE shouldn't be set until post-order traversal */
+	cfMakeFileInvisible       = 1 << 1,  /* set if kFinderInvisibleMask is on src */
+	cfPreserveCompression     = 1 << 2,  /* set if we should preserve compression onto dst */
+	cfSrcProtSupportValid     = 1 << 3,  /* set if cfSrcSupportsCProtect is valid */
+	cfSrcSupportsCProtect     = 1 << 4,  /* set if src supports MNT_CPROTECT */
+	cfDstProtSupportValid     = 1 << 5,  /* set if cfDstSupportsCProtect is valid */
+	cfDstSupportsCProtect     = 1 << 6,  /* set if dst supports MNT_CPROTECT */
+	cfSrcFdOpenedByUs         = 1 << 7,  /* set if src_fd opened by copyfile_open() */
+	cfDstFdOpenedByUs         = 1 << 8,  /* set if dst_fd opened by copyfile_open() */
+	cfDontSetCProtect         = 1 << 9,  /* set if caller wants to prevent explicit cprotect changes on dst */
+	cfCopyUsingRsrcFds        = 1 << 10, /* set if src's resource fork should be copied via copyfile_data() */
+	cfCloneSucceeded          = 1 << 11, /* set if COPYFILE_CLONE on src succeeded */
+	cfSetDestinationPerms     = 1 << 12, /* set if we should revert permissions on dst on error */
+	cfForbidCrossMount        = 1 << 13, /* set if COPYFILE_RECURSIVE must not cross mounts */
+	cfAlwaysCopySuidBits      = 1 << 14, /* set if we should copy setuid bits even if src/dst vols don't support them */
+	cfForbidCopySuidBits      = 1 << 15, /* set if COPYFILE_CLONE fallback should not copy setuid bits */
 	cfDstCheckExistingSlinks  = 1 << 16, /* set if we should check for existing symlinks at the destination */
 	cfCheckFtsInfo            = 1 << 17, /* set if we should check our source file type against an FTSENT * */
 	cfCheckFtsInfoAsLink      = 1 << 18, /* set if cfCheckFtsInfo is set and the source is actually known to be a symlink */
@@ -113,32 +126,39 @@ struct _copyfile_state
 	char *src;
 	char *dst;
 	int src_fd;
+	int src_rsrc_fd;
 	int dst_fd;
+	int dst_rsrc_fd;
 	struct stat sb;
+	struct stat *rsrc_sb; // Dynamically allocated, be careful.
 	filesec_t fsec;
 	copyfile_flags_t flags;
 	unsigned int	internal_flags;
 	void *stats;
-	uint32_t debug;
 	copyfile_callback_t	statuscb;
 	void	*ctx;
 	qtn_file_t qinfo;	/* Quarantine information -- probably NULL */
 	filesec_t original_fsec;
 	filesec_t permissive_fsec;
+	char *xattr_name;
 	FTSENT *recurse_entry;
 	off_t totalCopied;
 	int err;
-	char *xattr_name;
+	uint32_t debug;
 	xattr_operation_intent_t copyIntent;
-	bool was_cloned;
-	bool set_dst_perms;
-	bool forbid_cross_mount;
 	uint32_t src_bsize;
 	uint32_t dst_bsize;
 };
 
 #define GET_PROT_CLASS(fd) fcntl((fd), F_GETPROTECTIONCLASS)
 #define SET_PROT_CLASS(fd, prot_class) fcntl((fd), F_SETPROTECTIONCLASS, (prot_class))
+
+typedef struct copyfile_bsizes {
+	size_t cb_src_bsize;
+	size_t cb_dst_bsize;
+	size_t cb_src_minbsize;
+	size_t cb_dst_minbsize;
+} copyfile_bsizes_t;
 
 struct acl_entry {
 	u_int32_t       ae_magic;
@@ -206,14 +226,14 @@ doesdecmpfs(int fd) {
 }
 
 static int
-does_copy_protection(int fd)
+fd_volume_has_feature(int fd, long mnt_flag)
 {
 	struct statfs sfs;
 
 	if (fstatfs(fd, &sfs) == -1)
 		return -1;
 
-	return ((sfs.f_flags & MNT_CPROTECT) == MNT_CPROTECT);
+	return ((sfs.f_flags & mnt_flag) == mnt_flag);
 }
 
 static bool
@@ -344,7 +364,7 @@ done:
  */
 static int copyfile_open	(copyfile_state_t);
 static int copyfile_close	(copyfile_state_t);
-static int copyfile_data	(copyfile_state_t);
+static int copyfile_data	(copyfile_state_t, bool);
 static int copyfile_stat	(copyfile_state_t);
 static int copyfile_security	(copyfile_state_t);
 static int copyfile_xattr	(copyfile_state_t);
@@ -760,7 +780,7 @@ copytree(copyfile_state_t s)
 		fts_flags |= FTS_COMFOLLOW;
 	}
 
-	if (s->forbid_cross_mount) {
+	if (s->internal_flags & cfForbidCrossMount) {
 		fts_flags |= FTS_XDEV;
 	}
 
@@ -1079,7 +1099,7 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
  * In both cases, we inherit the flags provided
  * to copyfile call and clone the file.
  * Both these flags are equivalent to
- * (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA)
+ * (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA)
  * With force clone flag set, we return failure if cloning fails,
  * however, in case of best try flag, we fallback to the copy method.
  */
@@ -1091,6 +1111,14 @@ static int copyfile_clone(copyfile_state_t state)
 	// cloning the target of symlinks (since that may be a directory).
 	int cloneFlags = CLONE_NOFOLLOW;
 	struct stat src_sb;
+
+	if (state->flags & COPYFILE_ACL) {
+		/*
+		 * clonefile(2) does not clone ACLs by default,
+		 * so only do so if requested separately.
+		 */
+		cloneFlags |= CLONE_ACL;
+	}
 
 	if (lstat(state->src, &src_sb) != 0)
 	{
@@ -1127,7 +1155,7 @@ static int copyfile_clone(copyfile_state_t state)
 			 * and let the caller figure out how they want to
 			 * deal.
 			 */
-			state->was_cloned = true;
+			state->internal_flags |= cfCloneSucceeded;
 
 			/*
 			 * COPYFILE_MOVE tells us to attempt removing
@@ -1293,7 +1321,7 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 
 	if (s->flags & (COPYFILE_CLONE_FORCE | COPYFILE_CLONE))
 	{
-		// clonefile(3) clones every xattr, which may not line up
+		// clonefile(2) clones every xattr, which may not line up
 		// with the copy intent we're provided with.
 		if (!s->copyIntent) {
 			ret = copyfile_clone(s);
@@ -1311,10 +1339,18 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 
 		// cloning failed. Inherit clonefile flags required for
 		// falling back to copyfile.
-		s->flags |= (COPYFILE_ACL | COPYFILE_EXCL | COPYFILE_NOFOLLOW_SRC |
+		// (We do not pass `COPYFILE_ACL` here unless it was passed
+		// along with the initial COPYFILE_CLONE, because clonefile()
+		// does not copy ACLs by default.)
+		// We also do not copy set-userid like bits unless
+		// previously asked for by the caller.
+		s->flags |= (COPYFILE_EXCL | COPYFILE_NOFOLLOW_SRC |
 					 COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA);
 
 		s->flags &= ~COPYFILE_CLONE;
+		if (!(s->internal_flags & cfAlwaysCopySuidBits)) {
+			s->internal_flags |= cfForbidCopySuidBits;
+		}
 		flags = s->flags;
 		ret = 0;
 	}
@@ -1369,7 +1405,7 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 					s->permissive_fsec = NULL;
 				}
 			} else {
-				s->set_dst_perms = true;
+				s->internal_flags |= cfSetDestinationPerms;
 			}
 		}
 	} else if (errno == ENOENT) {
@@ -1420,7 +1456,7 @@ error_exit:
 	// Since we failed, we attempt to reset dst's permissions
 	// to what they were before we were called, using paths
 	// since that's all that's guaranteed to exist.
-	if (s && s->set_dst_perms && !createdst) {
+	if (s && (s->internal_flags & cfSetDestinationPerms) && !createdst) {
 		// Our work here can reset errno, so save its result in advance.
 		errno_t _errsv = errno;
 
@@ -1607,7 +1643,7 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 	 */
 	if ((COPYFILE_DATA|COPYFILE_DATA_SPARSE) & flags)
 	{
-		if ((ret = copyfile_data(s)) < 0)
+		if ((ret = copyfile_data(s, false)) < 0)
 		{
 			copyfile_warn("error processing data");
 			if (s->dst && unlink(s->dst))
@@ -1656,7 +1692,9 @@ copyfile_state_t copyfile_state_alloc(void)
 	if (s != NULL)
 	{
 		s->src_fd = -2;
+		s->src_rsrc_fd = -2;
 		s->dst_fd = -2;
+		s->dst_rsrc_fd = -2;
 		if (s->fsec) {
 			filesec_free(s->fsec);
 			s->fsec = NULL;
@@ -1674,6 +1712,8 @@ copyfile_state_t copyfile_state_alloc(void)
  */
 int copyfile_state_free(copyfile_state_t s)
 {
+	int error = 0;
+
 	if (s != NULL)
 	{
 		if (s->fsec)
@@ -1691,17 +1731,20 @@ int copyfile_state_free(copyfile_state_t s)
 		if (copyfile_close(s) < 0)
 		{
 			copyfile_warn("error closing files");
-			return -1;
+			error = -1;
+			// Free as much as possible.
 		}
 		if (s->xattr_name)
 			free(s->xattr_name);
+		if (s->rsrc_sb)
+			free(s->rsrc_sb);
 		if (s->dst)
 			free(s->dst);
 		if (s->src)
 			free(s->src);
 		free(s);
 	}
-	return 0;
+	return error;
 }
 
 /*
@@ -1710,15 +1753,25 @@ int copyfile_state_free(copyfile_state_t s)
  */
 static int copyfile_close(copyfile_state_t s)
 {
+	int error = 0;
+
 	if (s->src && s->src_fd >= 0)
 		close(s->src_fd);
 
+	if (s->src && s->src_rsrc_fd >= 0)
+		close(s->src_rsrc_fd);
+
 	if (s->dst && s->dst_fd >= 0) {
 		if (close(s->dst_fd))
-			return -1;
+			error = -1;
 	}
 
-	return 0;
+	if (s->dst && s->dst_rsrc_fd >= 0) {
+		if (close(s->dst_rsrc_fd))
+			error = -1;
+	}
+
+	return error;
 }
 
 /*
@@ -1831,6 +1884,10 @@ static int copyfile_open(copyfile_state_t s)
 
 	if (s->src && s->src_fd == -2)
 	{
+		mode_t expected_type = 0;
+		struct stat repeat_sb;
+
+		/* Stat the file so that we know what file type we're looking at. */
 		if ((COPYFILE_NOFOLLOW_SRC & s->flags ? lstatx_np : statx_np)
 			(s->src, &s->sb, s->fsec))
 		{
@@ -1889,6 +1946,13 @@ static int copyfile_open(copyfile_state_t s)
 		copyfile_debug(2, "open successful on source (%s)", s->src);
 		s->internal_flags |= cfSrcFdOpenedByUs;
 
+		/*
+		 * Now that we've called open(2),
+		 * re-check that the file on disk hasn't changed file type.
+		 * If cfCheckFtsInfo is set, we were passed an expected file type
+		 * and we need to do the lstat(2). Otherwise, we do a stat of the same
+		 * flavor we did above and make sure nothing's changed.
+		 */
 		if (s->internal_flags & cfCheckFtsInfo) {
 			/*
 			 * We are requested to make sure the source file's type
@@ -1900,8 +1964,6 @@ static int copyfile_open(copyfile_state_t s)
 			 * because our caller is expected to have the real file type
 			 * of the source, not whatever it points to.
 			 */
-			struct stat repeat_sb;
-
 			if (!s->recurse_entry) {
 				s->err = errno = ENOENT;
 				copyfile_warn("missing FTS entry during recursive copy\n");
@@ -1911,7 +1973,6 @@ static int copyfile_open(copyfile_state_t s)
 				return -1;
 			}
 
-			mode_t expected_type = 0;
 			switch (s->recurse_entry->fts_info) {
 				case FTS_SL:
 				case FTS_SLNONE:
@@ -1938,17 +1999,94 @@ static int copyfile_open(copyfile_state_t s)
 				// for callback-functions that need to see the destination of the symlink.)
 				expected_type = S_IFLNK;
 			}
+		} else {
+			// We can just use the existing stat buffer's type
+			// as our expected type - this will be a regular file,
+			// directory, or symlink (or in the case where /dev/null
+			// is the source, a character device).
+			expected_type = s->sb.st_mode & S_IFMT;
 
-			if (expected_type && ((repeat_sb.st_mode & S_IFMT) != expected_type)) {
-				s->err = errno = EBADF;
-				copyfile_warn("file type (%u) does not match expected %u on %s\n",
-					(uint32_t)(repeat_sb.st_mode & S_IFMT), (uint32_t)expected_type,
-					s->src);
+			if ((COPYFILE_NOFOLLOW_SRC & s->flags ? lstat : stat)
+				(s->src, &repeat_sb)) {
+				copyfile_warn("repeat stat on %s\n", s->src);
 				return -1;
 			}
 		}
 
+		if ((repeat_sb.st_mode & S_IFMT) != expected_type) {
+			s->err = errno = EBADF;
+			copyfile_warn("file type (%u) does not match expected %u on %s\n",
+				(uint32_t)(repeat_sb.st_mode & S_IFMT), (uint32_t)expected_type,
+				s->src);
+
+			return -1;
+		}
+
 		(void)copyfile_quarantine(s);
+
+		/*
+		 * If we're copying extended attributes, check if the resource fork
+		 * (if any) is large. If so, open the resource fork file descriptor
+		 * so we can copy it via copyfile_data().
+		 * This can be more performant since we will preallocate space for
+		 * the fork, and can use regular read/write calls).
+		 * If the extended attribute is too small, we'll copy it using
+		 * copyfile_rsrc(), which will use getxattr/sexattr().
+		 * Either approach cuts down on the dynamic memory usage required
+		 * to copy the resource fork, since we will not malloc() a potentially
+		 * very large sized buffer in copyfile_xattr().
+		 *
+		 * Since we have no openat(fd, _PATH_RSRCFORKSPEC), we cannot do this
+		 * for fcopyfile() - in that case, we will always use copyfile_rsrc().
+		 */
+		if (isreg && (s->flags & COPYFILE_XATTR)) {
+			int options = 0;
+			if ((s->flags & COPYFILE_DATA) && (s->sb.st_flags & UF_COMPRESSED) &&
+				doesdecmpfs(s->src_fd)) {
+				options |= XATTR_SHOWCOMPRESSION;
+			}
+			if (s->flags & COPYFILE_NOFOLLOW_SRC) {
+				options |= XATTR_NOFOLLOW;
+			}
+
+			const ssize_t rsrc_size = fgetxattr(s->src_fd, XATTR_RESOURCEFORK_NAME,
+				NULL, 0, 0, options);
+			errno = 0;
+
+			if (rsrc_size > XATTR_MAX_GET_RSRC_SIZE) {
+				copyfile_debug(2, "%s has large resource fork, will use namedfork to copy", s->src);
+
+				/*
+				 * Allocate the resource fork stat structure -
+				 * if this, the [l]stat(2), or the open(2) fails,
+				 * we'll fallback to copying the resource fork
+				 * via getxattr()/setxattr(), like other xattrs.
+				 */
+				char src_rsrc_path[MAXPATHLEN];
+				snprintf(src_rsrc_path, MAXPATHLEN, "%s%s", s->src, _PATH_RSRCFORKSPEC);
+
+				s->rsrc_sb = malloc(sizeof(struct stat));
+				if (s->rsrc_sb && (COPYFILE_NOFOLLOW_SRC & s->flags ? lstat : stat)
+					(src_rsrc_path, s->rsrc_sb))
+				{
+					copyfile_warn("stat on %s", src_rsrc_path);
+					free(s->rsrc_sb);
+					s->rsrc_sb = NULL;
+				}
+
+				/*
+				 * Open the resource fork. If we're unsuccessful,
+				 * we will fall back to using getxattr()/setxattr().
+				 */
+				if (!s->rsrc_sb || (s->src_rsrc_fd = open(src_rsrc_path, O_RDONLY | osrc, 0)) < 0) {
+					copyfile_warn("malloc/stat/open on %s", src_rsrc_path);
+					errno = 0;
+				} else {
+					copyfile_debug(2, "open successful on source rsrc (%s)", src_rsrc_path);
+					s->internal_flags |= cfCopyUsingRsrcFds;
+				}
+			}
+		}
 	}
 
 	if (s->dst && s->dst_fd == -2)
@@ -1999,20 +2137,24 @@ static int copyfile_open(copyfile_state_t s)
 
 		if (!(s->internal_flags & cfSrcProtSupportValid))
 		{
-			if ((error = does_copy_protection(s->src_fd)) > 0)
+			if ((error = fd_volume_has_feature(s->src_fd, MNT_CPROTECT)) > 0)
 			{
 				s->internal_flags |= cfSrcSupportsCProtect;
 			}
 			else if (error < 0)
 			{
-				copyfile_warn("does_copy_protection failed on (%s) with error <%d>", s->src, errno);
+				copyfile_warn("failed to determine copy protection on (%s) with error <%d>", s->src, errno);
 				return -1;
 			}
 			s->internal_flags |= cfSrcProtSupportValid;
 		}
 
-		/* copy protection is only valid for regular files and directories. */
-		if ((isreg || isdir) && (s->internal_flags & cfSrcSupportsCProtect))
+		/*
+		 * Copy protection is only valid for regular files and directories,
+		 * and only if the caller has not asked us to skip it on the destination.
+		 */
+		if ((isreg || isdir) && (s->internal_flags & cfSrcSupportsCProtect) &&
+			!(s->internal_flags & cfDontSetCProtect))
 		{
 			prot_class = GET_PROT_CLASS(s->src_fd);
 			if (prot_class < 0)
@@ -2112,7 +2254,7 @@ static int copyfile_open(copyfile_state_t s)
 					continue;
 				case EACCES:
 					if (chmod(s->dst, (s->sb.st_mode | S_IWUSR) & ~S_IFMT) == 0) {
-						s->set_dst_perms = true;
+						s->internal_flags |= cfSetDestinationPerms;
 						continue;
 					}
 					else {
@@ -2147,13 +2289,13 @@ static int copyfile_open(copyfile_state_t s)
 		{
 			if (!(s->internal_flags & cfDstProtSupportValid))
 			{
-				if ((error = does_copy_protection(s->dst_fd)) > 0)
+				if ((error = fd_volume_has_feature(s->dst_fd, MNT_CPROTECT)) > 0)
 				{
 					s->internal_flags |= cfDstSupportsCProtect;
 				}
 				else if (error < 0)
 				{
-					copyfile_warn("does_copy_protection failed on (%s) with error <%d>", s->dst, errno);
+					copyfile_warn("failed to determine copy protection on (%s) with error <%d>", s->dst, errno);
 					return -1;
 				}
 				s->internal_flags |= cfDstProtSupportValid;
@@ -2161,16 +2303,47 @@ static int copyfile_open(copyfile_state_t s)
 
 			if ((isreg || isdir)
 				&& set_cprot_explicit
-				&& (s->internal_flags & cfDstSupportsCProtect))
+				&& (s->internal_flags & cfDstSupportsCProtect)
+				&& !(s->internal_flags & cfDontSetCProtect))
 			{
 				/* Protection class is set in open_dprotected_np for regular files that aren't truncated.
-				 * We set the protection class here for truncated files and directories.
+				 * We set the protection class here for truncated files and directories,
+				 * unless the caller has requested us not to.
 				 */
 				if (SET_PROT_CLASS(s->dst_fd, prot_class) != 0)
 				{
 					copyfile_warn("SET_PROT_CLASS failed on (%s) with error <%d>", s->dst, errno);
 					return -1;
 				}
+			}
+		}
+
+		/*
+		 * If we opened the resource fork file descriptor for the source above
+		 * it's now time to open the corresponding file descriptor for the destination.
+		 * (We use regular open(2) here, since we've already determined copy protection above.
+		 * We pass O_TRUNC here as copyfile_xattr() starts off by removing all xattrs anyway.)
+		 * If this fails, like above we fall back to using copyfile_rsrc().
+		 */
+		if (s->internal_flags & cfCopyUsingRsrcFds) {
+			char dst_rsrc_path[MAXPATHLEN];
+			snprintf(dst_rsrc_path, MAXPATHLEN, "%s%s", s->dst, _PATH_RSRCFORKSPEC);
+
+			s->dst_rsrc_fd = open(dst_rsrc_path, O_WRONLY | O_CREAT | O_TRUNC, s->sb.st_mode | S_IWUSR);
+			if (s->dst_rsrc_fd == -1) {
+				copyfile_warn("open on %s", dst_rsrc_path);
+
+				// Fallback to copying the resource fork via setxattr(), like other xattrs.
+				free(s->rsrc_sb);
+				s->rsrc_sb = NULL;
+				if (close(s->src_rsrc_fd))
+					copyfile_warn("error closing source rsrc file descriptor");
+				s->src_rsrc_fd = -1;
+
+				s->internal_flags &= ~(cfCopyUsingRsrcFds);
+				errno = 0;
+			} else {
+				copyfile_debug(2, "open successful on destination rsrc (%s)", dst_rsrc_path);
 			}
 		}
 	}
@@ -2627,26 +2800,35 @@ error_exit:
 /*
  * Calculate the input (source file) and output (destination) block sizes,
  * using any provided by the state if valid.
- * Our output block size can be no greater than our input block size.
+ * Our output block size can be no greater than our input block size,
+ * and is also limited by the source file size.
  */
-static void copyfile_get_bsizes(copyfile_state_t s, size_t *src_bsize, size_t *dst_bsize,
-	size_t *src_minbsize, size_t *dst_minbsize)
+static void copyfile_get_bsizes(copyfile_state_t s, bool copy_rsrc, copyfile_bsizes_t *bsizes)
 {
 	size_t iBlocksize = 0, iMinblocksize = 0;
 	size_t oBlocksize = 0, oMinblocksize = 0; // If 0, we don't support sparse copying.
 	const size_t blocksize_limit = 1 << 30; // 1 GiB
+
+	struct stat *sb;
+	int src_fd = -1, dst_fd = -1;
 	struct statfs sfs;
 
+	// Determine the file descriptors / stat buffers to look at
+	// (it is the caller's responsibility to make sure these are valid).
+	src_fd = copy_rsrc ? s->src_rsrc_fd : s->src_fd;
+	dst_fd = copy_rsrc ? s->dst_rsrc_fd : s->dst_fd;
+	sb = copy_rsrc ? s->rsrc_sb : &s->sb;
+
 	// Get default and fall-back values for the input blocksize.
-	if (fstatfs(s->src_fd, &sfs) == -1) {
-		iBlocksize = s->sb.st_blksize;
+	if (fstatfs(src_fd, &sfs) == -1) {
+		iBlocksize = sb->st_blksize;
 	} else {
 		iBlocksize = sfs.f_iosize;
 		iMinblocksize = sfs.f_bsize;
 	}
 
 	// Get default and fall-back values for the output blocksize.
-	if (fstatfs(s->dst_fd, &sfs) == -1) {
+	if (fstatfs(dst_fd, &sfs) == -1) {
 		oBlocksize = iBlocksize;
 	} else {
 		oBlocksize = (sfs.f_iosize == 0) ? iBlocksize : MIN((size_t) sfs.f_iosize, iBlocksize);
@@ -2665,10 +2847,10 @@ static void copyfile_get_bsizes(copyfile_state_t s, size_t *src_bsize, size_t *d
 	}
 
 	// 6453525 and 34848916 require us to limit our blocksize to resonable values.
-	if ((size_t) s->sb.st_size < iBlocksize && iMinblocksize > 0) {
+	if ((size_t) sb->st_size < iBlocksize && iMinblocksize > 0) {
 		copyfile_debug(3, "rounding up block size from fsize: %lld to multiple of %zu\n",
 			s->sb.st_size, iMinblocksize);
-		iBlocksize = roundup((size_t) s->sb.st_size, iMinblocksize);
+		iBlocksize = roundup((size_t) sb->st_size, iMinblocksize);
 		oBlocksize = MIN(oBlocksize, iBlocksize);
 	}
 
@@ -2677,35 +2859,41 @@ static void copyfile_get_bsizes(copyfile_state_t s, size_t *src_bsize, size_t *d
 		oBlocksize = MIN(oBlocksize, iBlocksize);
 	}
 
-	*src_bsize = iBlocksize;
-	*dst_bsize = oBlocksize;
+	// Save our decided values.
+	bsizes->cb_src_bsize = iBlocksize;
+	bsizes->cb_src_minbsize = iMinblocksize;
+	bsizes->cb_dst_bsize = oBlocksize;
+	bsizes->cb_dst_minbsize = oMinblocksize;
 
-	if (src_minbsize)
-		*src_minbsize = iMinblocksize;
-	if (dst_minbsize)
-		*dst_minbsize = oMinblocksize;
+	// Make sure any system calls we made here that failed
+	// don't set any user-visible error.
+	errno = 0;
 }
 
 /*
  * Attempt to copy the data section of a file,
  * using a conservative blocksize or one provided by the user, if valid.
  */
-static int copyfile_data(copyfile_state_t s)
+static int copyfile_data(copyfile_state_t s, bool copy_rsrc)
 {
 	size_t blen;
 	char *bp = 0;
 	ssize_t nread;
-	int ret = 0;
+	off_t totalCopied = 0;
 	size_t iBlocksize = 0, iMinblocksize = 0;
 	size_t oBlocksize = 0, oMinblocksize = 0;
 	copyfile_callback_t status = s->statuscb;
+	copyfile_bsizes_t copy_bsizes = {0};
+	bool use_errno = true;
+	int src_fd = -1, dst_fd = -1;
+	int ret = 0;
 
 	/* Unless it's a normal file, we don't copy.  For now, anyway */
 	if ((s->sb.st_mode & S_IFMT) != S_IFREG)
 		return 0;
 
 #ifdef DECMPFS_XATTR_NAME
-	if (s->internal_flags & cfPreserveCompression) {
+	if (!copy_rsrc && (s->internal_flags & cfPreserveCompression)) {
 		// Set UF_COMPRESSED immediately and preserve existing st_flags.
 		//
 		// Since compression transfers the entirety of src to dst, we skip
@@ -2729,14 +2917,20 @@ static int copyfile_data(copyfile_state_t s)
 	}
 #endif
 
-	copyfile_get_bsizes(s, &iBlocksize, &oBlocksize, &iMinblocksize, &oMinblocksize);
+	copyfile_get_bsizes(s, copy_rsrc, &copy_bsizes);
+	iBlocksize = copy_bsizes.cb_src_bsize;
+	iMinblocksize = copy_bsizes.cb_src_minbsize;
+	oBlocksize = copy_bsizes.cb_dst_bsize;
+	oMinblocksize = copy_bsizes.cb_dst_minbsize;
 
 	copyfile_debug(3, "input block size: %zu output block size: %zu\n", iBlocksize, oBlocksize);
 
-	s->totalCopied = 0;
+	if (!copy_rsrc) {
+		s->totalCopied = 0;
+	}
 
 	// If requested, attempt a sparse copy.
-	if (s->flags & COPYFILE_DATA_SPARSE) {
+	if (!copy_rsrc && s->flags & COPYFILE_DATA_SPARSE) {
 		// Check if the source & destination volumes both support sparse files.
 		long min_hole_size = MIN(fpathconf(s->src_fd, _PC_MIN_HOLE_SIZE),
 								 fpathconf(s->dst_fd, _PC_MIN_HOLE_SIZE));
@@ -2767,6 +2961,9 @@ static int copyfile_data(copyfile_state_t s)
 		}
 	}
 
+	src_fd = copy_rsrc ? s->src_rsrc_fd : s->src_fd;
+	dst_fd = copy_rsrc ? s->dst_rsrc_fd : s->dst_fd;
+
 	if ((bp = malloc(iBlocksize)) == NULL)
 		return -1;
 
@@ -2775,31 +2972,32 @@ static int copyfile_data(copyfile_state_t s)
 	/* If supported, do preallocation for Xsan / HFS / apfs volumes */
 #ifdef F_PREALLOCATE
 	{
+		const off_t src_bytes_allocated = copy_rsrc ? s->rsrc_sb->st_size : s->sb.st_size;
 		off_t dst_bytes_allocated = 0;
 		struct stat dst_sb;
 
-		if (fstat(s->dst_fd, &dst_sb) == 0) {
+		if (fstat(dst_fd, &dst_sb) == 0) {
 			// The destination may already have
 			// preallocated space we can use.
 			dst_bytes_allocated = dst_sb.st_blocks * S_BLKSIZE;
 		}
 
-		if (dst_bytes_allocated < s->sb.st_size) {
+		if (dst_bytes_allocated < src_bytes_allocated) {
 			fstore_t fst;
 
 			fst.fst_flags = 0;
 			fst.fst_posmode = F_PEOFPOSMODE;
 			fst.fst_offset = 0;
-			fst.fst_length = s->sb.st_size - dst_bytes_allocated;
+			fst.fst_length = src_bytes_allocated - dst_bytes_allocated;
 
 			copyfile_debug(3, "preallocating %lld bytes on destination", fst.fst_length);
 			/* Ignore errors; this is merely advisory. */
-			(void)fcntl(s->dst_fd, F_PREALLOCATE, &fst);
+			(void)fcntl(dst_fd, F_PREALLOCATE, &fst);
 		}
 	}
 #endif
 
-	while ((nread = read(s->src_fd, bp, blen)) > 0)
+	while ((nread = read(src_fd, bp, blen)) > 0)
 	{
 		ssize_t nwritten;
 		size_t left = nread;
@@ -2807,7 +3005,7 @@ static int copyfile_data(copyfile_state_t s)
 		int loop = 0;
 
 		while (left > 0) {
-			nwritten = write(s->dst_fd, ptr, MIN(left, oBlocksize));
+			nwritten = write(dst_fd, ptr, MIN(left, oBlocksize));
 			switch (nwritten) {
 				case 0:
 					if (++loop > 5) {
@@ -2820,12 +3018,29 @@ static int copyfile_data(copyfile_state_t s)
 				case -1:
 					copyfile_warn("writing to output file got error");
 					if (status) {
-						int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+						int rv = (*status)(copy_rsrc ? COPYFILE_COPY_XATTR : COPYFILE_COPY_DATA, COPYFILE_ERR,
+							s, s->src, s->dst, s->ctx);
 						if (rv == COPYFILE_SKIP) {	// Skip the data copy
 							ret = 0;
 							goto exit;
 						}
-						if (rv == COPYFILE_CONTINUE) {	// Retry the write
+
+						if (copy_rsrc) {
+							if (rv == COPYFILE_CONTINUE) {
+								ret = 0;
+								goto exit;
+							} else if (rv == COPYFILE_QUIT) {
+								/*
+								 * Since our caller thinks of this fork as an xattr,
+								 * we mirror copyfile_xattr()'s handling of COPYFILE_QUIT -
+								 * do not set errno until the end of the caller of
+								 * copyfile_internal(). (Also, do not use its value
+								 * for the state error variable.)
+								 */
+								s->err = ECANCELED;
+								use_errno = false;
+							}
+						} else if (rv == COPYFILE_CONTINUE) {	// Retry the write
 							errno = 0;
 							continue;
 						}
@@ -2838,33 +3053,37 @@ static int copyfile_data(copyfile_state_t s)
 					loop = 0;
 					break;
 			}
-			s->totalCopied += nwritten;
-			if (status) {
-				int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_PROGRESS,  s, s->src, s->dst, s->ctx);
-				if (rv == COPYFILE_QUIT) {
-					ret = -1; s->err = errno = ECANCELED;
-					goto exit;
+
+			totalCopied += nwritten;
+			if (!copy_rsrc) {
+				s->totalCopied += nwritten;
+				if (status) {
+					int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_PROGRESS, s, s->src, s->dst, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						ret = -1; s->err = errno = ECANCELED;
+						goto exit;
+					}
 				}
 			}
 		}
 	}
 	if (nread < 0)
 	{
-		copyfile_warn("reading from %s", s->src ? s->src : "(null src)");
+		copyfile_warn("reading from %s %s", s->src ? s->src : "(null src)", copy_rsrc ? "" : "(rsrc)");
 		ret = -1;
 		goto exit;
 	}
 
 	// This is wrong if fcopyfile() is given a dst_fd with a non-zero starting
 	// offset, but we need to preserve the existing behavior for compatibility.
-	if (ftruncate(s->dst_fd, s->totalCopied) < 0)
+	if (ftruncate(dst_fd, totalCopied) < 0)
 	{
 		ret = -1;
 		goto exit;
 	}
 
 exit:
-	if (ret == -1)
+	if (ret == -1 && use_errno)
 	{
 		s->err = errno;
 	}
@@ -2881,11 +3100,13 @@ exit:
 static int copyfile_security(copyfile_state_t s)
 {
 	int copied = 0;
+	bool use_fchmodx_np = true;
 	struct stat sb;
 	acl_t acl_src = NULL, acl_tmp = NULL, acl_dst = NULL;
 	int ret = 0;
 	filesec_t tmp_fsec = NULL;
 	filesec_t fsec_dst = filesec_init();
+	mode_t backup_mode_set;
 
 	if (fsec_dst == NULL)
 		return -1;
@@ -2993,13 +3214,50 @@ no_acl:
 	if (tmp_fsec == NULL) {
 		goto error_exit;
 	}
+	backup_mode_set = s->sb.st_mode;
+
+	/*
+	 * See if we need to filter destination perms
+	 * (in this case, inside the filesec).
+	 * The rule is to copy setuid-style bits
+	 * (when we're also doing COPYFILE_STAT) unless
+	 * the caller has not asked us to always copy them AND
+	 * (the source or destination volume does not support them OR
+	 * we're imitating COPYFILE_CLONE-style behavior).
+	 */
+	if ((s->flags & COPYFILE_STAT) &&
+		!(s->internal_flags & cfAlwaysCopySuidBits) &&
+		((s->internal_flags & cfForbidCopySuidBits) ||
+		fd_volume_has_feature(s->src_fd, MNT_NOSUID) > 0 ||
+		fd_volume_has_feature(s->dst_fd, MNT_NOSUID) > 0)) {
+
+		mode_t filesec_mode = 0;
+
+		if (filesec_get_property(tmp_fsec, FILESEC_MODE, &filesec_mode) == 0 &&
+			(filesec_mode & S_ISSUD)) {
+
+			// Filter out SUID from the filesec's mode_t.
+			filesec_mode &= ~S_ISSUD;
+			if (filesec_set_property(tmp_fsec, FILESEC_MODE, &filesec_mode) != 0) {
+				/*
+				 * We failed to update the filesec's mode_t.
+				 * This isn't fatal - we'll rely on the fallback code
+				 * below that also runs when fchmodx_np() fails.
+				 */
+				use_fchmodx_np = false;
+			}
+		}
+
+		backup_mode_set &= ~S_ISSUD;
+	}
+
 
 	switch (COPYFILE_SECURITY & s->flags) {
 		case COPYFILE_ACL:
 			copyfile_unset_posix_fsec(tmp_fsec);
 			/* FALLTHROUGH */
 		case COPYFILE_ACL | COPYFILE_STAT:
-			if (fchmodx_np(s->dst_fd, tmp_fsec) < 0) {
+			if (!use_fchmodx_np || fchmodx_np(s->dst_fd, tmp_fsec) < 0) {
 				acl_t acl = NULL;
 				/*
 				 * The call could have failed for a number of reasons, since
@@ -3019,7 +3277,7 @@ no_acl:
 
 #define NS(x)	((x) ? (x) : "(null string)")
 				if ((s->flags & COPYFILE_STAT) &&
-					fchmod(s->dst_fd, s->sb.st_mode) == -1) {
+					fchmod(s->dst_fd, backup_mode_set) == -1) {
 					copyfile_warn("could not change mode of destination file %s to match source file %s", NS(s->dst), NS(s->src));
 				}
 				(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
@@ -3033,7 +3291,7 @@ no_acl:
 #undef NS
 			break;
 		case COPYFILE_STAT:
-			(void)fchmod(s->dst_fd, s->sb.st_mode);
+			(void)fchmod(s->dst_fd, backup_mode_set);
 			break;
 	}
 	filesec_free(tmp_fsec);
@@ -3066,6 +3324,21 @@ static int copyfile_stat(copyfile_state_t s)
 		struct timespec mod_time;
 		struct timespec acc_time;
 	} ma_times;
+	mode_t new_perms = s->sb.st_mode & ~S_IFMT;
+
+	/*
+	 * See if we need to filter destination perms.
+	 * The rule is to copy setuid-style bits unless
+	 * the caller has not asked us to always copy them AND
+	 * (the source or destination volume does not support them OR
+	 * we're imitating COPYFILE_CLONE-style behavior).
+	 */
+	if (!(s->internal_flags & cfAlwaysCopySuidBits) &&
+		((s->internal_flags & cfForbidCopySuidBits) ||
+		fd_volume_has_feature(s->src_fd, MNT_NOSUID) > 0 ||
+		fd_volume_has_feature(s->dst_fd, MNT_NOSUID) > 0)) {
+		new_perms &= ~S_ISSUD;
+	}
 
 	/* Try to set m/atimes using setattrlist(), for nanosecond precision. */
 	memset(&attrlist, 0, sizeof(attrlist));
@@ -3079,7 +3352,7 @@ static int copyfile_stat(copyfile_state_t s)
 	(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
 
 	/* This may have already been done in copyfile_security() */
-	(void)fchmod(s->dst_fd, s->sb.st_mode & ~S_IFMT);
+	(void)fchmod(s->dst_fd, new_perms);
 
 	/* Copy file flags, masking out any we don't want to preserve */
 	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS);
@@ -3126,8 +3399,85 @@ static int copyfile_stat(copyfile_state_t s)
 	return 0;
 }
 
-#define MAX_GETXATTR_RETRIES     3
-#define MAX_XATTR_BUFFER_SIZE    (32 * 1024 * 1024) // 32 MiB
+/*
+ * Copy the resource fork in pieces using fsetxattr()'s position argument,
+ * using an already malloc()ed buffer (along with size).
+ * If the buffer is smaller than the resource fork's size and our threshold,
+ * realloc() that buffer to an appropriate iosize, but not larger than
+ * that threshold - unlink in copyfile_xattr(), where we have no choice
+ * but to malloc() the entire xattr size (since there is no way to
+ * set non-resource fork xattrs in pieces).
+ */
+static int copyfile_rsrc(copyfile_state_t s, void **xa_buf, ssize_t *buf_size, int look_for_decmpea)
+{
+	ssize_t xa_size, nread;
+	uint32_t rsrc_pos = 0;
+	void *buf;
+
+	// Determine if we need to realloc() our provided buffer.
+	xa_size = fgetxattr(s->src_fd, XATTR_RESOURCEFORK_NAME, 0, 0, 0, look_for_decmpea);
+	if (xa_size < 0) {
+		// Match behavior for other xattrs - continue with the next xattr.
+		return ENOTSUP;
+	} else if ((xa_size > *buf_size) && (*buf_size < XATTR_MAX_GET_RSRC_SIZE)) {
+		// realloc() `buf` to the minimum of the resource fork size or our maximum,
+		// saving its actual size back for the caller.
+		*xa_buf = reallocf(*xa_buf, MIN(xa_size, XATTR_MAX_GET_RSRC_SIZE));
+		if (*xa_buf == NULL) {
+			copyfile_warn("realloc for resource fork failed");
+			*buf_size = 0;
+			return -1;
+		}
+		*buf_size = MIN(xa_size, XATTR_MAX_GET_RSRC_SIZE);
+	}
+
+	buf = *xa_buf;
+	/*
+	 * Now, loop over the xattr data, buf_size at a time.
+	 * Unlike with read()/write(), getxattr()/setxattr() are atomic
+	 * (they will not give us partial reads or writes).
+	 */
+	while ((nread = fgetxattr(s->src_fd, XATTR_RESOURCEFORK_NAME, buf,
+			(size_t)*buf_size, rsrc_pos, look_for_decmpea)) > 0) {
+
+		if (fsetxattr(s->dst_fd, XATTR_RESOURCEFORK_NAME, buf, nread, rsrc_pos, look_for_decmpea) < 0) {
+			copyfile_warn("writing to resource fork got error");
+
+			if (s->statuscb) {
+				int rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s,
+					s->src, s->dst, s->ctx);
+				if (rv == COPYFILE_QUIT)
+				{
+					s->err = ECANCELED;
+					return -1;
+				} else {
+					// Stop the copy, but return success,
+					// allowing the caller to proceed to the next xattr.
+					return 0;
+				}
+			} else {
+				return -1;
+			}
+		}
+
+		rsrc_pos += nread;
+	}
+
+	if (nread < 0) {
+		/*
+		 * Here, we intentionally do not match the behavior
+		 * of copyfile_xattr() in the case where we have written
+		 * some of the xattr already, as the destination will not be empty.
+		 */
+		copyfile_warn("resource fork getxattr failed");
+		if (rsrc_pos > 0) {
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * Similar to copyfile_security() in some ways; this
  * routine copies the extended attributes from the source,
@@ -3151,7 +3501,7 @@ static int copyfile_xattr(copyfile_state_t s)
 	ssize_t list_size;
 	int ret = 0;
 	int look_for_decmpea = 0;
-	int tries_left = MAX_GETXATTR_RETRIES;
+	int tries_left = XATTR_MAX_GET_RETRIES;
 
 	/* delete EAs on destination */
 dst_restart:
@@ -3159,8 +3509,8 @@ dst_restart:
 	{
 		/* this is always true on the first call: no buffer yet (namebuf_size == 0) */
 		if (list_size > namebuf_size) {
-			if (list_size > MAX_XATTR_BUFFER_SIZE) {
-				copyfile_warn("destination's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, MAX_XATTR_BUFFER_SIZE);
+			if (list_size > XATTR_MAX_BUFFER_SIZE) {
+				copyfile_warn("destination's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, XATTR_MAX_BUFFER_SIZE);
 			}
 			namebuf_size = list_size;
 			void *tdptr = namebuf;
@@ -3215,7 +3565,7 @@ dst_restart:
 	}
 	namebuf = NULL;
 	namebuf_size = 0;
-	tries_left = MAX_GETXATTR_RETRIES;
+	tries_left = XATTR_MAX_GET_RETRIES;
 
 #ifdef DECMPFS_XATTR_NAME
 	if ((s->flags & COPYFILE_DATA) &&
@@ -3245,8 +3595,8 @@ src_restart:
 
 	/* this is always true on the first call: no buffer yet (namebuf_size == 0) */
 	if (list_size > namebuf_size) {
-		if (list_size > MAX_XATTR_BUFFER_SIZE) {
-			copyfile_warn("source's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, MAX_XATTR_BUFFER_SIZE);
+		if (list_size > XATTR_MAX_BUFFER_SIZE) {
+			copyfile_warn("source's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, XATTR_MAX_BUFFER_SIZE);
 		}
 		namebuf_size = list_size;
 		void *tdptr = namebuf;
@@ -3299,8 +3649,80 @@ src_restart:
 		if (strncmp(name, XATTR_QUARANTINE_NAME, end - name) == 0)
 			continue;
 
-		tries_left = MAX_GETXATTR_RETRIES;
+		// If we have a copy intention stated, and the EA is to be ignored, we ignore it
+		if (s->copyIntent
+			&& xattr_preserve_for_intent(name, s->copyIntent) == 0)
+			continue;
+
+		s->xattr_name = strdup(name);
+
+		if (s->statuscb) {
+			int rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+			if (rv == COPYFILE_QUIT) {
+				s->err = ECANCELED;
+				goto out;
+			} else if (rv == COPYFILE_SKIP) {
+				continue;
+			}
+		}
+
+		/*
+		 * If the xattr is a resource fork, is large,
+		 * and we came in from regular copyfile(),
+		 * copy it via the resource fork file descriptors.
+		 * Otherwise, copy it with fsetxattr() in pieces.
+		 * (Either approach avoids a large malloc().)
+		 */
+		if (strncmp(name, XATTR_RESOURCEFORK_NAME, end - name) == 0)
+		{
+			if (s->internal_flags & cfCopyUsingRsrcFds) {
+				/*
+				 * Do the copy. This handles errors, and sets s->err.
+				 * (We don't modify errno here.)
+				 */
+				ret = copyfile_data(s, true);
+				if (ret != 0) {
+					copyfile_debug(2, "Resource fork copy (fd) failed (%d - state %d - errno %d)",
+						ret, s->err, errno);
+					if (s->err == ECANCELED) {
+						// (Don't call the status callback with COPYFILE_FINISH.)
+						goto out;
+					}
+				}
+			} else {
+				/*
+				 * No resource file descriptors are available, so we need to copy
+				 * the resource fork in pieces.
+				 * (This handles errors like copyfile_data().)
+				 * This will take the existing xattr data buffer and size, and possibly
+				 * alter them (NULLing/zeroing them out on error, possibly growing
+				 * them otherwise).
+				 */
+				ret = copyfile_rsrc(s, &xa_dataptr, &xa_bufsize, look_for_decmpea);
+				if (ret != 0) {
+					copyfile_debug(2, "Resource fork copy (fsetxattr) failed (%d - state %d - errno %d)",
+						ret, s->err, errno);
+
+					if (s->err == ECANCELED) {
+						// (Don't call the status callback with COPYFILE_FINISH.)
+						goto out;
+					}
+
+					// If the initial fgetxattr() to get the resource fork's size
+					// fails, don't report the error.
+					if (ret == ENOTSUP) {
+						ret = 0;
+					}
+				}
+			}
+
+			// Regardless, continue to the next xattr.
+			goto finish_xattr_copy;
+		}
+
+		tries_left = XATTR_MAX_GET_RETRIES;
 get_restart:
+
 		if ((xa_size = fgetxattr(s->src_fd, name, 0, 0, 0, look_for_decmpea)) < 0)
 		{
 			continue;
@@ -3308,8 +3730,9 @@ get_restart:
 
 		if (xa_size > xa_bufsize)
 		{
-			if (xa_size > MAX_XATTR_BUFFER_SIZE) {
-				copyfile_warn("xattr named %s has size (%zu), which exceeds the threshold (%d); trying to allocate", name, list_size, MAX_XATTR_BUFFER_SIZE);
+			if (xa_size > XATTR_MAX_BUFFER_SIZE) {
+				copyfile_warn("xattr named %s has size (%zu), which exceeds the threshold (%d); trying to allocate",
+					name, xa_size, XATTR_MAX_BUFFER_SIZE);
 			}
 			void *tdptr = xa_dataptr;
 			xa_bufsize = xa_size;
@@ -3317,6 +3740,7 @@ get_restart:
 				 (void *) realloc((void *) xa_dataptr, xa_bufsize)) == NULL)
 			{
 				free(tdptr);
+				xa_bufsize = 0;
 				ret = -1;
 				continue;
 			}
@@ -3412,38 +3836,16 @@ get_restart:
 		}
 #endif
 
-		// If we have a copy intention stated, and the EA is to be ignored, we ignore it
-		if (s->copyIntent
-			&& xattr_preserve_for_intent(name, s->copyIntent) == 0)
-			continue;
-
-		s->xattr_name = strdup(name);
-
-		if (s->statuscb) {
-			int rv;
-			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
-			if (rv == COPYFILE_QUIT) {
-				s->err = ECANCELED;
-				goto out;
-			} else if (rv == COPYFILE_SKIP) {
-				continue;
-			}
-		}
 		if (fsetxattr(s->dst_fd, name, xa_dataptr, xa_size, 0, look_for_decmpea) < 0)
 		{
 			int error = errno;
 			if (error == EPERM && strcmp(name, XATTR_ROOT_INSTALLED_NAME) == 0) {
-				//Silently ignore if we fail to set XATTR_ROOT_INSTALLED_NAME
-				errno = error;
+				// Silently ignore if we fail to set XATTR_ROOT_INSTALLED_NAME.
 				continue;
 			}
 			else if (s->statuscb)
 			{
-				int rv;
-				error = errno;
-				if (s->xattr_name == NULL)
-					s->xattr_name = strdup(name);
-				rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+				int rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
 				if (rv == COPYFILE_QUIT)
 				{
 					s->err = ECANCELED;
@@ -3453,20 +3855,18 @@ get_restart:
 			}
 			else
 			{
-				errno = error;
 				ret = -1;
 				copyfile_warn("could not set attributes %s on destination file descriptor", name);
 				continue;
 			}
 		}
-		if (s->statuscb) {
-			int rv;
-			if (s->xattr_name == NULL)
-				s->xattr_name = strdup(name);
 
-			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+finish_xattr_copy:
+		if (s->statuscb) {
+			int rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
 			if (rv == COPYFILE_QUIT) {
 				s->err = ECANCELED;
+				ret = -1;
 				goto out;
 			}
 		}
@@ -3528,7 +3928,7 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 			break;
 #endif
 		case COPYFILE_STATE_WAS_CLONED:
-			*(bool *)ret = s->was_cloned;
+			*(bool *)ret = ((s->internal_flags & cfCloneSucceeded) == cfCloneSucceeded);
 			break;
 		case COPYFILE_STATE_BSIZE:
 			OS_FALLTHROUGH;
@@ -3539,7 +3939,13 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 			*(uint32_t*)ret = s->dst_bsize;
 			break;
 		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
-			*(bool *)ret = s->forbid_cross_mount;
+			*(bool *)ret = ((s->internal_flags & cfForbidCrossMount) == cfForbidCrossMount);
+			break;
+		case COPYFILE_STATE_NOCPROTECT:
+			*(uint32_t*)ret = (s->internal_flags & cfDontSetCProtect) ? 1 : 0;
+			break;
+		case COPYFILE_STATE_PRESERVE_SUID:
+			*(uint32_t *)ret = ((s->internal_flags & cfAlwaysCopySuidBits) == cfAlwaysCopySuidBits);
 			break;
 		case COPYFILE_STATE_RECURSIVE_SRC_FTSENT:
 			*(const FTSENT **)ret = s->recurse_entry;
@@ -3624,7 +4030,22 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 			s->dst_bsize = s->src_bsize;
 			break;
 		case COPYFILE_STATE_FORBID_CROSS_MOUNT:
-			s->forbid_cross_mount = *(bool*)thing;
+			if (*(bool*)thing)
+				s->internal_flags |= cfForbidCrossMount;
+			break;
+		case COPYFILE_STATE_NOCPROTECT:
+			if ((*(uint32_t *)thing) > 0) {
+				s->internal_flags |= cfDontSetCProtect;
+			} else {
+				s->internal_flags &= ~cfDontSetCProtect;
+			}
+			break;
+		case COPYFILE_STATE_PRESERVE_SUID:
+			if ((*(uint32_t *)thing) > 0) {
+				s->internal_flags |= cfAlwaysCopySuidBits;
+			} else {
+				s->internal_flags &= ~cfAlwaysCopySuidBits;
+			}
 			break;
 		case COPYFILE_STATE_FORBID_DST_EXISTING_SYMLINKS:
 			if ((*(uint32_t *)thing) > 0) {
@@ -4021,6 +4442,198 @@ swap_attrhdr(attr_header_t *ah)
 
 static const u_int32_t emptyfinfo[8] = {0};
 
+
+static int copyfile_unpack_quarantine(copyfile_state_t s, attr_entry_t *entry, void *dataptr)
+{
+    qtn_file_t tqinfo = NULL;
+    int error = 0;
+
+    if (s->qinfo == NULL)
+    {
+        tqinfo = qtn_file_alloc();
+        if (tqinfo)
+        {
+            int x;
+            if ((x = qtn_file_init_with_data(tqinfo, dataptr, entry->length)) != 0)
+            {
+                copyfile_warn("qtn_file_init_with_data failed: %s", qtn_error(x));
+                qtn_file_free(tqinfo);
+                tqinfo = NULL;
+            }
+        }
+    }
+    else
+    {
+        tqinfo = s->qinfo;
+    }
+
+    if (tqinfo)
+    {
+        int x;
+        x = qtn_file_apply_to_fd(tqinfo, s->dst_fd);
+        if (x != 0) {
+            copyfile_warn("qtn_file_apply_to_fd failed: %s", qtn_error(x));
+            if (s->statuscb) {
+                int rv;
+                s->xattr_name = (char*)XATTR_QUARANTINE_NAME;
+                rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+                s->xattr_name = NULL;
+                if (rv == COPYFILE_QUIT) {
+                    error = s->err = x < 0 ? ENOTSUP : errno;
+                }
+            } else {
+                error = s->err = x < 0 ? ENOTSUP : errno;
+            }
+        }
+    }
+    if (tqinfo && !s->qinfo)
+    {
+        qtn_file_free(tqinfo);
+    }
+
+    return error;
+
+}
+static int copyfile_unpack_acl(copyfile_state_t s, uint32_t entry_length, void *dataptr)
+{
+    acl_t acl;
+    struct stat sb;
+    int retry = 1;
+    char *tcp = dataptr;
+    int error = 0;
+
+    /*
+     * acl_from_text() requires a NUL-terminated string.  The ACL EA,
+     * however, may not be NUL-terminated.  So in that case, we need to
+     * copy it to a +1 sized buffer, to ensure it's got a terminated string.
+     */
+    if (tcp[entry_length - 1] != 0) {
+        char *tmpstr = malloc(entry_length + 1);
+        if (tmpstr == NULL) {
+            error = -1;
+            goto acl_done;
+        }
+        // Can't use strlcpy here: tcp is not NUL-terminated!
+        memcpy(tmpstr, tcp, entry_length);
+        tmpstr[entry_length] = 0;
+        acl = acl_from_text(tmpstr);
+        free(tmpstr);
+    } else {
+        acl = acl_from_text(tcp);
+    }
+
+    if (acl != NULL)
+    {
+        filesec_t fsec_tmp = {};
+
+        if ((fsec_tmp = filesec_init()) == NULL)
+            error = -1;
+        else if((error = fstatx_np(s->dst_fd, &sb, fsec_tmp)) < 0)
+            error = -1;
+        else if (filesec_set_property(fsec_tmp, FILESEC_ACL, &acl) < 0)
+            error = -1;
+        else {
+            while (fchmodx_np(s->dst_fd, fsec_tmp) < 0)
+            {
+                if (errno == ENOTSUP)
+                {
+                    if (retry && !copyfile_unset_acl(s))
+                    {
+                        retry = 0;
+                        continue;
+                    }
+                }
+                copyfile_warn("setting security information");
+                error = -1;
+                break;
+            }
+        }
+        if (!error) {
+            s->internal_flags |= cfSetDestinationPerms;
+        }
+        acl_free(acl);
+        filesec_free(fsec_tmp);
+    }
+
+acl_done:
+    return error;
+
+}
+
+static int copyfile_unpack_xattr(copyfile_state_t s, attr_entry_t *entry, void *dataptr)
+{
+
+    int error = 0;
+
+    if (s->copyIntent ||
+        xattr_preserve_for_intent((char*)entry->name, s->copyIntent) == 1) {
+        if (s->statuscb) {
+            int rv;
+            s->xattr_name = strdup((char*)entry->name);
+            s->totalCopied = 0;
+            rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+            if (s->xattr_name) {
+                free(s->xattr_name);
+                s->xattr_name = NULL;
+            }
+            if (rv == COPYFILE_QUIT) {
+                s->err = ECANCELED;
+                error = -1;
+                goto xattr_done;
+            }
+        }
+        //Silently ignore failure to set XATTR_ROOT_INSTALLED_NAME
+        int result = fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0);
+        int errorcode = errno;
+        if (result == -1 && !(errorcode == EPERM &&
+                             strcmp((char*)entry->name, XATTR_ROOT_INSTALLED_NAME) == 0)) {
+            errno = errorcode;
+            if (COPYFILE_VERBOSE & s->flags)
+                copyfile_warn("error %d setting attribute %s", errorcode, entry->name);
+            if (s->statuscb) {
+                int rv;
+
+                s->xattr_name = strdup((char*)entry->name);
+                rv = (s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+                if (s->xattr_name) {
+                    free(s->xattr_name);
+                    s->xattr_name = NULL;
+                }
+                if (rv == COPYFILE_QUIT) {
+                    error = -1;
+                    goto xattr_done;
+                }
+            } else {
+                error = -1;
+                goto xattr_done;
+            }
+        } else if (s->statuscb) {
+            int rv;
+            errno = errorcode;
+            s->xattr_name = strdup((char*)entry->name);
+            s->totalCopied = entry->length;
+            rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+            if (s->xattr_name) {
+                free(s->xattr_name);
+                s->xattr_name = NULL;
+            }
+            if (rv == COPYFILE_QUIT) {
+                error = -1;
+                s->err = ECANCELED;
+                goto xattr_done;
+            }
+        } else {
+            errno = errorcode;
+        }
+    }
+
+xattr_done:
+    return error;
+
+}
+
+
+
 /*
  * Given an Apple Double file in src, turn it into a
  * normal file (possibly with multiple forks, EAs, and
@@ -4033,6 +4646,10 @@ static int copyfile_unpack(copyfile_state_t s)
 	apple_double_header_t *adhdr;
 	ssize_t hdrsize;
 	int error = 0;
+	//we treat any acl specially here
+    uint8_t *acl_dataptr = NULL;
+    uint32_t acl_entry_length = 0;
+
 
 	if (s->sb.st_size < ATTR_MAX_HDR_SIZE)
 		hdrsize = (ssize_t)s->sb.st_size;
@@ -4141,8 +4758,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		count = attrhdr->num_attrs;
 		entry = (attr_entry_t *)&attrhdr[1];
 
-		for (i = 0; i < count; i++)
-		{
+		for (i = 0; i < count; i++) {
 			/*
 			 * First we do some simple sanity checking.
 			 * +) See if entry is within the buffer's range;
@@ -4234,29 +4850,6 @@ static int copyfile_unpack(copyfile_state_t s)
 			copyfile_debug(3, "extracting \"%s\" (%d bytes) at offset %u",
 						   entry->name, entry->length, entry->offset);
 
-#if 0
-			dataptr = (char *)attrhdr + entry->offset;
-
-			if (dataptr > endptr || dataptr < buffer) {
-				copyfile_debug(1, "Entry %d overflows:  offset = %u", i, entry->offset);
-				error = -1;
-				s->err = EINVAL;	/* Invalid buffer */
-				goto exit;
-			}
-
-			if (((char*)dataptr + entry->length) > (char*)endptr ||
-				(((char*)dataptr + entry->length) < (char*)buffer) ||
-				(entry->length > (size_t)hdrsize)) {
-				if (COPYFILE_VERBOSE & s->flags)
-					copyfile_warn("Incomplete or corrupt attribute entry");
-				copyfile_debug(1, "Entry %d length overflows:  offset = %u, length = %u",
-							   i, entry->offset, entry->length);
-				error = -1;
-				s->err = EINVAL;	/* Invalid buffer */
-				goto exit;
-			}
-
-#else
 			dataptr = malloc(entry->length);
 			if (dataptr == NULL) {
 				copyfile_debug(1, "no memory for %u bytes\n", entry->length);
@@ -4270,201 +4863,57 @@ static int copyfile_unpack(copyfile_state_t s)
 				s->err = EINVAL;
 				goto exit;
 			}
-#endif
 
+            /* Quarantine and the acl-storing EA are treated specially.  Handle those first */
 			if (strcmp((char*)entry->name, XATTR_QUARANTINE_NAME) == 0)
 			{
-				qtn_file_t tqinfo = NULL;
-
-				if (s->qinfo == NULL)
-				{
-					tqinfo = qtn_file_alloc();
-					if (tqinfo)
-					{
-						int x;
-						if ((x = qtn_file_init_with_data(tqinfo, dataptr, entry->length)) != 0)
-						{
-							copyfile_warn("qtn_file_init_with_data failed: %s", qtn_error(x));
-							qtn_file_free(tqinfo);
-							tqinfo = NULL;
-						}
-					}
-				}
-				else
-				{
-					tqinfo = s->qinfo;
-				}
-				if (tqinfo)
-				{
-					int x;
-					x = qtn_file_apply_to_fd(tqinfo, s->dst_fd);
-					if (x != 0) {
-						copyfile_warn("qtn_file_apply_to_fd failed: %s", qtn_error(x));
-						if (s->statuscb) {
-							int rv;
-							s->xattr_name = (char*)XATTR_QUARANTINE_NAME;
-							rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
-							s->xattr_name = NULL;
-							if (rv == COPYFILE_QUIT) {
-								error = s->err = x < 0 ? ENOTSUP : errno;
-								goto exit;
-							}
-						} else {
-							error = s->err = x < 0 ? ENOTSUP : errno;
-							goto exit;
-						}
-					}
-				}
-				if (tqinfo && !s->qinfo)
-				{
-					qtn_file_free(tqinfo);
-				}
+                error = copyfile_unpack_quarantine(s, entry, dataptr);
+                if (error) {
+                    goto exit;
+                }
 			}
-			/* Look for ACL data */
 			else if (strcmp((char*)entry->name, XATTR_SECURITY_NAME) == 0)
 			{
-				acl_t acl;
-				struct stat sb;
-				int retry = 1;
-				char *tcp = dataptr;
-
-				if (entry->length == 0) {
-					/* Not sure how we got here, but we had one case
-					 * where it was 0.  In a normal EA, we can have a 0-byte
-					 * payload.  That means nothing in this case, so we'll
-					 * simply skip the EA.
-					 */
-					error = 0;
-					goto acl_done;
-				}
+				error = 0;
 				/*
-				 * acl_from_text() requires a NUL-terminated string.  The ACL EA,
-				 * however, may not be NUL-terminated.  So in that case, we need to
-				 * copy it to a +1 sized buffer, to ensure it's got a terminated string.
+				 * There may be degenerate cases where
+				 * where length was 0 (with XATTR_SECURITY_NAME).
+				 * In a normal EA, we can have a 0-byte payload.  That
+				 * means nothing in this case, so we'll simply skip the EA.
 				 */
-				if (tcp[entry->length - 1] != 0) {
-					char *tmpstr = malloc(entry->length + 1);
-					if (tmpstr == NULL) {
+				if (entry->length != 0) {
+					acl_dataptr = malloc(entry->length);
+					if (!acl_dataptr) {
 						error = -1;
 						goto exit;
 					}
-					// Can't use strlcpy here: tcp is not NUL-terminated!
-					memcpy(tmpstr, tcp, entry->length);
-					tmpstr[entry->length] = 0;
-					acl = acl_from_text(tmpstr);
-					free(tmpstr);
-				} else {
-					acl = acl_from_text(tcp);
-				}
-
-				if (acl != NULL)
-				{
-					filesec_t fsec_tmp;
-
-					if ((fsec_tmp = filesec_init()) == NULL)
-						error = -1;
-					else if((error = fstatx_np(s->dst_fd, &sb, fsec_tmp)) < 0)
-						error = -1;
-					else if (filesec_set_property(fsec_tmp, FILESEC_ACL, &acl) < 0)
-						error = -1;
-					else {
-						while (fchmodx_np(s->dst_fd, fsec_tmp) < 0)
-						{
-							if (errno == ENOTSUP)
-							{
-								if (retry && !copyfile_unset_acl(s))
-								{
-									retry = 0;
-									continue;
-								}
-							}
-							copyfile_warn("setting security information");
-							error = -1;
-							break;
-						}
-					}
-					if (!error)
-						s->set_dst_perms = true;
-					acl_free(acl);
-					filesec_free(fsec_tmp);
-
-				acl_done:
-					if (error == -1)
-						goto exit;
+					/*
+					 * NOTE: the ACL must be applied LAST in order to ensure that newly placed ACL
+					 * itself does not prevent us from applying the other EAs (incl. quarantine).
+					 *
+					 * We gather state on the nature of the acl we want to apply, but we skip processing
+					 * until we can be last (including after setting FinderInfo && rsrc fork)
+					 */
+					memcpy(acl_dataptr, dataptr, entry->length);
+					acl_entry_length = entry->length;
 				}
 			}
 			/* And, finally, everything else */
 			else
 			{
-				if (s->copyIntent ||
-					xattr_preserve_for_intent((char*)entry->name, s->copyIntent) == 1) {
-					if (s->statuscb) {
-						int rv;
-						s->xattr_name = strdup((char*)entry->name);
-						s->totalCopied = 0;
-						rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
-						if (s->xattr_name) {
-							free(s->xattr_name);
-							s->xattr_name = NULL;
-						}
-						if (rv == COPYFILE_QUIT) {
-							s->err = ECANCELED;
-							error = -1;
-							goto exit;
-						}
-					}
-					//Silently ignore failure to set XATTR_ROOT_INSTALLED_NAME
-					int result = fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0);
-					int errorcode = errno;
-					if (result == -1 && !(errorcode == EPERM &&
-										 strcmp((char*)entry->name, XATTR_ROOT_INSTALLED_NAME) == 0)) {
-						errno = errorcode;
-						if (COPYFILE_VERBOSE & s->flags)
-							copyfile_warn("error %d setting attribute %s", errorcode, entry->name);
-						if (s->statuscb) {
-							int rv;
+                error = copyfile_unpack_xattr(s, entry, dataptr);
+                if (error == -1) {
+                    goto exit;
+                }
+            }
 
-							s->xattr_name = strdup((char*)entry->name);
-							rv = (s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
-							if (s->xattr_name) {
-								free(s->xattr_name);
-								s->xattr_name = NULL;
-							}
-							if (rv == COPYFILE_QUIT) {
-								error = -1;
-								goto exit;
-							}
-						} else {
-							error = -1;
-							goto exit;
-						}
-					} else if (s->statuscb) {
-						int rv;
-						errno = errorcode;
-						s->xattr_name = strdup((char*)entry->name);
-						s->totalCopied = entry->length;
-						rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
-						if (s->xattr_name) {
-							free(s->xattr_name);
-							s->xattr_name = NULL;
-						}
-						if (rv == COPYFILE_QUIT) {
-							error = -1;
-							s->err = ECANCELED;
-							goto exit;
-						}
-					} else {
-						errno = errorcode;
-					}
-				}
-			}
 			if (dataptr) {
 				free(dataptr);
 				dataptr = NULL;
 			}
 			entry = ATTR_NEXT(entry);
-		}
-	}
+		} // end for loop over all entries
+	} // end if block ; size > FINFO
 
 	/*
 	 * Extract the Finder Info.
@@ -4524,6 +4973,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (SWAP16(*fFlags) & kFinderInvisibleMask)
 			s->internal_flags |= cfMakeFileInvisible;
 	}
+
 skip_fi:
 
 	/*
@@ -4597,7 +5047,7 @@ skip_fi:
 		{
 			/*
 			 * For filesystems that do not natively support named attributes,
-			 * the kernel creates an AppleDouble file that -- for compatabilty
+			 * the kernel creates an AppleDouble file that -- for compatibility
 			 * reasons -- has a resource fork containing nothing but a rsrcfork_header_t
 			 * structure that says there are no resources.  So, if fsetxattr has
 			 * failed, and the resource fork is that empty structure, *and* the
@@ -4655,6 +5105,24 @@ skip_fi:
 		if (rsrcforkdata)
 			free(rsrcforkdata);
 	}
+
+	/*
+	 * Apply ACL:
+	 *
+	 * Now that we have restored all of the extended attributes, quarantine bits,
+	 * finderinfos (if available), and restored the resource fork, go ahead and
+	 * add the ACL, if it was there.  This is because the acl might contain
+	 * deny-modes that prevent us from setting all of those things.
+	 */
+
+    if (acl_dataptr) {
+        // UNPACK AND ASSIGN ACL
+        error = copyfile_unpack_acl (s, acl_entry_length, acl_dataptr);
+        if (error == -1) {
+            goto exit;
+        }
+    }
+
 
 	if (COPYFILE_STAT & s->flags)
 	{

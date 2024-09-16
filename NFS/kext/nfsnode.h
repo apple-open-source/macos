@@ -161,6 +161,7 @@ struct nfsbuf {
 #define NB_MULTASYNCRPC 0x00200000      /* multiple async RPCs issued for buffer */
 #define NB_PAGELIST     0x00400000      /* Buffer describes pagelist I/O. */
 #define NB_WRITEINPROG  0x01000000      /* Write in progress. */
+#define NB_PAGING       0x02000000      /* Pagein/Pageout operation. */
 #define NB_META         0x40000000      /* buffer contains meta-data. */
 
 /* Flags for operation type in nfs_buf_get() */
@@ -437,6 +438,7 @@ struct nfs_open_owner {
 	uint32_t                        noo_name;       /* unique name used otw */
 	uint32_t                        noo_seqid;      /* client-side sequence ID */
 	TAILQ_HEAD(, nfs_open_file)     noo_opens;      /* list of open files */
+	lck_mtx_t                       noo_opens_lock; /* list of open files mutex */
 };
 /* noo_flags */
 #define NFS_OPEN_OWNER_LINK     0x1     /* linked into mount's open owner list */
@@ -507,9 +509,11 @@ struct nfs_file_lock {
 	TAILQ_ENTRY(nfs_file_lock)      nfl_link;       /* List of locks on nfsnode */
 	TAILQ_ENTRY(nfs_file_lock)      nfl_lolink;     /* List of locks held by locker */
 	struct nfs_lock_owner *         nfl_owner;      /* lock owner that holds this lock */
+	struct nfs_file_lock *          nfl_blocked;    /* a locker this locker is blocked on */
 	uint64_t                        nfl_start;      /* starting offset */
 	uint64_t                        nfl_end;        /* ending offset (inclusive) */
 	uint32_t                        nfl_blockcnt;   /* # locks blocked on this lock */
+	pid_t                           nfl_pid;        /* lock process ID */
 	uint16_t                        nfl_flags;      /* see below */
 	uint16_t                        nfl_type;       /* lock type: read/write */
 };
@@ -570,14 +574,34 @@ struct nfs_lock_owner {
 #define NFS_LOCK_OWNER_PENDING_CLOSE 0x8     /* lock owner is pending close */
 
 /*
+ * NFS Access Cache
+ * The cache operates in a First-In-First-Out (FIFO) order, retaining the most recently accessed user information.
+ * When the cache reaches its maximum size, older information is evicted.
+ * The default cache size is 3, allowing three users to store their access information in the cache simultaneously.
+ */
+
+#define NFS_ACCESS_CACHE_SIZE_DEFAULT   3
+#define NFS_ACCESS_CACHE_SIZE_MAX       64
+
+struct nfs_access_cache_entry {
+	uint32_t mode;  /* ACCESS cache */
+	uid_t    uid;   /* credentials having access */
+	time_t   stamp; /* access cache timestamp */
+};
+
+struct nfs_access_cache {
+	struct nfs_access_cache_entry *entries;   /* access cache entries */
+	int size;                                 /* access cache size */
+	int next_slot;                            /* next slot to use in FIFO order */
+};
+
+/*
  * The nfsnode is the NFS equivalent of an inode.
  * There is a unique nfsnode for each NFS vnode.
  * An nfsnode is 'named' by its file handle. (nget/nfs_node.c)
  * NB: Hopefully the current order of the fields is such that everything will
  *     be well aligned and, therefore, tightly packed.
  */
-
-#define NFS_ACCESS_CACHE_SIZE   3
 
 struct nfsnode {
 	lck_mtx_t               n_lock;         /* nfs node lock */
@@ -592,10 +616,7 @@ struct nfsnode {
 	time_t                  n_attrstamp;    /* Attr. cache timestamp */
 	time_t                  n_aclstamp;     /* ACL cache timestamp */
 	time_t                  n_evtstamp;     /* last vnode event timestamp */
-	uint32_t                n_events;       /* pending vnode events */
-	uint32_t                n_access[NFS_ACCESS_CACHE_SIZE + 1];      /* ACCESS cache */
-	uid_t                   n_accessuid[NFS_ACCESS_CACHE_SIZE];     /* credentials having access */
-	time_t                  n_accessstamp[NFS_ACCESS_CACHE_SIZE];   /* access cache timestamp */
+	struct nfs_access_cache n_access_cache; /* ACCESS cache */
 	union {
 		struct {
 			struct timespec n3_mtime; /* Prev modify time. */
@@ -634,6 +655,7 @@ struct nfsnode {
 	u_short                 n_mflag;        /* node mount flags */
 	u_char                  n_fh[NFS_SMALLFH];/* Small File Handle */
 	u_short                 n_bufiterflags; /* buf iterator flags */
+	uint32_t                n_busy_shared;  /* shared busy counter */
 	uint32_t                n_auth;         /* security flavor used for this node */
 	int                     n_error;        /* Save write error value */
 	struct nfsbuflists      n_cleanblkhd;   /* clean blocklist head */
@@ -642,6 +664,7 @@ struct nfsnode {
 		int             nf_wrbusy;      /* # threads in write/fsync */
 		uint32_t        nd_ncgen;       /* dir name cache generation# */
 	} n_un5;
+	uint32_t                n_events;       /* pending vnode events */
 	union {
 		int             nf_needcommitcnt;/* # bufs that need committing */
 		daddr64_t       nd_lastdbl;     /* last dir buf lookup block# */
@@ -715,6 +738,12 @@ struct nfsnode {
 #define n_rdirplusstamp_sof     n_un8.rdirplusstamp.n_sof
 #define n_dstateid              n_un8.n_dstateid
 
+#define n_access(slot)          n_access_cache.entries[(slot)].mode
+#define n_accessuid(slot)       n_access_cache.entries[(slot)].uid
+#define n_accessstamp(slot)     n_access_cache.entries[(slot)].stamp
+#define n_accessstamp(slot)     n_access_cache.entries[(slot)].stamp
+#define n_accesscachesize       n_access_cache.size
+
 /*
  * Flags for n_flag
  */
@@ -729,7 +758,7 @@ struct nfsnode {
 #define NUPD            0x00200 /* Special file updated */
 #define NCHG            0x00400 /* Special file times changed */
 #define NNEGNCENTRIES   0x00800 /* directory has negative name cache entries */
-#define NBUSY           0x01000 /* node is busy */
+#define NBUSY           0x01000 /* node is exclusively busy */
 #define NBUSYWANT       0x02000 /* waiting on busy node */
 #define NISDOTZFS       0x04000 /* a ".zfs" directory */
 #define NISDOTZFSCHILD  0x08000 /* a child of a ".zfs" directory */
@@ -778,13 +807,13 @@ struct nfsnode {
 /* attr/access/ACL cache timestamp macros */
 #define NATTRVALID(np)          ((np)->n_attrstamp != ~0)
 #define NATTRINVALIDATE(np)     ((np)->n_attrstamp = ~0)
-#define NACCESSVALID(np, slot)  (((slot) >= 0) && ((slot) < NFS_ACCESS_CACHE_SIZE) && ((np)->n_accessstamp[(slot)] != ~0))
+#define NACCESSVALID(np, slot)  (((slot) >= 0) && ((slot) < (np)->n_accesscachesize) && ((np)->n_accessstamp((slot)) != ~0))
 #define NACCESSINVALIDATE(np) \
 	do { \
 	        int __i; \
-	        for (__i=0; __i < NFS_ACCESS_CACHE_SIZE; __i++) \
-	                (np)->n_accessstamp[__i] = ~0; \
-	        (np)->n_access[NFS_ACCESS_CACHE_SIZE] = 0; \
+	        for (__i=0; __i < (np)->n_accesscachesize; __i++) \
+	                (np)->n_accessstamp(__i) = ~0; \
+	            (np)->n_access_cache.next_slot = 0; \
 	} while (0)
 #define NACLVALID(np)           ((np)->n_aclstamp != ~0)
 #define NACLINVALIDATE(np)      ((np)->n_aclstamp = ~0)
@@ -800,6 +829,7 @@ struct nfsnode {
 #define NG_MARKROOT     0x0001  /* mark vnode as root of FS */
 #define NG_MAKEENTRY    0x0002  /* add name cache entry for vnode */
 #define NG_NOCREATE     0x0004  /* don't create a new node, return existing one */
+#define NG_REALNAME     0x0008  /* filename provided by the server */
 
 /*
  * Convert between nfsnode pointers and vnode pointers
@@ -810,12 +840,25 @@ struct nfsnode {
 /*
  * printf-like helper macro that also outputs node name.
  */
+#define NP_FORMAT " [name %s, np 0x%lx, inode %llu] "
+
 #define NP(NP, FMT, ...) \
 	do { \
 	        const char *__vname = (NP) ? vnode_getname(NFSTOV(NP)) : NULL; \
-	        printf(FMT " %s\n", ##__VA_ARGS__, __vname ? __vname : "???"); \
+	        printf(FMT NP_FORMAT "\n", ##__VA_ARGS__, __vname ? __vname : "???", nfs_kernel_hideaddr((NP)), NFSNODE_FILEID((NP))); \
 	        if (__vname) vnode_putname(__vname); \
 	} while (0)
+
+#define NP2(NP1, NP2, FMT, ...) \
+    do { \
+	    const char *__vname1 = (NP1) ? vnode_getname(NFSTOV(NP1)) : NULL; \
+	    const char *__vname2 = (NP2) ? vnode_getname(NFSTOV(NP2)) : NULL; \
+	    printf(FMT " np1" NP_FORMAT "np2" NP_FORMAT "\n", ##__VA_ARGS__, \
+	        __vname1 ? __vname1 : "???", nfs_kernel_hideaddr((NP1)), NFSNODE_FILEID((NP1)), \
+	        __vname2 ? __vname2 : "???", nfs_kernel_hideaddr((NP2)), NFSNODE_FILEID((NP2))); \
+	    if (__vname1) vnode_putname(__vname1); \
+	    if (__vname2) vnode_putname(__vname1); \
+    } while (0)
 
 /*
  * nfsiod structures
@@ -854,9 +897,11 @@ void nfs_node_unlock(nfsnode_t);
 int nfs_node_lock2(nfsnode_t, nfsnode_t);
 void nfs_node_unlock2(nfsnode_t, nfsnode_t);
 int nfs_node_set_busy(nfsnode_t, thread_t);
+int nfs_node_set_busy_shared(nfsnode_t, thread_t);
 int nfs_node_set_busy2(nfsnode_t, nfsnode_t, thread_t);
 int nfs_node_set_busy4(nfsnode_t, nfsnode_t, nfsnode_t, nfsnode_t, thread_t);
 void nfs_node_clear_busy(nfsnode_t);
+void nfs_node_clear_busy_shared(nfsnode_t);
 void nfs_node_clear_busy2(nfsnode_t, nfsnode_t);
 void nfs_node_clear_busy4(nfsnode_t, nfsnode_t, nfsnode_t, nfsnode_t);
 void nfs_data_lock(nfsnode_t, int);

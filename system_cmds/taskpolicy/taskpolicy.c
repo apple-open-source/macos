@@ -293,22 +293,22 @@ static int parse_qos_tier(const char *strtier, int parameter){
 	if (endptr && (endptr[0] == '\0') && (strtier[0] != '\0')) {
 		switch (policy) {
 			case 0:
-				return parameter ? THROUGHPUT_QOS_TIER_0 : LATENCY_QOS_TIER_0;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_0 : (int) LATENCY_QOS_TIER_0;
 				break;
 			case 1:
-				return parameter ? THROUGHPUT_QOS_TIER_1 : LATENCY_QOS_TIER_1;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_1 : (int) LATENCY_QOS_TIER_1;
 				break;
 			case 2:
-				return parameter ? THROUGHPUT_QOS_TIER_2 : LATENCY_QOS_TIER_2;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_2 : (int) LATENCY_QOS_TIER_2;
 				break;
 			case 3:
-				return parameter ? THROUGHPUT_QOS_TIER_3 : LATENCY_QOS_TIER_3;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_3 : (int) LATENCY_QOS_TIER_3;
 				break;
 			case 4:
-				return parameter ? THROUGHPUT_QOS_TIER_4 : LATENCY_QOS_TIER_4;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_4 : (int) LATENCY_QOS_TIER_4;
 				break;
 			case 5:
-				return parameter ? THROUGHPUT_QOS_TIER_5 : LATENCY_QOS_TIER_5;
+				return parameter ? (int) THROUGHPUT_QOS_TIER_5 : (int) LATENCY_QOS_TIER_5;
 				break;
 			default:
 				return -1;

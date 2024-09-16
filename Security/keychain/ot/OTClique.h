@@ -94,6 +94,8 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 // Use this to inject your own SecureBackup object. It must conform to the OctagonEscrowRecoverer protocol.
 @property (nullable, strong) id sbd;
 
+@property (nonatomic) BOOL testsEnabled;
+
 // Create a new synchronous OTControl if one doesn't already exist in context.
 - (OTControl* _Nullable)makeOTControl:(NSError**)error;
 @end
@@ -288,6 +290,12 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeConfirmPasscodeCyrus;
 - (BOOL)fetchUserControllableViewsSyncingEnabled:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
 
 /* *
+ * @abstract Fetch the current status of user-controllable views. This is _always_ asynchronous.
+ * @param reply, A callback reporting the status of view syncing, plus any error that was encountered.
+ */
+- (void)fetchUserControllableViewsSyncingEnabledAsync:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
+
+/* *
  * @abstract Establish a new OT circle
  * @param   error, This will return an error if anything goes wrong
  * @return YES if establish successfully created a new Octagon circle, NO if something went wrong.
@@ -434,6 +442,19 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(
          inheritanceKeyUUID:(NSUUID *)uuid
                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
+// Recreate a new inheritance key (with the same keys as an existing IK)
++ (void)recreateInheritanceKey:(OTConfigurationContext*)ctx
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey*)oldIK
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
+// Create a new inheritance key with a given claim token/wrappingkey
++ (void)createInheritanceKey:(OTConfigurationContext*)ctx
+                        uuid:(NSUUID *_Nullable)uuid
+              claimTokenData:(NSData *)claimTokenData
+             wrappingKeyData:(NSData *)wrappingKeyData
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
 // CoreCDP will call this function when they failed to complete a successful CDP state machine run.
 // Errors provided may be propagated from layers beneath CoreCDP, or contain the CoreCDP cause of failure.
 - (void)performedFailureCDPStateMachineRun:(OTCliqueCDPContextType)type
@@ -465,6 +486,9 @@ notifyIdMS:(bool)notifyIdMS
 
 + (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
                                     error:(NSError**)error;
+
+- (NSString* _Nullable)cliqueMemberIdentifier:(NSError* __autoreleasing * _Nullable)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

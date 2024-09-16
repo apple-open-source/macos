@@ -30,13 +30,30 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+
+#include "../src/platform.h"
+
+#if !MALLOC_TARGET_EXCLAVES
 #include <err.h>
+#endif // !MALLOC_TARGET_EXCLAVES
 
 #if DARWINTEST
 #include <darwintest.h>
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
-
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
 #endif
+
+static time_t time_seconds(void) {
+#if !MALLOC_TARGET_EXCLAVES
+	return time(0);
+#else
+	struct timespec t;
+	int rc = clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+	if (rc) {
+		return -1;
+	}
+	return t.tv_sec;
+#endif // !MALLOC_TARGET_EXCLAVES
+}
 
 /* globals */
 int rseed;	 /* initial random seed value */
@@ -70,6 +87,7 @@ struct malloc_info {
 /* Generate a random percentage (1-100) */
 #define D100 (1 + (rand() % 100))
 
+#if !MALLOC_TARGET_EXCLAVES
 int signal_happened = 0; /* gets set to signal# if one happens */
 
 void
@@ -93,6 +111,7 @@ trap_signals()
 		};
 	}
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 /* Display a brief usage message and exit with status 99 */
 void
@@ -155,6 +174,7 @@ cleanup()
 	for (mx = 0; mx < malloc_calls_made; mx++) {
 		if (!(minfo_array[mx].this_buffer_freed)) {
 			free(minfo_array[mx].buf_ptr);
+#if !MALLOC_TARGET_EXCLAVES
 			if (signal_happened) {
 #if DARWINTEST
 				T_FAIL("Signal %d occurred during free(0x%llx)", signal_happened, (unsigned long long)(minfo_array[mx].buf_ptr));
@@ -164,6 +184,7 @@ cleanup()
 				exit(1);
 #endif
 			}
+#endif // !MALLOC_TARGET_EXCLAVES
 		}
 	}
 	return;
@@ -214,7 +235,7 @@ main(int argc, char *argv[])
 	mem_allocated = 0;
 
 	/* Set defaults */
-	rseed = (int)time(0);
+	rseed = (int)time_seconds();
 	min_bytes = 1;
 	max_bytes = (1024 * 1024);			/* 1mb */
 	max_mem = 0;						/* Continue until malloc() returns NULL */
@@ -336,10 +357,15 @@ main(int argc, char *argv[])
 void
 do_test(void)
 {
-	time_t start_time = time(0);
+	time_t start_time = time_seconds();
+#if DARWINTEST
+	T_ASSERT_NE(start_time, -1, "Failed to get start time");
+#endif // DARWINTEST
 
+#if !MALLOC_TARGET_EXCLAVES
 	/* Trap all signals that are possible to trap */
 	trap_signals();
+#endif // !MALLOC_TARGET_EXCLAVES
 
 	/*
 	 * Loop until we have some reason to quit.
@@ -352,7 +378,7 @@ do_test(void)
 		int save_errno;
 
 		/* Have we exceeded our execution time limit? */
-		if (time_limit > 0 && (time(0) - start_time >= time_limit)) {
+		if (time_limit > 0 && (time_seconds() - start_time >= time_limit)) {
 #if DARWINTEST
 			cleanup();
 			T_PASS("Ran until time limit without incident.");
@@ -376,6 +402,7 @@ do_test(void)
 				random_buf = rand() % malloc_calls_made;
 				if (!(minfo_array[random_buf].this_buffer_freed)) {
 					free(minfo_array[random_buf].buf_ptr);
+#if !MALLOC_TARGET_EXCLAVES
 					/* If a signal happened, Fail */
 					if (signal_happened) {
 #if DARWINTEST
@@ -389,6 +416,7 @@ do_test(void)
 						exit(1);
 #endif
 					}
+#endif // !MALLOC_TARGET_EXCLAVES
 
 					minfo_array[random_buf].this_buffer_freed = 1;
 					malloc_bufs--; /* decrease the count of allocated bufs */
@@ -410,6 +438,7 @@ do_test(void)
 		malloc_buf = malloc(buf_size);
 		save_errno = errno;
 
+#if !MALLOC_TARGET_EXCLAVES
 		/* If a signal was caught, summarize and FAIL */
 		if (signal_happened) {
 #if DARWINTEST
@@ -422,6 +451,7 @@ do_test(void)
 			exit(1);
 #endif
 		}
+#endif // !MALLOC_TARGET_EXCLAVES
 
 		if (debug_dump) {
 			printf("INFO: Allocated buffer (%d bytes) at address 0x%llx\n", buf_size, (unsigned long long)malloc_buf);
@@ -482,6 +512,7 @@ do_test(void)
 			char byte;
 			*((volatile char *)&byte) = *((volatile char *)malloc_buf + bx);
 
+#if !MALLOC_TARGET_EXCLAVES
 			if (signal_happened) {
 #if DARWINTEST
 				T_FAIL("Signal %d caught reading buffer!", signal_happened);
@@ -492,6 +523,7 @@ do_test(void)
 				exit(1);
 #endif
 			}
+#endif // !MALLOC_TARGET_EXCLAVES
 		}
 
 		/*
@@ -530,6 +562,7 @@ do_test(void)
 			*((long double *)malloc_buf) = 7.2;
 		}
 
+#if !MALLOC_TARGET_EXCLAVES
 		if (signal_happened) {
 #if DARWINTEST
 			T_FAIL("Signal %d occurred storing numeric types at address 0x%llx (%d bytes)", signal_happened,
@@ -542,10 +575,12 @@ do_test(void)
 			exit(1);
 #endif
 		}
+#endif // !MALLOC_TARGET_EXCLAVES
 
 		/* Pick a random byte value to set the bytes of the buffer to */
 		set_buf_val = rand() & 0xFF;
 		memset(malloc_buf, set_buf_val, buf_size);
+#if !MALLOC_TARGET_EXCLAVES
 		if (signal_happened) {
 #if DARWINTEST
 			T_FAIL("Signal %d caught initializing buffer to byte value %d!", signal_happened, set_buf_val);
@@ -556,6 +591,7 @@ do_test(void)
 			exit(1);
 #endif
 		}
+#endif // !MALLOC_TARGET_EXCLAVES
 
 		/* Save the new malloc info */
 
@@ -624,6 +660,7 @@ do_test(void)
 				}
 			}
 
+#if !MALLOC_TARGET_EXCLAVES
 			/* If any signal occurred, that's a FAIL too. */
 			if (signal_happened) {
 #if DARWINTEST
@@ -635,6 +672,7 @@ do_test(void)
 				exit(1);
 #endif
 			}
+#endif // !MALLOC_TARGET_EXCLAVES
 
 		} /* end then malloc succeeded */
 
@@ -657,11 +695,19 @@ setup_and_test(void)
 	time_limit = 15;
 	
 	debug_dump = 0;
-	
+
+	malloc_calls_made = 0;
+
 	do_test();
 }
 
 T_DECL(malloc_stress, "Stress the heck out of malloc()")
+{
+	setup_and_test();
+}
+
+T_DECL(malloc_stress_nano, "Stress the heck out of malloc() with nano",
+		T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_NANO_ON_XZONE)
 {
 	setup_and_test();
 }

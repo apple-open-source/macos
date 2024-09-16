@@ -145,7 +145,9 @@ interfaceCallback(SCDynamicStoreRef session, CFArrayRef changedKeys, void * info
 			interfaces = [dict objectForKey:(__bridge NSString *)kSCPropNetInterfaces];
 			if (!_SC_CFEqual((__bridge CFArrayRef)interfaces, (__bridge CFArrayRef)test.interfaces)) {
 				test.interfaces = interfaces;
-				dispatch_semaphore_signal(test.interfaceSem);
+				if (test.interfaceSem != NULL) {
+					dispatch_semaphore_signal(test.interfaceSem);
+				}
 			}
 		}
 	}
@@ -199,7 +201,13 @@ globalIPv4ChangeCallback(SCDynamicStoreRef session, CFArrayRef changedKeys, void
 - (void)watchForGlobalIPv4StateChange:(BOOL)enabled
 {
 	if (enabled) {
-		SCDynamicStoreContext context;
+		SCDynamicStoreContext	context = {
+			.version = 0,
+			.info = (__bridge void * __nullable)self,
+			.retain = NULL,
+			.release = NULL,
+			.copyDescription = NULL
+		};
 		CFMutableArrayRef keys = NULL;
 		CFStringRef key = NULL;
 		BOOL ok = YES;
@@ -211,7 +219,6 @@ globalIPv4ChangeCallback(SCDynamicStoreRef session, CFArrayRef changedKeys, void
 								 kSCDynamicStoreDomainState,
 								 kSCEntNetIPv4);
 		CFArrayAppendValue(keys, key);
-		context.info = (__bridge void * _Nullable)self;
 		CFRelease(key);
 
 		self.globalIPv4Session = SCDynamicStoreCreate(NULL, CFSTR("SCTest"), globalIPv4ChangeCallback, &context);

@@ -27,7 +27,6 @@
 
 #import "keychain/OctagonTrust/OTInheritanceKey.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCreateInheritanceKeyOperation.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"

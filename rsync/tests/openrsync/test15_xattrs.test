@@ -1,0 +1,31 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+if ! xattr_capable >/dev/null; then
+	1>&2 echo "Skipping xattr test; needed utility not found"
+	exit 0
+fi
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+mkdirfile foo
+xattr_set foo rsync_test.foo bar
+
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+mkdirfile foo
+xattr_set foo rsync_test.foo bar
+
+cd ..
+# XXX --rsync-path needed because we aren't interoperable with rsync at the
+# moment.
+$rsync --rsync-path=$rsync -a -X dir1/ dir3
+compare_trees dir2 dir3

@@ -929,9 +929,8 @@ DbVersion::open()
 		{
 			uint32 aTableOffset = aSchemaSection.at(OffsetTables + AtomSize
 													* aTableNumber);
-			// XXX Set the size boundary on aTableSection.
 			const ReadSection aTableSection =
-				aSchemaSection.subsection(aTableOffset);
+				aSchemaSection.subsection(aTableOffset, aSchemaSection[aTableOffset + Table::OffsetSize]);
 			unique_ptr<Table> aTable(new Table(aTableSection));
 			Table::Id aTableId = aTable->getMetaRecord().dataRecordType();
 			mTableMap.insert(TableMap::value_type(aTableId, aTable.get()));

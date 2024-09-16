@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardView.h
 	Contains:	Displays and manipulates an OpenGL chess board
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,47 +44,17 @@
 */
 
 #import "MBCBoard.h"
+#import "MBCBoardCommon.h"
+#import "MBCBoardViewInterface.h"
 #import <sys/time.h>
 
-struct MBCColor {
-    GLfloat	color[4];
-
-	operator GLfloat *() { return color; }
-
-	NSColor *	GetColor() const;
-	void		SetColor(NSColor * newColor);
-};
-
-struct MBCPosition {
-    GLfloat 	pos[3];
-
-	operator GLfloat *() 				{ return pos; 		}
-	GLfloat & operator[](int i) 		{ return pos[i];	}
-	GLfloat   operator[](int i) const 	{ return pos[i];	}
-	float     FlatDistance(const MBCPosition & other) 
-		{
-			return hypot(pos[0]-other[0], pos[2]-other[2]);
-		}
-};
-
-MBCPosition operator-(const MBCPosition & a, const MBCPosition & b);
-
 extern MBCPieceCode gInHandOrder[];
-const float kInHandPieceX 		= 51.0f;
-const float kInHandPieceZOffset	=  3.0f;
-const float	kInHandPieceSize	=  8.0f;
-const float	kPromotionPieceX	= 50.0f;
-const float kPromotionPieceZ	= 35.0f;
-const float kBoardRadius		= 40.0f;
-const float kBorderWidth		=  6.25f;
-const float kMinElevation		= 10.0f;
-const float kMaxElevation		= 80.0f;
 
 @class MBCInteractivePlayer;
 @class MBCDrawStyle;
 @class MBCBoardWin;
 
-@interface MBCBoardView : NSOpenGLView
+@interface MBCBoardView : NSOpenGLView <MBCBoardViewInterface>
 {
     MBCBoardWin *         fController;
     MBCInteractivePlayer *fInteractive;
@@ -140,6 +110,23 @@ const float kMaxElevation		= 80.0f;
 	GLint					fNumSamples;
     NSTrackingArea *       fTrackingArea;
 }
+
+//
+// Properties and methods to provide access to ChessTuner
+//
+@property (nonatomic, assign) float azimuth;
+@property (nonatomic, assign) float elevation;
+@property (nonatomic, assign) float boardReflectivity;
+@property (nonatomic, assign) float labelIntensity;
+@property (nonatomic, assign) float ambient;
+
+- (MBCDrawStyle *)boardDrawStyleAtIndex:(NSUInteger)index;
+- (MBCDrawStyle *)pieceDrawStyleAtIndex:(NSUInteger)index;
+- (MBCDrawStyle *)borderDrawStyle;
+- (MBCDrawStyle *)selectedPieceDrawStyle;
+
+- (void)setLightPosition:(vector_float3)lightPosition;
+- (vector_float3)lightPosition;
 
 //
 // Basic view routines

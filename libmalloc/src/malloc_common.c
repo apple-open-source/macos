@@ -162,3 +162,42 @@ malloc_zone_pressure_relief_fallback(malloc_zone_t *zone, size_t goal)
 {
 	return 0;
 }
+
+#if !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+
+#if CONFIG_CHECK_PLATFORM_BINARY
+// Avoid conditioning on this if at all possible
+bool malloc_is_platform_binary = true;
+#endif // CONFIG_CHECK_PLATFORM_BINARY
+
+// Use malloc_is_platform_binary instead
+bool
+_malloc_is_platform_binary(void)
+{
+	uint32_t flags = 0;
+	int err = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
+	if (err) {
+		return false;
+	}
+	return (flags & CS_PLATFORM_BINARY);
+}
+
+#if CONFIG_CHECK_SECURITY_POLICY
+bool malloc_internal_security_policy = false;
+#endif // CONFIG_CHECK_SECURITY_POLICY
+
+bool
+_malloc_allow_internal_security_policy(void)
+{
+#if TARGET_OS_SIMULATOR
+	return true;
+#elif defined(_COMM_PAGE_DEV_FIRM)
+	return !!*((uint32_t *)_COMM_PAGE_DEV_FIRM);
+#else
+	// For backwards compatibility on x86, where we don't have that comm page
+	// bit, keep parsing the environment variables as we did before
+	return true;
+#endif
+}
+
+#endif // !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR

@@ -346,6 +346,7 @@ nfstests_options_info_t nfstests_options_infos[NFSTESTS_OPTIONS_NUM_OPTIONS] = {
 	{ NFSTESTS_OPTIONS_LOCAL_NFS_PORT, "port", CHAR_PTR, offsetof(struct nfs_options_client, local_nfs_port), NFS_MATTR_LOCAL_NFS_PORT },
 	{ NFSTESTS_OPTIONS_LOCAL_MOUNT_PORT, "mountport", CHAR_PTR, offsetof(struct nfs_options_client, local_mount_port), NFS_MATTR_LOCAL_MOUNT_PORT },
 	{ NFSTESTS_OPTIONS_READLINK_NOCACHE, "readlink_nocache", INT, offsetof(struct nfs_options_client, readlink_nocache), NFS_MATTR_READLINK_NOCACHE },
+	{ NFSTESTS_OPTIONS_ACCESS_CACHE, "accesscache", INT, offsetof(struct nfs_options_client, access_cache), NFS_MATTR_ACCESS_CACHE },
 };
 
 typedef struct nfstests_options_flags_info {

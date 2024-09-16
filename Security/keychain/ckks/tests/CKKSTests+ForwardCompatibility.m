@@ -150,6 +150,48 @@
     XCTAssertNotNil(newZone, "CKKS created new zone");
 }
 
+- (void)testPolicyWithNewViewCausesStateMachineToReprocessKeys {
+    
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should have arrived at ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+
+    CKRecordZoneID* newZoneZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"newZone" ownerName:CKCurrentUserDefaultName];
+
+    NSMutableArray<TPPBPolicyKeyViewMapping*>* newRules = [self.originalPolicy.keyViewMapping mutableCopy];
+    TPPBPolicyKeyViewMapping* newViewMapping = [[TPPBPolicyKeyViewMapping alloc] init];
+    newViewMapping.view = newZoneZoneID.zoneName;
+    newViewMapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"vwht"
+                                                            fieldRegex:[NSString stringWithFormat:@"^%@$", newZoneZoneID.zoneName]];
+    [newRules insertObject:newViewMapping atIndex:0];
+
+    TPSyncingPolicy* policyWithNewView = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
+                                                                        version:[[TPPolicyVersion alloc] initWithVersion:2 hash:@"fake-policy-for-new-view"]
+                                                                       viewList:[self.originalPolicy.viewList setByAddingObject:newZoneZoneID.zoneName]
+                                                                  priorityViews:self.originalPolicy.priorityViews
+                                                          userControllableViews:self.originalPolicy.userControllableViews
+                                                      syncUserControllableViews:self.originalPolicy.syncUserControllableViews
+                                                           viewsToPiggybackTLKs:self.originalPolicy.viewsToPiggybackTLKs
+                                                                 keyViewMapping:newRules
+                                                             isInheritedAccount:self.originalPolicy.isInheritedAccount];
+
+    // Get state machine to ready before we set the new syncing policy.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateReady];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
+    [self.defaultCKKS setCurrentSyncingPolicy:policyWithNewView policyIsFresh:YES];
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateReady];
+    
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateProcessReceivedKeys];
+    
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessReceivedKeys] wait:20*NSEC_PER_SEC], @"CKKS state machine should be asked to reprocess key hierarchy");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateProcessReceivedKeys];
+
+    CKKSKeychainViewState* newView = [self.defaultCKKS viewStateForName:newZoneZoneID.zoneName];
+    XCTAssertEqual(0, [newView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKUpload] wait:20*NSEC_PER_SEC], @"Key state should have arrived at waitfortlkupload");
+}
+
 - (void)testReceiveItemForWrongView {
     self.requestPolicyCheck = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMExpect([self.requestPolicyCheck trigger]);

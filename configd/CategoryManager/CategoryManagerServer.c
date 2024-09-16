@@ -531,7 +531,7 @@ CategoryManagerCopyOSStateData(os_state_hints_t hints)
 	state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
 	if (state_data_size > MAX_STATEDUMP_SIZE) {
 		state_data = NULL;
-		my_log(LOG_NOTICE, "%s: state data too large (%zd > %d)",
+		my_log(LOG_NOTICE, "%s: state data too large (%zu > %d)",
 		       __func__, state_data_size, MAX_STATEDUMP_SIZE);
 	}
 	else {

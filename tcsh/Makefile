@@ -6,7 +6,7 @@
 Project               = tcsh
 UserType              = Administration
 ToolType              = Commands
-Extra_CC_Flags        = -D_PATH_TCSHELL='\"/bin/tcsh\"' -no-cpp-precomp -mdynamic-no-pic -DDARWIN -fstack-protector-all
+Extra_CC_Flags        = -D_PATH_TCSHELL='\"/bin/tcsh\"' -no-cpp-precomp -mdynamic-no-pic -DDARWIN -fstack-protector-all -fno-typed-memory-operations -fno-typed-cxx-new-delete
 Extra_Configure_Flags = --bindir="/bin" ac_cv_func_sbrk=no
 Extra_Install_Flags   = DESTBIN="$(DSTROOT)/bin" MANSECT="1" DESTMAN="$(DSTROOT)/usr/share/man/man1" srcdir="$(SRCROOT)/tcsh"
 GnuAfterInstall       = install-links install-rc install-plist

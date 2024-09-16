@@ -58,6 +58,43 @@ mrc_dns_service_registration_create(mdns_dns_service_definition_t definition);
 
 /*!
  *	@brief
+ *		Creates a DNS push service registration based on the specified DNS push service definition.
+ *
+ *	@param definition
+ *		The DNS push service definition.
+ *
+ *	@result
+ *		A reference to the new DNS push service registration object, or NULL if creation failed.
+ *
+ *	@discussion
+ *		The DNS push service definition is copied by the DNS service registration object during its creation, so
+ *		the registration will not be affected by later changes to the definition.
+ *
+ *		If not using Objective-C ARC, use mrc_retain() and mrc_release() to retain and release references to the
+ *		object.
+ */
+MDNS_PROJECT_ONLY_SPI_AVAILABLE_FALL_2024
+MDNS_RETURNS_RETAINED MDNS_WARN_RESULT
+mrc_dns_service_registration_t _Nullable
+mrc_dns_service_registration_create_push(mdns_dns_push_service_definition_t definition);
+
+/*!
+ *	@brief
+ *		Specifies whether the registration should report the connection error, if the service being registered is a DNS push service.
+ *
+ *	@param definition
+ *		The DNS push service definition.
+ *
+ *	@param reports_connection_errors
+ *		Whether a connection error should be reported.
+ */
+MDNS_PROJECT_ONLY_SPI_AVAILABLE_FALL_2024
+void
+mrc_dns_service_registration_set_reports_connection_errors(mrc_dns_service_registration_t definition,
+	bool reports_connection_errors);
+
+/*!
+ *	@brief
  *		Sets a DNS service registration's dispatch queue on which to invoke the DNS service registration's event
  *		handler.
  *
@@ -91,11 +128,15 @@ mrc_dns_service_registration_set_queue(mrc_dns_service_registration_t registrati
  *
  *	@const mrc_dns_service_registration_event_interruption
  *		Indicates that the DNS service registration has been interrupted.
+ *
+ *	@const mrc_dns_service_registration_event_connection_error
+ *		Indicates that the DNS service registration has encountered a connection error.
  */
 MDNS_CLOSED_ENUM(mrc_dns_service_registration_event_t, int,
-	mrc_dns_service_registration_event_invalidation	= -1,
-	mrc_dns_service_registration_event_started		=  1,
-	mrc_dns_service_registration_event_interruption	=  2
+	mrc_dns_service_registration_event_invalidation		= -1,
+	mrc_dns_service_registration_event_started			=  1,
+	mrc_dns_service_registration_event_interruption		=  2,
+	mrc_dns_service_registration_event_connection_error	=  3,
 );
 
 /*!

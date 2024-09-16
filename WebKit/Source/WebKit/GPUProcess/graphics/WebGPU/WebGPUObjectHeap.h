@@ -34,6 +34,7 @@
 #include <variant>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore::WebGPU {
 class Adapter;
@@ -90,7 +91,7 @@ class RemoteTextureView;
 
 namespace WebKit::WebGPU {
 
-class ObjectHeap final : public RefCounted<ObjectHeap>, public WebGPU::ConvertFromBackingContext {
+class ObjectHeap final : public RefCounted<ObjectHeap>, public WebGPU::ConvertFromBackingContext, public CanMakeWeakPtr<ObjectHeap> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<ObjectHeap> create()
@@ -152,6 +153,11 @@ public:
     WebCore::WebGPU::Texture* convertTextureFromBacking(WebGPUIdentifier) final;
     WebCore::WebGPU::TextureView* convertTextureViewFromBacking(WebGPUIdentifier) final;
 
+    struct ExistsAndValid {
+        bool exists { false };
+        bool valid { false };
+    };
+    ExistsAndValid objectExistsAndValid(const WebCore::WebGPU::GPU&, WebGPUIdentifier) const;
 private:
     ObjectHeap();
 
@@ -181,6 +187,7 @@ private:
         IPC::ScopedActiveMessageReceiveQueue<RemoteTexture>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteTextureView>
     >;
+
     HashMap<WebGPUIdentifier, Object> m_objects;
 };
 

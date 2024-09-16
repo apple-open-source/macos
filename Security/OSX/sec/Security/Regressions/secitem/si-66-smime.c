@@ -2742,15 +2742,7 @@ static void tests(void)
     // parse signed-receipt
     msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, signed_receipt_bin, signed_receipt_bin_len, kCFAllocatorNull);
     policy = SecPolicyCreateBasicX509();
-#if TARGET_OS_IPHONE
-    OSStatus expectedStatus = errSecDecode;
-#else
-    OSStatus expectedStatus = errSecSuccess;
-#endif
-    if (useMessageSecurityEnabled()) {
-        expectedStatus = errSecAuthFailed;
-    }
-    is(expectedStatus, SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+    is(errSecAuthFailed, SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
     CFReleaseNull(trust);
     CFReleaseNull(policy);
     CFReleaseNull(msg);

@@ -470,10 +470,9 @@ class OctagonResetTests: OctagonTestsBase {
 
         let establishAndResetExpectation = self.expectation(description: "resetExpectation")
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = OTDefaultContext
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .userInitiatedReset)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -502,10 +501,9 @@ class OctagonResetTests: OctagonTestsBase {
         let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = OTDefaultContext
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // Calling with an unknown RK only resets if the local device is SOS capable, so pretend it is
         #if os(macOS) || os(iOS) || os(watchOS)
@@ -563,11 +561,10 @@ class OctagonResetTests: OctagonTestsBase {
                                                     deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
         initiatorContext.startOctagonStateMachine()
-        let newOTCliqueContext = OTConfigurationContext()
-        newOTCliqueContext.context = OTDefaultContext
-        newOTCliqueContext.altDSID = self.otcliqueContext.altDSID
-        newOTCliqueContext.otControl = self.otcliqueContext.otControl
-        newOTCliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        let newOTCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                           otControl: self.otcliqueContext.otControl,
+                                                                           altDSID: self.otcliqueContext.altDSID,
+                                                                           sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
 
         let resetExpectation = self.expectation(description: "resetExpectation callback occurs")
         self.fakeCuttlefishServer.resetListener = {  request in
@@ -694,17 +691,15 @@ class OctagonResetTests: OctagonTestsBase {
 
         let establishAndResetExpectation = self.expectation(description: "resetExpectation")
         let clique: OTClique
-        let otcliqueContext = OTConfigurationContext()
+
+        let otcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()),
+                                                                        sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                        authenticationAppleID: "appleID",
+                                                                        passwordEquivalentToken: "petpetpetpetpet",
+                                                                        ckksControl: self.ckksControl)
         var firstCliqueIdentifier: String?
-
-        otcliqueContext.context = OTDefaultContext
-        otcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        otcliqueContext.authenticationAppleID = "appleID"
-        otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
-        otcliqueContext.otControl = self.otControl
-        otcliqueContext.ckksControl = self.ckksControl
-        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
         do {
             clique = try OTClique.newFriends(withContextData: otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -745,14 +740,13 @@ class OctagonResetTests: OctagonTestsBase {
         var firstCliqueIdentifier: String?
 
         let clique: OTClique
-        let cliqueContextConfiguration = OTConfigurationContext()
-        cliqueContextConfiguration.context = OTDefaultContext
-        cliqueContextConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        cliqueContextConfiguration.authenticationAppleID = "appleID"
-        cliqueContextConfiguration.passwordEquivalentToken = "petpetpetpetpet"
-        cliqueContextConfiguration.otControl = self.otControl
-        cliqueContextConfiguration.ckksControl = self.ckksControl
-        cliqueContextConfiguration.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        let cliqueContextConfiguration = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()),
+                                                                                   sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                                   authenticationAppleID: "appleID",
+                                                                                   passwordEquivalentToken: "petpetpetpetpet",
+                                                                                   ckksControl: self.ckksControl)
         do {
             clique = try OTClique.newFriends(withContextData: cliqueContextConfiguration, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -955,10 +949,10 @@ class OctagonResetTests: OctagonTestsBase {
 
         let establishAndResetExpectation = self.expectation(description: "resetExpectation")
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = OTDefaultContext
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .userInitiatedReset)
             XCTAssertNotNil(clique, "Clique should not be nil")

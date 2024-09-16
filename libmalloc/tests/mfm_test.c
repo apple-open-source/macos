@@ -1,24 +1,78 @@
 #define MFM_TESTING 1
-#include <mach/mach_init.h>
-#include <mach/vm_map.h>
 #include <malloc/malloc.h>
 #include <stdlib.h>
 #include <darwintest.h>
 
 #if defined(__LP64__)
 
+#include "../src/internal.h" // MALLOC_TARGET_EXCLAVES
+
+#if !MALLOC_TARGET_EXCLAVES
+#include <mach/mach_init.h>
+#include <mach/vm_map.h>
+#endif // !MALLOC_TARGET_EXCLAVES
+
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_PREFERRED);
+
 static void *
-test_mvm_allocate_pages(size_t size, int vm_page_label)
+test_mvm_allocate_pages(size_t size, int vm_page_label, plat_map_t *map_out)
 {
+#if MALLOC_TARGET_EXCLAVES
+	return mmap_plat(map_out, 0, size,
+			LIBLIBC_MAP_PERM_READ | LIBLIBC_MAP_PERM_WRITE,
+			LIBLIBC_MAP_TYPE_PRIVATE, 0, vm_page_label);
+#else
 	vm_address_t vm_addr;
 	kern_return_t kr;
 
 	kr = vm_allocate(mach_task_self(), &vm_addr, size,
 			VM_FLAGS_ANYWHERE | VM_MAKE_TAG(vm_page_label));
 	return kr == KERN_SUCCESS ? (void *)vm_addr : NULL;
+#endif // MALLOC_TARGET_EXCLAVES
 }
 #define mvm_allocate_pages_plat(size, align, debug_flags, vm_page_label, plat) \
-	test_mvm_allocate_pages(size, vm_page_label)
+	test_mvm_allocate_pages(size, vm_page_label, plat)
+
+static void *
+test_mvm_allocate_plat(uintptr_t addr, size_t size, int flags,
+		uint32_t debug_flags, int vm_page_label, plat_map_t *map_out)
+{
+#if MALLOC_TARGET_EXCLAVES
+	const _liblibc_map_type_t type = LIBLIBC_MAP_TYPE_PRIVATE |
+			((flags & VM_FLAGS_ANYWHERE) ? 0 : LIBLIBC_MAP_TYPE_FIXED) |
+			((debug_flags & MALLOC_NO_POPULATE) ? LIBLIBC_MAP_TYPE_NOCOMMIT : 0);
+	return mmap_plat(map_out, addr, size,
+			LIBLIBC_MAP_PERM_READ | LIBLIBC_MAP_PERM_WRITE, type, 0,
+			(unsigned)vm_page_label);
+#else
+	vm_address_t vm_addr;
+	kern_return_t kr;
+
+	kr = vm_allocate(mach_task_self(), &vm_addr, size,
+			VM_FLAGS_ANYWHERE | VM_MAKE_TAG(vm_page_label));
+	return kr == KERN_SUCCESS ? (void *)vm_addr : NULL;
+#endif // MALLOC_TARGET_EXCLAVES
+}
+#define mvm_allocate_plat(addr, size, align, flags, debug_flags, vm_page_label, plat) \
+	test_mvm_allocate_plat(addr, size, flags, debug_flags, vm_page_label, plat)
+
+static void test_malloc_lock_lock(_malloc_lock_s *lock) {
+#if MALLOC_HAS_OS_LOCK
+	os_unfair_lock_lock(lock);
+#else
+	T_QUIET; T_ASSERT_EQ(pthread_mutex_lock(lock), 0, "Lock lock");
+#endif // MALLOC_HAS_OS_LOCK
+}
+#define _malloc_lock_lock(lock) test_malloc_lock_lock(lock);
+
+static void test_malloc_lock_unlock(_malloc_lock_s *lock) {
+#if MALLOC_HAS_OS_LOCK
+	os_unfair_lock_unlock(lock);
+#else
+	T_QUIET; T_ASSERT_EQ(pthread_mutex_unlock(lock), 0, "Unlock lock");
+#endif // MALLOC_HAS_OS_LOCK
+}
+#define _malloc_lock_unlock(lock) test_malloc_lock_unlock(lock);
 
 #include "../src/early_malloc.c"
 
@@ -264,12 +318,12 @@ run_corruption_test(const struct record *recs, size_t count)
 			alloc_rm(&state, (uintptr_t)ptr);
 		}
 
-		for (size_t i = 0; i < state.count; i++) {
-			struct record *rec = &state.allocs[i];
+		for (size_t j = 0; j < state.count; j++) {
+			struct record *record = &state.allocs[j];
 
-			T_QUIET; T_EXPECT_EQ(mfm_alloc_size((void *)rec->addr),
-			    block_size(rec->size),
-			    "alloc %p is live", (void *)rec->addr);
+			T_QUIET; T_EXPECT_EQ(mfm_alloc_size((void *)record->addr),
+			    block_size(record->size),
+			    "alloc %p is live", (void *)record->addr);
 
 
 		}

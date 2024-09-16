@@ -48,13 +48,14 @@ public:
             m_markSet->remove(this);
 
         if (EncodedJSValue* base = mallocBase())
-            Gigacage::free(Gigacage::JSValue, base);
+            FastMalloc::free(base);
     }
 
     size_t size() const { return m_size; }
     bool isEmpty() const { return !m_size; }
 
     const EncodedJSValue* data() const { return m_buffer; }
+    EncodedJSValue* data() { return m_buffer; }
 
     void removeLast()
     { 
@@ -84,7 +85,7 @@ protected:
 
     Status expandCapacity();
     Status expandCapacity(unsigned newCapacity);
-    Status slowEnsureCapacity(size_t requestedCapacity);
+    JS_EXPORT_PRIVATE Status slowEnsureCapacity(size_t requestedCapacity);
 
     void addMarkSet(JSValue);
 
@@ -147,6 +148,13 @@ public:
                 return static_cast<T>(nullptr);
             return jsCast<T>(JSValue::decode(slotFor(i)).asCell());
         }
+    }
+
+    void set(unsigned i, T value)
+    {
+        if (i >= m_size)
+            return;
+        slotFor(i) = JSValue::encode(value);
     }
 
     void clear()
@@ -215,18 +223,31 @@ public:
         ensureCapacity(count);
         if (OverflowHandler::hasOverflowed())
             return;
-        if (LIKELY(!m_markSet)) {
-            m_markSet = &vm.heap.markListSet();
-            m_markSet->add(this);
+        if (!isUsingInlineBuffer()) {
+            if (LIKELY(!m_markSet)) {
+                m_markSet = &vm.heap.markListSet();
+                m_markSet->add(this);
+            }
         }
         m_size = count;
         auto* buffer = reinterpret_cast<JSValue*>(&slotFor(0));
+
+        // This clearing does not need to consider about concurrent marking from GC since MarkedVector
+        // gets marked only while mutator is stopping. So, while clearing in the mutator, concurrent
+        // marker will not see the buffer.
+#if USE(JSVALUE64)
+        memset(bitwise_cast<void*>(buffer), 0, sizeof(JSValue) * count);
+#else
         for (unsigned i = 0; i < count; ++i)
             buffer[i] = JSValue();
+#endif
+
         func(buffer);
     }
 
 private:
+    bool isUsingInlineBuffer() const { return m_buffer == m_inlineBuffer; }
+
     EncodedJSValue m_inlineBuffer[inlineCapacity] { };
 };
 

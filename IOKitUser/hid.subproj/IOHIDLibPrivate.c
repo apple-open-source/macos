@@ -507,3 +507,67 @@ void _IOHIDCFArrayApplyBlock(CFArrayRef array, IOHIDCFArrayBlock block)
                          __IOHIDCFArrayFunctionApplier,
                          block);
 }
+
+bool _IOHIDIsAlphaNumericKey(uint32_t usage, uint32_t usagePage) {
+    if (kHIDPage_KeyboardOrKeypad == usagePage) {
+        // Check for presence of alphanumeric/special characters in mapping
+        if((kHIDUsage_KeyboardA <= usage && kHIDUsage_Keyboard0 >= usage) ||
+           (kHIDUsage_Keypad1 <= usage && kHIDUsage_KeyboardNonUSBackslash >= usage) ||
+           (kHIDUsage_KeyboardHyphen <= usage && kHIDUsage_KeyboardSlash >= usage) ||
+           (kHIDUsage_KeypadSlash <= usage && kHIDUsage_KeypadPlus >= usage) ||
+           (kHIDUsage_KeypadEqualSign == usage)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool _IOHIDIsRestrictedRemappingProperty(CFTypeRef property) {
+    if(CFGetTypeID(property) == CFArrayGetTypeID()) {
+        CFArrayRef mappings = (CFArrayRef)property;
+        for ( CFIndex i = 0; i < CFArrayGetCount(mappings); i++ ){
+            CFDictionaryRef    pair    = NULL;
+            CFNumberRef     num     = NULL;
+            uint64_t        src     = 0;
+            uint32_t        usage   = 0;
+            pair = (CFDictionaryRef)CFArrayGetValueAtIndex(mappings, i);
+            if ( pair == NULL || CFGetTypeID(pair) != CFDictionaryGetTypeID()) {
+                continue;
+            }
+            num = (CFNumberRef)CFDictionaryGetValue(pair, CFSTR("HIDKeyboardModifierMappingSrc"));
+            if ( !num || CFGetTypeID(num) != CFNumberGetTypeID()) {
+                continue;
+            }
+            CFNumberGetValue(num, kCFNumberSInt64Type, &src);
+            if(_IOHIDIsAlphaNumericKey(((uint32_t*)&src)[0], ((uint32_t*)&src)[1])) {
+                return true;
+            }
+        }
+    } else if (CFGetTypeID(property) == CFStringGetTypeID()) {
+        CFStringRef mappings = (CFStringRef)property;
+        const char *stringMap = NULL;
+        char * stringMapCopy = NULL;
+        char * copy = NULL;
+        char * srcS = NULL;
+        char * dstS = NULL;
+        if ( mappings == NULL || (stringMap = (CFStringGetCStringPtr(mappings, kCFStringEncodingMacRoman))) == NULL) {
+            return false;
+        }
+        copy = stringMapCopy = strdup(stringMap);
+        while((srcS = strsep(&stringMapCopy, ",")) != NULL && (dstS = strsep(&stringMapCopy, ",")) != NULL) {
+            uint64_t usageAndPage;
+            usageAndPage = strtoul(dstS, 0, 0);
+            if (usageAndPage == 0) {
+                continue;
+            }
+            usageAndPage = strtoul(srcS, 0, 0);
+            if(_IOHIDIsAlphaNumericKey(((uint16_t*)&usageAndPage)[0], ((uint16_t*)&usageAndPage)[1])) {
+                return true;
+            }
+        }
+        if (copy) {
+            free(copy);
+        }
+    }
+    return false;
+}

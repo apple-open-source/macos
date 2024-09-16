@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fwrite.c,v 1.13 2009/07/12 13:09:43 ed Ex
 #include "local.h"
 #include "fvwrite.h"
 #include "libc_private.h"
+#include "libc_hooks_impl.h"
 
 /*
  * The maximum amount to write to avoid integer overflow (especially for
@@ -74,6 +75,8 @@ fwrite(const void * __restrict buf, size_t size, size_t count,
 	uio.uio_iov = &iov;
 	uio.uio_iovcnt = 1;
 
+	libc_hooks_will_write(fp, sizeof(*fp));
+
 	FLOCKFILE(fp);
 	ORIENT(fp, -1);
 
@@ -81,6 +84,8 @@ fwrite(const void * __restrict buf, size_t size, size_t count,
 		s = resid > INT_MAX ? MAXWRITE : (int)resid;
 		iov.iov_base = (void *)buf;
 		uio.uio_resid = iov.iov_len = s;
+
+		libc_hooks_will_read(buf, s);
 
 		/*
 		 * The usual case is success (__sfvwrite returns 0);

@@ -9,10 +9,16 @@
 	</array>
 	<key>com.apple.wifi.events</key>
 	<true/>
+	<key>com.apple.wifi.events.private</key>
+	<true/>
 	<key>com.apple.security.temporary-exception.iokit-user-client-class</key>
 	<array>
 		<string>IOUserUserClient</string>
 		<string>IO80211APIUserClient</string>
+	</array>
+	<key>com.apple.private.driverkit.driver-access</key>
+	<array>
+		<string>com.apple.private.wifi.driverkit</string>
 	</array>
 	<key>com.apple.wlan.authentication</key>
 	<true/>

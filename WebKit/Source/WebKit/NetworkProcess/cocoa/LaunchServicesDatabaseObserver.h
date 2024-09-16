@@ -40,15 +40,15 @@ public:
     LaunchServicesDatabaseObserver(NetworkProcess&);
     virtual ~LaunchServicesDatabaseObserver();
 
-    static const char* supplementName();
+    static ASCIILiteral supplementName();
 
 private:
     void startObserving(OSObjectPtr<xpc_connection_t>);
 
     // XPCEndpoint
-    const char* xpcEndpointMessageNameKey() const override;
-    const char* xpcEndpointMessageName() const override;
-    const char* xpcEndpointNameKey() const override;
+    ASCIILiteral xpcEndpointMessageNameKey() const override;
+    ASCIILiteral xpcEndpointMessageName() const override;
+    ASCIILiteral xpcEndpointNameKey() const override;
     void handleEvent(xpc_connection_t, xpc_object_t) override;
 
     // NetworkProcessSupplement

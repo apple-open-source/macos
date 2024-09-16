@@ -129,12 +129,12 @@ bool RemoteAudioSession::tryToSetActiveInternal(bool active)
     return succeeded;
 }
 
-void RemoteAudioSession::addConfigurationChangeObserver(ConfigurationChangeObserver& observer)
+void RemoteAudioSession::addConfigurationChangeObserver(AudioSessionConfigurationChangeObserver& observer)
 {
     m_configurationChangeObservers.add(observer);
 }
 
-void RemoteAudioSession::removeConfigurationChangeObserver(ConfigurationChangeObserver& observer)
+void RemoteAudioSession::removeConfigurationChangeObserver(AudioSessionConfigurationChangeObserver& observer)
 {
     m_configurationChangeObservers.remove(observer);
 }
@@ -215,6 +215,18 @@ void RemoteAudioSession::endInterruptionForTesting()
 
     m_isInterruptedForTesting = false;
     ensureConnection().send(Messages::RemoteAudioSessionProxy::TriggerEndInterruptionForTesting(), { });
+}
+
+void RemoteAudioSession::setSceneIdentifier(const String& sceneIdentifier)
+{
+    configuration().sceneIdentifier = sceneIdentifier;
+    ensureConnection().send(Messages::RemoteAudioSessionProxy::SetSceneIdentifier(sceneIdentifier), { });
+}
+
+void RemoteAudioSession::setSoundStageSize(AudioSession::SoundStageSize size)
+{
+    configuration().soundStageSize = size;
+    ensureConnection().send(Messages::RemoteAudioSessionProxy::SetSoundStageSize(size), { });
 }
 
 }

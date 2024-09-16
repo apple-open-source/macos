@@ -393,8 +393,10 @@ protected:
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 12);
 	virtual IOReturn waitForLinkUp(IOPCIDevice *bridgeDevice);
 
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 13);
+	virtual IOReturn busProbe(IOPCIDevice *bridgeDevice, uint32_t options);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge, 13);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 14);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 15);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 16);
@@ -431,8 +433,8 @@ protected:
 #endif
 
 private:
-	IOReturn terminateChild(IOPCIDevice *child);
-	IOReturn terminateChildGated(IOPCIDevice *child);
+	IOReturn childClientCrashRecovery(IOPCIDevice *child);
+	IOReturn childClientCrashRecoveryGated(IOPCIDevice *child);
 	void hotReset(IOPCIDevice *bridgeDevice);
 	void warmReset(void);
 	IOReturn waitForResetComplete(void);
@@ -473,6 +475,11 @@ protected:
 
 private:
     void waitForDartToQuiesce(IOPCIDevice *nub);
+	tIOPCIDeviceResetTypes getChildResetType(IOPCIDevice *child);
+	void calculateL1PMParameters(IOPCIDevice *port, IOPCIDevice *linkPartner);
+
+protected:
+	static bool hasBusLeadCTOBug(uint32_t vendorDevice);
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -496,7 +503,8 @@ private:
     IOPMDriverAssertionID          fPMAssertion;
     IOSimpleLock *                 fISRLock;
     struct IOPCIAERRoot *          fAERRoot;
-    uint32_t                       __resvA[6];
+    uint32_t                       fTimerProbeOptions;
+    uint32_t                       __resvA[5];
     int32_t                        fTunnelL1EnableCount;
     uint32_t                       fHotplugCount;
 
@@ -603,8 +611,11 @@ public:
 
     virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) override;
 
+protected:
+    OSMetaClassDeclareReservedUsed(IOPCI2PCIBridge, 0);
+	virtual IOReturn busProbe(IOPCIDevice *bridgeDevice, uint32_t options) override;
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  1);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  2);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  3);
@@ -614,7 +625,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  7);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  8);
 
-protected:
     void allocateBridgeInterrupts(IOService * provider);
     void startBridgeInterrupts(IOService * provider);
     void enableBridgeInterrupts(void);
@@ -634,9 +644,15 @@ private:
     void attnButtonTimer(IOTimerEventSource * es);
     IOReturn attnButtonHandlerFinish(thread_call_t threadCall);
     void dllscEventTimer(IOTimerEventSource * es);
+	void constructIOPCIEvent(IOPCIDevice *device, bool correctable, IOPCIEvent *newEvent, uint32_t *status, uint32_t *mask, uint32_t *severity);
+	void enqueueIOPCIEvent(IOPCIDevice *device, uint32_t status, uint32_t severity, bool correctable, IOPCIEvent *newEvent, bool synchronous);
 
 public:
 	void handleAEREvent(bool synchronous);
+
+private:
+	IOReturn setPowerStateGated(unsigned long *_powerState,
+								IOService *whatDevice);
 };
 __exported_pop
 

@@ -272,6 +272,7 @@
 		2A62DBD527695D56001389AF /* truncate.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A62DBD127695576001389AF /* truncate.1 */; };
 		2A62DBDC2769637C001389AF /* truncate_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A62DBDA27696359001389AF /* truncate_test.sh */; };
 		2A96BE8B2987931500F1705B /* gettime_ns.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A96BE8A2987931500F1705B /* gettime_ns.c */; };
+		2AE8D5B627B8557D00C0BFA4 /* libmd.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AE8D5B527B8557D00C0BFA4 /* libmd.tbd */; settings = {ATTRIBUTES = (Required, ); }; };
 		2AF6024A27C6E61100027A07 /* cp_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6024827C6E5EA00027A07 /* cp_test.sh */; };
 		2AF6026E27C8504800027A07 /* chmod_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6025027C84CDF00027A07 /* chmod_test.sh */; };
 		2AF6027027C8506700027A07 /* chflags_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6024F27C84CC200027A07 /* chflags_test.sh */; };
@@ -316,7 +317,10 @@
 		D391925E269E24A200F7E564 /* xattr.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D391925C269E244800F7E564 /* xattr.sh */; };
 		D3A3FFE5260C200E00EE3D39 /* xattr.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D3343F4D2609720F005A89FC /* xattr.1 */; };
 		E12CCC21264C6AE3009ADFC2 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = E12CCC20264C6AD8009ADFC2 /* libutil.tbd */; };
+		E91B8C062B57C38C00CCE620 /* test06.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = E9FEA8E42B332E9B00A86D07 /* test06.sh */; };
 		E94DD1DD2B55245600B5ABAE /* test00.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = FCB1BE4314B6460C0070FACB /* test00.sh */; };
+		E994401A2B90843A0054E393 /* test08.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = E99440192B9084240054E393 /* test08.sh */; };
+		E9B231412B7BBFFF009D3914 /* test07.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = E9B231402B7BB2FB009D3914 /* test07.sh */; };
 		E9EA7F692B5144960034D510 /* test01.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = FCB1BE4414B6460C0070FACB /* test01.sh */; };
 		E9EA7F6A2B51449B0034D510 /* test02.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = FCB1BE4514B6460C0070FACB /* test02.sh */; };
 		E9EA7F6B2B51449F0034D510 /* test03.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = FCB1BE4614B6460C0070FACB /* test03.sh */; };
@@ -1514,6 +1518,9 @@
 			dstPath = /AppleInternal/Tests/file_cmds/mtree;
 			dstSubfolderSpec = 0;
 			files = (
+				E994401A2B90843A0054E393 /* test08.sh in Copy Test Files */,
+				E9B231412B7BBFFF009D3914 /* test07.sh in Copy Test Files */,
+				E91B8C062B57C38C00CCE620 /* test06.sh in Copy Test Files */,
 				E9EA7F6D2B5144A80034D510 /* test05.sh in Copy Test Files */,
 				E9EA7F6C2B5144A40034D510 /* test04.sh in Copy Test Files */,
 				E9EA7F6B2B51449F0034D510 /* test03.sh in Copy Test Files */,
@@ -1883,6 +1890,7 @@
 		2A62DBDA27696359001389AF /* truncate_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = truncate_test.sh; path = truncate/tests/truncate_test.sh; sourceTree = "<group>"; };
 		2A96BE84298792F000F1705B /* gettime_ns */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gettime_ns; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A96BE8A2987931500F1705B /* gettime_ns.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gettime_ns.c; path = tests/gettime_ns.c; sourceTree = "<group>"; };
+		2AE8D5B527B8557D00C0BFA4 /* libmd.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libmd.tbd; path = usr/lib/libmd.tbd; sourceTree = SDKROOT; };
 		2AF6024827C6E5EA00027A07 /* cp_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = cp_test.sh; path = tests/cp_test.sh; sourceTree = "<group>"; };
 		2AF6024F27C84CC200027A07 /* chflags_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = chflags_test.sh; path = tests/chflags_test.sh; sourceTree = "<group>"; };
 		2AF6025027C84CDF00027A07 /* chmod_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = chmod_test.sh; path = tests/chmod_test.sh; sourceTree = "<group>"; };
@@ -1921,7 +1929,11 @@
 		D3343F522609722E005A89FC /* xattr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xattr; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3343F542609722E005A89FC /* xattr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xattr.c; sourceTree = "<group>"; };
 		D391925C269E244800F7E564 /* xattr.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = xattr.sh; sourceTree = "<group>"; };
+		D3A6D61C296CA81900634AD0 /* libmd.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libmd.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/usr/lib/libmd.tbd; sourceTree = DEVELOPER_DIR; };
 		E12CCC20264C6AD8009ADFC2 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = usr/lib/libutil.tbd; sourceTree = SDKROOT; };
+		E99440192B9084240054E393 /* test08.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test08.sh; sourceTree = "<group>"; };
+		E9B231402B7BB2FB009D3914 /* test07.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test07.sh; sourceTree = "<group>"; };
+		E9FEA8E42B332E9B00A86D07 /* test06.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test06.sh; sourceTree = "<group>"; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2205,6 +2217,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2AE8D5B627B8557D00C0BFA4 /* libmd.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2508,7 +2521,9 @@
 		729D06D6230B5E42000716E5 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2AE8D5B527B8557D00C0BFA4 /* libmd.tbd */,
 				CB902E8428B904AC00972732 /* libxo.tbd */,
+				D3A6D61C296CA81900634AD0 /* libmd.tbd */,
 				E12CCC20264C6AD8009ADFC2 /* libutil.tbd */,
 				729D06D7230B5E42000716E5 /* CoreFoundation.framework */,
 			);
@@ -2863,6 +2878,9 @@
 				FCB1BE4614B6460C0070FACB /* test03.sh */,
 				FCB1BE4714B6460C0070FACB /* test04.sh */,
 				4AB4CF8D293AA28900DE42C4 /* test05.sh */,
+				E9FEA8E42B332E9B00A86D07 /* test06.sh */,
+				E9B231402B7BB2FB009D3914 /* test07.sh */,
+				E99440192B9084240054E393 /* test08.sh */,
 			);
 			path = test;
 			sourceTree = "<group>";
@@ -5260,6 +5278,7 @@
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphoneossimulator";
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wall",

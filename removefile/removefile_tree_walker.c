@@ -260,6 +260,8 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 		// don't process the file if a cancel has been requested
 		if (__removefile_state_test_cancel(state)) break;
 
+		state->recurse_entry = current_file;
+
 		// confirm regular files and directories in pre-order 
 		if (cb_confirm && current_file->fts_info != FTS_DP) {
 			res = cb_confirm(state,
@@ -325,6 +327,8 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 		state->error_num = ECANCELED;
 		rval = -1;
 	}
+
+	state->recurse_entry = NULL;
 
 	fts_close(stream);
 	return rval;

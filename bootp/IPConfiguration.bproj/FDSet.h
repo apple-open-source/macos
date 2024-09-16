@@ -1,8 +1,5 @@
-
-#ifndef _S_FDSET_H
-#define _S_FDSET_H
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +34,12 @@
  * - created
  */
 
+
+#ifndef _S_FDSET_H
+#define _S_FDSET_H
+
+#include <dispatch/dispatch.h>
+
 /*
  * Type: FDCallout_func_t
  * Purpose:
@@ -50,12 +53,16 @@ struct FDCallout;
 typedef struct FDCallout * FDCalloutRef;
 
 FDCalloutRef
-FDCalloutCreate(int fd, FDCalloutFuncRef func, void * arg1, void * arg2);
+FDCalloutCreate(int fd, FDCalloutFuncRef func, void * arg1, void * arg2,
+		dispatch_block_t cancel_handler);
 
 void
 FDCalloutRelease(FDCalloutRef * callout_p);
 
 int
 FDCalloutGetFD(FDCalloutRef callout);
+
+void
+FDCalloutSetDispatchQueue(dispatch_queue_t queue);
 
 #endif /* _S_FDSET_H */

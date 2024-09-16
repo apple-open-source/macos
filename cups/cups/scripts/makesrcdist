@@ -1,0 +1,122 @@
+#!/bin/sh
+#
+# makesrcdist - make a source distribution of CUPS.
+#
+
+TMPDIR="${TMPDIR:=/tmp}"
+
+# Make sure we are running in the right directory...
+if test ! -f scripts/makesrcdist; then
+        echo "Run this script from the top-level CUPS source directory, e.g.:"
+        echo ""
+        echo "    scripts/makesrcdist $*"
+        echo ""
+        exit 1
+fi
+
+# See if we have local changes (other than this script...)
+if (git status | grep -v makesrcdist | grep -v makerpm | grep -q modified:); then
+        echo Local changes remain:
+        git status | grep -v makesrcdist | grep modified:
+        exit 1
+fi
+
+# Prep for snapshot or version release...
+if test $# = 0; then
+	# Compute version for snapshot
+	rev=`git show --oneline | head -1 | awk '{print $1}'`
+	version="2.3git"
+	fileversion="2.3git-$rev"
+	fileurl="file://$TMPDIR/cups-${fileversion}-source.tar.gz"
+	SIGNFILES=no
+else
+	# Use version from command-line
+	rev="1"
+	version=$1
+	fileversion=$1
+	fileurl="https://github.com/apple/cups/releases/download/v$fileversion/cups-${fileversion}-source.tar.gz"
+	SIGNFILES=yes
+
+	echo Validating sources...
+	cupsversionpatch=`echo $version | awk -F. '{if (NF == 3) { print $3 } else { print "0" } }'`
+	cupsversion=`printf "2.03%02d" $cupsversionpatch`
+
+        temp=`grep AC_INIT configure.ac | awk '{print $2}' | sed -e '1,$s/^\[//' -e '1,$s/\],$//'`
+        if test "$temp" != $version; then
+		echo "Still need to update version to $version in configure.ac (saw $temp)"
+		exit 1
+	fi
+
+	temp=`grep CUPS_VERSION cups/cups.h | grep -v CUPS_VERSION_ | awk '{print $4}'`
+	if test "$temp" != $cupsversion; then
+		echo "Still need to update CUPS_VERSION to $cupsversion in cups/cups.h (saw $temp)"
+		exit 1
+	fi
+
+	temp=`grep CUPS_VERSION_PATCH cups/cups.h | awk '{print $4}'`
+	if test "$temp" != $cupsversionpatch; then
+		echo "Still need to update CUPS_VERSION_PATCH to $cupsversionpatch in cups/cups.h (saw $temp)"
+		exit 1
+	fi
+
+	temp=`head -1 README.md | awk '{print $4}'`
+	if test "$temp" != "v$version"; then
+		echo "Still need to update version to v$version in README.md (saw $temp)"
+		exit 1
+	fi
+
+	temp=`head -1 INSTALL.md | awk '{print $4}'`
+	if test "$temp" != "v$version"; then
+		echo "Still need to update version to v$version in INSTALL.md (saw $temp)"
+		exit 1
+	fi
+
+	temp=`head -6 CHANGES.md | grep "Changes in" | awk '{print $4}'`
+	if test "$temp" != "v$version"; then
+		echo "Still need to add Changes in v$version in CHANGES.md (saw $temp)"
+		exit 1
+	fi
+
+	echo Creating tag for release...
+	git tag -m "Tag $version" v$version
+	git push origin v$version
+fi
+
+fileurl=`echo $fileurl | sed -e '1,$s/\\//\\\\\\//g'`
+file="$HOME/cups-$fileversion-source.tar"
+
+echo Exporting $fileversion...
+rm -rf $TMPDIR/cups-$version
+mkdir $TMPDIR/cups-$version
+git archive --format tar HEAD | (cd $TMPDIR/cups-$version; tar xf -)
+
+echo Preparing files...
+cd $TMPDIR/cups-$version
+sed -e '1,$s/@CUPS_VERSION@/'$version'/' \
+	-e '1,$s/^Source:.*/Source: '$fileurl'/' \
+	<packaging/cups.spec.in \
+	>packaging/cups.spec
+rm -rf .gitignore
+cd ..
+
+echo Archiving...
+tar cf $file cups-$version
+
+echo Compressing...
+if (which zopfli >/dev/null); then
+	zopfli $file
+	rm -f $file
+else
+	gzip -v9 $file
+fi
+
+if test $SIGNFILES = yes; then
+	echo Signing...
+	test -f $file.gz.sig && rm -f $file.gz.sig
+	gpg --detach-sign -u security@cups.org $file.gz
+fi
+
+echo Removing temporary files...
+rm -rf cups-$version
+
+echo "Done - files in $HOME."

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -218,32 +218,43 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
 {
     int32_t addr;
     int32_t i;
-	int32_t len = (int32_t)inlen;
-	
-	printf("%s: hexdump: %s %p length %d inlen %ld\n", func, s, buf, len, inlen);
+	int32_t len = (int32_t) inlen;
+    char buffer[160];
+    char buffer2[160];
+
+	snprintf(buffer, sizeof(buffer), "%s: hexdump: %s %p length %d inlen %ld\n", func, s, buf, len, inlen);
+    strlcpy(buffer2, buffer, sizeof(buffer2));
+
     addr = 0;
-    while( addr < len )
-    {
-        printf("%6.6x - " , addr );
-        for( i=0; i<16; i++ )
-        {
-            if( addr+i < len )
-                printf("%2.2x ", buf[addr+i] );
+    while(addr < len) {
+        snprintf(buffer, sizeof(buffer), "%6.6x - " , addr );
+        strlcpy(buffer2, buffer, sizeof(buffer2));
+        
+        for(i = 0; i < 16; i++) {
+            if (addr + i < len)
+                snprintf(buffer, sizeof(buffer), "%2.2x ", buf[addr+i] );
             else
-                printf("   " );
+                snprintf(buffer, sizeof(buffer), "   " );
+            strlcat(buffer2, buffer, sizeof(buffer2));
         }
-        printf(" \"");
-        for( i=0; i<16; i++ )
-        {
-            if( addr+i < len )
-            {
-                if(( buf[addr+i] > 0x19 ) && ( buf[addr+i] < 0x7e ) )
-                    printf("%c", buf[addr+i] );
+        
+        snprintf(buffer, sizeof(buffer), " \"");
+        strlcat(buffer2, buffer, sizeof(buffer2));
+
+        for(i = 0; i < 16; i++) {
+            if (addr + i < len) {
+                if ((buf[addr+i] > 0x19) && (buf[addr+i] < 0x7e) )
+                    snprintf(buffer, sizeof(buffer), "%c", buf[addr+i] );
                 else
-                    printf(".");
+                    snprintf(buffer, sizeof(buffer), ".");
+                strlcat(buffer2, buffer, sizeof(buffer2));
             }
         }
-        printf("\" \n");
+        
+        snprintf(buffer, sizeof(buffer), "\" \n");
+        strlcat(buffer2, buffer, sizeof(buffer2));
+
+        printf("%s", buffer2);
         addr += 16;
     }
     printf("\" \n");
@@ -758,4 +769,13 @@ int smb_put_dstring(struct mbchain *mbp, int usingUnicode, const char *src,
 	if (usingUnicode)
 		return mb_put_uint16le(mbp, 0);
 	return mb_put_uint8(mbp, 0);
+}
+
+vm_offset_t smb_hideaddr(void *addr)
+{
+    vm_offset_t hide_addr = 0;
+    if (addr) {
+        vm_kernel_addrhide((vm_offset_t)addr, &hide_addr);
+    }
+    return hide_addr;
 }

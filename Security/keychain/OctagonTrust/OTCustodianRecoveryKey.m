@@ -124,6 +124,15 @@
     return [self isEqualToCustodianRecoveryKey:object];
 }
 
+- (NSDictionary*)dictionary {
+    return @{
+        @"uuid": [self.uuid description],
+        @"recoveryString": self.recoveryString,
+        @"wrappingKey": [self.wrappingKey base64EncodedStringWithOptions:0],
+        @"wrappedKey": [self.wrappedKey base64EncodedStringWithOptions:0],
+    };
+}
+
 + (BOOL)supportsSecureCoding {
     return YES;
 }

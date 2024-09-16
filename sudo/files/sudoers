@@ -24,6 +24,10 @@ Defaults	env_keep += "HOME MAIL"
 
 Defaults	lecture_file = "/etc/sudo_lecture"
 
+# Remove this line to log successful sudo launches. May contain sensitive
+# information passed as arguments to the command
+Defaults	!log_allowed
+
 ##
 # User alias specification
 ##

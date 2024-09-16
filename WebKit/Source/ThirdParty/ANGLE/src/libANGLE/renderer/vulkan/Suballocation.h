@@ -10,17 +10,17 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_SUBALLOCATION_H_
 #define LIBANGLE_RENDERER_VULKAN_SUBALLOCATION_H_
 
+#include "common/SimpleMutex.h"
 #include "common/debug.h"
 #include "libANGLE/angletypes.h"
 #include "libANGLE/renderer/serial_utils.h"
-#include "libANGLE/renderer/vulkan/ResourceVk.h"
 #include "libANGLE/renderer/vulkan/vk_cache_utils.h"
+#include "libANGLE/renderer/vulkan/vk_resource.h"
 #include "libANGLE/renderer/vulkan/vk_utils.h"
 #include "libANGLE/renderer/vulkan/vk_wrapper.h"
 
 namespace rx
 {
-class RendererVk;
 enum class MemoryAllocationType;
 
 namespace vk
@@ -35,7 +35,7 @@ class BufferBlock final : angle::NonCopyable
     BufferBlock(BufferBlock &&other);
     ~BufferBlock();
 
-    void destroy(RendererVk *renderer);
+    void destroy(Renderer *renderer);
     VkResult init(Context *context,
                   Buffer &buffer,
                   uint32_t memoryTypeIndex,
@@ -87,7 +87,7 @@ class BufferBlock final : angle::NonCopyable
     {
         mDescriptorSetCacheManager.addKey(sharedCacheKey);
     }
-    void releaseAllCachedDescriptorSetCacheKeys(RendererVk *renderer)
+    void releaseAllCachedDescriptorSetCacheKeys(Renderer *renderer)
     {
         if (!mDescriptorSetCacheManager.empty())
         {
@@ -96,7 +96,7 @@ class BufferBlock final : angle::NonCopyable
     }
 
   private:
-    mutable std::mutex mVirtualBlockMutex;
+    mutable angle::SimpleMutex mVirtualBlockMutex;
     VirtualBlock mVirtualBlock;
 
     Buffer mBuffer;
@@ -132,7 +132,7 @@ class BufferBlockGarbageList final : angle::NonCopyable
 
     void add(BufferBlock *bufferBlock)
     {
-        std::unique_lock<std::mutex> lock(mMutex);
+        std::unique_lock<angle::SimpleMutex> lock(mMutex);
         if (mBufferBlockQueue.full())
         {
             size_t newCapacity = mBufferBlockQueue.capacity() << 1;
@@ -141,11 +141,11 @@ class BufferBlockGarbageList final : angle::NonCopyable
         mBufferBlockQueue.push(bufferBlock);
     }
 
-    void pruneEmptyBufferBlocks(RendererVk *renderer)
+    void pruneEmptyBufferBlocks(Renderer *renderer)
     {
         if (!mBufferBlockQueue.empty())
         {
-            std::unique_lock<std::mutex> lock(mMutex);
+            std::unique_lock<angle::SimpleMutex> lock(mMutex);
             size_t count = mBufferBlockQueue.size();
             for (size_t i = 0; i < count; i++)
             {
@@ -167,7 +167,7 @@ class BufferBlockGarbageList final : angle::NonCopyable
 
   private:
     static constexpr size_t kInitialQueueCapacity = 4;
-    std::mutex mMutex;
+    angle::SimpleMutex mMutex;
     angle::FixedQueue<BufferBlock *> mBufferBlockQueue;
 };
 
@@ -180,7 +180,7 @@ class BufferSuballocation final : angle::NonCopyable
     BufferSuballocation(BufferSuballocation &&other);
     BufferSuballocation &operator=(BufferSuballocation &&other);
 
-    void destroy(RendererVk *renderer);
+    void destroy(Renderer *renderer);
 
     void init(BufferBlock *block,
               VmaVirtualAllocation allocation,
@@ -252,8 +252,8 @@ class BufferSuballocationGarbage
     {}
     ~BufferSuballocationGarbage() = default;
 
-    bool destroyIfComplete(RendererVk *renderer);
-    bool hasResourceUseSubmitted(RendererVk *renderer) const;
+    bool destroyIfComplete(Renderer *renderer);
+    bool hasResourceUseSubmitted(Renderer *renderer) const;
     VkDeviceSize getSize() const { return mSuballocation.getSize(); }
     bool isSuballocated() const { return mSuballocation.isSuballocated(); }
 
@@ -276,7 +276,7 @@ ANGLE_INLINE VkDeviceSize BufferBlock::getMemorySize() const
 
 ANGLE_INLINE VkBool32 BufferBlock::isEmpty()
 {
-    std::unique_lock<std::mutex> lock(mVirtualBlockMutex);
+    std::unique_lock<angle::SimpleMutex> lock(mVirtualBlockMutex);
     return vma::IsVirtualBlockEmpty(mVirtualBlock.getHandle());
 }
 
@@ -331,7 +331,7 @@ ANGLE_INLINE bool BufferSuballocation::valid() const
     return mBufferBlock != nullptr;
 }
 
-ANGLE_INLINE void BufferSuballocation::destroy(RendererVk *renderer)
+ANGLE_INLINE void BufferSuballocation::destroy(Renderer *renderer)
 {
     if (valid())
     {

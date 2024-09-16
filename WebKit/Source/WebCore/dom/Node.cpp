@@ -49,6 +49,7 @@
 #include "HTMLDialogElement.h"
 #include "HTMLElement.h"
 #include "HTMLImageElement.h"
+#include "HTMLScriptElement.h"
 #include "HTMLSlotElement.h"
 #include "HTMLStyleElement.h"
 #include "InputEvent.h"
@@ -83,6 +84,7 @@
 #include "TextEvent.h"
 #include "TextManipulationController.h"
 #include "TouchEvent.h"
+#include "TrustedType.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WheelEvent.h"
 #include "XMLNSNames.h"
@@ -94,6 +96,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/SHA1.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
 
@@ -109,7 +112,7 @@ using namespace HTMLNames;
 
 struct SameSizeAsNode : EventTarget {
 #if ASSERT_ENABLED
-    bool deletionHasBegun;
+    uint32_t m_isAllocatedMemory;
     bool inRemovedLastRefFunction;
     bool adoptionIsRequired;
 #endif
@@ -117,7 +120,7 @@ struct SameSizeAsNode : EventTarget {
     uint32_t nodeFlags;
     void* parentNode;
     void* treeScope;
-    void* previous;
+    uint8_t previous[8];
     void* next;
     uint8_t rendererWithStyleFlags[8];
     uint8_t rareDataWithBitfields[8];
@@ -132,65 +135,65 @@ static WeakHashSet<Node>& liveNodeSet()
     return liveNodes;
 }
 
-static const char* stringForRareDataUseType(NodeRareData::UseType useType)
+static ASCIILiteral stringForRareDataUseType(NodeRareData::UseType useType)
 {
     switch (useType) {
     case NodeRareData::UseType::TabIndex:
-        return "TabIndex";
+        return "TabIndex"_s;
     case NodeRareData::UseType::ChildIndex:
-        return "ChildIndex";
+        return "ChildIndex"_s;
     case NodeRareData::UseType::NodeList:
-        return "NodeList";
+        return "NodeList"_s;
     case NodeRareData::UseType::MutationObserver:
-        return "MutationObserver";
+        return "MutationObserver"_s;
     case NodeRareData::UseType::ManuallyAssignedSlot:
-        return "ManuallyAssignedSlot";
+        return "ManuallyAssignedSlot"_s;
     case NodeRareData::UseType::ScrollingPosition:
-        return "ScrollingPosition";
+        return "ScrollingPosition"_s;
     case NodeRareData::UseType::ComputedStyle:
-        return "ComputedStyle";
-    case NodeRareData::UseType::DisplayContentsStyle:
-        return "DisplayContentsStyle";
+        return "ComputedStyle"_s;
+    case NodeRareData::UseType::DisplayContentsOrNoneStyle:
+        return "DisplayContentsOrNoneStyle"_s;
     case NodeRareData::UseType::EffectiveLang:
-        return "EffectiveLang";
+        return "EffectiveLang"_s;
     case NodeRareData::UseType::Dataset:
-        return "Dataset";
+        return "Dataset"_s;
     case NodeRareData::UseType::ClassList:
-        return "ClassList";
+        return "ClassList"_s;
     case NodeRareData::UseType::ShadowRoot:
-        return "ShadowRoot";
+        return "ShadowRoot"_s;
     case NodeRareData::UseType::CustomElementReactionQueue:
-        return "CustomElementReactionQueue";
+        return "CustomElementReactionQueue"_s;
     case NodeRareData::UseType::CustomElementDefaultARIA:
-        return "CustomElementDefaultARIA";
+        return "CustomElementDefaultARIA"_s;
     case NodeRareData::UseType::FormAssociatedCustomElement:
-        return "FormAssociatedCustomElement";
+        return "FormAssociatedCustomElement"_s;
     case NodeRareData::UseType::AttributeMap:
-        return "AttributeMap";
+        return "AttributeMap"_s;
     case NodeRareData::UseType::InteractionObserver:
-        return "InteractionObserver";
+        return "InteractionObserver"_s;
     case NodeRareData::UseType::ResizeObserver:
-        return "ResizeObserver";
+        return "ResizeObserver"_s;
     case NodeRareData::UseType::Animations:
-        return "Animations";
+        return "Animations"_s;
     case NodeRareData::UseType::PseudoElements:
-        return "PseudoElements";
+        return "PseudoElements"_s;
     case NodeRareData::UseType::AttributeStyleMap:
-        return "AttributeStyleMap";
+        return "AttributeStyleMap"_s;
     case NodeRareData::UseType::ComputedStyleMap:
-        return "ComputedStyleMap";
+        return "ComputedStyleMap"_s;
     case NodeRareData::UseType::PartList:
-        return "PartList";
+        return "PartList"_s;
     case NodeRareData::UseType::PartNames:
-        return "PartNames";
+        return "PartNames"_s;
     case NodeRareData::UseType::Nonce:
-        return "Nonce";
+        return "Nonce"_s;
     case NodeRareData::UseType::ExplicitlySetAttrElementsMap:
-        return "ExplicitlySetAttrElementsMap";
+        return "ExplicitlySetAttrElementsMap"_s;
     case NodeRareData::UseType::Popover:
-        return "Popover";
+        return "Popover"_s;
     }
-    return nullptr;
+    return { };
 }
 
 #endif
@@ -308,7 +311,7 @@ void Node::dumpStatistics()
     printf("Number of Nodes with RareData: %zu\n", nodesWithRareData);
     printf("  Mixed use: %zu\n", mixedRareDataUseCount);
     for (auto it : rareDataSingleUseTypeCounts)
-        printf("  %s: %zu\n", stringForRareDataUseType(static_cast<NodeRareData::UseType>(it.key)), it.value);
+        printf("  %s: %zu\n", stringForRareDataUseType(static_cast<NodeRareData::UseType>(it.key)).characters(), it.value);
     printf("\n");
 
 
@@ -380,9 +383,9 @@ void Node::trackForDebugging()
 
 inline void NodeRareData::operator delete(NodeRareData* nodeRareData, std::destroying_delete_t)
 {
-    auto destroyAndFree = [&](auto& value) {
+    auto destroyAndFree = [&]<typename RareDataType> (RareDataType& value) {
         std::destroy_at(&value);
-        std::decay_t<decltype(value)>::freeAfterDestruction(&value);
+        RareDataType::freeAfterDestruction(&value);
     };
 
     if (nodeRareData->m_isElementRareData)
@@ -413,8 +416,8 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
 Node::~Node()
 {
     ASSERT(isMainThread());
-    ASSERT(m_refCountAndParentBit == s_refCountIncrement);
-    ASSERT(m_deletionHasBegun);
+    ASSERT(deletionHasBegun());
+    ASSERT(!deletionHasEnded());
     ASSERT(!m_adoptionIsRequired);
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
@@ -430,7 +433,7 @@ Node::~Node()
 
     ASSERT(!renderer());
     ASSERT(!parentNode());
-    ASSERT(!m_previous);
+    ASSERT(!m_previous.pointer());
     ASSERT(!m_next);
 
     {
@@ -450,6 +453,10 @@ Node::~Node()
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventHandlersContain(*this));
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventTargetsContain(*this));
     }
+#endif
+
+#if ASSERT_ENABLED
+    m_isAllocatedMemory = IsAllocatedMemory::Scribble;
 #endif
 }
 
@@ -494,9 +501,10 @@ String Node::nodeValue() const
     return String();
 }
 
-void Node::setNodeValue(const String&)
+ExceptionOr<void> Node::setNodeValue(const String&)
 {
     // By default, setting nodeValue has no effect.
+    return { };
 }
 
 RefPtr<NodeList> Node::childNodes()
@@ -560,13 +568,14 @@ ExceptionOr<void> Node::appendChild(Node& newChild)
     return Exception { ExceptionCode::HierarchyRequestError };
 }
 
-static HashSet<RefPtr<Node>> nodeSetPreTransformedFromNodeOrStringVector(const FixedVector<NodeOrString>& vector)
+static HashSet<RefPtr<Node>> nodeSetPreTransformedFromNodeOrStringOrTrustedScriptVector(const FixedVector<NodeOrStringOrTrustedScript>& vector)
 {
     HashSet<RefPtr<Node>> nodeSet;
     for (const auto& variant : vector) {
         WTF::switchOn(variant,
             [&] (const RefPtr<Node>& node) { nodeSet.add(const_cast<Node*>(node.get())); },
-            [] (const String&) { }
+            [] (const String&) { },
+            [] (const RefPtr<TrustedScript>&) { }
         );
     }
     return nodeSet;
@@ -591,18 +600,34 @@ static RefPtr<Node> firstFollowingSiblingNotInNodeSet(Node& context, const HashS
 }
 
 // https://dom.spec.whatwg.org/#converting-nodes-into-a-node
-ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsIntoNode(FixedVector<NodeOrString>&& nodeOrStringVector)
+ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsOrTrustedScriptsIntoNode(RefPtr<Node> parent, FixedVector<NodeOrStringOrTrustedScript>&& vector)
 {
-    if (nodeOrStringVector.isEmpty())
+    if (vector.isEmpty())
         return nullptr;
 
     Ref document = this->document();
-    auto nodes = WTF::map(WTFMove(nodeOrStringVector), [&](auto&& variant) -> Ref<Node> {
-        return WTF::switchOn(WTFMove(variant),
-            [&](RefPtr<Node>&& node) { return node.releaseNonNull(); },
-            [&](String&& string) -> Ref<Node> { return Text::create(document, WTFMove(string)); }
-        );
-    });
+    NodeVector nodes;
+    auto trustedTypesEnabled = document->scriptExecutionContext()->settingsValues().trustedTypesEnabled;
+    for (auto& variant : vector) {
+        if (trustedTypesEnabled) {
+            auto textNodeHolder = processNodeOrStringAsTrustedType(document, parent, variant);
+            if (textNodeHolder.hasException())
+                return textNodeHolder.releaseException();
+
+            if (RefPtr textNode = textNodeHolder.releaseReturnValue()) {
+                nodes.append(textNode.releaseNonNull());
+                continue;
+            }
+        } else if (std::holds_alternative<String>(variant)) {
+            nodes.append(Text::create(document, WTFMove(std::get<String>(variant))));
+            continue;
+        }
+
+        ASSERT(std::holds_alternative<RefPtr<Node>>(variant));
+        RefPtr node = WTFMove(std::get<RefPtr<Node>>(variant));
+        ASSERT(node);
+        nodes.append(node.releaseNonNull());
+    }
 
     if (nodes.size() == 1)
         return RefPtr<Node> { WTFMove(nodes.first()) };
@@ -617,19 +642,30 @@ ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsIntoNode(FixedVector<NodeOr
 }
 
 // https://dom.spec.whatwg.org/#converting-nodes-into-a-node except this returns a NodeVector
-ExceptionOr<NodeVector> Node::convertNodesOrStringsIntoNodeVector(FixedVector<NodeOrString>&& nodeOrStringVector)
+ExceptionOr<NodeVector> Node::convertNodesOrStringsOrTrustedScriptsIntoNodeVector(RefPtr<Node> parent, FixedVector<NodeOrStringOrTrustedScript>&& vector)
 {
-    if (nodeOrStringVector.isEmpty())
+    if (vector.isEmpty())
         return NodeVector { };
 
     Ref document = this->document();
     NodeVector nodeVector;
-    nodeVector.reserveInitialCapacity(nodeOrStringVector.size());
-    for (auto& variant : nodeOrStringVector) {
-        if (std::holds_alternative<String>(variant)) {
+    nodeVector.reserveInitialCapacity(vector.size());
+    auto trustedTypesEnabled = document->scriptExecutionContext()->settingsValues().trustedTypesEnabled;
+    for (auto& variant : vector) {
+        if (trustedTypesEnabled) {
+            auto textNodeHolder = processNodeOrStringAsTrustedType(document, parent, variant);
+            if (textNodeHolder.hasException())
+                return textNodeHolder.releaseException();
+
+            if (RefPtr textNode = textNodeHolder.releaseReturnValue()) {
+                nodeVector.append(textNode.releaseNonNull());
+                continue;
+            }
+        } else if (std::holds_alternative<String>(variant)) {
             nodeVector.append(Text::create(document, WTFMove(std::get<String>(variant))));
             continue;
         }
+
         ASSERT(std::holds_alternative<RefPtr<Node>>(variant));
         RefPtr node = WTFMove(std::get<RefPtr<Node>>(variant));
         ASSERT(node);
@@ -652,16 +688,16 @@ ExceptionOr<NodeVector> Node::convertNodesOrStringsIntoNodeVector(FixedVector<No
     return nodeVector;
 }
 
-ExceptionOr<void> Node::before(FixedVector<NodeOrString>&& nodeOrStringVector)
+ExceptionOr<void> Node::before(FixedVector<NodeOrStringOrTrustedScript>&& vector)
 {
     RefPtr parent = parentNode();
     if (!parent)
         return { };
 
-    auto nodeSet = nodeSetPreTransformedFromNodeOrStringVector(nodeOrStringVector);
+    auto nodeSet = nodeSetPreTransformedFromNodeOrStringOrTrustedScriptVector(vector);
     RefPtr viablePreviousSibling = firstPrecedingSiblingNotInNodeSet(*this, nodeSet);
 
-    auto result = convertNodesOrStringsIntoNodeVector(WTFMove(nodeOrStringVector));
+    auto result = convertNodesOrStringsOrTrustedScriptsIntoNodeVector(parent, WTFMove(vector));
     if (result.hasException())
         return result.releaseException();
 
@@ -673,16 +709,16 @@ ExceptionOr<void> Node::before(FixedVector<NodeOrString>&& nodeOrStringVector)
     return parent->insertChildrenBeforeWithoutPreInsertionValidityCheck(WTFMove(newChildren), viableNextSibling.get());
 }
 
-ExceptionOr<void> Node::after(FixedVector<NodeOrString>&& nodeOrStringVector)
+ExceptionOr<void> Node::after(FixedVector<NodeOrStringOrTrustedScript>&& vector)
 {
     RefPtr parent = parentNode();
     if (!parent)
         return { };
 
-    auto nodeSet = nodeSetPreTransformedFromNodeOrStringVector(nodeOrStringVector);
+    auto nodeSet = nodeSetPreTransformedFromNodeOrStringOrTrustedScriptVector(vector);
     RefPtr viableNextSibling = firstFollowingSiblingNotInNodeSet(*this, nodeSet);
 
-    auto result = convertNodesOrStringsIntoNodeVector(WTFMove(nodeOrStringVector));
+    auto result = convertNodesOrStringsOrTrustedScriptsIntoNodeVector(parent, WTFMove(vector));
     if (result.hasException())
         return result.releaseException();
 
@@ -693,16 +729,16 @@ ExceptionOr<void> Node::after(FixedVector<NodeOrString>&& nodeOrStringVector)
     return parent->insertChildrenBeforeWithoutPreInsertionValidityCheck(WTFMove(newChildren), viableNextSibling.get());
 }
 
-ExceptionOr<void> Node::replaceWith(FixedVector<NodeOrString>&& nodeOrStringVector)
+ExceptionOr<void> Node::replaceWith(FixedVector<NodeOrStringOrTrustedScript>&& vector)
 {
     RefPtr parent = parentNode();
     if (!parent)
         return { };
 
-    auto nodeSet = nodeSetPreTransformedFromNodeOrStringVector(nodeOrStringVector);
+    auto nodeSet = nodeSetPreTransformedFromNodeOrStringOrTrustedScriptVector(vector);
     RefPtr viableNextSibling = firstFollowingSiblingNotInNodeSet(*this, nodeSet);
 
-    auto result = convertNodesOrStringsIntoNode(WTFMove(nodeOrStringVector));
+    auto result = convertNodesOrStringsOrTrustedScriptsIntoNode(parent, WTFMove(vector));
     if (result.hasException())
         return result.releaseException();
 
@@ -839,13 +875,13 @@ static Node::Editability computeEditabilityFromComputedStyle(const RenderStyle& 
 
     // Elements with user-select: all style are considered atomic
     // therefore non editable.
-    if (treatment == Node::UserSelectAllTreatment::NotEditable && style.effectiveUserSelect() == UserSelect::All)
+    if (treatment == Node::UserSelectAllTreatment::NotEditable && style.usedUserSelect() == UserSelect::All)
         return Node::Editability::ReadOnly;
 
     if (pageIsEditable == PageIsEditable::Yes)
         return Node::Editability::CanEditRichly;
 
-    switch (style.effectiveUserModify()) {
+    switch (style.usedUserModify()) {
     case UserModify::ReadOnly:
         return Node::Editability::ReadOnly;
     case UserModify::ReadWrite:
@@ -950,7 +986,7 @@ void Node::adjustStyleValidity(Style::Validity validity, Style::InvalidationMode
     case Style::InvalidationMode::Normal:
         break;
     case Style::InvalidationMode::RecompositeLayer:
-        setStyleFlag(NodeStyleFlag::StyleResolutionShouldRecompositeLayer);
+        setStateFlag(StateFlag::StyleResolutionShouldRecompositeLayer);
         break;
     case Style::InvalidationMode::RebuildRenderer:
     case Style::InvalidationMode::InsertedIntoAncestor:
@@ -1228,10 +1264,15 @@ Node* Node::pseudoAwareLastChild() const
     return lastChild();
 }
 
-const RenderStyle* Node::computedStyle(PseudoId pseudoElementSpecifier)
+const RenderStyle* Node::computedStyle()
+{
+    return computedStyle(std::nullopt);
+}
+
+const RenderStyle* Node::computedStyle(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier)
 {
     RefPtr composedParent = parentElementInComposedTree();
-    return composedParent ? composedParent->computedStyle(pseudoElementSpecifier) : nullptr;
+    return composedParent ? composedParent->computedStyle(pseudoElementIdentifier) : nullptr;
 }
 
 // FIXME: Shouldn't these functions be in the editing code?  Code that asks questions about HTML in the core DOM class
@@ -1246,7 +1287,7 @@ bool Node::canStartSelection() const
 
         // We allow selections to begin within an element that has -webkit-user-select: none set,
         // but if the element is draggable then dragging should take priority over selection.
-        if (style.userDrag() == UserDrag::Element && style.effectiveUserSelect() == UserSelect::None)
+        if (style.userDrag() == UserDrag::Element && style.usedUserSelect() == UserSelect::None)
             return false;
     }
     return parentOrShadowHostNode() ? parentOrShadowHostNode()->canStartSelection() : true;
@@ -1262,6 +1303,16 @@ Element* Node::shadowHost() const
 ShadowRoot* Node::containingShadowRoot() const
 {
     return dynamicDowncast<ShadowRoot>(treeScope().rootNode());
+}
+
+RefPtr<ShadowRoot> Node::protectedContainingShadowRoot() const
+{
+    return containingShadowRoot();
+}
+
+CheckedPtr<RenderObject> Node::checkedRenderer() const
+{
+    return renderer();
 }
 
 #if ASSERT_ENABLED
@@ -1425,11 +1476,7 @@ Element* Node::parentOrShadowHostElement() const
 
 Node& Node::traverseToRootNode() const
 {
-    Node* node = const_cast<Node*>(this);
-    Node* highest = node;
-    for (; node; node = node->parentNode())
-        highest = node;
-    return *highest;
+    return traverseToRootNodeInternal(*this);
 }
 
 // https://dom.spec.whatwg.org/#concept-shadow-including-root
@@ -1483,7 +1530,7 @@ void Node::removedFromAncestor(RemovalType removalType, ContainerNode& oldParent
     if (isInShadowTree() && !treeScope().rootNode().isShadowRoot())
         clearEventTargetFlag(EventTargetFlag::IsInShadowTree);
     if (removalType.disconnectedFromDocument) {
-        if (auto* cache = oldParentOfRemovedTree.document().existingAXObjectCache())
+        if (CheckedPtr cache = oldParentOfRemovedTree.document().existingAXObjectCache())
             cache->remove(*this);
     }
 }
@@ -1753,7 +1800,7 @@ String Node::textContent(bool convertBRsToNewlines) const
     return isNullString ? String() : content.toString();
 }
 
-void Node::setTextContent(String&& text)
+ExceptionOr<void> Node::setTextContent(String&& text)
 {           
     switch (nodeType()) {
     case ATTRIBUTE_NODE:
@@ -1761,24 +1808,25 @@ void Node::setTextContent(String&& text)
     case CDATA_SECTION_NODE:
     case COMMENT_NODE:
     case PROCESSING_INSTRUCTION_NODE:
-        setNodeValue(WTFMove(text));
-        return;
+        return setNodeValue(WTFMove(text));
     case ELEMENT_NODE:
     case DOCUMENT_FRAGMENT_NODE:
         uncheckedDowncast<ContainerNode>(*this).stringReplaceAll(WTFMove(text));
-        return;
+        return { };
     case DOCUMENT_NODE:
     case DOCUMENT_TYPE_NODE:
         // Do nothing.
-        return;
+        return { };
     }
     ASSERT_NOT_REACHED();
+
+    return { };
 }
 
 static SHA1::Digest hashPointer(const void* pointer)
 {
     SHA1 sha1;
-    sha1.addBytes(reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer));
+    sha1.addBytes(std::span { reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer) });
     SHA1::Digest digest;
     sha1.computeHash(digest);
     return digest;
@@ -1932,18 +1980,18 @@ FloatPoint Node::convertFromPage(const FloatPoint& p) const
 String Node::description() const
 {
     auto name = nodeName();
-    return makeString(name.isEmpty() ? "<none>" : "", name);
+    return makeString(name.isEmpty() ? "<none>"_s : ""_s, name);
 }
 
 String Node::debugDescription() const
 {
     auto name = nodeName();
-    return makeString(name.isEmpty() ? "<none>" : "", name, " 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase));
+    return makeString(name.isEmpty() ? "<none>"_s : ""_s, name, " 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase));
 }
 
 #if ENABLE(TREE_DEBUGGING)
 
-static void appendAttributeDesc(const Node* node, StringBuilder& stringBuilder, const QualifiedName& name, const char* attrDesc)
+static void appendAttributeDesc(const Node* node, StringBuilder& stringBuilder, const QualifiedName& name, ASCIILiteral attrDesc)
 {
     auto* element = dynamicDowncast<Element>(*node);
     if (!element)
@@ -1957,19 +2005,19 @@ static void appendAttributeDesc(const Node* node, StringBuilder& stringBuilder, 
     stringBuilder.append(attr);
 }
 
-void Node::showNode(const char* prefix) const
+void Node::showNode(ASCIILiteral prefix) const
 {
-    if (!prefix)
-        prefix = "";
+    if (prefix.isNull())
+        prefix = ""_s;
     if (isTextNode()) {
         String value = makeStringByReplacingAll(nodeValue(), '\\', "\\\\"_s);
         value = makeStringByReplacingAll(value, '\n', "\\n"_s);
-        fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix, nodeName().utf8().data(), this, value.utf8().data());
+        fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix.characters(), nodeName().utf8().data(), this, value.utf8().data());
     } else {
         StringBuilder attrs;
-        appendAttributeDesc(this, attrs, classAttr, " CLASS=");
-        appendAttributeDesc(this, attrs, styleAttr, " STYLE=");
-        fprintf(stderr, "%s%s\t%p (renderer %p) %s%s%s\n", prefix, nodeName().utf8().data(), this, renderer(), attrs.toString().utf8().data(), needsStyleRecalc() ? " (needs style recalc)" : "", childNeedsStyleRecalc() ? " (child needs style recalc)" : "");
+        appendAttributeDesc(this, attrs, classAttr, " CLASS="_s);
+        appendAttributeDesc(this, attrs, styleAttr, " STYLE="_s);
+        fprintf(stderr, "%s%s\t%p (renderer %p) %s%s%s\n", prefix.characters(), nodeName().utf8().data(), this, renderer(), attrs.toString().utf8().data(), needsStyleRecalc() ? " (needs style recalc)" : "", childNeedsStyleRecalc() ? " (child needs style recalc)" : "");
     }
 }
 
@@ -2077,13 +2125,13 @@ static void showSubTreeAcrossFrame(const Node* node, const Node* markedNode, con
     fputs(indent.utf8().data(), stderr);
     node->showNode();
     if (!node->isShadowRoot()) {
-        if (node->isFrameOwnerElement())
-            showSubTreeAcrossFrame(static_cast<const HTMLFrameOwnerElement*>(node)->contentDocument(), markedNode, indent + "\t");
+        if (auto* frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(node))
+            showSubTreeAcrossFrame(frameOwner->protectedContentDocument().get(), markedNode, makeString(indent, '\t'));
         if (RefPtr shadowRoot = node->shadowRoot())
-            showSubTreeAcrossFrame(shadowRoot.get(), markedNode, indent + "\t");
+            showSubTreeAcrossFrame(shadowRoot.get(), markedNode, makeString(indent, '\t'));
     }
     for (RefPtr child = node->firstChild(); child; child = child->nextSibling())
-        showSubTreeAcrossFrame(child.get(), markedNode, indent + "\t");
+        showSubTreeAcrossFrame(child.get(), markedNode, makeString(indent, '\t'));
 }
 
 void Node::showTreeForThisAcrossFrame() const
@@ -2142,9 +2190,9 @@ Element* Node::enclosingLinkEventParentOrSelf()
     return nullptr;
 }
 
-EventTargetInterface Node::eventTargetInterface() const
+enum EventTargetInterfaceType Node::eventTargetInterface() const
 {
-    return NodeEventTargetInterfaceType;
+    return EventTargetInterfaceType::Node;
 }
 
 template <typename MoveNodeFunction, typename MoveShadowRootFunction>
@@ -2317,7 +2365,7 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
         oldDocument.parentlessNodeMovedToNewDocument(*this);
 
     if (AXObjectCache::accessibilityEnabled()) {
-        if (auto* cache = oldDocument.existingAXObjectCache())
+        if (CheckedPtr cache = oldDocument.existingAXObjectCache())
             cache->remove(*this);
     }
 
@@ -2325,12 +2373,7 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
     if (UNLIKELY(textManipulationController))
         textManipulationController->removeNode(*this);
 
-    if (auto* eventTargetData = this->eventTargetData()) {
-        eventTargetData->eventListenerMap.enumerateEventListenerTypes([&](auto& eventType, unsigned count) {
-            oldDocument.didRemoveEventListenersOfType(eventType, count);
-            newDocument.didAddEventListenersOfType(eventType, count);
-        });
-
+    if (hasEventTargetData()) {
         unsigned numWheelEventHandlers = 0;
         unsigned numTouchEventListeners = 0;
 #if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
@@ -2344,8 +2387,11 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
 #endif
 
         auto& eventNames = WebCore::eventNames();
-        enumerateEventListenerTypes([&](const AtomString& name, unsigned count) {
-            auto typeInfo = eventNames.typeInfoForEvent(name);
+        enumerateEventListenerTypes([&](auto& eventType, unsigned count) {
+            oldDocument.didRemoveEventListenersOfType(eventType, count);
+            newDocument.didAddEventListenersOfType(eventType, count);
+
+            auto typeInfo = eventNames.typeInfoForEvent(eventType);
             if (typeInfo.isInCategory(EventCategory::Wheel))
                 numWheelEventHandlers += count;
             else if (typeInfo.isInCategory(touchEventCategory))
@@ -2395,8 +2441,9 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
 bool isTouchRelatedEventType(const EventTypeInfo& eventType, const EventTarget& target)
 {
 #if ENABLE(TOUCH_EVENTS)
-    if (is<Node>(target) && downcast<Node>(target).document().quirks().shouldDispatchSimulatedMouseEvents(&target))
-        return eventType.isInCategory(EventCategory::ExtendedTouchRelated);
+    if (auto* node = dynamicDowncast<Node>(target); eventType.isInCategory(EventCategory::ExtendedTouchRelated)
+        && node && node->document().quirks().shouldDispatchSimulatedMouseEvents(&target))
+        return true;
 #endif
     UNUSED_PARAM(target);
     return eventType.isInCategory(EventCategory::TouchRelated);
@@ -2790,9 +2837,9 @@ Node::Editability Node::computeEditabilityForMouseClickEvents(const RenderStyle*
     return computeEditabilityWithStyle(style, userSelectAllTreatment, style ? ShouldUpdateStyle::DoNotUpdate : ShouldUpdateStyle::Update);
 }
 
-bool Node::willRespondToMouseClickEvents() const
+bool Node::willRespondToMouseClickEvents(const RenderStyle* styleToUse) const
 {
-    return willRespondToMouseClickEventsWithEditability(computeEditabilityForMouseClickEvents());
+    return willRespondToMouseClickEventsWithEditability(computeEditabilityForMouseClickEvents(styleToUse));
 }
 
 bool Node::willRespondToMouseClickEventsWithEditability(Editability editability) const
@@ -2834,9 +2881,7 @@ void Node::removedLastRef()
     if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
         svgElement->detachAllProperties();
 
-#if ASSERT_ENABLED
-    m_deletionHasBegun = true;
-#endif
+    setStateFlag(StateFlag::HasStartedDeletion);
     delete this;
 }
 

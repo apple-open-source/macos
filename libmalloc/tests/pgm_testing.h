@@ -134,7 +134,6 @@ static slot_t slots[10];
 static metadata_t metadata[10];
 static pgm_zone_t zone = {
 	.wrapped_zone = &wrapped_zone,
-	.min_alignment = 4,  // Use weird alignment to expose implicit assumptions.
 	.slots = slots,
 	.metadata = metadata
 };

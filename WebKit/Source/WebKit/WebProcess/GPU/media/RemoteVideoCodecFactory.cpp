@@ -106,6 +106,7 @@ private:
     void flush(Function<void()>&&) final;
     void reset() final;
     void close() final;
+    bool setRates(uint64_t bitRate, double frameRate, Function<void()>&&) final;
 
     LibWebRTCCodecs::Encoder& m_internalEncoder;
     Ref<RemoteVideoEncoderCallbacks> m_callbacks;
@@ -154,7 +155,7 @@ void RemoteVideoCodecFactory::createDecoder(const String& codec, const VideoDeco
             return;
         }
         if (description.size())
-            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(*internalDecoder, description.data(), description.size(), width, height);
+            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(*internalDecoder, description.span(), width, height);
 
         auto callbacks = RemoteVideoDecoderCallbacks::create(WTFMove(outputCallback), WTFMove(postTaskCallback));
         UniqueRef<VideoDecoder> decoder = makeUniqueRef<RemoteVideoDecoder>(*internalDecoder, callbacks.copyRef(), width, height);
@@ -177,8 +178,8 @@ void RemoteVideoCodecFactory::createEncoder(const String& codec, const WebCore::
     std::map<std::string, std::string> parameters;
     if (type == VideoCodecType::H264) {
         if (auto position = codec.find('.');position != notFound && position != codec.length()) {
-            auto profileLevelId = StringView(codec).substring(position + 1);
-            parameters["profile-level-id"] = std::string(reinterpret_cast<const char*>(profileLevelId.characters8()), profileLevelId.length());
+            auto profileLevelId = spanReinterpretCast<const char>(codec.span8().subspan(position + 1));
+            parameters["profile-level-id"] = std::string(profileLevelId.data(), profileLevelId.size());
         }
     }
 
@@ -217,7 +218,7 @@ void RemoteVideoDecoder::decode(EncodedFrame&& frame, DecodeCallback&& callback)
 {
     if (frame.duration)
         m_callbacks->addDuration(frame.timestamp, *frame.duration);
-    WebProcess::singleton().libWebRTCCodecs().decodeFrame(m_internalDecoder, frame.timestamp, frame.data.data(), frame.data.size(), m_width, m_height);
+    WebProcess::singleton().libWebRTCCodecs().decodeFrame(m_internalDecoder, frame.timestamp, frame.data, m_width, m_height);
     callback({ });
 }
 
@@ -292,12 +293,18 @@ void RemoteVideoEncoder::encode(RawFrame&& rawFrame, bool shouldGenerateKeyFrame
     });
 }
 
+bool RemoteVideoEncoder::setRates(uint64_t bitRate, double frameRate, Function<void()>&& callback)
+{
+    auto bitRateInKbps = bitRate / 1000;
+    WebProcess::singleton().libWebRTCCodecs().setEncodeRates(m_internalEncoder, bitRateInKbps, frameRate);
+    m_callbacks->postTask(WTFMove(callback));
+    return true;
+}
+
 void RemoteVideoEncoder::flush(Function<void()>&& callback)
 {
     WebProcess::singleton().libWebRTCCodecs().flushEncoder(m_internalEncoder, [callback = WTFMove(callback), callbacks = m_callbacks]() mutable {
-        callbacks->postTask([callback = WTFMove(callback)]() mutable {
-            callback();
-        });
+        callbacks->postTask(WTFMove(callback));
     });
 }
 

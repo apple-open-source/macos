@@ -55,7 +55,6 @@ public:
         AuthenticationDecisionListener,
         CaptionUserPreferencesTestingModeToken,
         CertificateInfo,
-        Connection,
         ContextMenuItem,
         Credential,
         Data,
@@ -72,6 +71,8 @@ public:
         SessionState,
         SerializedScriptValue,
         String,
+        TargetedElementInfo,
+        TargetedElementRequest,
         URL,
         URLRequest,
         URLResponse,
@@ -181,6 +182,7 @@ public:
         WebExtensionContext,
         WebExtensionController,
         WebExtensionControllerConfiguration,
+        WebExtensionDataRecord,
         WebExtensionMatchPattern,
         WebExtensionMessagePort,
 #endif
@@ -207,7 +209,6 @@ public:
         BundleDOMWindowExtension,
         BundleFrame,
         BundleHitTestResult,
-        BundleInspector,
         BundleNodeHandle,
         BundlePage,
         BundlePageBanner,
@@ -217,7 +218,6 @@ public:
 
         // Platform specific
         EditCommandProxy,
-        ObjCObjectGraph,
         View,
 #if USE(SOUP)
         SoupRequestManager,
@@ -243,6 +243,8 @@ public:
 
     void ref() const;
     void deref() const;
+    void refAllowingPartiallyDestroyed() const { ref(); }
+    void derefAllowingPartiallyDestroyed() const { deref(); }
 #endif // DELEGATE_REF_COUNTING_TO_COCOA
 
     static void* wrap(API::Object*);
@@ -299,7 +301,7 @@ inline API::Object* Object::unwrap(void* object)
 }
 #endif
 
-} // namespace Object
+} // namespace API
 
 #undef DELEGATE_REF_COUNTING_TO_COCOA
 

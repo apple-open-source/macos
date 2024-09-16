@@ -93,7 +93,7 @@ os_log_t    assertions_log = NULL;
 
 #define LEVEL_FOR_BIT(idx)          (getAssertionLevel(idx))
 
-
+#define USE_LEGACY_SYSTEM_IS_ACTIVE 0
 
 /*
  * Maximum delay allowed(in Mins) for turning off the display after the
@@ -116,6 +116,7 @@ CFDictionaryRef copyRepeatPowerEvents(void);
 
 static void                         sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static void                         sendUserAssertionsToKernel(uint32_t user_assertions);
+static bool                         sendIdleSleepRevertReqestToKernel(void);
 static void                         evaluateForPSChange(void);
 static void                         evaluateProcTimerOnDisplayStateChange(bool displayAsleepOnTrigger);
 static void                         HandleProcessExit(pid_t deadPID);
@@ -1632,6 +1633,47 @@ static void sendUserAssertionsToKernel(uint32_t user_assertions)
                         NULL, NULL, NULL);
 
     return;
+}
+
+
+// Attempt to queue an idle sleep revert with PMRD.
+// Returns true if PMRD responds that sleep revert is possible.
+static bool sendIdleSleepRevertReqestToKernel(void)
+{
+    io_connect_t        connect = IO_OBJECT_NULL;
+    IOReturn            ret;
+    uint32_t            outputScalarCnt = 1;
+    size_t              outputStructSize = 0;
+    uint64_t            outs[1];
+    bool                sleepReverted = false;
+
+
+    if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
+        return false;
+    }
+
+    ret = IOConnectCallMethod(
+                              connect,                   // connect
+                              kPMRequestIdleSleepRevert,  // selector
+                              NULL,                   // input
+                              0,                      // input count
+                              NULL,                   // input struct
+                              0,                      // input struct count
+                              outs,                   // output scalar
+                              &outputScalarCnt,       // output scalar count
+                              NULL,                   // output struct
+                              &outputStructSize);     // output struct size
+
+    if (kIOReturnSuccess != ret) {
+        ERROR_LOG("IdleSleepRevert request queueing failed. rc:0x%x", ret);
+        return false;
+    }
+    else {
+        sleepReverted = outs[0];
+        DEBUG_LOG("IdleSleepRevertRequest Successful: %s", sleepReverted ? "true" : "false");
+        return sleepReverted;
+    }
+    return sleepReverted;
 }
 
 #pragma mark -
@@ -3356,6 +3398,8 @@ kern_return_t _io_pm_change_sa_assertion_behavior (
 exit:
     return KERN_SUCCESS;
 }
+
+#if USE_LEGACY_SYSTEM_IS_ACTIVE
 kern_return_t _io_pm_declare_system_active (
                                             mach_port_t             server  __unused,
                                             audit_token_t           token,
@@ -3433,6 +3477,71 @@ exit:
 
     return KERN_SUCCESS;
 }
+#else
+kern_return_t _io_pm_declare_system_active (
+                                            mach_port_t             server  __unused,
+                                            audit_token_t           token,
+                                            int                     *system_state,
+                                            vm_offset_t             props,
+                                            mach_msg_type_number_t  propsCnt,
+                                            int                     *assertion_id,
+                                            int                     *return_code)
+{
+    pid_t                   callerPID = -1;
+    CFDataRef               unfolder  = NULL;
+    CFMutableDictionaryRef  assertionProperties = NULL;
+
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &callerPID, NULL, NULL);
+
+    *assertion_id = 0;
+    unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
+    if (unfolder) {
+        assertionProperties = (CFMutableDictionaryRef)CFPropertyListCreateWithData
+                                    (0, unfolder, kCFPropertyListMutableContainers, NULL, NULL);
+        CFRelease(unfolder);
+    }
+
+    if (!assertionProperties) {
+        *return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    if (!callerIsEntitledToAssertion(token, assertionProperties))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
+    *system_state = kIOPMSystemSleepNotReverted;
+    *return_code = kIOReturnSuccess;
+
+    // If set via a backdoor in pmset, this makes
+    // IOPMAssertionDeclareSystemActivity() behave identically to a
+    // PreventUserIdleSystemSleep assertion. It negates the side-effect
+    // behaviors associated with the call
+    if(gSAAssertionBehaviorFlags != kIOPMSystemActivityAssertionEnabled)
+        CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertionTypePreventUserIdleSystemSleep);
+    else {
+        CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertionTypeSystemIsActive);
+        bool revertible = sendIdleSleepRevertReqestToKernel();
+        if(revertible) {
+            *system_state = kIOPMSystemSleepReverted;
+        }
+        INFO_LOG("Sleep revert state: %d\n", revertible);
+    }
+
+    if(kIOReturnSuccess != doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL))
+        *return_code = kIOReturnInternalError;
+
+exit:
+
+    if (assertionProperties)
+        CFRelease(assertionProperties);
+
+    vm_deallocate(mach_task_self(), props, propsCnt);
+
+    return KERN_SUCCESS;
+}
+#endif
 
 kern_return_t  _io_pm_declare_user_active (   
                                            mach_port_t             server  __unused,

@@ -38,6 +38,15 @@
 
 OBJC_CLASS CALayer;
 
+namespace WebKit {
+class TiledCoreAnimationDrawingArea;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::TiledCoreAnimationDrawingArea> : std::true_type { };
+}
+
 namespace WebCore {
 class LocalFrameView;
 class PlatformCALayer;
@@ -60,8 +69,8 @@ private:
     void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override { }
 
-    void forceRepaint() override;
-    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
+    void updateRenderingWithForcedRepaint() override;
+    void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
     void setLayerTreeStateIsFrozen(bool) override;
     bool layerTreeStateIsFrozen() const override;
     void setRootCompositingLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;

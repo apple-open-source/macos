@@ -32,6 +32,15 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebCore {
+class AuthenticatorCoordinatorClient;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::AuthenticatorCoordinatorClient> : std::true_type { };
+}
+
 namespace WebAuthn {
 enum class Scope;
 }
@@ -66,7 +75,7 @@ public:
     virtual void isConditionalMediationAvailable(const SecurityOrigin&, QueryCompletionHandler&&) = 0;
     virtual void isUserVerifyingPlatformAuthenticatorAvailable(const SecurityOrigin&, QueryCompletionHandler&&) = 0;
     virtual void getClientCapabilities(const SecurityOrigin&, CapabilitiesCompletionHandler&&) = 0;
-    virtual void cancel() = 0;
+    virtual void cancel(CompletionHandler<void()>&&) = 0;
 };
 
 } // namespace WebCore

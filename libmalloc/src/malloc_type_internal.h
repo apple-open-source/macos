@@ -65,6 +65,13 @@ malloc_callsite_fallback_type_descriptor(void)
 	};
 }
 
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static malloc_type_id_t
+malloc_callsite_fallback_type_id(void)
+{
+	return malloc_callsite_fallback_type_descriptor().type_id;
+}
+
 // TODO: can we get a guarantee from the compiler that no valid type ID will
 // ever have this value?
 #define MALLOC_TYPE_ID_NONE 0ull
@@ -111,6 +118,13 @@ typedef uint64_t malloc_type_descriptor_t;
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
 static malloc_type_descriptor_t
 malloc_callsite_fallback_type_descriptor(void)
+{
+	return 0;
+}
+
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static malloc_type_id_t
+malloc_callsite_fallback_type_id(void)
 {
 	return 0;
 }

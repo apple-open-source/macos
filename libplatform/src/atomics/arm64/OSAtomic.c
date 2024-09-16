@@ -39,12 +39,17 @@
 
 #include "libkern/OSAtomic.h"
 #include "../OSAtomicFifo.h"
+#include "os/internal.h"
 
 typedef void (OSAtomicFifoEnqueue_t)(OSFifoQueueHead *, void *, size_t);
 typedef void *(OSAtomicFifoDequeue_t)(OSFifoQueueHead *, size_t);
 
 void OSAtomicFifoEnqueue(OSFifoQueueHead *__list, void *__new, size_t __offset)
 {
+	if (unlikely(!commpage_pfz_base)) {
+		__LIBPLATFORM_INTERNAL_CRASH__(commpage_pfz_base,
+			"Invalid commpage pfz base.");
+	}
 	void *addr = commpage_pfz_base;
 	addr += _COMM_PAGE_TEXT_ATOMIC_ENQUEUE;
 
@@ -55,6 +60,10 @@ void OSAtomicFifoEnqueue(OSFifoQueueHead *__list, void *__new, size_t __offset)
 
 void * OSAtomicFifoDequeue( OSFifoQueueHead *__list, size_t __offset)
 {
+	if (unlikely(!commpage_pfz_base)) {
+		__LIBPLATFORM_INTERNAL_CRASH__(commpage_pfz_base,
+			"Invalid commpage pfz base.");
+	}
 	void *addr = commpage_pfz_base;
 	addr += _COMM_PAGE_TEXT_ATOMIC_DEQUEUE;
 

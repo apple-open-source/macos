@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -60,23 +60,24 @@ proc_name(pid_t pid, char *buf, size_t buf_len)
 static void
 bd_flags(struct xbpf_d *bd, char *flagbuf, size_t len)
 {
-	snprintf(flagbuf, len, "%c%c%c%c%c%c%c%c%c%c%c",
+	snprintf(flagbuf, len, "%c%c%c%c%c%c%c%c%c%c%c%c",
 		 bd->bd_promisc ? 'p' : '-',
 		 bd->bd_immediate ? 'i' : '-',
 		 bd->bd_hdrcmplt ? '-' : 'f',
 		 bd->bd_async ? 'a' : '-',
-#ifdef BPF_D_INOUT
 		 (bd->bd_direction & BPF_D_IN) ? 'I' : '-',
 		 (bd->bd_direction & BPF_D_OUT) ? 'O' : '-',
-#else /* BPF_D_INOUT */
-		 bd->bd_seesent ? 's' : '-',
-		 '-',
-#endif /* BPF_D_INOUT */
 		 bd->bd_headdrop ? 'h' : '-',
 		 bd->bh_compreq ? (bd->bh_compenabled ? 'C' : 'c') : '-',
 		 bd->bd_exthdr ? 'x' : '-',
 		 bd->bd_trunc ? 't' : '-',
-		 bd->bd_pkthdrv2 ? '2' : '-');
+		 bd->bd_pkthdrv2 ? '2' : '-',
+#ifdef BIOCGDVRTIN
+		 bd->bd_divert_in ? 'D' : '-'
+#else /* BIOCGDVRTIN */
+		 '-'
+#endif /* BIOCGDVRTIN */
+		 );
 }
 
 void
@@ -99,7 +100,7 @@ bpf_stats(char *interface)
 	if (sysctlbyname("debug.bpf_stats", buffer, &len, NULL, 0) != 0) {
 		err(EX_OSERR, "sysctlbyname debug.bpf_stats");
 	}
-	printf("%-9s %-14s %-11s %9s %9s %9s %12s %9s %9s %9s %9s %9s %9s %9s %12s %9s %9s %s\n",
+	printf("%-9s %-14s %-13s %9s %9s %9s %12s %9s %9s %9s %9s %9s %9s %9s %12s %9s %9s %s\n",
 	       "Device", "Netif", "Flags",
 	       "Recv", "RDrop", "RMatch", "RSize",
 	       "ReadCnt",
@@ -131,4 +132,32 @@ bpf_stats(char *interface)
 	}
 
 	free(buffer);
+}
+
+void
+bpf_help(void)
+{
+	printf("Meaning of the letters in the Flags column of the statistics about BPF devices:\n");
+
+#define FMT "\t%c\t%s\n"
+
+	printf(FMT, 'p', "promiscuous mode enabled");
+	printf(FMT, 'i', "immediate mode enabled");
+	printf(FMT, 'h', "header complete enabled");
+	printf(FMT, 'a', "asynchronous mode enabled");
+	printf(FMT, 'I', "see incoming packets");
+	printf(FMT, 'O', "see outgoing packets");
+	printf(FMT, 'h', "head drop mode");
+	printf(FMT, 'C', "compression enabled");
+	printf(FMT, 'c', "compression requested");
+	printf(FMT, 'x', "use BPF extended header");
+	printf(FMT, 't', "truncation requested");
+	printf(FMT, '2', "pktap header v2");
+	printf(FMT, 'B', "batch write enabled");
+#ifdef BIOCGDVRTIN
+	printf(FMT, 'D', "divert input mode");
+#endif /* BIOCGDVRTIN */
+	printf(FMT, '-', "option not enabled");
+
+#undef FMT
 }

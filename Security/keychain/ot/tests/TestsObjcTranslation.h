@@ -14,12 +14,14 @@
 #include "keychain/ckks/CKKSPeer.h"
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTAccountsAdapter.h"
+#import "keychain/ot/OTControl.h"
 
 @class OTSecureElementPeerIdentity;
 @class OTCurrentSecureElementIdentities;
 @class OTAccountSettings;
 @class OTWalrus;
 @class OTWebAccess;
+@class KCPairingChannel;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -107,6 +109,24 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
 
 + (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
+
++ (OTControl*)makeMockOTControlObjectWithFailingEpochFetchWithXPCError;
++ (OTControl*)makeMockOTControlObjectWithFailingEpochFetchWithRandomError;
+
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithXPCError;
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithRandomError;
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithNetworkError;
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkError;
++ (OTControl*)makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkErrorConnectionLost;
+
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithRandomError;
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithXPCError;
++ (OTControl*)makeMockOTControlObjectWithFailingPrepareFetchWithOctagonErrorICloudAccountStateUnknown;
+
++ (OTControl*)makeMockOTControlObjectWithFailingJoinWithRandomError;
++ (OTControl*)makeMockOTControlObjectWithFailingJoinWithXPCError;
+
++ (OTControl*)makeMockFetchEgoPeerID;
 
 @end
 

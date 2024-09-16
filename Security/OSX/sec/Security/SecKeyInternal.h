@@ -43,8 +43,8 @@ SecKeyRef SecKeyCopyAuxilliaryCDSAKeyForKey(SecKeyRef cf);
 struct ccrng_state *ccrng_seckey(void);
 
 enum {
-    // Keep in sync with SecKeyOperationType enum in SecKey.h
-    kSecKeyOperationTypeCount = 5
+    // Keep in sync with SecKeyOperationType enum in SecKey.h and SecKeyPriv.h
+    kSecKeyOperationTypeCount = 7
 };
 
 typedef struct {
@@ -59,6 +59,13 @@ typedef CFTypeRef (*SecKeyAlgorithmAdaptor)(SecKeyOperationContext *context, CFT
 void SecKeyOperationContextDestroy(SecKeyOperationContext *context);
 CFTypeRef SecKeyRunAlgorithmAndCopyResult(SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error);
 SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, SecKeyAlgorithm algorithm);
+
+void _SecKeyCheck(SecKeyRef key, const char *callerName);
+#define SecKeyCheck(key) _SecKeyCheck(key, __func__)
+
+bool _SecKeyErrorPropagate(bool succeeded, const char *logCallerName, CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error);
+#define SecKeyErrorPropagate(s, pe, e) _SecKeyErrorPropagate(s, __func__, pe, e)
+
 
 __END_DECLS
 

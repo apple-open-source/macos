@@ -45,6 +45,15 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
+class PeerConnectionBackend;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::PeerConnectionBackend> : std::true_type { };
+}
+
+namespace WebCore {
 
 class DeferredPromise;
 class Document;
@@ -142,7 +151,7 @@ public:
     };
     struct TransceiverState {
         String mid;
-        Vector<RefPtr<MediaStream>> receiverStreams;
+        Vector<Ref<MediaStream>> receiverStreams;
         std::optional<RTCRtpTransceiverDirection> firedDirection;
     };
     using TransceiverStates = Vector<TransceiverState>;
@@ -160,7 +169,7 @@ public:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const override { return "PeerConnectionBackend"; }
+    ASCIILiteral logClassName() const override { return "PeerConnectionBackend"_s; }
     WTFLogChannel& logChannel() const final;
 #endif
 
@@ -211,6 +220,9 @@ public:
 
     void iceGatheringStateChanged(RTCIceGatheringState);
 
+    virtual void startGatheringStatLogs(Function<void(String&&)>&&) { }
+    virtual void stopGatheringStatLogs() { }
+
 protected:
     void doneGatheringCandidates();
 
@@ -220,10 +232,10 @@ protected:
     void createAnswerSucceeded(String&&);
     void createAnswerFailed(Exception&&);
 
-    void setLocalDescriptionSucceeded(std::optional<DescriptionStates>&&, std::optional<TransceiverStates>&&, std::unique_ptr<RTCSctpTransportBackend>&&);
+    void setLocalDescriptionSucceeded(std::optional<DescriptionStates>&&, std::optional<TransceiverStates>&&, std::unique_ptr<RTCSctpTransportBackend>&&, std::optional<double>);
     void setLocalDescriptionFailed(Exception&&);
 
-    void setRemoteDescriptionSucceeded(std::optional<DescriptionStates>&&, std::optional<TransceiverStates>&&, std::unique_ptr<RTCSctpTransportBackend>&&);
+    void setRemoteDescriptionSucceeded(std::optional<DescriptionStates>&&, std::optional<TransceiverStates>&&, std::unique_ptr<RTCSctpTransportBackend>&&, std::optional<double>);
     void setRemoteDescriptionFailed(Exception&&);
 
     void validateSDP(const String&) const;
@@ -231,7 +243,7 @@ protected:
     struct PendingTrackEvent {
         Ref<RTCRtpReceiver> receiver;
         Ref<MediaStreamTrack> track;
-        Vector<RefPtr<MediaStream>> streams;
+        Vector<Ref<MediaStream>> streams;
         RefPtr<RTCRtpTransceiver> transceiver;
     };
     void addPendingTrackEvent(PendingTrackEvent&&);
@@ -279,7 +291,23 @@ inline PeerConnectionBackend::DescriptionStates PeerConnectionBackend::Descripti
         WTFMove(pendingRemoteDescriptionSdp).isolatedCopy()
     };
 }
-
 } // namespace WebCore
+
+namespace WTF {
+
+template<typename>
+struct LogArgument;
+
+template <>
+struct LogArgument<WebCore::PeerConnectionBackend::TransceiverState> {
+    static String toString(const WebCore::PeerConnectionBackend::TransceiverState&);
+};
+
+template <>
+struct LogArgument<WebCore::PeerConnectionBackend::TransceiverStates> {
+    static String toString(const WebCore::PeerConnectionBackend::TransceiverStates&);
+};
+
+}
 
 #endif // ENABLE(WEB_RTC)

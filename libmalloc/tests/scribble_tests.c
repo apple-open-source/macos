@@ -29,6 +29,7 @@ static bool memchk(void *ptr, uint8_t byte, size_t size)
 T_DECL(malloc_scribble_check, "check MallocScribble works",
 	T_META_TAG_XZONE,
 	T_META_ENVVAR("MallocScribble=1"),
+	T_META_ENVVAR("MallocProbGuard=0"),  // rdar://121458833
 	T_META_CHECK_LEAKS(false))
 {
 	// Ensure that TINY allocations are scribbled on allocation

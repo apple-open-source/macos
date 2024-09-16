@@ -48,6 +48,7 @@
 #include "WorkerRunLoop.h"
 #include "WorkerThread.h"
 #include "WorkerThreadableWebSocketChannel.h"
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -60,16 +61,13 @@ RefPtr<ThreadableWebSocketChannel> ThreadableWebSocketChannel::create(ScriptExec
 {
     if (RefPtr workerGlobalScope = dynamicDowncast<WorkerGlobalScope>(context)) {
         WorkerRunLoop& runLoop = workerGlobalScope->thread().runLoop();
-        return WorkerThreadableWebSocketChannel::create(*workerGlobalScope, client, makeString("webSocketChannelMode", runLoop.createUniqueId()), provider);
+        return WorkerThreadableWebSocketChannel::create(*workerGlobalScope, client, makeString("webSocketChannelMode"_s, runLoop.createUniqueId()), provider);
     }
 
     return create(downcast<Document>(context), client, provider);
 }
 
-ThreadableWebSocketChannel::ThreadableWebSocketChannel()
-    : m_identifier(WebSocketIdentifier::generate())
-{
-}
+ThreadableWebSocketChannel::ThreadableWebSocketChannel() = default;
 
 std::optional<ThreadableWebSocketChannel::ValidatedURL> ThreadableWebSocketChannel::validateURL(Document& document, const URL& requestedURL)
 {
@@ -123,7 +121,7 @@ std::optional<ResourceRequest> ThreadableWebSocketChannel::webSocketConnectReque
     auto httpURL = request.url();
     httpURL.setProtocol(url.protocolIs("ws"_s) ? "http"_s : "https"_s);
     auto requestOrigin = SecurityOrigin::create(httpURL);
-    if (document.settings().fetchMetadataEnabled() && requestOrigin->isPotentiallyTrustworthy() && !document.quirks().shouldDisableFetchMetadata()) {
+    if (requestOrigin->isPotentiallyTrustworthy() && !document.quirks().shouldDisableFetchMetadata()) {
         request.addHTTPHeaderField(HTTPHeaderName::SecFetchDest, "websocket"_s);
         request.addHTTPHeaderField(HTTPHeaderName::SecFetchMode, "websocket"_s);
 

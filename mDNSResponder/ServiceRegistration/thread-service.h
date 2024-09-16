@@ -59,7 +59,7 @@ struct thread_service {
     uint16_t rloc16;
     uint8_t service_id;
     thread_service_type_t service_type;
-    bool user, ncp, stable, ignore, checking, remove;
+    bool user, ncp, stable, ignore, checking;
     bool previous_user, previous_ncp, previous_stable;
 	thread_service_publication_state_t publication_state;
     time_t last_probe_time;

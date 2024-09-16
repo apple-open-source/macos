@@ -44,6 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (assign, nonatomic) BOOL prefersHomeIndicatorAutoHidden;
 @property (assign, nonatomic, getter=isPlaying) BOOL playing;
 @property (assign, nonatomic, getter=isPictureInPictureActive) BOOL pictureInPictureActive;
+@property (assign, nonatomic, getter=isinWindowFullscreenActive) BOOL inWindowFullscreenActive;
 @property (assign, nonatomic, getter=isAnimating) BOOL animating;
 
 - (id)initWithWebView:(WKWebView *)webView;
@@ -56,8 +57,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setAnimatingViewAlpha:(CGFloat)alpha;
 - (void)setSupportedOrientations:(UIInterfaceOrientationMask)supportedOrientations;
 - (void)resetSupportedOrientations;
-#if PLATFORM(VISION)
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
 - (void)hideCustomControls:(BOOL)hidden;
+#endif
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+- (void)configureEnvironmentPickerButtonView;
 #endif
 @end
 

@@ -27,10 +27,15 @@
 
 #if PLATFORM(IOS_FAMILY)
 
-#import "WKSEDefinitions.h"
+#import "WKBrowserEngineDefinitions.h"
 #import <UIKit/UIKit.h>
 
-@class WKSEScrollViewScrollUpdate;
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+#import <WebCore/IntRectHash.h>
+#import <wtf/HashSet.h>
+#endif
+
+@class WKBEScrollViewScrollUpdate;
 @class WKBaseScrollView;
 
 @protocol WKBaseScrollViewDelegate <NSObject>
@@ -39,10 +44,19 @@
 
 @end
 
-@interface WKBaseScrollView : WKSEScrollView
+@interface WKBaseScrollView : WKBEScrollView
 
 @property (nonatomic, weak) id<WKBaseScrollViewDelegate> baseScrollViewDelegate;
 @property (nonatomic, readonly) UIAxis axesToPreventMomentumScrolling;
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+@property (nonatomic) NSUInteger _scrollingBehavior;
+@property (nonatomic, readonly, getter=overlayRegionsForTesting) HashSet<WebCore::IntRect>& overlayRegionRects;
+
+- (BOOL)_hasEnoughContentForOverlayRegions;
+- (void)_updateOverlayRegionRects:(HashSet<WebCore::IntRect>&)overlayRegions;
+- (void)_updateOverlayRegionsBehavior:(BOOL)selected;
+#endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 
 @end
 

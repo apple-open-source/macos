@@ -37,6 +37,7 @@
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/cocoa/SpanCocoa.h>
 
 class WKDataTaskClient final : public API::DataTaskClient {
 public:
@@ -89,11 +90,11 @@ private:
         }).get()];
     }
 
-    void didReceiveData(API::DataTask& task, const IPC::DataReference& data) const final
+    void didReceiveData(API::DataTask& task, std::span<const uint8_t> data) const final
     {
         if (!m_delegate || !m_respondsToDidReceiveData)
             return;
-        [m_delegate dataTask:wrapper(task) didReceiveData:adoptNS([[NSData alloc] initWithBytes:data.data() length:data.size()]).get()];
+        [m_delegate dataTask:wrapper(task) didReceiveData:toNSData(data).get()];
     }
 
     void didCompleteWithError(API::DataTask& task, WebCore::ResourceError&& error) const final

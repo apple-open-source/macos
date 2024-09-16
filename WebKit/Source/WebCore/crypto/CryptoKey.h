@@ -54,6 +54,8 @@ enum class CryptoKeyClass {
     Raw,
 };
 
+enum class UseCryptoKit : bool { No, Yes };
+
 class CryptoKey : public ThreadSafeRefCounted<CryptoKey> {
 public:
     using Type = CryptoKeyType;
@@ -89,12 +91,6 @@ inline auto CryptoKey::type() const -> Type
 }
 
 WebCoreOpaqueRoot root(CryptoKey*);
-
-struct WrappedCryptoKey {
-    std::array<uint8_t, 24> wrappedKEK;
-    Vector<uint8_t> encryptedKey;
-    std::array<uint8_t, 16> tag;
-};
 
 } // namespace WebCore
 

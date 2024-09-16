@@ -41,6 +41,10 @@ class FileSystemEntry : public ScriptWrappable, public ActiveDOMObject, public R
 public:
     virtual ~FileSystemEntry();
 
+    // ActiveDOMObject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     virtual bool isFile() const { return false; }
     virtual bool isDirectory() const { return false; }
 
@@ -55,8 +59,6 @@ protected:
     Document* document() const;
 
 private:
-    const char* activeDOMObjectName() const final;
-
     Ref<DOMFileSystem> m_filesystem;
     String m_name;
     String m_virtualPath;

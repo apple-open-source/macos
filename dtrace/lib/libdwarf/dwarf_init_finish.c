@@ -443,6 +443,20 @@ _dwarf_setup(Dwarf_Debug dbg, dwarf_elf_handle elf, Dwarf_Error * error)
 	    dbg->de_debug_str_index = section_index;
 	    dbg->de_debug_str_size = section_size;
 	}
+		
+	else if (strcmp(scn_name, ".debug_str_offsets") == 0 ) {
+		if (dbg->de_debug_str_offset_index != 0) {
+			DWARF_DBG_ERROR(dbg,
+							DW_DLE_DEBUG_STR_OFFSET_DUPLICATE,
+							DW_DLV_ERROR);
+		}
+		if (section_size == 0) {
+		/* a zero size section is just empty. Ok, no error */
+		continue;
+		}
+		dbg->de_debug_str_offset_index = section_index;
+		dbg->de_debug_str_offset_size = section_size;
+	}
 
 	else if (strcmp(scn_name, ".debug_funcnames") == 0) {
 	    if (dbg->de_debug_funcnames_index != 0) {

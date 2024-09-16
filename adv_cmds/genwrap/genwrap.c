@@ -29,6 +29,8 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
+#include <libgen.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -36,6 +38,8 @@
 #include <unistd.h>
 
 #include "genwrap.h"
+
+#define	GENWRAP_MAXNAMELEN	NAME_MAX
 
 #ifndef nitems
 #define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
@@ -51,8 +55,10 @@
 
 struct appflag {
 	const char	*appflag_flag;
+	const char	*appflag_pattern;
 	int		 appflag_arg;
-	char		 appflag_alias;
+	int		 appflag_alias;
+	uint32_t	 appflag_flags;
 
 	LIST_ENTRY(appflag)	appflag_entries;
 };
@@ -64,19 +70,40 @@ struct app {
 	const char	*app_path;
 	struct appflag	*app_lastflag;
 	const char	**app_add_argv;
+	size_t		 app_short_patterns;
+	size_t		 app_long_patterns;
 	int		 app_add_nargv;
 	unsigned int	 app_shortflags;
 	unsigned int	 app_longflags;
 	bool		 app_default;
+	bool		 app_anyarg_logonly;
 	bool		 app_argmode_logonly;
 	bool		 app_path_relcwd;
 };
 
+#define	TOKEN(str)	{ str, sizeof(str) - 1 }
+
+static const struct app_path_token {
+	const char *token;
+	size_t tokensz;
+} app_path_tokens[] = {
+	TOKEN("XCODE"),
+};
+
 static LIST_HEAD(, app) apps = LIST_HEAD_INITIALIZER(apps);
 static size_t app_count;
+static size_t app_maxnamelen;
 static const char *analytics_id;
 static bool analytics_no_args;
 static const char *envvar;
+
+static int debug;
+#define	dprintf(...)	do {			\
+	if (debug)				\
+		fprintf(stderr, __VA_ARGS__);	\
+} while(0)
+
+static char *wrapper_name;
 
 /*
  * Allow consumers to build without xcselect if they're using all absolute or
@@ -91,8 +118,38 @@ static void
 usage(void)
 {
 
-	fprintf(stderr, "Usage: %s [-o output] spec", getprogname());
+	fprintf(stderr, "usage: %s [-d] [-n name] [-o output] spec\n", getprogname());
 	exit(1);
+}
+
+/*
+ * The implied name of the wrapper is the filename with a trailing .wrapper
+ * chopped off.  This is used for checking /var/select/<wrapper_name>.
+ */
+static char *
+implied_name(const char *filename)
+{
+	const char *basefile, *suffix;
+	char *name = NULL;
+
+	basefile = basename(filename);
+	suffix = strrchr(basefile, '.');
+	if (suffix != NULL) {
+		/*
+		 * If it has a suffix, see if it's ".wrapper".  If it's not,
+		 * we'll just use the full name.
+		 */
+		if (strcmp(suffix, ".wrapper") == 0) {
+			name = strndup(basefile, suffix - basefile);
+			if (name == NULL)
+				err(1, "strndup");
+		}
+	}
+
+	if (name == NULL)
+		name = strdup(basefile);
+
+	return (name);
 }
 
 int
@@ -102,8 +159,17 @@ main(int argc, char *argv[])
 	int ch;
 
 	outfile = NULL;
-	while ((ch = getopt(argc, argv, "o:")) != -1) {
+	while ((ch = getopt(argc, argv, "dn:o:")) != -1) {
 		switch (ch) {
+		case 'd':
+			debug++;
+			break;
+		case 'n':
+			free(wrapper_name);
+			wrapper_name = strdup(optarg);
+			if (wrapper_name == NULL)
+				err(1, "strdup");
+			break;
 		case 'o':
 			if (strcmp(optarg, "-") == 0 ||
 			    strcmp(optarg, "/dev/stdout") == 0)
@@ -132,6 +198,9 @@ main(int argc, char *argv[])
 		yyin = stdin;
 		yyfile = "(stdin)";
 	} else {
+		if (wrapper_name == NULL)
+			wrapper_name = implied_name(argv[0]);
+
 		yyin = fopen(argv[0], "r");
 		yyfile = argv[0];
 	}
@@ -153,8 +222,21 @@ struct app *
 app_add(struct app *app, const char *name)
 {
 	struct app *new_app;
+	size_t namelen;
 
 	assert(name != NULL);
+
+	/*
+	 * name + NUL terminator must be no more than MAXNAMELEN, because we
+	 * want it to fit into a symlink.
+	 */
+	namelen = strlen(name) + 1;
+	if (namelen > GENWRAP_MAXNAMELEN)
+		yyerror("name too long");
+
+	if (namelen > app_maxnamelen)
+		app_maxnamelen = namelen;
+
 	new_app = calloc(1, sizeof(*new_app));
 	if (new_app == NULL)
 		err(1, "calloc");
@@ -172,6 +254,8 @@ app_add(struct app *app, const char *name)
 
 	app_count++;
 
+	dprintf("application[name=\"%s\"]\n", new_app->app_name);
+
 	return (new_app);
 }
 
@@ -179,6 +263,8 @@ void
 app_set_default(struct app *app)
 {
 	static struct app *default_app;
+
+	dprintf("  default");
 
 	/*
 	 * Tracking the specified default app because it's not really erroneous
@@ -189,7 +275,10 @@ app_set_default(struct app *app)
 		warnx("WARNING: '%s' previously set as default app",
 		    default_app->app_name);
 		default_app->app_default = false;
+		dprintf("[from=\"%s\"]", default_app->app_name);
 	}
+
+	dprintf("\n");
 
 	default_app = app;
 	app->app_default = true;
@@ -211,6 +300,7 @@ app_set_argmode_logonly(struct app *app)
 {
 
 	app->app_argmode_logonly = true;
+	dprintf("  argmode[logonly=true]\n");
 }
 
 void
@@ -231,6 +321,8 @@ app_add_addarg(struct app *app, const char **argv, int nargv)
 	for (int i = app->app_add_nargv; i < total_args; i++) {
 		int idx = i - app->app_add_nargv;
 
+		dprintf("  addarg[arg=\"%s\"]\n", argv[idx]);
+
 		/*
 		 * The caller won't be needing this anymore, just take it rather
 		 * than making our own copy.  NULL out the caller's copy so that
@@ -243,14 +335,69 @@ app_add_addarg(struct app *app, const char **argv, int nargv)
 	app->app_add_nargv = total_args;
 }
 
+static bool
+app_validate_path(struct app *app, const char *path, bool relcwd)
+{
+	const struct app_path_token *token;
+	size_t pos;
+
+	/*
+	 * The only validation we even attempt at the moment is just that a
+	 * leading $ should match a defined token.
+	 */
+	if (path[0] != '$')
+		return (true);
+
+	/* Validate leading tokens last */
+	path++;
+	for (size_t i = 0; i < nitems(app_path_tokens); i++) {
+		token = &app_path_tokens[i];
+
+		if (strncmp(path, token->token, token->tokensz) != 0)
+			continue;
+
+		/*
+		 * Must not end right after the token.
+		 */
+		if (path[token->tokensz] == '\0')
+			return (false);
+
+		/*
+		 * Make sure we don't have trailing garbage; it could also be
+		 * that we're looking at a token that's incidentally a prefix of
+		 * another token, so we don't outright reject it now.
+		 */
+		if (path[token->tokensz] != '/')
+			continue;
+
+		/* Make sure it's not just trailing / then the end... */
+		pos = token->tokensz + 1;
+		while (path[pos] == '/')
+			pos++;
+
+		if (path[pos] == '\0')
+			return (false);
+
+		return (true);
+	}
+
+	return (false);
+}
+
 void
 app_set_path(struct app *app, const char *path, bool relcwd)
 {
 
+	dprintf("  path[");
+
 	if (app->app_path != NULL) {
 		warnx("WARNING: overriding path for '%s'", app->app_name);
+		dprintf("from=\"%s\", ", app->app_path);
 		free(__DECONST(char *, app->app_path));
 	}
+
+	if (!app_validate_path(app, path, relcwd))
+		yyerror("bad path specified");
 
 	app->app_path = strdup(path);
 	if (app->app_path == NULL)
@@ -259,6 +406,8 @@ app_set_path(struct app *app, const char *path, bool relcwd)
 
 	if (!relcwd && path[0] != '/')
 		needs_xcselect = true;
+
+	dprintf("to=\"%s\"]\n", app->app_path);
 }
 
 const char *
@@ -269,7 +418,8 @@ app_get_path(const struct app *app)
 }
 
 static void
-app_add_one_flag(struct app *app, const char *flag, char alias, int argument)
+app_add_one_flag(struct app *app, const char *flag, char alias, int argument,
+    uint32_t flags, const char *pattern)
 {
 	struct appflag *af;
 
@@ -278,10 +428,16 @@ app_add_one_flag(struct app *app, const char *flag, char alias, int argument)
 		err(1, "calloc");
 
 	af->appflag_arg = argument;
+	af->appflag_flags = flags;
 	af->appflag_alias = alias;
 	af->appflag_flag = strdup(flag);
 	if (af->appflag_flag == NULL)
 		err(1, "strdup");
+	if (pattern != NULL) {
+		af->appflag_pattern = strdup(pattern);
+		if (af->appflag_pattern == NULL)
+			err(1, "strdup");
+	}
 
 	/* Preserve arg order for the aesthetics of it... */
 	if (app->app_lastflag == NULL)
@@ -292,28 +448,62 @@ app_add_one_flag(struct app *app, const char *flag, char alias, int argument)
 	app->app_lastflag = af;
 
 	/* A bit of accounting to simplify later iteration when writing out. */
-	if (flag[1] == '\0')
+	if (flag[1] == '\0') {
+		if (pattern != NULL)
+			app->app_short_patterns++;
 		app->app_shortflags++;
-	else
+	} else {
+		if (pattern != NULL)
+			app->app_long_patterns++;
 		app->app_longflags++;
+	}
+
+	if ((flags & ARGFLAG_LOGONLY) != 0)
+		app->app_anyarg_logonly = true;
 }
 
 void
-app_add_flag(struct app *app, const char *flag, const char *alias, int argument)
+app_add_flag(struct app *app, const char *flag, const char *alias, int argument,
+    uint32_t flags, const char *pattern)
 {
 
 	assert(flag != NULL);
 	if (alias != NULL && alias[1] != '\0')
 		yyerror("short flag alias must only have one character");
 
+	if (debug) {
+		fprintf(stderr, "  arg[flag=\"%s\"", flag);
+		if (alias != NULL)
+			fprintf(stderr, ", alias=\"%s\"", alias);
+		switch (argument) {
+		case required_argument:
+			fprintf(stderr, ", arg=required");
+			break;
+		case optional_argument:
+			fprintf(stderr, ", arg=optional");
+			break;
+		default:
+			fprintf(stderr, ", arg=none");
+			break;
+		}
+
+		if (pattern != NULL)
+			fprintf(stderr, ", pattern=\"%s\"", pattern);
+		fprintf(stderr, ", flags=%x]\n", flags);
+	}
+
 	/* The alias must be added as its own flag to the optstr as well. */
-	if (alias != NULL)
-		app_add_one_flag(app, alias, 0, argument);
-	app_add_one_flag(app, flag, (alias != NULL ? alias[0] : 0), argument);
+	if (alias != NULL) {
+		app_add_one_flag(app, alias, 0, argument,
+		    flags & ~ARGFLAG_NO_ALIAS, pattern);
+	}
+
+	app_add_one_flag(app, flag, (alias != NULL ? alias[0] : 0), argument,
+	    flags, pattern);
 }
 
 static const char *
-app_longopt_name(struct app *app)
+app_longopt_name(const struct app *app)
 {
 	/* Single threaded; kludgy but OK. */
 	static char namebuf[PATH_MAX];
@@ -323,12 +513,33 @@ app_longopt_name(struct app *app)
 }
 
 static const char *
-app_addarg_name(struct app *app)
+app_pattern_name(const struct app *app, const char *type)
+{
+	/* Single threaded; kludgy but OK. */
+	static char namebuf[PATH_MAX];
+
+	snprintf(namebuf, sizeof(namebuf), "%s_%s_patterns", app->app_name,
+	    type);
+	return (namebuf);
+}
+
+static const char *
+app_addarg_name(const struct app *app)
 {
 	/* Single threaded; kludgy but OK. */
 	static char namebuf[PATH_MAX];
 
 	snprintf(namebuf, sizeof(namebuf), "%s_add_args", app->app_name);
+	return (namebuf);
+}
+
+static const char *
+app_logonly_name(const struct app *app)
+{
+	/* Single threaded; kludgy but OK. */
+	static char namebuf[PATH_MAX];
+
+	snprintf(namebuf, sizeof(namebuf), "%s_logonly", app->app_name);
 	return (namebuf);
 }
 
@@ -349,6 +560,7 @@ wrapper_set_analytics(const char *id, bool noargs)
 		err(1, "strdup");
 
 	analytics_no_args = noargs;
+	dprintf("analytics[id=\"%s\"]\n", analytics_id);
 }
 
 void
@@ -359,6 +571,7 @@ wrapper_set_envvar(const char *var)
 		yyerror("invalid env var value");
 
 	envvar = var;
+	dprintf("env[name=\"%s\"]\n", envvar);
 }
 
 static void
@@ -383,14 +596,124 @@ wrapper_output_file(FILE *outfile, const char *path)
 }
 
 static void
-wrapper_write_long_args(FILE *outfile, struct app *app)
+wrapper_write_logonly_args(FILE *outfile, const struct app *app)
+{
+	const struct appflag *af;
+	int val;
+
+	fprintf(outfile, "static const bool %s[] = {\n",
+	    app_logonly_name(app));
+	LIST_FOREACH(af, &app->app_flags, appflag_entries) {
+		if ((af->appflag_flags & ARGFLAG_LOGONLY) == 0)
+			continue;
+		if (af->appflag_flag[1] == '\0') {
+			/* Short option */
+			val = (unsigned char)af->appflag_flag[0];
+		} else {
+			/*
+			 * Either set by the wrapper spec, or set to a CHAR_MAX
+			 * + n constant below.
+			 */
+			val = af->appflag_alias;
+		}
+
+		if (val >= CHAR_MAX) {
+			fprintf(outfile, "\t[CHAR_MAX + %d] = true,\n",
+			    val - CHAR_MAX);
+		} else {
+			fprintf(outfile, "\t['%c'] = true,\n",
+			    val);
+		}
+	}
+	fprintf(outfile, "};\n");
+}
+
+static void
+wrapper_write_pattern(FILE *outfile, const char *pattern)
+{
+
+	/*
+	 * We write the pattern out byte-by-byte so that we can escape any
+	 * slashes and quotes as needed.
+	 */
+	for (const char *walker = pattern; *walker != '\0'; walker++) {
+		if (*walker == '\\' || *walker == '"')
+			fputc('\\', outfile);
+		fputc(*walker, outfile);
+	}
+}
+
+static void
+wrapper_write_patterns(FILE *outfile, const struct app *app)
+{
+	const struct appflag *af;
+	size_t idx;
+
+	/*
+	 * These will all be indexed by position for the given type of flag in
+	 * app_flags, which must be the order they're written into the
+	 * wrapper's optstr and options array by wrapper_write_args() and
+	 * wrapper_write_long_args() respectively.
+	 */
+	if (app->app_short_patterns != 0) {
+		idx = 0;
+		fprintf(outfile, "static struct arg_expr %s[%u] = {\n",
+		    app_pattern_name(app, "short"), app->app_shortflags);
+		LIST_FOREACH(af, &app->app_flags, appflag_entries) {
+			if (af->appflag_flag[1] != '\0')
+				continue;
+			if (af->appflag_pattern != NULL) {
+				fprintf(outfile,
+				    "\t[%zu] = { .expr_str = \"", idx);
+
+				wrapper_write_pattern(outfile,
+				    af->appflag_pattern);
+
+				fprintf(outfile, "\" },\n");
+			}
+
+			idx++;
+		}
+		fprintf(outfile, "};\n");
+	}
+
+	if (app->app_long_patterns != 0) {
+		const char *expname;
+
+		idx = 0;
+		expname = app_pattern_name(app, "long");
+		fprintf(outfile, "static struct arg_expr %s[%u] = {\n",
+		    expname, app->app_longflags);
+		LIST_FOREACH(af, &app->app_flags, appflag_entries) {
+			if (af->appflag_flag[1] == '\0')
+				continue;
+			if (af->appflag_pattern != NULL) {
+				fprintf(outfile,
+				    "\t[%zu] = { .expr_str = \"", idx);
+
+				wrapper_write_pattern(outfile,
+				    af->appflag_pattern);
+
+				fprintf(outfile, "\" },\n");
+			}
+
+			idx++;
+		}
+		fprintf(outfile, "};\n");
+		fprintf(outfile,
+		    "_Static_assert(nitems(%s) == nitems(%s) - 1, \"Long option mismatch\");\n",
+		    expname, app_longopt_name(app));
+	}
+}
+
+static void
+wrapper_write_long_args(FILE *outfile, const struct app *app)
 {
 	static const char *argvalues[] = {
 		[no_argument] = "no_argument",
 		[optional_argument] = "optional_argument",
 		[required_argument] = "required_argument",
 	};
-
 	struct appflag *af;
 	int coff;	/* Offset from CHAR_MAX */
 
@@ -410,10 +733,12 @@ wrapper_write_long_args(FILE *outfile, struct app *app)
 		fprintf(outfile, "%s, ", argvalues[af->appflag_arg]);
 
 		fprintf(outfile, "NULL, ");
-		if (af->appflag_alias != '\0')
+		if (af->appflag_alias != '\0') {
 			fprintf(outfile, "'%c'", af->appflag_alias);
-		else
+		} else {
+			af->appflag_alias = CHAR_MAX + coff;
 			fprintf(outfile, "CHAR_MAX + %d", coff++);
+		}
 		fprintf(outfile, " },\n");
 	}
 	fprintf(outfile, "	{ NULL, 0, 0, 0 },\n");
@@ -421,7 +746,7 @@ wrapper_write_long_args(FILE *outfile, struct app *app)
 }
 
 static void
-wrapper_write_addargs(FILE *outfile, struct app *app)
+wrapper_write_addargs(FILE *outfile, const struct app *app)
 {
 
 	fprintf(outfile, "static const char *%s[] = {\n", app_addarg_name(app));
@@ -432,13 +757,13 @@ wrapper_write_addargs(FILE *outfile, struct app *app)
 }
 
 static void
-wrapper_write_args(FILE *outfile, struct app *app)
+wrapper_write_args(FILE *outfile, const struct app *app)
 {
-	struct appflag *af;
+	const struct appflag *af;
 
 	if (app->app_shortflags > 0) {
 		/* app_optstr */
-		fprintf(outfile, "		.app_optstr = \"");
+		fprintf(outfile, "		.app_optstr = \"+");
 		LIST_FOREACH(af, &app->app_flags, appflag_entries) {
 			if (af->appflag_flag[1] != '\0')
 				continue;
@@ -458,6 +783,13 @@ wrapper_write_args(FILE *outfile, struct app *app)
 		/* app_longopts */
 		fprintf(outfile, "		.app_longopts = %s,\n",
 		    app_longopt_name(app));
+	}
+
+	if (app->app_anyarg_logonly) {
+		fprintf(outfile, "		.app_nlogonly = nitems(%s),\n",
+		    app_logonly_name(app));
+		fprintf(outfile, "		.app_logonly_opts = %s,\n",
+		    app_logonly_name(app));
 	}
 }
 
@@ -482,6 +814,10 @@ wrapper_write(FILE *outfile)
 	 */
 	fprintf(outfile, "#define WRAPPER_APPLICATION_COUNT %zu\n", app_count);
 
+	fprintf(outfile, "#define WRAPPER_MAXNAMELEN %zu\n", app_maxnamelen);
+	if (wrapper_name != NULL)
+		fprintf(outfile, "#define WRAPPER_NAME \"%s\"\n", wrapper_name);
+
 	if (envvar != NULL) {
 		fprintf(outfile, "#define WRAPPER_ENV_VAR \"%s\"\n",
 		    envvar);
@@ -502,14 +838,33 @@ wrapper_write(FILE *outfile)
 	wrapper_output_file(outfile, _PATH_SKELDIR "wrapper-head.c");
 	fprintf(outfile, "\n/* START OF SPEC @" "generated CONTENTS */\n\n");
 
-	fprintf(outfile, "/* Long Option Definitions */\n");
+	fprintf(outfile, "/* Long, Logonly Option and Pattern Definitions */\n");
 	empty = true;
 	LIST_FOREACH(app, &apps, app_entries) {
-		if (app->app_longflags == 0)
-			continue;
+		bool printed = false;
 
-		wrapper_write_long_args(outfile, app);
-		empty = false;
+		if (app->app_longflags != 0) {
+			wrapper_write_long_args(outfile, app);
+			empty = false;
+			printed = true;
+		}
+
+		if (app->app_anyarg_logonly) {
+			wrapper_write_logonly_args(outfile, app);
+			empty = false;
+			printed = true;
+		}
+
+		if (app->app_short_patterns != 0 ||
+		    app->app_long_patterns != 0) {
+			wrapper_write_patterns(outfile, app);
+			empty = false;
+			printed = true;
+		}
+
+		if (printed) {
+			fprintf(outfile, "\n");
+		}
 	}
 
 	if (empty)
@@ -550,6 +905,16 @@ wrapper_write(FILE *outfile)
 		}
 		if (!LIST_EMPTY(&app->app_flags))
 			wrapper_write_args(outfile, app);
+		if (app->app_short_patterns != 0) {
+			fprintf(outfile,
+			    "		.app_shortopt_expr = %s,\n",
+			    app_pattern_name(app, "short"));
+		}
+		if (app->app_long_patterns != 0) {
+			fprintf(outfile,
+			    "		.app_longopt_expr = %s,\n",
+			    app_pattern_name(app, "long"));
+		}
 
 		fprintf(outfile, "	},\n");
 	}

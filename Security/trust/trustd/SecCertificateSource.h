@@ -76,6 +76,7 @@ SecCertificateSourceRef SecMemoryCertificateSourceCreate(CFArrayRef certificates
 void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source);
 
 /* SecSystemAnchorSource */
+CFArrayRef SecSystemAnchorSourceCopyCertificates(void);
 extern const SecCertificateSourceRef kSecSystemAnchorSource;
 
 /* SecUserAnchorSource */

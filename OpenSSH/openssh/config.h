@@ -390,6 +390,14 @@
    don't. */
 #define HAVE_DECL_OFFSETOF 1
 
+/* Define to 1 if you have the declaration of `OPENSSL_IS_BORINGSSL', and to 0
+   if you don't. */
+#define HAVE_DECL_OPENSSL_IS_BORINGSSL 1
+
+/* Define to 1 if you have the declaration of `OPENSSL_NO_DSA', and to 0 if
+   you don't. */
+#define HAVE_DECL_OPENSSL_NO_DSA 1
+
 /* Define to 1 if you have the declaration of `O_NONBLOCK', and to 0 if you
    don't. */
 #define HAVE_DECL_O_NONBLOCK 1

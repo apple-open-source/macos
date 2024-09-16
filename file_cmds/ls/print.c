@@ -88,7 +88,11 @@ static void	printsize(size_t, off_t);
 static void	endcolor_termcap(int);
 static void	endcolor_ansi(void);
 static void	endcolor(int);
+#ifdef __APPLE__
+static int	colortype(mode_t, u_long);
+#else
 static int	colortype(mode_t);
+#endif
 #endif
 #ifndef __APPLE__
 static void	aclmode(char *, const FTSENT *);
@@ -112,10 +116,13 @@ typedef enum Colors {
 				 * bit */
 	C_WDIR,			/* directory writeble to others, without
 				 * sticky bit */
+#ifdef __APPLE__
+	C_DATALESS,		/* dataless file */
+#endif
 	C_NUMCOLORS		/* just a place-holder */
 } Colors;
 
-static const char *defcolors = "exfxcxdxbxegedabagacad";
+static const char *defcolors = "exfxcxdxbxegedabagacadah";
 
 /* colors for file types */
 static struct {
@@ -451,8 +458,13 @@ printlong(const DISPLAY *dp)
 		else
 			printtime(sp->st_mtime);
 #ifdef COLORLS
+#ifdef __APPLE__
+		if (f_color)
+			color_printed = colortype(sp->st_mode, sp->st_flags);
+#else
 		if (f_color)
 			color_printed = colortype(sp->st_mode);
+#endif
 #endif
 		(void)printname(p->fts_name);
 #ifdef COLORLS
@@ -616,8 +628,13 @@ printaname(const FTSENT *p, u_long inodefield, u_long sizefield)
 		chcnt += printf("%*lld ",
 		    (int)sizefield, howmany(sp->st_blocks, blocksize));
 #ifdef COLORLS
+#ifdef __APPLE__
+	if (f_color)
+		color_printed = colortype(sp->st_mode, sp->st_flags);
+#else
 	if (f_color)
 		color_printed = colortype(sp->st_mode);
+#endif
 #endif
 	chcnt += printname(p->fts_name);
 #ifdef COLORLS
@@ -840,7 +857,11 @@ endcolor(int sig)
 }
 
 static int
+#ifdef __APPLE__
+colortype(mode_t mode, u_long flags)
+#else
 colortype(mode_t mode)
+#endif
 {
 	switch (mode & S_IFMT) {
 	case S_IFDIR:
@@ -878,6 +899,12 @@ colortype(mode_t mode)
 			printcolor(C_EXEC);
 		return (1);
 	}
+#ifdef __APPLE__
+	if (flags & SF_DATALESS) {
+		printcolor(C_DATALESS);
+		return (1);
+	}
+#endif
 	return (0);
 }
 

@@ -43,7 +43,7 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
 
         this._ongoingCompletionRequests = 0;
 
-        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this._clearLastProperties, this);
+        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this.clearCachedPropertyNames, this);
     }
 
     // Static
@@ -61,6 +61,7 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                 "dir",
                 "dirxml",
                 "error",
+                "gatherRTCLogs",
                 "group",
                 "groupCollapsed",
                 "groupEnd",
@@ -90,7 +91,17 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
         return JavaScriptRuntimeCompletionProvider.__cachedCommandLineAPIKeys;
     }
 
-    // Protected
+    // Public
+
+    clearCachedPropertyNames()
+    {
+        if (this._clearCachedPropertyNamesTimeout) {
+            clearTimeout(this._clearCachedPropertyNamesTimeout);
+            this._clearCachedPropertyNamesTimeout = null;
+        }
+
+        this._lastPropertyNames = null;
+    }
 
     completionControllerCompletionsNeeded(completionController, defaultCompletions, base, prefix, suffix, forced)
     {
@@ -138,8 +149,8 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
         // If the base is the same as the last time, we can reuse the property names we have already gathered.
         // Doing this eliminates delay caused by the async nature of the code below and it only calls getters
         // and functions once instead of repetitively. Sure, there can be difference each time the base is evaluated,
-        // but this optimization gives us more of a win. We clear the cache after 30 seconds or when stepping in the
-        // debugger to make sure we don't use stale properties in most cases.
+        // but this optimization gives us more of a win. We clear the cache when a new command gets executed in the
+        // quick console and at least every 30 seconds, to make sure we don't use stale properties in most cases.
         if (this._lastMode === completionController.mode && this._lastBase === base && this._lastPropertyNames) {
             receivedPropertyNames.call(this, this._lastPropertyNames);
             return;
@@ -159,9 +170,11 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
 
         function updateLastPropertyNames(propertyNames)
         {
-            if (this._clearLastPropertiesTimeout)
-                clearTimeout(this._clearLastPropertiesTimeout);
-            this._clearLastPropertiesTimeout = setTimeout(this._clearLastProperties.bind(this), WI.JavaScriptLogViewController.CachedPropertiesDuration);
+            if (this._clearCachedPropertyNamesTimeout)
+                clearTimeout(this._clearCachedPropertyNamesTimeout);
+            // Clear the cache after sitting idle for some time to pick up any changes to the property list due to JavaScript running in background.
+            // FIXME: <https://webkit.org/b/272100> Cache should be cleared more proactively.
+            this._clearCachedPropertyNamesTimeout = setTimeout(this.clearCachedPropertyNames.bind(this), WI.JavaScriptLogViewController.CachedPropertiesDuration);
 
             this._lastPropertyNames = propertyNames || [];
         }
@@ -331,7 +344,6 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                     break;
                 }
 
-                // FIXME: Due to caching, sometimes old $n values show up as completion results even though they are not available. We should clear that proactively.
                 for (var i = 1; i <= WI.ConsoleCommandResultMessage.maximumSavedResultIndex; ++i) {
                     propertyNames.push("$" + i);
                     if (savedResultAlias)
@@ -348,6 +360,8 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
 
             var completions = defaultCompletions;
             let knownCompletions = new Set(completions);
+            let prefixLowerCase = prefix.toLowerCase();
+            let caseSensitiveMatching = WI.settings.experimentalShowCaseSensitiveAutocomplete.value;
 
             for (var i = 0; i < propertyNames.length; ++i) {
                 var property = propertyNames[i];
@@ -360,30 +374,34 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                         property = quoteUsed + property.escapeCharacters(quoteUsed + "\\") + (suffix !== quoteUsed ? quoteUsed : "");
                 }
 
-                if (!property.startsWith(prefix) || knownCompletions.has(property))
+                if (knownCompletions.has(property))
+                    continue;
+
+                let startsWithPrefix = caseSensitiveMatching ? property.startsWith(prefix) : property.toLowerCase().startsWith(prefixLowerCase);
+                if (!startsWithPrefix)
                     continue;
 
                 completions.push(property);
                 knownCompletions.add(property);
             }
 
-            function compare(a, b)
+            let completionSortCriteria = new Map;
+            for (let completion of completions) {
+                completionSortCriteria.set(completion, {
+                    startsWithPrefix: completion.startsWith(prefix),
+                    numericValue: isFinite(completion) ? +completion : Infinity,
+                    isRareProperty: completion.startsWith("__") && completion.endsWith("__"),
+                });
+            }
+
+            function compare(s, t)
             {
-                // Try to sort in numerical order first.
-                let numericCompareResult = a - b;
-                if (!isNaN(numericCompareResult))
-                    return numericCompareResult;
-
-                // Sort __defineGetter__, __lookupGetter__, and friends last.
-                let aRareProperty = a.startsWith("__") && a.endsWith("__");
-                let bRareProperty = b.startsWith("__") && b.endsWith("__");
-                if (aRareProperty && !bRareProperty)
-                    return 1;
-                if (!aRareProperty && bRareProperty)
-                    return -1;
-
-                // Not numbers, sort as strings.
-                return a.extendedLocaleCompare(b);
+                let a = completionSortCriteria.get(s);
+                let b = completionSortCriteria.get(t);
+                return a.numericValue - b.numericValue // Order completions that are numbers to come first, with lower values coming first.
+                    || a.isRareProperty - b.isRareProperty // Order __defineGetter__, __lookupGetter__, and friends to come last.
+                    || b.startsWithPrefix - a.startsWithPrefix // Order completions that directly match the typed text to come first.
+                    || s.extendedLocaleCompare(t); // Order completions in the same category by natural string ordering.
             }
 
             completions.sort(compare);
@@ -409,17 +427,5 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
 
         if (this._ongoingCompletionRequests <= 0)
             WI.runtimeManager.activeExecutionContext.target.RuntimeAgent.releaseObjectGroup("completion");
-    }
-
-    _clearLastProperties()
-    {
-        if (this._clearLastPropertiesTimeout) {
-            clearTimeout(this._clearLastPropertiesTimeout);
-            delete this._clearLastPropertiesTimeout;
-        }
-
-        // Clear the cache of property names so any changes while stepping or sitting idle get picked up if the same
-        // expression is evaluated again.
-        this._lastPropertyNames = null;
     }
 };

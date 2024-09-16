@@ -32,6 +32,15 @@
 #include "CAAudioStreamDescription.h"
 #include "Timer.h"
 
+namespace WebCore {
+class CoreAudioSharedUnit;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CoreAudioSharedUnit> : std::true_type { };
+}
+
 typedef UInt32 AudioUnitPropertyID;
 typedef UInt32 AudioUnitScope;
 typedef UInt32 AudioUnitElement;
@@ -88,7 +97,7 @@ public:
     void registerSpeakerSamplesProducer(CoreAudioSpeakerSamplesProducer&);
     void unregisterSpeakerSamplesProducer(CoreAudioSpeakerSamplesProducer&);
     bool isRunning() const { return m_ioUnitStarted; }
-    void setSampleRateRange(CapabilityRange range) { m_sampleRateCapabilities = range; }
+    void setSampleRateRange(LongCapabilityRange range) { m_sampleRateCapabilities = range; }
 
 #if PLATFORM(IOS_FAMILY)
     void setIsInBackground(bool);
@@ -110,7 +119,7 @@ public:
 private:
     static size_t preferredIOBufferSize();
 
-    CapabilityRange sampleRateCapacities() const final { return m_sampleRateCapabilities; }
+    LongCapabilityRange sampleRateCapacities() const final { return m_sampleRateCapabilities; }
 
     bool hasAudioUnit() const final { return !!m_ioUnit; }
     void captureDeviceChanged() final;
@@ -173,7 +182,7 @@ private:
     String m_ioUnitName;
 #endif
 
-    CapabilityRange m_sampleRateCapabilities;
+    LongCapabilityRange m_sampleRateCapabilities;
 
     uint64_t m_microphoneProcsCalled { 0 };
     uint64_t m_microphoneProcsCalledLastTime { 0 };

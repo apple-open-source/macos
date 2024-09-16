@@ -32,8 +32,10 @@
 #include <CoreMedia/CMTime.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
+#include <wtf/MainThreadDispatcher.h>
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/WorkQueue.h>
 
 OBJC_CLASS AVAssetImageGenerator;
 OBJC_CLASS AVAssetTrack;
@@ -55,6 +57,7 @@ OBJC_CLASS WebCoreAVFPullDelegate;
 
 typedef struct CGImage *CGImageRef;
 typedef struct __CVBuffer *CVPixelBufferRef;
+typedef struct OpaqueFigVideoTarget *FigVideoTargetRef;
 typedef NSString *AVMediaCharacteristic;
 typedef double NSTimeInterval;
 
@@ -128,7 +131,7 @@ public:
 
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
 
-    MediaTime currentMediaTime() const final;
+    MediaTime currentTime() const final;
     void outputMediaDataWillChange();
     void processChapterTracks();
 
@@ -140,8 +143,6 @@ private:
     void setWaitingForKey(bool);
     bool waitingForKey() const final { return m_waitingForKey; }
 #endif
-
-    float currentTime() const final;
 
     // engine support
     class Factory;
@@ -162,11 +163,10 @@ private:
     void beginSimulatedHDCPError() final { outputObscuredDueToInsufficientExternalProtectionChanged(true); }
     void endSimulatedHDCPError() final { outputObscuredDueToInsufficientExternalProtectionChanged(false); }
 
-#if ENABLE(AVF_CAPTIONS)
     void notifyTrackModeChanged() final;
     void synchronizeTextTrackState() final;
-#endif
 
+    bool timeIsProgressing() const final { return effectiveRate(); }
     void platformSetVisible(bool) final;
     void platformPlay() final;
     void platformPause() final;
@@ -225,7 +225,7 @@ private:
     void sizeChanged() final;
     void resolvedURLChanged() final;
 
-    bool isHLS() const { return m_cachedAssetIsHLS.value_or(false); }
+    bool isHLS() const final { return m_cachedAssetIsHLS.value_or(false); }
 
     bool hasAvailableVideoFrame() const final;
 
@@ -248,7 +248,6 @@ private:
 
     MediaTime getStartDate() const final;
 
-    bool requiresTextTrackRepresentation() const final;
     void setTextTrackRepresentation(TextTrackRepresentation*) final;
     void syncTextTrackBounds() final;
 
@@ -334,21 +333,21 @@ private:
     Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics() final;
 
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "MediaPlayerPrivateAVFoundationObjC"; }
+    ASCIILiteral logClassName() const final { return "MediaPlayerPrivateAVFoundationObjC"_s; }
 #endif
 
     AVPlayer *objCAVFoundationAVPlayer() const final { return m_avPlayer.get(); }
 
-    bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&) final;
+    bool performTaskAtTime(Function<void()>&&, const MediaTime&) final;
     void setShouldObserveTimeControlStatus(bool);
 
     void setPreferredDynamicRangeMode(DynamicRangeMode) final;
     void audioOutputDeviceChanged() final;
 
-    void currentMediaTimeDidChange(MediaTime&&) const;
+    void currentTimeDidChange(MediaTime&&) const;
     bool setCurrentTimeDidChangeCallback(MediaPlayer::CurrentTimeDidChangeCallback&&) final;
 
-    bool currentMediaTimeIsBuffered() const;
+    bool currentTimeIsBuffered() const;
 
     bool supportsPlayAtHostTime() const final { return true; }
     bool supportsPauseAtHostTime() const final { return true; }
@@ -371,6 +370,24 @@ private:
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics(AVPlayerLayer*) const;
 
+    void setVideoTarget(const PlatformVideoTarget&) final;
+
+#if HAVE(SPATIAL_TRACKING_LABEL)
+    const String& defaultSpatialTrackingLabel() const;
+    void setDefaultSpatialTrackingLabel(const String&) final;
+
+    const String& spatialTrackingLabel() const;
+    void setSpatialTrackingLabel(const String&) final;
+
+    void updateSpatialTrackingLabel();
+#endif
+
+    void isInFullscreenOrPictureInPictureChanged(bool) final;
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    bool supportsLinearMediaPlayer() const final { return true; }
+#endif
+
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
     RetainPtr<AVPlayerItem> m_avPlayerItem;
@@ -383,6 +400,10 @@ private:
     bool m_videoFrameHasDrawn { false };
     bool m_haveCheckedPlayability { false };
     bool m_createAssetPending { false };
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    RetainPtr<FigVideoTargetRef> m_videoTarget;
+#endif
 
 #if ENABLE(WEB_AUDIO) && USE(MEDIATOOLBOX)
     RefPtr<AudioSourceProviderAVFObjC> m_provider;
@@ -444,7 +465,7 @@ private:
     RetainPtr<NSArray> m_currentMetaData;
     FloatSize m_cachedPresentationSize;
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
-    mutable MediaTime m_cachedCurrentMediaTime { -1, 1, 0 };
+    mutable MediaTime m_cachedCurrentTime { -1, 1, 0 };
     mutable MediaTime m_lastPeriodicObserverMediaTime;
     mutable Markable<WallTime> m_wallClockAtCachedCurrentTime;
     mutable int m_timeControlStatusAtCachedCurrentTime { 0 };
@@ -495,6 +516,11 @@ private:
     ProcessIdentity m_resourceOwner;
     PlatformTimeRanges m_buffered;
     TrackID m_currentTextTrackID { 0 };
+    Ref<RefCountedSerialFunctionDispatcher> m_targetDispatcher { MainThreadDispatcher::singleton() };
+#if HAVE(SPATIAL_TRACKING_LABEL)
+    String m_defaultSpatialTrackingLabel;
+    String m_spatialTrackingLabel;
+#endif
 };
 
 }

@@ -465,7 +465,9 @@ IOReturn IOHIDDeviceOpen(
 {
     IOReturn result;
 
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     result = (*device->deviceInterface)->open(device->deviceInterface, options);
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 
     return result;
 }
@@ -478,15 +480,10 @@ IOReturn IOHIDDeviceClose(
                                 IOOptionBits                    options)
 {
     IOReturn result;
-
-    os_unfair_recursive_lock_lock(&device->callbackLock);
-    if ( device->inputValueCallbackSet )
-        CFSetRemoveAllValues(device->inputValueCallbackSet);
-    if ( device->inputReportCallbackSet )
-        CFSetRemoveAllValues(device->inputReportCallbackSet);
-    os_unfair_recursive_lock_unlock(&device->callbackLock);
     
+    os_unfair_recursive_lock_lock(&device->deviceLock);
     result = (*device->deviceInterface)->close(device->deviceInterface, options);
+    os_unfair_recursive_lock_unlock(&device->deviceLock);
 
     return result;
 }
@@ -1185,8 +1182,6 @@ void IOHIDDeviceSetInputValueMatching(
                                 IOHIDDeviceRef                  device, 
                                 CFDictionaryRef                 matching)
 {
-    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
-    
     if ( matching ) {
         CFArrayRef multiple = CFArrayCreate(CFGetAllocator(device), (const void **)&matching, 1, &kCFTypeArrayCallBacks);
         
@@ -1205,8 +1200,6 @@ void IOHIDDeviceSetInputValueMatchingMultiple(
                                 IOHIDDeviceRef                  device, 
                                 CFArrayRef                      multiple)
 {
-    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
-    
     os_unfair_recursive_lock_lock(&device->deviceLock);
     if ( device->queue ) {
         IOHIDValueRef   value;
@@ -1379,8 +1372,11 @@ IOReturn IOHIDDeviceSetValueMultipleWithCallback(
         
             ret = IOHIDTransactionCommitWithCallback(transaction, timeout, __IOHIDDeviceTransactionCallback, elementInfo);
             
-            if ( ret != kIOReturnSuccess )
+            if (ret != kIOReturnSuccess) {
                 free(elementInfo);
+            } else {
+                CFRetain(transaction);
+            }
                 
         } else { // Sync
             ret = IOHIDTransactionCommit(transaction);
@@ -1544,8 +1540,11 @@ IOReturn IOHIDDeviceCopyValueMultipleWithCallback(
         
             ret = IOHIDTransactionCommitWithCallback(transaction, timeout, __IOHIDDeviceTransactionCallback, elementInfo);
             
-            if ( ret != kIOReturnSuccess )
+            if (ret != kIOReturnSuccess) {
                 free(elementInfo);
+            } else {
+                CFRetain(transaction);
+            }
                 
         } else { // Sync
         
@@ -1730,6 +1729,10 @@ void __IOHIDDeviceTransactionCallback(
 
     if ( elementInfo->elements )
         CFRelease(elementInfo->elements);
+
+    if (transaction) {
+        CFRelease(transaction);
+    }
         
     free(elementInfo);
 }

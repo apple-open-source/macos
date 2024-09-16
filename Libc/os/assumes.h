@@ -286,8 +286,9 @@ os_assert_mach_port_status(const char *desc, mach_port_t p,
 
 /*
  * An executable can register a callback to be made upon a crash using the
- * os_set_crash_callback function.  If a crash callback is not set, the symbol
- * `os_crash_function` will be called in the main binary, if it exists.
+ * os_set_crash_callback function.
+ *
+ * os_crash_redirect(function) can be used to do this.
  */
 
 typedef void (*os_crash_callback_t) (const char *);
@@ -305,6 +306,12 @@ static inline void
 os_set_crash_callback(os_crash_callback_t callback) {
 	_os_crash_callback = callback;
 }
+
+#define os_crash_redirect(func) \
+	static __attribute__((constructor)) void \
+	__os_crash_redirect_ctor(void) { \
+		os_set_crash_callback(func); \
+	}
 #endif // !defined(OS_CRASH_EXCLAVES)
 
 #pragma mark os_assert

@@ -65,6 +65,7 @@
 		C41A5818270DF10000015890 /* nfs_lock.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9B270C644500F021F8 /* nfs_lock.h */; };
 		C41A5819270DF10600015890 /* nfs_ioctl.h in Copy Kernel Headers */ = {isa = PBXBuildFile; fileRef = C4B26E9F270C644600F021F8 /* nfs_ioctl.h */; };
 		C434112024ADCCA500C92762 /* printer.c in Sources */ = {isa = PBXBuildFile; fileRef = C434111F24ADCCA500C92762 /* printer.c */; };
+		C436C5482ADBF67700C78BCB /* nfs_kdebug.c in Sources */ = {isa = PBXBuildFile; fileRef = C436C5472ADBF67700C78BCB /* nfs_kdebug.c */; };
 		C43BE1C128CA29B8003E2CD5 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AE31FA3D19E00AACC99 /* main.c */; };
 		C43BE1C428CA29D1003E2CD5 /* lockd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		C43BE1C528CA29D8003E2CD5 /* nfsd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AEB1FA3D19E00AACC99 /* nfsd.c */; };
@@ -636,6 +637,7 @@
 		C4111ABE270F385F00200211 /* nfs.exp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.exports; path = nfs.exp; sourceTree = "<group>"; };
 		C434111E24ADCCA500C92762 /* printer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = printer.h; sourceTree = "<group>"; };
 		C434111F24ADCCA500C92762 /* printer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = printer.c; sourceTree = "<group>"; };
+		C436C5472ADBF67700C78BCB /* nfs_kdebug.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nfs_kdebug.c; sourceTree = "<group>"; };
 		C43BE1C728CA29F2003E2CD5 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		C43BE1CE28CA34D3003E2CD5 /* nfs_prot_nfsrvTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = nfs_prot_nfsrvTests.m; sourceTree = "<group>"; };
 		C43BE1D028CA3680003E2CD5 /* nfs_prot.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs_prot.x; sourceTree = "<group>"; };
@@ -1080,6 +1082,7 @@
 				C4B26EB0270C644700F021F8 /* nfs_node.c */,
 				C4B26EA4270C644600F021F8 /* nfs_socket.c */,
 				C4E7A7F6292B7A85001C86CA /* nfs_kdebug.h */,
+				C436C5472ADBF67700C78BCB /* nfs_kdebug.c */,
 				C4B26E9C270C644500F021F8 /* nfs_subs.c */,
 				C4B26EA0270C644600F021F8 /* nfs_syscalls.c */,
 				C4B26E9D270C644500F021F8 /* nfs_vfsops.c */,
@@ -2043,6 +2046,7 @@
 				C4B26EB4270C644700F021F8 /* nfs_vnops.c in Sources */,
 				C4B26EB6270C644700F021F8 /* nfs_syscalls.c in Sources */,
 				C4B26EBB270C644700F021F8 /* gss_krb5_mech.c in Sources */,
+				C436C5482ADBF67700C78BCB /* nfs_kdebug.c in Sources */,
 				C4B26EB2270C644700F021F8 /* nfs_subs.c in Sources */,
 				C4B26E5A270C564600F021F8 /* kext.c in Sources */,
 				C4B26EBE270C644700F021F8 /* nfs_lock.c in Sources */,
@@ -2403,7 +2407,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2430,7 +2433,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -2456,7 +2458,6 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -2483,7 +2484,6 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = nfsrvTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -2509,7 +2509,6 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = nfsrvTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				MACOSX_DEPLOYMENT_TARGET = 12.5;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2534,7 +2533,6 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = nfsrvTests/Info.plist;
 				INSTALL_PATH = /AppleInternal/XCTests/com.apple.nfs/;
-				MACOSX_DEPLOYMENT_TARGET = 12.5;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2573,8 +2571,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 Apple, Inc. All rights reserved.";
 				MARKETING_VERSION = 1.0;
 				MODULE_NAME = com.apple.filesystems.nfs;
 				MODULE_START = nfs_kext_start;
@@ -2614,8 +2611,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 Apple, Inc. All rights reserved.";
 				MARKETING_VERSION = 1.0;
 				MODULE_NAME = com.apple.filesystems.nfs;
 				MODULE_START = nfs_kext_start;
@@ -2654,8 +2650,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "kext/iphoneos-Info.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "kext/macosx-Info.plist";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Apple, Inc. All rights reserved.";
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 Apple, Inc. All rights reserved.";
 				MARKETING_VERSION = 1.0;
 				MODULE_NAME = com.apple.filesystems.nfs;
 				MODULE_START = nfs_kext_start;
@@ -2688,7 +2683,6 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2022 Apple, Inc. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins/;
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.NFSPlugin;
@@ -2712,7 +2706,6 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2022 Apple, Inc. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins/;
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.NFSPlugin;
 				PRODUCT_NAME = nfs;
@@ -2735,7 +2728,6 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2022 Apple, Inc. All rights reserved.";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins/;
-				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.URLMount.NFSPlugin;
 				PRODUCT_NAME = nfs;
@@ -2807,13 +2799,14 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				TAPI_VERIFY_MODE = Pedantic;
@@ -2880,13 +2873,14 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				TAPI_VERIFY_MODE = Pedantic;
@@ -3344,7 +3338,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -3356,6 +3350,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SUPPORTS_TEXT_BASED_API = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				TAPI_VERIFY_MODE = Pedantic;

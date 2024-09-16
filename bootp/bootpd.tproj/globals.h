@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 extern int		bootp_socket;
 extern bool		debug;
 extern bool		dhcp_ignore_client_identifier;
+extern bool		dhcp_supply_bootfile;
 extern int		quiet;
 extern unsigned short	server_priority;
 extern uint32_t		reply_threshold_seconds;

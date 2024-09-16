@@ -6,5 +6,7 @@
 	<array>
 	    <string>kTCCServiceSystemPolicySysAdminFiles</string>
 	</array>
+	<key>com.apple.private.backgroundtaskmanagement.manage</key>
+	<true/>
 </dict>
 </plist>

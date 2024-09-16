@@ -220,7 +220,7 @@ pdfjs-find-previous-button-label = Trước
 pdfjs-find-next-button =
     .title = Tìm cụm từ ở phần sau
 pdfjs-find-next-button-label = Tiếp
-pdfjs-find-highlight-checkbox = Tô sáng tất cả
+pdfjs-find-highlight-checkbox = Đánh dấu tất cả
 pdfjs-find-match-case-checkbox-label = Phân biệt hoa, thường
 pdfjs-find-match-diacritics-checkbox-label = Khớp dấu phụ
 pdfjs-find-entire-word-checkbox-label = Toàn bộ từ
@@ -293,8 +293,29 @@ pdfjs-editor-ink-button-label = Vẽ
 pdfjs-editor-stamp-button =
     .title = Thêm hoặc chỉnh sửa hình ảnh
 pdfjs-editor-stamp-button-label = Thêm hoặc chỉnh sửa hình ảnh
-pdfjs-editor-remove-button =
-    .title = Xóa
+pdfjs-editor-highlight-button =
+    .title = Đánh dấu
+pdfjs-editor-highlight-button-label = Đánh dấu
+pdfjs-highlight-floating-button =
+    .title = Đánh dấu
+pdfjs-highlight-floating-button1 =
+    .title = Đánh dấu
+    .aria-label = Đánh dấu
+pdfjs-highlight-floating-button-label = Đánh dấu
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Xóa bản vẽ
+pdfjs-editor-remove-freetext-button =
+    .title = Xóa văn bản
+pdfjs-editor-remove-stamp-button =
+    .title = Xóa ảnh
+pdfjs-editor-remove-highlight-button =
+    .title = Xóa phần đánh dấu
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Màu
 pdfjs-editor-free-text-size-input = Kích cỡ
@@ -304,6 +325,10 @@ pdfjs-editor-ink-opacity-input = Độ mờ
 pdfjs-editor-stamp-add-image-button =
     .title = Thêm hình ảnh
 pdfjs-editor-stamp-add-image-button-label = Thêm hình ảnh
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Độ dày
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Thay đổi độ dày khi đánh dấu các mục không phải là văn bản
 pdfjs-free-text =
     .aria-label = Trình sửa văn bản
 pdfjs-free-text-default-content = Bắt đầu nhập…
@@ -341,3 +366,29 @@ pdfjs-editor-resizer-label-bottom-right = Dưới cùng bên phải — thay đ�
 pdfjs-editor-resizer-label-bottom-middle = Ở giữa dưới cùng — thay đổi kích thước
 pdfjs-editor-resizer-label-bottom-left = Góc dưới bên trái — thay đổi kích thước
 pdfjs-editor-resizer-label-middle-left = Ở giữa bên trái — thay đổi kích thước
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Màu đánh dấu
+pdfjs-editor-colorpicker-button =
+    .title = Thay đổi màu
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Lựa chọn màu sắc
+pdfjs-editor-colorpicker-yellow =
+    .title = Vàng
+pdfjs-editor-colorpicker-green =
+    .title = Xanh lục
+pdfjs-editor-colorpicker-blue =
+    .title = Xanh dương
+pdfjs-editor-colorpicker-pink =
+    .title = Hồng
+pdfjs-editor-colorpicker-red =
+    .title = Đỏ
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Hiện tất cả
+pdfjs-editor-highlight-show-all-button =
+    .title = Hiện tất cả

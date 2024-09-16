@@ -38,7 +38,7 @@
 #include <Security/SecItemPriv.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 
 @interface CloudKitKeychainAESSIVEncryptionTests : CloudKitMockXCTest
 @end

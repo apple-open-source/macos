@@ -831,10 +831,10 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
         srp_format_time_offset(time_buf, sizeof(time_buf), srp_time() - raw_message->received_time);
     }
 
-    INFO("update for " PRI_DNS_NAME_SRP " #%d, xid %x validates, lease time %d, receive_time "
+    INFO("update for " PRI_DNS_NAME_SRP " #%d, xid %x validates, key lease %d, host lease %d, message lease %d, receive_time "
          PUB_S_SRP ", remote " PRI_S_SRP " -> %p.",
          DNS_NAME_PARAM_SRP(host_description->name, host_description_name_buf), index, raw_message->wire.id,
-         ret->host_lease, time_buf, remote_name == NULL ? "(none)" : remote_name, ret);
+         ret->key_lease, ret->host_lease, raw_message->lease, time_buf, remote_name == NULL ? "(none)" : remote_name, ret);
     ret->rcode = dns_rcode_noerror;
     goto out;
 
@@ -1033,12 +1033,21 @@ struct srp_proxy_listener_state {
 };
 
 comm_t *
-srp_proxy_listen(uint16_t *avoid_ports, int num_avoid_ports, ready_callback_t ready, cancel_callback_t cancel_callback,
-                 addr_t *address, finalize_callback_t context_release_callback, void *context)
+srp_proxy_listen(uint16_t *avoid_ports, int num_avoid_ports, const char *interface_name, ready_callback_t ready,
+                 cancel_callback_t cancel_callback, addr_t *address, finalize_callback_t context_release_callback,
+                 void *context)
 {
+    unsigned ifindex = 0;
+    if (interface_name != NULL) {
+        ifindex = if_nametoindex(interface_name);
+        if (ifindex == 0) {
+            return false;
+        }
+    }
+
     // XXX UDP listeners should bind to interface addresses, not INADDR_ANY.
-    return ioloop_listener_create(false, false, avoid_ports, num_avoid_ports, address, NULL, "SRP UDP listener",
-                                  dns_input, NULL, cancel_callback, ready, context_release_callback, NULL, context);
+    return ioloop_listener_create(false, false, false, avoid_ports, num_avoid_ports, address, NULL, "SRP UDP listener",
+                                  dns_input, NULL, cancel_callback, ready, context_release_callback, NULL, ifindex, context);
 }
 
 void

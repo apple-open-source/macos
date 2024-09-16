@@ -67,5 +67,36 @@
     XCTAssertNil(c2, "c2 should be NULL");
 }
 
+- (void)testPairingChannelContextValidDevice {
+    KCPairingChannelContext *c;
+
+    c = [[KCPairingChannelContext alloc] init];
+
+    [self checkRoundtrip:c check:@"empty"];
+
+    c.intent = KCPairingIntent_Type_None;
+    c.capability = KCPairingIntent_Capability_FullPeer;
+    [self checkRoundtrip:c check:@"with intent"];
+
+    c.intent = @"invalid";
+}
+
+- (void)testPairingChannelContextInvalidDevice {
+    KCPairingChannelContext *c1, *c2;
+    NSData *data;
+
+    c1 = [[KCPairingChannelContext alloc] init];
+    c1.intent = @"invalid";
+    c1.capability = @"invalid";
+
+    data = [NSKeyedArchiver archivedDataWithRootObject:c1 requiringSecureCoding:TRUE error:NULL];
+    XCTAssertNotNil(data, "data should be valid");
+
+    NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:data error:nil];
+    c2 = [unarchiver decodeObjectOfClass:[KCPairingChannelContext class] forKey:NSKeyedArchiveRootObjectKey];
+
+    XCTAssertNil(c2, "c2 should be NULL");
+}
+
 
 @end

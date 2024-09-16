@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@
 #include "ipconfigd_types.h"
 #include "IPConfigurationServiceInternal.h"
 #include "DHCPv6Client.h"
+#include "PvDInfoRequest.h"
 
 PRIVATE_EXTERN CFDictionaryRef
 my_SCDynamicStoreCopyDictionary(SCDynamicStoreRef session, CFStringRef key)
@@ -1132,3 +1133,75 @@ route_dict_create(const struct in_addr * dest, const struct in_addr * mask,
     return (dict);
 }
 
+/**
+ ** PvD Options
+ **/
+
+#ifndef kSCPropNetPvDIdentifier
+#define kSCPropNetPvDIdentifier			CFSTR("Identifier")
+#define kSCPropNetPvDSequenceNumber		CFSTR("SequenceNumber")
+#define kSCPropNetPvDHTTPSupported		CFSTR("HTTPSupported")
+#define kSCPropNetPvDDelay			CFSTR("Delay")
+#define kSCPropNetPvDLegacy			CFSTR("Legacy")
+#define kSCPropNetPvDAdditionalInformation	CFSTR("AdditionalInformation")
+#endif
+
+CFDictionaryRef
+PvDEntityCreateWithInfo(ipv6_info_t * info_p)
+{
+    RA_PvDFlagsDelay            flags = { 0 };
+    CFMutableDictionaryRef      pvd_dict = NULL;
+    const uint8_t *             pvd_id = NULL;
+    size_t                      pvd_id_length = 0;
+    uint16_t                    sequence = 0;
+    CFStringRef			pvdid_str = NULL;
+
+    if (info_p->ra == NULL) {
+	goto done;
+    }
+    pvd_id = RouterAdvertisementGetPvD(info_p->ra,
+                                       &pvd_id_length,
+                                       &sequence,
+                                       &flags);
+    if (pvd_id == NULL || pvd_id_length <= 0) {
+	goto done;
+    }
+    if (flags.ra) {
+	my_log(LOG_INFO, "Ignoring PvD option with R flag");
+	goto done;
+    }
+    pvdid_str = DNSNameStringCreate(pvd_id, pvd_id_length);
+    if (pvdid_str == NULL) {
+	CFMutableStringRef bytes_str = NULL;
+
+	bytes_str = CFStringCreateMutable(NULL, 0);
+	print_data_cfstr(bytes_str, pvd_id, pvd_id_length);
+	my_log(LOG_INFO, "Failed to get PvD ID from raw str:\n%@", bytes_str);
+	my_CFRelease(&bytes_str);
+	goto done;
+    }
+    pvd_dict = CFDictionaryCreateMutable(NULL, 1,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(pvd_dict, kSCPropNetPvDIdentifier, pvdid_str);
+    if (flags.http) {
+	/* sequence, delay, additional info are only relevant with H flag */
+	my_CFDictionarySetUInt64(pvd_dict,
+				 kSCPropNetPvDHTTPSupported, 1);
+	my_CFDictionarySetUInt64(pvd_dict, kSCPropNetPvDSequenceNumber,
+				 sequence);
+	my_CFDictionarySetUInt64(pvd_dict, kSCPropNetPvDDelay,
+				 flags.delay);
+	if (info_p->pvd_additional_info_dict != NULL) {
+	    CFDictionarySetValue(pvd_dict, kSCPropNetPvDAdditionalInformation,
+				 info_p->pvd_additional_info_dict);
+	}
+    }
+    if (flags.legacy) {
+	my_CFDictionarySetUInt64(pvd_dict, kSCPropNetPvDLegacy, 1);
+    }
+    my_CFRelease(&pvdid_str);
+
+ done:
+    return (CFDictionaryRef)pvd_dict;
+}

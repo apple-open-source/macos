@@ -40,8 +40,8 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
             establishExpectation.fulfill()
 
             return NSError(domain: CKErrorDomain,
-                                 code: CKError.networkFailure.rawValue,
-                                 userInfo: [:])
+                           code: CKError.networkFailure.rawValue,
+                           userInfo: [:])
         }
 
         _ = self.assertResetAndBecomeTrustedInDefaultContext()
@@ -420,11 +420,10 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         let entropy = try self.loadSecret(label: firstPeerID!)
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
-        let bNewOTCliqueContext = OTConfigurationContext()
-        bNewOTCliqueContext.context = "restoreB"
-        bNewOTCliqueContext.altDSID = self.otcliqueContext.altDSID
-        bNewOTCliqueContext.otControl = self.otcliqueContext.otControl
-        bNewOTCliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!)
+        let bNewOTCliqueContext = self.createOTConfigurationContextForTests(contextID: "restoreB",
+                                                                            otControl: self.otcliqueContext.otControl,
+                                                                            altDSID: self.otcliqueContext.altDSID,
+                                                                            sbd: OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!))
 
         let deviceBmockAuthKit = CKKSTestsMockAccountsAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
                                                       machineID: "b-machine-id",
@@ -602,11 +601,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
                 try reset.setCDPEnabled()
                 self.assertEnters(context: reset, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-                let arguments = OTConfigurationContext()
-                arguments.altDSID = try XCTUnwrap(reset.activeAccount?.altDSID)
-                arguments.context = reset.contextID
-                arguments.otControl = self.otControl
-
+                let arguments = self.createOTConfigurationContextForTests(contextID: reset.contextID,
+                                                                          otControl: self.otControl,
+                                                                          altDSID: try XCTUnwrap(reset.activeAccount?.altDSID))
                 let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
                 XCTAssertNotNil(clique, "Clique should not be nil")
             } catch {
@@ -707,10 +704,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
             try reset.setCDPEnabled()
             self.assertEnters(context: reset, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-            let arguments = OTConfigurationContext()
-            arguments.altDSID = try XCTUnwrap(reset.activeAccount?.altDSID)
-            arguments.context = reset.contextID
-            arguments.otControl = self.otControl
+            let arguments = self.createOTConfigurationContextForTests(contextID: reset.contextID,
+                                                                      otControl: self.otControl,
+                                                                      altDSID: try XCTUnwrap(reset.activeAccount?.altDSID))
 
             let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")

@@ -24,11 +24,13 @@
  */
 
 #import "PDFPluginIdentifier.h"
+#import "WKTextAnimationType.h"
 #import <WebKit/WKShareSheet.h>
 #import <WebKit/WKWebViewConfiguration.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import "_WKAttachmentInternal.h"
 #import "_WKWebViewPrintFormatterInternal.h"
+#import <pal/spi/cocoa/WritingToolsSPI.h>
 #import <variant>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
@@ -41,10 +43,10 @@
 #if PLATFORM(IOS_FAMILY)
 #import "DynamicViewportSizeUpdate.h"
 #import "UIKitSPI.h"
+#import "WKBrowserEngineDefinitions.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WKFullScreenWindowControllerIOS.h"
-#import "WKSEDefinitions.h"
 #import <WebCore/FloatRect.h>
 #import <WebCore/IntDegrees.h>
 #import <WebCore/LengthBox.h>
@@ -53,11 +55,23 @@
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-#define WK_WEB_VIEW_PROTOCOLS <WKSEScrollViewDelegate>
+
+#if ENABLE(WRITING_TOOLS)
+#define WK_WEB_VIEW_PROTOCOLS <WKBEScrollViewDelegate, WTWritingToolsDelegate, UITextInputTraits>
+#else
+#define WK_WEB_VIEW_PROTOCOLS <WKBEScrollViewDelegate>
+#endif
+
 #endif
 
 #if PLATFORM(MAC)
+
+#if ENABLE(WRITING_TOOLS)
+#define WK_WEB_VIEW_PROTOCOLS <WKShareSheetDelegate, WTWritingToolsDelegate, NSTextInputTraits>
+#else
 #define WK_WEB_VIEW_PROTOCOLS <WKShareSheetDelegate>
+#endif
+
 #endif
 
 #if !defined(WK_WEB_VIEW_PROTOCOLS)
@@ -106,8 +120,15 @@ class ViewGestureController;
 @class WKPasswordView;
 @class WKSafeBrowsingWarning;
 @class WKScrollView;
+@class WKTextExtractionItem;
+@class WKTextExtractionRequest;
 @class WKWebViewContentProviderRegistry;
 @class _WKFrameHandle;
+
+#if ENABLE(WRITING_TOOLS)
+@class WTTextSuggestion;
+@class WTSession;
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 @class WKFullScreenWindowController;
@@ -226,6 +247,11 @@ struct PerWebProcessState {
     CocoaEdgeInsets _minimumViewportInset;
     CocoaEdgeInsets _maximumViewportInset;
 
+#if ENABLE(WRITING_TOOLS)
+    RetainPtr<NSMapTable<NSUUID *, WTTextSuggestion *>> _writingToolsTextSuggestions;
+    RetainPtr<NSMapTable<NSUUID *, WTSession *>> _writingToolsSessions;
+#endif
+
 #if PLATFORM(MAC)
     std::unique_ptr<WebKit::WebViewImpl> _impl;
     RetainPtr<WKTextFinderClient> _textFinderClient;
@@ -239,14 +265,20 @@ struct PerWebProcessState {
     RetainPtr<WKContentView> _contentView;
     std::unique_ptr<WebKit::ViewGestureController> _gestureController;
     Vector<BlockPtr<void ()>> _visibleContentRectUpdateCallbacks;
-
+    RetainPtr<WKWebViewContentProviderRegistry> _contentProviderRegistry;
 #if ENABLE(FULLSCREEN_API)
     RetainPtr<WKFullScreenWindowController> _fullScreenWindowController;
 #endif
 
     BOOL _findInteractionEnabled;
 #if HAVE(UIFINDINTERACTION)
-    RetainPtr<UIView> _findOverlay;
+    struct FindOverlays {
+        RetainPtr<UIView> top;
+        RetainPtr<UIView> right;
+        RetainPtr<UIView> bottom;
+        RetainPtr<UIView> left;
+    };
+    std::optional<FindOverlays> _findOverlaysOutsideContentView;
     RetainPtr<UIFindInteraction> _findInteraction;
 #endif
 
@@ -284,7 +316,8 @@ struct PerWebProcessState {
     RetainPtr<UIView> _resizeAnimationView;
     CGFloat _lastAdjustmentForScroller;
 
-    RetainPtr<id> _endLiveResizeNotificationObserver;
+    std::pair<CGSize, UIInterfaceOrientation> _lastKnownWindowSizeAndOrientation;
+    RetainPtr<NSTimer> _endLiveResizeTimer;
 
     WebCore::FloatBoxExtent _obscuredInsetsWhenSaved;
 
@@ -336,10 +369,18 @@ struct PerWebProcessState {
     RetainPtr<NSArray<NSNumber *>> _scrollViewDefaultAllowedTouchTypes;
 #endif
 
+#if PLATFORM(VISION)
+    String _defaultSTSLabel;
+#endif
+
     BOOL _didAccessBackForwardList;
 
 #if ENABLE(PAGE_LOAD_OBSERVER)
     RetainPtr<NSString> _pendingPageLoadObserverHost;
+#endif
+
+#if ENABLE(GAMEPAD)
+    RetainPtr<id> _gamepadsRecentlyAccessedState;
 #endif
 }
 
@@ -360,6 +401,28 @@ struct PerWebProcessState {
 - (void)_storeAppHighlight:(const WebCore::AppHighlight&)info;
 #endif
 
+#if ENABLE(WRITING_TOOLS)
+- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID showDetailsForSuggestionWithUUID:(NSUUID *)replacementUUID relativeToRect:(CGRect)rect;
+
+- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID updateState:(WebCore::WritingTools::TextSuggestionState)state forSuggestionWithUUID:(NSUUID *)replacementUUID;
+
+#if PLATFORM(MAC)
+// FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
+- (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions;
+- (PlatformWritingToolsResultOptions)allowedWritingToolsResultOptions;
+#else
+// FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
+- (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions;
+- (PlatformWritingToolsResultOptions)allowedWritingToolsResultOptions;
+#endif
+
+#endif // ENABLE(WRITING_TOOLS)
+
+#if ENABLE(WRITING_TOOLS_UI)
+- (void)_addTextAnimationForAnimationID:(NSUUID *)uuid withData:(const WebKit::TextAnimationData&)styleData;
+- (void)_removeTextAnimationForAnimationID:(NSUUID *)uuid;
+#endif
+
 - (void)_internalDoAfterNextPresentationUpdate:(void (^)(void))updateBlock withoutWaitingForPainting:(BOOL)withoutWaitingForPainting withoutWaitingForAnimatedResize:(BOOL)withoutWaitingForAnimatedResize;
 
 - (void)_doAfterNextVisibleContentRectAndPresentationUpdate:(void (^)(void))updateBlock;
@@ -374,8 +437,21 @@ struct PerWebProcessState {
 
 - (void)_didAccessBackForwardList NS_DIRECT;
 
+#if ENABLE(GAMEPAD)
+- (void)_setGamepadsRecentlyAccessed:(BOOL)gamepadsRecentlyAccessed;
+
+#if PLATFORM(VISION)
+@property (nonatomic, readonly) BOOL _gamepadsConnected;
+- (void)_gamepadsConnectedStateChanged;
+- (void)_setAllowGamepadsInput:(BOOL)allowGamepadsInput;
+- (void)_setAllowGamepadsAccess;
+#endif
+#endif
+
 - (WKPageRef)_pageForTesting;
 - (NakedPtr<WebKit::WebPageProxy>)_page;
+
+@property (nonatomic, setter=_setHasActiveNowPlayingSession:) BOOL _hasActiveNowPlayingSession;
 
 @end
 
@@ -395,3 +471,8 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails&)
 @property (nonatomic, readonly) id <_WKWebViewPrintProvider> _printProvider;
 @end
 #endif
+
+@interface WKWebView (WKTextExtraction)
+- (void)_requestTextExtractionForSwift:(WKTextExtractionRequest *)context;
+- (void)_requestTextExtraction:(CGRect)rect completionHandler:(void(^)(WKTextExtractionItem *))completionHandler;
+@end

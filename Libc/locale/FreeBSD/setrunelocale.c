@@ -47,7 +47,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.51 2008/01/23 03:05:
 #include "mblocal.h"
 #include "setlocale.h"
 
-extern struct __xlocale_st_runelocale	*_Read_RuneMagi(FILE *);
+extern struct xlocale_ctype	*_Read_RuneMagi(FILE *);
 
 #ifdef UNIFDEF_LEGACY_RUNE_APIS
 /* depreciated interfaces */
@@ -60,10 +60,10 @@ __setrunelocale(const char *encoding, locale_t loc)
 {
 	FILE *fp;
 	char name[PATH_MAX];
-	struct __xlocale_st_runelocale *xrl;
+	struct xlocale_ctype *xrl;
 	_RuneLocale *rl;
 	int saverr, ret;
-	static struct __xlocale_st_runelocale *CachedRuneLocale;
+	static struct xlocale_ctype *CachedRuneLocale;
 	extern int __mb_cur_max;
 	extern int __mb_sb_limit;
 	static os_unfair_lock cache_lock = OS_UNFAIR_LOCK_INIT;
@@ -72,13 +72,13 @@ __setrunelocale(const char *encoding, locale_t loc)
 	 * The "C" and "POSIX" locale are always here.
 	 */
 	if (strcmp(encoding, "C") == 0 || strcmp(encoding, "POSIX") == 0) {
-		XL_RELEASE(loc->__lc_ctype);
-		loc->__lc_ctype = &_DefaultRuneXLocale;
+		xlocale_release(loc->components[XLC_CTYPE]);
+		loc->components[XLC_CTYPE] = (void *)&_DefaultRuneXLocale;
 		/* no need to retain _DefaultRuneXLocale */
 		if (loc == &__global_locale) {
-			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
-			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
-			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
+			_CurrentRuneLocale = XLOCALE_CTYPE(loc)->_CurrentRuneLocale;
+			__mb_cur_max = XLOCALE_CTYPE(loc)->__mb_cur_max;
+			__mb_sb_limit = XLOCALE_CTYPE(loc)->__mb_sb_limit;
 		}
 		return (0);
 	}
@@ -88,14 +88,14 @@ __setrunelocale(const char *encoding, locale_t loc)
 	 */
 	os_unfair_lock_lock(&cache_lock);
 	if (CachedRuneLocale != NULL &&
-	    strcmp(encoding, CachedRuneLocale->__ctype_encoding) == 0) {
-		XL_RELEASE(loc->__lc_ctype);
-		loc->__lc_ctype = CachedRuneLocale;
-		XL_RETAIN(loc->__lc_ctype);
+	    strcmp(encoding, CachedRuneLocale->header.locale) == 0) {
+		xlocale_release(loc->components[XLC_CTYPE]);
+		loc->components[XLC_CTYPE] = (void *)CachedRuneLocale;
+		xlocale_retain(CachedRuneLocale);
 		if (loc == &__global_locale) {
-			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
-			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
-			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
+			_CurrentRuneLocale = XLOCALE_CTYPE(loc)->_CurrentRuneLocale;
+			__mb_cur_max = XLOCALE_CTYPE(loc)->__mb_cur_max;
+			__mb_sb_limit = XLOCALE_CTYPE(loc)->__mb_sb_limit;
 		}
 		os_unfair_lock_unlock(&cache_lock);
 		return (0);
@@ -126,7 +126,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 	xrl->__wcrtomb = NULL;
 	xrl->__wcsnrtombs = __wcsnrtombs_std;
 
-	rl = &xrl->_CurrentRuneLocale;
+	rl = xrl->_CurrentRuneLocale;
 
 #ifdef UNIFDEF_LEGACY_RUNE_APIS
 	/* provide backwards compatibility (depreciated interface) */
@@ -137,16 +137,30 @@ __setrunelocale(const char *encoding, locale_t loc)
 	rl->__sgetrune = NULL;
 #endif /* UNIFDEF_LEGACY_RUNE_APIS */
 
-	if (strcmp(rl->__encoding, "NONE") == 0)
-		ret = _none_init(xrl);
-	else if (strcmp(rl->__encoding, "ASCII") == 0)
+	/*
+	 * NONE:US-ASCII is localedef(1)'s way, ASCII is legacy.  We previously
+	 * had just EUC, but with newer localedata we'll more specifically have
+	 * eucJP, eucKR, eucCN, or possibly eucTW.
+	 */
+	if (strcmp(rl->__encoding, "NONE:US-ASCII") == 0 ||
+	    strcmp(rl->__encoding, "ASCII") == 0)
 		ret = _ascii_init(xrl);
+	else if (strncmp(rl->__encoding, "NONE", 4) == 0)
+		ret = _none_init(xrl);
 	else if (strcmp(rl->__encoding, "UTF-8") == 0)
 		ret = _UTF8_init(xrl);
+	else if (strcmp(rl->__encoding, "EUC-CN") == 0)
+		ret = _EUC_CN_init(xrl);
+	else if (strcmp(rl->__encoding, "EUC-JP") == 0)
+		ret = _EUC_JP_init(xrl);
+	else if (strcmp(rl->__encoding, "EUC-KR") == 0)
+		ret = _EUC_KR_init(xrl);
+	else if (strcmp(rl->__encoding, "EUC-TW") == 0)
+		ret = _EUC_TW_init(xrl);
 	else if (strcmp(rl->__encoding, "EUC") == 0)
 		ret = _EUC_init(xrl);
 	else if (strcmp(rl->__encoding, "GB18030") == 0)
- 		ret = _GB18030_init(xrl);
+		ret = _GB18030_init(xrl);
 	else if (strcmp(rl->__encoding, "GB2312") == 0)
 		ret = _GB2312_init(xrl);
 	else if (strcmp(rl->__encoding, "GBK") == 0)
@@ -161,21 +175,21 @@ __setrunelocale(const char *encoding, locale_t loc)
 		ret = EFTYPE;
 
 	if (ret == 0) {
-		(void)strcpy(xrl->__ctype_encoding, encoding);
-		XL_RELEASE(loc->__lc_ctype);
-		loc->__lc_ctype = xrl;
+		(void)strcpy(xrl->header.locale, encoding);
+		xlocale_release(loc->components[XLC_CTYPE]);
+		loc->components[XLC_CTYPE] = (void *)xrl;
 		if (loc == &__global_locale) {
-			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
-			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
-			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
+			_CurrentRuneLocale = XLOCALE_CTYPE(loc)->_CurrentRuneLocale;
+			__mb_cur_max = XLOCALE_CTYPE(loc)->__mb_cur_max;
+			__mb_sb_limit = XLOCALE_CTYPE(loc)->__mb_sb_limit;
 		}
 		os_unfair_lock_lock(&cache_lock);
-		XL_RELEASE(CachedRuneLocale);
+		xlocale_release(CachedRuneLocale);
 		CachedRuneLocale = xrl;
-		XL_RETAIN(CachedRuneLocale);
+		xlocale_retain(CachedRuneLocale);
 		os_unfair_lock_unlock(&cache_lock);
 	} else
-		XL_RELEASE(xrl);
+		xlocale_release(xrl);
 
 	return (ret);
 }

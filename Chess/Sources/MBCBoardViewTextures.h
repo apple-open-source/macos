@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardViewTextures.h
 	Contains:	Texture handling for OpenGL chess board view.
-	Copyright:	© 2002 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following

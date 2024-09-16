@@ -165,6 +165,28 @@ printf_intpr(int numargs, ...)
 	va_end(ap);
 }
 
+void
+printf_nfserrs(int numargs, ...)
+{
+	va_list ap;
+
+	va_start(ap, numargs);
+	for (int i = 0; i < numargs; i++) {
+		printf("%20.20s ", va_arg(ap, const char *));
+		va_arg(ap, uint64_t); // skip value
+	}
+	printf("\n");
+	va_end(ap);
+
+	va_start(ap, numargs);
+	for (int i = 0; i < numargs; i++) {
+		va_arg(ap, const char *); // skip type
+		printf("%20llu ", va_arg(ap, uint64_t));
+	}
+	printf("\n");
+	va_end(ap);
+}
+
 /* Printf Printer */
 
 /* Json Printer */

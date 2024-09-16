@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@ struct smb_prefs {
     uint16_t            tcp_port;
     int32_t             KernelLogLevel;
     enum smb_min_auth   minAuthAllowed;
-    int32_t             altflags;
+    int64_t             altflags;
     CFStringRef         NetBIOSDNSName;
     int32_t             protocol_version_map;
     uint32_t            lanman_on;
@@ -69,10 +69,12 @@ struct smb_prefs {
     int32_t             write_size[3];
     int32_t             write_count[3];
     
-    int32_t             rw_thread_control;
+    int32_t             rw_max_check_time;
+    int32_t             rw_gb_threshold;
 
-    int32_t             mc_max_channels;
-    int32_t             mc_max_rss_channels;
+    uint32_t            mc_max_channels;
+    uint32_t            mc_srvr_rss_channels;
+    uint32_t            mc_clnt_rss_channels;
     uint32_t            mc_client_if_ignorelist[kClientIfIgnorelistMaxLen];
     uint32_t            mc_client_if_ignorelist_len;
     
@@ -80,6 +82,14 @@ struct smb_prefs {
     uint32_t            force_sess_encrypt;
     uint32_t            force_share_encrypt;
 
+    int32_t             compression_algorithms_map;
+    int32_t             compression_io_threshold;
+    int32_t             compression_chunk_len;
+    int32_t             compression_max_fail_cnt;
+    char *              compression_exclude[kClientCompressMaxEntries];
+    uint32_t            compression_exclude_cnt;
+    char *              compression_include[kClientCompressMaxEntries];
+    uint32_t            compression_include_cnt;
 };
 
 void getDefaultPreferences(struct smb_prefs *prefs);

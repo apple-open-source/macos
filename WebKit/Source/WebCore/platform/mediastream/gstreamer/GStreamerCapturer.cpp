@@ -32,6 +32,8 @@
 #include <mutex>
 #include <wtf/HexNumber.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/PrintStream.h>
+#include <wtf/text/MakeString.h>
 
 GST_DEBUG_CATEGORY(webkit_capturer_debug);
 #define GST_CAT_DEFAULT webkit_capturer_debug
@@ -67,35 +69,50 @@ GStreamerCapturer::GStreamerCapturer(const char* sourceFactory, GRefPtr<GstCaps>
 
 GStreamerCapturer::~GStreamerCapturer()
 {
-    auto* sink = this->sink();
-    if (sink)
-        g_signal_handlers_disconnect_by_data(sink, this);
-
-    if (!m_pipeline)
-        return;
-
-    unregisterPipeline(m_pipeline);
-    disconnectSimpleBusMessageCallback(pipeline());
-    gst_element_set_state(pipeline(), GST_STATE_NULL);
+    tearDown();
 }
 
-GStreamerCapturer::Observer::~Observer()
+void GStreamerCapturer::tearDown(bool disconnectSignals)
+{
+    GST_DEBUG("Disposing capture pipeline %" GST_PTR_FORMAT " (disconnecting signals: %s)", m_pipeline.get(), boolForPrinting(disconnectSignals));
+    if (disconnectSignals && m_sink)
+        g_signal_handlers_disconnect_by_data(m_sink.get(), this);
+
+    if (m_pipeline) {
+        if (disconnectSignals) {
+            unregisterPipeline(m_pipeline);
+            disconnectSimpleBusMessageCallback(pipeline());
+        }
+        gst_element_set_state(pipeline(), GST_STATE_NULL);
+    }
+
+    if (!disconnectSignals)
+        return;
+
+    m_sink = nullptr;
+    m_valve = nullptr;
+    m_src = nullptr;
+    m_capsfilter = nullptr;
+    m_pipeline = nullptr;
+}
+
+GStreamerCapturerObserver::~GStreamerCapturerObserver()
 {
 }
 
-void GStreamerCapturer::addObserver(Observer& observer)
+void GStreamerCapturer::addObserver(GStreamerCapturerObserver& observer)
 {
     ASSERT(isMainThread());
     m_observers.add(observer);
 }
 
-void GStreamerCapturer::removeObserver(Observer& observer)
+void GStreamerCapturer::removeObserver(GStreamerCapturerObserver& observer)
 {
     ASSERT(isMainThread());
     m_observers.remove(observer);
 }
 
-void GStreamerCapturer::forEachObserver(const Function<void(Observer&)>& apply)
+void GStreamerCapturer::forEachObserver(const Function<void(GStreamerCapturerObserver&)>& apply)
 {
     ASSERT(isMainThread());
     Ref protectedThis { *this };
@@ -121,7 +138,7 @@ GstElement* GStreamerCapturer::createSource()
                 callOnMainThread([event, capturer = reinterpret_cast<GStreamerCapturer*>(userData)] {
                     GstCaps* caps;
                     gst_event_parse_caps(event, &caps);
-                    capturer->forEachObserver([caps](Observer& observer) {
+                    capturer->forEachObserver([caps](GStreamerCapturerObserver& observer) {
                         observer.sourceCapsChanged(caps);
                     });
                 });
@@ -130,7 +147,7 @@ GstElement* GStreamerCapturer::createSource()
         }
     } else {
         ASSERT(m_device);
-        auto sourceName = makeString(name(), hex(reinterpret_cast<uintptr_t>(this)));
+        auto sourceName = makeString(WTF::span(name()), hex(reinterpret_cast<uintptr_t>(this)));
         m_src = gst_device_create_element(m_device->device(), sourceName.ascii().data());
         ASSERT(m_src);
         g_object_set(m_src.get(), "do-timestamp", TRUE, nullptr);
@@ -151,23 +168,25 @@ GstElement* GStreamerCapturer::createSource()
     return m_src.get();
 }
 
-GstCaps* GStreamerCapturer::caps()
+GRefPtr<GstCaps> GStreamerCapturer::caps()
 {
     if (m_sourceFactory) {
         GRefPtr<GstElement> element = makeElement(m_sourceFactory);
         auto pad = adoptGRef(gst_element_get_static_pad(element.get(), "src"));
 
-        return gst_pad_query_caps(pad.get(), nullptr);
+        return adoptGRef(gst_pad_query_caps(pad.get(), nullptr));
     }
 
     ASSERT(m_device);
-    return gst_device_get_caps(m_device->device());
+    return adoptGRef(gst_device_get_caps(m_device->device()));
 }
 
 void GStreamerCapturer::setupPipeline()
 {
-    if (m_pipeline)
+    if (m_pipeline) {
+        unregisterPipeline(m_pipeline);
         disconnectSimpleBusMessageCallback(pipeline());
+    }
 
     m_pipeline = makeElement("pipeline");
     registerActivePipeline(m_pipeline);
@@ -178,6 +197,8 @@ void GStreamerCapturer::setupPipeline()
     m_valve = makeElement("valve");
     m_capsfilter = makeElement("capsfilter");
     m_sink = makeElement("appsink");
+
+    gst_util_set_object_arg(G_OBJECT(m_capsfilter.get()), "caps-change-mode", "delayed");
 
     gst_app_sink_set_emit_signals(GST_APP_SINK(m_sink.get()), TRUE);
     g_object_set(m_sink.get(), "enable-last-sample", FALSE, nullptr);
@@ -193,7 +214,7 @@ void GStreamerCapturer::setupPipeline()
 GstElement* GStreamerCapturer::makeElement(const char* factoryName)
 {
     auto* element = makeGStreamerElement(factoryName, nullptr);
-    auto elementName = makeString(name(), "_capturer_", GST_OBJECT_NAME(element), '_', hex(reinterpret_cast<uintptr_t>(this)));
+    auto elementName = makeString(span(name()), "_capturer_"_s, span(GST_OBJECT_NAME(element)), '_', hex(reinterpret_cast<uintptr_t>(this)));
     gst_object_set_name(GST_OBJECT(element), elementName.ascii().data());
 
     return element;
@@ -201,6 +222,9 @@ GstElement* GStreamerCapturer::makeElement(const char* factoryName)
 
 void GStreamerCapturer::start()
 {
+    if (!m_pipeline)
+        setupPipeline();
+
     ASSERT(m_pipeline);
     GST_INFO_OBJECT(pipeline(), "Starting");
     gst_element_set_state(pipeline(), GST_STATE_PLAYING);
@@ -208,10 +232,8 @@ void GStreamerCapturer::start()
 
 void GStreamerCapturer::stop()
 {
-    ASSERT(m_pipeline);
     GST_INFO_OBJECT(pipeline(), "Stopping");
-    unregisterPipeline(m_pipeline);
-    gst_element_set_state(pipeline(), GST_STATE_NULL);
+    tearDown(false);
 }
 
 bool GStreamerCapturer::isInterrupted() const
@@ -226,11 +248,16 @@ void GStreamerCapturer::setInterrupted(bool isInterrupted)
     g_object_set(m_valve.get(), "drop", isInterrupted, nullptr);
 }
 
-void GStreamerCapturer::stopDevice()
+void GStreamerCapturer::stopDevice(bool disconnectSignals)
 {
     forEachObserver([](auto& observer) {
         observer.captureEnded();
     });
+    if (disconnectSignals) {
+        m_device.reset();
+        m_caps = nullptr;
+    }
+    tearDown(disconnectSignals);
 }
 
 #undef GST_CAT_DEFAULT

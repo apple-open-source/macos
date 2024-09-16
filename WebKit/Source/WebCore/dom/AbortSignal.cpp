@@ -59,7 +59,7 @@ Ref<AbortSignal> AbortSignal::abort(JSDOMGlobalObject& globalObject, ScriptExecu
 // https://dom.spec.whatwg.org/#dom-abortsignal-timeout
 Ref<AbortSignal> AbortSignal::timeout(ScriptExecutionContext& context, uint64_t milliseconds)
 {
-    auto signal = adoptRef(*new AbortSignal(&context));
+    Ref signal = AbortSignal::create(&context);
     signal->setHasActiveTimeoutTimer(true);
     auto action = [signal](ScriptExecutionContext& context) mutable {
         signal->setHasActiveTimeoutTimer(false);
@@ -76,9 +76,9 @@ Ref<AbortSignal> AbortSignal::timeout(ScriptExecutionContext& context, uint64_t 
     return signal;
 }
 
-Ref<AbortSignal> AbortSignal::any(ScriptExecutionContext& context, const Vector<RefPtr<AbortSignal>>& signals)
+Ref<AbortSignal> AbortSignal::any(ScriptExecutionContext& context, const Vector<Ref<AbortSignal>>& signals)
 {
-    auto resultSignal = adoptRef(*new AbortSignal(&context));
+    Ref resultSignal = AbortSignal::create(&context);
 
     auto abortedSignalIndex = signals.findIf([](auto& signal) { return signal->aborted(); });
     if (abortedSignalIndex != notFound) {
@@ -88,7 +88,7 @@ Ref<AbortSignal> AbortSignal::any(ScriptExecutionContext& context, const Vector<
 
     resultSignal->markAsDependent();
     for (auto& signal : signals)
-        resultSignal->addSourceSignal(*signal);
+        resultSignal->addSourceSignal(signal);
 
     return resultSignal;
 }
@@ -137,7 +137,6 @@ void AbortSignal::signalAbort(JSC::JSValue reason)
     ASSERT(reason);
     m_reason.setWeakly(reason);
 
-    Ref protectedThis { *this };
     auto algorithms = std::exchange(m_algorithms, { });
     for (auto& algorithm : algorithms)
         algorithm.second(reason);
@@ -162,7 +161,7 @@ void AbortSignal::signalFollow(AbortSignal& signal)
 
     ASSERT(!m_followingSignal);
     m_followingSignal = signal;
-    signal.addAlgorithm([weakThis = WeakPtr<AbortSignal, WeakPtrImplWithEventTargetData> { this }](JSC::JSValue reason) {
+    signal.addAlgorithm([weakThis = WeakPtr { *this }](JSC::JSValue reason) {
         if (RefPtr signal = weakThis.get())
             signal->signalAbort(reason);
     });

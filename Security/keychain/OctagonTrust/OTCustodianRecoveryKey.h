@@ -40,6 +40,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isEqualToCustodianRecoveryKey:(OTCustodianRecoveryKey*)other;
 - (BOOL)isEqual:(nullable id)object;
 
+- (NSDictionary*)dictionary;
+
 @property (strong, nonatomic, readonly) NSUUID *uuid;               // Unique identifier for each CRK
 @property (strong, nonatomic, readonly) NSData *wrappingKey;        // Key to encrypt recoveryString -- to create two parts both needed to reassemble.
 @property (strong, nonatomic, readonly) NSData *wrappedKey;         // The recoveryString encrypted by wrappingKey (IV + ciphertext) -- in AES GCM.

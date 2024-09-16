@@ -63,6 +63,7 @@
 #include <kern/host.h>
 #include <mach/host_priv.h>
 #include <lockd/lockd_mach.h>
+#include <libkern/OSAtomic.h>
 
 #include <nfs/nfsmount.h>
 #include <nfs/nfsnode.h>
@@ -780,6 +781,7 @@ nfs3_setlock_rpc(
 	msg->lm_fl.l_type = nflp->nfl_type;
 	msg->lm_fl.l_pid = nlop->nlo_pid;
 
+	OSAddAtomic64(1, &nfsclntstats.nlmcnt.nlm_lock);
 	error = nfs3_lockd_request(np, 0, &msgreq, flags, thd);
 
 	nfs_lock_owner_clear_busy(nlop);
@@ -823,6 +825,7 @@ nfs3_unlock_rpc(
 	msg->lm_fl.l_type = F_UNLCK;
 	msg->lm_fl.l_pid = nlop->nlo_pid;
 
+	OSAddAtomic64(1, &nfsclntstats.nlmcnt.nlm_unlock);
 	return nfs3_lockd_request(np, F_UNLCK, &msgreq, flags, thd);
 }
 
@@ -863,6 +866,7 @@ nfs3_getlock_rpc(
 	msg->lm_fl.l_type = fl->l_type;
 	msg->lm_fl.l_pid = nlop->nlo_pid;
 
+	OSAddAtomic64(1, &nfsclntstats.nlmcnt.nlm_test);
 	error = nfs3_lockd_request(np, 0, &msgreq, 0, vfs_context_thread(ctx));
 
 	if (!error && (msg->lm_flags & LOCKD_MSG_TEST) && !msgreq.lmr_errno) {

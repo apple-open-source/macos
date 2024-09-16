@@ -43,6 +43,7 @@
 #include "connection.h"
 #include "database.h"
 #include "server.h"
+#include "keybag_helpers.h"
 #include <security_utilities/logging.h>
 #include <agentquery.h>
 
@@ -202,7 +203,7 @@ void Session::changeKeyStorePassphrase()
     CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
     SecurityAgent::Reason queryReason = keybagQuery.query(oldPass, pass);
     if (queryReason == SecurityAgent::noReason) {
-        service_client_kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
+        kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
     } else {
         CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
     }
@@ -211,7 +212,7 @@ void Session::changeKeyStorePassphrase()
 void Session::resetKeyStorePassphrase(const CssmData &passphrase)
 {
     service_context_t context = get_current_service_context();
-    service_client_kb_reset(&context, passphrase.data(), (int)passphrase.length());
+    kb_reset(&context, passphrase.data(), (int)passphrase.length());
 }
 
 service_context_t Session::get_current_service_context()

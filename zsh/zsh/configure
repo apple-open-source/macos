@@ -9459,6 +9459,12 @@ then :
   printf "%s\n" "#define HAVE_FCHMOD 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "fpurge" "ac_cv_func_fpurge"
+if test "x$ac_cv_func_fpurge" = xyes
+then :
+  printf "%s\n" "#define HAVE_FPURGE 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "fseeko" "ac_cv_func_fseeko"
 if test "x$ac_cv_func_fseeko" = xyes
 then :

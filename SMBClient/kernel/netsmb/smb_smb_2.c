@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,9 @@
 extern lck_mtx_t global_Lease_hash_lock;
 extern lck_grp_t *smb_rw_group;
 
+extern uint32_t smb_maxsegreadsize;
+extern uint32_t smb_maxsegwritesize;
+
 static uint32_t smb_maxwrite = kDefaultMaxIOSize;	/* Default max write size */
 static uint32_t smb_maxread = kDefaultMaxIOSize;	/* Default max read size */
 
@@ -68,6 +71,10 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, maxread, CTLFLAG_RW, &smb_maxread, 0, "");
  * to pass back the results.
  *
  */
+
+void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doingRead,
+                                   uint32_t inQuantumSize, uint32_t inQuantumNbr,
+                                   struct timeval totalTime, uint64_t totalDataLen);
 
 static int
 smb2_smb_parse_create_contexts(struct smb_share *share, struct mdchain *mdp,
@@ -86,32 +93,24 @@ smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
                                   uint32_t neg_context_offset,
                                   uint16_t neg_context_count);
 
-int
-smb2_smb_read_one(struct smb_share *share, struct smb2_rw_rq *readp,
-                  user_ssize_t *len, user_ssize_t *rresid,
-                  struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
-
 static int
 smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
-                  vfs_context_t context);
+                  uint32_t allow_compression, vfs_context_t context);
 
 static int
 smb2_smb_read_write_async(struct smb_share *share,
                           struct smb2_rw_rq *in_read_writep,
                           user_ssize_t *len, user_ssize_t *rresid,
-                          uint32_t do_read, vfs_context_t context);
+                          uint32_t do_read, uint32_t *allow_compressionp,
+                          vfs_context_t context);
 
 static int
 smb2_smb_read_write_fill(struct smb_share *share,
                          struct smb2_rw_rq *master_read_writep,
                          struct smb2_rw_rq *read_writep, struct smb_rq **rqp,
                          uint32_t do_read, uint32_t quantum_size,
+                         uint32_t *allow_compressionp,
                          vfs_context_t context);
-
-int
-smb2_smb_write_one(struct smb_share *share, struct smb2_rw_rq *args,
-                   user_ssize_t *len, user_ssize_t *rresid,
-                   struct smb_rq **compound_rqp, struct smbiod *iod, vfs_context_t context);
 
 static uint32_t
 smb2_session_maxtransact(struct smb_session *sessionp);
@@ -154,6 +153,34 @@ smb_get_share(struct smb_session *sessionp, struct smb_share **sharepp) {
     SMBDEBUG("No valid share.\n");
     smb_session_unlock(sessionp);
     return(ENOENT);
+}
+
+/*
+ * smb_get_utf8_char_count()
+ *
+ * Returns the number of chars in an UTF8 string that could have multibytes
+ * per char. Not super fast, but should be very safe/accurate.
+ *
+ * Bytes 0x01 - 0x7F are ASCII chars
+ * Bytes 0xC0 - 0xFF are part of the multi bytes chars
+ */
+static int smb_get_utf8_char_count(char s[], size_t maxlen)
+{
+    int i = 0, count = 0;
+    
+    while (s[i]) {
+        if ((s[i] & 0xC0) != 0x80) {
+            /* Count only non multibyte chars */
+            count++;
+        }
+        i++;
+        
+        if (i > (int) maxlen) {
+            break;
+        }
+    }
+
+    return(count);
 }
 
 static int
@@ -736,6 +763,7 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     uint16_t neg_context_cnt = 0;
     uint32_t encrypt_algorithm_cnt = 0;
     uint32_t sign_algorithm_cnt = 0;
+    uint32_t compression_algorithm_cnt = 0;
 
     /*
      * All Negotiate Contexts start with 8 bytes which is the
@@ -850,17 +878,76 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
 
     /*
      * Add SMB2_COMPRESSION_CAPABILITIES context next
+     * For reconnect, leave in all algorithms since server picks algorithm
+     * to use, but is always allowed to select SMB2_COMPRESSION_NONE
+     *
      */
     context_len = 8;        /* Neg Context Header Len */
-    context_len += 10;      /* This context data len is currently 10 */
+    
+    if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZNT1_ENABLED) {
+        compression_algorithm_cnt += 1;
+    }
+    if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_ENABLED) {
+        compression_algorithm_cnt += 1;
+    }
+    if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED) {
+        compression_algorithm_cnt += 1;
+    }
+    if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_PATTERN_V1_ENABLED) {
+        /* Pattern algoritm is only valid if chained compression is supported */
+        if (sessionp->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF) {
+            /* Disable Pattern algorithm since chained compression is disabled */
+            sessionp->client_compression_algorithms_map &= ~SMB2_COMPRESSION_PATTERN_V1_ENABLED;
+        }
+        else {
+            compression_algorithm_cnt += 1;
+        }
+    }
 
-    mb_put_uint16le(mbp, SMB2_COMPRESSION_CAPABILITIES);    /* ContextType */
-    mb_put_uint16le(mbp, 10);                               /* DataLength */
-    mb_put_uint32le(mbp, 0);                                /* Reserved */
-    mb_put_uint16le(mbp, 1);                                /* CompressionAlgorithmCount */
-    mb_put_uint16le(mbp, 0);                                /* Padding */
-    mb_put_uint32le(mbp, SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE); /* Flags */
-    mb_put_uint16le(mbp, SMB2_COMPRESSION_NONE);            /* CompressionAlgorithms */
+    if (compression_algorithm_cnt == 0) {
+        /* No compression algorithm enabled */
+        context_len += 10;      /* This context data len is currently 10 */
+
+        SMBERROR("No compression algorithm enabled? \n");
+        mb_put_uint16le(mbp, SMB2_COMPRESSION_CAPABILITIES);    /* ContextType */
+        mb_put_uint16le(mbp, 10);                               /* DataLength */
+        mb_put_uint32le(mbp, 0);                                /* Reserved */
+        mb_put_uint16le(mbp, 1);                                /* CompressionAlgorithmCount */
+        mb_put_uint16le(mbp, 0);                                /* Padding */
+        mb_put_uint32le(mbp, SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE); /* Flags */
+        mb_put_uint16le(mbp, SMB2_COMPRESSION_NONE);            /* CompressionAlgorithms */
+    }
+    else {
+        /* At least one compression algorithm is enabled */
+        context_len += 8 + (2 * compression_algorithm_cnt);
+        
+        mb_put_uint16le(mbp, SMB2_COMPRESSION_CAPABILITIES);    /* ContextType */
+        mb_put_uint16le(mbp, (8 + (2 * compression_algorithm_cnt))); /* DataLength */
+        mb_put_uint32le(mbp, 0);                                /* Reserved */
+        mb_put_uint16le(mbp, compression_algorithm_cnt);        /* CompressionAlgorithmCount */
+        mb_put_uint16le(mbp, 0);                                /* Padding */
+        
+        if (sessionp->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF) {
+            mb_put_uint32le(mbp, SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE);      /* Flags */
+        }
+        else {
+            mb_put_uint32le(mbp, SMB2_COMPRESSION_CAPABILITIES_FLAG_CHAINED);   /* Flags */
+        }
+        
+        /* [MS-SMB2] 2.2.3.1.3 Most prefered compression algorithms at the beginning */
+        if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED) {
+            mb_put_uint16le(mbp, SMB2_COMPRESSION_LZ77_HUFFMAN);
+        }
+        if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZ77_ENABLED) {
+            mb_put_uint16le(mbp, SMB2_COMPRESSION_LZ77);
+        }
+        if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_LZNT1_ENABLED) {
+            mb_put_uint16le(mbp, SMB2_COMPRESSION_LZNT1);
+        }
+        if (sessionp->client_compression_algorithms_map & SMB2_COMPRESSION_PATTERN_V1_ENABLED) {
+            mb_put_uint16le(mbp, SMB2_COMPRESSION_PATTERN_V1);
+        }
+    }
 
     neg_context_cnt += 1;
 
@@ -955,23 +1042,24 @@ smb2_smb_add_negotiate_contexts(struct smb_session *sessionp,
     return (error);
 }
 
-static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doingRead,
-                                          uint32_t inQuantumSize, uint32_t inQuantumNbr,
-                                          struct timeval totalTime, uint64_t totalDataLen)
+void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doingRead,
+                                   uint32_t inQuantumSize, uint32_t inQuantumNbr,
+                                   struct timeval totalTime, uint64_t totalDataLen)
 {
-#pragma unused(inQuantumNbr)
     struct smb_session *sessionp = NULL;
-    uint64_t totalElapsedTimeMicroSecs;     /* time to send totalDataLen amount of data */
-    uint64_t bytesPerSec;               /* curr bytes per second */
-    uint32_t currQuantumSize;
+    uint64_t totalElapsedTimeMicroSecs = 0; /* time to send totalDataLen amount of data */
+    uint64_t bytesPerSec = 0;               /* curr bytes per second */
+    uint32_t currQuantumSize = 0;
     uint32_t newQuantumNumber = 0, newQuantumSize = 0;
     uint32_t changedQuantumSize = 0;
-    uint32_t estimated_credits;
+    uint32_t estimated_credits = 0;
     int32_t check_credits = 0;
     int32_t throttle = 0;
     uint64_t *bytes_secp = NULL;
     uint32_t *quantum_sizep = NULL;
-    uint32_t *quantum_countp = NULL;
+    uint32_t *quantum_countp = NULL, which_checked = 0;
+    uint32_t *total_timep = NULL;
+    uint64_t *total_bytesp = NULL;
 
     if (share == NULL) {
         SMBERROR("share is null? \n");
@@ -993,12 +1081,14 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     /* Paranoid checks */
     if ((totalTime.tv_sec == 0) && (totalTime.tv_usec == 0)) {
         SMBERROR("totalTime is 0? \n");
-        goto exit;
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return;
     }
     
     if (totalDataLen == 0) {
         SMBERROR("totalDataLen is 0? \n");
-        goto exit;
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return;
     }
 
     /* calculate bytes per second */
@@ -1008,10 +1098,13 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
     if (totalElapsedTimeMicroSecs == 0) {
         /* Paranoid check */
         SMBERROR("totalElapsedTimeMicroSecs is 0? \n");
-        goto exit;
+        smb_iod_rel(iod, NULL, __FUNCTION__);
+        return;
     }
 
     bytesPerSec = (totalDataLen * 1000000) / totalElapsedTimeMicroSecs;
+
+    SMB_LOG_KTRACE(SMB_DBG_ADJUST_QUANTUM_SIZES | DBG_FUNC_START, doingRead, bytesPerSec, inQuantumNbr, inQuantumSize, 0);
 
     if (bytesPerSec == 0) {
         /* Paranoid check */
@@ -1026,27 +1119,64 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
         quantum_sizep = sessionp->iod_readSizes;
         quantum_countp = sessionp->iod_readCounts;
         currQuantumSize = sessionp->iod_readQuantumSize;
+        
+        total_timep = sessionp->iod_readTotalTime;
+        total_bytesp = sessionp->iod_readTotalBytes;
     }
     else {
         bytes_secp = sessionp->iod_writeBytePerSec;
         quantum_sizep = sessionp->iod_writeSizes;
         quantum_countp = sessionp->iod_writeCounts;
         currQuantumSize = sessionp->iod_writeQuantumSize;
+
+        total_timep = sessionp->iod_writeTotalTime;
+        total_bytesp = sessionp->iod_writeTotalBytes;
     }
 
     if (inQuantumSize == quantum_sizep[2]) {
-        bytes_secp[2] = bytesPerSec;
-        SMB_LOG_IO("Set max size bytes/sec to %llu \n", bytesPerSec);
+        /* Keep track of cumulative time and bytes */
+        total_timep[2] += totalElapsedTimeMicroSecs;
+        total_bytesp[2] += totalDataLen;
+        bytesPerSec = (total_bytesp[2] * 1000000) / total_timep[2];
+        
+        if (total_timep[2] >= sessionp->rw_max_check_time) {
+            /* Save cumulative bytes/sec */
+            bytes_secp[2] = bytesPerSec;
+        }
+        
+        which_checked = 3;
+        SMB_LOG_IO("Max size: total bytes %llu, total microSecs %u, currBytes/Sec %llu \n",
+                   total_bytesp[2], total_timep[2], bytesPerSec);
     }
     else {
         if (inQuantumSize == quantum_sizep[1]) {
-            bytes_secp[1] = bytesPerSec;
-            SMB_LOG_IO("Set med size bytes/sec to %llu \n", bytesPerSec);
+            total_timep[1] += totalElapsedTimeMicroSecs;
+            total_bytesp[1] += totalDataLen;
+            bytesPerSec = (total_bytesp[1] * 1000000) / total_timep[1];
+
+            if (total_timep[1] >= sessionp->rw_max_check_time) {
+                /* Save cumulative bytes/sec */
+                bytes_secp[1] = bytesPerSec;
+            }
+
+            which_checked = 2;
+            SMB_LOG_IO("Med size: total bytes %llu, total microSecs %u, currBytes/Sec %llu \n",
+                       total_bytesp[1], total_timep[1], bytesPerSec);
         }
         else {
             if (inQuantumSize == quantum_sizep[0]) {
-                bytes_secp[0] = bytesPerSec;
-                SMB_LOG_IO("Set min size bytes/sec to %llu \n", bytesPerSec);
+                total_timep[0] += totalElapsedTimeMicroSecs;
+                total_bytesp[0] += totalDataLen;
+                bytesPerSec = (total_bytesp[0] * 1000000) / total_timep[0];
+
+                if (total_timep[0] >= sessionp->rw_max_check_time) {
+                    /* Save cumulative bytes/sec */
+                    bytes_secp[0] = bytesPerSec;
+                }
+
+                which_checked = 2;
+                SMB_LOG_IO("Min size: total bytes %llu, total microSecs %u, currBytes/Sec %llu \n",
+                           total_bytesp[0], total_timep[0], bytesPerSec);
             }
             else {
                 SMBERROR("No match for quantumSize %u \n", inQuantumSize);
@@ -1058,7 +1188,7 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
 
     /*
      * If we have all three bytes/sec, then check to see which size
-     * (min, med, max) had the fastest bytes/sec and use that size
+     * (min, med, max) had the fastest cumulative bytes/sec and use that size
      */
     if ((bytes_secp[0] != 0) &&
         (bytes_secp[1] != 0) &&
@@ -1135,23 +1265,27 @@ static void smb2_smb_adjust_quantum_sizes(struct smb_share *share, int32_t doing
         if (doingRead == 1) {
             SMB_LOG_IO("AdjustQuantumSizes: new read quantum count %d size %d\n",
                        newQuantumNumber, newQuantumSize);
-            if (changedQuantumSize == 1) {
-                sessionp->iod_readQuantumSize = newQuantumSize;
-                sessionp->iod_readQuantumNumber = newQuantumNumber;
-            }
+            
+            SMB_LOG_KTRACE(SMB_DBG_ADJUST_QUANTUM_SIZES | DBG_FUNC_NONE, 0xabc001, newQuantumNumber, newQuantumSize, 0, 0);
+            
+            sessionp->iod_readQuantumSize = newQuantumSize;
+            sessionp->iod_readQuantumNumber = newQuantumNumber;
         }
         else {
             SMB_LOG_IO("AdjustQuantumSizes: new write quantum count %d size %d\n",
                        newQuantumNumber, newQuantumSize);
-            if (changedQuantumSize == 1) {
-                sessionp->iod_writeQuantumSize = newQuantumSize;
-                sessionp->iod_writeQuantumNumber = newQuantumNumber;
-            }
+            
+            SMB_LOG_KTRACE(SMB_DBG_ADJUST_QUANTUM_SIZES | DBG_FUNC_NONE, 0xabc002, newQuantumNumber, newQuantumSize, 0, 0);
+
+            sessionp->iod_writeQuantumSize = newQuantumSize;
+            sessionp->iod_writeQuantumNumber = newQuantumNumber;
         }
 
         lck_mtx_unlock(&sessionp->iod_quantum_lock);
     }
 exit:
+    SMB_LOG_KTRACE(SMB_DBG_ADJUST_QUANTUM_SIZES | DBG_FUNC_END, 0, which_checked, 0, 0, 0);
+
     smb_iod_rel(iod, NULL, __FUNCTION__);
     return;
 }
@@ -1160,11 +1294,10 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
                                        uint32_t *retQuantumSize, uint32_t *retQuantumNbr,
                                        int *recheck)
 {
-#pragma unused(len)
     struct timeval current_time = {0}, elapsed_time = {0};
-    uint64_t *bytes_secp = NULL;
     uint32_t *quantum_sizep = NULL;
     uint32_t *quantum_countp = NULL;
+    uint32_t *total_timep = NULL;
 
     /* Paranoid checks */
     if ((sessionp == NULL) ||
@@ -1176,6 +1309,28 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
     }
 
     lck_mtx_lock(&sessionp->iod_quantum_lock);
+
+    /*
+     * For dev testing to force using the medium quantum size and number.
+     * Default is to be off and use the byte/sec method.
+     */
+    if ((sessionp->rw_gb_threshold != 0) &&
+        ((sessionp->active_channel_speed / 1000000000) > sessionp->rw_gb_threshold)) {
+        /* Force using the med quantum size */
+        if (doingRead) {
+            *retQuantumSize = sessionp->iod_readSizes[1];
+            *retQuantumNbr = sessionp->iod_readCounts[1];
+        }
+        else {
+            *retQuantumSize = sessionp->iod_writeSizes[1];
+            *retQuantumNbr = sessionp->iod_writeCounts[1];
+        }
+
+        SMB_LOG_IO("Force using quantum count %d size %d\n",
+                   *retQuantumNbr, *retQuantumSize);
+
+        goto exit;
+    }
 
     /*
      * Is it time to recheck quantum sizes and do we have a large enoungh
@@ -1191,27 +1346,47 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
          * three speeds rechecked and their results.  Simplier code too.
          */
         bzero(sessionp->iod_readBytePerSec, sizeof(sessionp->iod_readBytePerSec));
+        bzero(sessionp->iod_readTotalTime, sizeof(sessionp->iod_readTotalTime));
+        bzero(sessionp->iod_readTotalBytes, sizeof(sessionp->iod_readTotalBytes));
+
         bzero(sessionp->iod_writeBytePerSec, sizeof(sessionp->iod_writeBytePerSec));
+        bzero(sessionp->iod_writeTotalTime, sizeof(sessionp->iod_writeTotalTime));
+        bzero(sessionp->iod_writeTotalBytes, sizeof(sessionp->iod_writeTotalBytes));
     }
 
     if (doingRead) {
-        bytes_secp = sessionp->iod_readBytePerSec;
         quantum_sizep = sessionp->iod_readSizes;
         quantum_countp = sessionp->iod_readCounts;
+        total_timep = sessionp->iod_readTotalTime;
+
         /* assume we stay with current settings */
         *retQuantumSize = sessionp->iod_readQuantumSize;
         *retQuantumNbr = sessionp->iod_readQuantumNumber;
+        
+        /* Ensure all comparisons are done with same length of IO */
+        if (len < smb_maxsegreadsize) {
+            goto exit;
+        }
     }
     else {
-        bytes_secp = sessionp->iod_writeBytePerSec;
         quantum_sizep = sessionp->iod_writeSizes;
         quantum_countp = sessionp->iod_writeCounts;
+        total_timep = sessionp->iod_writeTotalTime;
+
         /* assume we stay with current settings */
         *retQuantumSize = sessionp->iod_writeQuantumSize;
         *retQuantumNbr = sessionp->iod_writeQuantumNumber;
+        
+        /* Ensure all comparisons are done with same length of IO */
+        if (len < smb_maxsegwritesize) {
+            goto exit;
+        }
     }
 
-    if (bytes_secp[2] == 0) {
+    /*
+     * Do multiple sequential checks of max, med, then min
+     */
+    if ((*recheck == 0) && (total_timep[2] < sessionp->rw_max_check_time)) {
         /*
          * Check max quantum size first. Since first reads tend to be
          * slow starting probably due to setup of read ahead, best to
@@ -1223,14 +1398,14 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
         *recheck = 1;
     }
 
-    if ((*recheck == 0) && (bytes_secp[1] == 0)) {
+    if ((*recheck == 0) && (total_timep[1] < sessionp->rw_max_check_time)) {
         /* Check med quantum size */
         *retQuantumSize = quantum_sizep[1];
         *retQuantumNbr = quantum_countp[1];
         *recheck = 1;
     }
 
-    if ((*recheck == 0) && (bytes_secp[0] == 0)) {
+    if ((*recheck == 0) && (total_timep[0] < sessionp->rw_max_check_time)) {
         /* Check min quantum size */
         *retQuantumSize = quantum_sizep[0];
         *retQuantumNbr = quantum_countp[0];
@@ -1240,6 +1415,12 @@ static void smb2_smb_get_quantum_sizes(struct smb_session *sessionp, user_ssize_
     if (*recheck == 1) {
         /* save time that we last checked speeds */
         microtime(&sessionp->iod_last_recheck_time);
+    }
+
+exit:
+    /* Try to have at least one quantum per channel */
+    if (sessionp->active_channel_count > kQuantumMedNumber) {
+        *retQuantumNbr += sessionp->active_channel_count - kQuantumMedNumber;
     }
 
     lck_mtx_unlock(&sessionp->iod_quantum_lock);
@@ -1274,16 +1455,10 @@ smb2_smb_change_notify(struct smb_share *share, struct smb2_change_notify_rq *ch
         smb_iod_rel(iod, NULL, __FUNCTION__);
         goto bad;
     }
-    
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     /* Set up the async call back */
     rqp->sr_flags |= SMBR_ASYNC;
@@ -1374,15 +1549,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -1538,15 +1707,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -1801,15 +1964,9 @@ smb2_smb_echo(struct smbiod *iod, int timeout, vfs_context_t context)
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     SMB_LOG_KTRACE(SMB_DBG_SMB_ECHO | DBG_FUNC_START,
                    iod->iod_id, 0, 0, 0, 0);
@@ -1899,15 +2056,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2236,15 +2387,9 @@ smb2_smb_gss_session_setup(struct smbiod *iod, uint16_t *reply_flags,
             break;
         }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
         /*
          * Fill in Session Setup part
@@ -2482,15 +2627,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -2909,15 +3048,9 @@ resend:
      */
     rqp->sr_rqsessionid = iod->iod_session->session_session_id;
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -3031,27 +3164,25 @@ smb2_smb_lease_break_ack_queue(struct smb_share *share, struct smbiod *iod,
                                uint64_t lease_key_hi, uint64_t lease_key_low,
                                uint32_t lease_state, vfs_context_t context)
 {
-    int error = 0;
     struct smb_rw_arg *rw_pb_ptr = NULL;
     
     /* Malloc a smb_rw */
     SMB_MALLOC_TYPE(rw_pb_ptr, struct smb_rw_arg, Z_WAITOK_ZERO);
     if (rw_pb_ptr == NULL) {
         SMBERROR("SMB_MALLOC_TYPE failed\n");
-        error = ENOMEM;
-        return error;
+        return ENOMEM;
     }
 
     /* Fill it out */
     lck_mtx_init(&rw_pb_ptr->rw_arg_lock, smb_rw_group, LCK_ATTR_NULL);
 
     rw_pb_ptr->command = SMB_LEASE_BREAK_ACK;
-    rw_pb_ptr->share = share;
-    rw_pb_ptr->iod = iod;
-    rw_pb_ptr->lease_key_hi = lease_key_hi;
-    rw_pb_ptr->lease_key_low = lease_key_low;
-    rw_pb_ptr->lease_state = lease_state;
-    rw_pb_ptr->context = context;
+    rw_pb_ptr->lease.share = share;
+    rw_pb_ptr->lease.iod = iod;
+    rw_pb_ptr->lease.lease_key_hi = lease_key_hi;
+    rw_pb_ptr->lease.lease_key_low = lease_key_low;
+    rw_pb_ptr->lease.lease_state = lease_state;
+    rw_pb_ptr->lease.context = context;
 
     /*
      * Queue up the lease break ack to be sent by rw helper threads
@@ -3114,15 +3245,9 @@ resend:
         return error;
     }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     rqp->sr_extflags |= SMB2_NON_IDEMPOTENT;
 
@@ -3228,15 +3353,9 @@ resend:
 		return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     /*
      * Fill in Logoff part 
@@ -3411,15 +3530,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -5032,7 +5145,8 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
  	size_t nmlen, filename_allocsize = 0, ntwrkname_allocsize = 0, name_allocsize = 0;
 	char *ntwrkname = NULL;
 	char *filename = NULL;
-    
+    int utf8_char_cnt = 0;
+
     /* Get creation time */
     error = md_get_uint64le(mdp, &llint);
     if (error) {
@@ -5333,9 +5447,13 @@ smb2_smb_parse_file_all_info(struct mdchain *mdp, void *args)
     }
 
     if (nmlen > SMB_MAXFNAMELEN) {
-        error = EINVAL;
-        SMBERROR("Filename %s nmlen = %ld\n", filename, nmlen);
-        goto bad;
+        /* Also check char count in case its multi byte UTF8 name */
+        utf8_char_cnt = smb_get_utf8_char_count(filename, filename_allocsize);
+        if (utf8_char_cnt > SMB_MAXFNAMELEN) {
+            error = EINVAL;
+            SMBERROR("Filename %s utf8_char_cnt = %d\n", filename, utf8_char_cnt);
+            goto bad;
+        }
     }
     
     *all_infop->namep = smb_strndup(filename, nmlen, &name_allocsize);
@@ -6374,7 +6492,7 @@ smb2_smb_parse_lease_break(struct smbiod *iod, mbuf_t m)
     smb_rq_getreply(&rqp, &mdp);
     md_initm(mdp, m);
 
-    error = smb2_rq_parse_header(&rqp, &mdp);
+    error = smb2_rq_parse_header(&rqp, &mdp, 0);
     if (error) {
         SMBERROR("smb2_rq_parse_header failed %d for lease break \n", error);
         goto bad;
@@ -6860,7 +6978,7 @@ smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
     uint16_t context_type, context_data_len;
     uint16_t hash_algorithm_cnt, salt_len, hash_algoritms;
     uint16_t cipher_cnt, cipher_algoritm;
-    uint16_t compression_algorithm_cnt, compression_algoritms;
+    uint16_t compression_algorithm_cnt, compression_algorithm;
     uint32_t compression_flags;
     uint16_t signing_cnt, signing_algorithm;
     int i;
@@ -7011,14 +7129,46 @@ smb2_smb_parse_negotiate_contexts(struct smbiod *iod,
                     goto bad;
                 }
 
+                /*
+                 * If client supports chained compression, then check to see if
+                 * server supports chained compression.
+                 */
+                if (!(sessionp->session_misc_flags & SMBV_COMPRESSION_CHAINING_OFF)) {
+                    /* Is chained compression supported by the server? */
+                    if (compression_flags == SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE) {
+                        /*
+                         * Server does not support chained compression so
+                         * disable it
+                         */
+                        sessionp->session_misc_flags |= SMBV_COMPRESSION_CHAINING_OFF;
+                    }
+                }
+                
                 /* Get CompressionAlgorithms */
                 for (i = 0; i < compression_algorithm_cnt; i++) {
-                    error = md_get_uint16le(&md_context_shadow, &compression_algoritms);
+                    error = md_get_uint16le(&md_context_shadow, &compression_algorithm);
                     if (error) {
                         goto bad;
                     }
+                    
+                    switch(compression_algorithm) {
+                        case SMB2_COMPRESSION_LZ77_HUFFMAN:
+                            sessionp->server_compression_algorithms_map |= SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED;
+                            break;
+                        case SMB2_COMPRESSION_LZ77:
+                            sessionp->server_compression_algorithms_map |= SMB2_COMPRESSION_LZ77_ENABLED;
+                            break;
+                        case SMB2_COMPRESSION_LZNT1:
+                            sessionp->server_compression_algorithms_map |= SMB2_COMPRESSION_LZNT1_ENABLED;
+                            break;
+                        case SMB2_COMPRESSION_PATTERN_V1:
+                            sessionp->server_compression_algorithms_map |= SMB2_COMPRESSION_PATTERN_V1_ENABLED;
+                            break;
+                        default:
+                            SMBERROR("Unknown compression algorithm: 0x%x\n", compression_algorithm);
+                            break;
+                    }
                 }
-
                 break;
                 
             case SMB2_SIGNING_CAPABILITIES:
@@ -7185,6 +7335,7 @@ smb2_smb_parse_query_dir_both_dir_info(struct smb_share *share, struct mdchain *
     struct finder_folder_info folder_finfo;
     uint16_t unix_mode = 0;
     uint16_t flags = 0;
+    struct smbfs_fctx_query_t *current_query = NULL;
     
     /* Get Next Offset */
     error = md_get_uint32le(mdp, &next);
@@ -7371,10 +7522,17 @@ smb2_smb_parse_query_dir_both_dir_info(struct smb_share *share, struct mdchain *
             /* V2 version supports a flags field */
             fap->fa_fstatus &= ~kNO_SUBSTREAMS;
             fap->fa_valid_mask &= ~FA_FSTATUS_VALID;
-
-            if ((sessionp->session_server_caps & kAAPL_SUPPORTS_READ_DIR_ATTR_V2) &&
-                (flags & kAAPL_READ_DIR_NO_XATTR)) {
-                fap->fa_fstatus |= kNO_SUBSTREAMS;
+            
+            if (sessionp->session_server_caps & kAAPL_SUPPORTS_READ_DIR_ATTR_V2) {
+                if (flags & kAAPL_READ_DIR_NO_XATTR) {
+                    /* No xattrs on item */
+                    fap->fa_fstatus |= kNO_SUBSTREAMS;
+                }
+                else {
+                    /* Must have xattrs on item */
+                    fap->fa_fstatus &= ~kNO_SUBSTREAMS;
+                }
+                
                 fap->fa_valid_mask |= FA_FSTATUS_VALID;
             }
 
@@ -7586,16 +7744,18 @@ smb2_smb_parse_query_dir_both_dir_info(struct smb_share *share, struct mdchain *
     }
     
     if (ctx != NULL) {
+        current_query = SLIST_FIRST(&ctx->f_queries);
         /* save where we last left off searching */
         ctx->f_resume_file_index = file_index;
         
         next = ctx->f_eofs + recsz;
         ctx->f_eofs = next;
-        ctx->f_output_buf_len -= recsz;
-        
+        current_query->output_buf_len -= recsz;
+        ctx->f_queries_total_memory -= recsz;
         if (last_entry == 1) {
             /* only padding bytes left so ignore them */
-            ctx->f_output_buf_len = 0;
+            current_query->output_buf_len = 0;
+            ctx->f_queries_total_memory -= current_query->output_buf_len;
         }
     }
     else {
@@ -8138,15 +8298,9 @@ resend:
         return error;
     }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     queryp->ret_rqp = rqp;
     
@@ -8363,15 +8517,9 @@ resend:
         return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -8465,10 +8613,16 @@ bad:
 }
 
 int
-smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp, vfs_context_t context)
+smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp,
+              uint32_t allow_compression, vfs_context_t context)
 {
 	user_ssize_t total_size, len, resid = 0;
 	int error = 0;
+    /*
+     * Reads do not ever change the allow_compression flag so just pass
+     * the address of a local var
+     */
+    uint32_t tmp_allow_compression = allow_compression;
     
     SMB_LOG_KTRACE(SMB_DBG_SMB_READ | DBG_FUNC_START,
                    uio_offset(readp->auio),
@@ -8482,7 +8636,7 @@ smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp, vfs_context_t c
 		len = total_size;
         
 		error = smb2_smb_read_write_async(share, readp, &len, &resid, 1,
-                                          context);
+                                          &tmp_allow_compression, context);
         if (error)
 			break;
         
@@ -8515,13 +8669,10 @@ smb2_smb_read(struct smb_share *share, struct smb2_rw_rq *readp, vfs_context_t c
  * *rresid is actual amount of data read
  */
 int
-smb2_smb_read_one(struct smb_share *share,
-                  struct smb2_rw_rq *readp,
-                  user_ssize_t *len,
-                  user_ssize_t *rresid,
-                  struct smb_rq **compound_rqp,
-                  struct smbiod *iod,
-                  vfs_context_t context)
+smb2_smb_read_one(struct smb_share *share, struct smb2_rw_rq *readp,
+                  user_ssize_t *len, user_ssize_t *rresid,
+                  struct smb_rq **compound_rqp, struct smbiod *iod,
+                  uint32_t allow_compression, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -8535,8 +8686,9 @@ smb2_smb_read_one(struct smb_share *share,
     user_ssize_t tmp_resid = 0;
     int do_short_read = 0;
     user_ssize_t short_read_len = 0;
+    struct smb_session *sessionp = SS_TO_SESSION(share);
 
-    len32 = (uint32_t) MIN(SS_TO_SESSION(share)->session_rxmax, *len);
+    len32 = (uint32_t) MIN(sessionp->session_rxmax, *len);
 
     if (readp->flags & SMB2_CMD_NO_BLOCK) {
         /* Dont wait for credits, but return an error instead */
@@ -8549,7 +8701,7 @@ resend:
         error = smb_iod_ref(iod, __FUNCTION__);
     } else {
         // Multichannel: use any iod to send
-        error = smb_iod_get_any_iod(SS_TO_SESSION(share), &iod, __FUNCTION__);
+        error = smb_iod_get_any_iod(sessionp, &iod, __FUNCTION__);
     }
     if (error) {
         return error;
@@ -8565,15 +8717,14 @@ resend:
         return error;
     }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    if (compound_rqp == NULL) {
+        /* ktrace only if doing actual read and not building part of a cmpd */
+        SMB_LOG_KTRACE(SMB_DBG_SMB_READ_ONE | DBG_FUNC_START, smb_hideaddr(rqp), uio_offset(readp->auio), len32, 0, 0);
+    }
+
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     if (do_short_read == 0) {
         /* Just doing a normal read */
@@ -8610,7 +8761,19 @@ resend:
      * Build the SMB 2/3 Read Request
      */
     mb_put_uint16le(mbp, 49);                       /* Struct size */
-    mb_put_uint16le(mbp, 0);                        /* Padding and Reserved */
+    mb_put_uint8(mbp, 0);                           /* Padding */
+    
+    /* Should we request a compressed Read reply? */
+    if (SMBV_SMB3_OR_LATER(sessionp) &&
+        (sessionp->server_compression_algorithms_map != 0) &&
+        (allow_compression == 1) &&
+        (len32 > sessionp->compression_io_threshold)) {
+        mb_put_uint8(mbp, SMB2_READFLAG_REQUEST_COMPRESSED); /* Flags */
+    }
+    else {
+        mb_put_uint8(mbp, 0);                       /* Flags */
+    }
+
     mb_put_uint32le(mbp, (uint32_t) len32);         /* Length of read */
 	mb_put_uint64le(mbp, uio_offset(readp->auio));  /* Offset */
 
@@ -8659,6 +8822,8 @@ resend:
             smb_rq_done(rqp);
             rqp = NULL;
             iod = NULL;
+            
+            SMB_LOG_KTRACE(SMB_DBG_SMB_READ_ONE | DBG_FUNC_END, error, 0xabc001, 0, 0, 0);
             goto resend;
         }
         
@@ -8704,18 +8869,22 @@ resend:
             smb_rq_done(rqp);
             rqp = NULL;
             iod = NULL;
+
+            SMB_LOG_KTRACE(SMB_DBG_SMB_READ_ONE | DBG_FUNC_END, error, 0xabc002, 0, 0, 0);
             goto resend;
        }
     }
 
 bad:    
 	smb_rq_done(rqp);
+    
+    SMB_LOG_KTRACE(SMB_DBG_SMB_READ_ONE | DBG_FUNC_END, error, 0, 0, 0, 0);
     return error;
 }
 
 static int
 smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
-                  vfs_context_t context)
+                  uint32_t allow_compression, vfs_context_t context)
 {
 	int error;
  	struct smb2_rw_rq *readp = NULL;
@@ -8734,7 +8903,7 @@ smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
     readp->auio = uio;
     readp->mc_flags = 0;
     
-    error = smb2_smb_read(share, readp, context);
+    error = smb2_smb_read(share, readp, allow_compression, context);
     
     if (readp != NULL) {
         SMB_FREE_TYPE(struct smb2_rw_rq, readp);
@@ -8748,29 +8917,28 @@ smb2_smb_read_write_async(struct smb_share *share,
                           struct smb2_rw_rq *in_read_writep,
                           user_ssize_t *len,
                           user_ssize_t *rresid,
-                          uint32_t do_read,
+                          uint32_t do_read, uint32_t *allow_compressionp,
                           vfs_context_t context)
 {
     int error = 0;
-	struct mdchain *mdp;
+    struct mdchain *mdp;
     unsigned int i, j;
-    struct smb_rw_arg rw_pb[kSmallMTUMaxNumber];
+    struct smb_rw_arg *rw_pb = NULL;
     int done = 0;
     int reconnect = 0, recheck = 0;
     struct smb2_rw_rq tmp_read_write;
     user_ssize_t saved_len, saved_rresid;
-	struct smb_session *sessionp = NULL;
-	uint32_t quantumSize = 0;
-	uint32_t quantumNbr = 0;
+    struct smb_session *sessionp = NULL;
+    uint32_t quantumSize = 0;
+    uint32_t quantumNbr = 0;
     uint32_t single_thread = 1;
-    struct timeval start_time, current_time, elapsed_time;
+    struct timeval start_time = {0}, current_time = {0}, elapsed_time = {0};
     int do_short_read = 0;
     user_ssize_t short_read_len = 0;
     struct smb2_rw_rq short_read_rq = {0};
-    uint32_t max_io_size = 0;
+    uint32_t max_io_size = 0, compress_write_fails = 0;
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_START,
-                   *len, *rresid, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_START, uio_offset(in_read_writep->auio), uio_resid(in_read_writep->auio), do_read, *len, 0);
 
 	/*
      * This function does multiple Async Reads/Writes
@@ -8795,40 +8963,48 @@ smb2_smb_read_write_async(struct smb_share *share,
     
     /* Will the IO fit in a single IO request? */
     if (do_read) {
-        max_io_size = (uint32_t) MIN(SS_TO_SESSION(share)->session_rxmax, kMaxSingleIO);
+        max_io_size = smb2_session_max_io_size(SS_TO_SESSION(share), SMB2_READ);
 
         if ((*len <= max_io_size) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single read */
-            error = smb2_smb_read_one(share, in_read_writep, len, rresid,
-                                      NULL, NULL, context);
+            error = smb2_smb_read_one(share, in_read_writep,
+                                      len, rresid,
+                                      NULL, NULL,
+                                      *allow_compressionp, context);
             goto done;
         }
-
-        SMB_LOG_KTRACE(SMB_DBG_READ_QUANTUM_SIZE | DBG_FUNC_NONE,
-                       /* channelID */ 0, quantumSize, 0, 0, 0);
     }
     else {
-        max_io_size = (uint32_t) MIN(SS_TO_SESSION(share)->session_wxmax, kMaxSingleIO);
+        max_io_size = smb2_session_max_io_size(SS_TO_SESSION(share), SMB2_WRITE);
         if ((*len <= max_io_size) ||
             (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single write */
             error = smb2_smb_write_one(share, in_read_writep, len, rresid,
-                                       NULL, NULL, context);
+                                       NULL, NULL,
+                                       allow_compressionp, context);
             goto done;
         }
-
-        SMB_LOG_KTRACE(SMB_DBG_WRITE_QUANTUM_SIZE | DBG_FUNC_NONE,
-                       /* channelID */ 0, quantumSize, 0, 0, 0);
     }
 
     /*
-     * Is signing or sealing being used? If so, use multi thread model.
-     * If not, use single thread model as it has faster performance for
-     * 10 gigE non jumbo frame testing.
+     * If signing or sealing being used, then use multi thread model. The
+     * read/write helper threads will do the signing or sealing work in
+     * parallel for all outgoing requests and thus should be faster. Incoming
+     * replies get their signing or sealing verified by each iod's read thread
+     * for parallelism when we have more than one channel.
      *
-     * The multi thread uses the read/write helper threads to do the signing
-     * and sealing work in parallel.
+     * One problem with the multi thread model is that the bytes/sec
+     * calculations for which quantum size/count to use is skewed by the
+     * various thread contention and that can cause a slower quantum size/count
+     * to be selected.  
+     
+     * %%% TO DO %%% Try adding a time stamp sr_time_replied when reply arrives
+     * for each rqp, then get elapsed time per rqp with
+     * elapsedTime += (sr_time_replied - rqp->sr_time_sent)
+     *
+     * If not signing or sealing, use single thread model since its performance
+     * is equivalent and its bytes/sec calculations are much more accurate.
      */
     if (sessionp->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
         single_thread = 0;
@@ -8849,29 +9025,28 @@ smb2_smb_read_write_async(struct smb_share *share,
         }
     }
 
-    /* Is there a custom override of the thread handling? */
-    switch (sessionp->rw_thread_control) {
-        case 1:
-            /* Force single thread mode */
-            single_thread = 1;
-            break;
-            
+    /* This is for dev testing to force single or multi thread mode */
+    switch(sessionp->rw_gb_threshold) {
         case 2:
-            /* Force multi thread mode */
+            /* Force single thread mode */
             single_thread = 0;
             break;
-
+        case 3:
+            /* Force multi thread mode */
+            single_thread = 1;
+            break;
         default:
+            /* Do nothing */
             break;
     }
-    
+
     if (sessionp->session_sopt.sv_active_capabilities & SMB2_GLOBAL_CAP_LARGE_MTU) {
         /* Get the quantum size and number to use */
         smb2_smb_get_quantum_sizes(sessionp, *len, do_read, &quantumSize, &quantumNbr, &recheck);
     }
     else {
         /*
-         * If server does not support large MTUs, then SMB_RW_HASH_SZ * 2
+         * If server does not support large MTUs, then SMB_MAX_RW_HASH_SZ * 2
          * number of quantums should be sufficient
          */
         quantumNbr = kSmallMTUMaxNumber;
@@ -8883,8 +9058,14 @@ smb2_smb_read_write_async(struct smb_share *share,
         }
     }
 
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE,
-                   0xabc002, saved_len, quantumNbr, quantumSize, 0);
+    SMB_MALLOC_TYPE_COUNT(rw_pb, struct smb_rw_arg, quantumNbr, Z_WAITOK);
+    if (rw_pb == NULL) {
+        SMBERROR("failed to allocate rw_pb");
+        error = ENOMEM;
+        goto done;
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc001, single_thread, quantumNbr, quantumSize, 0);
 
     SMB_LOG_IO("do_read %d single thread %d length <%lld> quantum_nbr <%d> quantum_size <%d> \n",
                do_read, single_thread, saved_len, quantumNbr, quantumSize);
@@ -8941,8 +9122,8 @@ resend:
     /* Fill in initial requests */
     for (i = 0; i < quantumNbr; i++) {
         /* Malloc the read_writep */
-        SMB_MALLOC_TYPE(rw_pb[i].read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
-        if (rw_pb[i].read_writep == NULL) {
+        SMB_MALLOC_TYPE(rw_pb[i].rw.read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
+        if (rw_pb[i].rw.read_writep == NULL) {
             SMBERROR("SMB_MALLOC_TYPE failed\n");
             error = ENOMEM;
             goto bad;
@@ -8952,12 +9133,13 @@ resend:
          * Fill in the Read/Write request
          */
         error = smb2_smb_read_write_fill(share, &tmp_read_write,
-                                         rw_pb[i].read_writep, &rw_pb[i].rqp,
-                                         do_read, quantumSize, context);
+                                         rw_pb[i].rw.read_writep, &rw_pb[i].rw.rqp,
+                                         do_read, quantumSize,
+                                         allow_compressionp, context);
         
         if (error) {
             if (error == ENOBUFS) {
-				if (rw_pb[i].rqp == NULL) {
+				if (rw_pb[i].rw.rqp == NULL) {
 					SMBERROR("smb2_smb_fillin_read/write failed %d\n", error);
 					goto bad;
 				}
@@ -8992,14 +9174,16 @@ resend:
         }
     }
     
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc001, i, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc002, i, 0, 0, 0);
 
     if (single_thread) {
         /*
          * Send initial requests
          */
         for (j = 0; j < i; j++) {
-            error = smb_iod_rq_enqueue(rw_pb[j].rqp);
+            SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc003, smb_hideaddr(rw_pb[j].rw.rqp), j, 0, 0);
+            
+            error = smb_iod_rq_enqueue(rw_pb[j].rw.rqp);
             if (error) {
                 SMBERROR("smb_iod_rq_enqueue failed %d\n", error);
                 goto bad;
@@ -9022,7 +9206,8 @@ resend:
             if (rw_pb[j].flags & SMB_RW_IN_USE) {
                 /* Need to wait for the reply to arrive */
                 if (single_thread) {
-                    error = smb_rq_reply(rw_pb[j].rqp);
+                    error = smb_rq_reply(rw_pb[j].rw.rqp);
+                    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc004, smb_hideaddr(rw_pb[j].rw.rqp), j, error, 0);
                 }
                 else {
                     while (!(rw_pb[j].flags & SMB_RW_REPLY_RCVD)) {
@@ -9038,8 +9223,8 @@ resend:
                 rw_pb[j].flags &= ~SMB_RW_IN_USE;
 
                 if (error) {
-                    if ((rw_pb[j].rqp != NULL) &&
-                        (rw_pb[j].rqp->sr_flags & SMBR_RECONNECTED)) {
+                    if ((rw_pb[j].rw.rqp != NULL) &&
+                        (rw_pb[j].rw.rqp->sr_flags & SMBR_RECONNECTED)) {
                         SMBDEBUG("reconnected on read/write[%d]\n", j);
                         reconnect = 1;
                     }
@@ -9054,27 +9239,43 @@ resend:
                 }
 
                 if ((!tmp_read_write.ret_ntstatus) &&
-                    (rw_pb[j].rqp != NULL)) {
-                    tmp_read_write.ret_ntstatus = rw_pb[j].rqp->sr_ntstatus;
+                    (rw_pb[j].rw.rqp != NULL)) {
+                    tmp_read_write.ret_ntstatus = rw_pb[j].rw.rqp->sr_ntstatus;
                 }
                 
                 /* Now get pointer to response data */
-                smb_rq_getreply(rw_pb[j].rqp, &mdp);
+                smb_rq_getreply(rw_pb[j].rw.rqp, &mdp);
                 
                 if (do_read) {
                     error = smb2_smb_parse_read_one(mdp,
-                                                    &rw_pb[j].resid,
-                                                    rw_pb[j].read_writep);
+                                                    &rw_pb[j].rw.resid,
+                                                    rw_pb[j].rw.read_writep);
                 }
                 else {
+                    /*
+                     * If compression allowed, check to see if write compression
+                     * failed on this data
+                     */
+                    if ((*allow_compressionp != 0) &&
+                        (rw_pb[j].rw.rqp != NULL) &&
+                        (rw_pb[j].rw.rqp->sr_extflags & SMB2_FAILED_COMPRESS_WRITE)) {
+                        compress_write_fails += 1;
+                        
+                        if (compress_write_fails > sessionp->compression_max_fail_cnt) {
+                            SMB_LOG_COMPRESS("Too many write compression failures (%d > %d), compression will be disabled for this file \n",
+                                             compress_write_fails, sessionp->compression_max_fail_cnt);
+                            *allow_compressionp = 0;
+                        }
+                    }
+                    
                     error = smb2_smb_parse_write_one(mdp,
-                                                     &rw_pb[j].resid,
-                                                     rw_pb[j].read_writep);
+                                                     &rw_pb[j].rw.resid,
+                                                     rw_pb[j].rw.read_writep);
                 }
 
                 if (error) {
                     SMBERROR("parse failed for [%d] %d mid <%lld>\n",
-                             j, error, (rw_pb[j].rqp == NULL) ? 0 : rw_pb[j].rqp->sr_messageid);
+                             j, error, (rw_pb[j].rw.rqp == NULL) ? 0 : rw_pb[j].rw.rqp->sr_messageid);
                     if (!single_thread) {
                         lck_mtx_unlock(&rw_pb[j].rw_arg_lock);
                     }
@@ -9082,8 +9283,8 @@ resend:
                 }
 
                 /* Add up amount of IO that we have done so far */
-                *rresid += rw_pb[j].resid;
-                tmp_read_write.ret_len += rw_pb[j].resid;
+                *rresid += rw_pb[j].rw.resid;
+                tmp_read_write.ret_len += rw_pb[j].rw.resid;
 
                 /*
                  * Make sure resid is same as actual amt of data we asked
@@ -9091,15 +9292,15 @@ resend:
                  * this can actually happen (read less from the pipe
                  * than we requested).
                  */
-                if (rw_pb[j].resid != rw_pb[j].read_writep->io_len) {
+                if (rw_pb[j].rw.resid != rw_pb[j].rw.read_writep->io_len) {
                     SMBWARNING("IO Mismatched. Requested %lld but got %lld\n",
-                               rw_pb[j].read_writep->io_len, rw_pb[j].resid);
+                               rw_pb[j].rw.read_writep->io_len, rw_pb[j].rw.resid);
                     /*
                      * <72062477> skip the short read if its a named pipe being
                      * used. Named pipes are always on the share IPC$.
                      */
                     if ((do_read) &&
-                        (rw_pb[j].resid < rw_pb[j].read_writep->io_len) &&
+                        (rw_pb[j].rw.resid < rw_pb[j].rw.read_writep->io_len) &&
                         (strcmp(share->ss_name, "IPC$") != 0)) {
                         /*
                          * <63197657> Need to reissue a read for the missing
@@ -9109,18 +9310,18 @@ resend:
                          * rw_pb[j].resid is the data len actually received
                          */
                         do_short_read = 1;
-                        short_read_len = rw_pb[j].read_writep->io_len - rw_pb[j].resid;
+                        short_read_len = rw_pb[j].rw.read_writep->io_len - rw_pb[j].rw.resid;
 
                         /*
                          * Copy the short read's smb2_rw_rq info so I can
                          * call smb2_smb_read_write_fill().
                          */
-                        short_read_rq.flags = rw_pb[j].read_writep->flags;
-                        short_read_rq.remaining = rw_pb[j].read_writep->remaining;
-                        short_read_rq.write_flags = rw_pb[j].read_writep->write_flags;
-                        short_read_rq.fid = rw_pb[j].read_writep->fid;
-                        short_read_rq.auio = uio_duplicate(rw_pb[j].read_writep->auio);
-                        short_read_rq.io_len = rw_pb[j].read_writep->io_len;
+                        short_read_rq.flags = rw_pb[j].rw.read_writep->flags;
+                        short_read_rq.remaining = rw_pb[j].rw.read_writep->remaining;
+                        short_read_rq.write_flags = rw_pb[j].rw.read_writep->write_flags;
+                        short_read_rq.fid = rw_pb[j].rw.read_writep->fid;
+                        short_read_rq.auio = uio_duplicate(rw_pb[j].rw.read_writep->auio);
+                        short_read_rq.io_len = rw_pb[j].rw.read_writep->io_len;
 
                         /*
                          * The uio_resid(short_read_rq.auio) is still set for
@@ -9148,10 +9349,10 @@ resend:
                          */
                         error = smb2_smb_read_write_fill(share,
                                                          &tmp_read_write,
-                                                         rw_pb[j].read_writep,
-                                                         &rw_pb[j].rqp,
+                                                         rw_pb[j].rw.read_writep,
+                                                         &rw_pb[j].rw.rqp,
                                                          do_read, quantumSize,
-                                                         context);
+                                                         allow_compressionp, context);
                     }
                     else {
                         /*
@@ -9160,10 +9361,10 @@ resend:
                          */
                         error = smb2_smb_read_write_fill(share,
                                                          &short_read_rq,
-                                                         rw_pb[j].read_writep,
-                                                         &rw_pb[j].rqp,
+                                                         rw_pb[j].rw.read_writep,
+                                                         &rw_pb[j].rw.rqp,
                                                          do_read, quantumSize,
-                                                         context);
+                                                         allow_compressionp, context);
                         uio_free(short_read_rq.auio);
                         do_short_read = 0;
                     }
@@ -9187,7 +9388,9 @@ resend:
                     rw_pb[j].error = 0;
 
                     if (single_thread) {
-                        error = smb_iod_rq_enqueue(rw_pb[j].rqp);
+                        SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc003, smb_hideaddr(rw_pb[j].rw.rqp), j, 0, 0);
+
+                        error = smb_iod_rq_enqueue(rw_pb[j].rw.rqp);
                         if (error) {
                             SMBERROR("smb_iod_rq_enqueue failed %d\n", error);
                             goto bad;
@@ -9213,6 +9416,8 @@ resend:
 bad:
     microtime(&current_time);  /* get time that we finished */
 
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc005, error, 0, 0, 0);
+
     for (i = 0; i < quantumNbr; i++) {
         if (!single_thread) {
             lck_mtx_lock(&rw_pb[i].rw_arg_lock);
@@ -9222,7 +9427,8 @@ bad:
         if (rw_pb[i].flags & SMB_RW_IN_USE) {
             /* Need to wait for the reply to arrive */
             if (single_thread) {
-                error = smb_rq_reply(rw_pb[i].rqp);
+                error = smb_rq_reply(rw_pb[i].rw.rqp);
+                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_NONE, 0xabc004, smb_hideaddr(rw_pb[i].rw.rqp), i, error, 0);
             }
             else {
                 while (!(rw_pb[i].flags & SMB_RW_REPLY_RCVD)) {
@@ -9236,21 +9442,21 @@ bad:
             }
         }
 
-        if (rw_pb[i].rqp != NULL) {
-            smb_rq_done(rw_pb[i].rqp);
-            rw_pb[i].rqp = NULL;
+        if (rw_pb[i].rw.rqp != NULL) {
+            smb_rq_done(rw_pb[i].rw.rqp);
+            rw_pb[i].rw.rqp = NULL;
         }
 
-        if (rw_pb[i].read_writep != NULL) {
-            if (rw_pb[i].read_writep->auio) {
-                uio_free(rw_pb[i].read_writep->auio);
-                rw_pb[i].read_writep->auio = NULL;
+        if (rw_pb[i].rw.read_writep != NULL) {
+            if (rw_pb[i].rw.read_writep->auio) {
+                uio_free(rw_pb[i].rw.read_writep->auio);
+                rw_pb[i].rw.read_writep->auio = NULL;
             }
 
-            SMB_FREE_TYPE(struct smb2_rw_rq, rw_pb[i].read_writep);
+            SMB_FREE_TYPE(struct smb2_rw_rq, rw_pb[i].rw.read_writep);
         }
 
-        rw_pb[i].resid = 0;
+        rw_pb[i].rw.resid = 0;
 
         if (!single_thread) {
             lck_mtx_unlock(&rw_pb[i].rw_arg_lock);
@@ -9315,6 +9521,10 @@ bad:
     }
 
 done:
+    if (rw_pb != NULL) {
+        SMB_FREE_TYPE_COUNT(struct smb_rw_arg, quantumNbr, rw_pb);
+    }
+
     SMB_LOG_KTRACE(SMB_DBG_SMB_RW_ASYNC | DBG_FUNC_END, error, *rresid, 0, 0, 0);
 	return error;
 }
@@ -9324,8 +9534,8 @@ smb2_smb_read_write_fill(struct smb_share *share,
                          struct smb2_rw_rq *master_read_writep,
                          struct smb2_rw_rq *read_writep,
                          struct smb_rq **rqp,
-                         uint32_t do_read,
-                         uint32_t quantum_size,
+                         uint32_t do_read, uint32_t quantum_size,
+                         uint32_t *allow_compressionp,
                          vfs_context_t context)
 {
 	int error;
@@ -9338,7 +9548,7 @@ smb2_smb_read_write_fill(struct smb_share *share,
         len = MIN(quantum_size, uio_resid(master_read_writep->auio));
     }
     
-    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_FILL | DBG_FUNC_START, len, 0, 0, 0, 0);
+    SMB_LOG_KTRACE(SMB_DBG_SMB_RW_FILL | DBG_FUNC_START, uio_offset(master_read_writep->auio), len, 0, 0, 0);
 
     saved_len = len;
     
@@ -9372,10 +9582,14 @@ smb2_smb_read_write_fill(struct smb_share *share,
     read_writep->ret_len = 0;
     
     if (do_read) {
-        error = smb2_smb_read_one(share, read_writep, &len, &resid, rqp, NULL, context);
+        error = smb2_smb_read_one(share, read_writep,
+                                  &len, &resid,
+                                  rqp, NULL,
+                                  *allow_compressionp, context);
     }
     else {
-        error = smb2_smb_write_one(share, read_writep, &len, &resid, rqp, NULL, context);
+        error = smb2_smb_write_one(share, read_writep, &len, &resid, rqp, NULL,
+                                   allow_compressionp, context);
     }
     
     if (error) {
@@ -9413,12 +9627,14 @@ bad:
  * The calling routine must hold a reference on the share
  */
 int 
-smb_smb_read(struct smb_share *share, SMBFID fid, uio_t uio, vfs_context_t context)
+smb_smb_read(struct smb_share *share, SMBFID fid, uio_t uio,
+             uint32_t allow_compression, vfs_context_t context)
 {
     int error;
     
     if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
-        error = smb2_smb_read_uio(share, fid, uio, context);
+        error = smb2_smb_read_uio(share, fid, uio,
+                                  allow_compression, context);
     }
     else {
         error = smb1_read(share, fid, uio, context);
@@ -9471,15 +9687,9 @@ resend:
         return error;
     }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     smb_rq_getrequest(rqp, &mbp);
     
@@ -9852,15 +10062,9 @@ resend:
 		goto treeconnect_exit;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     /*
      * Build the Tree Connect Request
@@ -10140,15 +10344,9 @@ resend:
 		return error;
     }
     
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     /*
      * Fill in Tree Disconnect part 
@@ -10223,7 +10421,8 @@ smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
 }
 
 int
-smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep, vfs_context_t context)
+smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep,
+               uint32_t *allow_compressionp, vfs_context_t context)
 {
 	int error = 0;
 	user_ssize_t orig_resid, len, total_size, resid = 0;
@@ -10233,12 +10432,16 @@ smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep, vfs_context_t
 	total_size = orig_resid = uio_resid(writep->auio);
 	orig_offset = uio_offset(writep->auio);
 	
+    SMB_LOG_KTRACE(SMB_DBG_SMB_WRITE | DBG_FUNC_START,
+                   uio_offset(writep->auio),
+                   uio_resid(writep->auio), 0, 0, 0);
+	
 	while (total_size > 0) {
         /* write "len" amount of data */
 		len = total_size;
         
 		error = smb2_smb_read_write_async(share, writep, &len, &resid, 0,
-                                          context);
+                                          allow_compressionp, context);
 		if (error) {
 			break;
         }
@@ -10264,6 +10467,8 @@ smb2_smb_write(struct smb_share *share, struct smb2_rw_rq *writep, vfs_context_t
 		uio_setresid(writep->auio, orig_resid);
 		uio_setoffset(writep->auio, orig_offset);
 	}
+    
+    SMB_LOG_KTRACE(SMB_DBG_SMB_WRITE | DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -10278,6 +10483,7 @@ smb2_smb_write_one(struct smb_share *share,
                    user_ssize_t *rresid,
                    struct smb_rq **compound_rqp,
                    struct smbiod *iod,
+                   uint32_t *allow_compressionp,
                    vfs_context_t context)
 {
 	struct smb_rq *rqp;
@@ -10313,15 +10519,14 @@ resend:
         return error;
     }
 
-#ifdef SMB_DEBUG
-    SMB_LOG_MC_REF("id %u function %s rqp %p cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp, rqp->sr_command,
+    if (compound_rqp == NULL) {
+        /* ktrace only if doing actual read and not building part of a cmpd */
+        SMB_LOG_KTRACE(SMB_DBG_SMB_WRITE_ONE | DBG_FUNC_START, smb_hideaddr(rqp), uio_offset(writep->auio), len32, 0, 0);
+    }
+
+    SMB_LOG_MC_REF("id %u function %s rqp 0x%lx cmd %d ref_cnt %u.\n",
+                   iod->iod_id, __FUNCTION__, smb_hideaddr(rqp), rqp->sr_command,
                    iod->iod_ref_cnt);
-#else
-    SMB_LOG_MC_REF("id %u function %s rqp <private> cmd %d ref_cnt %u.\n",
-                   iod->iod_id, __FUNCTION__, rqp->sr_command,
-                   iod->iod_ref_cnt);
-#endif
 
     *len = len32;
     
@@ -10372,6 +10577,11 @@ resend:
 
     *rqp->sr_flagsp |= (writep->mc_flags & SMB2_MC_REPLAY_FLAG)?(SMB2_FLAGS_REPLAY_OPERATIONS):0;
 
+    if (*allow_compressionp == 0) {
+        /* Dont compress this write */
+        rqp->sr_extflags |= SMB2_NO_COMPRESS_WRITE;
+    }
+
     if (compound_rqp != NULL) {
         /*
          * building a compound request, add padding to 8 bytes and just
@@ -10417,6 +10627,8 @@ resend:
             smb_rq_done(rqp);
             rqp = NULL;
             iod = NULL;
+            
+            SMB_LOG_KTRACE(SMB_DBG_SMB_WRITE_ONE | DBG_FUNC_END, error, 0xabc001, 0, 0, 0);
             goto resend;
         }
         
@@ -10443,12 +10655,13 @@ bad:
     }
 
     smb_rq_done(rqp);
+    SMB_LOG_KTRACE(SMB_DBG_SMB_WRITE_ONE | DBG_FUNC_END, error, 0, 0, 0, 0);
     return error;
 }
 
 static int
 smb2_smb_write_uio(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
-                   vfs_context_t context)
+                   uint32_t *allow_compressionp, vfs_context_t context)
 {
 #pragma unused(ioflag)
     int error;
@@ -10482,7 +10695,7 @@ again:
     writep->auio = temp_uio;
     writep->mc_flags = 0;
     
-    error = smb2_smb_write(share, writep, context);
+    error = smb2_smb_write(share, writep, allow_compressionp, context);
 	
     /* Handle servers that dislike write through mode */
     if ((error == EINVAL) &&
@@ -10535,12 +10748,13 @@ done:
  */
 int
 smb_smb_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
-              vfs_context_t context)
+              uint32_t *allow_compressionp, vfs_context_t context)
 {
     int error;
     
     if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
-        error = smb2_smb_write_uio(share, fid, uio, ioflag, context);
+        error = smb2_smb_write_uio(share, fid, uio, ioflag,
+                                   allow_compressionp, context);
     }
     else {
         error = smb1_write(share, fid, uio, ioflag, context);
@@ -10674,3 +10888,17 @@ smb2_session_maxwrite(struct smb_session *sessionp, uint32_t max_write)
     return maxmsgsize;
 }
 
+uint32_t
+smb2_session_max_io_size(struct smb_session *sessionp, int io_type)
+{
+    uint32_t max_io_size = 0;
+    if (io_type == SMB2_READ) {
+        max_io_size = MIN(sessionp->session_rxmax, kMaxSingleIO);
+    } else if (io_type == SMB2_WRITE) {
+        max_io_size = MIN(sessionp->session_wxmax, kMaxSingleIO);
+    } else {
+        SMBERROR("Unexpected io_type %x", io_type);
+    }
+    return max_io_size;
+
+}

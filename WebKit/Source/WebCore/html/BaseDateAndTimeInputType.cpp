@@ -53,11 +53,11 @@
 #include "RenderElement.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
-#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "StepRange.h"
 #include "Text.h"
 #include "TypedElementDescendantIteratorInlines.h"
+#include "UserAgentParts.h"
 #include "UserGestureIndicator.h"
 #include <limits>
 #include <wtf/DateMath.h>
@@ -141,6 +141,29 @@ ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDate(WallTime value) const
     ASSERT(element());
     element()->setValue(serializeWithMilliseconds(value.secondsSinceEpoch().milliseconds()));
     return { };
+}
+
+WallTime BaseDateAndTimeInputType::accessibilityValueAsDate() const
+{
+    double dateAsDouble = valueAsDouble();
+    if (std::isnan(dateAsDouble) && m_dateTimeEditElement) {
+        // The value for this element has not been set. Try to get a value from
+        // m_dateTimeEditElement if exists. That value may have been indirectly
+        // set as placeholder values for the field elements.
+        String value = m_dateTimeEditElement->value();
+        if (value.isEmpty())
+            value = m_dateTimeEditElement->placeholderValue();
+        if (value.isEmpty())
+            return { };
+
+        auto decimal = parseToNumber(value, Decimal::nan());
+        if (decimal.isFinite())
+            dateAsDouble = decimal.toDouble();
+    }
+
+    if (std::isnan(dateAsDouble))
+        return { };
+    return WallTime::fromRawSeconds(Seconds::fromMilliseconds(dateAsDouble).value());
 }
 
 double BaseDateAndTimeInputType::valueAsDouble() const
@@ -330,18 +353,20 @@ void BaseDateAndTimeInputType::createShadowSubtree()
     ASSERT(needsShadowSubtree());
     ASSERT(element());
 
-    auto& element = *this->element();
-    auto& document = element.document();
+    Ref element = *this->element();
+    Ref document = element->document();
 
-    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { *element.userAgentShadowRoot() };
+    Ref shadowRoot = *element->userAgentShadowRoot();
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { shadowRoot };
 
-    if (document.settings().dateTimeInputsEditableComponentsEnabled()) {
-        m_dateTimeEditElement = DateTimeEditElement::create(document, *this);
-        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, *m_dateTimeEditElement);
+    if (document->settings().dateTimeInputsEditableComponentsEnabled()) {
+        Ref dateTimeEditElement = DateTimeEditElement::create(document, *this);
+        m_dateTimeEditElement = dateTimeEditElement.copyRef();
+        shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, dateTimeEditElement);
     } else {
-        auto valueContainer = HTMLDivElement::create(document);
-        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, valueContainer);
-        valueContainer->setPseudo(ShadowPseudoIds::webkitDateAndTimeValue());
+        Ref valueContainer = HTMLDivElement::create(document);
+        shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, valueContainer);
+        valueContainer->setUserAgentPart(UserAgentParts::webkitDateAndTimeValue());
     }
     updateInnerTextValue();
 }
@@ -511,8 +536,8 @@ void BaseDateAndTimeInputType::didChangeValueFromControl()
     if (!valueChanged)
         return;
 
-    Ref<HTMLInputElement> input(*element());
-    if (input->userAgentShadowRoot()->containsFocusedElement())
+    Ref input = *element();
+    if (input->protectedUserAgentShadowRoot()->containsFocusedElement())
         input->dispatchFormControlInputEvent();
     else
         input->dispatchFormControlChangeEvent();
@@ -594,7 +619,6 @@ bool BaseDateAndTimeInputType::setupDateTimeChooserParameters(DateTimeChooserPar
     auto* computedStyle = element.computedStyle();
     parameters.isAnchorElementRTL = computedStyle->direction() == TextDirection::RTL;
     parameters.useDarkAppearance = document.useDarkAppearance(computedStyle);
-
     auto date = valueOrDefault(parseToDateComponents(element.value()));
     parameters.hasSecondField = shouldHaveSecondField(date);
     parameters.hasMillisecondField = shouldHaveMillisecondField(date);

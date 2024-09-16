@@ -7,9 +7,15 @@
 #include <stdlib.h>
 #include <darwintest.h>
 #include "malloc_private.h"
+#include <time.h>
+
+#include "../src/platform.h"
+
+#if !MALLOC_TARGET_EXCLAVES
+#include <dispatch/dispatch.h>
 #include "trace.h"
 #include <ktrace.h>
-#include <dispatch/dispatch.h>
+#endif // !MALLOC_TARGET_EXCLAVES
 
 
 static bool
@@ -43,8 +49,8 @@ run_options_test(int iterations)
 	const int MAX_POINTERS = 64;
 	void *pointers[MAX_POINTERS] = { NULL };
 	for (int iteration = 0; iteration < iterations; iteration++) {
-		int index = random() % MAX_POINTERS;
-		int opt_rand = random();
+		int index = rand() % MAX_POINTERS;
+		int opt_rand = rand();
 
 		bool aligned = opt_rand & 0x1;
 
@@ -55,7 +61,7 @@ run_options_test(int iterations)
 		}
 
 
-		opt_rand = random();
+		opt_rand = rand();
 		size_t align = 0;
 		size_t size = 0;
 		if (aligned) {
@@ -97,41 +103,55 @@ run_options_test(int iterations)
 }
 
 T_DECL(malloc_options, "malloc with options",
-	T_META_TAG_XZONE)
+	T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED)
 {
 	unsigned seed = time(NULL);
 	T_LOG("seed value = %u", seed);
-	srandom(seed);
+	srand(seed);
 
 	run_options_test(10000);
 }
 
 T_DECL(malloc_pgm_options, "malloc with options, but PGM is enabled",
 	T_META_ENVVAR("ProbGuardMalloc=1"),
-	T_META_TAG_XZONE)
+	T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED)
 {
 	unsigned seed = time(NULL);
 	T_LOG("seed value = %u", seed);
-	srandom(seed);
+	srand(seed);
 
 	run_options_test(10000);
 }
 
 T_DECL(malloc_msl_lite_options, "malloc with options, but MSL Lite is enabled",
 	T_META_ENVVAR("MallocStackLogging=lite"),
-	T_META_TAG_XZONE)
+	T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED)
 {
 	unsigned seed = time(NULL);
 	T_LOG("seed value = %u", seed);
-	srandom(seed);
+	srand(seed);
 
 	run_options_test(10000);
 }
 
+T_DECL(malloc_data_only_options, "Malloc with options, all xzones pure data",
+		T_META_ENVVAR("MallocXzoneDataOnly=1"),
+		T_META_ENVVAR("MallocXzoneGuarded=1"),
+		T_META_TAG_XZONE_ONLY)
+{
+	unsigned seed = time(NULL);
+	T_LOG("seed value = %u", seed);
+	srand(seed);
+
+	run_options_test(10000);
+}
+
+#if !MALLOC_TARGET_EXCLAVES
 T_DECL(malloc_options_traced, "malloc with options, but tracing is enabled",
 		T_META_ENVVAR("MallocTracing=1"),
 		T_META_ASROOT(true),
-		T_META_TAG_XZONE_ONLY)
+		T_META_TAG_XZONE_ONLY,
+		T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	/* The runtime calls malloc/calloc repeatedly, but it doesn't seem
 	 * to call memalign. Therefore, we can check that the malloc_with_options
@@ -179,3 +199,4 @@ T_DECL(malloc_options_traced, "malloc with options, but tracing is enabled",
 
 	dispatch_main();
 }
+#endif // !MALLOC_TARGET_EXCLAVES

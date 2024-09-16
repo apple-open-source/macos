@@ -68,10 +68,10 @@
 #ifndef __COMPAT__UNISTD_H_
 #define __COMPAT__UNISTD_H_
 
-#if defined(ENABLE_EXCLAVE_STORAGE)
-
 #include <sys/cdefs.h>
 #include <sys/types.h>
+
+#if defined(ENABLE_EXCLAVE_STORAGE)
 
 __BEGIN_DECLS
 

@@ -28,17 +28,20 @@
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
+#import <wtf/WeakHashSet.h>
+#import <wtf/WeakPtr.h>
 
 struct WGPUTextureViewImpl {
 };
 
 namespace WebGPU {
 
+class CommandEncoder;
 class Device;
 class Texture;
 
 // https://gpuweb.github.io/gpuweb/#gputextureview
-class TextureView : public WGPUTextureViewImpl, public RefCounted<TextureView> {
+class TextureView : public WGPUTextureViewImpl, public RefCounted<TextureView>, public CanMakeWeakPtr<TextureView> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<TextureView> create(id<MTLTexture> texture, const WGPUTextureViewDescriptor& descriptor, const std::optional<WGPUExtent3D>& renderExtent, Texture& parentTexture, Device& device)
@@ -54,34 +57,50 @@ public:
 
     void setLabel(String&&);
 
-    bool isValid() const { return m_texture; }
+    bool isValid() const;
 
-    id<MTLTexture> texture() const { return m_texture; }
+    id<MTLTexture> texture() const;
+    id<MTLTexture> parentTexture() const;
     const WGPUTextureViewDescriptor& descriptor() const { return m_descriptor; }
     const std::optional<WGPUExtent3D>& renderExtent() const { return m_renderExtent; }
 
     Device& device() const { return m_device; }
     bool previouslyCleared() const;
-    void setPreviouslyCleared();
+    void setPreviouslyCleared(uint32_t mipLevel = 0, uint32_t slice = 0);
     uint32_t width() const;
     uint32_t height() const;
+    uint32_t depthOrArrayLayers() const;
     WGPUTextureUsageFlags usage() const;
     uint32_t sampleCount() const;
+    WGPUTextureFormat parentFormat() const;
     WGPUTextureFormat format() const;
+    uint32_t parentMipLevelCount() const;
     uint32_t mipLevelCount() const;
+    uint32_t baseMipLevel() const;
+    WGPUTextureAspect aspect() const;
+    uint32_t arrayLayerCount() const;
+    uint32_t baseArrayLayer() const;
+    WGPUTextureViewDimension dimension() const;
     bool isDestroyed() const;
+    void destroy();
+    void setCommandEncoder(CommandEncoder&) const;
+    const Texture& apiParentTexture() const { return m_parentTexture; }
+    Texture& apiParentTexture() { return m_parentTexture; }
+    uint32_t parentRelativeSlice() const;
+    uint32_t parentRelativeMipLevel() const;
 
 private:
     TextureView(id<MTLTexture>, const WGPUTextureViewDescriptor&, const std::optional<WGPUExtent3D>&, Texture&, Device&);
     TextureView(Texture&, Device&);
 
-    const id<MTLTexture> m_texture { nil };
+    id<MTLTexture> m_texture { nil };
 
     const WGPUTextureViewDescriptor m_descriptor;
     const std::optional<WGPUExtent3D> m_renderExtent;
 
     const Ref<Device> m_device;
-    Texture& m_parentTexture;
+    Ref<Texture> m_parentTexture;
+    mutable WeakHashSet<CommandEncoder> m_commandEncoders;
 };
 
 } // namespace WebGPU

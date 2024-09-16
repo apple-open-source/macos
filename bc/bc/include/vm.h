@@ -791,8 +791,9 @@ bc_vm_info(const char* const help);
  * The entrance point for bc/dc together.
  * @param argc  The count of arguments.
  * @param argv  The argument array.
+ * @return      A status.
  */
-void
+BcStatus
 bc_vm_boot(int argc, char* argv[]);
 
 /**
@@ -1045,8 +1046,9 @@ bc_vm_fatalError(BcErr e);
  * A function to call at exit.
  * @param status  The exit status.
  */
-int
-bc_vm_atexit(int status);
+BcStatus
+bc_vm_atexit(BcStatus status);
+
 #endif // BC_ENABLE_LIBRARY
 
 /// A reference to the copyright header.

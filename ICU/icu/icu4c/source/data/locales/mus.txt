@@ -1,0 +1,64 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+mus{
+    AuxExemplarCharacters{"[b d ē g j q z]"}
+    ExemplarCharacters{"[a c e f h i k l m n o p r s t u v w y ʼ]"}
+    ExemplarCharactersIndex{"[A C E F H I K L M N O P R S T U V W Y]"}
+    ExemplarCharactersPunctuation{"[\\- ‐‑ – — , ; \\: ! ? . … '‘’ \u0022“” ( ) \\[ \\] § @ * / \\& # † ‡ ′ ″]"}
+    calendar{
+        gregorian{
+            dayNames{
+                format{
+                    wide{
+                        "Nettv Cako",
+                        "Enhvteceskv",
+                        "Enhvteceskv Enhvyvtke",
+                        "Ennvrkvpv",
+                        "Ennvrkvpv Enhvyvtke",
+                        "Nak Okkoskv Nettv",
+                        "Nettv Cakcuse",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    wide{
+                        "Rvfo Cuse",
+                        "Hotvle Hvse",
+                        "Tasahcuce",
+                        "Tasahce Rakko",
+                        "Ke Hvse",
+                        "Kvco Hvse",
+                        "Hiyuce",
+                        "Hiyo Rakko",
+                        "Otowoskuce",
+                        "Otowoskv Rakko",
+                        "Ehole",
+                        "Rvfo Rakko",
+                    }
+                }
+            }
+        }
+    }
+    fields{
+        day{
+            dn{"Nettv"}
+        }
+        hour{
+            dn{"Hvses-vkerkv Rakko"}
+        }
+        minute{
+            dn{"Lvpkuce"}
+        }
+        month{
+            dn{"Hvse"}
+        }
+        week{
+            dn{"Nettv Cako"}
+        }
+        year{
+            dn{"Ohrolope"}
+        }
+    }
+}

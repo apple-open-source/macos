@@ -12,7 +12,7 @@ else
 DIR := $(OBJROOT)/$(NAMEVERSION)
 endif
 MYSRC := $(SRCROOT)/Modules/$(NAMEVERSION)
-ARCHFLAGS := ARCHFLAGS='$(RC_CFLAGS)'
+ARCHFLAGS := ARCHFLAGS='$(RC_CFLAGS) -fno-typed-memory-operations -fno-typed-cxx-new-delete'
 export PATH := $(DSTROOT)/usr/bin:$(PATH)
 
 ifeq ($(shell [ -f $(DIR)/Build.PL ] && echo YES || echo NO),YES)

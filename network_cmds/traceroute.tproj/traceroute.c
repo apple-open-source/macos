@@ -410,7 +410,6 @@ double	deltaT(struct timeval *, struct timeval *);
 void	freehostinfo(struct hostinfo *);
 void	getaddr(u_int32_t *, char *);
 struct	hostinfo *gethostinfo(char *);
-u_short	in_cksum(u_short *, int);
 char	*inetname(struct in_addr);
 int	main(int, char **);
 u_short p_cksum(struct ip *, u_short *, int, int);
@@ -1730,41 +1729,6 @@ p_cksum(struct ip *ip, u_short *data, int len, int cov)
 	sum[0] = in_cksum(data, cov);                   /* payload data cksum */
 
 	return ~in_cksum(sum, sizeof(sum));
-}
-
-/*
- * Checksum routine for Internet Protocol family headers (C Version)
- */
-u_short
-in_cksum(u_short *addr, int len)
-{
-	int nleft = len;
-	u_short *w = addr;
-	u_short answer;
-	int sum = 0;
-
-	/*
-	 *  Our algorithm is simple, using a 32 bit accumulator (sum),
-	 *  we add sequential 16 bit words to it, and at the end, fold
-	 *  back all the carry bits from the top 16 bits into the lower
-	 *  16 bits.
-	 */
-	while (nleft > 1)  {
-		sum += *w++;
-		nleft -= 2;
-	}
-
-	/* mop up an odd byte, if necessary */
-	if (nleft == 1)
-		sum += *(u_char *)w;
-
-	/*
-	 * add back carry outs from top 16 bits to low 16 bits
-	 */
-	sum = (sum >> 16) + (sum & 0xffff);	/* add hi 16 to low 16 */
-	sum += (sum >> 16);			/* add carry */
-	answer = ~sum;				/* truncate to 16 bits */
-	return (answer);
 }
 
 /*

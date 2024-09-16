@@ -36,6 +36,15 @@
 #include <wtf/WeakHashMap.h>
 
 namespace WebKit {
+class RemoteLayerTreeDrawingAreaProxy;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerTreeDrawingAreaProxy> : std::true_type { };
+}
+
+namespace WebKit {
 
 class RemoteLayerTreeTransaction;
 class RemotePageDrawingAreaProxy;
@@ -49,6 +58,7 @@ public:
     virtual ~RemoteLayerTreeDrawingAreaProxy();
 
     virtual bool isRemoteLayerTreeDrawingAreaProxyMac() const { return false; }
+    virtual bool isRemoteLayerTreeDrawingAreaProxyIOS() const { return false; }
 
     const RemoteLayerTreeHost& remoteLayerTreeHost() const { return *m_remoteLayerTreeHost; }
     std::unique_ptr<RemoteLayerTreeHost> detachRemoteLayerTreeHost();
@@ -69,10 +79,6 @@ public:
 
     CALayer *layerWithIDForTesting(WebCore::PlatformLayerIdentifier) const;
 
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    void updateOverlayRegionIDs(const HashSet<WebCore::PlatformLayerIdentifier> &overlayRegionIDs) { m_remoteLayerTreeHost->updateOverlayRegionIDs(overlayRegionIDs); }
-#endif
-
     void viewWillStartLiveResize() final;
     void viewWillEndLiveResize() final;
 
@@ -80,6 +86,7 @@ public:
     void animationsWereAddedToNode(RemoteLayerTreeNode&);
     void animationsWereRemovedFromNode(RemoteLayerTreeNode&);
     Seconds acceleratedTimelineTimeOrigin() const { return m_acceleratedTimelineTimeOrigin; }
+    MonotonicTime animationCurrentTime() const { return m_animationCurrentTime; }
 #endif
 
     // For testing.
@@ -92,6 +99,7 @@ protected:
 
 private:
 
+    void remotePageProcessDidTerminate(WebCore::ProcessIdentifier) final;
     void sizeDidChange() final;
     void deviceScaleFactorDidChange() final;
     void windowKindDidChange() final;
@@ -185,6 +193,7 @@ private:
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     Seconds m_acceleratedTimelineTimeOrigin;
+    MonotonicTime m_animationCurrentTime;
 #endif
 };
 

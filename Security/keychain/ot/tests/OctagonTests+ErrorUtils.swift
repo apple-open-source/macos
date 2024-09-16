@@ -55,18 +55,25 @@ class OctagonErrorUtilsTest: OctagonTestsBase {
 
     func testRetryIntervalCuttlefish() throws {
         let cuttlefishError = NSError(domain: CuttlefishErrorDomain,
-                                            code: 17,
-                                            userInfo: [CuttlefishErrorRetryAfterKey: 101])
+                                      code: 17,
+                                      userInfo: [CuttlefishErrorRetryAfterKey: 101])
         let internalError = NSError(domain: CKUnderlyingErrorDomain,
-                                          code: CKUnderlyingError.pluginError.rawValue,
-                                          userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
+                                    code: CKUnderlyingError.pluginError.rawValue,
+                                    userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
         let ckError = NSError(domain: CKErrorDomain,
-                                    code: CKError.serverRejectedRequest.rawValue,
-                                    userInfo: [NSUnderlyingErrorKey: internalError,
-                                               CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, 17",
-                                               ])
+                              code: CKError.serverRejectedRequest.rawValue,
+                              userInfo: [NSUnderlyingErrorKey: internalError,
+                                  CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, 17",
+                                        ])
         print(ckError)
         XCTAssertEqual(101, ckError.retryInterval(), "cuttlefish retry should be 101")
+    }
+
+    func testCuttlefishRetryAfter() throws {
+        let error = NSError(domain: CKErrorDomain, code: 17, userInfo: nil)
+        print(error)
+        XCTAssertEqual(2, error.retryInterval(), "expect default retry of 2")
+        XCTAssertEqual(0, error.cuttlefishRetryAfter(), "expect cuttlefish retry of 0")
     }
 }
 

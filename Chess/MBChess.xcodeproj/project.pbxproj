@@ -53,6 +53,11 @@
 		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B51229F544500070CBF /* Tuner.xib in Resources */ = {isa = PBXBuildFile; fileRef = 72527B50229F544500070CBF /* Tuner.xib */; };
+		900541B62AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */ = {isa = PBXBuildFile; fileRef = 900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */; };
+		900541B72AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */ = {isa = PBXBuildFile; fileRef = 900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */; };
+		900541B82AFABC5800BD48B4 /* MBCMetalMaterials.mm in Sources */ = {isa = PBXBuildFile; fileRef = 900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		900541B92AFABC5800BD48B4 /* MBCMetalMaterials.mm in Sources */ = {isa = PBXBuildFile; fileRef = 900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90205E592B731D040027843B /* irradiance.png in Resources */ = {isa = PBXBuildFile; fileRef = 90205E582B731D040027843B /* irradiance.png */; };
 		903CEAA62B5205A300D2B51F /* MBCSharePlayDelegates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CF31A22707D14200815825 /* MBCSharePlayDelegates.swift */; };
 		903CEAA72B5205AC00D2B51F /* MBCSharePlayMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59F261B26FE44C600F7A5E8 /* MBCSharePlayMessages.swift */; };
 		903CEAA92B52060700D2B51F /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 903CEAA82B52060700D2B51F /* MetalKit.framework */; };
@@ -60,9 +65,128 @@
 		903CEAAD2B52061400D2B51F /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */; };
 		903CEAAE2B52061C00D2B51F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */; };
 		903CEAAF2B52063200D2B51F /* MBCDebug.cp in Sources */ = {isa = PBXBuildFile; fileRef = 95459B761492B9160083FCE3 /* MBCDebug.cp */; };
+		9043C6062B925CF8004D106E /* BoardMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C5FE2B925CF8004D106E /* BoardMarble.jpg */; };
+		9043C6072B925CF8004D106E /* BoardMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C5FE2B925CF8004D106E /* BoardMarble.jpg */; };
+		9043C6082B925CF8004D106E /* BoardMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C5FF2B925CF8004D106E /* BoardMetal.jpg */; };
+		9043C6092B925CF8004D106E /* BoardMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C5FF2B925CF8004D106E /* BoardMetal.jpg */; };
+		9043C60A2B925CF8004D106E /* BoardShadow.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6002B925CF8004D106E /* BoardShadow.jpg */; };
+		9043C60B2B925CF8004D106E /* BoardShadow.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6002B925CF8004D106E /* BoardShadow.jpg */; };
+		9043C60C2B925CF8004D106E /* BoardWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6012B925CF8004D106E /* BoardWood.jpg */; };
+		9043C60D2B925CF8004D106E /* BoardWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6012B925CF8004D106E /* BoardWood.jpg */; };
+		9043C61A2B926231004D106E /* BlackPieceMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C60F2B926230004D106E /* BlackPieceMarble.jpg */; };
+		9043C61B2B926231004D106E /* BlackPieceMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C60F2B926230004D106E /* BlackPieceMarble.jpg */; };
+		9043C6222B926231004D106E /* WhitePieceMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6142B926231004D106E /* WhitePieceMarble.jpg */; };
+		9043C6232B926231004D106E /* WhitePieceMarble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6142B926231004D106E /* WhitePieceMarble.jpg */; };
+		9043C6292B926321004D106E /* BlackPieceWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6282B926321004D106E /* BlackPieceWood.jpg */; };
+		9043C62A2B926321004D106E /* BlackPieceWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6282B926321004D106E /* BlackPieceWood.jpg */; };
+		9043C62C2B92634F004D106E /* BlackPieceMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62B2B92634E004D106E /* BlackPieceMetal.jpg */; };
+		9043C62D2B92634F004D106E /* BlackPieceMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62B2B92634E004D106E /* BlackPieceMetal.jpg */; };
+		9043C6302B9263B5004D106E /* WhitePieceWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62E2B9263B5004D106E /* WhitePieceWood.jpg */; };
+		9043C6312B9263B5004D106E /* WhitePieceWood.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62E2B9263B5004D106E /* WhitePieceWood.jpg */; };
+		9043C6322B9263B5004D106E /* WhitePieceMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62F2B9263B5004D106E /* WhitePieceMetal.jpg */; };
+		9043C6332B9263B5004D106E /* WhitePieceMetal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C62F2B9263B5004D106E /* WhitePieceMetal.jpg */; };
+		9043C63D2B92A4DC004D106E /* DigitGridNormals.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C63B2B92A4DC004D106E /* DigitGridNormals.jpg */; };
+		9043C63E2B92A4DC004D106E /* DigitGridNormals.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 9043C63B2B92A4DC004D106E /* DigitGridNormals.jpg */; };
+		9043C63F2B92A4DC004D106E /* DigitGrid.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C63C2B92A4DC004D106E /* DigitGrid.png */; };
+		9043C6402B92A4DC004D106E /* DigitGrid.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C63C2B92A4DC004D106E /* DigitGrid.png */; };
+		9043C6432B92A881004D106E /* PieceSelection.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6422B92A881004D106E /* PieceSelection.png */; };
+		9043C6442B92A881004D106E /* PieceSelection.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6422B92A881004D106E /* PieceSelection.png */; };
+		9043C6482B92A8F2004D106E /* hintMoveArrow.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6462B92A8F2004D106E /* hintMoveArrow.png */; };
+		9043C6492B92A8F2004D106E /* hintMoveArrow.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6462B92A8F2004D106E /* hintMoveArrow.png */; };
+		9043C64A2B92A8F2004D106E /* lastMoveArrow.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6472B92A8F2004D106E /* lastMoveArrow.png */; };
+		9043C64B2B92A8F2004D106E /* lastMoveArrow.png in Resources */ = {isa = PBXBuildFile; fileRef = 9043C6472B92A8F2004D106E /* lastMoveArrow.png */; };
+		9053F0392B76B48A00BE7D88 /* MBCShadersGround.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9053F0382B76B48A00BE7D88 /* MBCShadersGround.metal */; };
+		9053F03A2B76B48A00BE7D88 /* MBCShadersGround.metal in Sources */ = {isa = PBXBuildFile; fileRef = 9053F0382B76B48A00BE7D88 /* MBCShadersGround.metal */; };
+		905659212AE888BE004611D7 /* MBCMetalRenderer.h in Headers */ = {isa = PBXBuildFile; fileRef = 9056591F2AE888BE004611D7 /* MBCMetalRenderer.h */; };
+		905659222AE888BE004611D7 /* MBCMetalRenderer.h in Headers */ = {isa = PBXBuildFile; fileRef = 9056591F2AE888BE004611D7 /* MBCMetalRenderer.h */; };
+		905659232AE888BE004611D7 /* MBCMetalRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 905659202AE888BE004611D7 /* MBCMetalRenderer.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		905659242AE888BE004611D7 /* MBCMetalRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 905659202AE888BE004611D7 /* MBCMetalRenderer.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		905659272AE88FDE004611D7 /* MBCMetalCamera.h in Headers */ = {isa = PBXBuildFile; fileRef = 905659252AE88FDE004611D7 /* MBCMetalCamera.h */; };
+		905659282AE88FDE004611D7 /* MBCMetalCamera.h in Headers */ = {isa = PBXBuildFile; fileRef = 905659252AE88FDE004611D7 /* MBCMetalCamera.h */; };
+		905659292AE88FDE004611D7 /* MBCMetalCamera.mm in Sources */ = {isa = PBXBuildFile; fileRef = 905659262AE88FDE004611D7 /* MBCMetalCamera.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		9056592A2AE88FDE004611D7 /* MBCMetalCamera.mm in Sources */ = {isa = PBXBuildFile; fileRef = 905659262AE88FDE004611D7 /* MBCMetalCamera.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		9056592E2AE98668004611D7 /* Meshes in Resources */ = {isa = PBXBuildFile; fileRef = 9056592D2AE98668004611D7 /* Meshes */; };
+		9056592F2AE98668004611D7 /* Meshes in Resources */ = {isa = PBXBuildFile; fileRef = 9056592D2AE98668004611D7 /* Meshes */; };
+		905AE4BB2AE8420E008C0719 /* MBCBoardViewInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 905AE4BA2AE8420E008C0719 /* MBCBoardViewInterface.h */; };
+		905AE4BC2AE8420E008C0719 /* MBCBoardViewInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 905AE4BA2AE8420E008C0719 /* MBCBoardViewInterface.h */; };
+		905AE4BF2AE842A6008C0719 /* MBCBoardCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 905AE4BD2AE842A6008C0719 /* MBCBoardCommon.h */; };
+		905AE4C02AE842A6008C0719 /* MBCBoardCommon.mm in Sources */ = {isa = PBXBuildFile; fileRef = 905AE4BE2AE842A6008C0719 /* MBCBoardCommon.mm */; };
+		905AE4C12AE842F7008C0719 /* MBCBoardCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 905AE4BD2AE842A6008C0719 /* MBCBoardCommon.h */; };
+		905AE4C32AE844B8008C0719 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 905AE4C22AE844B8008C0719 /* MetalKit.framework */; };
+		906A22632B06EA3B00DB92E5 /* MBCShadersArrow.metal in Sources */ = {isa = PBXBuildFile; fileRef = 906A22622B06EA3B00DB92E5 /* MBCShadersArrow.metal */; };
+		906A22642B06EA3B00DB92E5 /* MBCShadersArrow.metal in Sources */ = {isa = PBXBuildFile; fileRef = 906A22622B06EA3B00DB92E5 /* MBCShadersArrow.metal */; };
+		906A22682B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 906A22662B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h */; };
+		906A22692B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 906A22662B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h */; };
+		906A226A2B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 906A22672B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		906A226B2B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 906A22672B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		906D235A244F6F800061834A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 906D2359244F6F800061834A /* Images.xcassets */; };
+		90ABD0DE2B7543BE0042A99C /* ScreenCaptureKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 90ABD0DD2B7543BE0042A99C /* ScreenCaptureKit.framework */; };
+		90ABD0DF2B7543C70042A99C /* ScreenCaptureKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 90ABD0DD2B7543BE0042A99C /* ScreenCaptureKit.framework */; };
 		90B7C76E2B52021E00A117C2 /* MBChess-InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 90B7C76B2B52021E00A117C2 /* MBChess-InfoPlist.strings */; };
 		90B7C76F2B52026600A117C2 /* ChessTuner-InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 90B7C7692B52021E00A117C2 /* ChessTuner-InfoPlist.strings */; };
+		90CC3C2E2B7403D500302EC1 /* MBCRecordingController.h in Headers */ = {isa = PBXBuildFile; fileRef = 90CC3C2C2B7403D500302EC1 /* MBCRecordingController.h */; };
+		90CC3C2F2B7403D500302EC1 /* MBCRecordingController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90CC3C2D2B7403D500302EC1 /* MBCRecordingController.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90CC3C302B7403D500302EC1 /* MBCRecordingController.h in Headers */ = {isa = PBXBuildFile; fileRef = 90CC3C2C2B7403D500302EC1 /* MBCRecordingController.h */; };
+		90CC3C312B7403D500302EC1 /* MBCRecordingController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90CC3C2D2B7403D500302EC1 /* MBCRecordingController.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90DAB4F52AE71E5F00106123 /* MBCBoardMTLView.h in Headers */ = {isa = PBXBuildFile; fileRef = 90DAB4F32AE71E5F00106123 /* MBCBoardMTLView.h */; };
+		90DAB4F62AE71E5F00106123 /* MBCBoardMTLView.h in Headers */ = {isa = PBXBuildFile; fileRef = 90DAB4F32AE71E5F00106123 /* MBCBoardMTLView.h */; };
+		90DAB4F72AE71E5F00106123 /* MBCBoardMTLView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90DAB4F42AE71E5F00106123 /* MBCBoardMTLView.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90DAB4F82AE71E5F00106123 /* MBCBoardMTLView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90DAB4F42AE71E5F00106123 /* MBCBoardMTLView.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90DAB4FE2AE7679500106123 /* MBCDrawStyle.h in Headers */ = {isa = PBXBuildFile; fileRef = 90DAB4FC2AE7679500106123 /* MBCDrawStyle.h */; };
+		90DAB4FF2AE7679500106123 /* MBCDrawStyle.h in Headers */ = {isa = PBXBuildFile; fileRef = 90DAB4FC2AE7679500106123 /* MBCDrawStyle.h */; };
+		90DAB5002AE7679500106123 /* MBCDrawStyle.m in Sources */ = {isa = PBXBuildFile; fileRef = 90DAB4FD2AE7679500106123 /* MBCDrawStyle.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90DAB5012AE7679500106123 /* MBCDrawStyle.m in Sources */ = {isa = PBXBuildFile; fileRef = 90DAB4FD2AE7679500106123 /* MBCDrawStyle.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90EB855A2B9524FF002D9B53 /* bishopR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB854E2B9524FE002D9B53 /* bishopR_AO.jpg */; };
+		90EB855B2B9524FF002D9B53 /* bishopR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB854E2B9524FE002D9B53 /* bishopR_AO.jpg */; };
+		90EB855C2B9524FF002D9B53 /* pawnR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB854F2B9524FE002D9B53 /* pawnR_AO.jpg */; };
+		90EB855D2B9524FF002D9B53 /* pawnR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB854F2B9524FE002D9B53 /* pawnR_AO.jpg */; };
+		90EB855E2B9524FF002D9B53 /* queenN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85502B9524FE002D9B53 /* queenN.jpg */; };
+		90EB855F2B9524FF002D9B53 /* queenN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85502B9524FE002D9B53 /* queenN.jpg */; };
+		90EB85602B9524FF002D9B53 /* queenR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85512B9524FE002D9B53 /* queenR_AO.jpg */; };
+		90EB85612B9524FF002D9B53 /* queenR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85512B9524FE002D9B53 /* queenR_AO.jpg */; };
+		90EB85622B9524FF002D9B53 /* rookN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85522B9524FE002D9B53 /* rookN.jpg */; };
+		90EB85632B9524FF002D9B53 /* rookN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85522B9524FE002D9B53 /* rookN.jpg */; };
+		90EB85642B9524FF002D9B53 /* knightR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85532B9524FE002D9B53 /* knightR_AO.jpg */; };
+		90EB85652B9524FF002D9B53 /* knightR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85532B9524FE002D9B53 /* knightR_AO.jpg */; };
+		90EB85662B9524FF002D9B53 /* pawnN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85542B9524FE002D9B53 /* pawnN.jpg */; };
+		90EB85672B9524FF002D9B53 /* pawnN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85542B9524FE002D9B53 /* pawnN.jpg */; };
+		90EB85682B9524FF002D9B53 /* kingN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85552B9524FE002D9B53 /* kingN.jpg */; };
+		90EB85692B9524FF002D9B53 /* kingN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85552B9524FE002D9B53 /* kingN.jpg */; };
+		90EB856A2B9524FF002D9B53 /* rookR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85562B9524FE002D9B53 /* rookR_AO.jpg */; };
+		90EB856B2B9524FF002D9B53 /* rookR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85562B9524FE002D9B53 /* rookR_AO.jpg */; };
+		90EB856C2B9524FF002D9B53 /* kingR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85572B9524FE002D9B53 /* kingR_AO.jpg */; };
+		90EB856D2B9524FF002D9B53 /* kingR_AO.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85572B9524FE002D9B53 /* kingR_AO.jpg */; };
+		90EB856E2B9524FF002D9B53 /* bishopN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85582B9524FE002D9B53 /* bishopN.jpg */; };
+		90EB856F2B9524FF002D9B53 /* bishopN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85582B9524FE002D9B53 /* bishopN.jpg */; };
+		90EB85702B9524FF002D9B53 /* knightN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85592B9524FF002D9B53 /* knightN.jpg */; };
+		90EB85712B9524FF002D9B53 /* knightN.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 90EB85592B9524FF002D9B53 /* knightN.jpg */; };
+		90F44CF92B1E604A00934DB9 /* MBCShadersDecal.metal in Sources */ = {isa = PBXBuildFile; fileRef = 90F44CF82B1E604A00934DB9 /* MBCShadersDecal.metal */; };
+		90F44CFA2B1E604A00934DB9 /* MBCShadersDecal.metal in Sources */ = {isa = PBXBuildFile; fileRef = 90F44CF82B1E604A00934DB9 /* MBCShadersDecal.metal */; };
+		90F44CFC2B228ECA00934DB9 /* MetalPerformanceShaders.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 90F44CFB2B228ECA00934DB9 /* MetalPerformanceShaders.framework */; };
+		90F8C33D2AE9DB8E002B604E /* MBCMeshLoader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3392AE9DB8E002B604E /* MBCMeshLoader.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C33E2AE9DB8E002B604E /* MBCMeshLoader.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3392AE9DB8E002B604E /* MBCMeshLoader.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C3412AE9DB8E002B604E /* MBCMeshLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C33B2AE9DB8E002B604E /* MBCMeshLoader.h */; };
+		90F8C3422AE9DB8E002B604E /* MBCMeshLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C33B2AE9DB8E002B604E /* MBCMeshLoader.h */; };
+		90F8C34C2AE9DF96002B604E /* MBCBoardEnums.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C34B2AE9DF96002B604E /* MBCBoardEnums.h */; };
+		90F8C34D2AE9DF96002B604E /* MBCBoardEnums.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C34B2AE9DF96002B604E /* MBCBoardEnums.h */; };
+		90F8C3502AE9DFF2002B604E /* MBCRenderable.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C34E2AE9DFF2002B604E /* MBCRenderable.h */; };
+		90F8C3512AE9DFF2002B604E /* MBCRenderable.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C34E2AE9DFF2002B604E /* MBCRenderable.h */; };
+		90F8C3522AE9DFF2002B604E /* MBCRenderable.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C34F2AE9DFF2002B604E /* MBCRenderable.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C3532AE9DFF2002B604E /* MBCRenderable.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C34F2AE9DFF2002B604E /* MBCRenderable.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C3562AEAE114002B604E /* MBCMathUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3542AEAE113002B604E /* MBCMathUtilities.h */; };
+		90F8C3572AEAE114002B604E /* MBCMathUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3542AEAE113002B604E /* MBCMathUtilities.h */; };
+		90F8C3582AEAE114002B604E /* MBCMathUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3552AEAE113002B604E /* MBCMathUtilities.m */; };
+		90F8C3592AEAE114002B604E /* MBCMathUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3552AEAE113002B604E /* MBCMathUtilities.m */; };
+		90F8C3612AEB1C10002B604E /* MBCShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3602AEB1C10002B604E /* MBCShaders.metal */; };
+		90F8C3622AEB1C10002B604E /* MBCShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3602AEB1C10002B604E /* MBCShaders.metal */; };
+		90F8C3652AEC7172002B604E /* MBCBoardMTLViewMouse.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3632AEC7172002B604E /* MBCBoardMTLViewMouse.h */; };
+		90F8C3662AEC7172002B604E /* MBCBoardMTLViewMouse.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3632AEC7172002B604E /* MBCBoardMTLViewMouse.h */; };
+		90F8C3672AEC7172002B604E /* MBCBoardMTLViewMouse.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3642AEC7172002B604E /* MBCBoardMTLViewMouse.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C3682AEC7172002B604E /* MBCBoardMTLViewMouse.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C3642AEC7172002B604E /* MBCBoardMTLViewMouse.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C36B2AEF38AC002B604E /* MBCBoardMTLViewDraw.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3692AEF38AC002B604E /* MBCBoardMTLViewDraw.h */; };
+		90F8C36C2AEF38AC002B604E /* MBCBoardMTLViewDraw.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F8C3692AEF38AC002B604E /* MBCBoardMTLViewDraw.h */; };
+		90F8C36D2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C36A2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		90F8C36E2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm in Sources */ = {isa = PBXBuildFile; fileRef = 90F8C36A2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
 		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
 		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
@@ -222,8 +346,8 @@
 		9595F35C1467285D00FC37E4 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9595F35B1467285D00FC37E4 /* GameKit.framework */; };
 		95A7266E1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */; };
 		95A7266F1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */; };
-		95A726701426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; };
-		95A726711426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; };
+		95A726701426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		95A726711426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		95B65BF91471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65BF71471C8C8008DBB60 /* MBCRemotePlayer.h */; };
 		95B65BFA1471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65BF71471C8C8008DBB60 /* MBCRemotePlayer.h */; };
 		95B65BFB1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B65BF81471C8C8008DBB60 /* MBCRemotePlayer.mm */; };
@@ -332,14 +456,79 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		72527B4D229F534100070CBF /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
 		72527B50229F544500070CBF /* Tuner.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = Tuner.xib; sourceTree = "<group>"; };
+		900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCMetalMaterials.h; path = Sources/MBCMetalMaterials.h; sourceTree = "<group>"; };
+		900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMetalMaterials.mm; path = Sources/MBCMetalMaterials.mm; sourceTree = "<group>"; };
+		90205E582B731D040027843B /* irradiance.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = irradiance.png; path = Resources/irradiance.png; sourceTree = "<group>"; };
 		903CEAA82B52060700D2B51F /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		903CEAAA2B52060C00D2B51F /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
 		903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
+		9043C5FE2B925CF8004D106E /* BoardMarble.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BoardMarble.jpg; sourceTree = "<group>"; };
+		9043C5FF2B925CF8004D106E /* BoardMetal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BoardMetal.jpg; sourceTree = "<group>"; };
+		9043C6002B925CF8004D106E /* BoardShadow.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BoardShadow.jpg; sourceTree = "<group>"; };
+		9043C6012B925CF8004D106E /* BoardWood.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BoardWood.jpg; sourceTree = "<group>"; };
+		9043C60F2B926230004D106E /* BlackPieceMarble.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BlackPieceMarble.jpg; sourceTree = "<group>"; };
+		9043C6142B926231004D106E /* WhitePieceMarble.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = WhitePieceMarble.jpg; sourceTree = "<group>"; };
+		9043C6282B926321004D106E /* BlackPieceWood.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BlackPieceWood.jpg; sourceTree = "<group>"; };
+		9043C62B2B92634E004D106E /* BlackPieceMetal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = BlackPieceMetal.jpg; sourceTree = "<group>"; };
+		9043C62E2B9263B5004D106E /* WhitePieceWood.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = WhitePieceWood.jpg; sourceTree = "<group>"; };
+		9043C62F2B9263B5004D106E /* WhitePieceMetal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = WhitePieceMetal.jpg; sourceTree = "<group>"; };
+		9043C63B2B92A4DC004D106E /* DigitGridNormals.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = DigitGridNormals.jpg; sourceTree = "<group>"; };
+		9043C63C2B92A4DC004D106E /* DigitGrid.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = DigitGrid.png; sourceTree = "<group>"; };
+		9043C6422B92A881004D106E /* PieceSelection.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = PieceSelection.png; sourceTree = "<group>"; };
+		9043C6462B92A8F2004D106E /* hintMoveArrow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = hintMoveArrow.png; sourceTree = "<group>"; };
+		9043C6472B92A8F2004D106E /* lastMoveArrow.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = lastMoveArrow.png; sourceTree = "<group>"; };
+		9053F0382B76B48A00BE7D88 /* MBCShadersGround.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = MBCShadersGround.metal; path = Sources/MBCShadersGround.metal; sourceTree = "<group>"; };
+		9056591F2AE888BE004611D7 /* MBCMetalRenderer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCMetalRenderer.h; path = Sources/MBCMetalRenderer.h; sourceTree = "<group>"; };
+		905659202AE888BE004611D7 /* MBCMetalRenderer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMetalRenderer.mm; path = Sources/MBCMetalRenderer.mm; sourceTree = "<group>"; };
+		905659252AE88FDE004611D7 /* MBCMetalCamera.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCMetalCamera.h; path = Sources/MBCMetalCamera.h; sourceTree = "<group>"; };
+		905659262AE88FDE004611D7 /* MBCMetalCamera.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMetalCamera.mm; path = Sources/MBCMetalCamera.mm; sourceTree = "<group>"; };
+		9056592D2AE98668004611D7 /* Meshes */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Meshes; path = Resources/Meshes; sourceTree = "<group>"; };
+		905AE4BA2AE8420E008C0719 /* MBCBoardViewInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewInterface.h; path = Sources/MBCBoardViewInterface.h; sourceTree = "<group>"; };
+		905AE4BD2AE842A6008C0719 /* MBCBoardCommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCBoardCommon.h; path = Sources/MBCBoardCommon.h; sourceTree = "<group>"; };
+		905AE4BE2AE842A6008C0719 /* MBCBoardCommon.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardCommon.mm; path = Sources/MBCBoardCommon.mm; sourceTree = "<group>"; };
+		905AE4C22AE844B8008C0719 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		906A22622B06EA3B00DB92E5 /* MBCShadersArrow.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = MBCShadersArrow.metal; path = Sources/MBCShadersArrow.metal; sourceTree = "<group>"; };
+		906A22662B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCBoardMTLViewAccessibility.h; path = Sources/MBCBoardMTLViewAccessibility.h; sourceTree = "<group>"; };
+		906A22672B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardMTLViewAccessibility.mm; path = Sources/MBCBoardMTLViewAccessibility.mm; sourceTree = "<group>"; };
 		906D2359244F6F800061834A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = MBChess/Images.xcassets; sourceTree = "<group>"; };
 		90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Chess.xcconfig; sourceTree = "<group>"; };
+		90ABD0DD2B7543BE0042A99C /* ScreenCaptureKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenCaptureKit.framework; path = System/Library/Frameworks/ScreenCaptureKit.framework; sourceTree = SDKROOT; };
 		90B7C7652B5201B800A117C2 /* ChessTuner-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "ChessTuner-Info.plist"; path = "Resources/ChessTuner-Info.plist"; sourceTree = "<group>"; };
 		90B7C76A2B52021E00A117C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/ChessTuner-InfoPlist.strings"; sourceTree = "<group>"; };
 		90B7C76C2B52021E00A117C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/MBChess-InfoPlist.strings"; sourceTree = "<group>"; };
+		90CC3C2C2B7403D500302EC1 /* MBCRecordingController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCRecordingController.h; path = Sources/MBCRecordingController.h; sourceTree = "<group>"; };
+		90CC3C2D2B7403D500302EC1 /* MBCRecordingController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCRecordingController.mm; path = Sources/MBCRecordingController.mm; sourceTree = "<group>"; };
+		90DAB4F32AE71E5F00106123 /* MBCBoardMTLView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCBoardMTLView.h; path = Sources/MBCBoardMTLView.h; sourceTree = "<group>"; };
+		90DAB4F42AE71E5F00106123 /* MBCBoardMTLView.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardMTLView.mm; path = Sources/MBCBoardMTLView.mm; sourceTree = "<group>"; };
+		90DAB4FC2AE7679500106123 /* MBCDrawStyle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCDrawStyle.h; path = Sources/MBCDrawStyle.h; sourceTree = "<group>"; };
+		90DAB4FD2AE7679500106123 /* MBCDrawStyle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = MBCDrawStyle.m; path = Sources/MBCDrawStyle.m; sourceTree = "<group>"; };
+		90EB854E2B9524FE002D9B53 /* bishopR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = bishopR_AO.jpg; sourceTree = "<group>"; };
+		90EB854F2B9524FE002D9B53 /* pawnR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = pawnR_AO.jpg; sourceTree = "<group>"; };
+		90EB85502B9524FE002D9B53 /* queenN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = queenN.jpg; sourceTree = "<group>"; };
+		90EB85512B9524FE002D9B53 /* queenR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = queenR_AO.jpg; sourceTree = "<group>"; };
+		90EB85522B9524FE002D9B53 /* rookN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = rookN.jpg; sourceTree = "<group>"; };
+		90EB85532B9524FE002D9B53 /* knightR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = knightR_AO.jpg; sourceTree = "<group>"; };
+		90EB85542B9524FE002D9B53 /* pawnN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = pawnN.jpg; sourceTree = "<group>"; };
+		90EB85552B9524FE002D9B53 /* kingN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = kingN.jpg; sourceTree = "<group>"; };
+		90EB85562B9524FE002D9B53 /* rookR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = rookR_AO.jpg; sourceTree = "<group>"; };
+		90EB85572B9524FE002D9B53 /* kingR_AO.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = kingR_AO.jpg; sourceTree = "<group>"; };
+		90EB85582B9524FE002D9B53 /* bishopN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = bishopN.jpg; sourceTree = "<group>"; };
+		90EB85592B9524FF002D9B53 /* knightN.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = knightN.jpg; sourceTree = "<group>"; };
+		90F44CF82B1E604A00934DB9 /* MBCShadersDecal.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; name = MBCShadersDecal.metal; path = Sources/MBCShadersDecal.metal; sourceTree = "<group>"; };
+		90F44CFB2B228ECA00934DB9 /* MetalPerformanceShaders.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalPerformanceShaders.framework; path = System/Library/Frameworks/MetalPerformanceShaders.framework; sourceTree = SDKROOT; };
+		90F8C3392AE9DB8E002B604E /* MBCMeshLoader.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMeshLoader.mm; path = Sources/MBCMeshLoader.mm; sourceTree = "<group>"; };
+		90F8C33A2AE9DB8E002B604E /* MBCShaderTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCShaderTypes.h; path = Sources/MBCShaderTypes.h; sourceTree = "<group>"; };
+		90F8C33B2AE9DB8E002B604E /* MBCMeshLoader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCMeshLoader.h; path = Sources/MBCMeshLoader.h; sourceTree = "<group>"; };
+		90F8C34B2AE9DF96002B604E /* MBCBoardEnums.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCBoardEnums.h; path = Sources/MBCBoardEnums.h; sourceTree = "<group>"; };
+		90F8C34E2AE9DFF2002B604E /* MBCRenderable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCRenderable.h; path = Sources/MBCRenderable.h; sourceTree = "<group>"; };
+		90F8C34F2AE9DFF2002B604E /* MBCRenderable.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCRenderable.mm; path = Sources/MBCRenderable.mm; sourceTree = "<group>"; };
+		90F8C3542AEAE113002B604E /* MBCMathUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCMathUtilities.h; path = Sources/MBCMathUtilities.h; sourceTree = "<group>"; };
+		90F8C3552AEAE113002B604E /* MBCMathUtilities.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MBCMathUtilities.m; path = Sources/MBCMathUtilities.m; sourceTree = "<group>"; };
+		90F8C3602AEB1C10002B604E /* MBCShaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; name = MBCShaders.metal; path = Sources/MBCShaders.metal; sourceTree = "<group>"; };
+		90F8C3632AEC7172002B604E /* MBCBoardMTLViewMouse.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCBoardMTLViewMouse.h; path = Sources/MBCBoardMTLViewMouse.h; sourceTree = "<group>"; };
+		90F8C3642AEC7172002B604E /* MBCBoardMTLViewMouse.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardMTLViewMouse.mm; path = Sources/MBCBoardMTLViewMouse.mm; sourceTree = "<group>"; };
+		90F8C3692AEF38AC002B604E /* MBCBoardMTLViewDraw.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCBoardMTLViewDraw.h; path = Sources/MBCBoardMTLViewDraw.h; sourceTree = "<group>"; };
+		90F8C36A2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardMTLViewDraw.mm; path = Sources/MBCBoardMTLViewDraw.mm; sourceTree = "<group>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
 		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
 		950BD16F0A1E582B00395116 /* MBChess-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "MBChess-Info.plist"; path = "Resources/MBChess-Info.plist"; sourceTree = "<group>"; };
@@ -481,6 +670,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90ABD0DE2B7543BE0042A99C /* ScreenCaptureKit.framework in Frameworks */,
+				90F44CFC2B228ECA00934DB9 /* MetalPerformanceShaders.framework in Frameworks */,
+				905AE4C32AE844B8008C0719 /* MetalKit.framework in Frameworks */,
 				A5CF31A7270D062900815825 /* UserNotifications.framework in Frameworks */,
 				D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */,
 				D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */,
@@ -503,6 +695,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90ABD0DF2B7543C70042A99C /* ScreenCaptureKit.framework in Frameworks */,
 				903CEAAE2B52061C00D2B51F /* SystemConfiguration.framework in Frameworks */,
 				903CEAAD2B52061400D2B51F /* MetalPerformanceShaders.framework in Frameworks */,
 				903CEAAB2B52060C00D2B51F /* GameKit.framework in Frameworks */,
@@ -566,6 +759,8 @@
 		29B97314FDCFA39411CA2CEA /* MBChess */ = {
 			isa = PBXGroup;
 			children = (
+				90DAB4FC2AE7679500106123 /* MBCDrawStyle.h */,
+				90DAB4FD2AE7679500106123 /* MBCDrawStyle.m */,
 				90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */,
 				080E96DDFE201D6D7F000001 /* Classes */,
 				29B97315FDCFA39411CA2CEA /* Other Sources */,
@@ -590,7 +785,9 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				9043C6032B925CF8004D106E /* MTL */,
 				906D2359244F6F800061834A /* Images.xcassets */,
+				90205E582B731D040027843B /* irradiance.png */,
 				226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */,
 				95DEC3D81488581300E1305A /* Chess.entitlements */,
 				95261CDC1478580E004EF501 /* background.pdf */,
@@ -615,6 +812,7 @@
 				F5775A2002F917A901D8996C /* zbook.db */,
 				9595B6C00458E2CD00A8D2EE /* sjeng.rc */,
 				F598AC41035A958501000102 /* Defaults.plist */,
+				9056592D2AE98668004611D7 /* Meshes */,
 				95C85026048F342500A9DF4F /* Styles */,
 				9594A40504C76CA4005DC0DD /* SpeechHelp.plist */,
 				72527B50229F544500070CBF /* Tuner.xib */,
@@ -626,6 +824,9 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				90ABD0DD2B7543BE0042A99C /* ScreenCaptureKit.framework */,
+				90F44CFB2B228ECA00934DB9 /* MetalPerformanceShaders.framework */,
+				905AE4C22AE844B8008C0719 /* MetalKit.framework */,
 				903CEAAC2B52061400D2B51F /* MetalPerformanceShaders.framework */,
 				903CEAAA2B52060C00D2B51F /* GameKit.framework */,
 				903CEAA82B52060700D2B51F /* MetalKit.framework */,
@@ -640,9 +841,134 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		9043C6022B925CF8004D106E /* Board */ = {
+			isa = PBXGroup;
+			children = (
+				9043C5FE2B925CF8004D106E /* BoardMarble.jpg */,
+				9043C5FF2B925CF8004D106E /* BoardMetal.jpg */,
+				9043C6002B925CF8004D106E /* BoardShadow.jpg */,
+				9043C6012B925CF8004D106E /* BoardWood.jpg */,
+			);
+			path = Board;
+			sourceTree = "<group>";
+		};
+		9043C6032B925CF8004D106E /* MTL */ = {
+			isa = PBXGroup;
+			children = (
+				9043C6022B925CF8004D106E /* Board */,
+				9043C6342B92A409004D106E /* Digit Grid */,
+				9043C6452B92A8BD004D106E /* Move Arrows */,
+				9043C6122B926230004D106E /* PiecesBlack */,
+				9043C6172B926231004D106E /* PiecesWhite */,
+				90EB85292B951FBB002D9B53 /* Piece PBR Maps */,
+				9043C6412B92A85C004D106E /* Piece Selection */,
+			);
+			name = MTL;
+			path = Resources/MTL;
+			sourceTree = "<group>";
+		};
+		9043C6122B926230004D106E /* PiecesBlack */ = {
+			isa = PBXGroup;
+			children = (
+				9043C60F2B926230004D106E /* BlackPieceMarble.jpg */,
+				9043C62B2B92634E004D106E /* BlackPieceMetal.jpg */,
+				9043C6282B926321004D106E /* BlackPieceWood.jpg */,
+			);
+			path = PiecesBlack;
+			sourceTree = "<group>";
+		};
+		9043C6172B926231004D106E /* PiecesWhite */ = {
+			isa = PBXGroup;
+			children = (
+				9043C6142B926231004D106E /* WhitePieceMarble.jpg */,
+				9043C62F2B9263B5004D106E /* WhitePieceMetal.jpg */,
+				9043C62E2B9263B5004D106E /* WhitePieceWood.jpg */,
+			);
+			path = PiecesWhite;
+			sourceTree = "<group>";
+		};
+		9043C6342B92A409004D106E /* Digit Grid */ = {
+			isa = PBXGroup;
+			children = (
+				9043C63C2B92A4DC004D106E /* DigitGrid.png */,
+				9043C63B2B92A4DC004D106E /* DigitGridNormals.jpg */,
+			);
+			path = "Digit Grid";
+			sourceTree = "<group>";
+		};
+		9043C6412B92A85C004D106E /* Piece Selection */ = {
+			isa = PBXGroup;
+			children = (
+				9043C6422B92A881004D106E /* PieceSelection.png */,
+			);
+			path = "Piece Selection";
+			sourceTree = "<group>";
+		};
+		9043C6452B92A8BD004D106E /* Move Arrows */ = {
+			isa = PBXGroup;
+			children = (
+				9043C6462B92A8F2004D106E /* hintMoveArrow.png */,
+				9043C6472B92A8F2004D106E /* lastMoveArrow.png */,
+			);
+			path = "Move Arrows";
+			sourceTree = "<group>";
+		};
+		90DAB4F22AE71E2000106123 /* Metal */ = {
+			isa = PBXGroup;
+			children = (
+				90F8C3542AEAE113002B604E /* MBCMathUtilities.h */,
+				90F8C3552AEAE113002B604E /* MBCMathUtilities.m */,
+				90DAB4F32AE71E5F00106123 /* MBCBoardMTLView.h */,
+				90DAB4F42AE71E5F00106123 /* MBCBoardMTLView.mm */,
+				906A22662B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h */,
+				906A22672B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm */,
+				90F8C3692AEF38AC002B604E /* MBCBoardMTLViewDraw.h */,
+				90F8C36A2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm */,
+				90F8C3632AEC7172002B604E /* MBCBoardMTLViewMouse.h */,
+				90F8C3642AEC7172002B604E /* MBCBoardMTLViewMouse.mm */,
+				90F8C33B2AE9DB8E002B604E /* MBCMeshLoader.h */,
+				90F8C3392AE9DB8E002B604E /* MBCMeshLoader.mm */,
+				905659252AE88FDE004611D7 /* MBCMetalCamera.h */,
+				905659262AE88FDE004611D7 /* MBCMetalCamera.mm */,
+				900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */,
+				900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */,
+				9056591F2AE888BE004611D7 /* MBCMetalRenderer.h */,
+				905659202AE888BE004611D7 /* MBCMetalRenderer.mm */,
+				90F8C34E2AE9DFF2002B604E /* MBCRenderable.h */,
+				90F8C34F2AE9DFF2002B604E /* MBCRenderable.mm */,
+				90F8C33A2AE9DB8E002B604E /* MBCShaderTypes.h */,
+				90F8C3602AEB1C10002B604E /* MBCShaders.metal */,
+				906A22622B06EA3B00DB92E5 /* MBCShadersArrow.metal */,
+				90F44CF82B1E604A00934DB9 /* MBCShadersDecal.metal */,
+				9053F0382B76B48A00BE7D88 /* MBCShadersGround.metal */,
+			);
+			name = Metal;
+			sourceTree = "<group>";
+		};
+		90EB85292B951FBB002D9B53 /* Piece PBR Maps */ = {
+			isa = PBXGroup;
+			children = (
+				90EB85582B9524FE002D9B53 /* bishopN.jpg */,
+				90EB854E2B9524FE002D9B53 /* bishopR_AO.jpg */,
+				90EB85552B9524FE002D9B53 /* kingN.jpg */,
+				90EB85572B9524FE002D9B53 /* kingR_AO.jpg */,
+				90EB85592B9524FF002D9B53 /* knightN.jpg */,
+				90EB85532B9524FE002D9B53 /* knightR_AO.jpg */,
+				90EB85542B9524FE002D9B53 /* pawnN.jpg */,
+				90EB854F2B9524FE002D9B53 /* pawnR_AO.jpg */,
+				90EB85502B9524FE002D9B53 /* queenN.jpg */,
+				90EB85512B9524FE002D9B53 /* queenR_AO.jpg */,
+				90EB85522B9524FE002D9B53 /* rookN.jpg */,
+				90EB85562B9524FE002D9B53 /* rookR_AO.jpg */,
+			);
+			path = "Piece PBR Maps";
+			sourceTree = "<group>";
+		};
 		9552E491148289B300E21853 /* Board */ = {
 			isa = PBXGroup;
 			children = (
+				90DAB4F22AE71E2000106123 /* Metal */,
+				905AE4BA2AE8420E008C0719 /* MBCBoardViewInterface.h */,
 				F5228DC1030ADA0201D8E860 /* MBCBoardView.h */,
 				F5406BF9030E151F011317DC /* MBCBoardView.mm */,
 				F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */,
@@ -709,6 +1035,9 @@
 				953ABB1C043AC51100C64F18 /* MBCDocument.mm */,
 				F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */,
 				F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */,
+				905AE4BD2AE842A6008C0719 /* MBCBoardCommon.h */,
+				905AE4BE2AE842A6008C0719 /* MBCBoardCommon.mm */,
+				90F8C34B2AE9DF96002B604E /* MBCBoardEnums.h */,
 				950B5942049D8C73000001C9 /* MBCMoveGenerator.h */,
 				950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */,
 				95D2026204C2247A00590F98 /* MBCLanguageModel.h */,
@@ -739,6 +1068,8 @@
 				F5A1654F03107AD501D39A8B /* MBCController.mm */,
 				9575D07F14254A8100E65579 /* MBCBoardWin.h */,
 				9575D08014254A8100E65579 /* MBCBoardWin.mm */,
+				90CC3C2C2B7403D500302EC1 /* MBCRecordingController.h */,
+				90CC3C2D2B7403D500302EC1 /* MBCRecordingController.mm */,
 				95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */,
 				95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */,
 				A504584C26F95A2A004F32CF /* MBCSharePlayManager.swift */,
@@ -830,30 +1161,45 @@
 				950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */,
 				950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */,
 				950BD1170A1E582B00395116 /* MBCEngine.h in Headers */,
+				905659272AE88FDE004611D7 /* MBCMetalCamera.h in Headers */,
 				950BD1180A1E582B00395116 /* MBCBoardView.h in Headers */,
+				90F8C3412AE9DB8E002B604E /* MBCMeshLoader.h in Headers */,
 				950BD1190A1E582B00395116 /* MBCBoardViewDraw.h in Headers */,
 				950BD11A0A1E582B00395116 /* MBCBoardViewModels.h in Headers */,
+				905659212AE888BE004611D7 /* MBCMetalRenderer.h in Headers */,
 				950BD11B0A1E582B00395116 /* MBCBoardViewTextures.h in Headers */,
+				90F8C36B2AEF38AC002B604E /* MBCBoardMTLViewDraw.h in Headers */,
+				90DAB4F52AE71E5F00106123 /* MBCBoardMTLView.h in Headers */,
+				90CC3C2E2B7403D500302EC1 /* MBCRecordingController.h in Headers */,
 				950BD11C0A1E582B00395116 /* MBCBoardViewMouse.h in Headers */,
 				950BD11D0A1E582B00395116 /* MBCInteractivePlayer.h in Headers */,
 				950BD11E0A1E582B00395116 /* MBCAnimation.h in Headers */,
+				90F8C3502AE9DFF2002B604E /* MBCRenderable.h in Headers */,
 				950BD11F0A1E582B00395116 /* MBCMoveAnimation.h in Headers */,
+				906A22682B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h in Headers */,
 				950BD1200A1E582B00395116 /* MBCController.h in Headers */,
 				950BD1210A1E582B00395116 /* MBCDocument.h in Headers */,
 				950BD1220A1E582B00395116 /* MBCBoardAnimation.h in Headers */,
+				90F8C3562AEAE114002B604E /* MBCMathUtilities.h in Headers */,
 				950BD1230A1E582B00395116 /* MBCGameInfo.h in Headers */,
+				90DAB4FE2AE7679500106123 /* MBCDrawStyle.h in Headers */,
+				905AE4BB2AE8420E008C0719 /* MBCBoardViewInterface.h in Headers */,
 				950BD1240A1E582B00395116 /* MBCFloatingBoardWindow.h in Headers */,
 				950BD1250A1E582B00395116 /* MBCMoveGenerator.h in Headers */,
+				900541B62AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */,
 				950BD1260A1E582B00395116 /* MBCAbout.h in Headers */,
+				905AE4BF2AE842A6008C0719 /* MBCBoardCommon.h in Headers */,
 				950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */,
 				950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */,
 				95C31C58125E2E020085159C /* MBCMoveTableView.h in Headers */,
 				95C31D69125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
 				9575D08114254A8100E65579 /* MBCBoardWin.h in Headers */,
+				90F8C34C2AE9DF96002B604E /* MBCBoardEnums.h in Headers */,
 				95A7266E1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */,
 				95B65BF91471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */,
 				953A40B5148D8E220005E53D /* MBCMoveTableViewAccessibility.h in Headers */,
 				95459B741492B7930083FCE3 /* MBCDebug.h in Headers */,
+				90F8C3652AEC7172002B604E /* MBCBoardMTLViewMouse.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -899,30 +1245,45 @@
 				95844C990A670C280068CA82 /* MBCEngineCommands.h in Headers */,
 				95844C9A0A670C280068CA82 /* MBCPlayer.h in Headers */,
 				95844C9B0A670C280068CA82 /* MBCEngine.h in Headers */,
+				905659282AE88FDE004611D7 /* MBCMetalCamera.h in Headers */,
 				95844C9C0A670C280068CA82 /* MBCBoardView.h in Headers */,
+				90F8C3422AE9DB8E002B604E /* MBCMeshLoader.h in Headers */,
 				95844C9D0A670C280068CA82 /* MBCBoardViewDraw.h in Headers */,
 				95844C9E0A670C280068CA82 /* MBCBoardViewModels.h in Headers */,
+				90DAB4F62AE71E5F00106123 /* MBCBoardMTLView.h in Headers */,
+				905659222AE888BE004611D7 /* MBCMetalRenderer.h in Headers */,
+				90F8C36C2AEF38AC002B604E /* MBCBoardMTLViewDraw.h in Headers */,
 				95844C9F0A670C280068CA82 /* MBCBoardViewTextures.h in Headers */,
+				90CC3C302B7403D500302EC1 /* MBCRecordingController.h in Headers */,
 				95844CA00A670C280068CA82 /* MBCBoardViewMouse.h in Headers */,
 				95844CA10A670C280068CA82 /* MBCInteractivePlayer.h in Headers */,
 				95844CA20A670C280068CA82 /* MBCAnimation.h in Headers */,
+				90F8C3512AE9DFF2002B604E /* MBCRenderable.h in Headers */,
 				95844CA30A670C280068CA82 /* MBCMoveAnimation.h in Headers */,
+				906A22692B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.h in Headers */,
 				95844CA40A670C280068CA82 /* MBCController.h in Headers */,
 				95844CA50A670C280068CA82 /* MBCDocument.h in Headers */,
 				95844CA60A670C280068CA82 /* MBCBoardAnimation.h in Headers */,
+				90F8C3572AEAE114002B604E /* MBCMathUtilities.h in Headers */,
+				90DAB4FF2AE7679500106123 /* MBCDrawStyle.h in Headers */,
 				95844CA70A670C280068CA82 /* MBCGameInfo.h in Headers */,
 				95844CA80A670C280068CA82 /* MBCTuner.h in Headers */,
+				905AE4BC2AE8420E008C0719 /* MBCBoardViewInterface.h in Headers */,
 				95844CA90A670C280068CA82 /* MBCFloatingBoardWindow.h in Headers */,
+				900541B72AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */,
 				95844CAA0A670C280068CA82 /* MBCMoveGenerator.h in Headers */,
+				905AE4C12AE842F7008C0719 /* MBCBoardCommon.h in Headers */,
 				95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */,
 				95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */,
 				95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */,
 				95C31C5A125E2E020085159C /* MBCMoveTableView.h in Headers */,
 				95C31D6B125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
+				90F8C34D2AE9DF96002B604E /* MBCBoardEnums.h in Headers */,
 				9575D08214254A8100E65579 /* MBCBoardWin.h in Headers */,
 				95A7266F1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */,
 				95B65BFA1471C8C8008DBB60 /* MBCRemotePlayer.h in Headers */,
 				95459B751492B7930083FCE3 /* MBCDebug.h in Headers */,
+				90F8C3662AEC7172002B604E /* MBCBoardMTLViewMouse.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1080,27 +1441,56 @@
 			buildActionMask = 2147483647;
 			files = (
 				95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */,
+				90EB855E2B9524FF002D9B53 /* queenN.jpg in Resources */,
+				9043C6222B926231004D106E /* WhitePieceMarble.jpg in Resources */,
+				90205E592B731D040027843B /* irradiance.png in Resources */,
 				906D235A244F6F800061834A /* Images.xcassets in Resources */,
 				950BD12C0A1E582B00395116 /* bug.opn in Resources */,
+				9043C62C2B92634F004D106E /* BlackPieceMetal.jpg in Resources */,
 				950BD12D0A1E582B00395116 /* losers.opn in Resources */,
+				90EB85662B9524FF002D9B53 /* pawnN.jpg in Resources */,
+				9043C6062B925CF8004D106E /* BoardMarble.jpg in Resources */,
 				950BD12E0A1E582B00395116 /* nbook.db in Resources */,
+				90EB856C2B9524FF002D9B53 /* kingR_AO.jpg in Resources */,
 				226F987D1CA9A5F000E4A1A2 /* Chess_128x128.png in Resources */,
 				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
+				90EB85682B9524FF002D9B53 /* kingN.jpg in Resources */,
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
+				9043C63D2B92A4DC004D106E /* DigitGridNormals.jpg in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
 				950BD1450A1E582B00395116 /* sjeng.rc in Resources */,
+				90EB855A2B9524FF002D9B53 /* bishopR_AO.jpg in Resources */,
 				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
 				950BD1480A1E582B00395116 /* Styles in Resources */,
+				9043C6432B92A881004D106E /* PieceSelection.png in Resources */,
+				9043C6292B926321004D106E /* BlackPieceWood.jpg in Resources */,
+				90EB85702B9524FF002D9B53 /* knightN.jpg in Resources */,
+				9043C60A2B925CF8004D106E /* BoardShadow.jpg in Resources */,
 				950BD14A0A1E582B00395116 /* SpeechHelp.plist in Resources */,
 				956195F90EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51B1327E29E0063FA06 /* Spoken.strings in Resources */,
+				9043C64A2B92A8F2004D106E /* lastMoveArrow.png in Resources */,
 				95D8520F13E710190045366C /* Board.xib in Resources */,
+				90EB855C2B9524FF002D9B53 /* pawnR_AO.jpg in Resources */,
+				9043C6302B9263B5004D106E /* WhitePieceWood.jpg in Resources */,
+				90EB856A2B9524FF002D9B53 /* rookR_AO.jpg in Resources */,
+				9043C63F2B92A4DC004D106E /* DigitGrid.png in Resources */,
+				90EB85602B9524FF002D9B53 /* queenR_AO.jpg in Resources */,
 				95D8521813E710B80045366C /* About.xib in Resources */,
+				90EB85622B9524FF002D9B53 /* rookN.jpg in Resources */,
 				95D8521A13E710B80045366C /* MainMenu.xib in Resources */,
+				9043C6322B9263B5004D106E /* WhitePieceMetal.jpg in Resources */,
+				9043C6082B925CF8004D106E /* BoardMetal.jpg in Resources */,
+				90EB856E2B9524FF002D9B53 /* bishopN.jpg in Resources */,
+				9043C6482B92A8F2004D106E /* hintMoveArrow.png in Resources */,
 				72527B4E229F534100070CBF /* COPYING in Resources */,
+				9056592E2AE98668004611D7 /* Meshes in Resources */,
+				9043C61A2B926231004D106E /* BlackPieceMarble.jpg in Resources */,
 				95261CDD1478580E004EF501 /* background.pdf in Resources */,
 				95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */,
 				9556A24514FC15F4000219D4 /* selected_piece_texture@2x.png in Resources */,
+				90EB85642B9524FF002D9B53 /* knightR_AO.jpg in Resources */,
+				9043C60C2B925CF8004D106E /* BoardWood.jpg in Resources */,
 				90B7C76E2B52021E00A117C2 /* MBChess-InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1109,22 +1499,50 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9043C6312B9263B5004D106E /* WhitePieceWood.jpg in Resources */,
+				9043C60B2B925CF8004D106E /* BoardShadow.jpg in Resources */,
 				90B7C76F2B52026600A117C2 /* ChessTuner-InfoPlist.strings in Resources */,
 				95844CB10A670C280068CA82 /* bug.opn in Resources */,
+				9056592F2AE98668004611D7 /* Meshes in Resources */,
+				9043C64B2B92A8F2004D106E /* lastMoveArrow.png in Resources */,
+				90EB856D2B9524FF002D9B53 /* kingR_AO.jpg in Resources */,
+				90EB85692B9524FF002D9B53 /* kingN.jpg in Resources */,
+				9043C61B2B926231004D106E /* BlackPieceMarble.jpg in Resources */,
+				90EB855D2B9524FF002D9B53 /* pawnR_AO.jpg in Resources */,
 				95844CB20A670C280068CA82 /* losers.opn in Resources */,
 				95844CB30A670C280068CA82 /* nbook.db in Resources */,
+				90EB856F2B9524FF002D9B53 /* bishopN.jpg in Resources */,
+				9043C6072B925CF8004D106E /* BoardMarble.jpg in Resources */,
 				95844CB40A670C280068CA82 /* suicide.opn in Resources */,
 				95844CB50A670C280068CA82 /* zbook.db in Resources */,
+				90EB85632B9524FF002D9B53 /* rookN.jpg in Resources */,
+				90EB855B2B9524FF002D9B53 /* bishopR_AO.jpg in Resources */,
+				90EB856B2B9524FF002D9B53 /* rookR_AO.jpg in Resources */,
+				9043C63E2B92A4DC004D106E /* DigitGridNormals.jpg in Resources */,
+				90EB85652B9524FF002D9B53 /* knightR_AO.jpg in Resources */,
 				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
 				72527B51229F544500070CBF /* Tuner.xib in Resources */,
 				95844CCA0A670C280068CA82 /* sjeng.rc in Resources */,
 				95844CCB0A670C280068CA82 /* Localizable.strings in Resources */,
+				9043C6232B926231004D106E /* WhitePieceMarble.jpg in Resources */,
 				72527B4F229F534100070CBF /* COPYING in Resources */,
+				9043C6442B92A881004D106E /* PieceSelection.png in Resources */,
+				90EB85712B9524FF002D9B53 /* knightN.jpg in Resources */,
+				9043C6092B925CF8004D106E /* BoardMetal.jpg in Resources */,
+				9043C6332B9263B5004D106E /* WhitePieceMetal.jpg in Resources */,
 				95844CCF0A670C280068CA82 /* SpeechHelp.plist in Resources */,
+				90EB85612B9524FF002D9B53 /* queenR_AO.jpg in Resources */,
+				9043C6402B92A4DC004D106E /* DigitGrid.png in Resources */,
 				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */,
+				9043C62D2B92634F004D106E /* BlackPieceMetal.jpg in Resources */,
+				90EB85672B9524FF002D9B53 /* pawnN.jpg in Resources */,
 				95D8521013E710190045366C /* Board.xib in Resources */,
 				95D8521913E710B80045366C /* About.xib in Resources */,
+				90EB855F2B9524FF002D9B53 /* queenN.jpg in Resources */,
+				9043C6492B92A8F2004D106E /* hintMoveArrow.png in Resources */,
+				9043C60D2B925CF8004D106E /* BoardWood.jpg in Resources */,
+				9043C62A2B926321004D106E /* BlackPieceWood.jpg in Resources */,
 				95D8521B13E710B80045366C /* MainMenu.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1192,6 +1610,8 @@
 			files = (
 				950BD14D0A1E582B00395116 /* main.mm in Sources */,
 				950BD14E0A1E582B00395116 /* MBCBoard.mm in Sources */,
+				90F44CF92B1E604A00934DB9 /* MBCShadersDecal.metal in Sources */,
+				90CC3C2F2B7403D500302EC1 /* MBCRecordingController.mm in Sources */,
 				950BD14F0A1E582B00395116 /* MBCEngineCommands.l in Sources */,
 				950BD1500A1E582B00395116 /* MBCPlayer.mm in Sources */,
 				950BD1510A1E582B00395116 /* MBCEngine.mm in Sources */,
@@ -1203,25 +1623,40 @@
 				950BD1570A1E582B00395116 /* MBCAnimation.mm in Sources */,
 				950BD1580A1E582B00395116 /* MBCMoveAnimation.mm in Sources */,
 				950BD1590A1E582B00395116 /* MBCController.mm in Sources */,
+				90DAB5002AE7679500106123 /* MBCDrawStyle.m in Sources */,
+				90F8C3522AE9DFF2002B604E /* MBCRenderable.mm in Sources */,
+				9053F0392B76B48A00BE7D88 /* MBCShadersGround.metal in Sources */,
+				90F8C36D2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm in Sources */,
 				950BD15A0A1E582B00395116 /* MBCInteractivePlayer.mm in Sources */,
+				900541B82AFABC5800BD48B4 /* MBCMetalMaterials.mm in Sources */,
 				950BD15B0A1E582B00395116 /* MBCDocument.mm in Sources */,
 				950BD15C0A1E582B00395116 /* MBCBoardAnimation.mm in Sources */,
+				90F8C3672AEC7172002B604E /* MBCBoardMTLViewMouse.mm in Sources */,
+				905659292AE88FDE004611D7 /* MBCMetalCamera.mm in Sources */,
 				A504584D26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */,
 				950BD15D0A1E582B00395116 /* MBCGameInfo.mm in Sources */,
 				950BD15E0A1E582B00395116 /* MBCFloatingBoardWindow.mm in Sources */,
 				950BD15F0A1E582B00395116 /* MBCMoveGenerator.mm in Sources */,
 				950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */,
+				905659232AE888BE004611D7 /* MBCMetalRenderer.mm in Sources */,
 				A59F261C26FE44C600F7A5E8 /* MBCSharePlayMessages.swift in Sources */,
+				90F8C3582AEAE114002B604E /* MBCMathUtilities.m in Sources */,
 				950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */,
+				906A226A2B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm in Sources */,
+				90F8C33D2AE9DB8E002B604E /* MBCMeshLoader.mm in Sources */,
 				950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */,
 				95C31C59125E2E020085159C /* MBCMoveTableView.mm in Sources */,
+				905AE4C02AE842A6008C0719 /* MBCBoardCommon.mm in Sources */,
 				95C31D6A125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,
 				9575D08314254A8100E65579 /* MBCBoardWin.mm in Sources */,
 				95A726701426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */,
+				90F8C3612AEB1C10002B604E /* MBCShaders.metal in Sources */,
 				95B65BFB1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */,
+				90DAB4F72AE71E5F00106123 /* MBCBoardMTLView.mm in Sources */,
 				953A40B6148D8E220005E53D /* MBCMoveTableViewAccessibility.mm in Sources */,
 				95459B771492B9160083FCE3 /* MBCDebug.cp in Sources */,
 				A5CF31A32707D14200815825 /* MBCSharePlayDelegates.swift in Sources */,
+				906A22632B06EA3B00DB92E5 /* MBCShadersArrow.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1240,35 +1675,51 @@
 				95844CD20A670C280068CA82 /* main.mm in Sources */,
 				95844CD30A670C280068CA82 /* MBCBoard.mm in Sources */,
 				95844CD40A670C280068CA82 /* MBCEngineCommands.l in Sources */,
+				9056592A2AE88FDE004611D7 /* MBCMetalCamera.mm in Sources */,
 				903CEAA62B5205A300D2B51F /* MBCSharePlayDelegates.swift in Sources */,
 				95844CD50A670C280068CA82 /* MBCPlayer.mm in Sources */,
 				903CEAAF2B52063200D2B51F /* MBCDebug.cp in Sources */,
 				95844CD60A670C280068CA82 /* MBCEngine.mm in Sources */,
 				95844CD70A670C280068CA82 /* MBCBoardViewModels.mm in Sources */,
+				906A226B2B1532B200DB92E5 /* MBCBoardMTLViewAccessibility.mm in Sources */,
 				95844CD80A670C280068CA82 /* MBCBoardViewDraw.mm in Sources */,
+				90F8C36E2AEF38AC002B604E /* MBCBoardMTLViewDraw.mm in Sources */,
 				95844CD90A670C280068CA82 /* MBCBoardViewTextures.mm in Sources */,
 				95844CDA0A670C280068CA82 /* MBCBoardView.mm in Sources */,
+				90F8C3592AEAE114002B604E /* MBCMathUtilities.m in Sources */,
+				905659242AE888BE004611D7 /* MBCMetalRenderer.mm in Sources */,
 				95844CDB0A670C280068CA82 /* MBCBoardViewMouse.mm in Sources */,
 				95844CDC0A670C280068CA82 /* MBCAnimation.mm in Sources */,
 				95844CDD0A670C280068CA82 /* MBCMoveAnimation.mm in Sources */,
+				900541B92AFABC5800BD48B4 /* MBCMetalMaterials.mm in Sources */,
+				90F44CFA2B1E604A00934DB9 /* MBCShadersDecal.metal in Sources */,
 				95844CDE0A670C280068CA82 /* MBCController.mm in Sources */,
+				90CC3C312B7403D500302EC1 /* MBCRecordingController.mm in Sources */,
 				95844CDF0A670C280068CA82 /* MBCInteractivePlayer.mm in Sources */,
 				95844CE00A670C280068CA82 /* MBCDocument.mm in Sources */,
 				95844CE10A670C280068CA82 /* MBCBoardAnimation.mm in Sources */,
+				90F8C33E2AE9DB8E002B604E /* MBCMeshLoader.mm in Sources */,
 				903CEAA72B5205AC00D2B51F /* MBCSharePlayMessages.swift in Sources */,
 				95844CE20A670C280068CA82 /* MBCGameInfo.mm in Sources */,
 				95844CE30A670C280068CA82 /* MBCTuner.mm in Sources */,
 				95844CE40A670C280068CA82 /* MBCFloatingBoardWindow.mm in Sources */,
+				90F8C3622AEB1C10002B604E /* MBCShaders.metal in Sources */,
 				95844CE50A670C280068CA82 /* MBCMoveGenerator.mm in Sources */,
 				95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */,
 				95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */,
 				95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */,
 				95C31C5B125E2E020085159C /* MBCMoveTableView.mm in Sources */,
 				95C31D6C125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,
+				90F8C3682AEC7172002B604E /* MBCBoardMTLViewMouse.mm in Sources */,
+				90DAB5012AE7679500106123 /* MBCDrawStyle.m in Sources */,
+				906A22642B06EA3B00DB92E5 /* MBCShadersArrow.metal in Sources */,
 				A504584E26F95A2A004F32CF /* MBCSharePlayManager.swift in Sources */,
 				9575D08414254A8100E65579 /* MBCBoardWin.mm in Sources */,
 				95A726711426CFE6006CE6F2 /* MBCUserDefaults.mm in Sources */,
+				90DAB4F82AE71E5F00106123 /* MBCBoardMTLView.mm in Sources */,
+				90F8C3532AE9DFF2002B604E /* MBCRenderable.mm in Sources */,
 				95B65BFC1471C8C9008DBB60 /* MBCRemotePlayer.mm in Sources */,
+				9053F03A2B76B48A00BE7D88 /* MBCShadersGround.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1470,11 +1921,10 @@
 		950BD16C0A1E582B00395116 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -1493,7 +1943,7 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
@@ -1515,11 +1965,10 @@
 		950BD16D0A1E582B00395116 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -1535,7 +1984,7 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
@@ -1556,11 +2005,10 @@
 		950BD16E0A1E582B00395116 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1575,7 +2023,7 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.4;
 				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				PRODUCT_NAME = Chess;

@@ -1,7 +1,7 @@
 /*
 	File:		MBCAnimation.h
 	Contains:	Basic infrastructure for animations.
-	Copyright:	© 2002 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -43,21 +43,22 @@
 	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#import <Foundation/Foundation.h>
+#import <Cocoa/Cocoa.h>
 
 #import <sys/time.h>
 
-@class MBCBoardView;
+#import "MBCBoardViewInterface.h"
+#import "MBCBoardCommon.h"
 
 @interface MBCAnimation : NSObject {
 	struct timeval	fStart;
 	float			fTime;
 	float			fLastElapsed;
 @protected
-	MBCBoardView *	fView;
+	NSView <MBCBoardViewInterface> * fView;
 }
 
-- (void) runWithTime:(float)seconds view:(MBCBoardView *)view;
+- (void) runWithTime:(float)seconds view:(NSView <MBCBoardViewInterface> *)view;
 - (void) cancel;
  
 @end

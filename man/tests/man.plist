@@ -87,6 +87,31 @@
 			<key>Timeout</key>
 			<integer>300</integer>
 		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>man.man_test.sh.so</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/man/man/man_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/man/man</string>
+				<string>-r</string>
+				<string>man_test.sh.so.results.txt</string>
+				<string>so</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
 	</array>
 </dict>
 </plist>

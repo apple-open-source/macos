@@ -2,17 +2,19 @@
 		<key>OpenSourceProject</key>
 		<string>cp</string>
 		<key>OpenSourceVersion</key>
-		<string>2023-02-08</string>
+		<string>2024-04-17</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/cp?id=8b418c83d175fde3b1f65210509ddcf2ac248d9f</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/cp?id=f070188c3ad6b87ee9ce220b21718333d1bd9d52</string>
 		<key>OpenSourceImportDate</key>
-		<string>2023-02-08</string>
+		<string>2024-04-18</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>cp.c: support extended attributes (3753267)</string>
 			<string>cp.1, cp.c, utils.c: support -c, use clonefile(2) (31646965)</string>
 			<string>cp.1, cp.c, utils.c: support -X, discard extended attributes (3875990)</string>
 			<string>utils.c: preserve holes when copying sparse files (29191655)</string>
+			<string>cp.1, cp.c, utils.c: support -S, don't preserve holes (108125880)</string>
+			<string>utils.c: additional symlink check (126480662)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

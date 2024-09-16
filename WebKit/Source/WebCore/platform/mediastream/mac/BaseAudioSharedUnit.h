@@ -38,13 +38,22 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class BaseAudioSharedUnit;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::BaseAudioSharedUnit> : std::true_type { };
+}
+
+namespace WebCore {
 
 class AudioStreamDescription;
 class CaptureDevice;
 class CoreAudioCaptureSource;
 class PlatformAudioData;
 
-class BaseAudioSharedUnit : public RealtimeMediaSourceCenter::Observer {
+class BaseAudioSharedUnit : public RealtimeMediaSourceCenterObserver {
 public:
     BaseAudioSharedUnit();
     virtual ~BaseAudioSharedUnit();
@@ -79,7 +88,7 @@ public:
     virtual bool hasAudioUnit() const = 0;
     void setCaptureDevice(String&&, uint32_t);
 
-    virtual CapabilityRange sampleRateCapacities() const = 0;
+    virtual LongCapabilityRange sampleRateCapacities() const = 0;
     virtual int actualSampleRate() const { return sampleRate(); }
 
     void whenAudioCaptureUnitIsNotRunning(Function<void()>&&);
@@ -93,6 +102,7 @@ public:
 protected:
     void forEachClient(const Function<void(CoreAudioCaptureSource&)>&) const;
     void captureFailed();
+    void continueStartProducingData();
 
     virtual void cleanupAudioUnit() = 0;
     virtual OSStatus startInternal() = 0;
@@ -122,7 +132,7 @@ protected:
 private:
     OSStatus startUnit();
 
-    // RealtimeMediaSourceCenter::Observer
+    // RealtimeMediaSourceCenterObserver
     void devicesChanged() final;
     void deviceWillBeRemoved(const String&) final { }
 

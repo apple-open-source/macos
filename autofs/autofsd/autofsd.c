@@ -43,14 +43,14 @@
 
 static char automount_path[] = "/usr/sbin/automount";
 
-static int logging_debug = 0;	// 1 if logging debugging messages, 0 if not
+static int logging_debug = 0;   // 1 if logging debugging messages, 0 if not
 
 static void run_automount(char *);
 
 int
 main(__unused int argc, __unused char **argv)
 {
-#define NUM_RECORD_TYPE_NAMES	3
+#define NUM_RECORD_TYPE_NAMES   3
 	CFTypeRef record_type_names[NUM_RECORD_TYPE_NAMES];
 	CFArrayRef record_types;
 	uint32_t status;
@@ -60,7 +60,7 @@ main(__unused int argc, __unused char **argv)
 	dispatch_source_t sigterm_source;
 #endif
 
-	/* 
+	/*
 	 * If launchd is redirecting these two files they'll be block-
 	 * buffered, as they'll be pipes, or some other such non-tty,
 	 * sending data to launchd. Probably not what you want.
@@ -85,14 +85,15 @@ main(__unused int argc, __unused char **argv)
 	 * notification will be delivered if they do come online.
 	 */
 	ODTriggerCreateForSearch(kCFAllocatorDefault,
-	    kODTriggerSearchDelete|kODTriggerSearchOffline|kODTriggerSearchOnline,
+	    kODTriggerSearchDelete | kODTriggerSearchOffline | kODTriggerSearchOnline,
 	    NULL, dispatch_get_main_queue(),
 	    ^(__unused ODTriggerRef trigger, __unused CFStringRef node)
-		{
-			if (logging_debug)
-				syslog(LOG_ERR, "Got an OD search node change notification");
-			run_automount("-c");
-		});
+	{
+		if (logging_debug) {
+		        syslog(LOG_ERR, "Got an OD search node change notification");
+		}
+		run_automount("-c");
+	});
 
 	/*
 	 * Listen for changes to automounter map entries, auto_master
@@ -108,15 +109,16 @@ main(__unused int argc, __unused char **argv)
 		exit(EXIT_FAILURE);
 	}
 	ODTriggerCreateForRecords(kCFAllocatorDefault,
-	    kODTriggerRecordEventAdd|kODTriggerRecordEventDelete|kODTriggerRecordEventModify,
+	    kODTriggerRecordEventAdd | kODTriggerRecordEventDelete | kODTriggerRecordEventModify,
 	    NULL, record_types, NULL, dispatch_get_main_queue(),
 	    ^(__unused ODTriggerRef trigger, __unused CFStringRef node,
-	      __unused CFStringRef type, __unused CFStringRef name)
-		{
-			if (logging_debug)
-				syslog(LOG_ERR, "Got an OD record change notification");
-			run_automount("-c");
-		});
+	    __unused CFStringRef type, __unused CFStringRef name)
+	{
+		if (logging_debug) {
+		        syslog(LOG_ERR, "Got an OD record change notification");
+		}
+		run_automount("-c");
+	});
 
 	/*
 	 * Also watch for volume unmounts.  If, for example, you
@@ -138,11 +140,12 @@ main(__unused int argc, __unused char **argv)
 	status = notify_register_dispatch("com.apple.system.kernel.unmount",
 	    &volume_unmount_token, dispatch_get_main_queue(),
 	    ^(__unused int t)
-		{
-			if (logging_debug)
-				syslog(LOG_ERR, "Got an unmount notification");
-			run_automount(NULL);
-		});
+	{
+		if (logging_debug) {
+		        syslog(LOG_ERR, "Got an unmount notification");
+		}
+		run_automount(NULL);
+	});
 	if (status != NOTIFY_STATUS_OK) {
 		syslog(LOG_ERR, "Couldn't add volume unmount notifications to the main dispatch queue: %u",
 		    status);
@@ -174,8 +177,8 @@ main(__unused int argc, __unused char **argv)
 #ifdef CODE_COVERAGE
 	signal(SIGTERM, SIG_IGN);
 	sigterm_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,
-						SIGTERM, 0,
-						dispatch_get_main_queue());
+	    SIGTERM, 0,
+	    dispatch_get_main_queue());
 	if (sigterm_source == NULL) {
 		syslog(LOG_ERR, "Couldn't create dispatch source for SIGTERM");
 		exit(EXIT_FAILURE);
@@ -224,8 +227,9 @@ run_automount(char *flag)
 
 	i = 0;
 	args[i++] = automount_path;
-	if (flag != NULL)
+	if (flag != NULL) {
 		args[i++] = flag;
+	}
 	args[i] = NULL;
 	error = posix_spawn(&child, automount_path, NULL, NULL, args,
 	    environ);
@@ -240,8 +244,9 @@ run_automount(char *flag)
 	 */
 	for (;;) {
 		pid = waitpid(child, &status, 0);
-		if (pid == child)
+		if (pid == child) {
 			break;
+		}
 		if (pid == -1 && errno != EINTR) {
 			syslog(LOG_ERR, "Error %m while waiting for %s",
 			    automount_path);

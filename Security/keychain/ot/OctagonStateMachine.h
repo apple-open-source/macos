@@ -112,7 +112,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
                                     sourceStates:(NSSet<OctagonState*>*)sourceStates
                                             path:(OctagonStateTransitionPath*)path
-                                           reply:(nonnull void (^)(NSError *error))reply;
+                                           reply:(nonnull void (^)(NSError * _Nullable error))reply;
 
 - (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
                                     sourceStates:(NSSet<OctagonState*>*)sourceStates

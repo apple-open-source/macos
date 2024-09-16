@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(B3_JIT)
+#if ENABLE(B3_JIT) || ENABLE(WEBASSEMBLY_BBQJIT)
 
 #include "B3Common.h"
 #include "SIMDInfo.h"
@@ -65,6 +65,7 @@ public:
 
     ~Type() = default;
 
+    static const unsigned numberOfPrimitiveTypes = V128 + 1;
     static Type tupleFromIndex(unsigned index) { ASSERT(!(index & tupleFlag)); return bitwise_cast<Type>(index | tupleFlag); }
 
     TypeKind kind() const { return m_kind & tupleFlag ? Tuple : m_kind; }

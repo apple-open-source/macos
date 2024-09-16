@@ -58,14 +58,14 @@ static inline bool roleIsTextType(AccessibilityRole role)
         || role == AccessibilityRole::Pre
         || role == AccessibilityRole::GridCell
         || role == AccessibilityRole::TextGroup
-        || role == AccessibilityRole::ApplicationTextGroup
-        || role == AccessibilityRole::ApplicationGroup;
+        || role == AccessibilityRole::Group;
 }
 
 OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfacesForObject(AXCoreObject& coreObject)
 {
     OptionSet<Interface> interfaces = { Interface::Accessible, Interface::Component, Interface::Action, Interface::Collection };
 
+    auto* axObject = dynamicDowncast<AccessibilityObject>(coreObject);
     RenderObject* renderer = coreObject.isAccessibilityRenderObject() ? coreObject.renderer() : nullptr;
     if (coreObject.roleValue() == AccessibilityRole::StaticText || coreObject.roleValue() == AccessibilityRole::ColorWell)
         interfaces.add(Interface::Text);
@@ -91,7 +91,7 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
     if (coreObject.isImage())
         interfaces.add(Interface::Image);
 
-    if (coreObject.canHaveSelectedChildren())
+    if (axObject && axObject->canHaveSelectedChildren())
         interfaces.add(Interface::Selection);
 
     if (coreObject.isTable())
@@ -234,7 +234,6 @@ static Atspi::Role atspiRole(AccessibilityRole role)
         return Atspi::Role::TreeTable;
     case AccessibilityRole::Application:
         return Atspi::Role::Application;
-    case AccessibilityRole::ApplicationGroup:
     case AccessibilityRole::Feed:
     case AccessibilityRole::Figure:
     case AccessibilityRole::GraphicsObject:
@@ -283,7 +282,6 @@ static Atspi::Role atspiRole(AccessibilityRole role)
         return Atspi::Role::BlockQuote;
     case AccessibilityRole::Footnote:
         return Atspi::Role::Footnote;
-    case AccessibilityRole::ApplicationTextGroup:
     case AccessibilityRole::Code:
     case AccessibilityRole::Generic:
     case AccessibilityRole::Pre:
@@ -298,6 +296,8 @@ static Atspi::Role atspiRole(AccessibilityRole role)
         return Atspi::Role::Canvas;
     case AccessibilityRole::HorizontalRule:
         return Atspi::Role::Separator;
+    case AccessibilityRole::DateTime:
+        return Atspi::Role::Entry;
     case AccessibilityRole::SpinButton:
         return Atspi::Role::SpinButton;
     case AccessibilityRole::Tab:
@@ -352,6 +352,7 @@ static Atspi::Role atspiRole(AccessibilityRole role)
     case AccessibilityRole::Mark:
         return Atspi::Role::Mark;
     case AccessibilityRole::Details:
+    case AccessibilityRole::Emphasis:
     case AccessibilityRole::Ignored:
     case AccessibilityRole::Incrementor:
     case AccessibilityRole::LineBreak:
@@ -365,9 +366,11 @@ static Atspi::Role atspiRole(AccessibilityRole role)
     case AccessibilityRole::RubyText:
     case AccessibilityRole::SliderThumb:
     case AccessibilityRole::SpinButtonPart:
+    case AccessibilityRole::Strong:
     case AccessibilityRole::Summary:
     case AccessibilityRole::TableHeaderContainer:
     case AccessibilityRole::Suggestion:
+    case AccessibilityRole::RemoteFrame:
         return Atspi::Role::Unknown;
     // Add most new roles above. The release assert is for roles that are handled specially.
     case AccessibilityRole::ListMarker:
@@ -858,7 +861,7 @@ HashMap<String, String> AccessibilityObjectAtspi::attributes() const
 
     RefPtr liveObject = dynamicDowncast<AccessibilityObject>(m_coreObject);
 
-    String tagName = m_coreObject->tagName();
+    String tagName = liveObject->tagName();
     if (!tagName.isEmpty())
         map.add("tag"_s, tagName);
 
@@ -1035,10 +1038,7 @@ RelationMap AccessibilityObjectAtspi::relationMap() const
     };
 
     AccessibilityObject::AccessibilityChildrenVector ariaLabelledByElements;
-    if (m_coreObject->isControl()) {
-        if (auto* label = m_coreObject->correspondingLabelForControlElement())
-            ariaLabelledByElements.append(label);
-    } else if (m_coreObject->isFieldset()) {
+    if (m_coreObject->isControl() || m_coreObject->isFieldset()) {
         if (auto* label = m_coreObject->titleUIElement())
             ariaLabelledByElements.append(label);
     } else if (m_coreObject->roleValue() == AccessibilityRole::Legend) {
@@ -1046,17 +1046,14 @@ RelationMap AccessibilityObjectAtspi::relationMap() const
             if (renderFieldset->isFieldset())
                 ariaLabelledByElements.append(m_coreObject->axObjectCache()->getOrCreate(renderFieldset));
         }
-    } else if (!m_coreObject->correspondingControlForLabelElement())
-        ariaLabelledByElements = m_coreObject->labelledByObjects();
+    } else {
+        auto* liveObject = dynamicDowncast<AccessibilityObject>(m_coreObject);
+        if (liveObject && !liveObject->controlForLabelElement())
+            ariaLabelledByElements = m_coreObject->labeledByObjects();
+    }
     addRelation(Atspi::Relation::LabelledBy, ariaLabelledByElements);
 
-    AccessibilityObject::AccessibilityChildrenVector labelForObjects;
-    if (auto* control = m_coreObject->correspondingControlForLabelElement())
-        labelForObjects.append(control);
-    else
-        labelForObjects = m_coreObject->labelForObjects();
-    addRelation(Atspi::Relation::LabelFor, labelForObjects);
-
+    addRelation(Atspi::Relation::LabelFor, m_coreObject->labelForObjects());
     addRelation(Atspi::Relation::FlowsTo, m_coreObject->flowToObjects());
     addRelation(Atspi::Relation::FlowsFrom, m_coreObject->flowFromObjects());
 

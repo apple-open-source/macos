@@ -29,6 +29,9 @@
 #if HAVE(WEBGPU_IMPLEMENTATION)
 
 #include "WebGPUConvertToBackingContext.h"
+#include "WebGPUDevice.h"
+#include "WebGPUQueue.h"
+#include "WebGPUTextureFormat.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/IOSurface.h>
 #include <WebCore/NativeImage.h>
@@ -47,24 +50,42 @@ CompositorIntegrationImpl::~CompositorIntegrationImpl() = default;
 
 void CompositorIntegrationImpl::prepareForDisplay(CompletionHandler<void()>&& completionHandler)
 {
-    m_presentationContext->present();
+    if (auto* presentationContext = m_presentationContext.get())
+        presentationContext->present();
 
     m_onSubmittedWorkScheduledCallback(WTFMove(completionHandler));
 }
 
 #if PLATFORM(COCOA)
-Vector<MachSendRight> CompositorIntegrationImpl::recreateRenderBuffers(int width, int height)
+Vector<MachSendRight> CompositorIntegrationImpl::recreateRenderBuffers(int width, int height, WebCore::DestinationColorSpace&& colorSpace, WebCore::AlphaPremultiplication alphaMode, TextureFormat textureFormat, Device& device)
 {
     m_renderBuffers.clear();
+    m_device = device;
 
-    static_cast<PresentationContext*>(m_presentationContext.get())->unconfigure();
-    m_presentationContext->setSize(width, height);
+    if (auto* presentationContext = m_presentationContext.get()) {
+        static_cast<PresentationContext*>(presentationContext)->unconfigure();
+        presentationContext->setSize(width, height);
+    }
 
-    m_renderBuffers.append(WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()));
-    m_renderBuffers.append(WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()));
+    constexpr int max2DTextureSize = 16384;
+    width = std::max(1, std::min(max2DTextureSize, width));
+    height = std::max(1, std::min(max2DTextureSize, height));
+    bool isRGBA = (textureFormat == TextureFormat::Rgba8unorm || textureFormat == TextureFormat::Rgba8unormSRGB);
+    IOSurface::Format colorFormat;
+    if (isRGBA)
+        colorFormat = alphaMode == AlphaPremultiplication::Unpremultiplied ? IOSurface::Format::RGBX : IOSurface::Format::RGBA;
+    else
+        colorFormat = alphaMode == AlphaPremultiplication::Unpremultiplied ? IOSurface::Format::BGRX : IOSurface::Format::BGRA;
+
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::Default, colorFormat))
+        m_renderBuffers.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::Default, colorFormat))
+        m_renderBuffers.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), colorSpace, IOSurface::Name::Default, colorFormat))
+        m_renderBuffers.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
 
     {
-        auto renderBuffers = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, 2, &kCFTypeArrayCallBacks));
+        auto renderBuffers = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, m_renderBuffers.size(), &kCFTypeArrayCallBacks));
         for (auto& ioSurface : m_renderBuffers)
             CFArrayAppendValue(renderBuffers.get(), ioSurface->surface());
         m_renderBuffersWereRecreatedCallback(static_cast<CFArrayRef>(renderBuffers));
@@ -76,24 +97,27 @@ Vector<MachSendRight> CompositorIntegrationImpl::recreateRenderBuffers(int width
 }
 #endif
 
-void CompositorIntegrationImpl::withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage&)> completion)
+void CompositorIntegrationImpl::withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)> completion)
 {
-    if (!m_renderBuffers.size() || bufferIndex >= m_renderBuffers.size())
-        return;
+    if (!m_renderBuffers.size() || bufferIndex >= m_renderBuffers.size() || !m_device.get())
+        return completion(nullptr);
 
     RefPtr<NativeImage> displayImage;
+    if (auto* presentationContextPtr = m_presentationContext.get())
+        displayImage = presentationContextPtr->getMetalTextureAsNativeImage(bufferIndex);
 
-    // Use the IOSurface backed image directly
-    auto& renderBuffer = m_renderBuffers[bufferIndex];
-    RetainPtr<CGContextRef> cgContext = renderBuffer->createPlatformContext();
-    if (cgContext)
-        displayImage = NativeImage::create(renderBuffer->createImage(cgContext.get()));
+    if (!displayImage) {
+        auto& renderBuffer = m_renderBuffers[bufferIndex];
+        RetainPtr<CGContextRef> cgContext = renderBuffer->createPlatformContext();
+        if (cgContext)
+            displayImage = NativeImage::create(renderBuffer->createImage(cgContext.get()));
+    }
 
     if (!displayImage)
-        return;
+        return completion(nullptr);
 
     CGImageSetCachingFlags(displayImage->platformImage().get(), kCGImageCachingTransient);
-    completion(*displayImage);
+    completion(displayImage.get());
 }
 
 void CompositorIntegrationImpl::paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t)

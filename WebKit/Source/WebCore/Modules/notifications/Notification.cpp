@@ -82,7 +82,7 @@ static ExceptionOr<Ref<SerializedScriptValue>> createSerializedScriptValue(Scrip
     if (!globalObject)
         return Exception { ExceptionCode::TypeError, "Notification cannot be created without a global object"_s };
 
-    Vector<RefPtr<MessagePort>> dummyPorts;
+    Vector<Ref<MessagePort>> dummyPorts;
     return SerializedScriptValue::create(*globalObject, value, { }, dummyPorts);
 }
 
@@ -293,11 +293,6 @@ NotificationClient* Notification::clientFromContext()
     if (RefPtr context = scriptExecutionContext())
         return context->notificationClient();
     return nullptr;
-}
-
-const char* Notification::activeDOMObjectName() const
-{
-    return "Notification";
 }
 
 void Notification::stop()

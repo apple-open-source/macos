@@ -38,6 +38,8 @@
 #import <JavaScriptCore/JSObjectRef.h>
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <objc/runtime.h>
+#import <wtf/cocoa/SpanCocoa.h>
+
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 namespace WebCore {
@@ -48,7 +50,6 @@ static JSValue *jsValueWithArrayInContext(NSArray *, JSContext *);
 static JSValue *jsValueWithDictionaryInContext(NSDictionary *, JSContext *);
 static JSValue *jsValueWithAVMetadataItemInContext(AVMetadataItem *, JSContext *);
 static JSValue *jsValueWithValueInContext(id, JSContext *);
-static RetainPtr<NSDictionary> NSDictionaryWithAVMetadataItem(AVMetadataItem *);
 #endif
 
 Ref<SerializedPlatformDataCue> SerializedPlatformDataCue::create(SerializedPlatformDataCueValue&& value)
@@ -58,9 +59,8 @@ Ref<SerializedPlatformDataCue> SerializedPlatformDataCue::create(SerializedPlatf
 
 SerializedPlatformDataCueMac::SerializedPlatformDataCueMac(SerializedPlatformDataCueValue&& value)
     : SerializedPlatformDataCue()
-    , m_nativeValue(value.nativeValue())
+    , m_value(WTFMove(value))
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(value.platformType() == SerializedPlatformDataCueValue::PlatformType::ObjC);
 }
 
 RefPtr<ArrayBuffer> SerializedPlatformDataCueMac::data() const
@@ -71,12 +71,13 @@ RefPtr<ArrayBuffer> SerializedPlatformDataCueMac::data() const
 JSC::JSValue SerializedPlatformDataCueMac::deserialize(JSC::JSGlobalObject* lexicalGlobalObject) const
 {
 #if JSC_OBJC_API_ENABLED
-    if (!m_nativeValue)
+    auto dictionary = m_value.toNSDictionary();
+    if (!dictionary)
         return JSC::jsNull();
 
     JSGlobalContextRef jsGlobalContextRef = toGlobalRef(lexicalGlobalObject);
     JSContext *jsContext = [JSContext contextWithJSGlobalContextRef:jsGlobalContextRef];
-    JSValue *serializedValue = jsValueWithValueInContext(m_nativeValue.get(), jsContext);
+    JSValue *serializedValue = jsValueWithValueInContext(dictionary.get(), jsContext);
 
     return toJS(lexicalGlobalObject, [serializedValue JSValueRef]);
 #else
@@ -87,15 +88,7 @@ JSC::JSValue SerializedPlatformDataCueMac::deserialize(JSC::JSGlobalObject* lexi
 
 bool SerializedPlatformDataCueMac::isEqual(const SerializedPlatformDataCue& other) const
 {
-    if (other.platformType() != PlatformType::ObjC)
-        return false;
-
-    const SerializedPlatformDataCueMac* otherObjC = toSerializedPlatformDataCueMac(&other);
-
-    if (!m_nativeValue || !otherObjC->nativeValue())
-        return false;
-
-    return [m_nativeValue isEqual:otherObjC->nativeValue()];
+    return m_value == toSerializedPlatformDataCueMac(&other)->m_value;
 }
 
 SerializedPlatformDataCueMac* toSerializedPlatformDataCueMac(SerializedPlatformDataCue* rep)
@@ -105,7 +98,6 @@ SerializedPlatformDataCueMac* toSerializedPlatformDataCueMac(SerializedPlatformD
 
 const SerializedPlatformDataCueMac* toSerializedPlatformDataCueMac(const SerializedPlatformDataCue* rep)
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(rep->platformType() == SerializedPlatformDataCue::PlatformType::ObjC);
     return static_cast<const SerializedPlatformDataCueMac*>(rep);
 }
 
@@ -117,10 +109,7 @@ const HashSet<Class>& SerializedPlatformDataCueMac::allowedClassesForNativeValue
 
 SerializedPlatformDataCueValue SerializedPlatformDataCueMac::encodableValue() const
 {
-    if ([m_nativeValue isKindOfClass:PAL::getAVMetadataItemClass()])
-        return { SerializedPlatformDataCueValue::PlatformType::ObjC, NSDictionaryWithAVMetadataItem(m_nativeValue.get()).get() };
-
-    return { SerializedPlatformDataCueValue::PlatformType::ObjC, m_nativeValue.get() };
+    return m_value;
 }
 
 #if JSC_OBJC_API_ENABLED
@@ -149,7 +138,7 @@ static JSValue *jsValueWithValueInContext(id value, JSContext *context)
 
 static JSValue *jsValueWithDataInContext(NSData *data, JSContext *context)
 {
-    auto dataArray = ArrayBuffer::tryCreate([data bytes], [data length]);
+    auto dataArray = ArrayBuffer::tryCreate(span(data));
 
     auto* lexicalGlobalObject = toJS([context JSGlobalContextRef]);
     JSC::JSValue array = toJS(lexicalGlobalObject, JSC::jsCast<JSDOMGlobalObject*>(lexicalGlobalObject), dataArray.get());
@@ -206,48 +195,7 @@ static JSValue *jsValueWithDictionaryInContext(NSDictionary *dictionary, JSConte
 
 static JSValue *jsValueWithAVMetadataItemInContext(AVMetadataItem *item, JSContext *context)
 {
-    return jsValueWithDictionaryInContext(NSDictionaryWithAVMetadataItem(item).get(), context);
-}
-
-static RetainPtr<NSDictionary> NSDictionaryWithAVMetadataItem(AVMetadataItem *item)
-{
-    auto dictionary = adoptNS([[NSMutableDictionary alloc] init]);
-    NSDictionary *extras = [item extraAttributes];
-
-    for (id key in [extras keyEnumerator]) {
-        if (![key isKindOfClass:[NSString class]])
-            continue;
-        id value = [extras objectForKey:key];
-        NSString *keyString = key;
-
-        if ([key isEqualToString:@"MIMEtype"])
-            keyString = @"type";
-        else if ([key isEqualToString:@"dataTypeNamespace"] || [key isEqualToString:@"pictureType"])
-            continue;
-        else if ([key isEqualToString:@"dataType"]) {
-            id dataTypeNamespace = [extras objectForKey:@"dataTypeNamespace"];
-            if (!dataTypeNamespace || ![dataTypeNamespace isKindOfClass:[NSString class]] || ![dataTypeNamespace isEqualToString:@"org.iana.media-type"])
-                continue;
-            keyString = @"type";
-        } else if ([value isKindOfClass:[NSString class]]) {
-            if (![value length])
-                continue;
-            keyString = [key lowercaseString];
-        }
-
-        [dictionary setObject:value forKey:keyString];
-    }
-
-    if (item.key)
-        [dictionary setObject:item.key forKey:@"key"];
-
-    if (item.locale)
-        [dictionary setObject:item.locale forKey:@"locale"];
-
-    if (item.value)
-        [dictionary setObject:item.value forKey:@"data"];
-
-    return WTFMove(dictionary);
+    return jsValueWithDictionaryInContext(SerializedPlatformDataCueValue(item).toNSDictionary().get(), context);
 }
 #endif
 

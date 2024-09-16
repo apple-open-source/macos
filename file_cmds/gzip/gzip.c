@@ -58,6 +58,9 @@ __FBSDID("$FreeBSD$");
 
 #include <inttypes.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <signal.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1274,12 +1277,25 @@ unlink_input(const char *file, const struct stat *sb)
 }
 
 static void
+#ifdef __APPLE__
+got_sigint(int signo)
+#else
 got_sigint(int signo __unused)
+#endif
 {
 
 	if (remove_file != NULL)
 		unlink(remove_file);
+#ifdef __APPLE__
+	/*
+	 * Re-raise the signal to get the exit status right for conformance
+	 * purposes.
+	 */
+	signal(signo, SIG_DFL);
+	raise(signo);
+#else
 	_exit(2);
+#endif
 }
 
 static void
@@ -1294,7 +1310,12 @@ setup_signals(void)
 {
 
 	signal(SIGINFO, got_siginfo);
+#ifdef __APPLE__
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+		signal(SIGINT, got_sigint);
+#else
 	signal(SIGINT, got_sigint);
+#endif
 }
 
 static	void

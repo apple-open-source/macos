@@ -1,6 +1,6 @@
 /* test-dnssd.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,9 +197,32 @@ dns_service_find_update_for_register_event(srp_server_t *state, dns_service_even
     return NULL;
 }
 
+// Find a DNSServiceRemoveRecord
+dns_service_event_t *
+dns_service_find_remove_for_register_event(srp_server_t *state, dns_service_event_t *register_event,
+                                           dns_service_event_t *after_event)
+{
+    bool after_event_matched = after_event == NULL ? true : false;
+    for (dns_service_event_t *event = state->dns_service_events; event != NULL; event = event->next) {
+        // If we are past any after_event and this is an update_record event, see if it's for the same
+        // registration.
+        if (after_event_matched && event->event_type == dns_service_event_type_remove_record &&
+            ((register_event->rref == 0 && event->sdref == register_event->sdref) ||
+             (register_event->rref != 0 && event->rref == register_event->rref)))
+        {
+            return event;
+        }
+        // Don't match events that are prior to after_event (so that we can skip an event if it's not the right one)
+        if (event == after_event) {
+            after_event_matched = true;
+        }
+    }
+    return NULL;
+}
+
 static dns_service_ref_t *
 dns_service_ref_create(srp_server_t *server_state,
-                       DNSServiceRef *target, int flags, void *context, DNSServiceRegisterReply callback)
+                       DNSServiceRef *target, int flags, void *context)
 {
     dns_service_ref_t *ret = calloc(1, sizeof(*ret));
     TEST_FAIL_CHECK(server_state->test_state, ret != NULL, "no memory for dns_service_ref_t");
@@ -208,7 +231,28 @@ dns_service_ref_create(srp_server_t *server_state,
     }
     ret->server_state = server_state;
     ret->context = context;
-    ret->callback = callback;
+    return ret;
+}
+
+static dns_service_ref_t *
+dns_service_ref_create_for_register(srp_server_t *server_state,
+                                    DNSServiceRef *target, int flags, void *context, DNSServiceRegisterReply callback)
+{
+    dns_service_ref_t *ret = dns_service_ref_create(server_state, target, flags, context);
+    if (ret != NULL) {
+        ret->callback.register_reply = callback;
+    }
+    return ret;
+}
+
+static dns_service_ref_t *
+dns_service_ref_create_for_query_record(srp_server_t *server_state,
+                                        DNSServiceRef *target, int flags, void *context, DNSServiceQueryRecordReply callback)
+{
+    dns_service_ref_t *ret = dns_service_ref_create(server_state, target, flags, context);
+    if (ret != NULL) {
+        ret->callback.query_record_reply = callback;
+    }
     return ret;
 }
 
@@ -284,8 +328,9 @@ dns_service_register_callback(DNSServiceRef sdRef, DNSServiceFlags flags, DNSSer
     dns_service_ref_t *ref = context;
     dns_service_event_append(ref->server_state, dns_service_event_type_register_callback, sdRef, NULL, NULL, flags, 0,
                              name, regtype, domain, NULL, 0, 0, NULL, 0, 0, 0, NULL, NULL, context, errorCode);
-    if (ref->callback != NULL) {
-        ref->callback(ref, flags, errorCode, name, regtype, domain, ref->context);
+    DNSServiceRegisterReply callback = ref->callback.register_reply;
+    if (callback != NULL) {
+        callback(ref, flags, errorCode, name, regtype, domain, ref->context);
     }
 }
 
@@ -305,7 +350,7 @@ dns_service_register_wa(srp_server_t *state, DNSServiceRef *sdRef, DNSServiceFla
                         DNSServiceRegisterReply callBack, void *context)
 {
 #undef DNSServiceRegisterWithAttribute
-    dns_service_ref_t *ret = dns_service_ref_create(state, sdRef, flags, context, callBack);
+    dns_service_ref_t *ret = dns_service_ref_create_for_register(state, sdRef, flags, context, callBack);
     char updated_name[DNS_MAX_NAME_SIZE + 1];
     snprintf(updated_name, sizeof(updated_name), "%d-%s", state->server_id, name);
     int status = DNSServiceRegisterWithAttribute(&ret->sdref, flags, interfaceIndex, updated_name, regtype, domain, host, port,
@@ -407,6 +452,66 @@ dns_service_update_record_wa(srp_server_t *state, DNSServiceRef sdRef, DNSRecord
                                  NULL, NULL, NULL, NULL, 0, rdlen, rdata, 0, 0, ttl, NULL, NULL, NULL, ret);
     }
     return ret;
+}
+
+static void
+dns_service_query_record_callback(DNSServiceRef UNUSED sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
+                                  DNSServiceErrorType errorCode, const char *fullname, uint16_t rrtype,
+                                  uint16_t rrclass, uint16_t rdlen, const void *rdata, uint32_t ttl, void *context)
+{
+    dns_service_ref_t *ref = context;
+    srp_server_t *server_state = ref->server_state;
+    test_state_t *state = server_state->test_state;
+    bool call_callback = true;
+    dns_service_query_record_callback_intercept_t intercept = state->dns_service_query_callback_intercept;
+    if (intercept != NULL) {
+        call_callback = intercept(ref, flags, interfaceIndex, errorCode, fullname, rrtype, rrclass, rdlen, rdata, ttl, ref->context);
+    }
+    if (call_callback) {
+        DNSServiceQueryRecordReply callback = ref->callback.query_record_reply;
+        callback(ref, flags, interfaceIndex, errorCode, fullname, rrtype, rrclass, rdlen, rdata, ttl, ref->context);
+    }
+}
+
+DNSServiceErrorType
+dns_service_query_record(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL *NULLABLE sdRef,
+                         DNSServiceFlags flags, uint32_t interfaceIndex, const char *NONNULL fullname,
+                         uint16_t rrtype, uint16_t rrclass, DNSServiceQueryRecordReply NONNULL callBack,
+                         void *NULLABLE context)
+{
+    return dns_service_query_record_wa(srp_server, sdRef, flags, interfaceIndex, fullname, rrtype, rrclass,
+                                       NULL, callBack, context);
+}
+
+DNSServiceErrorType
+dns_service_query_record_wa(srp_server_t *NULLABLE srp_server, DNSServiceRef NONNULL *NULLABLE sdRef,
+                            DNSServiceFlags flags, uint32_t interfaceIndex, const char *NONNULL fullname,
+                            uint16_t rrtype, uint16_t rrclass, DNSServiceAttribute const *NULLABLE attr,
+                            DNSServiceQueryRecordReply NONNULL callBack, void *NULLABLE context)
+{
+    dns_service_ref_t *ret = dns_service_ref_create_for_query_record(srp_server, sdRef, flags, context, callBack);
+    test_state_t *state = srp_server->test_state;
+    int status;
+    if (state->query_record_intercept != NULL) {
+        status = state->query_record_intercept(state, &ret->sdref, flags, interfaceIndex, fullname, rrtype, rrclass,
+                                               attr, dns_service_query_record_callback, ret);
+    } else {
+        status = DNSServiceQueryRecordWithAttribute(&ret->sdref, flags, interfaceIndex, fullname, rrtype, rrclass,
+                                                    attr, dns_service_query_record_callback, ret);
+    }
+    if (status != kDNSServiceErr_NoError) {
+        free(ret);
+    }
+    *sdRef = ret;
+    return status;
+}
+
+dnssd_txn_t *NULLABLE
+dns_service_ioloop_txn_add(srp_server_t UNUSED *NULLABLE srp_server, DNSServiceRef NONNULL sdref,
+                           void *NULLABLE context, dnssd_txn_finalize_callback_t NULLABLE finalize_callback,
+                           dnssd_txn_failure_callback_t NULLABLE failure_callback)
+{
+    return ioloop_dnssd_txn_add(sdref->sdref, context, finalize_callback, failure_callback);
 }
 
 void

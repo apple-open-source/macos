@@ -25,6 +25,8 @@ import Foundation
 import Foundation_Private.NSXPCConnection
 import os.log
 
+setupICUMallocZone()
+
 let containerMap = ContainerMap(ckCodeOperationRunnerCreator: CuttlefishCKOperationRunnerCreator(),
                                 darwinNotifier: CKKSNotifyPostNotifier.self,
                                 personaAdapter: OTPersonaActualAdapter(),

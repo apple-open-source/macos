@@ -234,26 +234,29 @@ systmpr(uint32_t proto,
 				printf("Active kernel control sockets\n");
 				if (Aflag)
 					printf("%16.16s ", "pcb");
-				printf("%-5.5s %-6.6s %-6.6s ",
+				printf("%-5.5s %-6.6s %-6.6s",
 				        "Proto", "Recv-Q", "Send-Q");
-				if (bflag > 0)
-					printf("%10.10s %10.10s ",
+				if (bflag > 0 || vflag > 0)
+					printf(" %10.10s %10.10s",
 					      "rxbytes", "txbytes");
-				if (vflag > 0)
-					printf("%6.6s %6.6s %6.6s %6.6s ",
-					       "rhiwat", "shiwat", "pid", "epid");
-				printf("%6.6s ", "unit");
-				printf("%6.6s ", "id");
-				printf("%s", "name");
+				if (vflag > 0) {
+					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
+					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
+					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
+					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
+				}
+				printf(" %6.6s", "unit");
+				printf(" %6.6s", "id");
+				printf(" %s", "name");
 				printf("\n");
 				first = 0;
 			}
 			if (Aflag)
 				printf("%16llx ", kcb->xkp_kctpcb);
-			printf("%-5.5s %6u %6u ", name,
+			printf("%-5.5s %6u %6u", name,
 			       so_rcv->sb_cc,
 			       so_snd->sb_cc);
-			if (bflag > 0) {
+			if (bflag > 0 || vflag > 0) {
 				int i;
 				u_int64_t rxbytes = 0;
 				u_int64_t txbytes = 0;
@@ -262,18 +265,27 @@ systmpr(uint32_t proto,
 					rxbytes += so_stat->xst_tc_stats[i].rxbytes;
 					txbytes += so_stat->xst_tc_stats[i].txbytes;
 				}
-				printf("%10llu %10llu ", rxbytes, txbytes);
+				printf(" %10llu %10llu", rxbytes, txbytes);
 			}
 			if (vflag > 0) {
-				printf("%6u %6u %6u %6u ",
+				printf(" %7u %7u %6u %6u %05x %08x",
 				       so_rcv->sb_hiwat,
 				       so_snd->sb_hiwat,
 				       so->so_last_pid,
-				       so->so_e_pid);
+				       so->so_e_pid,
+				       so->so_state,
+				       so->so_options);
+				printf(" %016llx %08x %08x %6d %6d %06x",
+				       so->so_gencnt,
+				       so->so_flags,
+				       so->so_flags1,
+				       so->so_usecount,
+				       so->so_retaincnt,
+				       so->xso_filter_flags);
 			}
-			printf("%6d ", kcb->xkp_unit);
-			printf("%6d ", kcb->xkp_kctlid);
-			printf("%s", kcb->xkp_kctlname);
+			printf(" %6d", kcb->xkp_unit);
+			printf(" %6d", kcb->xkp_kctlid);
+			printf(" %s", kcb->xkp_kctlname);
 			printf("\n");
 			
 		} else if (which == ALL_XGN_KIND_EVT) {
@@ -287,12 +299,15 @@ systmpr(uint32_t proto,
 				printf("%6.6s ", "vendor");
 				printf("%6.6s ", "class");
 				printf("%6.6s", "subcl");
-				if (bflag > 0)
-					printf("%10.10s %10.10s ",
-					       "rxbytes", "txbytes");
-				if (vflag > 0)
-					printf("%6.6s %6.6s %6.6s %6.6s",
-					       "rhiwat", "shiwat", "pid", "epid");
+				if (bflag > 0 || vflag > 0)
+					printf(" %10.10s %10.10s",
+					      "rxbytes", "txbytes");
+				if (vflag > 0) {
+					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
+					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
+					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
+					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
+				}
 				printf("\n");
 				first = 0;
 			}
@@ -304,7 +319,7 @@ systmpr(uint32_t proto,
 			printf("%6d ", kevb->kep_vendor_code_filter);
 			printf("%6d ", kevb->kep_class_filter);
 			printf("%6d", kevb->kep_subclass_filter);
-			if (bflag > 0) {
+			if (bflag > 0 || vflag > 0) {
 				int i;
 				u_int64_t rxbytes = 0;
 				u_int64_t txbytes = 0;
@@ -313,14 +328,23 @@ systmpr(uint32_t proto,
 					rxbytes += so_stat->xst_tc_stats[i].rxbytes;
 					txbytes += so_stat->xst_tc_stats[i].txbytes;
 				}
-				printf("%10llu %10llu ", rxbytes, txbytes);
+				printf(" %10llu %10llu", rxbytes, txbytes);
 			}
 			if (vflag > 0) {
-				printf("%6u %6u %6u %6u",
+				printf(" %7u %7u %6u %6u %05x %08x",
 				       so_rcv->sb_hiwat,
 				       so_snd->sb_hiwat,
 				       so->so_last_pid,
-				       so->so_e_pid);
+				       so->so_e_pid,
+				       so->so_state,
+				       so->so_options);
+				printf(" %016llx %08x %08x %6d %6d %06x",
+				       so->so_gencnt,
+				       so->so_flags,
+				       so->so_flags1,
+				       so->so_usecount,
+				       so->so_retaincnt,
+				       so->xso_filter_flags);
 			}
 			printf("\n");
 		}
@@ -365,7 +389,7 @@ kctl_stats(uint32_t off __unused, char *name, int af __unused)
 	
 	p(kcs_reg_total, "\t%llu total kernel control module%s registered\n");
 	p(kcs_reg_count, "\t%llu current kernel control module%s registered\n");
-	p(kcs_pcbcount, "\t%llu current kernel control socket%s\n");
+	p(kcs_pcbcount, "\t%llu open kernel control socket%s\n");
 	p1a(kcs_gencnt, "\t%llu kernel control generation count\n");
 	p(kcs_connections, "\t%llu connection attempt%s\n");
 	p(kcs_conn_fail, "\t%llu connection failure%s\n");
@@ -408,7 +432,7 @@ kevt_stats(uint32_t off __unused, char *name, int af __unused)
 #define	p1a(f, m) if (STATDIFF(f) || sflag <= 1) \
 	printf(m, STATDIFF(f))
 	
-	p(kes_pcbcount, "\t%llu current kernel control socket%s\n");
+	p(kes_pcbcount, "\t%llu open kernel event socket%s\n");
 	p1a(kes_gencnt, "\t%llu kernel control generation count\n");
 	p(kes_badvendor, "\t%llu bad vendor failure%s\n");
 	p(kes_toobig, "\t%llu message too big failure%s\n");

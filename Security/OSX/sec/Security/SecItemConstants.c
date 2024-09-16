@@ -137,6 +137,7 @@ SEC_CONST_DECL (kSecMatchSearchList, "m_SearchList");
 SEC_CONST_DECL (kSecMatchIssuers, "m_Issuers");
 SEC_CONST_DECL (kSecMatchEmailAddressIfPresent, "m_EmailAddressIfPresent");
 SEC_CONST_DECL (kSecMatchSubjectContains, "m_SubjectContains");
+SEC_CONST_DECL (kSecMatchHostOrSubdomainOfHost, "m_HostOrSubdomainOfHost");
 SEC_CONST_DECL (kSecMatchCaseInsensitive, "m_CaseInsensitive");
 SEC_CONST_DECL (kSecMatchTrustedOnly, "m_TrustedOnly");
 SEC_CONST_DECL (kSecMatchValidOnDate, "m_ValidOnDate");
@@ -250,6 +251,10 @@ SEC_CONST_DECL (kSecAttrKeyTypeEd25519, "105");  /* <Security/cssmapple.h> CSSM_
 SEC_CONST_DECL (kSecAttrKeyTypeX25519, "106");  /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 2 */
 SEC_CONST_DECL (kSecAttrKeyTypeEd448, "107");  /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 3 */
 SEC_CONST_DECL (kSecAttrKeyTypeX448, "108");  /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 4 */
+SEC_CONST_DECL (kSecAttrKeyTypeKyber, "109"); /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 5 */
+
+SEC_CONST_DECL (kSecAttrKeySizeKyber768, "768");
+SEC_CONST_DECL (kSecAttrKeySizeKyber1024, "1024");
 
 /* kSecAttrSynchronizable Value Constants. */
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
@@ -259,6 +264,8 @@ SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
 SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
 SEC_CONST_DECL (kSecKeyApplePayEnabled, "applepay");
+SEC_CONST_DECL (kSecKeyOSBound, "osbound");
+SEC_CONST_DECL (kSecKeySealedHashesBound, "sealedhashesbound");
 
 /* This is here only temporarily until MobileActivation starts using kSecAttrTokenOID instead of this specific attribute. */
 SEC_CONST_DECL (kSecAttrSecureEnclaveKeyBlob, "toid");

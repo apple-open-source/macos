@@ -69,7 +69,13 @@ static const CFRuntimeClass SCNetworkCategoryClass = {
 	.equal = __SCNetworkCategoryEqual,
 	.hash = __SCNetworkCategoryHash,
 	.copyFormattingDesc = NULL,
-	.copyDebugDesc = __SCNetworkCategoryCopyDescription
+	.copyDebugDesc = __SCNetworkCategoryCopyDescription,
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 static CFStringRef

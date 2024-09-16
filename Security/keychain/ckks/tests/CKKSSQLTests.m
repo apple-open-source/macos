@@ -37,7 +37,7 @@
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 #include "keychain/securityd/SecItemServer.h"
 
 @interface CloudKitKeychainSQLTests : CloudKitMockXCTest

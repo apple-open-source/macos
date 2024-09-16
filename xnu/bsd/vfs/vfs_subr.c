@@ -101,6 +101,7 @@
 #include <sys/vm.h>
 #include <sys/sysctl.h>
 #include <sys/filedesc.h>
+#include <sys/fcntl.h>
 #include <sys/event.h>
 #include <sys/kdebug.h>
 #include <sys/kauth.h>
@@ -142,6 +143,8 @@
 #endif
 
 #include <vm/vm_protos.h>       /* vnode_pager_vrele() */
+#include <vm/vm_ubc.h>
+#include <vm/memory_object_xnu.h>
 
 #if CONFIG_MACF
 #include <security/mac_framework.h>
@@ -173,17 +176,6 @@ int     vttoif_tab[9] = {
 	0, S_IFREG, S_IFDIR, S_IFBLK, S_IFCHR, S_IFLNK,
 	S_IFSOCK, S_IFIFO, S_IFMT,
 };
-
-/* XXX These should be in a BSD accessible Mach header, but aren't. */
-extern void             memory_object_mark_used(
-	memory_object_control_t         control);
-
-extern void             memory_object_mark_unused(
-	memory_object_control_t         control,
-	boolean_t                       rage);
-
-extern void             memory_object_mark_io_tracking(
-	memory_object_control_t         control);
 
 extern int paniclog_append_noflush(const char *format, ...);
 
@@ -1501,7 +1493,7 @@ verify_incoming_rootfs(vnode_t *incoming_rootvnodep, vfs_context_t ctx,
 	}
 
 	if ((flags & VFSSR_VIRTUALDEV_PROHIBITED) != 0) {
-		if (mp->mnt_flag & MNTK_VIRTUALDEV) {
+		if (mp->mnt_kern_flag & MNTK_VIRTUALDEV) {
 			error = ENODEV;
 		}
 		if (error) {
@@ -3130,13 +3122,16 @@ vclean(vnode_t vp, int flags)
 	}
 #endif
 
-	vm_object_destroy_reason_t reason = VM_OBJECT_DESTROY_UNKNOWN_REASON;
+	vm_object_destroy_reason_t reason = VM_OBJECT_DESTROY_RECLAIM;
 	bool forced_unmount = vnode_mount(vp) != NULL && (vnode_mount(vp)->mnt_lflag & MNT_LFORCE) != 0;
 	bool ungraft_heuristic = flags & REVOKEALL;
+	bool unmount = vnode_mount(vp) != NULL && (vnode_mount(vp)->mnt_lflag & MNT_LUNMOUNT) != 0;
 	if (forced_unmount) {
 		reason = VM_OBJECT_DESTROY_FORCED_UNMOUNT;
 	} else if (ungraft_heuristic) {
 		reason = VM_OBJECT_DESTROY_UNGRAFT;
+	} else if (unmount) {
+		reason = VM_OBJECT_DESTROY_UNMOUNT;
 	}
 
 	/*
@@ -4140,7 +4135,7 @@ restart:
 	if (vp->v_specflags & SI_ALIASED) {
 		for (vq = *vp->v_hashchain; vq; vq = vq->v_specnext) {
 			if (vq->v_rdev != vp->v_rdev ||
-			    vq->v_type != vp->v_type) {
+			    vq->v_type != vp->v_type || vq == vp) {
 				continue;
 			}
 			if (vq->v_specflags & SI_MOUNTING) {
@@ -4460,7 +4455,8 @@ vfs_init_io_attributes(vnode_t devvp, mount_t mp)
 	 * as a reasonable approximation, only use the lowest bit of the mask
 	 * to generate a disk unit number
 	 */
-	mp->mnt_devbsdunit = num_trailing_0(mp->mnt_throttle_mask);
+	mp->mnt_devbsdunit = mp->mnt_throttle_mask ?
+	    num_trailing_0(mp->mnt_throttle_mask) : (LOWPRI_MAX_NUM_DEV - 1);
 
 	if (devvp == rootvp) {
 		rootunit = mp->mnt_devbsdunit;
@@ -4720,9 +4716,9 @@ vfs_event_signal(fsid_t *fsid, u_int32_t event, intptr_t data)
 		if (mp) {
 			mount_lock_spin(mp);
 			if (data) {
-				mp->mnt_kern_flag &= ~MNT_LNOTRESP;     // Now responding
+				mp->mnt_lflag &= ~MNT_LNOTRESP;     // Now responding
 			} else {
-				mp->mnt_kern_flag |= MNT_LNOTRESP;      // Not responding
+				mp->mnt_lflag |= MNT_LNOTRESP;      // Not responding
 			}
 			mount_unlock(mp);
 		}
@@ -6335,7 +6331,7 @@ vnode_getwithref(vnode_t vp)
 	return vget_internal(vp, 0, 0);
 }
 
-__private_extern__ int
+int
 vnode_getwithref_noblock(vnode_t vp)
 {
 	return vget_internal(vp, 0, VNODE_NOBLOCK);
@@ -7222,7 +7218,8 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 		 * + all read-only files OK, except:
 		 *      + dyld_shared_cache_arm64*
 		 *      + Camera
-		 *	+ mediaserverd
+		 *      + mediaserverd
+		 *      + cameracaptured
 		 */
 		if (vnode_vtype(vp) == VREG) {
 			memory_object_mark_eligible_for_secluded(
@@ -7669,6 +7666,10 @@ vnode_lookupat(const char *path, int flags, vnode_t *vpp, vfs_context_t ctx,
 	NDINIT(ndp, LOOKUP, OP_LOOKUP, ndflags, UIO_SYSSPACE,
 	    CAST_USER_ADDR_T(path), ctx);
 
+	if (flags & VNODE_LOOKUP_NOFOLLOW_ANY) {
+		ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
+	}
+
 	if (start_dvp && (path[0] != '/')) {
 		ndp->ni_dvp = start_dvp;
 		ndp->ni_cnd.cn_flags |= USEDVP;
@@ -7716,6 +7717,10 @@ vnode_open(const char *path, int fmode, int cmode, int flags, vnode_t *vpp, vfs_
 		ndflags = NOFOLLOW;
 	} else {
 		ndflags = FOLLOW;
+	}
+
+	if (lflags & VNODE_LOOKUP_NOFOLLOW_ANY) {
+		fmode |= O_NOFOLLOW_ANY;
 	}
 
 	if (lflags & VNODE_LOOKUP_NOCROSSMOUNT) {
@@ -8349,15 +8354,13 @@ vn_authorize_renamex_with_paths(struct vnode *fdvp, struct vnode *fvp, struct co
 
 	/***** <MACF> *****/
 #if CONFIG_MACF
-	error = mac_vnode_check_rename(ctx, fdvp, fvp, fcnp, tdvp, tvp, tcnp);
+	if (swap) {
+		error = mac_vnode_check_rename_swap(ctx, fdvp, fvp, fcnp, tdvp, tvp, tcnp);
+	} else {
+		error = mac_vnode_check_rename(ctx, fdvp, fvp, fcnp, tdvp, tvp, tcnp);
+	}
 	if (error) {
 		goto out;
-	}
-	if (swap) {
-		error = mac_vnode_check_rename(ctx, tdvp, tvp, tcnp, fdvp, fvp, fcnp);
-		if (error) {
-			goto out;
-		}
 	}
 #endif
 	/***** </MACF> *****/
@@ -13153,3 +13156,20 @@ vnode_revokelease(vnode_t vp, bool locked)
 }
 
 #endif /* CONFIG_FILE_LEASES */
+
+errno_t
+vnode_rdadvise(vnode_t vp, off_t offset, int len, vfs_context_t ctx)
+{
+	struct radvisory ra_struct;
+
+	assert(vp);
+
+	if (offset < 0 || len < 0) {
+		return EINVAL;
+	}
+
+	ra_struct.ra_offset = offset;
+	ra_struct.ra_count = len;
+
+	return VNOP_IOCTL(vp, F_RDADVISE, (caddr_t)&ra_struct, 0, ctx);
+}

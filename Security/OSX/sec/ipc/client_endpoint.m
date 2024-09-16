@@ -27,6 +27,7 @@
 #import <objc/runtime.h>
 #import <utilities/debugging.h>
 #import <Security/SecXPCHelper.h>
+#import <Security/SecItemFetchOutOfBandPriv.h>
 
 #include <ipc/securityd_client.h>
 #include <xpc/private.h>
@@ -101,6 +102,11 @@
     NSSet<Class> *errClasses = [SecXPCHelper safeErrorClasses];
 
     @try {
+        NSSet* arrayOfCKKSCurrentItemQueries = [NSSet setWithArray:@[[NSArray class], [CKKSCurrentItemQuery class]]];
+        NSSet* arrayOfCKKSCurrentItemQueryResults = [NSSet setWithArray:@[[NSArray class], [CKKSCurrentItemQueryResult class]]];
+        NSSet* arrayOfCKKSPCSIdentityQueries = [NSSet setWithArray:@[[NSArray class], [CKKSPCSIdentityQuery class]]];
+        NSSet* arrayOfCKKSPCSIdentityQueryResults = [NSSet setWithArray:@[[NSArray class], [CKKSPCSIdentityQueryResult class]]];
+
         [rpcCallbackInterface setClasses:errClasses forSelector:@selector(callCallback:error:) argumentIndex:1 ofReply:NO];
 
         [interface setClasses:errClasses forSelector:@selector(SecItemAddAndNotifyOnSync:
@@ -127,6 +133,14 @@
                                                                accessGroup:
                                                                complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secKeychainDeleteMultiuser:complete:) argumentIndex:1 ofReply:YES];
+        
+        [interface setClasses:arrayOfCKKSCurrentItemQueries forSelector:@selector(secItemFetchCurrentItemOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:NO];
+        [interface setClasses:arrayOfCKKSCurrentItemQueryResults forSelector:@selector(secItemFetchCurrentItemOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemFetchCurrentItemOutOfBand:forceFetch:complete:) argumentIndex:1 ofReply:YES];
+        
+        [interface setClasses:arrayOfCKKSPCSIdentityQueries forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:NO];
+        [interface setClasses:arrayOfCKKSPCSIdentityQueryResults forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:1 ofReply:YES];
 
     }
     @catch(NSException* e) {

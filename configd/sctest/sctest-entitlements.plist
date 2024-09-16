@@ -39,5 +39,11 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.networking.ethernet.user-access</key>
+	<true/>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>IOUserEthernetResourceUserClient</string>
+	</array>
 </dict>
 </plist>

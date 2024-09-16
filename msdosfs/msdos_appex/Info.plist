@@ -2,18 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSExtension</key>
-	<dict>
-		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.fskit.fsmodule</string>
-		<key>NSExtensionPrincipleClass</key>
-		<string>msdosFileSystem</string>
-	</dict>
 	<key>EXAppExtensionAttributes</key>
 	<dict>
 		<key>FSSupportsServerURLs</key>
 		<false/>
 		<key>FSSupportsBlockResources</key>
+		<true/>
+		<key>FSSupportsKOIO</key>
 		<true/>
 		<key>FSShortName</key>
 		<string>msdos</string>
@@ -297,6 +292,11 @@
 			<key>shortOptions</key>
 			<string>NB:F:I:O:S:P:a:b:c:e:f:h:i:k:m:n:o:r:s:u:v:</string>
 		</dict>
+        <key>FSActivateOptionSyntax</key>
+        <dict>
+            <key>shortOptions</key>
+            <string>u:g:m:o:</string>
+        </dict>
 	</dict>
 </dict>
 </plist>

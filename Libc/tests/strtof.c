@@ -119,6 +119,15 @@ static void strtof_verify(const char *src, float expected_nearest, float expecte
   strtof_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src));
 }
 
+static void strtof_verify_overflow(const char *src, float expected_nearest, float expected_down, float expected_up) {
+  int expected_errno = ERANGE;
+  strtof_verify_with_rounding_mode(src, FE_TONEAREST, expected_nearest, expected_errno, src + strlen(src));
+  strtof_verify_with_rounding_mode(src, FE_DOWNWARD, expected_down, expected_errno, src + strlen(src));
+  strtof_verify_with_rounding_mode(src, FE_UPWARD, expected_up, expected_errno, src + strlen(src));
+  float expected = signbit(expected_nearest) ? expected_up : expected_down;
+  strtof_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src));
+}
+
 // Explicit zero, infinity, or Nan inputs never trigger ERANGE...
 static void strtof_verify_no_overunder(const char *src, float expected) {
   strtof_verify_with_rounding_mode(src, FE_TONEAREST, expected, 0, src + strlen(src));
@@ -206,20 +215,20 @@ T_DECL(strtof, "strtof(3)")
                 infinity, max_normal, infinity);
   // max_normal + 1 ULP == 2^128 == overflow threshold
   // This is treated as overflow in all rounding modes.
-  strtof_verify("340282366920938463463374607431768211456", infinity, infinity, infinity);
-  strtof_verify("340282366920938463463374607431768211456.00000", infinity, infinity, infinity);
+  strtof_verify_overflow("340282366920938463463374607431768211456", infinity, max_normal, infinity);
+  strtof_verify_overflow("340282366920938463463374607431768211456.00000", infinity, max_normal, infinity);
 
   // Successively larger than max normal
   strtof_verify("3.4028235e+38", max_normal, max_normal, infinity);
   strtof_verify("3.4028236e+38", infinity, max_normal, infinity);
-  strtof_verify("3.4028237e+38", infinity, infinity, infinity);
-  strtof_verify("3.402824e+38", infinity, infinity, infinity);
-  strtof_verify("3.40283e+38", infinity, infinity, infinity);
-  strtof_verify("3.4029e+38", infinity, infinity, infinity);
-  strtof_verify("3.403e+38", infinity, infinity, infinity);
-  strtof_verify("3.41e+38", infinity, infinity, infinity);
-  strtof_verify("3.5e+38", infinity, infinity, infinity);
-  strtof_verify("4e38", infinity, infinity, infinity);
+  strtof_verify_overflow("3.4028237e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.402824e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.40283e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.4029e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.403e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.41e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("3.5e+38", infinity, max_normal, infinity);
+  strtof_verify_overflow("4e38", infinity, max_normal, infinity);
 
   strtof_verify("3.1415927", pi, pi_pred, pi);
   strtof_verify("3.141592653589793238462643383279502884197169399"
@@ -243,14 +252,16 @@ T_DECL(strtof, "strtof(3)")
   strtof_verify("-0xfedcba987654321p-987654", -0.0, -min_subnormal, -0.0);
 
   // Overflow cases
-  strtof_verify("123456.7890123e+4789", infinity, infinity, infinity);
-  strtof_verify("1e309", infinity, infinity, infinity);
-  strtof_verify("-1e+99999999999999999999999999999999", -infinity, -infinity, -infinity);
-  strtof_verify("-1e309", -infinity, -infinity, -infinity);
-  strtof_verify("0x123456789abcdefp9999999999999999999999999999", infinity, infinity, infinity);
-  strtof_verify("0x123456789abcdefp123456789", infinity, infinity, infinity);
-  strtof_verify("999999999999999999999999999999999999999.999999999999999999999999999", infinity, infinity, infinity);
-  strtof_verify("7674047411400702925974988342550565582448.117", infinity, infinity, infinity);
+  strtof_verify_overflow("123456.7890123e+4789", infinity, max_normal, infinity);
+  strtof_verify_overflow("1e309", infinity, max_normal, infinity);
+  strtof_verify_overflow("-1e+99999999999999999999999999999999", -infinity, -infinity, -max_normal);
+  strtof_verify_overflow("-1e309", -infinity, -infinity, -max_normal);
+  strtof_verify_overflow("0x123456789abcdefp9999999999999999999999999999", infinity, max_normal, infinity);
+  strtof_verify_overflow("0x123456789abcdefp123456789", infinity, max_normal, infinity);
+  strtof_verify_overflow("-0x123456789abcdefp9999999999999999999999999999", -infinity, -infinity, -max_normal);
+  strtof_verify_overflow("-0x123456789abcdefp123456789", -infinity, -infinity, -max_normal);
+  strtof_verify_overflow("999999999999999999999999999999999999999.999999999999999999999999999", infinity, max_normal, infinity);
+  strtof_verify_overflow("7674047411400702925974988342550565582448.117", infinity, max_normal, infinity);
 
   // Nan parsing
   strtof_verify_nan("NaN", nanf(""));

@@ -60,11 +60,11 @@ public:
     void updatePipelineState(GstState);
 
     void durationChanged() override;
-    MediaTime durationMediaTime() const override;
+    MediaTime duration() const override;
 
     const PlatformTimeRanges& buffered() const override;
-    MediaTime maxMediaTimeSeekable() const override;
-    bool currentMediaTimeMayProgress() const override;
+    MediaTime maxTimeSeekable() const override;
+    bool timeIsProgressing() const override;
     void notifyActiveSourceBuffersChanged() final;
 
     void sourceSetup(GstElement*) override;
@@ -88,6 +88,11 @@ public:
     WTFLogChannel& logChannel() const final { return WebCore::LogMediaSource; }
 #endif
 
+    void checkPlayingConsistency() final;
+#ifndef GST_DISABLE_DEBUG
+    void setShouldDisableSleep(bool) final;
+#endif
+
 private:
     explicit MediaPlayerPrivateGStreamerMSE(MediaPlayer*);
 
@@ -98,6 +103,8 @@ private:
     friend class AppendPipeline;
     friend class SourceBufferPrivateGStreamer;
     friend class MediaSourcePrivateGStreamer;
+
+    size_t extraMemoryCost() const override;
 
     void updateStates() override;
 
@@ -110,12 +117,13 @@ private:
 
     RefPtr<MediaSourcePrivateGStreamer> m_mediaSourcePrivate;
     MediaTime m_mediaTimeDuration { MediaTime::invalidTime() };
-    bool m_isPipelinePlaying = true;
     Vector<RefPtr<MediaSourceTrackGStreamer>> m_tracks;
 
     bool m_isWaitingForPreroll = true;
     MediaPlayer::ReadyState m_mediaSourceReadyState = MediaPlayer::ReadyState::HaveNothing;
     MediaPlayer::NetworkState m_mediaSourceNetworkState = MediaPlayer::NetworkState::Empty;
+
+    bool m_playbackStateChangedNotificationPending { false };
 };
 
 } // namespace WebCore

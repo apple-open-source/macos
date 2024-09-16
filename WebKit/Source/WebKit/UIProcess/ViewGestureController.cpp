@@ -39,8 +39,8 @@
 #include <wtf/CheckedPtr.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 
 #if PLATFORM(COCOA)
 #include "RemoteLayerTreeDrawingAreaProxy.h"
@@ -103,7 +103,7 @@ void ViewGestureController::disconnectFromProcess()
     if (!m_isConnectedToProcess)
         return;
 
-    m_webPageProxy.process().removeMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.webPageID());
+    m_webPageProxy.legacyMainFrameProcess().removeMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.webPageIDInMainFrameProcess());
     m_isConnectedToProcess = false;
 }
 
@@ -112,7 +112,7 @@ void ViewGestureController::connectToProcess()
     if (m_isConnectedToProcess)
         return;
 
-    m_webPageProxy.process().addMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.webPageID(), *this);
+    m_webPageProxy.legacyMainFrameProcess().addMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.webPageIDInMainFrameProcess(), *this);
     m_isConnectedToProcess = true;
 }
 
@@ -138,6 +138,8 @@ void ViewGestureController::willBeginGesture(ViewGestureType type)
 
     m_activeGestureType = type;
     m_currentGestureID = takeNextGestureID();
+
+    m_webPageProxy.willBeginViewGesture();
 }
 
 void ViewGestureController::didEndGesture()
@@ -146,6 +148,8 @@ void ViewGestureController::didEndGesture()
 
     m_activeGestureType = ViewGestureType::None;
     m_currentGestureID = 0;
+
+    m_webPageProxy.didEndViewGesture();
 }
 
 void ViewGestureController::setAlternateBackForwardListSourcePage(WebPageProxy* page)
@@ -274,25 +278,25 @@ String ViewGestureController::SnapshotRemovalTracker::eventsDescription(Events e
     StringBuilder description;
 
     if (event & ViewGestureController::SnapshotRemovalTracker::VisuallyNonEmptyLayout)
-        description.append("VisuallyNonEmptyLayout ");
+        description.append("VisuallyNonEmptyLayout "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::RenderTreeSizeThreshold)
-        description.append("RenderTreeSizeThreshold ");
+        description.append("RenderTreeSizeThreshold "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::RepaintAfterNavigation)
-        description.append("RepaintAfterNavigation ");
+        description.append("RepaintAfterNavigation "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::MainFrameLoad)
-        description.append("MainFrameLoad ");
+        description.append("MainFrameLoad "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::SubresourceLoads)
-        description.append("SubresourceLoads ");
+        description.append("SubresourceLoads "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::ScrollPositionRestoration)
-        description.append("ScrollPositionRestoration ");
+        description.append("ScrollPositionRestoration "_s);
 
     if (event & ViewGestureController::SnapshotRemovalTracker::SwipeAnimationEnd)
-        description.append("SwipeAnimationEnd ");
+        description.append("SwipeAnimationEnd "_s);
 
     return description.toString();
 }
@@ -328,7 +332,7 @@ void ViewGestureController::SnapshotRemovalTracker::start(Events desiredEvents, 
 void ViewGestureController::SnapshotRemovalTracker::reset()
 {
     if (m_outstandingEvents)
-        log(makeString("reset; had outstanding events: ", eventsDescription(m_outstandingEvents)));
+        log(makeString("reset; had outstanding events: "_s, eventsDescription(m_outstandingEvents)));
     m_outstandingEvents = 0;
     m_watchdogTimer.stop();
     m_removalCallback = nullptr;
@@ -342,7 +346,7 @@ bool ViewGestureController::SnapshotRemovalTracker::stopWaitingForEvent(Events e
         return false;
 
     if (shouldIgnoreEventIfPaused == ShouldIgnoreEventIfPaused::Yes && isPaused()) {
-        log(makeString("is paused; ignoring event: ", eventsDescription(event)));
+        log(makeString("is paused; ignoring event: "_s, eventsDescription(event)));
         return false;
     }
 
@@ -372,7 +376,7 @@ bool ViewGestureController::SnapshotRemovalTracker::hasOutstandingEvent(Event ev
 void ViewGestureController::SnapshotRemovalTracker::fireRemovalCallbackIfPossible()
 {
     if (m_outstandingEvents) {
-        log(makeString("deferring removal; had outstanding events: ", eventsDescription(m_outstandingEvents)));
+        log(makeString("deferring removal; had outstanding events: "_s, eventsDescription(m_outstandingEvents)));
         return;
     }
 
@@ -399,7 +403,7 @@ void ViewGestureController::SnapshotRemovalTracker::watchdogTimerFired()
 
 void ViewGestureController::SnapshotRemovalTracker::startWatchdog(Seconds duration)
 {
-    log(makeString("(re)started watchdog timer for ", duration.seconds(), " seconds"));
+    log(makeString("(re)started watchdog timer for "_s, duration.seconds(), " seconds"_s));
     m_watchdogTimer.startOneShot(duration);
 }
 
@@ -409,14 +413,14 @@ static bool deltaShouldCancelSwipe(FloatSize delta)
     return std::abs(delta.height()) >= std::abs(delta.width()) * minimumScrollEventRatioForSwipe;
 }
 
-const char* ViewGestureController::PendingSwipeTracker::stateToString(State state)
+ASCIILiteral ViewGestureController::PendingSwipeTracker::stateToString(State state)
 {
     switch (state) {
-    case State::None: return "None";
-    case State::WaitingForWebCore: return "WaitingForWebCore";
-    case State::InsufficientMagnitude: return "InsufficientMagnitude";
+    case State::None: return "None"_s;
+    case State::WaitingForWebCore: return "WaitingForWebCore"_s;
+    case State::InsufficientMagnitude: return "InsufficientMagnitude"_s;
     }
-    return "";
+    return ""_s;
 }
 
 ViewGestureController::PendingSwipeTracker::PendingSwipeTracker(WebPageProxy& webPageProxy, ViewGestureController& viewGestureController)
@@ -455,7 +459,7 @@ bool ViewGestureController::PendingSwipeTracker::handleEvent(PlatformScrollEvent
     LOG_WITH_STREAM(ViewGestures, stream << "PendingSwipeTracker::handleEvent - state " << stateToString(m_state));
 
     if (scrollEventCanEndSwipe(event)) {
-        reset("gesture ended");
+        reset("gesture ended"_s);
         return false;
     }
 
@@ -507,7 +511,7 @@ bool ViewGestureController::PendingSwipeTracker::tryToStartSwipe(PlatformScrollE
     LOG_WITH_STREAM(ViewGestures, stream << "PendingSwipeTracker::tryToStartSwipe - consumed event, cumulative delta " << m_cumulativeDelta);
 
     if (deltaShouldCancelSwipe(m_cumulativeDelta)) {
-        reset("cumulative delta became too vertical");
+        reset("cumulative delta became too vertical"_s);
         return false;
     }
 
@@ -519,7 +523,7 @@ bool ViewGestureController::PendingSwipeTracker::tryToStartSwipe(PlatformScrollE
     return true;
 }
 
-void ViewGestureController::PendingSwipeTracker::reset(const char* resetReason)
+void ViewGestureController::PendingSwipeTracker::reset(ASCIILiteral resetReason)
 {
     if (m_state != State::None)
         LOG_WITH_STREAM(ViewGestures, stream << "PendingSwipeTracker::reset - " << resetReason);
@@ -532,7 +536,7 @@ void ViewGestureController::startSwipeGesture(PlatformScrollEvent event, SwipeDi
 {
     ASSERT(m_activeGestureType == ViewGestureType::None);
 
-    m_pendingSwipeTracker.reset("starting to track swipe");
+    m_pendingSwipeTracker.reset("starting to track swipe"_s);
 
     m_webPageProxy.recordAutomaticNavigationSnapshot();
 
@@ -576,7 +580,7 @@ void ViewGestureController::forceRepaintIfNeeded()
 
     auto pageID = m_webPageProxy.identifier();
     GestureID gestureID = m_currentGestureID;
-    m_webPageProxy.forceRepaint([pageID, gestureID] () {
+    m_webPageProxy.updateRenderingWithForcedRepaint([pageID, gestureID] () {
         if (auto gestureController = controllerForGesture(pageID, gestureID))
             gestureController->removeSwipeSnapshot();
     });
@@ -659,8 +663,10 @@ void ViewGestureController::requestRenderTreeSizeNotificationIfNeeded()
         return;
 
     auto threshold = m_snapshotRemovalTracker.renderTreeSizeThreshold();
-    auto* messageSender = m_webPageProxy.provisionalPageProxy() ? static_cast<IPC::MessageSender*>(m_webPageProxy.provisionalPageProxy()) : &m_webPageProxy;
-    messageSender->send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(threshold));
+    if (m_webPageProxy.provisionalPageProxy())
+        m_webPageProxy.provisionalPageProxy()->send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(threshold));
+    else
+        m_webPageProxy.legacyMainFrameProcess().send(Messages::ViewGestureGeometryCollector::SetRenderTreeSizeNotificationThreshold(threshold), m_webPageProxy.webPageIDInMainFrameProcess());
 }
 
 FloatPoint ViewGestureController::scaledMagnificationOrigin(FloatPoint origin, double scale)
@@ -688,7 +694,7 @@ void ViewGestureController::didCollectGeometryForMagnificationGesture(FloatRect 
 void ViewGestureController::prepareMagnificationGesture(FloatPoint origin)
 {
     m_magnification = m_webPageProxy.pageScaleFactor();
-    m_webPageProxy.send(Messages::ViewGestureGeometryCollector::CollectGeometryForMagnificationGesture());
+    m_webPageProxy.legacyMainFrameProcess().send(Messages::ViewGestureGeometryCollector::CollectGeometryForMagnificationGesture(), m_webPageProxy.webPageIDInMainFrameProcess());
 
     m_initialMagnification = m_magnification;
     m_initialMagnificationOrigin = FloatPoint(origin);
@@ -705,8 +711,8 @@ void ViewGestureController::applyMagnification()
 
     if (m_frameHandlesMagnificationGesture)
         m_webPageProxy.scalePage(m_magnification, roundedIntPoint(m_magnificationOrigin));
-    else
-        m_webPageProxy.drawingArea()->adjustTransientZoom(m_magnification, scaledMagnificationOrigin(m_magnificationOrigin, m_magnification));
+    else if (auto* drawingArea = m_webPageProxy.drawingArea())
+        drawingArea->adjustTransientZoom(m_magnification, scaledMagnificationOrigin(m_magnificationOrigin, m_magnification));
 }
 
 void ViewGestureController::endMagnificationGesture()
@@ -714,6 +720,8 @@ void ViewGestureController::endMagnificationGesture()
     if (m_activeGestureType != ViewGestureType::Magnification)
         return;
 
+    auto minMagnification = m_webPageProxy.minPageZoomFactor();
+    auto maxMagnification = m_webPageProxy.maxPageZoomFactor();
     double newMagnification = clampTo<double>(m_magnification, minMagnification, maxMagnification);
 
     if (m_frameHandlesMagnificationGesture)

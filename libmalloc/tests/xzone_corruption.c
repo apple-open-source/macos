@@ -25,11 +25,8 @@ same_chunk(void *a, void *b)
 	return chunk_a == chunk_b;
 }
 
-T_DECL(tiny_freelist_corruption, "Crash on corruption of tiny freelist",
-		T_META_ENVVAR("MallocXzoneSlotConfig=0"),
-		T_META_IGNORECRASHES("xzone_corruption"),
-		T_META_TAG_XZONE_ONLY,
-		T_META_ENABLED(__has_feature(ptrauth_calls)))
+static void
+test_freelist_corruption(bool linkage)
 {
 	pid_t child_pid = fork();
 	T_ASSERT_NE(child_pid, -1, "fork()");
@@ -65,7 +62,11 @@ T_DECL(tiny_freelist_corruption, "Crash on corruption of tiny freelist",
 					free(p2);
 
 					xzm_block_t block = p2;
-					block->xzb_linkage.xzbl_next_value ^= (1ull << bit_to_flip);
+					if (linkage) {
+						block->xzb_linkage.xzbl_next_value ^= (1ull << bit_to_flip);
+					} else {
+						block->xzb_cookie ^= (1ull << bit_to_flip);
+					}
 
 					p2 = malloc_wrapper(1024);
 				}
@@ -85,6 +86,25 @@ T_DECL(tiny_freelist_corruption, "Crash on corruption of tiny freelist",
 		T_ASSERT_EQ(wait_pid, child_pid, "Got child status");
 		T_ASSERT_TRUE(WIFSIGNALED(status), "Child terminated by signal");
 	}
+}
+
+T_DECL(tiny_freelist_cookie_corruption,
+		"Crash on corruption of tiny freelist cookie",
+		T_META_ENVVAR("MallocXzoneSlotConfig=0"),
+		T_META_IGNORECRASHES("xzone_corruption"),
+		T_META_TAG_XZONE_ONLY)
+{
+	test_freelist_corruption(false);
+}
+
+T_DECL(tiny_freelist_linkage_corruption,
+		"Crash on corruption of tiny freelist linkage",
+		T_META_ENVVAR("MallocXzoneSlotConfig=0"),
+		T_META_IGNORECRASHES("xzone_corruption"),
+		T_META_TAG_XZONE_ONLY,
+		T_META_ENABLED(__has_feature(ptrauth_calls)))
+{
+	test_freelist_corruption(true);
 }
 
 #else // CONFIG_XZONE_MALLOC

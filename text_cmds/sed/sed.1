@@ -39,13 +39,13 @@
 .Nd stream editor
 .Sh SYNOPSIS
 .Nm
-.Op Fl Ealnru
+.Op Fl EHalnru
 .Ar command
 .Op Fl I Ar extension
 .Op Fl i Ar extension
 .Op Ar
 .Nm
-.Op Fl Ealnru
+.Op Fl EHalnru
 .Op Fl e Ar command
 .Op Fl f Ar command_file
 .Op Fl I Ar extension
@@ -102,6 +102,14 @@ The commands are read from the standard input if
 .Ar command_file
 is
 .Dq Li - .
+.It Fl H
+Enable enhanced features in the regular expression syntax.
+Note that this option is independent of the
+.Fl E
+option.
+See
+.Xr re_format 7
+for details.
 .It Fl I Ar extension
 Edit files in-place, saving backups with the specified
 .Ar extension .

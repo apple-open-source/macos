@@ -37,6 +37,7 @@
 #include "StyleInheritedData.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -44,8 +45,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(CharacterData);
 
 CharacterData::~CharacterData()
 {
-    // Unable to ref the document as it may have started destruction.
-    willBeDeletedFrom(document());
+    willBeDeletedFrom(RefAllowingPartiallyDestroyed<Document> { document() });
 }
 
 static bool canUseSetDataOptimization(const CharacterData& node)
@@ -117,7 +117,7 @@ void CharacterData::parserAppendData(StringView string)
 
 void CharacterData::appendData(const String& data)
 {
-    setDataAndUpdate(m_data + data, m_data.length(), 0, data.length(), UpdateLiveRanges::No);
+    setDataAndUpdate(makeString(m_data, data), m_data.length(), 0, data.length(), UpdateLiveRanges::No);
 }
 
 ExceptionOr<void> CharacterData::insertData(unsigned offset, const String& data)
@@ -163,9 +163,10 @@ String CharacterData::nodeValue() const
     return m_data;
 }
 
-void CharacterData::setNodeValue(const String& nodeValue)
+ExceptionOr<void> CharacterData::setNodeValue(const String& nodeValue)
 {
     setData(nodeValue);
+    return { };
 }
 
 void CharacterData::setDataWithoutUpdate(const String& data)

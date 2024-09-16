@@ -12,8 +12,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/queue.h>
+#include <unistd.h>
+#include <sys/acl.h>
+#include <sys/attr.h>
 #include <sys/errno.h>
+#include <sys/queue.h>
+#include <System/sys/content_protection.h>
 #include <TargetConditionals.h>
 
 #include "../copyfile.h"
@@ -173,6 +177,15 @@ assert_fail_(const char *file, int line, const char *assertion, ...)
 						lhs_, rhs_);									\
 	} while (0)
 
+#define assert_not_equal(lhs, rhs, fmt)									\
+	do {																\
+		typeof (lhs) lhs_ = (lhs);										\
+		typeof (lhs) rhs_ = (rhs);										\
+		if (lhs_ == rhs_)												\
+			assert_fail("%s (" fmt ") == %s (" fmt ")",					\
+						#lhs, lhs_, #rhs, rhs_);						\
+	} while (0)
+
 #define assert_equal_int(lhs, rhs)	assert_equal_(lhs, rhs, #lhs, #rhs, "%d")
 #define assert_equal_ll(lhs, rhs)	assert_equal_(lhs, rhs, #lhs, #rhs, "%lld")
 #define assert_equal_str(lhs, rhs)										\
@@ -239,5 +252,62 @@ static inline ssize_t check_io_(ssize_t res, ssize_t len, const char *file,
 		} while (eintr_ret_ == (error_val) && errno == EINTR);	\
 		eintr_ret_;												\
 	})
+
+/*
+ * Return the protection class for `path'.
+ *
+ * Any error will be associated with `line' in the source.
+ */
+static inline uint32_t
+getclass_(const char *path, int line)
+{
+#define fail(...) assert_fail_(__FILE_NAME__, line, ##__VA_ARGS__)
+	static const struct attrlist req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_RETURNED_ATTRS | ATTR_CMN_DATA_PROTECT_FLAGS
+	};
+
+	struct {
+		uint32_t len;
+		attribute_set_t returned;
+		uint32_t prot_class;
+	} __attribute__((packed, aligned(4))) attrs;
+
+	// get the class for `path'
+	if (getattrlist(path, (void *)&req, &attrs, sizeof(attrs),
+		FSOPT_NOFOLLOW) == -1) {
+		fail("getattrlist(%s, class) -> %d", path, errno);
+	}
+
+	// check some class was returned
+	if (attrs.len != sizeof(attrs)) {
+		fail("attrs len is %u != %zu", attrs.len, sizeof(attrs));
+	}
+	if (attrs.returned.commonattr != req.commonattr) {
+		fail("attrs returned %x != %x",
+			attrs.returned.commonattr, req.commonattr);
+	}
+
+	// check for a valid class: [_NONE, _F], excluding _E
+	const uint32_t c = attrs.prot_class;
+	if (!((PROTECTION_CLASS_DIR_NONE <= c) &&
+		(c <= PROTECTION_CLASS_CX)) || (c == PROTECTION_CLASS_E)) {
+		fail("invalid class returned %u for %s", c, path);
+	}
+	return c;
+#undef fail
+}
+
+#define getclass(f) getclass_((f), __LINE__)
+
+static inline int
+acl_compare_permset_np(acl_permset_t p1, acl_permset_t p2)
+{
+	struct pm { u_int32_t ap_perms; } *ps1, *ps2;
+	ps1 = (struct pm*) p1;
+	ps2 = (struct pm*) p2;
+
+	return ((ps1->ap_perms == ps2->ap_perms) ? 1 : 0);
+}
 
 #endif /* test_utils_h */

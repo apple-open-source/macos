@@ -79,10 +79,7 @@ WebCore::FloatPoint PageClientImpl::viewScrollPosition()
 
 WebCore::IntSize PageClientImpl::viewSize()
 {
-    RECT clientRect;
-    GetClientRect(m_view.window(), &clientRect);
-
-    return IntRect(clientRect).size();
+    return m_view.viewSize();
 }
 
 bool PageClientImpl::isViewWindowActive()
@@ -357,7 +354,7 @@ void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&
     notImplemented();
 }
 
-void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, const IPC::DataReference&)
+void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, std::span<const uint8_t>)
 {
     notImplemented();
 }

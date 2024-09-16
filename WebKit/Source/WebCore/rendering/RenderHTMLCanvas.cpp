@@ -39,6 +39,7 @@
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderLayer.h"
+#include "RenderLayerBacking.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include <wtf/IsoMallocInlines.h>
@@ -55,6 +56,8 @@ RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement& element, RenderStyle&& sty
     ASSERT(isRenderHTMLCanvas());
 }
 
+RenderHTMLCanvas::~RenderHTMLCanvas() = default;
+
 HTMLCanvasElement& RenderHTMLCanvas::canvasElement() const
 {
     return downcast<HTMLCanvasElement>(nodeForNonAnonymous());
@@ -65,10 +68,7 @@ bool RenderHTMLCanvas::requiresLayer() const
     if (RenderReplaced::requiresLayer())
         return true;
 
-    if (CanvasRenderingContext* context = canvasElement().renderingContext())
-        return context->isAccelerated();
-
-    return false;
+    return canvasCompositingStrategy(*this) != CanvasPaintedToEnclosingLayer;
 }
 
 void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -106,7 +106,7 @@ void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& pa
 void RenderHTMLCanvas::canvasSizeChanged()
 {
     IntSize canvasSize = canvasElement().size();
-    LayoutSize zoomedSize(canvasSize.width() * style().effectiveZoom(), canvasSize.height() * style().effectiveZoom());
+    LayoutSize zoomedSize(canvasSize.width() * style().usedZoom(), canvasSize.height() * style().usedZoom());
 
     if (zoomedSize == intrinsicSize())
         return;

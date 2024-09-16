@@ -44,18 +44,18 @@ extern void trigger_free(trigger_info_t *ti);
  * element of which is one of these structures.
  */
 struct trigger_callargs {
-	vnode_t		tc_vp;		/* trigger vnode */
-	fsid_t		tc_this_fsid;	/* fsid of file system with trigger vnode */
-	trigger_info_t	*tc_ti;		/* trigger information */
-	thread_t	tc_origin;	/* thread that fired up this thread */
-					/* used for debugging purposes */
-	uid_t		tc_uid;         /* Calling threads uid */
-	au_asid_t	tc_asid;	/* and audit session id. */
-					/* The two above fields are so that we can set a worker */
-					/* processes to have the same uid and audit session */
-					/* and thus be in the right security session for authentication */
-	fsid_t		tc_mounted_fsid;/* fsid of newly-mounted file system */
-	uint32_t	tc_retflags;	/* assorted MOUNT_RETF_ flags */
+	vnode_t         tc_vp;          /* trigger vnode */
+	fsid_t          tc_this_fsid;   /* fsid of file system with trigger vnode */
+	trigger_info_t  *tc_ti;         /* trigger information */
+	thread_t        tc_origin;      /* thread that fired up this thread */
+	                                /* used for debugging purposes */
+	uid_t           tc_uid;         /* Calling threads uid */
+	au_asid_t       tc_asid;        /* and audit session id. */
+	                                /* The two above fields are so that we can set a worker */
+	                                /* processes to have the same uid and audit session */
+	                                /* and thus be in the right security session for authentication */
+	fsid_t          tc_mounted_fsid;/* fsid of newly-mounted file system */
+	uint32_t        tc_retflags;    /* assorted MOUNT_RETF_ flags */
 };
 
 /*
@@ -63,18 +63,18 @@ struct trigger_callargs {
  * an arbitrary URL on an arbitrary path.
  */
 struct mount_url_callargs {
-	struct trigger_callargs muc_t;	/* common args */
-	char		*muc_url;	/* URL to mount */
-	char		*muc_mountpoint; /* where to mount it */
-	char		*muc_opts;	/* mount options to use; null string if none */
+	struct trigger_callargs muc_t;  /* common args */
+	char            *muc_url;       /* URL to mount */
+	char            *muc_mountpoint; /* where to mount it */
+	char            *muc_opts;      /* mount options to use; null string if none */
 };
 
-#define muc_this_fsid		muc_t.tc_this_fsid
-#define muc_origin		muc_t.tc_origin
-#define muc_uid			muc_t.tc_uid
-#define muc_asid		muc_t.tc_asid
-#define muc_mounted_fsid	muc_t.tc_mounted_fsid
-#define muc_retflags		muc_t.tc_retflags
+#define muc_this_fsid           muc_t.tc_this_fsid
+#define muc_origin              muc_t.tc_origin
+#define muc_uid                 muc_t.tc_uid
+#define muc_asid                muc_t.tc_asid
+#define muc_mounted_fsid        muc_t.tc_mounted_fsid
+#define muc_retflags            muc_t.tc_retflags
 
 /*
  * Make an upcall to automountd to call SMBRemountServer() from the

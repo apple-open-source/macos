@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2017, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,7 +46,7 @@ __BEGIN_DECLS
 typedef void (*IPMonitorControlPrefsCallBack)(_SCControlPrefsRef control);
 
 _SCControlPrefsRef
-IPMonitorControlPrefsInit	(CFRunLoopRef			runloop,
+IPMonitorControlPrefsInit	(dispatch_queue_t queue,
 				 IPMonitorControlPrefsCallBack	callback);
 
 Boolean

@@ -1,0 +1,87 @@
+#! /bin/sh
+
+# Test that the --checksum-seed argument is accepted/rejected as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+
+# Create the source tree:
+#
+mkdir src
+echo one > src/one
+echo two > src/two
+
+
+# Test valid seed args that should succeed:
+#
+date >> src/one
+rsync -a --checksum-seed=123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a --checksum-seed=-123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a --checksum-seed=0123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a --checksum-seed=0x123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a --checksum-seed=0 -- src/ dst/
+compare_trees -t src dst
+
+
+# Test dubious seed args that should succeed:
+#
+date >> src/two
+rsync -a --checksum-seed= -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a --checksum-seed='' -- src/ dst/
+compare_trees -t src dst
+
+
+# Test invalid seed args that should fail:
+#
+rsync -a --checksum-seed=123x -- src/ dst/ 2>&1 |grep invalid
+rsync -a --checksum-seed=abc -- src/ dst/ 2>&1 |grep invalid
+rsync -a --checksum-seed=' ' -- src/ dst/ 2>&1 |grep invalid
+compare_trees -t src dst
+
+
+# Test bounds [-2147483648,2147483647]:
+#
+date >> src/two
+rsync -a --checksum-seed=2147483647 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a --checksum-seed=-2147483648 -- src/ dst/
+compare_trees -t src dst
+
+rsync -a --checksum-seed=2147483648 -- src/ dst/ 2>&1 |egrep 'too large|no greater'
+rsync -a --checksum-seed=-2147483649 -- src/ dst/ 2>&1 |egrep 'too small|no less'
+
+
+# For openrsync only we can scrape its verbose output for various signs
+# that both the client and server are using the seed we specified.
+# Note that this is fairly brittle, but should work as long as the
+# expected output doesn't change too much...
+#
+if [ -n "$RSYNC_CLIENT" -a "$RSYNC_CLIENT" == "openrsync" -a "$RSYNC_SERVER" == "openrsync"]; then
+	SEED=12345
+	rsync -avvvvv --checksum-seed="${SEED}" -- src/ dst/ 2>&1 |grep -- "exec.*--checksum-seed=${SEED}"
+	rsync -avvvvv --checksum-seed="${SEED}" -- src/ dst/ 2>&1 |grep -- "client det.*seed ${SEED}"
+	rsync -avvvvv --checksum-seed="${SEED}" -- src/ dst/ 2>&1 |grep -- "server det.*seed ${SEED}"
+	compare_trees -t src dst
+fi

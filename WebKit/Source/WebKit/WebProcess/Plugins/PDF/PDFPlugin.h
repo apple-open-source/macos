@@ -28,7 +28,6 @@
 #if ENABLE(LEGACY_PDFKIT_PLUGIN)
 
 #include "PDFPluginBase.h"
-#include "WebMouseEvent.h"
 #include <WebCore/NetscapePlugInStreamLoader.h>
 #include <wtf/HashMap.h>
 #include <wtf/Identified.h>
@@ -55,11 +54,6 @@ OBJC_CLASS PDFSelection;
 OBJC_CLASS WKPDFLayerControllerDelegate;
 OBJC_CLASS WKPDFPluginAccessibilityObject;
 
-typedef const struct OpaqueJSContext* JSContextRef;
-typedef struct OpaqueJSValue* JSObjectRef;
-typedef const struct OpaqueJSValue* JSValueRef;
-typedef struct OpaqueJSClass* JSClassRef;
-
 namespace WebCore {
 class AXObjectCache;
 class Element;
@@ -68,6 +62,7 @@ class FloatSize;
 class FragmentedSharedBuffer;
 class GraphicsContext;
 class HTMLPlugInElement;
+class ShareableBitmap;
 struct PluginInfo;
 }
 
@@ -76,72 +71,56 @@ namespace WebKit {
 class PDFPluginAnnotation;
 class PDFPluginPasswordField;
 class PluginView;
-class ShareableBitmap;
 class WebFrame;
 class WebKeyboardEvent;
 class WebWheelEvent;
 struct WebHitTestResultData;
 
 class PDFPlugin final : public PDFPluginBase {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PDFPlugin);
 public:
     static bool pdfKitLayerControllerIsAvailable();
 
     static Ref<PDFPlugin> create(WebCore::HTMLPlugInElement&);
-    virtual ~PDFPlugin() = default;
 
-    void didMutatePDFDocument() { m_pdfDocumentWasMutated = true; }
+    virtual ~PDFPlugin();
 
     void paintControlForLayerInContext(CALayer *, CGContextRef);
-    void setActiveAnnotation(PDFAnnotation *);
+    void setActiveAnnotation(SetActiveAnnotationParams&&) final;
 
     void notifyContentScaleFactorChanged(CGFloat scaleFactor);
     void notifyDisplayModeChanged(int);
-
-    void notifySelectionChanged(PDFSelection *);
 
     // HUD Actions.
 #if ENABLE(PDF_HUD)
     void zoomIn() final;
     void zoomOut() final;
-    void save(CompletionHandler<void(const String&, const URL&, const IPC::DataReference&)>&&) final;
-    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&) final;
 #endif
 
     void clickedLink(NSURL *);
 
-    void writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types);
     void showDefinitionForAttributedString(NSAttributedString *, CGPoint);
-    void performWebSearch(NSString *);
-    void performSpotlightSearch(NSString *);
 
-    void focusNextAnnotation();
-    void focusPreviousAnnotation();
+    CGRect pluginBoundsForAnnotation(RetainPtr<PDFAnnotation>&) const final;
+    void focusNextAnnotation() final;
+    void focusPreviousAnnotation() final;
 
-    void attemptToUnlockPDF(const String& password);
+    void attemptToUnlockPDF(const String& password) final;
 
     bool showContextMenuAtPoint(const WebCore::IntPoint&);
 
-    PDFPluginAnnotation* activeAnnotation() const { return m_activeAnnotation.get(); }
     WebCore::AXObjectCache* axObjectCache() const;
-
-#if HAVE(INCREMENTAL_PDF_APIS)
-    void getResourceBytesAtPosition(size_t count, off_t position, CompletionHandler<void(const uint8_t*, size_t count)>&&);
-    size_t getResourceBytesAtPositionMainThread(void* buffer, off_t position, size_t count);
-    void receivedNonLinearizedPDFSentinel();
-    bool incrementalPDFLoadingEnabled() const { return m_incrementalPDFLoadingEnabled; }
-#endif
-
-#if HAVE(INCREMENTAL_PDF_APIS) && !LOG_DISABLED
-    void pdfLog(const String& event);
-    size_t incrementThreadsWaitingOnCallback() { return ++m_threadsWaitingOnCallback; }
-    size_t decrementThreadsWaitingOnCallback() { return --m_threadsWaitingOnCallback; }
-#endif
 
     WebCore::IntPoint convertFromPluginToPDFView(const WebCore::IntPoint&) const;
     WebCore::IntPoint convertFromPDFViewToRootView(const WebCore::IntPoint&) const;
     WebCore::IntRect convertFromPDFViewToRootView(const WebCore::IntRect&) const;
     WebCore::IntPoint convertFromRootViewToPDFView(const WebCore::IntPoint&) const;
     WebCore::FloatRect convertFromPDFViewToScreen(const WebCore::FloatRect&) const;
+
+    double scaleFactor() const override;
+    double contentScaleFactor() const final;
+    CGSize contentSizeRespectingZoom() const;
 
 private:
     explicit PDFPlugin(WebCore::HTMLPlugInElement&);
@@ -166,14 +145,8 @@ private:
     bool isComposited() const override { return true; }
 
     void installPDFDocument() override;
-    void tryRunScriptsInPDFDocument() override;
 
-    CGFloat scaleFactor() const override;
-
-    RetainPtr<PDFDocument> pdfDocumentForPrinting() const override { return m_pdfDocument; }
-    WebCore::FloatSize pdfDocumentSizeForPrinting() const override;
-
-    void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::AffineTransform& pluginToRootViewTransform) override;
+    bool geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::AffineTransform& pluginToRootViewTransform) override;
     void deviceScaleFactorChanged(float) override;
 
     void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin) override;
@@ -190,45 +163,33 @@ private:
     bool handleMouseLeaveEvent(const WebMouseEvent&) override;
     bool handleContextMenuEvent(const WebMouseEvent&) override;
     bool handleKeyboardEvent(const WebKeyboardEvent&) override;
-    bool handleEditingCommand(StringView commandName) override;
-    bool isEditingCommandEnabled(StringView commandName) override;
+    bool handleEditingCommand(const String& commandName, const String& argument) override;
+    bool isEditingCommandEnabled(const String& commandName) override;
 
-    String getSelectionString() const override;
+    String selectionString() const override;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const override;
     WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const override;
 
     unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount) override;
     bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount) override;
+    bool drawsFindOverlay() const final { return true; }
 
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) override;
-    std::tuple<String, PDFSelection *, NSDictionary *> lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const override;
+    std::pair<String, RetainPtr<PDFSelection>> textForImmediateActionHitTestAtPoint(const WebCore::FloatPoint&, WebHitTestResultData&) override;
 
     bool shouldCreateTransientPaintingSnapshot() const override { return true; }
-    RefPtr<ShareableBitmap> snapshot() override;
+    RefPtr<WebCore::ShareableBitmap> snapshot() override;
 
     id accessibilityHitTest(const WebCore::IntPoint&) const override;
     id accessibilityObject() const override;
-    id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const override;
-
-    void incrementalPDFStreamDidReceiveData(const WebCore::SharedBuffer&) override;
-    bool incrementalPDFStreamDidFinishLoading() override;
-    void incrementalPDFStreamDidFail() override;
 
     NSEvent *nsEventForWebMouseEvent(const WebMouseEvent&);
-
-    bool supportsForms();
 
     void updatePageAndDeviceScaleFactors();
 
     void createPasswordEntryForm();
 
-    NSData *liveData() const;
-    JSObjectRef makeJSPDFDoc(JSContextRef);
-    static JSClassRef jsPDFDocClass();
-    static JSValueRef jsPDFDocPrint(JSContextRef, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
-
-
-    bool m_pdfDocumentWasMutated { false };
+    NSData *liveData() const override;
 
     RetainPtr<CALayer> m_containerLayer;
     RetainPtr<CALayer> m_contentLayer;
@@ -238,102 +199,13 @@ private:
     RetainPtr<PDFLayerController> m_pdfLayerController;
     RetainPtr<WKPDFPluginAccessibilityObject> m_accessibilityObject;
     
-    RefPtr<PDFPluginAnnotation> m_activeAnnotation;
     RefPtr<PDFPluginPasswordField> m_passwordField;
-    RefPtr<WebCore::Element> m_annotationContainer;
-
-    std::optional<WebMouseEvent> m_lastMouseEvent;
 
     String m_temporaryPDFUUID;
-    String m_lastFoundString;
 
     RetainPtr<WKPDFLayerControllerDelegate> m_pdfLayerControllerDelegate;
 
     URL m_sourceURL;
-
-#if HAVE(INCREMENTAL_PDF_APIS)
-    void threadEntry(Ref<PDFPlugin>&&);
-    void adoptBackgroundThreadDocument();
-
-    bool documentFinishedLoading() { return m_documentFinishedLoading; }
-    uint64_t identifierForLoader(WebCore::NetscapePlugInStreamLoader* loader) { return m_streamLoaderMap.get(loader); }
-    void removeOutstandingByteRangeRequest(uint64_t identifier) { m_outstandingByteRangeRequests.remove(identifier); }
-
-    class PDFPluginStreamLoaderClient : public RefCounted<PDFPluginStreamLoaderClient>,
-                                        public WebCore::NetscapePlugInStreamLoaderClient {
-    public:
-        PDFPluginStreamLoaderClient(PDFPlugin& pdfPlugin)
-            : m_pdfPlugin(pdfPlugin)
-        {
-        }
-
-        ~PDFPluginStreamLoaderClient() = default;
-
-        void willSendRequest(WebCore::NetscapePlugInStreamLoader*, WebCore::ResourceRequest&&, const WebCore::ResourceResponse& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) final;
-        void didReceiveResponse(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceResponse&) final;
-        void didReceiveData(WebCore::NetscapePlugInStreamLoader*, const WebCore::SharedBuffer&) final;
-        void didFail(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceError&) final;
-        void didFinishLoading(WebCore::NetscapePlugInStreamLoader*) final;
-
-    private:
-        WeakPtr<PDFPlugin> m_pdfPlugin;
-    };
-
-    class ByteRangeRequest : public Identified<ByteRangeRequest> {
-    public:
-        ByteRangeRequest() = default;
-        ByteRangeRequest(uint64_t position, size_t count, CompletionHandler<void(const uint8_t*, size_t count)>&& completionHandler)
-            : m_position(position)
-            , m_count(count)
-            , m_completionHandler(WTFMove(completionHandler))
-        {
-        }
-
-        WebCore::NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader; }
-        void setStreamLoader(WebCore::NetscapePlugInStreamLoader* loader) { m_streamLoader = loader; }
-        void clearStreamLoader();
-        void addData(const uint8_t* data, size_t count) { m_accumulatedData.append(data, count); }
-
-        void completeWithBytes(const uint8_t*, size_t, PDFPlugin&);
-        void completeWithAccumulatedData(PDFPlugin&);
-
-        bool maybeComplete(PDFPlugin&);
-        void completeUnconditionally(PDFPlugin&);
-
-        uint64_t position() const { return m_position; }
-        size_t count() const { return m_count; }
-
-    private:
-        uint64_t m_position { 0 };
-        size_t m_count { 0 };
-        CompletionHandler<void(const uint8_t*, size_t count)> m_completionHandler;
-        Vector<uint8_t> m_accumulatedData;
-        WebCore::NetscapePlugInStreamLoader* m_streamLoader { nullptr };
-    };
-    void unconditionalCompleteOutstandingRangeRequests();
-
-    ByteRangeRequest* byteRangeRequestForLoader(WebCore::NetscapePlugInStreamLoader&);
-    void forgetLoader(WebCore::NetscapePlugInStreamLoader&);
-    void cancelAndForgetLoader(WebCore::NetscapePlugInStreamLoader&);
-    void maybeClearHighLatencyDataProviderFlag();
-
-    RetainPtr<PDFDocument> m_backgroundThreadDocument;
-    RefPtr<Thread> m_pdfThread;
-    HashMap<uint64_t, ByteRangeRequest> m_outstandingByteRangeRequests;
-    Ref<PDFPluginStreamLoaderClient> m_streamLoaderClient;
-    HashMap<RefPtr<WebCore::NetscapePlugInStreamLoader>, uint64_t> m_streamLoaderMap;
-    RangeSet<WTF::Range<uint64_t>> m_completedRanges;
-    bool m_incrementalPDFLoadingEnabled;
-
-#if !LOG_DISABLED
-    void verboseLog();
-    void logStreamLoader(TextStream&, WebCore::NetscapePlugInStreamLoader&);
-    std::atomic<size_t> m_threadsWaitingOnCallback { 0 };
-    std::atomic<size_t> m_completedRangeRequests { 0 };
-    std::atomic<size_t> m_completedNetworkRangeRequests { 0 };
-#endif
-
-#endif // HAVE(INCREMENTAL_PDF_APIS)
 };
 
 } // namespace WebKit

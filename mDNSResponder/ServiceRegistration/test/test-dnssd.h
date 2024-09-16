@@ -59,7 +59,10 @@ struct _DNSServiceRef_t {
     srp_server_t *NULLABLE server_state;
     DNSServiceRef NONNULL sdref;
     void *NULLABLE context;
-    DNSServiceRegisterReply NULLABLE callback;
+    union {
+        DNSServiceRegisterReply NONNULL register_reply;
+        DNSServiceQueryRecordReply NONNULL query_record_reply;
+    } callback;
 };
 
 typedef struct _DNSRecordRef_t dns_record_ref_t;
@@ -82,7 +85,9 @@ dns_service_event_t *NULLABLE dns_service_find_ref_deallocate_event(srp_server_t
 dns_service_event_t *NULLABLE dns_service_find_update_for_register_event(srp_server_t *NONNULL state,
                                                                          dns_service_event_t *NONNULL register_event,
                                                                          dns_service_event_t *NULLABLE after_event);
-
+dns_service_event_t *NULLABLE dns_service_find_remove_for_register_event(srp_server_t *NONNULL state,
+                                                                         dns_service_event_t *NONNULL register_event,
+                                                                         dns_service_event_t *NULLABLE after_event);
 // Local Variables:
 // mode: C
 // tab-width: 4

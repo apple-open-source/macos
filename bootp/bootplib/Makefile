@@ -25,7 +25,7 @@ else
 # Mac OS X or iOS internal SDK
 SDK=$(PLATFORM).internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
-CC = xcrun -sdk $(SDK) cc
+CC = xcrun -sdk $(SDK) cc -fno-color-diagnostics
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
 endif
 
@@ -65,14 +65,14 @@ afpusers:
 readtest:
 	cc -Wall -g -o readtest -DREAD_TEST NICache.c dynarray.c ptrlist.c netinfo.c host_identifier.c util.c
 
-arp: arp.c arp.h
-	cc -Wall -g -o arp -DMAIN arp.c -I/System/Library/Frameworks/System.framework/PrivateHeaders
+arp: arp.c
+	$(CC) -DMAIN $(SYSTEM_PRIVATE) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g -o $@ $^
 
 nihosts:
 	cc -Wall -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c
 
 interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
-	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -framework IOKit -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -framework IOKit -framework IO80211 -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) $(PF_INC) -g -o $@ $^
 	codesign -s - $@
 
 interface_changes: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
@@ -101,6 +101,7 @@ nbimages: nbimages.c nbimages.h cfutil.c
 
 dnsnamelist: DNSNameList.c util.c cfutil.c
 	$(CC) -Wall -g -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_DNSNAMELIST -framework CoreFoundation -framework SystemConfiguration -o $@ $^
+	codesign -s - $@
 
 subnets: IPv4ClasslessRoute.c subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_options.c IPConfigurationLog.c
 	$(CC) -DNO_SYSTEMCONFIGURATION -DTEST_SUBNETS -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
@@ -112,5 +113,5 @@ test-duid: DHCPDUID.c cfutil.c
 	$(CC) -DTEST_DHCPDUID -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 clean:
-	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc
+	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc test-duid
 	rm -rf *.dSYM/

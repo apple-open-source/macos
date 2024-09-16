@@ -661,7 +661,7 @@ _pdns_file_open(const char *name)
 		else 
 		{
 			y = res_next_word(&p);
-			_pdns_build(pdns, x, y);
+			if (y != NULL) _pdns_build(pdns, x, y);
 
 			if ((!strcmp(x, "domain")) && (pdns->name == NULL)) _pdns_set_name(pdns, y);
 		}

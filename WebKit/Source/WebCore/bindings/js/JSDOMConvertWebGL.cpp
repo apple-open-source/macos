@@ -29,7 +29,6 @@
 #if ENABLE(WEBGL)
 
 #include "ANGLEInstancedArrays.h"
-#include "EXTBlendFuncExtended.h"
 #include "EXTBlendMinMax.h"
 #include "EXTClipControl.h"
 #include "EXTColorBufferFloat.h"
@@ -51,7 +50,6 @@
 #include "EXTsRGB.h"
 #include "JSANGLEInstancedArrays.h"
 #include "JSDOMConvertBufferSource.h"
-#include "JSEXTBlendFuncExtended.h"
 #include "JSEXTBlendMinMax.h"
 #include "JSEXTClipControl.h"
 #include "JSEXTColorBufferFloat.h"
@@ -84,6 +82,7 @@
 #include "JSOESTextureHalfFloat.h"
 #include "JSOESTextureHalfFloatLinear.h"
 #include "JSOESVertexArrayObject.h"
+#include "JSWebGLBlendFuncExtended.h"
 #include "JSWebGLBuffer.h"
 #include "JSWebGLClipCullDistance.h"
 #include "JSWebGLColorBufferFloat.h"
@@ -128,6 +127,7 @@
 #include "OESTextureHalfFloat.h"
 #include "OESTextureHalfFloatLinear.h"
 #include "OESVertexArrayObject.h"
+#include "WebGLBlendFuncExtended.h"
 #include "WebGLClipCullDistance.h"
 #include "WebGLColorBufferFloat.h"
 #include "WebGLCompressedTextureASTC.h"
@@ -175,18 +175,21 @@ JSValue convertToJSValue(JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject&
             return jsStringWithCache(lexicalGlobalObject.vm(), value);
         }, [&] (const Vector<bool>& values) -> JSValue {
             MarkedArgumentBuffer list;
+            list.ensureCapacity(values.size());
             for (auto& value : values)
                 list.append(jsBoolean(value));
             RELEASE_ASSERT(!list.hasOverflowed());
             return constructArray(&globalObject, static_cast<JSC::ArrayAllocationProfile*>(nullptr), list);
         }, [&] (const Vector<int>& values) -> JSValue {
             MarkedArgumentBuffer list;
+            list.ensureCapacity(values.size());
             for (auto& value : values)
                 list.append(jsNumber(value));
             RELEASE_ASSERT(!list.hasOverflowed());
             return constructArray(&globalObject, static_cast<JSC::ArrayAllocationProfile*>(nullptr), list);
         }, [&] (const Vector<unsigned>& values) -> JSValue {
             MarkedArgumentBuffer list;
+            list.ensureCapacity(values.size());
             for (auto& value : values)
                 list.append(jsNumber(value));
             RELEASE_ASSERT(!list.hasOverflowed());
@@ -246,7 +249,6 @@ JSValue convertToJSValue(JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject&
         return toJS(&lexicalGlobalObject, &globalObject, static_cast<EXT&>(extensionAny.get()));
     switch (extensionAny->name()) {
         TO_JS(ANGLEInstancedArrays);
-        TO_JS(EXTBlendFuncExtended);
         TO_JS(EXTBlendMinMax);
         TO_JS(EXTClipControl);
         TO_JS(EXTColorBufferFloat);
@@ -279,6 +281,7 @@ JSValue convertToJSValue(JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject&
         TO_JS(OESTextureHalfFloat);
         TO_JS(OESTextureHalfFloatLinear);
         TO_JS(OESVertexArrayObject);
+        TO_JS(WebGLBlendFuncExtended);
         TO_JS(WebGLClipCullDistance);
         TO_JS(WebGLColorBufferFloat);
         TO_JS(WebGLCompressedTextureASTC);

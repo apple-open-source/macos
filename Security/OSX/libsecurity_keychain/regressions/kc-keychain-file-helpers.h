@@ -74,6 +74,9 @@ static void writeFile(const char* path, uint8_t* buf, size_t len) {
 SecKeychainRef CF_RETURNS_RETAINED getPopulatedTestKeychain(void);
 #define getPopulatedTestKeychainTests 2
 
+SecKeychainRef CF_RETURNS_RETAINED getCorruptTestKeychain(void);
+#define getCorruptTestKeychainTests 1
+
 SecKeychainRef CF_RETURNS_RETAINED getEmptyTestKeychain(void);
 #define getEmptyTestKeychainTests 1
 

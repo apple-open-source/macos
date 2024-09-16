@@ -31,11 +31,10 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-#include <Kernel/mach/vm_types.h>
-#include <Kernel/mach/vm_param.h>
 
+#include <mach/vm_param.h>
+#include <mach/vm_types.h>
 #include <mach-o/swap.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -1218,6 +1217,9 @@ boolean_t macho_trim_linkedit(
          *   + size of string table...
          *   aligned to 8-byte boundary
          */
+        if (NULL == symtab)
+            goto finish;
+
         u_long symtab_size = (((symtab->nsyms
                                 * (is32bit ? sizeof(struct nlist) : sizeof(struct nlist_64)))
                                + symtab->strsize) + 7 ) & ~7;

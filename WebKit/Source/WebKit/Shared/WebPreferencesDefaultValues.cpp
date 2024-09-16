@@ -46,6 +46,10 @@
 #include <WebCore/LibWebRTCProvider.h>
 #endif
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebPreferencesDefaultValuesAdditions.h>
+#endif
+
 namespace WebKit {
 
 #if PLATFORM(IOS_FAMILY)
@@ -70,12 +74,17 @@ bool defaultShouldPrintBackgrounds()
 
 bool defaultAlternateFormControlDesignEnabled()
 {
-    return PAL::currentUserInterfaceIdiomIsVisionOrVisionLegacy();
+    return PAL::currentUserInterfaceIdiomIsVision();
 }
 
 bool defaultVideoFullscreenRequiresElementFullscreen()
 {
-    return PAL::currentUserInterfaceIdiomIsVisionOrVisionLegacy();
+#if USE(APPLE_INTERNAL_SDK)
+    if (videoFullscreenRequiresElementFullscreenFromAdditions())
+        return true;
+#endif
+
+    return PAL::currentUserInterfaceIdiomIsVision();
 }
 
 #endif
@@ -125,24 +134,12 @@ bool defaultAppleMailPaginationQuirkEnabled()
 
 #endif
 
-bool defaultOfflineWebApplicationCacheEnabled()
-{
-#if PLATFORM(COCOA)
-    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::ApplicationCacheDisabledByDefault);
-    return !newSDK;
-#else
-    // FIXME: Other platforms should consider turning this off.
-    // ApplicationCache is on its way to being removed from WebKit.
-    return true;
-#endif
-}
-
 #if ENABLE(MEDIA_STREAM)
 
 bool defaultCaptureAudioInGPUProcessEnabled()
 {
-#if PLATFORM(MAC)
-    // FIXME: Enable GPU process audio capture when <rdar://problem/29448368> is fixed.
+#if HAVE(REQUIRE_MICROPHONE_CAPTURE_IN_UIPROCESS)
+    // Newer versions can capture microphone in GPUProcess.
     if (!WebCore::MacApplication::isSafari())
         return false;
 #endif
@@ -234,11 +231,20 @@ bool defaultShouldDropNearSuspendedAssertionAfterDelay()
 
 bool defaultShouldTakeNearSuspendedAssertion()
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
     static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::FullySuspendsBackgroundContentImmediately);
     return !newSDK;
 #else
     return true;
+#endif
+}
+
+bool defaultLinearMediaPlayerEnabled()
+{
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    return PAL::currentUserInterfaceIdiomIsVision();
+#else
+    return false;
 #endif
 }
 

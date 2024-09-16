@@ -28,6 +28,7 @@
 #include "cskernel.h"
 #include <securityd_client/ssclient.h>
 #include <System/sys/codesign.h>
+#include "LWCRHelper.h"
 
 namespace Security {
 namespace CodeSigning {
@@ -53,6 +54,20 @@ int ProcessCode::csops(unsigned int ops, void *addr, size_t size)
 		return ::csops_audittoken(mPid, ops, addr, size, mAudit);
 	else
 		return ::csops(mPid, ops, addr, size);
+}
+
+void ProcessCode::codeMatchesLightweightCodeRequirementData(CFDataRef lwcrData)
+{
+#if !TARGET_OS_SIMULATOR
+	if (mAudit) {
+		evaluateLightweightCodeRequirementInKernel(*mAudit, lwcrData);
+	} else {
+		MacOSError::throwMe(errSecParam);
+	}
+#else
+	MacOSError::throwMe(errSecCSUnimplemented)
+#endif
+
 }
 
 

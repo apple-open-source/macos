@@ -32,7 +32,7 @@ namespace WebCore {
 
 class MediaStreamTrack;
 
-class RealtimeOutgoingMediaSourceGStreamer : public ThreadSafeRefCounted<RealtimeOutgoingMediaSourceGStreamer>, public MediaStreamTrackPrivate::Observer {
+class RealtimeOutgoingMediaSourceGStreamer : public ThreadSafeRefCounted<RealtimeOutgoingMediaSourceGStreamer>, public MediaStreamTrackPrivateObserver {
 public:
     ~RealtimeOutgoingMediaSourceGStreamer();
 
@@ -53,20 +53,25 @@ public:
     GRefPtr<GstElement> bin() const { return m_bin; }
 
     virtual bool setPayloadType(const GRefPtr<GstCaps>&) { return false; }
-    virtual void teardown() { }
+    virtual void teardown();
 
     GUniquePtr<GstStructure> parameters();
     virtual void fillEncodingParameters(const GUniquePtr<GstStructure>&) { }
     virtual void setParameters(GUniquePtr<GstStructure>&&) { }
 
 protected:
-    explicit RealtimeOutgoingMediaSourceGStreamer(const RefPtr<UniqueSSRCGenerator>&, const String& mediaStreamId, MediaStreamTrack&);
+    enum Type {
+        Audio,
+        Video
+    };
+    explicit RealtimeOutgoingMediaSourceGStreamer(Type, const RefPtr<UniqueSSRCGenerator>&, const String& mediaStreamId, MediaStreamTrack&);
 
     void initializeFromTrack();
     virtual void sourceEnabledChanged();
 
     bool isStopped() const { return m_isStopped; }
 
+    Type m_type;
     String m_mediaStreamId;
     String m_trackId;
 
@@ -77,6 +82,7 @@ protected:
     std::optional<RealtimeMediaSourceSettings> m_initialSettings;
     GRefPtr<GstElement> m_bin;
     GRefPtr<GstElement> m_outgoingSource;
+    GRefPtr<GstElement> m_liveSync;
     GRefPtr<GstElement> m_inputSelector;
     GRefPtr<GstPad> m_fallbackPad;
     GRefPtr<GstElement> m_valve;
@@ -93,23 +99,32 @@ protected:
     GUniquePtr<GstStructure> m_parameters;
     GRefPtr<GstElement> m_fallbackSource;
 
+    struct PayloaderState {
+        unsigned seqnum;
+    };
+    std::optional<PayloaderState> m_payloaderState;
+
 private:
     void sourceMutedChanged();
 
     void stopOutgoingSource();
 
     virtual RTCRtpCapabilities rtpCapabilities() const = 0;
-    virtual void codecPreferencesChanged(const GRefPtr<GstCaps>&) { }
+    void codecPreferencesChanged();
 
     virtual void connectFallbackSource() { }
     virtual void unlinkOutgoingSource() { }
     virtual void linkOutgoingSource() { }
 
-    // MediaStreamTrackPrivate::Observer API
+    // MediaStreamTrackPrivateObserver API
     void trackMutedChanged(MediaStreamTrackPrivate&) override { sourceMutedChanged(); }
     void trackEnabledChanged(MediaStreamTrackPrivate&) override { sourceEnabledChanged(); }
     void trackSettingsChanged(MediaStreamTrackPrivate&) override { initializeFromTrack(); }
     void trackEnded(MediaStreamTrackPrivate&) override { }
+
+    void unlinkPayloader();
+
+    unsigned long m_padBlockedProbe { 0 };
 };
 
 } // namespace WebCore

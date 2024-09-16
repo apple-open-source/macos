@@ -1652,6 +1652,8 @@ static void securityd_xpc_init_listener(const char *service_name)
 #if !(defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
 static void securityd_xpc_init_activities(void)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #if OCTAGON
     xpc_activity_register("com.apple.securityd.daily", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         xpc_activity_state_t activityState = xpc_activity_get_state(activity);
@@ -1687,52 +1689,11 @@ static void securityd_xpc_init_activities(void)
         }
 #endif
     });
+#pragma clang diagnostic pop
 
 }
 #endif
 
-
-// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
-
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
-static void securityd_soscc_lock_hack(void) {
-	dispatch_queue_t		soscc_lock_queue = dispatch_queue_create("soscc_lock_queue", DISPATCH_QUEUE_PRIORITY_DEFAULT);
-	int 					soscc_tok;
-
-	// <rdar://problem/22500239> Prevent securityd from quitting while holding a keychain assertion
-	// FIXME: securityd isn't currently registering for any other notifyd events. If/when it does,
-	//        this code will need to be generalized / migrated away from just this specific purpose.
-	xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
-		char *event_description = xpc_copy_description(object);
-		secnotice("events", "%s", event_description);
-		free(event_description);
-	});
-
-    secnotice("lockassertion", "notify_register_dispatch(kSOSCCHoldLockForInitialSync)");
-    notify_register_dispatch(kSOSCCHoldLockForInitialSync, &soscc_tok, soscc_lock_queue, ^(int token __unused) {
-        secnotice("lockassertion", "kSOSCCHoldLockForInitialSync: grabbing the lock");
-        CFErrorRef error = NULL;
-
-        uint64_t one_minute = 60ull;
-        if(SecAKSKeybagHoldLockAssertion(g_keychain_keybag, one_minute, &error)){
-            // <rdar://problem/22500239> Prevent securityd from quitting while holding a keychain assertion
-            os_transaction_t transaction = os_transaction_create("securityd-LockAssertedingHolder");
-
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, one_minute*NSEC_PER_SEC), soscc_lock_queue, ^{
-                CFErrorRef localError = NULL;
-                if(!SecAKSKeybagDropLockAssertion(g_keychain_keybag, &localError))
-                    secerror("failed to unlock: %@", localError);
-                CFReleaseNull(localError);
-                os_release(transaction);
-            });
-		} else {
-			secerror("Failed to take device lock assertion: %@", error);
-		}
-		CFReleaseNull(error);
-		secnotice("lockassertion", "kSOSCCHoldLockForInitialSync => done");
-	});
-}
-#endif
 
 #if TARGET_OS_OSX
 
@@ -1876,13 +1837,6 @@ int main(int argc, char *argv[])
     OctagonControlServerInitialize();
     EscrowRequestXPCServerInitialize();
     KeychainItemUpgradeRequestServerInitialize();
-#endif
-
-	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE && !SECURITYD_SYSTEM
-    if (SOSCCIsSOSTrustAndSyncingEnabled()) {
-        securityd_soscc_lock_hack();
-    }
 #endif
 
 #if KCSHARING

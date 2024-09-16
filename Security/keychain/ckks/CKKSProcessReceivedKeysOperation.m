@@ -159,7 +159,7 @@
                                         currentTrustStates:currentTrustStates
                                                      error:&localProcessingError];
             [eventS populateUnderlyingErrorsStartingWithRootError:localProcessingError];
-            ckksnotice("ckkskey", viewState.zoneID, "Key hierachy is '%@' (error: %@)", newZoneState, localProcessingError);
+            ckksnotice("ckkskey", viewState.zoneID, "Key hierarchy is '%@' (error: %@)", newZoneState, localProcessingError);
         }
 
         viewState.viewKeyHierarchyState = newZoneState;

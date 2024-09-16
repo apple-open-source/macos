@@ -496,8 +496,8 @@ def  main (argv):
     if args:
         log ("Loading trace (file:%s)" % (args[0]))
 
-        if args[0].endswith("tailspin") or args[0].endswith("artrace") or args[0].endswith("ktrace") :
-            traceData = subprocess.check_output("ktrace trace  --json-64 --ndjson -t -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()      
+        if args[0].endswith("tailspin") or args[0].endswith("artrace") or args[0].endswith("ktrace") or args[0].endswith("atrc"):
+            traceData = subprocess.check_output("ktrace trace  --json-64 --ndjson -t -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()
 
 
     if  not traceData :

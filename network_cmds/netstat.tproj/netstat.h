@@ -154,10 +154,12 @@ extern char	*routename(uint32_t);
 extern char	*netname(uint32_t, uint32_t);
 extern void	routepr(void);
 
-extern void	unixpr(void);
+extern void	unixpr(uint32_t, char *, int);
+extern void	unixstats(uint32_t, char *, int);
 extern void	aqstatpr(void);
 extern void	rxpollstatpr(void);
 extern void	vsockpr(uint32_t,char *,int);
+extern void	vsockstats(uint32_t,char *,int);
 
 extern void	ifmalist_dump(void);
 
@@ -170,3 +172,4 @@ extern void	print_net_api_stats(uint32_t, char *, int);
 extern void	print_if_ports_used_stats(uint32_t, char *, int);
 
 extern void bpf_stats(char *);
+extern void bpf_help(void);

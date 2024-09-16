@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,7 +23,7 @@
 
 #import <Foundation/Foundation.h>
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS && !TARGET_OS_VISION
 
 #import <MobileInBoxUpdate/MobileInBoxUpdate.h>
 #import <MobileInBoxUpdate/MIBUClient.h>
@@ -97,4 +97,4 @@ MIBConfigurationAccessIsInBoxUpdateMode(void) {
     }
 }
 
-#endif /* TARGET_OS_IOS */
+#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */

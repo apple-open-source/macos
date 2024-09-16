@@ -32,6 +32,7 @@
 #include "LayoutInitialContainingBlock.h"
 #include "LayoutPhase.h"
 #include "LayoutState.h"
+#include "RenderObject.h"
 #include "RenderStyleInlines.h"
 #include "Shape.h"
 #include <wtf/IsoMallocInlines.h>
@@ -56,6 +57,8 @@ Box::~Box()
 {
     if (UNLIKELY(m_hasRareData))
         removeRareData();
+    if (m_renderer)
+        m_renderer->clearLayoutBox();
 }
 
 UniqueRef<Box> Box::removeFromParent()
@@ -137,15 +140,16 @@ bool Box::establishesInlineFormattingContext() const
     if (!isBlockContainer())
         return false;
 
-    if (!isElementBox())
+    auto* elementBox = dynamicDowncast<ElementBox>(*this);
+    if (!elementBox)
         return false;
 
     // FIXME ???
-    if (!downcast<ElementBox>(*this).firstInFlowChild())
+    if (!elementBox->firstInFlowChild())
         return false;
 
     // It's enough to check the first in-flow child since we can't have both block and inline level sibling boxes.
-    return downcast<ElementBox>(*this).firstInFlowChild()->isInlineLevelBox();
+    return elementBox->firstInFlowChild()->isInlineLevelBox();
 }
 
 bool Box::establishesTableFormattingContext() const
@@ -294,7 +298,7 @@ bool Box::isLayoutContainmentBox() const
             return isAtomicInlineLevelBox();
         return true;
     };
-    return m_style.effectiveContainment().contains(Containment::Layout) && supportsLayoutContainment();
+    return m_style.usedContain().contains(Containment::Layout) && supportsLayoutContainment();
 }
 
 bool Box::isRubyAnnotationBox() const
@@ -326,7 +330,7 @@ bool Box::isSizeContainmentBox() const
             return isAtomicInlineLevelBox();
         return true;
     };
-    return m_style.effectiveContainment().contains(Containment::Size) && supportsSizeContainment();
+    return m_style.usedContain().contains(Containment::Size) && supportsSizeContainment();
 }
 
 bool Box::isInternalTableBox() const
@@ -397,9 +401,12 @@ bool Box::isOverflowVisible() const
     }
     if (is<InitialContainingBlock>(*this)) {
         auto* documentBox = downcast<ElementBox>(*this).firstChild();
-        if (!documentBox || !documentBox->isDocumentBox() || !is<ElementBox>(documentBox))
+        if (!documentBox || !documentBox->isDocumentBox())
             return isOverflowVisible;
-        auto* bodyBox = downcast<ElementBox>(documentBox)->firstChild();
+        auto* elementBox = dynamicDowncast<ElementBox>(*documentBox);
+        if (!elementBox)
+            return isOverflowVisible;
+        auto* bodyBox = elementBox->firstChild();
         if (!bodyBox || !bodyBox->isBodyBox())
             return isOverflowVisible;
         auto& bodyBoxStyle = bodyBox->style();
@@ -486,13 +493,6 @@ const ElementBox* Box::associatedRubyAnnotationBox() const
         return nullptr;
 
     return dynamicDowncast<ElementBox>(next);
-}
-
-void Box::setCachedGeometryForLayoutState(LayoutState& layoutState, std::unique_ptr<BoxGeometry> geometry) const
-{
-    ASSERT(!m_cachedLayoutState);
-    m_cachedLayoutState = layoutState;
-    m_cachedGeometryForLayoutState = WTFMove(geometry);
 }
 
 Box::RareDataMap& Box::rareDataMap()

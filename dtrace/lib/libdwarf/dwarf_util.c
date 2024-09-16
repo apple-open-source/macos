@@ -158,6 +158,50 @@ _dwarf_get_size_of_val(Dwarf_Debug dbg,
     case DW_FORM_udata:
 	_dwarf_decode_u_leb128(val_ptr, &leb128_length);
 	return (leb128_length);
+	
+	case DW_FORM_strx:
+	_dwarf_decode_u_leb128(val_ptr, &leb128_length);
+	return (leb128_length);
+	
+	case DW_FORM_strx1:
+	return (1);
+	
+	case DW_FORM_strx2:
+	return (2);
+	
+	case DW_FORM_strx3:
+	return (3);
+	
+	case DW_FORM_strx4:
+	return (4);
+	
+	case DW_FORM_addrx:
+	_dwarf_decode_u_leb128(val_ptr, &leb128_length);
+	return (leb128_length);
+	
+	case DW_FORM_addrx1:
+	return (1);
+	
+	case DW_FORM_addrx2:
+	return (2);
+	
+	case DW_FORM_addrx3:
+	return (3);
+	
+	case DW_FORM_addrx4:
+	return (4);
+	
+	case DW_FORM_implicit_const:
+	return (0);
+	
+	case DW_FORM_loclistx:
+	_dwarf_decode_u_leb128(val_ptr, &leb128_length);
+	return (leb128_length);
+	
+	case DW_FORM_rnglistx:
+	_dwarf_decode_u_leb128(val_ptr, &leb128_length);
+	return (leb128_length);
+	
     }
 }
 
@@ -250,6 +294,10 @@ _dwarf_get_abbrev_for_code(Dwarf_CU_Context cu_context, Dwarf_Word code)
 		attr_name = (Dwarf_Half) utmp3;
 	    DECODE_LEB128_UWORD(abbrev_ptr, utmp3)
 		attr_form = (Dwarf_Half) utmp3;
+		
+		if (attr_form == DW_FORM_implicit_const)
+			DECODE_LEB128_UWORD(abbrev_ptr, utmp3)
+        
 	} while (attr_name != 0 && attr_form != 0);
 
     } while (*abbrev_ptr != 0 && abbrev_code != code);
@@ -331,7 +379,7 @@ _dwarf_memcpy_swap_bytes(void *s1, const void *s2, size_t len)
 */
 /* ARGSUSED */
 Dwarf_Unsigned
-_dwarf_length_of_cu_header(Dwarf_Debug dbg, Dwarf_Unsigned offset)
+_dwarf_length_of_cu_header(Dwarf_Debug dbg, Dwarf_Unsigned offset, Dwarf_Half version)
 {
     int local_length_size = 0;
     int local_extension_size = 0;
@@ -341,13 +389,21 @@ _dwarf_length_of_cu_header(Dwarf_Debug dbg, Dwarf_Unsigned offset)
     READ_AREA_LENGTH(dbg, length, Dwarf_Unsigned,
 		     cuptr, local_length_size, local_extension_size);
 
-    return local_extension_size +	/* initial extesion, if present 
-					 */
-	local_length_size +	/* Size of cu length field. */
-	sizeof(Dwarf_Half) +	/* Size of version stamp field. */
-	local_length_size +	/* Size of abbrev offset field. */
-	sizeof(Dwarf_Small);	/* Size of address size field. */
-
+	/* If the DWARF version is 5 or above, the size of the cu header is larger,
+	 as it contains a new field, called unit type*/
+	if (version < CURRENT_VERSION_STAMP5)
+		return local_extension_size +	/* initial extesion, if present*/
+		local_length_size +	/* Size of cu length field. */
+		sizeof(Dwarf_Half) +	/* Size of version stamp field. */
+		local_length_size +	/* Size of abbrev offset field. */
+		sizeof(Dwarf_Small);	/* Size of address size field. */
+	else
+		return local_extension_size +    /* initial extesion, if present*/
+		local_length_size +    /* Size of cu length field. */
+		sizeof(Dwarf_Half) +    /* Size of version stamp field. */
+		sizeof(Dwarf_Small) +    /* Size of unit type field. */
+		sizeof(Dwarf_Small) +    /* Size of address size field. */
+		local_length_size;    /* Size of abbrev offset field. */
 }
 
 /*

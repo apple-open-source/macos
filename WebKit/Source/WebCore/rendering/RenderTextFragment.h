@@ -33,6 +33,7 @@ namespace WebCore {
 // the original unaltered string from our corresponding DOM node.
 class RenderTextFragment final : public RenderText {
     WTF_MAKE_ISO_ALLOCATED(RenderTextFragment);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTextFragment);
 public:
     RenderTextFragment(Text&, const String&, int startOffset, int length);
     RenderTextFragment(Document&, const String&, int startOffset, int length);
@@ -73,5 +74,9 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::RenderTextFragment)
     static bool isType(const WebCore::RenderText& renderer) { return renderer.isRenderTextFragment(); }
-    static bool isType(const WebCore::RenderObject& renderer) { return is<WebCore::RenderText>(renderer) && isType(downcast<WebCore::RenderText>(renderer)); }
+    static bool isType(const WebCore::RenderObject& renderer)
+    {
+        auto* text = dynamicDowncast<WebCore::RenderText>(renderer);
+        return text && isType(*text);
+    }
 SPECIALIZE_TYPE_TRAITS_END()

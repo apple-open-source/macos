@@ -111,7 +111,6 @@
 		6E8C16691B14F08A00C8987C /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = C9244C1A185FCFED00075748 /* qos.h */; };
 		6E8C166A1B14F08A00C8987C /* pthread.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FE15B7513700270056 /* pthread.h */; };
 		6E8C166B1B14F08A00C8987C /* pthread_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FF15B7513700270056 /* pthread_impl.h */; };
-		6E8C166C1B14F08A00C8987C /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = E4063CF21906B4FB000202F9 /* qos.h */; };
 		6E8C166D1B14F08A00C8987C /* pthread_spis.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260015B7513700270056 /* pthread_spis.h */; };
 		6E8C166E1B14F08A00C8987C /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; };
 		6E8C166F1B14F08A00C8987C /* introspection_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E4657D4017284F7B007D1847 /* introspection_private.h */; };
@@ -206,7 +205,6 @@
 		C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F415B7513200270056 /* tsd_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C99B17DA189C2E1B00991D38 /* qos_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9D75E4216127B3900C2FB26 /* kern_synch.c in Sources */ = {isa = PBXBuildFile; fileRef = C9169DDB1603DE84005A2F8C /* kern_synch.c */; };
-		E4063CF31906B75A000202F9 /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = E4063CF21906B4FB000202F9 /* qos.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E41505D21E818BEB00F243FB /* resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EB232C91B0EB29D005915CE /* resolver.c */; };
 		E41505D31E818BEB00F243FB /* pthread.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325FA15B7513200270056 /* pthread.c */; };
 		E41505D41E818BEB00F243FB /* pthread_cancelable.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F115B7513200270056 /* pthread_cancelable.c */; };
@@ -248,7 +246,6 @@
 		E4F449BE1E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = C9244C1A185FCFED00075748 /* qos.h */; };
 		E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FE15B7513700270056 /* pthread.h */; };
 		E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FF15B7513700270056 /* pthread_impl.h */; };
-		E4F449C11E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = E4063CF21906B4FB000202F9 /* qos.h */; };
 		E4F449C21E82D03500A7FB9A /* pthread_spis.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260015B7513700270056 /* pthread_spis.h */; };
 		E4F449C31E82D03500A7FB9A /* introspection.h in Headers */ = {isa = PBXBuildFile; fileRef = 9202B2301D1A5B3F00945880 /* introspection.h */; };
 		E4F449C41E82D03500A7FB9A /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; };
@@ -383,8 +380,7 @@
 		6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = imports_internal.h; sourceTree = "<group>"; };
 		6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prototypes_internal.h; sourceTree = "<group>"; };
 		74E594A41613AAF4006C417B /* libpthread_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		842F9FC4274EADB3002E5444 /* darwin_posix_pthread.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = darwin_posix_pthread.modulemap; sourceTree = "<group>"; };
-		842F9FC5274EAF82002E5444 /* sys__pthread.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = sys__pthread.modulemap; sourceTree = "<group>"; };
+		84193E9E299310A500D9ADD1 /* pthread-tapi.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "pthread-tapi.xcconfig"; sourceTree = "<group>"; };
 		9202B2301D1A5B3F00945880 /* introspection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = introspection.h; sourceTree = "<group>"; };
 		9235CA551CA48D010015C92B /* kext_development.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext_development.xcconfig; sourceTree = "<group>"; };
 		9240BF321AA669C4003C99B4 /* wqtrace.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = wqtrace.lua; path = tools/wqtrace.lua; sourceTree = SOURCE_ROOT; };
@@ -486,7 +482,6 @@
 		C9CA27DC1602813000259F78 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
 		C9D9E8FE1626248800448CED /* pthread-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "pthread-Info.plist"; sourceTree = "<group>"; };
 		C9DCA2A115DC4F2000D057E2 /* install-manpages.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "install-manpages.sh"; sourceTree = "<group>"; };
-		E4063CF21906B4FB000202F9 /* qos.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = qos.h; sourceTree = "<group>"; };
 		E41505E71E818BEB00F243FB /* libpthread_mp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_mp.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E41505E81E818D4D00F243FB /* resolved.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = resolved.xcconfig; sourceTree = "<group>"; };
 		E4657D4017284F7B007D1847 /* introspection_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = introspection_private.h; sourceTree = "<group>"; };
@@ -577,7 +572,6 @@
 				C9A325F015B7513200270056 /* posix_sched.h */,
 				C9153095167ACC22006BB094 /* private.h */,
 				C99B17DA189C2E1B00991D38 /* qos_private.h */,
-				E4063CF21906B4FB000202F9 /* qos.h */,
 				C9A325F715B7513200270056 /* spinlock_private.h */,
 				C9A325F415B7513200270056 /* tsd_private.h */,
 				C9A325F915B7513200270056 /* workqueue_private.h */,
@@ -588,8 +582,6 @@
 		6E8C8C2F22BDCD4600136359 /* include */ = {
 			isa = PBXGroup;
 			children = (
-				842F9FC4274EADB3002E5444 /* darwin_posix_pthread.modulemap */,
-				842F9FC5274EAF82002E5444 /* sys__pthread.modulemap */,
 				C9A325FD15B7513700270056 /* pthread */,
 				FC5A372217CEB3D6008C323E /* sys */,
 			);
@@ -780,6 +772,7 @@
 				E41505E81E818D4D00F243FB /* resolved.xcconfig */,
 				6E39974822D3C82C0057625B /* pthread_driverkit.xcconfig */,
 				6E8C16851B14F14000C8987C /* pthread_introspection.xcconfig */,
+				84193E9E299310A500D9ADD1 /* pthread-tapi.xcconfig */,
 				C99EA612161F8288003EBC56 /* eos.xcconfig */,
 				C04545B91C584F8B006A53B3 /* static.xcconfig */,
 				C9DCA2A115DC4F2000D057E2 /* install-manpages.sh */,
@@ -877,7 +870,6 @@
 				6E8C166F1B14F08A00C8987C /* introspection_private.h in Headers */,
 				6ED6E65522BFCD1200CE82C2 /* internal.h in Headers */,
 				E41A64AE1E83C470009479A9 /* introspection.h in Headers */,
-				6E8C166C1B14F08A00C8987C /* qos.h in Headers */,
 				6ED6E65722BFCD1200CE82C2 /* offsets_internal.h in Headers */,
 				6ED6E65622BFCD1200CE82C2 /* types_internal.h in Headers */,
 				6E8C16701B14F08A00C8987C /* tsd_private.h in Headers */,
@@ -930,7 +922,6 @@
 				C9A1BF4D15C9A58E006BB313 /* pthread.h in Headers */,
 				6ED6E65B22BFCD1400CE82C2 /* internal.h in Headers */,
 				C9A1BF4E15C9A594006BB313 /* pthread_impl.h in Headers */,
-				E4063CF31906B75A000202F9 /* qos.h in Headers */,
 				6ED6E65D22BFCD1400CE82C2 /* offsets_internal.h in Headers */,
 				6ED6E65C22BFCD1400CE82C2 /* types_internal.h in Headers */,
 				C9A1BF4F15C9A598006BB313 /* pthread_spis.h in Headers */,
@@ -970,7 +961,6 @@
 				E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */,
 				6ED6E65822BFCD1300CE82C2 /* internal.h in Headers */,
 				E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */,
-				E4F449C11E82D03500A7FB9A /* qos.h in Headers */,
 				6ED6E65A22BFCD1300CE82C2 /* offsets_internal.h in Headers */,
 				6ED6E65922BFCD1300CE82C2 /* types_internal.h in Headers */,
 				E4F449C21E82D03500A7FB9A /* pthread_spis.h in Headers */,

@@ -27,6 +27,7 @@ class MemoryBuffer final : NonCopyable
     MemoryBuffer &operator=(MemoryBuffer &&other);
 
     [[nodiscard]] bool resize(size_t size);
+    void trim(size_t size);
     void clear() { (void)resize(0); }
     size_t size() const { return mSize; }
     bool empty() const { return mSize == 0; }
@@ -59,10 +60,10 @@ class MemoryBuffer final : NonCopyable
 class ScratchBuffer final : NonCopyable
 {
   public:
+    ScratchBuffer();
     // If we request a scratch buffer requesting a smaller size this many times, release and
     // recreate the scratch buffer. This ensures we don't have a degenerate case where we are stuck
     // hogging memory.
-    ScratchBuffer();
     ScratchBuffer(uint32_t lifetime);
     ~ScratchBuffer();
 

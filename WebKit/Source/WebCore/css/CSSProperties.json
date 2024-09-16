@@ -452,6 +452,17 @@
                 "url": "https://www.w3.org/TR/css-display-3/#the-display-properties"
             }
         },
+        "field-sizing": {
+            "codegen-properties": {
+                "parser-grammar": "fixed | content",
+                "settings-flag": "cssFieldSizingEnabled"
+            },
+            "specification": {
+                "category": "css-ui",
+                "url": "https://drafts.csswg.org/css-ui/#field-sizing"
+            },
+            "status": "in development"
+        },
         "font-family": {
             "inherited": true,
             "values": [
@@ -650,6 +661,7 @@
             }
         },
         "text-box-edge": {
+            "inherited": true,
             "values": [
                 "leading",
                 "text",
@@ -2923,7 +2935,7 @@
                     "resolver": "bottom"
                 },
                 "parser-function": "consumeSide",
-                "parser-function-requires-context-mode": true,
+                "parser-function-requires-context": true,
                 "parser-function-requires-current-shorthand": true,
                 "parser-grammar-unused": "<length-percentage> | auto",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -3371,6 +3383,20 @@
                 "url": "https://www.w3.org/TR/SVG/shapes.html"
             }
         },
+        "d": {
+            "values": [
+                "none"
+            ],
+            "codegen-properties": {
+                "converter": "SVGPath",
+                "parser-grammar": "none | <path()>",
+                "settings-flag": "cssDPropertyEnabled"
+            },
+            "specification": {
+                "category": "svg",
+                "url": "https://www.w3.org/TR/SVG/paths.html#TheDProperty"
+            }
+        },
         "dominant-baseline": {
             "values": [
                 "auto",
@@ -3691,7 +3717,10 @@
                     "name": "inset",
                     "resolver": "block-end"
                 },
-                "parser-grammar": "<inset-logical-start-end>"
+                "parser-function": "consumeInsetLogicalStartEnd",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "<length-percentage> | auto",
+                "parser-grammar-unused-reason": "Needs support for different parsing based on CSSAnchorPositioningEnabled feature flag."
             },
             "specification": {
                 "category": "css-logical-props",
@@ -3705,7 +3734,10 @@
                     "name": "inset",
                     "resolver": "block-start"
                 },
-                "parser-grammar": "<inset-logical-start-end>"
+                "parser-function": "consumeInsetLogicalStartEnd",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "<length-percentage> | auto",
+                "parser-grammar-unused-reason": "Needs support for different parsing based on CSSAnchorPositioningEnabled feature flag."
             },
             "specification": {
                 "category": "css-logical-props",
@@ -3731,7 +3763,10 @@
                     "name": "inset",
                     "resolver": "inline-end"
                 },
-                "parser-grammar": "<inset-logical-start-end>"
+                "parser-function": "consumeInsetLogicalStartEnd",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "<length-percentage> | auto",
+                "parser-grammar-unused-reason": "Needs support for different parsing based on CSSAnchorPositioningEnabled feature flag."
             },
             "specification": {
                 "category": "css-logical-props",
@@ -3745,7 +3780,10 @@
                     "name": "inset",
                     "resolver": "inline-start"
                 },
-                "parser-grammar": "<inset-logical-start-end>"
+                "parser-function": "consumeInsetLogicalStartEnd",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "<length-percentage> | auto",
+                "parser-grammar-unused-reason": "Needs support for different parsing based on CSSAnchorPositioningEnabled feature flag."
             },
             "specification": {
                 "category": "css-logical-props",
@@ -3776,7 +3814,7 @@
                     "resolver": "left"
                 },
                 "parser-function": "consumeSide",
-                "parser-function-requires-context-mode": true,
+                "parser-function-requires-context": true,
                 "parser-function-requires-current-shorthand": true,
                 "parser-grammar-unused": "<length-percentage> | auto",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -5412,8 +5450,8 @@
                     "url": "https://www.w3.org/TR/css-logical/#resize"
                 },
                 {
-                    "value": "auto",
-                    "status": "non-standard"
+                    "value": "-internal-textarea-auto",
+                    "status": "internal"
                 }
             ],
             "codegen-properties": {
@@ -5437,7 +5475,7 @@
                     "resolver": "right"
                 },
                 "parser-function": "consumeSide",
-                "parser-function-requires-context-mode": true,
+                "parser-function-requires-context": true,
                 "parser-function-requires-current-shorthand": true,
                 "parser-grammar-unused": "<length-percentage> | auto",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -5993,7 +6031,7 @@
                     "resolver": "top"
                 },
                 "parser-function": "consumeSide",
-                "parser-function-requires-context-mode": true,
+                "parser-function-requires-context": true,
                 "parser-function-requires-current-shorthand": true,
                 "parser-grammar-unused": "<length-percentage> | auto",
                 "parser-grammar-unused-reason": "Needs support for different parsing based on the current shorthand."
@@ -6320,20 +6358,6 @@
                 "url": "https://www.w3.org/TR/CSS22/visuren.html#propdef-z-index"
             }
         },
-        "alt": {
-            "codegen-properties": {
-                "aliases": [
-                    "-webkit-alt"
-                ],
-                "name-for-methods": "ContentAltText",
-                "custom": "Value",
-                "parser-function": "consumeAlt",
-                "parser-function-requires-context": true,
-                "parser-grammar-unused": "<string> | <attr()>",
-                "parser-grammar-unused-reason": "Needs support for function notation."
-            },
-            "status": "non-standard"
-        },
         "appearance": {
             "values": [
                 "checkbox",
@@ -6406,8 +6430,7 @@
                 "longhands": [
                     "contain-intrinsic-width",
                     "contain-intrinsic-height"
-                ],
-                "settings-flag": "cssContainIntrinsicSizeEnabled"
+                ]
             },
             "specification": {
                 "category": "css-sizing",
@@ -6417,7 +6440,6 @@
         "contain-intrinsic-height": {
             "codegen-properties": {
                 "custom": "All",
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "vertical"
@@ -6435,7 +6457,6 @@
         "contain-intrinsic-width": {
             "codegen-properties": {
                 "custom": "All",
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "horizontal"
@@ -6453,7 +6474,6 @@
         "contain-intrinsic-block-size": {
             "codegen-properties": {
                 "skip-builder": true,
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "block"
@@ -6471,7 +6491,6 @@
         "contain-intrinsic-inline-size": {
             "codegen-properties": {
                 "skip-builder": true,
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "inline"
@@ -6490,7 +6509,6 @@
             "codegen-properties": {
                 "converter": "Contain",
                 "initial": "initialContainment",
-                "settings-flag": "cssContainmentEnabled",
                 "parser-function": "consumeContain",
                 "parser-grammar-unused": "none | strict | content | [ size || layout || paint ]",
                 "parser-grammar-unused-reason": "Needs support for '||' groups.",
@@ -6515,7 +6533,6 @@
         },
         "container-name": {
             "codegen-properties": {
-                "settings-flag": "cssContainerQueriesEnabled",
                 "converter": "ContainerName",
                 "name-for-methods": "ContainerNames",
                 "parser-function": "consumeContainerName",
@@ -6534,7 +6551,6 @@
                 "inline-size"
             ],
             "codegen-properties": {
-                "settings-flag": "cssContainerQueriesEnabled",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -7085,7 +7101,6 @@
             ],
             "codegen-properties": {
                 "name-for-methods": "BlendMode",
-                "enable-if": "ENABLE_CSS_COMPOSITING",
                 "parser-grammar": "<<values>>"
             },
             "specification":  {
@@ -7099,7 +7114,6 @@
                 "isolate"
             ],
             "codegen-properties": {
-                "enable-if": "ENABLE_CSS_COMPOSITING",
                 "parser-grammar": "<<values>>"
             },
             "specification":  {
@@ -9267,12 +9281,37 @@
         "view-transition-name": {
             "codegen-properties": {
                 "converter": "ViewTransitionName",
-                "parser-grammar": "none | <custom-ident>",
+                "parser-function": "consumeViewTransitionName",
+                "parser-grammar-unused": "none | <custom-ident>",
+                "parser-grammar-unused-reason": "Needs support for applying restrictions to <custom-ident>. The <custom-ident> production used here excludes the keyword auto.",
                 "settings-flag": "viewTransitionsEnabled"
             },
             "specification": {
                 "category": "css-view-transitions",
                 "url": "https://drafts.csswg.org/css-view-transitions/#view-transition-name-prop"
+            }
+        },
+        "anchor-name": {
+            "codegen-properties": {
+                "converter": "AnchorName",
+                "name-for-methods": "AnchorNames",
+                "parser-grammar": "none | <dashed-ident>#",
+                "settings-flag": "cssAnchorPositioningEnabled"
+            },
+            "specification": {
+                "category": "css-anchor-position",
+                "url": "https://drafts.csswg.org/css-anchor-position-1/#name"
+            }
+        },
+        "position-anchor": {
+            "codegen-properties": {
+                "converter": "StringOrAutoAtom",
+                "parser-grammar": "auto | <dashed-ident>",
+                "settings-flag": "cssAnchorPositioningEnabled"
+            },
+            "specification": {
+                "category": "css-anchor-position",
+                "url": "https://drafts.csswg.org/css-anchor-position-1/#position-anchor"
             }
         },
         "-webkit-tap-highlight-color": {
@@ -9423,7 +9462,6 @@
                     "parser-function-requires-context": true,
                     "parser-grammar-unused": "[ <integer [0,inf]> && <symbol> ]#",
                     "parser-grammar-unused-reason": "Needs support for '&&' groups"
-                    
                 },
                 "specification": {
                     "category": "css-counter-styles",
@@ -9876,7 +9914,6 @@
         "@property": {
             "syntax": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "<string>"
                 },
                 "specification": {
@@ -9886,7 +9923,6 @@
             },
             "inherits": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "true | false"
                 },
                 "specification": {
@@ -9896,7 +9932,6 @@
             },
             "initial-value": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "<declaration-value>"
                 },
                 "specification": {
@@ -9916,6 +9951,11 @@
             "shortname": "CSS Box Alignment",
             "longname": "CSS Box Alignment Module",
             "url": "https://www.w3.org/TR/css-align-3/"
+        },
+        "css-anchor-position": {
+            "shortname": "CSS Anchor Positioning",
+            "longname": "CSS Anchor Positioning",
+            "url": "https://www.w3.org/TR/css-anchor-position-1/"
         },
         "css-animations": {
             "shortname": "CSS Animations",
@@ -10354,13 +10394,6 @@
                 "url": "https://drafts.csswg.org/css-ui/#typedef-outline-line-style",
                 "comment": "Defined in prose as '<outline-line-style> accepts the same values as <line-style> (CSS Backgrounds 3 § 3.2 Line Patterns: the border-style properties) with the same meaning, except that hidden is not a legal outline style.'"
             
-            }
-        },
-        "<inset-logical-start-end>": {
-            "grammar": "auto | <length-percentage>",
-            "specification": {
-                "category": "css-logical-props",
-                "url": "https://www.w3.org/TR/css-logical/#inset-properties"
             }
         },
         "<margin-logical-start-end>": {
@@ -11144,6 +11177,14 @@
             "specification": {
                 "category": "scroll-animations",
                 "url": "https://drafts.csswg.org/scroll-animations-1/#propdef-view-timeline-inset"
+            }
+        },
+        "<anchor-side>": {
+            "grammar": "inside | outside | top | left | right | bottom | start | end | self-start | self-end | <percentage> | center",
+            "exported": true,
+            "specification": {
+                "category": "css-anchor-position",
+                "url": "https://drafts.csswg.org/css-anchor-position-1/#typedef-anchor-side"
             }
         }
     }

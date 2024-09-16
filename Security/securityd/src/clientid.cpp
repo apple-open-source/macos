@@ -106,8 +106,23 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 	{
 		StLock<Mutex> _(mLock);
 		GuestMap::iterator it = mGuests.find(guestRef);
-		if (it != mGuests.end())
+		if (it != mGuests.end()) {
+			it->second.lastTouchTime = dispatch_time(DISPATCH_TIME_NOW, 0);
 			return &it->second;
+		}
+
+		while (mGuests.size() >= kMaxGuestMapSize) {
+			it = mGuests.begin();
+			dispatch_time_t oldestTime = it->second.lastTouchTime;
+			SecGuestRef oldest = it->first;
+			while (++it != mGuests.end()) {
+				if (it->second.lastTouchTime < oldestTime) {
+					oldestTime = it->second.lastTouchTime;
+					oldest = it->first;
+				}
+			}
+			mGuests.erase(oldest);
+		}
 	}
 
 	// okay, make a new one (this may take a while)
@@ -137,6 +152,8 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 	GuestState &slot = mGuests[guestRef];
 	if (!slot.code)	// if another thread didn't get here first...
 		slot.code = code;
+
+	slot.lastTouchTime = dispatch_time(DISPATCH_TIME_NOW, 0);
 	return &slot;
 }
 

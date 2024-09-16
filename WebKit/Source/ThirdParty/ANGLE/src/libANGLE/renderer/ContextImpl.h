@@ -203,6 +203,12 @@ class ContextImpl : public GLImplFactory
     // KHR_blend_equation_advanced
     virtual void blendBarrier() {}
 
+    // QCOM_tiled_rendering
+    virtual angle::Result startTiling(const gl::Context *context,
+                                      const gl::Rectangle &area,
+                                      GLbitfield preserveMask);
+    virtual angle::Result endTiling(const gl::Context *context, GLbitfield preserveMask);
+
     // State sync with dirty bits.
     virtual angle::Result syncState(const gl::Context *context,
                                     const gl::state::DirtyBits dirtyBits,
@@ -291,6 +297,11 @@ class ContextImpl : public GLImplFactory
     virtual angle::Result drawPixelLocalStorageEXTDisable(gl::Context *,
                                                           const gl::PixelLocalStoragePlane[],
                                                           const GLenum storeops[]);
+
+    // GL_ANGLE_variable_rasterization_rate_metal
+    virtual angle::Result bindMetalRasterizationRateMap(gl::Context *,
+                                                        RenderbufferImpl *renderbuffer,
+                                                        GLMTLRasterizationRateMapANGLE map);
 
   protected:
     const gl::State &mState;

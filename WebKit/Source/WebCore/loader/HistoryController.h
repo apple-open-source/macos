@@ -30,9 +30,11 @@
 #pragma once
 
 #include "FrameLoader.h"
+#include <wtf/CheckedPtr.h>
 
 namespace WebCore {
 
+class Frame;
 class HistoryItem;
 class HistoryItemClient;
 class LocalFrame;
@@ -42,17 +44,17 @@ enum class ShouldTreatAsContinuingLoad : uint8_t;
 
 struct StringWithDirection;
 
-class HistoryController {
+class HistoryController final : public CanMakeCheckedPtr<HistoryController> {
     WTF_MAKE_NONCOPYABLE(HistoryController);
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HistoryController);
 public:
     enum HistoryUpdateType { UpdateAll, UpdateAllExceptBackForwardList };
 
-    explicit HistoryController(LocalFrame&);
+    explicit HistoryController(Frame&);
     ~HistoryController();
 
     WEBCORE_EXPORT void saveScrollPositionAndViewStateToItem(HistoryItem*);
-    void clearScrollPositionAndViewState();
     WEBCORE_EXPORT void restoreScrollPositionAndViewState();
 
     void updateBackForwardListForFragmentScroll();
@@ -74,20 +76,21 @@ public:
 
     HistoryItem* currentItem() const { return m_currentItem.get(); }
     RefPtr<HistoryItem> protectedCurrentItem() const;
-    WEBCORE_EXPORT void setCurrentItem(HistoryItem&);
+    WEBCORE_EXPORT void setCurrentItem(Ref<HistoryItem>&&);
     void setCurrentItemTitle(const StringWithDirection&);
     bool currentItemShouldBeReplaced() const;
-    WEBCORE_EXPORT void replaceCurrentItem(HistoryItem*);
+    WEBCORE_EXPORT void replaceCurrentItem(RefPtr<HistoryItem>&&);
 
     HistoryItem* previousItem() const { return m_previousItem.get(); }
+    RefPtr<HistoryItem> protectedPreviousItem() const;
     void clearPreviousItem();
 
     HistoryItem* provisionalItem() const { return m_provisionalItem.get(); }
     RefPtr<HistoryItem> protectedProvisionalItem() const;
-    void setProvisionalItem(HistoryItem*);
+    void setProvisionalItem(RefPtr<HistoryItem>&&);
 
-    void pushState(RefPtr<SerializedScriptValue>&&, const String& title, const String& url);
-    void replaceState(RefPtr<SerializedScriptValue>&&, const String& title, const String& url);
+    void pushState(RefPtr<SerializedScriptValue>&&, const String& url);
+    void replaceState(RefPtr<SerializedScriptValue>&&, const String& url);
 
     void setDefersLoading(bool);
 
@@ -107,11 +110,12 @@ private:
     void recursiveUpdateForCommit();
     void recursiveUpdateForSameDocumentNavigation();
     bool itemsAreClones(HistoryItem&, HistoryItem*) const;
-    bool currentFramesMatchItem(HistoryItem&) const;
     void updateBackForwardListClippedAtTarget(bool doClip);
     void updateCurrentItem();
 
-    LocalFrame& m_frame;
+    Ref<Frame> protectedFrame() const;
+
+    WeakRef<Frame> m_frame;
 
     RefPtr<HistoryItem> m_currentItem;
     RefPtr<HistoryItem> m_previousItem;

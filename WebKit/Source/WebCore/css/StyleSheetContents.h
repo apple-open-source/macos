@@ -73,6 +73,7 @@ public:
     WEBCORE_EXPORT bool parseString(const String&);
 
     bool isCacheable() const;
+    bool isCacheableWithNoBaseURLDependency() const;
 
     bool isLoading() const;
     bool subresourcesAllowReuse(CachePolicy, FrameLoader&) const;
@@ -88,6 +89,8 @@ public:
     const String& charset() const { return m_parserContext.charset; }
 
     bool loadCompleted() const { return m_loadCompleted; }
+
+    bool mayDependOnBaseURL() const;
 
     bool traverseRules(const Function<bool(const StyleRuleBase&)>& handler) const;
     bool traverseSubresources(const Function<bool(const CachedResource&)>& handler) const;

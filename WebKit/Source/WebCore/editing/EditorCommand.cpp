@@ -95,9 +95,10 @@ static LocalFrame* targetFrame(LocalFrame& frame, Event* event)
 {
     if (!event)
         return &frame;
-    if (!is<Node>(event->target()))
+    auto* node = dynamicDowncast<Node>(event->target());
+    if (!node)
         return &frame;
-    return downcast<Node>(*event->target()).document().frame();
+    return node->document().frame();
 }
 
 static bool applyCommandToFrame(LocalFrame& frame, EditorCommandSource source, EditAction action, Ref<EditingStyle>&& style)
@@ -220,13 +221,13 @@ static unsigned verticalScrollDistance(LocalFrame& frame)
     RefPtr focusedElement = frame.document()->focusedElement();
     if (!focusedElement)
         return 0;
-    CheckedPtr renderer = focusedElement->renderer();
-    if (!is<RenderBox>(renderer.get()))
+    CheckedPtr renderBox = dynamicDowncast<RenderBox>(focusedElement->renderer());
+    if (!renderBox)
         return 0;
-    const RenderStyle& style = renderer->style();
+    const RenderStyle& style = renderBox->style();
     if (!(style.overflowY() == Overflow::Scroll || style.overflowY() == Overflow::Auto || focusedElement->hasEditableStyle()))
         return 0;
-    int height = std::min<int>(downcast<RenderBox>(*renderer).clientHeight(), frame.view()->visibleHeight());
+    int height = std::min<int>(renderBox->clientHeight(), frame.view()->visibleHeight());
     return static_cast<unsigned>(Scrollbar::pageStep(height));
 }
 
@@ -381,7 +382,7 @@ static bool executeDeleteWordForward(LocalFrame& frame, Event*, EditorCommandSou
 
 static bool executeFindString(LocalFrame& frame, Event*, EditorCommandSource, const String& value)
 {
-    return frame.editor().findString(value, { CaseInsensitive, WrapAround, DoNotTraverseFlatTree });
+    return frame.editor().findString(value, { FindOption::CaseInsensitive, FindOption::WrapAround, FindOption::DoNotTraverseFlatTree });
 }
 
 static bool executeFontName(LocalFrame& frame, Event*, EditorCommandSource source, const String& value)
@@ -1433,10 +1434,10 @@ static bool enabledPaste(LocalFrame& frame, Event*, EditorCommandSource source)
 {
     switch (source) {
     case EditorCommandSource::MenuOrKeyBinding:
-        return frame.editor().canDHTMLPaste() || frame.editor().canPaste();
+        return frame.editor().canDHTMLPaste() || frame.editor().canEdit();
     case EditorCommandSource::DOM:
     case EditorCommandSource::DOMWithUserInterface:
-        return allowPasteFromDOM(frame) && (frame.editor().canDHTMLPaste() || frame.editor().canPaste());
+        return allowPasteFromDOM(frame) && (frame.editor().canDHTMLPaste() || frame.editor().canEdit());
     }
     ASSERT_NOT_REACHED();
     return false;
@@ -1648,16 +1649,6 @@ static bool allowExecutionWhenDisabledCopyCut(LocalFrame&, EditorCommandSource s
     return false;
 }
 
-static bool allowExecutionWhenDisabledPaste(LocalFrame& frame, EditorCommandSource)
-{
-    auto* localFrame = dynamicDowncast<LocalFrame>(frame.mainFrame());
-    if (!localFrame)
-        return false;
-    if (localFrame->loader().shouldSuppressTextInputFromEditing())
-        return false;
-    return true;
-}
-
 // Map of functions
 
 struct CommandEntry {
@@ -1772,11 +1763,11 @@ static const CommandMap& createCommandMap()
         { "MoveWordRightAndModifySelection"_s, { executeMoveWordRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Outdent"_s, { executeOutdent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "OverWrite"_s, { executeToggleOverwrite, supportedFromMenuOrKeyBinding, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "Paste"_s, { executePaste, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAndMatchStyle"_s, { executePasteAndMatchStyle, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAsPlainText"_s, { executePasteAsPlainText, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAsQuotation"_s, { executePasteAsQuotation, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteFont"_s, { executePasteFont, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
+        { "Paste"_s, { executePaste, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteAndMatchStyle"_s, { executePasteAndMatchStyle, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteAsPlainText"_s, { executePasteAsPlainText, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteAsQuotation"_s, { executePasteAsQuotation, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteFont"_s, { executePasteFont, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
         { "Print"_s, { executePrint, supported, enabled, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Redo"_s, { executeRedo, supported, enabledRedo, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "RemoveFormat"_s, { executeRemoveFormat, supported, enabledRangeInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },

@@ -34,7 +34,7 @@ struct WebKit::RemoteMediaPlayerProxyConfiguration {
     std::optional<Vector<WebCore::FourCC>> allowedMediaCaptionFormatTypes;
     WebCore::LayoutRect playerContentBoxRect;
     Vector<String> preferredAudioCharacteristics;
-#if ENABLE(AVF_CAPTIONS)
+#if PLATFORM(COCOA)
     Vector<WebCore::PlatformTextTrackData> outOfBandTrackData;
 #endif
     WebCore::SecurityOriginData documentSecurityOrigin;
@@ -46,5 +46,8 @@ struct WebKit::RemoteMediaPlayerProxyConfiguration {
     bool renderingCanBeAccelerated;
     bool prefersSandboxedParsing;
     bool shouldDisableHDR;
+#if PLATFORM(IOS_FAMILY)
+    bool canShowWhileLocked;
+#endif
 };
 #endif

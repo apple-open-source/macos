@@ -22,7 +22,7 @@ typedef void (AttrCheck)(TidyDocImpl* doc, Node *node, AttVal *attval);
 struct _Attribute
 {
     TidyAttrId  id;
-    tmbstr      name;
+    ctmbstr     name;
     unsigned    versions;
     AttrCheck*  attrchk;
 

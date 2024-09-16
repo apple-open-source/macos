@@ -113,6 +113,28 @@ static const uint8_t gcmIV[kIVSizeAESGCM] = {
  BULK_KEY = RandomKey()
  version || keyclass|ACL || KeyStore_WRAP(keyclass, BULK_KEY) ||
  AES(BULK_KEY, NULL_IV, plainText || padding)
+
+
+ Nullability is complicated for the following parameters:
+  attributes
+      version 6
+          TARGET_OS_SIMULATOR
+              Nullable
+          !TARGET_OS_SIMULATOR
+              Non-null (will crash if null is passed)
+
+      version 3
+          Non-null (will crash if null is passed)
+
+  authenticated_attributes
+      version 6
+          TARGET_OS_SIMULATOR
+              Nullable
+          !TARGET_OS_SIMULATOR
+              Non-null (will crash if null is passed)
+      version 3
+          Nullable
+
  */
 bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
                             CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV,
@@ -261,6 +283,12 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     cursor += key_wrapped_size;
 
     /* Encrypt the plainText with the bulkKey. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /*
+     * 125115142: CCCryptorGCM is deprecated for CCCryptorGCMOneshotEncrypt;
+     * however, CCCryptorGCMOneshotEncrypt does not allow a NULL IV.
+     */
     CCCryptorStatus ccerr = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES128,
                                          bulkKey, bulkKeySize,
                                          iv, ivLen,     /* iv */
@@ -268,6 +296,7 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
                                          CFDataGetBytePtr(plainText), ptLen,
                                          cursor,
                                          cursor + ctLen, &tagLen);
+#pragma clang diagnostic pop
     if (ccerr) {
         ok = SecError(errSecInternal, error, CFSTR("ks_encrypt_data: CCCryptorGCM failed: %d"), ccerr);
         goto out;
@@ -313,11 +342,9 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable acces
                      CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, bool useDefaultIV,
                      bool useNewBackupBehavior, CFErrorRef *error) {
     uint32_t encryption_version;
-    if (ks_is_key_diversification_enabled()) {
-        encryption_version = 8;
-    } else {
-        encryption_version = 7;
-    }
+    // ks_key_diversification_enabled
+    encryption_version = 8;
+    
     if (keybag != KEYBAG_DEVICE || useNewBackupBehavior) {
         if (!useNewBackupBehavior) {
             ks_warn_non_device_keybag();
@@ -657,6 +684,12 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
     CCCryptorStatus ccerr;
     if (tagLen) {
         uint8_t tag[tagLen];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        /*
+         * 125115142: CCCryptorGCM is deprecated for CCCryptorGCMOneshotDecrypt;
+         * however, CCCryptorGCMOneshotDecrypt does not allow a NULL IV.
+         */
         ccerr = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128,
                              CFDataGetBytePtr(bulkKey), CFDataGetLength(bulkKey),
                              iv, ivLen,     /* iv */
@@ -664,6 +697,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
                              cursor, ctLen,
                              CFDataGetMutableBytePtr(plainText),
                              tag, &tagLen);
+#pragma clang diagnostic pop
         if (ccerr) {
             /* TODO: Should this be errSecDecode once AppleKeyStore correctly
              identifies uuid unwrap failures? */
@@ -891,7 +925,7 @@ static CFDataRef kc_copy_access_groups_data(CFArrayRef access_groups, CFErrorRef
         return result;
 }
 
-#endif /* USE_KEYSTORE */
+#endif /* USE_KEYSTORE && !TARGET_OS_SIMULATOR */
 
 static CFDataRef kc_copy_protection_data(SecAccessControlRef access_control)
 {
@@ -1267,7 +1301,7 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
     CFMutableDictionaryRef secretStuff = SecDbItemCopyPListWithMask(item, kSecDbReturnDataFlag, error);
     CFMutableDictionaryRef attributes = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
     CFMutableDictionaryRef auth_attributes = SecDbItemCopyPListWithMask(item, kSecDbInAuthenticatedDataFlag, error);
-    if (secretStuff || attributes || auth_attributes) {
+    if (secretStuff && attributes && auth_attributes) {
         SecAccessControlRef access_control = SecDbItemCopyAccessControl(item, error);
         CFDataRef sha1 = SecDbKeychainItemCopySHA1(item, attr, error);
         if (access_control && sha1) {
@@ -1288,11 +1322,20 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
             }
             CFRelease(access_control);
         }
-        CFReleaseNull(secretStuff);
-        CFReleaseNull(attributes);
-        CFReleaseNull(auth_attributes);
         CFReleaseNull(sha1);
+    } else if (secretStuff || attributes || auth_attributes) {
+        if (__security_simulatecrash_enabled()) {
+            os_log_fault(secLogObjForScope("SecEmergency"),
+                         "SecDbKeychainItemCopyEncryptedData: not all plists are present: secretStuff: %@, attributes: %@, auth_attributes: %@ : %@",
+                         secretStuff ? @"present": @"missing",
+                         attributes  ? @"present" : @"missing",
+                         auth_attributes? @"present" : @"missing",
+                         (error != nil) ? (__bridge id)*error : (id)@"no error pointer");
+        }
     }
+    CFReleaseNull(secretStuff);
+    CFReleaseNull(attributes);
+    CFReleaseNull(auth_attributes);
     return edata;
 }
 

@@ -31,6 +31,7 @@
 #include "CertificateInfo.h"
 #include "CurlRequestClient.h"
 #include "CurlRequestScheduler.h"
+#include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "NetworkLoadMetrics.h"
 #include "ResourceError.h"
@@ -38,6 +39,7 @@
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -188,7 +190,7 @@ CURL* CurlRequest::setupTransfer()
 
     m_curlHandle = makeUnique<CurlHandle>();
 
-    m_curlHandle->setUrl(m_request.url());
+    m_curlHandle->setURL(m_request.url(), m_localhostAlias);
 
     m_curlHandle->appendRequestHeaders(httpHeaderFields);
 
@@ -214,9 +216,7 @@ CURL* CurlRequest::setupTransfer()
 
     m_curlHandle->setHeaderCallbackFunction(didReceiveHeaderCallback, this);
     m_curlHandle->setWriteCallbackFunction(didReceiveDataCallback, this);
-
-    if (m_captureExtraMetrics)
-        m_curlHandle->setDebugCallbackFunction(didReceiveDebugInfoCallback, this);
+    m_curlHandle->setDebugCallbackFunction(didReceiveDebugInfoCallback, this);
 
     m_curlHandle->setTimeout(timeoutInterval());
 
@@ -317,7 +317,7 @@ size_t CurlRequest::didReceiveHeader(String&& header)
     m_response.statusCode = statusCode;
     m_response.httpConnectCode = httpConnectCode;
 
-    if (auto length = m_curlHandle->getContentLength())
+    if (auto length = getContentLength())
         m_response.expectedContentLength = *length;
 
     if (auto proxyURL = m_curlHandle->getProxyUrl())
@@ -505,17 +505,19 @@ void CurlRequest::finalizeTransfer()
     m_curlHandle = nullptr;
 }
 
-int CurlRequest::didReceiveDebugInfo(curl_infotype type, char* data, size_t size)
+int CurlRequest::didReceiveDebugInfo(curl_infotype type, std::span<const char> data)
 {
-    if (!data)
+    if (!data.data())
         return 0;
 
     if (type == CURLINFO_HEADER_OUT) {
-        String requestHeader(data, size);
+        String requestHeader(data);
         auto headerFields = requestHeader.split("\r\n"_s);
         // Remove the request line
         if (headerFields.size())
             headerFields.remove(0);
+
+        m_requestHeaderSize = requestHeader.length();
 
         for (auto& header : headerFields) {
             auto pos = header.find(':');
@@ -580,7 +582,7 @@ void CurlRequest::invokeDidReceiveResponseForFile(const URL& url)
         CurlResponse response;
         response.url = WTFMove(url);
         response.statusCode = 200;
-        response.headers.append("Content-Type: " + mimeType);
+        response.headers.append(makeString("Content-Type: "_s, mimeType));
 
         invokeDidReceiveResponse(response, [this] {
             startWithJobManager();
@@ -629,11 +631,28 @@ NetworkLoadMetrics CurlRequest::networkLoadMetrics()
 
     if (m_captureExtraMetrics) {
         m_curlHandle->addExtraNetworkLoadMetrics(*networkLoadMetrics);
-        if (auto* additionalMetrics = networkLoadMetrics->additionalNetworkLoadMetricsForWebInspector.get())
+        if (auto* additionalMetrics = networkLoadMetrics->additionalNetworkLoadMetricsForWebInspector.get()) {
+            additionalMetrics->requestHeaderBytesSent = m_requestHeaderSize;
             additionalMetrics->requestHeaders = m_requestHeaders;
+        }
     }
 
     return WTFMove(*networkLoadMetrics);
+}
+
+std::optional<long long> CurlRequest::getContentLength()
+{
+    for (const auto& header : m_response.headers) {
+        if (header.startsWithIgnoringASCIICase("content-length:"_s)) {
+            if (auto splitPosition = header.find(':'); splitPosition != notFound) {
+                auto value = header.substring(splitPosition + 1).trim(deprecatedIsSpaceOrNewline);
+                if (auto length = parseContentLength(value))
+                    return *length;
+            }
+        }
+    }
+
+    return std::nullopt;
 }
 
 size_t CurlRequest::willSendDataCallback(char* ptr, size_t blockSize, size_t numberOfBlocks, void* userData)
@@ -643,7 +662,7 @@ size_t CurlRequest::willSendDataCallback(char* ptr, size_t blockSize, size_t num
 
 size_t CurlRequest::didReceiveHeaderCallback(char* ptr, size_t blockSize, size_t numberOfBlocks, void* userData)
 {
-    return static_cast<CurlRequest*>(userData)->didReceiveHeader(String(ptr, blockSize * numberOfBlocks));
+    return static_cast<CurlRequest*>(userData)->didReceiveHeader(String({ ptr, blockSize * numberOfBlocks }));
 }
 
 size_t CurlRequest::didReceiveDataCallback(char* ptr, size_t blockSize, size_t numberOfBlocks, void* userData)
@@ -653,7 +672,7 @@ size_t CurlRequest::didReceiveDataCallback(char* ptr, size_t blockSize, size_t n
 
 int CurlRequest::didReceiveDebugInfoCallback(CURL*, curl_infotype type, char* data, size_t size, void* userData)
 {
-    return static_cast<CurlRequest*>(userData)->didReceiveDebugInfo(type, data, size);
+    return static_cast<CurlRequest*>(userData)->didReceiveDebugInfo(type, { data, size });
 }
 
 }

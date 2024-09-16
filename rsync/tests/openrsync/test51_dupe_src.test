@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# Test that multiple trailing / or /. sources work, and ultimately merge those
+# sources into the destination directory directly.  Problems have been observed
+# both with openrsync as a sender in deduplicating the flist, and as a receiver
+# when trying to schedule deletions.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# For interop testing, this test can't work at all with smb rsync 2.x as a
+# client receiver because it does not like repeated remote sources, even if
+# they're from the same host.
+
+rm -rf src dst-*
+mkdir -p src/foo src/bar
+echo "File A" > src/foo/a
+echo "File B" > src/bar/b
+
+# Both trailing /.
+rsync -av --delete -- src/foo/. src/bar/. dst-1/
+
+# One trailing /., one trailing /
+rsync -av --delete -- src/foo/. src/bar/ dst-2/
+rsync -av --delete -- src/foo/ src/bar/. dst-3/
+
+# Both trailing /
+rsync -av --delete -- src/foo/ src/bar/ dst-4/
+
+1>&2 echo "Double-checking the destdirs for expected contents."
+for dstdir in dst-1 dst-2 dst-3 dst-4; do
+	1>&2 cmp src/foo/a "$dstdir"/a
+	1>&2 cmp src/bar/b "$dstdir"/b
+done

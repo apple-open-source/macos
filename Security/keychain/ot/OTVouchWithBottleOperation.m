@@ -28,7 +28,6 @@
 #import <os/feature_private.h>
 
 #import "keychain/ot/OTVouchWithBottleOperation.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
 #import "keychain/ot/OTStates.h"

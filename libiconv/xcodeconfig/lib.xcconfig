@@ -8,9 +8,15 @@ INSTALL_PATH = /usr/lib
 LIB_GCC_PREPROCESSOR_DEFINITIONS = $(BASE_GCC_PREPROCESSOR_DEFINITIONS) BUILDING_DLL ENABLE_RELOCATABLE IN_LIBRARY NO_XMALLOC PIC
 GCC_PREPROCESSOR_DEFINITIONS = $(LIB_GCC_PREPROCESSOR_DEFINITIONS)
 
-GCC_SYMBOLS_PRIVATE_EXTERN = YES
-
 IS_ZIPPERED = YES
+
+// citrus libiconv makes heavy use of dlopen(), so we additionally build all of
+// our libs as static libs and link all of the ones we need into our fuzzing
+// targets.
+OTHER_CFLAGS[config=Fuzzing*][sdk=*] = $(inherited) -fsanitize=address,fuzzer-no-link -g -O0 -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+MACH_O_TYPE[config=Fuzzing*][sdk=*] = staticlib
+
+ARCHS[config=Fuzzing*][sdk=*] = $(ARCHS_STANDARD) arm64e
 
 SUPPORTS_TEXT_BASED_API = YES
 TAPI_VERIFY_MODE = Pedantic

@@ -32,9 +32,9 @@
 #include <string.h>
 #include "nfs_subr.h"
 
-#define	fromhex(c)  ((c >= '0' && c <= '9') ? (c - '0') : \
-			((c >= 'A' && c <= 'F') ? (c - 'A' + 10) :\
-			((c >= 'a' && c <= 'f') ? (c - 'a' + 10) : 0)))
+#define fromhex(c)  ((c >= '0' && c <= '9') ? (c - '0') : \
+	                ((c >= 'A' && c <= 'F') ? (c - 'A' + 10) :\
+	                ((c >= 'a' && c <= 'f') ? (c - 'a' + 10) : 0)))
 
 /*
  * The implementation of URLparse guarantees that the final string will
@@ -69,9 +69,8 @@ URLparse(char *str)
  */
 int
 convert_special(char **specialp, char *host, char *oldpath, char *newpath,
-	char *cur_special)
+    char *cur_special)
 {
-
 	char *url;
 	char *newspec;
 	char *p;
@@ -85,8 +84,9 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 	len = (int) (strlen("nfs:") + strlen(oldpath)) + 1;
 	url = malloc(len);
 
-	if (url == NULL)
-		return (-1);
+	if (url == NULL) {
+		return -1;
+	}
 
 	strlcpy(url, "nfs:", len);
 	strlcat(url, oldpath, len);
@@ -98,9 +98,8 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 		newspec = *specialp = strdup(cur_special);
 		if (newspec == NULL) {
 			free(url);
-			return (-1);
+			return -1;
 		}
-
 	} else {
 		newspec = *specialp;
 	}
@@ -112,7 +111,7 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 
 	if (p == NULL) {
 		free(url);
-		return (-1);
+		return -1;
 	}
 
 	p1 = p;
@@ -132,7 +131,7 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 			free(url);
 			free(*specialp);
 			*specialp = NULL;
-			return (-1);
+			return -1;
 		}
 
 		if (*p2 == '\0') {
@@ -159,7 +158,7 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 			free(url);
 			free(*specialp);
 			*specialp = NULL;
-			return (-1);
+			return -1;
 		}
 		if (*p2 == '\0') {
 			break;
@@ -179,7 +178,7 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 			free(url);
 			free(*specialp);
 			*specialp = NULL;
-			return (-1);
+			return -1;
 		}
 		if (*p2 == '\0') {
 			break;
@@ -192,5 +191,5 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 	*p1 = '\0';
 
 	free(url);
-	return (0);
+	return 0;
 }

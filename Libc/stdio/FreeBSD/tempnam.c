@@ -41,6 +41,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/tempnam.c,v 1.11 2007/01/09 00:28:07 imp 
 #include <unistd.h>
 #include <paths.h>
 
+#include "libc_hooks_impl.h"
+
 __warn_references(tempnam,
     "warning: tempnam() possibly used unsafely; consider using mkstemp()");
 
@@ -51,6 +53,9 @@ tempnam(const char *dir, const char *pfx)
 {
 	int sverrno;
 	char *f, *name;
+
+	libc_hooks_will_read_cstring(dir);
+	libc_hooks_will_read_cstring(pfx);
 
 	if (!(name = malloc(MAXPATHLEN))) {
 		return(NULL);

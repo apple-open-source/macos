@@ -33,6 +33,25 @@
 #define EXPERIMENTAL_FULLSCREEN_API_HIDDEN true
 #endif
 
+// FIXME: https://bugs.webkit.org/show_bug.cgi?id=269475 - this should not be needed
+#if defined(ENABLE_WEBGPU_BY_DEFAULT) && ENABLE_WEBGPU_BY_DEFAULT
+#define Webgpu_feature_status Stable
+#else
+#define Webgpu_feature_status Preview
+#endif
+
+#if defined(ENABLE_UNIFIED_PDF_BY_DEFAULT) && ENABLE_UNIFIED_PDF_BY_DEFAULT
+#define Unifiedpdf_feature_status Preview
+#else
+#define Unifiedpdf_feature_status Internal
+#endif
+
+#if defined(ENABLE_UNPREFIXED_BACKDROP_FILTER) && ENABLE_UNPREFIXED_BACKDROP_FILTER
+#define Backdropfilter_feature_status Stable
+#else
+#define Backdropfilter_feature_status Testable
+#endif
+
 namespace WebKit {
 
 #if PLATFORM(IOS_FAMILY)
@@ -66,8 +85,6 @@ bool defaultAppleMailPaginationQuirkEnabled();
 bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload();
 #endif
 
-bool defaultOfflineWebApplicationCacheEnabled();
-
 #if ENABLE(MEDIA_STREAM)
 bool defaultCaptureAudioInGPUProcessEnabled();
 bool defaultCaptureAudioInUIProcessEnabled();
@@ -99,10 +116,15 @@ bool defaultRemoveBackgroundEnabled();
 bool defaultGamepadVibrationActuatorEnabled();
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+bool defaultAutomaticLiveResizeEnabled();
+#endif
+
 bool defaultRunningBoardThrottlingEnabled();
 bool defaultShouldDropNearSuspendedAssertionAfterDelay();
 bool defaultShouldTakeNearSuspendedAssertion();
 bool defaultShowModalDialogEnabled();
+bool defaultLinearMediaPlayerEnabled();
 bool defaultLiveRangeSelectionEnabled();
 
 bool defaultShouldEnableScreenOrientationAPI();

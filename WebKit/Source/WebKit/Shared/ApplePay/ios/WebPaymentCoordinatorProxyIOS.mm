@@ -47,7 +47,16 @@ void WebPaymentCoordinatorProxy::platformCanMakePayments(CompletionHandler<void(
 
 void WebPaymentCoordinatorProxy::platformShowPaymentUI(WebPageProxyIdentifier webPageProxyID, const URL& originatingURL, const Vector<URL>& linkIconURLStrings, const WebCore::ApplePaySessionPaymentRequest& request, CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto paymentRequest = platformPaymentRequest(originatingURL, linkIconURLStrings, request);
+
+    RetainPtr<PKPaymentRequest> paymentRequest;
+#if HAVE(PASSKIT_DISBURSEMENTS)
+    std::optional<ApplePayDisbursementRequest> webDisbursementRequest = request.disbursementRequest();
+    if (webDisbursementRequest) {
+        auto disbursementRequest = platformDisbursementRequest(request, originatingURL, webDisbursementRequest->requiredRecipientContactFields);
+        paymentRequest = RetainPtr<PKPaymentRequest>((PKPaymentRequest *)disbursementRequest.get());
+    } else
+#endif
+        paymentRequest = platformPaymentRequest(originatingURL, linkIconURLStrings, request);
 
     m_client.getPaymentCoordinatorEmbeddingUserAgent(webPageProxyID, [webPageProxyID, paymentRequest, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](const String& userAgent) mutable {
         auto paymentCoordinatorProxy = weakThis.get();

@@ -1,6 +1,6 @@
 /* single-srp-update.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ test_single_srpl_update(test_state_t *next_test)
 	test_state_t *state = test_state_create(srp_servers, "Single SRPL Update test", NULL, description, NULL);
 
     srp_proxy_init("local");
-    state->primary->stub_router_enabled = true;
+    srp_test_enable_stub_router(state, srp_servers);
     srp_servers->srp_replication_enabled = true;
     state->next = next_test;
 

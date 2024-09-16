@@ -39,6 +39,11 @@ extern const struct malloc_introspection_t xzm_malloc_zone_introspect;
 bool
 xzm_ptr_lookup_4test(xzm_malloc_zone_t zone, void *ptr,
 		xzm_segment_group_id_t *sgid_out, xzm_xzone_bucket_t *bucket_out);
+
+uint8_t
+xzm_type_choose_ptr_bucket_4test(const union xzm_bucketing_keys_u *const keys,
+		uint8_t ptr_bucket_count, malloc_type_descriptor_t type_desc);
+
 #endif // defined(__LP64__)
 
 #if __is_target_environment(exclavecore) || __is_target_environment(exclavekit)

@@ -26,26 +26,42 @@
 #pragma once
 
 #import "BindableResource.h"
+#import "ShaderStage.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/Vector.h>
+#import <wtf/WeakPtr.h>
 
 struct WGPUBindGroupImpl {
 };
 
 namespace WebGPU {
 
+class BindGroupLayout;
 class Device;
+class Sampler;
 
 // https://gpuweb.github.io/gpuweb/#gpubindgroup
-class BindGroup : public WGPUBindGroupImpl, public RefCounted<BindGroup> {
+class BindGroup : public WGPUBindGroupImpl, public RefCounted<BindGroup>, public CanMakeWeakPtr<BindGroup> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
+    template <typename T>
+    using ShaderStageArray = EnumeratedArray<ShaderStage, T, ShaderStage::Compute>;
+    using SamplersContainer = HashMap<RefPtr<Sampler>, ShaderStageArray<std::optional<uint32_t>>>;
+    struct BufferAndType {
+        WGPUBufferBindingType type;
+        uint64_t bindingSize;
+        uint64_t bufferSize;
+        uint32_t bindingIndex;
+    };
+    using DynamicBuffersContainer = Vector<BufferAndType>;
+
     static constexpr MTLRenderStages MTLRenderStageCompute = static_cast<MTLRenderStages>(0);
-    static Ref<BindGroup> create(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&& resources, Device& device)
+    static constexpr MTLRenderStages MTLRenderStageUndefined = static_cast<MTLRenderStages>(MTLRenderStageFragment + 1);
+    static Ref<BindGroup> create(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&& resources, const BindGroupLayout& bindGroupLayout, DynamicBuffersContainer&& dynamicBuffers, SamplersContainer&& samplers, Device& device)
     {
-        return adoptRef(*new BindGroup(vertexArgumentBuffer, fragmentArgumentBuffer, computeArgumentBuffer, WTFMove(resources), device));
+        return adoptRef(*new BindGroup(vertexArgumentBuffer, fragmentArgumentBuffer, computeArgumentBuffer, WTFMove(resources), bindGroupLayout, WTFMove(dynamicBuffers), WTFMove(samplers), device));
     }
     static Ref<BindGroup> createInvalid(Device& device)
     {
@@ -56,7 +72,7 @@ public:
 
     void setLabel(String&&);
 
-    bool isValid() const { return m_vertexArgumentBuffer || m_fragmentArgumentBuffer || m_computeArgumentBuffer; }
+    bool isValid() const;
 
     id<MTLBuffer> vertexArgumentBuffer() const { return m_vertexArgumentBuffer; }
     id<MTLBuffer> fragmentArgumentBuffer() const { return m_fragmentArgumentBuffer; }
@@ -65,9 +81,17 @@ public:
     const Vector<BindableResources>& resources() const { return m_resources; }
 
     Device& device() const { return m_device; }
+    static bool allowedUsage(const OptionSet<BindGroupEntryUsage>&);
+    static NSString* usageName(const OptionSet<BindGroupEntryUsage>&);
+    static uint64_t makeEntryMapKey(uint32_t baseMipLevel, uint32_t baseArrayLayer, WGPUTextureAspect);
+
+    const BindGroupLayout* bindGroupLayout() const;
+    const BufferAndType* dynamicBuffer(uint32_t) const;
+    uint32_t dynamicOffset(uint32_t bindingIndex, const Vector<uint32_t>*) const;
+    void rebindSamplersIfNeeded() const;
 
 private:
-    BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&&, Device&);
+    BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&&, const BindGroupLayout&, DynamicBuffersContainer&&, SamplersContainer&&, Device&);
     BindGroup(Device&);
 
     const id<MTLBuffer> m_vertexArgumentBuffer { nil };
@@ -76,6 +100,10 @@ private:
 
     const Ref<Device> m_device;
     Vector<BindableResources> m_resources;
+    RefPtr<const BindGroupLayout> m_bindGroupLayout;
+    DynamicBuffersContainer m_dynamicBuffers;
+    HashMap<uint32_t, uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_dynamicOffsetsIndices;
+    SamplersContainer m_samplers;
 };
 
 } // namespace WebGPU

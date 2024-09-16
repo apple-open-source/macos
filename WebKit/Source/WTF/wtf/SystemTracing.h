@@ -109,6 +109,12 @@ enum TracePointCode {
     RenderTreeLayoutEnd,
     PerformOpportunisticallyScheduledTasksStart,
     PerformOpportunisticallyScheduledTasksEnd,
+    WebXRLayerStartFrameStart,
+    WebXRLayerStartFrameEnd,
+    WebXRLayerEndFrameStart,
+    WebXRLayerEndFrameEnd,
+    WebXRSessionFrameCallbacksStart,
+    WebXRSessionFrameCallbacksEnd,
 
     WebKitRange = 10000,
     WebHTMLViewPaintStart,
@@ -151,6 +157,12 @@ enum TracePointCode {
     ProcessLaunchEnd,
     InitializeSandboxStart,
     InitializeSandboxEnd,
+    WebXRCPFrameWaitStart,
+    WebXRCPFrameWaitEnd,
+    WebXRCPFrameStartSubmissionStart,
+    WebXRCPFrameStartSubmissionEnd,
+    WebXRCPFrameEndSubmissionStart,
+    WebXRCPFrameEndSubmissionEnd,
 
     GPUProcessRange = 16000,
     WakeUpAndApplyDisplayListStart,
@@ -159,12 +171,24 @@ enum TracePointCode {
 
 #ifdef __cplusplus
 
+// This has to be included after the TracePointCode enum.
+#if USE(SYSPROF_CAPTURE)
+#include <wtf/glib/SysprofAnnotator.h>
+#endif
+
 namespace WTF {
 
 inline void tracePoint(TracePointCode code, uint64_t data1 = 0, uint64_t data2 = 0, uint64_t data3 = 0, uint64_t data4 = 0)
 {
 #if HAVE(KDEBUG_H)
     kdebug_trace(ARIADNEDBG_CODE(WEBKIT_COMPONENT, code), data1, data2, data3, data4);
+#elif USE(SYSPROF_CAPTURE)
+    if (auto* annotator = SysprofAnnotator::singletonIfCreated())
+        annotator->tracePoint(code);
+    UNUSED_PARAM(data1);
+    UNUSED_PARAM(data2);
+    UNUSED_PARAM(data3);
+    UNUSED_PARAM(data4);
 #else
     UNUSED_PARAM(code);
     UNUSED_PARAM(data1);
@@ -221,6 +245,10 @@ WTF_EXTERN_C_END
     M(NavigationAndPaintTiming) \
     M(ExecuteScriptElement) \
     M(RegisterImportMap) \
+    M(JSCJITCompiler) \
+    M(JSCJSGlobalObject) \
+    M(IPCConnection) \
+    M(StreamClientConnection) \
 
 #define DECLARE_WTF_SIGNPOST_NAME_ENUM(name) WTFOSSignpostName ## name,
 
@@ -258,6 +286,10 @@ enum WTFOSSignpostType {
 #define WTFBeginSignpost(pointer, name, ...) WTFBeginSignpostWithTimeDelta((pointer), name, Seconds(), ##__VA_ARGS__)
 #define WTFEndSignpost(pointer, name, ...) WTFEndSignpostWithTimeDelta((pointer), name, Seconds(), ##__VA_ARGS__)
 
+#define WTFEmitSignpostAlways(pointer, name, ...) WTFEmitSignpostAlwaysWithTimeDelta((pointer), name, Seconds(), ##__VA_ARGS__)
+#define WTFBeginSignpostAlways(pointer, name, ...) WTFBeginSignpostAlwaysWithTimeDelta((pointer), name, Seconds(), ##__VA_ARGS__)
+#define WTFEndSignpostAlways(pointer, name, ...) WTFEndSignpostAlwaysWithTimeDelta((pointer), name, Seconds(), ##__VA_ARGS__)
+
 // These work like WTF{Emit,Begin,End}Signpost, but offset the timestamp associated with the event
 // by timeDelta (which should of type WTF::Seconds).
 #define WTFEmitSignpostWithTimeDelta(pointer, name, timeDelta, ...) \
@@ -269,18 +301,31 @@ enum WTFOSSignpostType {
 #define WTFEndSignpostWithTimeDelta(pointer, name, timeDelta, ...) \
     WTFEmitSignpostWithType(WTFOSSignpostTypeEndInterval, os_signpost_interval_end, (pointer), name, (timeDelta), " %{signpost.description:end_time}llu", "" __VA_ARGS__)
 
+#define WTFEmitSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) \
+    WTFEmitSignpostAlwaysWithType(WTFOSSignpostTypeEmitEvent, os_signpost_event_emit, (pointer), name, (timeDelta), " %{signpost.description:event_time}llu", "" __VA_ARGS__)
+
+#define WTFBeginSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) \
+    WTFEmitSignpostAlwaysWithType(WTFOSSignpostTypeBeginInterval, os_signpost_interval_begin, (pointer), name, (timeDelta), " %{signpost.description:begin_time}llu", "" __VA_ARGS__)
+
+#define WTFEndSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) \
+    WTFEmitSignpostAlwaysWithType(WTFOSSignpostTypeEndInterval, os_signpost_interval_end, (pointer), name, (timeDelta), " %{signpost.description:end_time}llu", "" __VA_ARGS__)
+
 #define WTFEmitSignpostWithType(type, emitMacro, pointer, name, timeDelta, timeFormat, format, ...) \
     do { \
-        if (UNLIKELY(kdebug_is_enabled(KDBG_EVENTID(DBG_APPS, DBG_APPS_WEBKIT_MISC, 0)))) { \
-            if (WTFSignpostIndirectLoggingEnabled) \
-                WTFEmitSignpostIndirectlyWithType(type, pointer, name, timeDelta, format, ##__VA_ARGS__); \
-            else { \
-                Seconds delta = (timeDelta); \
-                if (delta) \
-                    WTFEmitSignpostDirectlyWithType(emitMacro, pointer, name, format timeFormat, ##__VA_ARGS__, WTFCurrentContinuousTime(delta)); \
-                else \
-                    WTFEmitSignpostDirectlyWithType(emitMacro, pointer, name, format, ##__VA_ARGS__); \
-            } \
+        if (UNLIKELY(kdebug_is_enabled(KDBG_EVENTID(DBG_APPS, DBG_APPS_WEBKIT_MISC, 0)))) \
+            WTFEmitSignpostAlwaysWithType(type, emitMacro, pointer, name, timeDelta, timeFormat, format, ##__VA_ARGS__); \
+    } while (0)
+
+#define WTFEmitSignpostAlwaysWithType(type, emitMacro, pointer, name, timeDelta, timeFormat, format, ...) \
+    do { \
+        if (WTFSignpostIndirectLoggingEnabled) \
+            WTFEmitSignpostIndirectlyWithType(type, pointer, name, timeDelta, format, ##__VA_ARGS__); \
+        else { \
+            Seconds delta = (timeDelta); \
+            if (delta) \
+                WTFEmitSignpostDirectlyWithType(emitMacro, pointer, name, format timeFormat, ##__VA_ARGS__, WTFCurrentContinuousTime(delta)); \
+            else \
+                WTFEmitSignpostDirectlyWithType(emitMacro, pointer, name, format, ##__VA_ARGS__); \
         } \
     } while (0)
 
@@ -295,14 +340,59 @@ enum WTFOSSignpostType {
 #define WTFEmitSignpostIndirectlyWithType(type, pointer, name, timeDelta, format, ...) \
     os_log(WTFSignpostLogHandle(), "type=%d name=%d p=%" PRIuPTR " ts=%llu " format, type, WTFOSSignpostName ## name, reinterpret_cast<uintptr_t>(pointer), WTFCurrentContinuousTime(timeDelta), ##__VA_ARGS__)
 
+#elif USE(SYSPROF_CAPTURE)
+
+#define WTFEmitSignpost(pointer, name, ...) \
+    do { \
+        if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
+            annotator->instantMark(std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+    } while (0)
+
+#define WTFBeginSignpost(pointer, name, ...) \
+    do { \
+        if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
+            annotator->beginMark(pointer, std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+    } while (0)
+
+#define WTFEndSignpost(pointer, name, ...)  \
+    do { \
+        if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
+            annotator->endMark(pointer, std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+    } while (0)
+
+#define WTFEmitSignpostAlways(pointer, name, ...) WTFEmitSignpost((pointer), name, ##__VA_ARGS__)
+#define WTFBeginSignpostAlways(pointer, name, ...) WTFBeginSignpost((pointer), name, ##__VA_ARGS__)
+#define WTFEndSignpostAlways(pointer, name, ...) WTFEndSignpost((pointer), name, ##__VA_ARGS__)
+
+#define WTFEmitSignpostWithTimeDelta(pointer, name, timeDelta, ...) \
+    do { \
+        if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
+            annotator->mark((timeDelta), std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+    } while (0)
+
+#define WTFBeginSignpostWithTimeDelta(pointer, name, timeDelta, ...) WTFEmitSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)
+#define WTFEndSignpostWithTimeDelta(pointer, name, timeDelta, ...) WTFEmitSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)
+
+#define WTFEmitSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) WTFEmitSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)
+#define WTFBeginSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) WTFBeginSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)
+#define WTFEndSignpostAlwaysWithTimeDelta(pointer, name, timeDelta, ...) WTFEndSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)
+
 #else
 
 #define WTFEmitSignpost(pointer, name, ...) do { } while (0)
 #define WTFBeginSignpost(pointer, name, ...) do { } while (0)
 #define WTFEndSignpost(pointer, name, ...) do { } while (0)
 
+#define WTFEmitSignpostAlways(pointer, name, ...) do { } while (0)
+#define WTFBeginSignpostAlways(pointer, name, ...) do { } while (0)
+#define WTFEndSignpostAlways(pointer, name, ...) do { } while (0)
+
 #define WTFEmitSignpostWithTimeDelta(pointer, name, ...) do { } while (0)
 #define WTFBeginSignpostWithTimeDelta(pointer, name, ...) do { } while (0)
 #define WTFEndSignpostWithTimeDelta(pointer, name, ...) do { } while (0)
+
+#define WTFEmitSignpostAlwaysWithTimeDelta(pointer, name, ...) do { } while (0)
+#define WTFBeginSignpostAlwaysWithTimeDelta(pointer, name, ...) do { } while (0)
+#define WTFEndSignpostAlwaysWithTimeDelta(pointer, name, ...) do { } while (0)
 
 #endif

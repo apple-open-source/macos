@@ -145,9 +145,7 @@ Settings::Values Settings::Values::isolatedCopy() const
     };
 }
 
-Settings::~Settings()
-{
-}
+Settings::~Settings() = default;
 
 void Settings::disableUnstableFeaturesForModernWebKit()
 {
@@ -214,7 +212,7 @@ void Settings::<%= @setting.setterFunctionName %>InspectorOverride(std::optional
 {
     if (m_values.<%= @setting.name %>InspectorOverride == <%= @setting.name %>InspectorOverride)
         return;
-        m_values.<%= @setting.name %>InspectorOverride = <%= @setting.name %>InspectorOverride;
+    m_values.<%= @setting.name %>InspectorOverride = <%= @setting.name %>InspectorOverride;
 <%- if @setting.condition -%>
 #if <%= @setting.condition %>
 <%- end -%>

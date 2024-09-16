@@ -31,6 +31,7 @@
 #include "RemoteQueueMessages.h"
 #include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
+#include <WebCore/SharedMemory.h>
 #include <WebCore/WebGPUQueue.h>
 
 namespace WebKit {
@@ -48,7 +49,7 @@ RemoteQueue::~RemoteQueue() = default;
 
 void RemoteQueue::destruct()
 {
-    m_objectHeap.removeObject(m_identifier);
+    m_objectHeap->removeObject(m_identifier);
 }
 
 void RemoteQueue::stopListeningForIPC()
@@ -61,7 +62,7 @@ void RemoteQueue::submit(Vector<WebGPUIdentifier>&& commandBuffers)
     Vector<std::reference_wrapper<WebCore::WebGPU::CommandBuffer>> convertedCommandBuffers;
     convertedCommandBuffers.reserveInitialCapacity(commandBuffers.size());
     for (WebGPUIdentifier identifier : commandBuffers) {
-        auto convertedCommandBuffer = m_objectHeap.convertCommandBufferFromBacking(identifier);
+        auto convertedCommandBuffer = m_objectHeap->convertCommandBufferFromBacking(identifier);
         ASSERT(convertedCommandBuffer);
         if (!convertedCommandBuffer)
             return;
@@ -80,32 +81,42 @@ void RemoteQueue::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
 void RemoteQueue::writeBuffer(
     WebGPUIdentifier buffer,
     WebCore::WebGPU::Size64 bufferOffset,
-    Vector<uint8_t>&& data)
+    std::optional<WebCore::SharedMemoryHandle>&& dataHandle,
+    CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto convertedBuffer = m_objectHeap.convertBufferFromBacking(buffer);
+    auto data = dataHandle ? WebCore::SharedMemory::map(WTFMove(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
+    auto convertedBuffer = m_objectHeap->convertBufferFromBacking(buffer);
     ASSERT(convertedBuffer);
-    if (!convertedBuffer)
+    if (!convertedBuffer) {
+        completionHandler(false);
         return;
+    }
 
-    m_backing->writeBuffer(*convertedBuffer, bufferOffset, data.data(), data.size(), 0, std::nullopt);
+    m_backing->writeBufferNoCopy(*convertedBuffer, bufferOffset, data ? data->mutableSpan() : std::span<uint8_t> { }, 0, std::nullopt);
+    completionHandler(true);
 }
 
 void RemoteQueue::writeTexture(
     const WebGPU::ImageCopyTexture& destination,
-    Vector<uint8_t>&& data,
+    std::optional<WebCore::SharedMemoryHandle>&& dataHandle,
     const WebGPU::ImageDataLayout& dataLayout,
-    const WebGPU::Extent3D& size)
+    const WebGPU::Extent3D& size,
+    CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto convertedDestination = m_objectHeap.convertFromBacking(destination);
+    auto data = dataHandle ? WebCore::SharedMemory::map(WTFMove(*dataHandle), WebCore::SharedMemory::Protection::ReadOnly) : nullptr;
+    auto convertedDestination = m_objectHeap->convertFromBacking(destination);
     ASSERT(convertedDestination);
-    auto convertedDataLayout = m_objectHeap.convertFromBacking(dataLayout);
+    auto convertedDataLayout = m_objectHeap->convertFromBacking(dataLayout);
     ASSERT(convertedDestination);
-    auto convertedSize = m_objectHeap.convertFromBacking(size);
+    auto convertedSize = m_objectHeap->convertFromBacking(size);
     ASSERT(convertedSize);
-    if (!convertedDestination || !convertedDestination || !convertedSize)
+    if (!convertedDestination || !convertedDestination || !convertedSize) {
+        completionHandler(false);
         return;
+    }
 
-    m_backing->writeTexture(*convertedDestination, data.data(), data.size(), *convertedDataLayout, *convertedSize);
+    m_backing->writeTexture(*convertedDestination, data ? data->mutableSpan() : std::span<uint8_t> { }, *convertedDataLayout, *convertedSize);
+    completionHandler(true);
 }
 
 void RemoteQueue::copyExternalImageToTexture(
@@ -113,11 +124,11 @@ void RemoteQueue::copyExternalImageToTexture(
     const WebGPU::ImageCopyTextureTagged& destination,
     const WebGPU::Extent3D& copySize)
 {
-    auto convertedSource = m_objectHeap.convertFromBacking(source);
+    auto convertedSource = m_objectHeap->convertFromBacking(source);
     ASSERT(convertedSource);
-    auto convertedDestination = m_objectHeap.convertFromBacking(destination);
+    auto convertedDestination = m_objectHeap->convertFromBacking(destination);
     ASSERT(convertedDestination);
-    auto convertedCopySize = m_objectHeap.convertFromBacking(copySize);
+    auto convertedCopySize = m_objectHeap->convertFromBacking(copySize);
     ASSERT(convertedCopySize);
     if (!convertedDestination || !convertedDestination || !convertedCopySize)
         return;

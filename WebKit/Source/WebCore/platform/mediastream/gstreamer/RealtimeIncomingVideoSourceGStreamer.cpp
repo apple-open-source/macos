@@ -26,6 +26,7 @@
 #include "GStreamerWebRTCUtils.h"
 #include "VideoFrameGStreamer.h"
 #include "VideoFrameMetadataGStreamer.h"
+#include <wtf/text/MakeString.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_incoming_video_debug);
 #define GST_CAT_DEFAULT webkit_webrtc_incoming_video_debug
@@ -40,10 +41,16 @@ RealtimeIncomingVideoSourceGStreamer::RealtimeIncomingVideoSourceGStreamer(AtomS
         GST_DEBUG_CATEGORY_INIT(webkit_webrtc_incoming_video_debug, "webkitwebrtcincomingvideo", 0, "WebKit WebRTC incoming video");
     });
     static Atomic<uint64_t> sourceCounter = 0;
-    gst_element_set_name(bin(), makeString("incoming-video-source-", sourceCounter.exchangeAdd(1)).ascii().data());
-    GST_DEBUG_OBJECT(bin(), "New incoming video source created");
+    gst_element_set_name(bin(), makeString("incoming-video-source-"_s, sourceCounter.exchangeAdd(1)).ascii().data());
+    GST_DEBUG_OBJECT(bin(), "New incoming video source created with ID %s", persistentID().ascii().data());
+}
 
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(bin(), "sink"));
+void RealtimeIncomingVideoSourceGStreamer::setUpstreamBin(const GRefPtr<GstElement>& bin)
+{
+    RealtimeIncomingSourceGStreamer::setUpstreamBin(bin);
+
+    auto tee = adoptGRef(gst_bin_get_by_name(GST_BIN_CAST(m_upstreamBin.get()), "tee"));
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(tee.get(), "sink"));
     gst_pad_add_probe(sinkPad.get(), static_cast<GstPadProbeType>(GST_PAD_PROBE_TYPE_BUFFER), [](GstPad*, GstPadProbeInfo* info, gpointer) -> GstPadProbeReturn {
         auto videoFrameTimeMetadata = std::make_optional<VideoFrameTimeMetadata>({ });
         videoFrameTimeMetadata->receiveTime = MonotonicTime::now().secondsSinceEpoch();
@@ -59,8 +66,6 @@ RealtimeIncomingVideoSourceGStreamer::RealtimeIncomingVideoSourceGStreamer(AtomS
         GST_PAD_PROBE_INFO_DATA(info) = buffer;
         return GST_PAD_PROBE_OK;
     }, nullptr, nullptr);
-
-    start();
 }
 
 const RealtimeMediaSourceSettings& RealtimeIncomingVideoSourceGStreamer::settings()
@@ -96,28 +101,35 @@ void RealtimeIncomingVideoSourceGStreamer::settingsDidChange(OptionSet<RealtimeM
         m_currentSettings = std::nullopt;
 }
 
+void RealtimeIncomingVideoSourceGStreamer::ensureSizeAndFramerate(const GRefPtr<GstCaps>& caps)
+{
+    if (auto size = getVideoResolutionFromCaps(caps.get()))
+        setIntrinsicSize({ static_cast<int>(size->width()), static_cast<int>(size->height()) });
+
+    int frameRateNumerator, frameRateDenominator;
+    auto* structure = gst_caps_get_structure(caps.get(), 0);
+    if (!gst_structure_get_fraction(structure, "framerate", &frameRateNumerator, &frameRateDenominator))
+        return;
+
+    double framerate;
+    gst_util_fraction_to_double(frameRateNumerator, frameRateDenominator, &framerate);
+    setFrameRate(framerate);
+}
+
 void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& sample)
 {
     ASSERT(isMainThread());
     auto* buffer = gst_sample_get_buffer(sample.get());
     auto* caps = gst_sample_get_caps(sample.get());
-    if (auto size = getVideoResolutionFromCaps(caps))
-        setSize({ static_cast<int>(size->width()), static_cast<int>(size->height()) });
+    ensureSizeAndFramerate(GRefPtr<GstCaps>(caps));
 
-    int frameRateNumerator, frameRateDenominator;
-    auto* structure = gst_caps_get_structure(caps, 0);
-    if (gst_structure_get_fraction(structure, "framerate", &frameRateNumerator, &frameRateDenominator)) {
-        double framerate;
-        gst_util_fraction_to_double(frameRateNumerator, frameRateDenominator, &framerate);
-        setFrameRate(framerate);
-    }
-
-    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), size(), fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
+    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), intrinsicSize(), fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
 }
 
 const GstStructure* RealtimeIncomingVideoSourceGStreamer::stats()
 {
     m_stats.reset(gst_structure_new_empty("incoming-video-stats"));
+
     forEachVideoFrameObserver([&](auto& observer) {
         auto stats = observer.queryAdditionalStats();
         if (!stats)

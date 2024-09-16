@@ -1,7 +1,7 @@
 /*
 	File:		MBCGameInfo.mm
 	Contains:	Managing information about the current game
-	Copyright:	© 2003-2011 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,6 +44,7 @@
 */
 
 #import "MBCGameInfo.h"
+#import "MBCBoardWin.h"
 #import "MBCController.h"
 #import "MBCPlayer.h"
 #import "MBCDocument.h"
@@ -156,18 +157,22 @@ const int kNumFixedMenuItems = 2;
      stringByAppendingPathComponent:@"Styles"];
 	NSEnumerator  * styles 		= 
     [[fileManager contentsOfDirectoryAtPath:stylePath error:nil] objectEnumerator];
+    
+    BOOL excludeFurAndGrass = [MBCBoardWin isRenderingWithMetal];
 	while (NSString * style = [styles nextObject]) {
+        if (excludeFurAndGrass && ([style isEqualToString:@"Fur"] || [style isEqualToString:@"Grass"])) {
+            continue;
+        }
+        
 		NSString * locStyle = [self localizedStyleName:style];
 		[fStyleLocMap setObject:style forKey:locStyle];
 		NSString * s = [stylePath stringByAppendingPathComponent:style];
-		if ([fileManager fileExistsAtPath:
-             [s stringByAppendingPathComponent:@"Board.plist"]]
-            )
-			[fBoardStyle addItemWithTitle:locStyle];
-		if ([fileManager fileExistsAtPath:
-             [s stringByAppendingPathComponent:@"Piece.plist"]]
-            )
-			[fPieceStyle addItemWithTitle:locStyle];
+        if ([fileManager fileExistsAtPath:[s stringByAppendingPathComponent:@"Board.plist"]]) {
+            [fBoardStyle addItemWithTitle:locStyle];
+        }
+        if ([fileManager fileExistsAtPath:[s stringByAppendingPathComponent:@"Piece.plist"]]) {
+            [fPieceStyle addItemWithTitle:locStyle];
+        }
 	}
 }
 
@@ -365,12 +370,22 @@ const int kNumFixedMenuItems = 2;
     [self editProperties:fEditSheet modalForWindow:[sender window]];
 }
 
-- (void)editPreferencesForWindow:(NSWindow *)window
+- (void)editPreferencesForWindow:(NSWindow *)window hidePiecesStyle:(BOOL)hidePiecesStyle
 {
     [fPrimaryVoiceMenu selectItemAtIndex:[self indexForVoice:[fDocument objectForKey:kMBCDefaultVoice]]];
     [fAlternateVoiceMenu selectItemAtIndex:[self indexForVoice:[fDocument objectForKey:kMBCAlternateVoice]]];
     [fBoardStyle selectItemWithTitle:[self localizedStyleName:[fDocument objectForKey:kMBCBoardStyle]]];
     [fPieceStyle selectItemWithTitle:[self localizedStyleName:[fDocument objectForKey:kMBCPieceStyle]]];
+    
+    if (hidePiecesStyle) {
+        // Metal rendering unifies piece and board style to one popup, not text field labels needed for popups.
+        fPieceStyle.hidden = YES;
+        fPieceStyleText.hidden = YES;
+        fPieceStyleText.stringValue = @"";
+        fBoardStyleText.stringValue = @"";
+        fPieceStyleTrailingConstraint.constant = 0;
+        fBoardStyleTrailingConstraint.constant = 0;
+    }
     
     [self editProperties:fPrefsSheet modalForWindow:window];
 }
@@ -548,8 +563,6 @@ const int kNumFixedMenuItems = 2;
 						  [[fBoard lastMove] localizedText]];
     } else if ([[fDocument objectForKey:@"Request"] isEqual:@"Takeback"]) {
         move = NSLocalizedString(@"takeback_msg", @"Takeback requested");
-	} else if (!numMoves) {
-		move =	NSLocalizedString(@"new_msg", @"New Game");
 	} else if (numMoves & 1) {
 		move = 	NSLocalizedString(@"black_move_msg", @"Black to move");
 	} else {
@@ -559,8 +572,10 @@ const int kNumFixedMenuItems = 2;
 	if (NSString * outcome = [self outcome])
 		move = outcome;
 	NSString * title =
-		[NSString localizedStringWithFormat:NSLocalizedString(@"game_title_fmt", @"%@ - %@   (%@)"), 
-				  [fDocument objectForKey:@"White"], [fDocument objectForKey:@"Black"], move];
+    [NSString localizedStringWithFormat:NSLocalizedString(@"game_title_fmt", @"%@ : %@ - %@   (%@)"),
+                fDocument.displayName,
+                [fDocument objectForKey:@"White"],
+                [fDocument objectForKey:@"Black"], move];
     
     return title;
 }

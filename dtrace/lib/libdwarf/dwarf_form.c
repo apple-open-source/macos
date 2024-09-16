@@ -463,7 +463,8 @@ dwarf_formisdata(Dwarf_Attribute attr)
 	Dwarf_Half form = attr->ar_attribute_form;
 	return form == DW_FORM_udata || form == DW_FORM_data1 ||
 		form == DW_FORM_data2 || form == DW_FORM_data4 ||
-		form == DW_FORM_data8 || form == DW_FORM_sdata;
+		form == DW_FORM_data8 || form == DW_FORM_sdata ||
+	    form == DW_FORM_implicit_const;
 }
 
 Dwarf_Bool
@@ -608,6 +609,10 @@ dwarf_formsdata(Dwarf_Attribute attr,
 	ret_value =
 	    (_dwarf_decode_s_leb128(attr->ar_debug_info_ptr, NULL));
 	*return_sval = ret_value;
+	return DW_DLV_OK;
+			
+	case DW_FORM_implicit_const:
+	*return_sval = attr->implicit_const_val;
 	return DW_DLV_OK;
 
 
@@ -774,7 +779,57 @@ dwarf_formstring(Dwarf_Attribute attr,
 	*return_str = (char *) (dbg->de_debug_str + offset);
 	return DW_DLV_OK;
     }
-
-    _dwarf_error(dbg, error, DW_DLE_ATTR_FORM_BAD);
-    return (DW_DLV_ERROR);
+	
+	if ((attr->ar_attribute_form >= DW_FORM_strx1
+		 && attr->ar_attribute_form <= DW_FORM_strx4)
+		|| attr->ar_attribute_form == DW_FORM_strx) {
+		
+		Dwarf_ufixed stringoff;
+		
+		if (attr->ar_attribute_form == DW_FORM_strx1)
+		{
+			READ_UNALIGNED(dbg, offset, Dwarf_Small,
+						   attr->ar_debug_info_ptr,
+						   sizeof(Dwarf_Small));
+		}
+		else if (attr->ar_attribute_form == DW_FORM_strx2)
+		{
+			READ_UNALIGNED(dbg, offset, Dwarf_Half,
+						   attr->ar_debug_info_ptr,
+						   sizeof(Dwarf_Half));
+		}
+		else if (attr->ar_attribute_form == DW_FORM_strx3)
+		{
+			READ_UNALIGNED(dbg, offset, Dwarf_Word,
+						   attr->ar_debug_info_ptr,
+						   sizeof(Dwarf_Small) + sizeof(Dwarf_Half));
+		}
+		else if (attr->ar_attribute_form == DW_FORM_strx4)
+		{
+			READ_UNALIGNED(dbg, offset, Dwarf_Word,
+						   attr->ar_debug_info_ptr,
+						   sizeof(Dwarf_ufixed));
+		}
+		else
+			/* DW_FORM_strx */
+			DECODE_LEB128_UWORD(attr->ar_debug_info_ptr, offset);
+        
+		stringoff = *((Dwarf_ufixed*)(dbg->de_debug_str_offset +
+									(offset * dbg->de_debug_str_offset_entry_size)
+									+ dbg->de_debug_str_offset_header_size));
+		
+		res =
+		_dwarf_load_section(dbg,
+							dbg->de_debug_str_index,
+							&dbg->de_debug_str, error);
+		
+		if (res != DW_DLV_OK)
+			return res;
+		
+		*return_str = (char *) (dbg->de_debug_str + stringoff);
+		return DW_DLV_OK;
+    }
+	
+	_dwarf_error(dbg, error, DW_DLE_ATTR_FORM_BAD);
+	return (DW_DLV_ERROR);
 }

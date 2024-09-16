@@ -109,6 +109,16 @@ custom_mansect_body()
 	# We should find it in a the base section number, too
 	atf_check -o match:"CONTENT" \
 	    env MANPATH="$PWD/man" MANPAGER="cat" man 1z finally
+
+	# Regression tests for rdar://124959653
+	# Don't check for extended section after regular section
+	atf_check -s exit:1 -e match:"for 1p$" \
+	    env MANPATH="$PWD/man" MANPAGER="cat" man 1 1p cmd
+	# Narrow down extended section syntax to /^[0-9][a-z]{1,3}$/
+	atf_check -o match:"CONTENT" -e match:"for 1p1$" \
+	    env MANPATH="$PWD/man" MANPAGER="cat" man 1p1 cmd
+	atf_check -o match:"CONTENT" -e match:"for 1pabc$" \
+	    env MANPATH="$PWD/man" MANPAGER="cat" man 1pabc cmd
 }
 
 atf_test_case whatis
@@ -138,10 +148,25 @@ whatis_body()
 	atf_check -o match:1 grep -c cmd <out8
 }
 
+atf_test_case so
+so_body()
+{
+	mkdir -p man/man1 man/man8
+	fake_manpage man/man1/cmd.1 cmd "Command"
+	atf_check -o match:"Command" env MANPATH="$PWD/man" man cmd
+	# correct usage
+	echo ".so man1/cmd.1" >man/man8/foo.8
+	atf_check -o match:"Command" env MANPATH="$PWD/man" man foo
+	# incorrect but widespread usage
+	echo ".so cmd.1" >man/man1/bar.1
+	atf_check -o match:"Command" env MANPATH="$PWD/man" man bar
+}
+
 atf_init_test_cases()
 {
 
 	atf_add_test_case spaces
 	atf_add_test_case custom_mansect
 	atf_add_test_case whatis
+	atf_add_test_case so
 }

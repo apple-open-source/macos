@@ -175,9 +175,7 @@ DbConstIndex::matchesQuery(const CSSM_QUERY &query, DbQueryKey *&queryKey) const
 	
 	// determine which index attributes are used in the query
 	
-	auto_array<uint32> attributeUsed(mAttributes.size());
-	for (uint32 i = 0; i < mAttributes.size(); attributeUsed[i++] = ~(uint32)0);
-	
+    vector<uint32> attributeUsed(mAttributes.size(), ~(uint32)0);
 	for (uint32 i = 0, j; i < numPredicates; i++) {
 		const MetaAttribute &tableAttribute =
 			mMetaRecord.metaAttribute(query.SelectionPredicate[i].Attribute.Info);

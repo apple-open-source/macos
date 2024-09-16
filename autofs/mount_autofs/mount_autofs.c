@@ -1,4 +1,3 @@
-
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/errno.h>
@@ -37,9 +36,10 @@ automount_realpath(const char *file_name, char *resolved_name)
 	int rv;
 
 	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
-			 FSOPT_ATTR_CMN_EXTENDED);
-	if (rv == -1)
+	    FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1) {
 		return NULL;
+	}
 
 	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
 	if (resolved_name != NULL) {
@@ -65,7 +65,6 @@ main(int argc, char **argv)
 
 	while ((ch = getopt(argc, argv, "dt:")) != EOF) {
 		switch (ch) {
-
 		case 'd':
 			direct = 1;
 			break;
@@ -73,21 +72,23 @@ main(int argc, char **argv)
 		default:
 			fprintf(stderr, "%s: unknown option '-%c'.\n", getprogname(), ch);
 			fprintf(stderr, usage, getprogname());
-			return (EXIT_FAILURE);
+			return EXIT_FAILURE;
 		}
 	}
 	argc -= optind;
 	argv += optind;
-    
-	if (argc < 5)
+
+	if (argc < 5) {
 		errx(1, usage, getprogname());
-	
+	}
+
 	path = automount_realpath(argv[0], mount_path);
 	if (path == NULL) {
 		err(1, "couldn't resolve mount path: %s", strerror(errno));
 		/* NOT REACHED */
 		return 1;
-	};
+	}
+	;
 
 	mnt_args.version = AUTOFS_ARGSVERSION;
 	mnt_args.path = path;
@@ -96,12 +97,12 @@ main(int argc, char **argv)
 	mnt_args.subdir = argv[3];
 	mnt_args.key = argv[4];
 	mnt_args.direct = direct;
-	mnt_args.mount_type = MOUNT_TYPE_MAP;	/* top-level autofs mount */
-		
+	mnt_args.mount_type = MOUNT_TYPE_MAP;   /* top-level autofs mount */
+
 	retried = false;
 	while (true) {
 		error = mount("autofs", mount_path,
-		    MNT_DONTBROWSE|MNT_AUTOMOUNTED, &mnt_args);
+		    MNT_DONTBROWSE | MNT_AUTOMOUNTED, &mnt_args);
 		if (error == 0) {
 			break;
 		} else if (retried) {
@@ -112,8 +113,8 @@ main(int argc, char **argv)
 			(void)LoadAutoFS();
 		}
 	}
-	
-	return (error == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+
+	return error == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int
@@ -122,7 +123,7 @@ LoadAutoFS(void)
 	pid_t pid, terminated_pid;
 	int result;
 	union wait status;
-    
+
 	pid = fork();
 	if (pid == 0) {
 		result = execl(gKextLoadCommand, gKextLoadCommand, "-q", gKextLoadPath, NULL);
@@ -136,13 +137,13 @@ LoadAutoFS(void)
 	}
 
 	/* Success! Wait for completion in-line here */
-	while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 ) {
+	while ((terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0) {
 		/* retry if EINTR, else break out with error */
-		if ( errno != EINTR ) {
+		if (errno != EINTR) {
 			break;
 		}
 	}
-    
+
 	if ((terminated_pid == pid) && (WIFEXITED(status))) {
 		result = WEXITSTATUS(status);
 	} else {

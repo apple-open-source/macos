@@ -58,7 +58,12 @@ static size_t	curpfile;	/* current filename */
 bool	safe = false;	/* true => "safe" mode */
 int	Unix2003_compat;
 
+#ifdef __APPLE__
+/* May return now, if kill(2)-delivered in conformance mode. */
+static void fpecatch(int n
+#else
 static noreturn void fpecatch(int n
+#endif
 #ifdef SA_SIGINFO
 	, siginfo_t *si, void *uc
 #endif
@@ -76,6 +81,18 @@ static noreturn void fpecatch(int n
 		[FPE_FLTINV] = "Invalid Floating point operation",
 		[FPE_FLTSUB] = "Subscript out of range",
 	};
+#endif
+#ifdef __APPLE__
+	if (Unix2003_compat && si->si_code == 0) {
+		/*
+		 * 0 == FPE_NOOP, used when delivered by kill(2).  We just
+		 * reset the disposition and re-deliver SIGFPE for conformance
+		 * purposes.
+		 */
+		signal(SIGFPE, SIG_DFL);
+		raise(SIGFPE);
+		return;
+	}
 #endif
 	FATAL("floating point exception"
 #ifdef SA_SIGINFO

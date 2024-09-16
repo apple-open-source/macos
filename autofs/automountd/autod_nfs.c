@@ -71,26 +71,26 @@
 
 #include "umount_by_fsid.h"
 
-#define	MAXHOSTS	512
+#define MAXHOSTS        512
 
 /*
  * host cache states
  */
-#define	NOHOST		0	/* host not found in the cache */
-#define	GOODHOST	1	/* host was OK last time we checked */
-#define	DEADHOST	2	/* host was dead last time we checked */
-#define	NXHOST		3	/* host didn't exist last time we checked */
+#define NOHOST          0       /* host not found in the cache */
+#define GOODHOST        1       /* host was OK last time we checked */
+#define DEADHOST        2       /* host was dead last time we checked */
+#define NXHOST          3       /* host didn't exist last time we checked */
 
 struct cache_entry {
-	struct	cache_entry *cache_next;
-	char	*cache_host;
-	time_t	cache_time;
-	time_t	cache_max_time;
-	int	cache_level;
-	int	cache_state;
+	struct  cache_entry *cache_next;
+	char    *cache_host;
+	time_t  cache_time;
+	time_t  cache_max_time;
+	int     cache_level;
+	int     cache_state;
 	rpcvers_t cache_reqvers;
 	rpcvers_t cache_outvers;
-	char	*cache_proto;
+	char    *cache_proto;
 };
 
 #define AUTOD_CACHE_TIME 2
@@ -102,10 +102,10 @@ static time_t entry_cache_time = AUTOD_CACHE_TIME;
 static time_t entry_cache_max_time = AUTOD_MAX_CACHE_TIME;
 
 static struct cache_entry *cache_head = NULL;
-pthread_rwlock_t cache_lock;	/* protect the cache chain */
+pthread_rwlock_t cache_lock;    /* protect the cache chain */
 
 static int nfsmount(struct mapfs *, char *, char *, boolean_t, boolean_t,
-		    fsid_t, au_asid_t, fsid_t *, uint32_t *);
+    fsid_t, au_asid_t, fsid_t *, uint32_t *);
 #ifdef HAVE_LOFS
 static int is_nfs_port(char *);
 #endif
@@ -152,8 +152,8 @@ static rpcvers_t vers_min_default = NFS_VER2;
 
 int
 mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
-	  fsid_t mntpnt_fsid, au_asid_t asid, fsid_t *fsidp,
-	  uint32_t *retflags)
+    fsid_t mntpnt_fsid, au_asid_t asid, fsid_t *fsidp,
+    uint32_t *retflags)
 {
 #ifdef HAVE_LOFS
 	struct mapfs *mfs, *mp;
@@ -163,8 +163,9 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 	int err = -1;
 
 	mfs = enum_servers(me, prevhost);
-	if (mfs == NULL)
-		return (ENOENT);
+	if (mfs == NULL) {
+		return ENOENT;
+	}
 
 #ifdef HAVE_LOFS
 	/*
@@ -175,7 +176,7 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 		for (mp = mfs; mp; mp = mp->mfs_next) {
 			if (self_check(mp->mfs_host)) {
 				err = loopbackmount(mp->mfs_dir,
-					mntpnt, me->map_mntopts);
+				    mntpnt, me->map_mntopts);
 				if (err) {
 					mp->mfs_ignore = 1;
 				} else {
@@ -187,20 +188,20 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 #endif
 	if (err) {
 		err = nfsmount(mfs, mntpnt, me->map_mntopts, isdirect,
-			       me->map_quarantine,
-			       mntpnt_fsid, asid, fsidp, retflags);
+		    me->map_quarantine,
+		    mntpnt_fsid, asid, fsidp, retflags);
 		if (err && trace > 1) {
 			trace_prt(1, "	Couldn't mount %s:%s, err=%d\n",
-				mfs->mfs_host, mfs->mfs_dir, err);
+			    mfs->mfs_host, mfs->mfs_dir, err);
 		}
 	}
 	free_mfs(mfs);
-	return (err);
+	return err;
 }
 
 struct aftype {
-	int	afnum;
-	char	*name;
+	int     afnum;
+	char    *name;
 };
 
 static struct mapfs *
@@ -214,7 +215,7 @@ get_mysubnet_servers(struct mapfs *mfs_in)
 		{ AF_INET6, "IPv6" }
 #endif
 	};
-#define N_AFS	(sizeof aflist / sizeof aflist[0])
+#define N_AFS   (sizeof aflist / sizeof aflist[0])
 	struct hostent *hp;
 	char **nb;
 	int res;
@@ -226,8 +227,9 @@ get_mysubnet_servers(struct mapfs *mfs_in)
 		for (i = 0; i < N_AFS; i++) {
 			af = aflist[i].afnum;
 			hp = getipnodebyname(mfs->mfs_host, af, AI_DEFAULT, &err);
-			if (hp == NULL)
+			if (hp == NULL) {
 				continue;
+			}
 			if (hp->h_addrtype != af) {
 				freehostent(hp);
 				continue;
@@ -242,27 +244,25 @@ get_mysubnet_servers(struct mapfs *mfs_in)
 			for (nb = &hp->h_addr_list[0]; *nb != NULL; nb++) {
 				if ((res = subnet_test(af, hp->h_length, *nb)) != 0) {
 					p = add_mfs(mfs, DIST_MYNET,
-						&mfs_head, &mfs_tail);
+					    &mfs_head, &mfs_tail);
 					if (!p) {
 						freehostent(hp);
-						return (NULL);
+						return NULL;
 					}
 					break;
 				}
 			}  /* end of every host address */
 			if (trace > 2) {
 				trace_prt(1, "get_mysubnet_servers: host=%s "
-					"netid=%s res=%s\n", mfs->mfs_host,
-					aflist[i].name, res == 1?"SUC":"FAIL");
+				    "netid=%s res=%s\n", mfs->mfs_host,
+				    aflist[i].name, res == 1?"SUC":"FAIL");
 			}
 
 			freehostent(hp);
 		} /* end of while */
-
 	} /* end of every map */
 
-	return (mfs_head);
-
+	return mfs_head;
 }
 
 /*
@@ -278,10 +278,11 @@ masked_eq(char *a, char *b, char *mask, int len)
 	masklim = mask + len;
 
 	for (; mask < masklim; mask++) {
-		if ((*a++ ^ *b++) & *mask)
+		if ((*a++ ^ *b++) & *mask) {
 			break;
+		}
 	}
-	return (mask == masklim);
+	return mask == masklim;
 }
 
 static int
@@ -290,27 +291,30 @@ subnet_test(int af, int len, char *addr)
 	struct ifaddrs *ifalist, *ifa;
 	char *if_inaddr, *if_inmask, *if_indstaddr;
 
-	if (getifaddrs(&ifalist))
-		return (0);
+	if (getifaddrs(&ifalist)) {
+		return 0;
+	}
 
 	for (ifa = ifalist; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr->sa_family != af)
+		if (ifa->ifa_addr->sa_family != af) {
 			continue;
+		}
 		if_inaddr = (af == AF_INET) ?
 		    (char *) &(((struct sockaddr_in *)(ifa->ifa_addr))->sin_addr) :
 		    (char *) &(((struct sockaddr_in6 *)(ifa->ifa_addr))->sin6_addr);
 		if (ifa->ifa_dstaddr) {
 			if_indstaddr = (af == AF_INET) ?
-			     (char *) &(((struct sockaddr_in *)(ifa->ifa_dstaddr))->sin_addr) :
-			     (char *) &(((struct sockaddr_in6 *)(ifa->ifa_dstaddr))->sin6_addr);
-		} else
+			    (char *) &(((struct sockaddr_in *)(ifa->ifa_dstaddr))->sin_addr) :
+			    (char *) &(((struct sockaddr_in6 *)(ifa->ifa_dstaddr))->sin6_addr);
+		} else {
 			if_indstaddr = NULL;
+		}
 
 		if (ifa->ifa_netmask == NULL) {
 			if (memcmp(if_inaddr, addr, len) == 0 ||
 			    (if_indstaddr && memcmp(if_indstaddr, addr, len) == 0)) {
 				freeifaddrs(ifalist);
-				return (1);
+				return 1;
 			}
 		} else {
 			if_inmask = (af == AF_INET) ?
@@ -319,18 +323,18 @@ subnet_test(int af, int len, char *addr)
 			if (ifa->ifa_flags & IFF_POINTOPOINT) {
 				if (if_indstaddr && memcmp(if_indstaddr, addr, len) == 0) {
 					freeifaddrs(ifalist);
-					return (1);
+					return 1;
 				}
 			} else {
 				if (masked_eq(if_inaddr, addr, if_inmask, len)) {
 					freeifaddrs(ifalist);
-					return (1);
+					return 1;
 				}
 			}
 		}
 	}
 	freeifaddrs(ifalist);
-	return (0);
+	return 0;
 }
 
 /*
@@ -342,8 +346,9 @@ sort_servers(struct mapfs *mfs_in, int timeout)
 	struct mapfs *m1 = NULL;
 	enum clnt_stat clnt_stat;
 
-	if (!mfs_in)
-		return (NULL);
+	if (!mfs_in) {
+		return NULL;
+	}
 
 	clnt_stat = nfs_cast(mfs_in, &m1, timeout);
 
@@ -367,10 +372,10 @@ sort_servers(struct mapfs *mfs_in, int timeout)
 		}
 
 		syslog(LOG_ERR, "servers %s%s not responding: %s",
-			buff, ellipsis, clnt_sperrno(clnt_stat));
+		    buff, ellipsis, clnt_sperrno(clnt_stat));
 	}
 
-	return (m1);
+	return m1;
 }
 
 /*
@@ -380,31 +385,34 @@ sort_servers(struct mapfs *mfs_in, int timeout)
  */
 struct mapfs *
 add_mfs(struct mapfs *mfs, int distance, struct mapfs **mfs_head,
-	struct mapfs **mfs_tail)
+    struct mapfs **mfs_tail)
 {
 	struct mapfs *tmp, *new;
 
-	for (tmp = *mfs_head; tmp; tmp = tmp->mfs_next)
+	for (tmp = *mfs_head; tmp; tmp = tmp->mfs_next) {
 		if ((strcmp(tmp->mfs_host, mfs->mfs_host) == 0 &&
 		    strcmp(tmp->mfs_dir, mfs->mfs_dir) == 0) ||
-			mfs->mfs_ignore)
-			return (*mfs_head);
-	new = (struct mapfs *)malloc(sizeof (struct mapfs));
+		    mfs->mfs_ignore) {
+			return *mfs_head;
+		}
+	}
+	new = (struct mapfs *)malloc(sizeof(struct mapfs));
 	if (!new) {
 		syslog(LOG_ERR, "Memory allocation failed: %m");
-		return (NULL);
+		return NULL;
 	}
-	bcopy(mfs, new, sizeof (struct mapfs));
+	bcopy(mfs, new, sizeof(struct mapfs));
 	new->mfs_next = NULL;
-	if (distance)
+	if (distance) {
 		new->mfs_distance = distance;
-	if (!*mfs_head)
+	}
+	if (!*mfs_head) {
 		*mfs_tail = *mfs_head = new;
-	else {
+	} else {
 		(*mfs_tail)->mfs_next = new;
 		*mfs_tail = new;
 	}
-	return (*mfs_head);
+	return *mfs_head;
 }
 
 static void
@@ -412,16 +420,18 @@ dump_mfs(struct mapfs *mfs, char *message, int level)
 {
 	struct mapfs *m1;
 
-	if (trace <= level)
+	if (trace <= level) {
 		return;
+	}
 
 	trace_prt(1, "%s", message);
 	if (!mfs) {
 		trace_prt(0, "mfs is null\n");
 		return;
 	}
-	for (m1 = mfs; m1; m1 = m1->mfs_next)
+	for (m1 = mfs; m1; m1 = m1->mfs_next) {
 		trace_prt(0, "\t%s[%s] ", m1->mfs_host, dump_distance(m1));
+	}
 	trace_prt(0, "\n");
 }
 
@@ -429,12 +439,12 @@ static char *
 dump_distance(struct mapfs *mfs)
 {
 	switch (mfs->mfs_distance) {
-	case 0:			return ("zero");
-	case DIST_SELF:		return ("self");
-	case DIST_MYSUB:	return ("mysub");
-	case DIST_MYNET:	return ("mynet");
-	case DIST_OTHER:	return ("other");
-	default:		return ("other");
+	case 0:                 return "zero";
+	case DIST_SELF:         return "self";
+	case DIST_MYSUB:        return "mysub";
+	case DIST_MYNET:        return "mynet";
+	case DIST_OTHER:        return "other";
+	default:                return "other";
 	}
 }
 
@@ -448,8 +458,9 @@ filter_mfs(struct mapfs *raw, struct mapfs *filter)
 	struct mapfs *mfs, *p, *mfs_head = NULL, *mfs_tail = NULL;
 	int skip;
 
-	if (!raw)
-		return (NULL);
+	if (!raw) {
+		return NULL;
+	}
 	for (mfs = raw; mfs; mfs = mfs->mfs_next) {
 		for (skip = 0, p = filter; p; p = p->mfs_next) {
 			if (strcmp(p->mfs_host, mfs->mfs_host) == 0 &&
@@ -458,13 +469,15 @@ filter_mfs(struct mapfs *raw, struct mapfs *filter)
 				break;
 			}
 		}
-		if (skip)
+		if (skip) {
 			continue;
+		}
 		p = add_mfs(mfs, 0, &mfs_head, &mfs_tail);
-		if (!p)
-			return (NULL);
+		if (!p) {
+			return NULL;
+		}
 	}
-	return (mfs_head);
+	return mfs_head;
 }
 
 /*
@@ -500,9 +513,10 @@ enum_servers(struct mapent *me, char *preferred)
 	 */
 	if (!me->map_fs->mfs_next) {
 		p = add_mfs(me->map_fs, DIST_OTHER, &mfs_head, &mfs_tail);
-		if (!p)
-			return (NULL);
-		return (mfs_head);
+		if (!p) {
+			return NULL;
+		}
+		return mfs_head;
 	}
 
 	dump_mfs(me->map_fs, "	enum_servers: mapent: ", 2);
@@ -512,18 +526,22 @@ enum_servers(struct mapent *me, char *preferred)
 	 * or were mounted from previously in a
 	 * hierarchical mount.
 	 */
-	if (trace > 2)
+	if (trace > 2) {
 		trace_prt(1, "	enum_servers: looking for pref/self\n");
+	}
 	for (m1 = me->map_fs; m1; m1 = m1->mfs_next) {
-		if (m1->mfs_ignore)
+		if (m1->mfs_ignore) {
 			continue;
+		}
 		if (self_check(m1->mfs_host) ||
 		    strcmp(m1->mfs_host, preferred) == 0) {
-			if (trace > 2)
+			if (trace > 2) {
 				trace_prt(1, "	enum_servers: pref/self found, %s\n", m1->mfs_host);
+			}
 			p = add_mfs(m1, DIST_SELF, &mfs_head, &mfs_tail);
-			if (!p)
-				return (NULL);
+			if (!p) {
+				return NULL;
+			}
 		}
 	}
 
@@ -542,11 +560,13 @@ enum_servers(struct mapent *me, char *preferred)
 
 	for (m2 = m1; m2; m2 = m2->mfs_next) {
 		p = add_mfs(m2, 0, &mfs_head, &mfs_tail);
-		if (!p)
-			return (NULL);
+		if (!p) {
+			return NULL;
+		}
 	}
-	if (m1)
+	if (m1) {
 		free_mfs(m1);
+	}
 
 	/*
 	 * add the rest of the entries at the end
@@ -555,19 +575,22 @@ enum_servers(struct mapent *me, char *preferred)
 	dump_mfs(m1, "	enum_servers: etc: output of filter_mfs: ", 3);
 	m2 = sort_servers(m1, rpc_timeout / 2);
 	dump_mfs(m2, "	enum_servers: etc: output of sort_servers: ", 3);
-	if (m1)
+	if (m1) {
 		free_mfs(m1);
+	}
 	m1 = m2;
 	for (m2 = m1; m2; m2 = m2->mfs_next) {
 		p = add_mfs(m2, DIST_OTHER, &mfs_head, &mfs_tail);
-		if (!p)
-			return (NULL);
+		if (!p) {
+			return NULL;
+		}
 	}
-	if (m1)
+	if (m1) {
 		free_mfs(m1);
+	}
 
 	dump_mfs(mfs_head, "  enum_servers: output: ", 1);
-	return (mfs_head);
+	return mfs_head;
 }
 
 static const struct mntopt mopts_nfs[] = {
@@ -576,15 +599,15 @@ static const struct mntopt mopts_nfs[] = {
 
 static int
 nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
-	 boolean_t quarantine, fsid_t mntpnt_fsid, au_asid_t asid,
-	 fsid_t *fsidp, uint32_t *retflags)
+    boolean_t quarantine, fsid_t mntpnt_fsid, au_asid_t asid,
+    fsid_t *fsidp, uint32_t *retflags)
 {
 	mntoptparse_t mp;
 	int flags, altflags;
 	struct stat stbuf;
 	rpcvers_t vers, versmin; /* used to negotiate nfs version in pingnfs */
-				/* and mount version with mountd */
-	rpcvers_t nfsvers;	/* version in map options, 0 if not there */
+	                         /* and mount version with mountd */
+	rpcvers_t nfsvers;      /* version in map options, 0 if not there */
 	long optval;
 	static time_t prevmsg = 0;
 
@@ -606,10 +629,11 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 
 	if (trace > 1) {
 		trace_prt(1, "	nfsmount: mount on %s %s:\n",
-			mntpnt, opts);
-		for (mfs = mfs_in; mfs; mfs = mfs->mfs_next)
+		    mntpnt, opts);
+		for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
 			trace_prt(1, "	  %s:%s\n",
-				mfs->mfs_host, mfs->mfs_dir);
+			    mfs->mfs_host, mfs->mfs_dir);
+		}
 	}
 
 	/*
@@ -624,7 +648,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	 */
 	if (!isdirect && lstat(mntpnt, &stbuf) < 0) {
 		syslog(LOG_ERR, "Couldn't stat %s: %m", mntpnt);
-		return (ENOENT);
+		return ENOENT;
 	}
 
 	/*
@@ -673,10 +697,10 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			last_error = ENOENT;
 			goto ret;
 		}
-	} else
-		nfs_port = 0;	/* "unspecified" */
-
-	if (altflags & (NFS_MNT_VERS|NFS_MNT_NFSVERS)) {
+	} else {
+		nfs_port = 0;   /* "unspecified" */
+	}
+	if (altflags & (NFS_MNT_VERS | NFS_MNT_NFSVERS)) {
 		optval = get_nfs_vers(mp, altflags);
 		if (optval == 0) {
 			/* Error. */
@@ -686,11 +710,12 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			goto ret;
 		}
 		nfsvers = (rpcvers_t)optval;
-	} else
-		nfsvers = 0;	/* "unspecified" */
+	} else {
+		nfsvers = 0;    /* "unspecified" */
+	}
 	if (set_versrange(nfsvers, &vers, &versmin) != 0) {
 		syslog(LOG_ERR, "Incorrect NFS version specified for %s",
-			mntpnt);
+		    mntpnt);
 		freemntopts(mp);
 		last_error = ENOENT;
 		goto ret;
@@ -698,7 +723,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	freemntopts(mp);
 
 	entries = 0;
-    host = NULL;
+	host = NULL;
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
 		if (!mfs->mfs_ignore) {
 			entries++;
@@ -726,7 +751,6 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			last_error = ENOENT;
 			goto out;
 		}
-
 	} else if (entries > 1) {
 		/*
 		 * We have more than one resource.
@@ -748,8 +772,9 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 		 */
 		entries = 0;
 		for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
-			if (mfs->mfs_ignore)
+			if (mfs->mfs_ignore) {
 				continue;
+			}
 
 			host = mfs->mfs_host;
 
@@ -759,10 +784,9 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 
 				if (nfs_port != 0 && mfs->mfs_port != 0 &&
 				    (uint_t)nfs_port != mfs->mfs_port) {
-
 					syslog(LOG_ERR, "nfsmount: port (%u) in nfs URL"
-						" not the same as port (%ld) in port "
-						"option\n", mfs->mfs_port, nfs_port);
+					    " not the same as port (%ld) in port "
+					    "option\n", mfs->mfs_port, nfs_port);
 					last_error = EIO;
 					goto out;
 				}
@@ -795,28 +819,29 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			if (i != RPC_SUCCESS) {
 				if (i == RPC_PROGVERSMISMATCH) {
 					syslog(LOG_ERR, "server %s: NFS "
-						"protocol version mismatch",
-						host);
+					    "protocol version mismatch",
+					    host);
 				} else {
 					syslog(LOG_ERR, "server %s not "
-						"responding", host);
+					    "responding", host);
 				}
 				mfs->mfs_ignore = 1;
 				last_error = ENOENT;
 				continue;
 			}
 			if (nfsvers != 0 && (rpcvers_t)nfsvers != vers) {
-				if (nfs_proto == NULL)
+				if (nfs_proto == NULL) {
 					syslog(LOG_ERR,
-						"NFS version %d "
-						"not supported by %s",
-						nfsvers, host);
-				else
+					    "NFS version %d "
+					    "not supported by %s",
+					    nfsvers, host);
+				} else {
 					syslog(LOG_ERR,
-						"NFS version %d "
-						"with proto %s "
-						"not supported by %s",
-						nfsvers, nfs_proto, host);
+					    "NFS version %d "
+					    "with proto %s "
+					    "not supported by %s",
+					    nfsvers, nfs_proto, host);
+				}
 				mfs->mfs_ignore = 1;
 				last_error = ENOENT;
 				continue;
@@ -857,8 +882,9 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			 * to consider another entry if there we can't get
 			 * all the way to mount(2) with this one.
 			 */
-			if (!replicated)
+			if (!replicated) {
 				break;
+			}
 		}
 
 		if (nfsvers == 0) {
@@ -869,20 +895,22 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			 * network interface and avoid a router.
 			 */
 #ifdef NFS_V4_DEFAULT
-			if (v4cnt && v4cnt >= v3cnt && (v4near || !v3near))
+			if (v4cnt && v4cnt >= v3cnt && (v4near || !v3near)) {
 				nfsvers = NFS_VER4;
-			else
+			} else
 #endif
-			if (v3cnt && v3cnt >= v2cnt && (v3near || !v2near))
+			if (v3cnt && v3cnt >= v2cnt && (v3near || !v2near)) {
 				nfsvers = NFS_VER3;
-			else
+			} else {
 				nfsvers = NFS_VER2;
-			if (trace > 2)
+			}
+			if (trace > 2) {
 				trace_prt(1,
-				"  nfsmount: v4=%d[%d],v3=%d[%d],v2=%d[%d] => v%u.\n",
-				v4cnt, v4near,
-				v3cnt, v3near,
-				v2cnt, v2near, nfsvers);
+				    "  nfsmount: v4=%d[%d],v3=%d[%d],v2=%d[%d] => v%u.\n",
+				    v4cnt, v4near,
+				    v3cnt, v3near,
+				    v2cnt, v2near, nfsvers);
+			}
 		}
 	}
 
@@ -891,15 +919,17 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	 * and mount that.
 	 */
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
-		if (!mfs->mfs_ignore)
+		if (!mfs->mfs_ignore) {
 			break;
+		}
 	}
 
 	/*
 	 * Did we get through all possibilities without success?
 	 */
-	if (!mfs)
+	if (!mfs) {
 		goto out;
+	}
 
 	/*
 	 * Whew; do the mount, at last.
@@ -928,11 +958,11 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 
 out:
 ret:
-	if (nfs_proto)
+	if (nfs_proto) {
 		free(nfs_proto);
+	}
 
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
-
 		if (mfs->mfs_flags & MFS_ALLOC_DIR) {
 			free(mfs->mfs_dir);
 			mfs->mfs_dir = NULL;
@@ -945,7 +975,7 @@ ret:
 		}
 	}
 
-	return (last_error);
+	return last_error;
 }
 
 int
@@ -958,27 +988,29 @@ get_nfs_vers(mntoptparse_t mp, int altflags)
 	 * we should let the last one specified in the option
 	 * string win, but getmntopts() doesn't support that.
 	 */
-	if (altflags & NFS_MNT_VERS)
+	if (altflags & NFS_MNT_VERS) {
 		optstrval = getmntoptstr(mp, "vers");
-	else if (altflags & NFS_MNT_NFSVERS)
+	} else if (altflags & NFS_MNT_NFSVERS) {
 		optstrval = getmntoptstr(mp, "nfsvers");
-	else {
+	} else {
 		/*
 		 * We shouldn't be called if neither of them are set.
 		 */
-		return 0;		/* neither vers= nor nfsvers= specified */
+		return 0;               /* neither vers= nor nfsvers= specified */
 	}
 
-	if (optstrval == NULL)
-		return 0;		/* no version specified */
-	if (strcmp(optstrval, "2") == 0)
-		return NFS_VER2;	/* NFSv2 */
-	else if (strcmp(optstrval, "3") == 0)
-		return NFS_VER3;	/* NFSv3 */
-	else if (strncmp(optstrval, "4", 1) == 0)
-		return NFS_VER4;	/* "4*" means NFSv4 */
-	else
-		return 0;		/* invalid version */
+	if (optstrval == NULL) {
+		return 0;               /* no version specified */
+	}
+	if (strcmp(optstrval, "2") == 0) {
+		return NFS_VER2;        /* NFSv2 */
+	} else if (strcmp(optstrval, "3") == 0) {
+		return NFS_VER3;        /* NFSv3 */
+	} else if (strncmp(optstrval, "4", 1) == 0) {
+		return NFS_VER4;        /* "4*" means NFSv4 */
+	} else {
+		return 0;               /* invalid version */
+	}
 }
 
 /*
@@ -1005,14 +1037,15 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 	}
 
 	clnt = clnt_create_timeout(hostname, prog, vers_high, proto, tp);
-	if (clnt == NULL)
-		return (NULL);
+	if (clnt == NULL) {
+		return NULL;
+	}
 	clnt_control(clnt, CLSET_TIMEOUT, (void *)tp);
 	rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
-			     NULL, (xdrproc_t)xdr_void, NULL, *tp);
+	    NULL, (xdrproc_t)xdr_void, NULL, *tp);
 	if (rpc_stat == RPC_SUCCESS) {
 		*vers_out = vers_high;
-		return (clnt);
+		return clnt;
 	}
 	v_low = vers_low;
 	v_high = vers_high;
@@ -1022,26 +1055,29 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 		clnt_geterr(clnt, &rpcerr);
 		minvers = rpcerr.re_vers.low;
 		maxvers = rpcerr.re_vers.high;
-		if (maxvers < v_high)
+		if (maxvers < v_high) {
 			v_high = maxvers;
-		else
+		} else {
 			v_high--;
-		if (minvers > v_low)
+		}
+		if (minvers > v_low) {
 			v_low = minvers;
+		}
 		if (v_low > v_high) {
 			goto error;
 		}
 		clnt_destroy(clnt);
 		clnt = clnt_create_timeout(hostname, prog, v_high, proto, tp);
-		if (clnt == NULL)
-			return (NULL);
+		if (clnt == NULL) {
+			return NULL;
+		}
 		clnt_control(clnt, CLSET_TIMEOUT, tp);
 		rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
-				NULL, (xdrproc_t)xdr_void,
-				NULL, *tp);
+		    NULL, (xdrproc_t)xdr_void,
+		    NULL, *tp);
 		if (rpc_stat == RPC_SUCCESS) {
 			*vers_out = v_high;
-			return (clnt);
+			return clnt;
 		}
 	}
 	clnt_geterr(clnt, &rpcerr);
@@ -1050,7 +1086,7 @@ error:
 	rpc_createerr.cf_stat = rpc_stat;
 	rpc_createerr.cf_error = rpcerr;
 	clnt_destroy(clnt);
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -1066,9 +1102,9 @@ error:
 
 static CLIENT *
 clnt_create_service_timed(const char *host, const char *service,
-			const rpcprog_t prog, const rpcvers_t vers,
-			const ushort_t port, const char *proto,
-			struct timeval *tmout)
+    const rpcprog_t prog, const rpcvers_t vers,
+    const ushort_t port, const char *proto,
+    struct timeval *tmout)
 {
 	CLIENT *clnt = NULL;
 	struct timeval to;
@@ -1087,14 +1123,14 @@ clnt_create_service_timed(const char *host, const char *service,
 	    (service == NULL && port == 0)) {
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EINVAL;
-		return (NULL);
+		return NULL;
 	}
 	rpc_createerr.cf_stat = RPC_SUCCESS;
-	memset(&hint, 0, sizeof (struct addrinfo));
+	memset(&hint, 0, sizeof(struct addrinfo));
 	if (netid2socparms(proto, &hint.ai_family, &hint.ai_socktype, &hint.ai_protocol, 1)) {
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EAFNOSUPPORT;
-		return (NULL);
+		return NULL;
 	}
 	hint.ai_flags = AI_DEFAULT;
 	if (port) {
@@ -1105,54 +1141,59 @@ clnt_create_service_timed(const char *host, const char *service,
 	}
 	gerror = getaddrinfo(host, service, &hint, &res);
 	if (gerror) {
-		if (trace > PINGNFS_DEBUG_LEVEL)
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  clnt_create_service_timed: getadderinfo returned %d:%s\n",
-				  gerror, gai_strerror(gerror));
+			    gerror, gai_strerror(gerror));
+		}
 		rpc_createerr.cf_stat = RPC_UNKNOWNHOST;
-		return (NULL);
+		return NULL;
 	}
 	sock = RPC_ANYSOCK;
 	switch (res->ai_protocol) {
 	case IPPROTO_UDP:
-		{
-			struct timeval retry_timeout;
-			uint64_t rto = (tmout->tv_sec * 1000000 + tmout->tv_usec)/5;
-			retry_timeout.tv_sec = rto / 10000000;
-			if (retry_timeout.tv_sec > 1) {
-				retry_timeout.tv_sec = 1;
-				retry_timeout.tv_usec = 0;
-			} else {
-				retry_timeout.tv_usec = rto > 2000 ? rto % 10000000 : 2000;
-			}
-			if (trace > PINGNFS_DEBUG_LEVEL)
-				trace_prt(1, "  clntudp_bufcreate_timeout service = %s, timeout = %ld.%d, retry_timeout = %ld.%d\n",
-					  service, tmout->tv_sec, tmout->tv_usec, retry_timeout.tv_sec, retry_timeout.tv_usec);
-			clnt = clntudp_bufcreate_timeout(res->ai_addr, prog, vers, &sock, UDPMSGSIZE, UDPMSGSIZE, &retry_timeout, tmout);
-			freeaddrinfo(res);
-			if (clnt == NULL) {
-				if (trace > PINGNFS_DEBUG_LEVEL)
-					trace_prt(1, "  clnt_create_service: %s", clnt_spcreateerror("UDP failed"));
-				return (NULL);
-			}
+	{
+		struct timeval retry_timeout;
+		uint64_t rto = (tmout->tv_sec * 1000000 + tmout->tv_usec) / 5;
+		retry_timeout.tv_sec = rto / 10000000;
+		if (retry_timeout.tv_sec > 1) {
+			retry_timeout.tv_sec = 1;
+			retry_timeout.tv_usec = 0;
+		} else {
+			retry_timeout.tv_usec = rto > 2000 ? rto % 10000000 : 2000;
 		}
-		break;
+		if (trace > PINGNFS_DEBUG_LEVEL) {
+			trace_prt(1, "  clntudp_bufcreate_timeout service = %s, timeout = %ld.%d, retry_timeout = %ld.%d\n",
+			    service, tmout->tv_sec, tmout->tv_usec, retry_timeout.tv_sec, retry_timeout.tv_usec);
+		}
+		clnt = clntudp_bufcreate_timeout(res->ai_addr, prog, vers, &sock, UDPMSGSIZE, UDPMSGSIZE, &retry_timeout, tmout);
+		freeaddrinfo(res);
+		if (clnt == NULL) {
+			if (trace > PINGNFS_DEBUG_LEVEL) {
+				trace_prt(1, "  clnt_create_service: %s", clnt_spcreateerror("UDP failed"));
+			}
+			return NULL;
+		}
+	}
+	break;
 	case IPPROTO_TCP:
-		if (trace > PINGNFS_DEBUG_LEVEL)
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  clnttcp_create_timeout service = %s, timeout = %ld.%d\n",
-				  service, tmout->tv_sec, tmout->tv_usec);
+			    service, tmout->tv_sec, tmout->tv_usec);
+		}
 		clnt = clnttcp_create_timeout(res->ai_addr, prog, vers, &sock, 0, 0, NULL, tmout);
 		freeaddrinfo(res);
 		if (clnt == NULL) {
-			if (trace > PINGNFS_DEBUG_LEVEL)
+			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1, "  clnt_create_service: %s", clnt_spcreateerror("TCP failed"));
-			return (NULL);
+			}
+			return NULL;
 		}
 		break;
 	default:
 		freeaddrinfo(res);
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EPFNOSUPPORT;
-		return (NULL);
+		return NULL;
 	}
 
 	/*
@@ -1167,21 +1208,23 @@ clnt_create_service_timed(const char *host, const char *service,
 	 */
 
 	rpc_createerr.cf_stat = clnt_call(clnt, NULLPROC,
-					(xdrproc_t)xdr_void, 0,
-					(xdrproc_t)xdr_void, 0, *tmout);
+	    (xdrproc_t)xdr_void, 0,
+	    (xdrproc_t)xdr_void, 0, *tmout);
 
 	if (rpc_createerr.cf_stat != RPC_SUCCESS) {
-		if (trace > PINGNFS_DEBUG_LEVEL)
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  clnt_create_service_timed: %s", clnt_sperror(clnt, "ping failed"));
+		}
 		clnt_geterr(clnt, &rpc_createerr.cf_error);
 		clnt_destroy(clnt);
-		return (NULL);
+		return NULL;
 	}
 
-	if (trace > PINGNFS_DEBUG_LEVEL)
+	if (trace > PINGNFS_DEBUG_LEVEL) {
 		trace_prt(1, "  clnt_create_service_timed: Succeeded for %s %s\n",
-			  host, service);
-	return (clnt);
+		    host, service);
+	}
+	return clnt;
 }
 
 /*
@@ -1194,33 +1237,34 @@ pingnfs(
 	const char *hostpart,
 	rpcvers_t *versp,
 	rpcvers_t versmin,
-	ushort_t port,			/* may be zeor */
+	ushort_t port,                  /* may be zeor */
 	const char *path,
 	const char *proto)
 {
 	CLIENT *cl = NULL;
 	enum clnt_stat clnt_stat;
-	rpcvers_t versmax;	/* maximum version to try against server */
-	rpcvers_t outvers;	/* version supported by host on last call */
-	rpcvers_t vers_to_try;	/* to try different versions against host */
+	rpcvers_t versmax;      /* maximum version to try against server */
+	rpcvers_t outvers;      /* version supported by host on last call */
+	rpcvers_t vers_to_try;  /* to try different versions against host */
 	const char *hostname = hostpart;
 	char *hostcopy = NULL;
 	char *pathcopy = NULL;
 	struct timeval tv;
 
-	if (trace > PINGNFS_DEBUG_LEVEL-1)
+	if (trace > PINGNFS_DEBUG_LEVEL - 1) {
 		trace_prt(1, " pingnfs: enter %s vers = %d versmin = %d port = %d proto = %s, path = %s\n",
-			  hostpart, versp ? *versp : -1, versmin, port,
-			  proto ? proto : "NULL", path ? path : "NULL");
+		    hostpart, versp ? *versp : -1, versmin, port,
+		    proto ? proto : "NULL", path ? path : "NULL");
+	}
 	if (path != NULL && strcmp(hostname, "nfs") == 0 &&
 	    strncmp(path, "//", 2) == 0) {
 		char *sport;
 
-		hostcopy = strdup(path+2);
+		hostcopy = strdup(path + 2);
 
 		if (hostcopy == NULL) {
 			syslog(LOG_ERR, "pingnfs: memory allocation failed");
-			return (RPC_SYSTEMERROR);
+			return RPC_SYSTEMERROR;
 		}
 
 		pathcopy = strchr(hostcopy, '/');
@@ -1232,7 +1276,7 @@ pingnfs(
 		 */
 		if (pathcopy == NULL) {
 			free(hostcopy);
-			return (RPC_SUCCESS);
+			return RPC_SUCCESS;
 		}
 
 		/*
@@ -1243,12 +1287,11 @@ pingnfs(
 		sport = strchr(hostname, ':');
 
 		if (sport != NULL && sport < pathcopy) {
-
 			/*
 			 * Actual end point of host string.
 			 */
 			*sport = '\0';
-			port = htons((ushort_t)atoi(sport+1));
+			port = htons((ushort_t)atoi(sport + 1));
 		}
 		hostname = hostcopy;
 		path = pathcopy;
@@ -1271,13 +1314,13 @@ pingnfs(
 		if (versmin == NFS_VER4) {
 			if (versp) {
 				*versp = versmax - 1;
-				if ( path != NULL && path == pathcopy) {
+				if (path != NULL && path == pathcopy) {
 					free(pathcopy);
 				}
 				if (hostname != NULL && hostname == hostcopy) {
 					free(hostcopy);
 				}
-				return (RPC_SUCCESS);
+				return RPC_SUCCESS;
 			}
 			if (path != NULL && path == pathcopy) {
 				free(pathcopy);
@@ -1285,28 +1328,32 @@ pingnfs(
 			if (hostname != NULL && hostname == hostcopy) {
 				free(hostcopy);
 			}
-			return (RPC_PROGUNAVAIL);
+			return RPC_PROGUNAVAIL;
 		} else {
 			versmax--;
 		}
 	}
 
-	if (versp)
+	if (versp) {
 		*versp = versmax;
+	}
 
 	switch (cache_check(hostname, versp, proto, &tv)) {
 	case GOODHOST:
-		if (hostcopy != NULL)
+		if (hostcopy != NULL) {
 			free(hostcopy);
-		return (RPC_SUCCESS);
+		}
+		return RPC_SUCCESS;
 	case DEADHOST:
-		if (hostcopy != NULL)
+		if (hostcopy != NULL) {
 			free(hostcopy);
-		return (RPC_TIMEDOUT);
+		}
+		return RPC_TIMEDOUT;
 	case NXHOST:
-		if (hostcopy != NULL)
+		if (hostcopy != NULL) {
 			free(hostcopy);
-		return (RPC_UNKNOWNHOST);
+		}
+		return RPC_UNKNOWNHOST;
 	case NOHOST:
 	default:
 		break;
@@ -1317,9 +1364,10 @@ pingnfs(
 	/*
 	 * check the host's version within the timeout
 	 */
-	if (trace > PINGNFS_DEBUG_LEVEL)
+	if (trace > PINGNFS_DEBUG_LEVEL) {
 		trace_prt(1, "  ping: %s request vers=%d min=%d\n",
-				hostname, versmax, versmin);
+		    hostname, versmax, versmin);
+	}
 
 	do {
 		outvers = vers_to_try;
@@ -1333,20 +1381,19 @@ pingnfs(
 			}
 
 			if ((cl = clnt_create_service_timed(hostname, "nfs",
-							    NFS_PROG,
-							    vers_to_try,
-							    port, "tcp",
-							    &tv))
+			    NFS_PROG,
+			    vers_to_try,
+			    port, "tcp",
+			    &tv))
 			    != NULL) {
 				outvers = vers_to_try;
 				break;
 			}
 			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1, "  pingnfs: Can't ping via TCP"
-					" %s: RPC error=%d\n",
-					hostname, rpc_createerr.cf_stat);
+				    " %s: RPC error=%d\n",
+				    hostname, rpc_createerr.cf_stat);
 			}
-
 		} else {
 			const char *proto_to_try;
 
@@ -1359,34 +1406,37 @@ pingnfs(
 				}
 			}
 			if ((cl = clnt_create_vers_timed(hostname, NFS_PROG,
-				&outvers, versmin, vers_to_try,
-				proto_to_try, &tv))
-				!= NULL)
+			    &outvers, versmin, vers_to_try,
+			    proto_to_try, &tv))
+			    != NULL) {
 				break;
+			}
 			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1, "  pingnfs: Can't ping via %s"
-					" %s: RPC error=%d\n",
-					  proto_to_try, hostname, rpc_createerr.cf_stat);
+				    " %s: RPC error=%d\n",
+				    proto_to_try, hostname, rpc_createerr.cf_stat);
 			}
 			if (rpc_createerr.cf_stat == RPC_UNKNOWNHOST ||
-				rpc_createerr.cf_stat == RPC_TIMEDOUT)
+			    rpc_createerr.cf_stat == RPC_TIMEDOUT) {
 				break;
+			}
 			if (proto == NULL && rpc_createerr.cf_stat == RPC_PROGNOTREGISTERED) {
 				if (trace > PINGNFS_DEBUG_LEVEL) {
 					trace_prt(1, "  pingnfs: Trying ping "
-						"via UDP\n");
+					    "via UDP\n");
 				}
 				if ((cl = clnt_create_vers_timed(hostname,
-					NFS_PROG, &outvers,
-					versmin, vers_to_try,
-					"udp", &tv)) != NULL)
+				    NFS_PROG, &outvers,
+				    versmin, vers_to_try,
+				    "udp", &tv)) != NULL) {
 					break;
+				}
 				if (trace > PINGNFS_DEBUG_LEVEL) {
 					trace_prt(1, "  pingnfs: Can't ping "
-						"via  %s: "
-						"RPC error=%d\n",
-						hostname,
-						rpc_createerr.cf_stat);
+					    "via  %s: "
+					    "RPC error=%d\n",
+					    hostname,
+					    rpc_createerr.cf_stat);
 				}
 			}
 		}
@@ -1398,9 +1448,10 @@ pingnfs(
 		 * with the nfs mount command.
 		 */
 		vers_to_try--;
-		if (vers_to_try < versmin)
+		if (vers_to_try < versmin) {
 			break;
-		if (versp != NULL) {	/* recheck the cache */
+		}
+		if (versp != NULL) {    /* recheck the cache */
 			*versp = vers_to_try;
 			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1,
@@ -1409,17 +1460,20 @@ pingnfs(
 			}
 			switch (cache_check(hostname, versp, proto, &tv)) {
 			case GOODHOST:
-				if (hostcopy != NULL)
+				if (hostcopy != NULL) {
 					free(hostcopy);
-				return (RPC_SUCCESS);
+				}
+				return RPC_SUCCESS;
 			case DEADHOST:
-				if (hostcopy != NULL)
+				if (hostcopy != NULL) {
 					free(hostcopy);
-				return (RPC_TIMEDOUT);
+				}
+				return RPC_TIMEDOUT;
 			case NXHOST:
-				if (hostcopy != NULL)
+				if (hostcopy != NULL) {
 					free(hostcopy);
-				return (RPC_UNKNOWNHOST);
+				}
+				return RPC_UNKNOWNHOST;
 			case NOHOST:
 			default:
 				break;
@@ -1427,32 +1481,34 @@ pingnfs(
 		}
 		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  pingnfs: Try version=%d\n",
-				vers_to_try);
+			    vers_to_try);
 		}
 	} while (cl == NULL);
 
 
 	if (cl == NULL) {
-		if (verbose)
+		if (verbose) {
 			syslog(LOG_ERR, "pingnfs: %s%s",
-				hostname, clnt_spcreateerror(""));
+			    hostname, clnt_spcreateerror(""));
+		}
 		clnt_stat = rpc_createerr.cf_stat;
 	} else {
 		clnt_destroy(cl);
 		clnt_stat = RPC_SUCCESS;
 	}
 
-	if (trace > PINGNFS_DEBUG_LEVEL)
+	if (trace > PINGNFS_DEBUG_LEVEL) {
 		clnt_stat == RPC_SUCCESS ?
-			trace_prt(1, "	pingnfs OK: nfs version=%d\n", outvers):
-			trace_prt(1, "	pingnfs FAIL: can't get nfs version\n");
+		trace_prt(1, "	pingnfs OK: nfs version=%d\n", outvers):
+		trace_prt(1, "	pingnfs FAIL: can't get nfs version\n");
+	}
 
 	switch (clnt_stat) {
-
 	case RPC_SUCCESS:
 		cache_enter(hostname, versmax, outvers, proto, GOODHOST);
-		if (versp != NULL)
+		if (versp != NULL) {
 			*versp = outvers;
+		}
 		break;
 
 	case RPC_UNKNOWNHOST:
@@ -1464,19 +1520,20 @@ pingnfs(
 		break;
 	}
 
-	if (hostcopy != NULL)
+	if (hostcopy != NULL) {
 		free(hostcopy);
+	}
 
-	return (clnt_stat);
+	return clnt_stat;
 }
 
 #ifdef HAVE_LOFS
-#define	MNTTYPE_LOFS	"lofs"
+#define MNTTYPE_LOFS    "lofs"
 
 int
-loopbackmount(char *fsname;		/* Directory being mounted */
-	      char *dir;		/* Directory being mounted on */
-	      char *mntopts)
+loopbackmount(char *fsname;             /* Directory being mounted */
+    char *dir;                          /* Directory being mounted on */
+    char *mntopts)
 {
 	struct mnttab mnt;
 	int flags = 0;
@@ -1486,31 +1543,34 @@ loopbackmount(char *fsname;		/* Directory being mounted */
 	char optbuf[AUTOFS_MAXOPTSLEN];
 
 	dirlen = strlen(dir);
-	if (dir[dirlen-1] == ' ')
+	if (dir[dirlen - 1] == ' ') {
 		dirlen--;
+	}
 
 	if (dirlen == strlen(fsname) &&
-		strncmp(fsname, dir, dirlen) == 0) {
+	    strncmp(fsname, dir, dirlen) == 0) {
 		syslog(LOG_ERR,
-			"Mount of %s on %s would result in deadlock, aborted\n",
-			fsname, dir);
-		return (RET_ERR);
+		    "Mount of %s on %s would result in deadlock, aborted\n",
+		    fsname, dir);
+		return RET_ERR;
 	}
 	mnt.mnt_mntopts = mntopts;
-	if (hasmntopt(&mnt, MNTOPT_RO) != NULL)
+	if (hasmntopt(&mnt, MNTOPT_RO) != NULL) {
 		flags |= MS_RDONLY;
+	}
 
-	(void) strlcpy(optbuf, mntopts, sizeof (optbuf));
+	(void) strlcpy(optbuf, mntopts, sizeof(optbuf));
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1,
-			"  loopbackmount: fsname=%s, dir=%s, flags=%d\n",
-			fsname, dir, flags);
+		    "  loopbackmount: fsname=%s, dir=%s, flags=%d\n",
+		    fsname, dir, flags);
+	}
 
 	if (mount(fsname, dir, flags | MS_DATA | MS_OPTIONSTR, fstype,
-	    NULL, 0, optbuf, sizeof (optbuf)) < 0) {
+	    NULL, 0, optbuf, sizeof(optbuf)) < 0) {
 		syslog(LOG_ERR, "Mount of %s on %s: %m", fsname, dir);
-		return (RET_ERR);
+		return RET_ERR;
 	}
 
 	if (stat(dir, &st) == 0) {
@@ -1527,7 +1587,7 @@ loopbackmount(char *fsname;		/* Directory being mounted */
 		}
 	}
 
-	return (0);
+	return 0;
 }
 #endif
 
@@ -1547,39 +1607,44 @@ cache_find(const char *host, rpcvers_t vers, const char *proto)
 			(void) pthread_rwlock_unlock(&cache_lock);
 			(void) pthread_rwlock_wrlock(&cache_lock);
 			for (prev = NULL, ce = cache_head; ce;
-				prev = ce, ce = ce->cache_next) {
+			    prev = ce, ce = ce->cache_next) {
 				if (timenow > ce->cache_max_time) {
-					if (trace > PINGNFS_DEBUG_LEVEL)
+					if (trace > PINGNFS_DEBUG_LEVEL) {
 						trace_prt(1, "  cache_find: removing entry for %s remaining = %ld (%ld)\n",
-							  ce->cache_host, ce->cache_time - timenow, ce->cache_max_time - timenow);
+						    ce->cache_host, ce->cache_time - timenow, ce->cache_max_time - timenow);
+					}
 					cache_free(ce);
-					if (prev)
+					if (prev) {
 						prev->cache_next = NULL;
-					else
+					} else {
 						cache_head = NULL;
+					}
 					break;
 				}
 			}
 			(void) pthread_rwlock_unlock(&cache_lock);
 			(void) pthread_rwlock_rdlock(&cache_lock);
-			return (NULL);
+			return NULL;
 		}
-		if (strcmp(host, ce->cache_host) != 0)
+		if (strcmp(host, ce->cache_host) != 0) {
 			continue;
+		}
 		if ((proto == NULL && ce->cache_proto != NULL) ||
-		    (proto != NULL && ce->cache_proto == NULL))
+		    (proto != NULL && ce->cache_proto == NULL)) {
 			continue;
+		}
 		if (proto != NULL &&
-		    strcmp(proto, ce->cache_proto) != 0)
+		    strcmp(proto, ce->cache_proto) != 0) {
 			continue;
+		}
 
 		if (vers == (rpcvers_t)-1 ||
-			(vers == ce->cache_reqvers) ||
-			(vers == ce->cache_outvers)) {
+		    (vers == ce->cache_reqvers) ||
+		    (vers == ce->cache_outvers)) {
 			break;
 		}
 	}
-	return (ce);
+	return ce;
 }
 
 /*
@@ -1596,25 +1661,28 @@ cache_enter(const char *host, rpcvers_t reqvers, rpcvers_t outvers, const char *
 	(void) pthread_rwlock_rdlock(&cache_lock);
 	entry = cache_find(host, reqvers, proto);
 	if (entry) {
-		if (trace > PINGNFS_DEBUG_LEVEL)
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  cache_enter: FOUND entry state = %d, level = %d time = %ld remain = %ld\n",
-				  entry->cache_state, entry->cache_level, entry->cache_time,
-				  entry->cache_time - timenow);
+			    entry->cache_state, entry->cache_level, entry->cache_time,
+			    entry->cache_time - timenow);
+		}
 		entry->cache_state = state;
 		entry->cache_level++;
 		entry->cache_time = timenow + (entry_cache_time << entry->cache_level);
-		if (trace > PINGNFS_DEBUG_LEVEL)
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  cache_enter: UPDATED entry state = %d, level = %d time = %ld remain = %ld\n",
-				  entry->cache_state, entry->cache_level, entry->cache_time,
-				  entry->cache_time - timenow);
+			    entry->cache_state, entry->cache_level, entry->cache_time,
+			    entry->cache_time - timenow);
+		}
 		(void) pthread_rwlock_unlock(&cache_lock);
 		return;
 	}
 	(void) pthread_rwlock_unlock(&cache_lock);
-	entry = (struct cache_entry *)malloc(sizeof (struct cache_entry));
-	if (entry == NULL)
+	entry = (struct cache_entry *)malloc(sizeof(struct cache_entry));
+	if (entry == NULL) {
 		return;
-	(void) memset((caddr_t)entry, 0, sizeof (struct cache_entry));
+	}
+	(void) memset((caddr_t)entry, 0, sizeof(struct cache_entry));
 	entry->cache_host = strdup(host);
 	if (entry->cache_host == NULL) {
 		cache_free(entry);
@@ -1626,13 +1694,14 @@ cache_enter(const char *host, rpcvers_t reqvers, rpcvers_t outvers, const char *
 	entry->cache_state = state;
 	entry->cache_time = timenow + entry_cache_time;
 	entry->cache_max_time = timenow + entry_cache_max_time;
-	if (trace > PINGNFS_DEBUG_LEVEL)
+	if (trace > PINGNFS_DEBUG_LEVEL) {
 		trace_prt(1, "  cache_enter: NEW entry state = %d, level = %d time = %ld remain = %ld\n",
-			  entry->cache_state, entry->cache_level, entry->cache_time,
-			  entry->cache_time - timenow);
+		    entry->cache_state, entry->cache_level, entry->cache_time,
+		    entry->cache_time - timenow);
+	}
 	(void) pthread_rwlock_wrlock(&cache_lock);
 #ifdef CACHE_DEBUG
-	host_cache_accesses++;		/* up host cache access counter */
+	host_cache_accesses++;          /* up host cache access counter */
 #endif /* CACHE DEBUG */
 	entry->cache_next = cache_head;
 	cache_head = entry;
@@ -1657,23 +1726,26 @@ cache_check(const char *host, rpcvers_t *versp, const char *proto, struct timeva
 	/* Increment the lookup and access counters for the host cache */
 	host_cache_accesses++;
 	host_cache_lookups++;
-	if ((host_cache_lookups%1000) == 0)
+	if ((host_cache_lookups % 1000) == 0) {
 		trace_host_cache();
+	}
 #endif /* CACHE DEBUG */
 
 	ce = cache_find(host, versp ? *versp : -1, proto);
 	if (ce) {
-		if (tv)
+		if (tv) {
 			tv->tv_sec = (entry_cache_time << ce->cache_level);
+		}
 		state = ce->cache_state;
-		if (state != GOODHOST && timenow > ce->cache_time)
+		if (state != GOODHOST && timenow > ce->cache_time) {
 			state = NOHOST;
-		else if (versp != NULL)
+		} else if (versp != NULL) {
 			*versp = ce->cache_outvers;
+		}
 		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1,
-				  "  cache_check: found cache entry tv = %ld, state = %d level = %d vers = %d\n",
-				  tv->tv_sec, state, ce->cache_level, ver);
+			    "  cache_check: found cache entry tv = %ld, state = %d level = %d vers = %d\n",
+			    tv->tv_sec, state, ce->cache_level, ver);
 		}
 
 		/* increment the host cache hit counters */
@@ -1690,11 +1762,12 @@ cache_check(const char *host, rpcvers_t *versp, const char *proto, struct timeva
 			break;
 		}
 #endif /* CACHE_DEBUG */
-	} else 	if (trace > PINGNFS_DEBUG_LEVEL)
+	} else if (trace > PINGNFS_DEBUG_LEVEL) {
 		trace_prt(1, "  cache_check: Cache miss\n");
+	}
 	(void) pthread_rwlock_unlock(&cache_lock);
 
-	return (state);
+	return state;
 }
 
 /*
@@ -1703,16 +1776,17 @@ cache_check(const char *host, rpcvers_t *versp, const char *proto, struct timeva
  * will also be expired.
  */
 static void
-cache_free(entry)
-	struct cache_entry *entry;
+cache_free(struct cache_entry *entry)
 {
 	struct cache_entry *ce, *next = NULL;
 
 	for (ce = entry; ce; ce = next) {
-		if (ce->cache_host)
+		if (ce->cache_host) {
 			free(ce->cache_host);
-		if (ce->cache_proto)
+		}
+		if (ce->cache_proto) {
 			free(ce->cache_proto);
+		}
 		next = ce->cache_next;
 		free(ce);
 	}
@@ -1767,7 +1841,7 @@ is_nfs_port(char *opts)
 	if (mp == NULL) {
 		syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
 		    opts);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -1780,13 +1854,13 @@ is_nfs_port(char *opts)
 			syslog(LOG_ERR, "Invalid port number in \"%s\"",
 			    opts);
 			freemntopts(mp);
-			return (0);
+			return 0;
 		}
 		if (nfs_port > USHRT_MAX) {
 			syslog(LOG_ERR, "Invalid port number %ld in \"%s\"",
 			    nfs_port, opts);
 			freemntopts(mp);
-			return (0);
+			return 0;
 		}
 	}
 	freemntopts(mp);
@@ -1795,8 +1869,9 @@ is_nfs_port(char *opts)
 	 * if no port specified or it is same as NFS_PORT return nfs
 	 * To use any other daemon the port number should be different
 	 */
-	if (!got_port || nfs_port == NFS_PORT)
-		return (1);
+	if (!got_port || nfs_port == NFS_PORT) {
+		return 1;
+	}
 #if 0
 	/*
 	 * If daemon is nfsd, return nfs
@@ -1805,14 +1880,15 @@ is_nfs_port(char *opts)
 	 * map to "nfsd" is 2049, i.e. NFS_PORT.
 	 */
 	if (getservbyport_r(nfs_port, NULL, &sv, buf, 256) == &sv &&
-		strcmp(sv.s_name, "nfsd") == 0)
-		return (1);
+	    strcmp(sv.s_name, "nfsd") == 0) {
+		return 1;
+	}
 #endif
 
 	/*
 	 * daemon is not nfs
 	 */
-	return (0);
+	return 0;
 }
 #endif
 
@@ -1844,9 +1920,9 @@ set_versrange(rpcvers_t nfsvers, rpcvers_t *vers, rpcvers_t *versmin)
 		*versmin = NFS_VER2;
 		break;
 	default:
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
 
 #ifdef CACHE_DEBUG
@@ -1858,8 +1934,8 @@ static void
 trace_host_cache()
 {
 	syslog(LOG_ERR,
-		"host_cache: accesses=%d lookups=%d deadhits=%d goodhits=%d\n",
-		host_cache_accesses, host_cache_lookups, deadhost_cache_hits,
-		goodhost_cache_hits);
+	    "host_cache: accesses=%d lookups=%d deadhits=%d goodhits=%d\n",
+	    host_cache_accesses, host_cache_lookups, deadhost_cache_hits,
+	    goodhost_cache_hits);
 }
 #endif /* CACHE_DEBUG */

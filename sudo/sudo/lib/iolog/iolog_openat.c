@@ -41,6 +41,12 @@
 #include "sudo_gettext.h"
 #include "sudo_iolog.h"
 #include "sudo_util.h"
+#ifdef __APPLE__
+#include "logging.h"
+#include <rootless.h>
+#include <System/sys/codesign.h>
+#include <sys/csr.h>
+#endif /* __APPLE__ */
 
 /*
  * Wrapper for openat(2) that sets umask and retries as iolog_uid/iolog_gid
@@ -71,6 +77,7 @@ iolog_openat(int dfd, const char *path, int flags)
 	    }
 	}
     }
+	
     if (fd == -1 && errno == EACCES) {
 	/* Try again as the I/O log owner (for NFS). */
 	if (iolog_swapids(false)) {
@@ -86,5 +93,27 @@ iolog_openat(int dfd, const char *path, int flags)
     }
     if (ISSET(flags, O_CREAT))
 	umask(omask);
+	
+#ifdef __APPLE__
+    if (fd && (ISSET(flags, O_WRONLY) || ISSET(flags, O_RDWR))) {
+	// verify that real opened path for write is not under SIP
+	    int csflags = 0;
+	    int rv = 0;
+	    pid_t pid = getpid();
+	    rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	    if (rv == 0 && (csflags & CS_INSTALLER) != 0) {
+		// we are in the installer context
+		// check if SIP is on and filesystem path is protected
+		bool sipEnabled = (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0);
+		bool pathProtected = (rootless_check_trusted_fd(fd) == 0);
+		if (sipEnabled && pathProtected) {
+		    log_warningx(SLOG_NO_STDERR|SLOG_AUDIT, N_("Protected logpath detected"));
+		    sudo_warnx(U_("%s: %s %s"), __func__, U_("Protected logpath detected"), path);
+		    close(fd);
+		    fd = -1;
+		}
+	    }
+    }
+#endif /* __APPLE__ */
     debug_return_int(fd);
 }

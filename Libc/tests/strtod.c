@@ -25,8 +25,8 @@ static void strtod_verify_with_rounding_mode(const char *src, int mode, double e
     (mode == FE_TOWARDZERO) ? "TOWARDZERO" :
     "<UNKNOWN MODE>";
 
-  char *end = NULL;
-  actual.d = strtod(src, &end);
+  char *base_end = NULL;
+  actual.d = strtod(src, &base_end);
   int actual_errno = errno;
   int failed = 0;
 
@@ -56,11 +56,11 @@ static void strtod_verify_with_rounding_mode(const char *src, int mode, double e
     failed = 1;
   }
 
-  if (end != expected_end) {
+  if ((expected_end != NULL) && (base_end != expected_end)) {
     T_FAIL("End did not match: "
            "input \"%s\", mode = %s, "
            "end = \"%s\", expected end = \"%s\" %s",
-           src, mode_name, end, expected_end, detail);
+           src, mode_name, base_end, expected_end, detail);
     failed = 1;
   }
 
@@ -85,14 +85,14 @@ static void strtod_verify_with_rounding_mode(const char *src, int mode, double e
     buff[s] = extras[i];
     buff[s + 1] = '\0';
     expected.d = actual.d; // We expect the same value as before
-    end = NULL;
+    char *end = NULL;
     actual.d = strtod(buff, &end);
     if (actual.raw != expected.raw) {
       T_FAIL("Adding %c to end of \"%s\" changed result from %.25g %a (0x%016llx) to %.25g %a (0x%016llx)",
              extras[i], buff, expected.d, expected.d, expected.raw, actual.d, actual.d, actual.raw);
       failed = 1;
     }
-    if (end != buff + (expected_end - src)) {
+    if (end != buff + (base_end - src)) {
       T_FAIL("End did not update correctly for input \"%s\", end = \"%s\" (buff + %d) %s",
              buff, end, (int)(end - buff), detail);
       failed = 1;
@@ -105,6 +105,37 @@ static void strtod_verify_with_rounding_mode(const char *src, int mode, double e
   }
 }
 
+// This is the general verifier used for anything that
+// isn't covered by a special case below.
+
+// It expects ERANGE to be set whenever the result is not
+// a normal value.  This includes both overflow and
+// underflow cases:
+
+// OVERFLOW: For inputs between max_value and max_value + 1 ULP,
+// this expect ERANGE if the result rounds to infinity.
+// (Inputs larger than max_value + 1 ULP are handled by
+// strtod_verify_overflow below.)
+// Rationale:
+// 1. Rounding to ∞ seems like "extreme rounding". ;-)
+// 2. Normally, NEAREST rounds by at most 1/2 ULP and
+//    UP/DOWN/TOZERO by at most 1 ULP.  This verifier
+//    is used for inputs < max_value + 1 ULP, which
+//    rounds down in exactly those cases.
+
+// UNDERFLOW: For inputs that are > 0.0 and less than
+// min_normal, we expect ERANGE if the result rounds to
+// a subnormal or zero.
+// Rationale:
+// * If a non-zero input rounds to zero, that's
+//   something that people want to detect.
+// * If an input rounds to normal, then it's
+//   within 1/2 ULP, which means this is ordinary
+//   rounding.
+// Some implementations try to set ERANGE for inexact
+// conversions.  Since exact subnormals are quite long in
+// decimal, we wouldn't gain much by trying to enforce
+// this. (We do enforce it for hex subnormals, though.)
 static void strtod_verify(const char *src, double expected_nearest, double expected_down, double expected_up) {
   // Literal infinities get tested with strtod_verify_infinity below, so any infinity here is really an overflow
   int expected_errno = isnormal(expected_nearest) ? 0 : ERANGE;
@@ -118,7 +149,21 @@ static void strtod_verify(const char *src, double expected_nearest, double expec
   strtod_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src), "");
 }
 
-static void strtod_verify_noerange(const char *src, double expected_nearest, double expected_down, double expected_up) {
+// I consider inputs larger than max_value + 1 ULP to be
+// unconditional overflows and require that we set ERANGE,
+// regardless of whether it rounds to infinity or not.
+// rdar://123637060 - Correctly round overflow values toward zero
+static void strtod_verify_overflow(const char *src, double expected_nearest, double expected_down, double expected_up) {
+  int expected_errno = ERANGE;
+  strtod_verify_with_rounding_mode(src, FE_TONEAREST, expected_nearest, expected_errno, src + strlen(src), "");
+  strtod_verify_with_rounding_mode(src, FE_DOWNWARD, expected_down, expected_errno, src + strlen(src), "");
+  strtod_verify_with_rounding_mode(src, FE_UPWARD, expected_up, expected_errno, src + strlen(src), "");
+  double expected = signbit(expected_up) ? expected_up : expected_down;
+  strtod_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src), "");
+}
+
+// rdar://108539918 - Don't set ERANGE for exact subnormal hexfloats
+static void strtod_verify_exact_subnormal(const char *src, double expected_nearest, double expected_down, double expected_up) {
   int expected_errno = 0;
   strtod_verify_with_rounding_mode(src, FE_TONEAREST, expected_nearest, expected_errno, src + strlen(src), "");
   strtod_verify_with_rounding_mode(src, FE_DOWNWARD, expected_down, expected_errno, src + strlen(src), "");
@@ -194,21 +239,21 @@ T_DECL(strtod, "strtod(3)")
   // Larger than midpoint between max normal and max normal + 1 ULP
   strtod_verify("1.7976931348623159e308", infinity, max_normal, infinity);
   // Larger than max normal + 1 ULP
-  strtod_verify("1.797693134862316e308", infinity, infinity, infinity);
-  strtod_verify("1.79769313486232e308", infinity, infinity, infinity);
-  strtod_verify("1.7976931348624e308", infinity, infinity, infinity);
-  strtod_verify("1.797693134863e308", infinity, infinity, infinity);
-  strtod_verify("1.79769313487e308", infinity, infinity, infinity);
-  strtod_verify("1.7976931349e308", infinity, infinity, infinity);
-  strtod_verify("1.797693135e308", infinity, infinity, infinity);
-  strtod_verify("1.79769314e308", infinity, infinity, infinity);
-  strtod_verify("1.7976932e308", infinity, infinity, infinity);
-  strtod_verify("1.797694e308", infinity, infinity, infinity);
-  strtod_verify("1.7977e308", infinity, infinity, infinity);
-  strtod_verify("1.798e308", infinity, infinity, infinity);
-  strtod_verify("1.8e308", infinity, infinity, infinity);
-  strtod_verify("1.9e308", infinity, infinity, infinity);
-  strtod_verify("2e308", infinity, infinity, infinity);
+  strtod_verify_overflow("1.797693134862316e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.79769313486232e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.7976931348624e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.797693134863e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.79769313487e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.7976931349e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.797693135e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.79769314e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.7976932e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.797694e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.7977e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.798e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.8e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("1.9e308", infinity, max_normal, infinity);
+  strtod_verify_overflow("2e308", infinity, max_normal, infinity);
 
   strtod_verify("3.141592653589793", pi, pi_pred, pi);
   strtod_verify("3.141592653589793238462643383279502884197169399"
@@ -324,10 +369,10 @@ T_DECL(strtod, "strtod(3)")
 
   // Subnormal hexfloats
   // rdar://108539918 - Only set erange for inexact subnormal hexfloats
-  strtod_verify_noerange("0x0.8p-1022", 0x0.8p-1022, 0x0.8p-1022, 0x0.8p-1022);
-  strtod_verify_noerange("0x0.5555555555555p-1022",
-		0x0.5555555555555p-1022, 0x0.5555555555555p-1022, 0x0.5555555555555p-1022);
-  strtod_verify_noerange("0x0.fffffffffffffp-1022", max_subnormal, max_subnormal, max_subnormal);
+  strtod_verify_exact_subnormal("0x0.8p-1022", 0x0.8p-1022, 0x0.8p-1022, 0x0.8p-1022);
+  strtod_verify_exact_subnormal("0x0.5555555555555p-1022",
+                0x0.5555555555555p-1022, 0x0.5555555555555p-1022, 0x0.5555555555555p-1022);
+  strtod_verify_exact_subnormal("0x0.fffffffffffffp-1022", max_subnormal, max_subnormal, max_subnormal);
   // This is inexact, so should set ERANGE
   strtod_verify("0x0.555555555555555555p-1022",
 		0x1.5555555555554p-1024, 0x1.5555555555554p-1024, 0x1.5555555555558p-1024);
@@ -343,23 +388,23 @@ T_DECL(strtod, "strtod(3)")
   strtod_verify("-0xfedcba987654321p-987654", -0.0, -min_subnormal, -0.0);
 
   // Obvious overflows
-  strtod_verify("123456.7890123e+4789", infinity, infinity, infinity);
-  strtod_verify("1e309", infinity, infinity, infinity);
-  strtod_verify("-1e+99999999999999999999999999999999", -infinity, -infinity, -infinity);
-  strtod_verify("-1e309", -infinity, -infinity, -infinity);
-  strtod_verify("0x123456789abcdefp9999999999999999999999999999", infinity, infinity, infinity);
-  strtod_verify("0x123456789abcdefp123456789", infinity, infinity, infinity);
+  strtod_verify_overflow("123456.7890123e+4789", infinity, max_normal, infinity);
+  strtod_verify_overflow("1e309", infinity, max_normal, infinity);
+  strtod_verify_overflow("-1e+99999999999999999999999999999999", -infinity, -infinity, -max_normal);
+  strtod_verify_overflow("-1e309", -infinity, -infinity, -max_normal);
+  strtod_verify_overflow("0x123456789abcdefp9999999999999999999999999999", infinity, max_normal, infinity);
+  strtod_verify_overflow("0x123456789abcdefp123456789", infinity, max_normal, infinity);
   // Borderline overflows
-  // Exact 2^1024 is the max normal double + 1 ULP.  Standard rounding rounds
-  // up in all cases, so we return infinity, so it must be considered overflow
-  strtod_verify("1797693134862315907729305190789024733617976978942306572734300811"
+  // Exact 2^1024 is the max normal double + 1 ULP.  This requires
+  // rounding by >= 1 ULP, so is considered overflow always.
+  strtod_verify_overflow("1797693134862315907729305190789024733617976978942306572734300811"
               "5773267580550096313270847732240753602112011387987139335765878976"
               "8814416622492847430639474124377767893424865485276302219601246094"
               "1194530829520850057688381506823424628814739131105408272371633505"
               "10684586298239947245938479716304835356329624224137216",
-              infinity, infinity, infinity);
-  // 1 less than 2^1024 rounds down to the max normal double (so is not overflow
-  // in that case).
+              infinity, max_normal, infinity);
+  // 1 less than 2^1024 is within 1 ULP of the max normal double.  We count this
+  // as overflow when it rounds to infinity.
   strtod_verify("1797693134862315907729305190789024733617976978942306572734300811"
               "5773267580550096313270847732240753602112011387987139335765878976"
               "8814416622492847430639474124377767893424865485276302219601246094"
@@ -367,15 +412,20 @@ T_DECL(strtod, "strtod(3)")
               "10684586298239947245938479716304835356329624224137215",
               infinity, max_normal, infinity);
   // Exact midpoint between max_normal and (max normal + 1 ULP)
-  // Standard rounding takes this up for nearest, which then becomes overflow
   strtod_verify("1797693134862315807937289714053034150799341327100378269361737789"
               "8044496829276475094664901797758720709633028641669288791094655554"
               "7851940402630657488671505820681908902000708383676273854845817711"
               "5317644757302700698555713669596228429148198608349364752927190741"
               "68444365510704342711559699508093042880177904174497792",
               infinity, max_normal, infinity);
+  // 1 more than the above
+  strtod_verify("1797693134862315807937289714053034150799341327100378269361737789"
+              "8044496829276475094664901797758720709633028641669288791094655554"
+              "7851940402630657488671505820681908902000708383676273854845817711"
+              "5317644757302700698555713669596228429148198608349364752927190741"
+              "68444365510704342711559699508093042880177904174497793",
+              infinity, max_normal, infinity);
   // 1 less than the above
-  // Standard rounding takes this down for nearest, which is not overflow
   strtod_verify("1797693134862315807937289714053034150799341327100378269361737789"
               "8044496829276475094664901797758720709633028641669288791094655554"
               "7851940402630657488671505820681908902000708383676273854845817711"

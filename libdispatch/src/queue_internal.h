@@ -40,10 +40,14 @@ DISPATCH_OPTIONS(dispatch_queue_flags, uint32_t,
 	DQF_AUTORELEASE_ALWAYS  = 0x00010000,
 	DQF_AUTORELEASE_NEVER   = 0x00020000,
 #define _DQF_AUTORELEASE_MASK 0x00030000
-	DQF_THREAD_BOUND        = 0x00040000, // queue is bound to a thread
-	DQF_BARRIER_BIT         = 0x00080000, // queue is a barrier on its target
-	DQF_TARGETED            = 0x00100000, // queue is targeted by another object
-	DQF_LABEL_NEEDS_FREE    = 0x00200000, // queue label was strdup()ed
+	// queue is bound to a thread
+	DQF_THREAD_BOUND        = 0x00040000,
+	 // queue is a barrier on its target
+	DQF_BARRIER_BIT         = 0x00080000,
+	 // queue is targeted by another object
+	DQF_TARGETED            = 0x00100000,
+	 // queue label was strdup()ed
+	DQF_LABEL_NEEDS_FREE    = 0x00200000,
 	DQF_MUTABLE             = 0x00400000,
 	DQF_RELEASED            = 0x00800000, // xref_cnt == -1
 	// queue is targetting a specially configured wlh at the bottom.  DQF_MUTABLE
@@ -460,12 +464,13 @@ typedef struct dispatch_queue_specific_head_s {
 	TAILQ_HEAD(, dispatch_queue_specific_s) dqsh_entries;
 } *dispatch_queue_specific_head_t;
 
-#define DISPATCH_WORKLOOP_ATTR_HAS_SCHED      0x0001u
-#define DISPATCH_WORKLOOP_ATTR_HAS_POLICY     0x0002u
-#define DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT 0x0004u
-#define DISPATCH_WORKLOOP_ATTR_HAS_QOS_CLASS  0x0008u
-#define DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY  0x0010u
-#define DISPATCH_WORKLOOP_ATTR_HAS_OBSERVERS  0x0020u
+#define DISPATCH_WORKLOOP_ATTR_HAS_SCHED         0x0001u
+#define DISPATCH_WORKLOOP_ATTR_HAS_POLICY        0x0002u
+#define DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT    0x0004u
+#define DISPATCH_WORKLOOP_ATTR_HAS_QOS_CLASS     0x0008u
+#define DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY     0x0010u
+#define DISPATCH_WORKLOOP_ATTR_HAS_OBSERVERS     0x0020u
+#define DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD  0x0040u
 typedef struct dispatch_workloop_attr_s *dispatch_workloop_attr_t;
 typedef struct dispatch_workloop_attr_s {
 	uint32_t dwla_flags;
@@ -860,6 +865,7 @@ void _dispatch_workloop_push(dispatch_workloop_t dwl, dispatch_object_t dou,
 		dispatch_qos_t qos);
 void _dispatch_workloop_wakeup(dispatch_workloop_t dwl, dispatch_qos_t qos,
 		dispatch_wakeup_flags_t flags);
+bool _dispatch_workloop_uses_bound_thread(dispatch_workloop_t dwl);
 
 void _dispatch_root_queue_poke(dispatch_queue_global_t dq, int n, int floor);
 void _dispatch_root_queue_poke_and_wakeup(dispatch_queue_global_t dq, int n, int floor);

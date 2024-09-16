@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,12 +24,11 @@
 #ifndef _SET_HOSTNAME_H
 #define _SET_HOSTNAME_H
 
-#include <sys/cdefs.h>
-#include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
 
 __BEGIN_DECLS
 
-void	load_hostname		(Boolean	verbose);
+void	load_hostname(dispatch_queue_t queue);
 
 __END_DECLS
 

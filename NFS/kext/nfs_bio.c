@@ -495,9 +495,13 @@ nfs_buf_upl_setup(struct nfsbuf *bp)
 	kern_return_t kret;
 	upl_t upl;
 	int upl_flags;
+	int error = 0;
+
+	NFS_KDBG_ENTRY(NFSDBG_BIO_UPL_SETUP, bp, bp->nb_np, bp->nb_bufsize, NBOFF(bp));
 
 	if (ISSET(bp->nb_flags, NB_PAGELIST)) {
-		return 0;
+		error = 0;
+		goto out;
 	}
 
 	upl_flags = UPL_PRECIOUS;
@@ -513,19 +517,22 @@ nfs_buf_upl_setup(struct nfsbuf *bp)
 	if (kret == KERN_INVALID_ARGUMENT) {
 		/* vm object probably doesn't exist any more */
 		bp->nb_pagelist = NULL;
-		return EINVAL;
+		error = EINVAL;
+		goto out;
 	}
 	if (kret != KERN_SUCCESS) {
 		printf("nfs_buf_upl_setup(): failed to get pagelist %d\n", kret);
 		bp->nb_pagelist = NULL;
-		return EIO;
+		error = EIO;
+		goto out;
 	}
-
-	NFS_KDBG_INFO(NFSDBG_BIO_UPL_SETUP, 0xabc001, bp, NBOFF(bp), bp->nb_np);
 
 	bp->nb_pagelist = upl;
 	SET(bp->nb_flags, NB_PAGELIST);
-	return 0;
+
+out:
+	NFS_KDBG_EXIT(NFSDBG_BIO_UPL_SETUP, bp, bp->nb_lblkno, bp->nb_flags, error);
+	return error;
 }
 
 /*
@@ -592,12 +599,17 @@ int
 nfs_buf_map(struct nfsbuf *bp)
 {
 	kern_return_t kret;
+	int error = 0;
+
+	NFS_KDBG_ENTRY(NFSDBG_BIO_BUF_MAP, bp, bp->nb_np, bp->nb_bufsize, NBOFF(bp));
 
 	if (bp->nb_data) {
-		return 0;
+		error = 0;
+		goto out;
 	}
 	if (!ISSET(bp->nb_flags, NB_PAGELIST)) {
-		return EINVAL;
+		error = EINVAL;
+		goto out;
 	}
 
 	kret = ubc_upl_map(bp->nb_pagelist, (vm_offset_t *)&(bp->nb_data));
@@ -607,8 +619,10 @@ nfs_buf_map(struct nfsbuf *bp)
 	if (bp->nb_data == 0) {
 		panic("ubc_upl_map mapped 0");
 	}
-	NFS_KDBG_INFO(NFSDBG_BIO_BUF_MAP, 0xabc001, bp, bp->nb_flags, NBOFF(bp));
-	return 0;
+
+out:
+	NFS_KDBG_EXIT(NFSDBG_BIO_BUF_MAP, bp, bp->nb_lblkno, bp->nb_flags, error);
+	return error;
 }
 
 /*
@@ -1539,8 +1553,20 @@ nfs_buf_acquire(struct nfsbuf *bp, int flags, int slpflag, int slptimeo)
 		if (flags & NBAC_NOWAIT) {
 			return EBUSY;
 		}
-		SET(bp->nb_lflags, NBL_WANTED);
 
+		/*
+		 * utilize nfs_sigintr to detect shutdown signals and initiate
+		 * an abort if necessary.
+		 * For more info see rdar://123237552
+		 */
+		if (bp->nb_np) {
+			error = nfs_sigintr(NFSTONMP(bp->nb_np), NULL, current_thread(), 0);
+			if (error) {
+				return error;
+			}
+		}
+
+		SET(bp->nb_lflags, NBL_WANTED);
 		ts.tv_sec = (slptimeo / 100);
 		/* the hz value is 100; which leads to 10ms */
 		ts.tv_nsec = (slptimeo % 100) * 10  * NSEC_PER_USEC * 1000;
@@ -1679,8 +1705,6 @@ nfs_buf_read(struct nfsbuf *bp)
 		CLR(bp->nb_flags, NB_DONE);
 	}
 
-	NFS_BUF_MAP(bp);
-
 	OSAddAtomic64(1, &nfsclntstats.read_bios);
 
 	error = nfs_buf_read_rpc(bp, thd, cred);
@@ -1809,10 +1833,12 @@ nfs_buf_read_rpc(struct nfsbuf *bp, thread_t thd, kauth_cred_t cred)
 		}
 #endif
 		req = NULL;
+		nfs_kdebug_io_start(np->n_mount, bp, bp->nb_lblkno, bp->nb_flags, len);
 		error = nmp->nm_funcs->nf_read_rpc_async(np, boff + offset, len, thd, cred, &cb, &req);
 		if (error) {
 			break;
 		}
+
 		offset += len;
 		length -= len;
 		if (async) {
@@ -1899,6 +1925,9 @@ finish:
 		goto out;
 	}
 
+	/* Make sure buffer is properly mapped */
+	NFS_BUF_MAP(bp);
+
 	nfsvers = nmp->nm_vers;
 	offset = cb.rcb_args.offset;
 	rlen = length = cb.rcb_args.length;
@@ -1908,6 +1937,7 @@ finish:
 
 	/* finish the RPC */
 	error = nmp->nm_funcs->nf_read_rpc_async_finish(np, req, auio, &rlen, &eof);
+	nfs_kdebug_io_end(np->n_vnode, bp, length - rlen, error);
 
 	/* Free allocated uio buffer */
 	uio_free(auio);
@@ -2009,6 +2039,7 @@ readagain:
 			cb.rcb_args.stategenid = nmp->nm_stategenid;
 		}
 #endif
+		nfs_kdebug_io_start(np->n_mount, bp, bp->nb_lblkno, bp->nb_flags, length);
 		error = nmp->nm_funcs->nf_read_rpc_async(np, NBOFF(bp) + offset, length, thd, cred, &cb, &rreq);
 		if (!error) {
 			if (IS_VALID_CRED(cred)) {
@@ -2512,7 +2543,7 @@ nfs_async_write_start(struct nfsmount *nmp)
 	}
 	lck_mtx_lock(&nmp->nm_asyncwrites_lock);
 	while ((nfs_max_async_writes > 0) && (nmp->nm_asyncwrites >= nfs_max_async_writes)) {
-		if ((error = nfs_sigintr(nmp, NULL, current_thread(), 1))) {
+		if ((error = nfs_sigintr(nmp, NULL, current_thread(), 0))) {
 			break;
 		}
 		msleep(&nmp->nm_asyncwrites, &nmp->nm_asyncwrites_lock, slpflag | (PZERO - 1), "nfsasyncwrites", &ts);
@@ -3050,7 +3081,7 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 	if (length == 0) {
 		/* We should never get here  */
 #if DEVELOPMENT
-		printf("nfs_buf_write_rpc: Got request with zero length. np %p, bp %p, offset %lld\n", np, bp, offset);
+		printf("nfs_buf_write_rpc: Got request with zero length. np 0x%lx, bp 0x%lx, offset %lld\n", nfs_kernel_hideaddr(np), nfs_kernel_hideaddr(bp), offset);
 #else
 		printf("nfs_buf_write_rpc: Got request with zero length.\n");
 #endif /* DEVELOPMENT */
@@ -3085,6 +3116,7 @@ nfs_buf_write_rpc(struct nfsbuf *bp, int iomode, thread_t thd, kauth_cred_t cred
 			break;
 		}
 		req = NULL;
+		nfs_kdebug_io_start(np->n_mount, bp, bp->nb_lblkno, bp->nb_flags, len);
 		error = nmp->nm_funcs->nf_write_rpc_async(np, auio, len, thd, cred,
 		    iomode, &cb, &req);
 		if (error) {
@@ -3190,6 +3222,7 @@ finish:
 
 	/* finish the RPC */
 	error = nmp->nm_funcs->nf_write_rpc_async_finish(np, req, &committed, &rlen, &wverf);
+	nfs_kdebug_io_end(np->n_vnode, bp, length - rlen, error);
 	if ((error == EINPROGRESS) && cb.rcb_func) {
 		/* async request restarted */
 		if (cb.rcb_func) {
@@ -3305,6 +3338,7 @@ writeagain:
 		}
 #endif
 		// XXX iomode should really match the original request
+		nfs_kdebug_io_start(np->n_mount, bp, bp->nb_lblkno, bp->nb_flags, length);
 		error = nmp->nm_funcs->nf_write_rpc_async(np, auio, length, thd, cred,
 		    NFS_WRITE_FILESYNC, &cb, &wreq);
 

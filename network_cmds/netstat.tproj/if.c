@@ -1501,7 +1501,7 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst, uint8_t grp)
 	if (fqst->fcls_flowstats_cnt > 0) {
 		printf("Flowhash\tBytes\tMin qdelay\tFlags\t\n");
 		for (i = 0; i < fqst->fcls_flowstats_cnt; i++) {
-			printf("%u\t%u\t%14s\t",
+			printf("%x\t%u\t%14s\t",
 			    fqst->fcls_flowstats[i].fqst_flowhash,
 			    fqst->fcls_flowstats[i].fqst_bytes,
 			    nsec_to_str(fqst->fcls_flowstats[i].fqst_min_qdelay));

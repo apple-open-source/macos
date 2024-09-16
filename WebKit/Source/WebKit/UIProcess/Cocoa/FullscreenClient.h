@@ -36,20 +36,24 @@
 
 namespace WebKit {
 
-class FullscreenClient : public API::FullscreenClient {
+class FullscreenClient final : public API::FullscreenClient {
 public:
     explicit FullscreenClient(WKWebView *);
     ~FullscreenClient() { };
 
-    bool isType(API::FullscreenClient::Type target) const override { return target == API::FullscreenClient::WebKitType; };
+    bool isType(API::FullscreenClient::Type target) const final { return target == API::FullscreenClient::WebKitType; };
 
     RetainPtr<id<_WKFullscreenDelegate>> delegate();
     void setDelegate(id<_WKFullscreenDelegate>);
 
-    void willEnterFullscreen(WebPageProxy*) override;
-    void didEnterFullscreen(WebPageProxy*) override;
-    void willExitFullscreen(WebPageProxy*) override;
-    void didExitFullscreen(WebPageProxy*) override;
+    void willEnterFullscreen(WebPageProxy*) final;
+    void didEnterFullscreen(WebPageProxy*) final;
+    void willExitFullscreen(WebPageProxy*) final;
+    void didExitFullscreen(WebPageProxy*) final;
+
+#if PLATFORM(IOS_FAMILY)
+    void requestPresentingViewController(CompletionHandler<void(UIViewController *, NSError *)>&&) final;
+#endif
 
 private:
     WKWebView *m_webView;
@@ -66,6 +70,12 @@ private:
         bool webViewDidEnterElementFullscreen : 1;
         bool webViewWillExitElementFullscreen : 1;
         bool webViewDidExitElementFullscreen : 1;
+#endif
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+        bool webViewDidFullscreenImageWithQuickLook : 1;
+#endif
+#if PLATFORM(IOS_FAMILY)
+        bool webViewRequestPresentingViewController : 1;
 #endif
     } m_delegateMethods;
 };

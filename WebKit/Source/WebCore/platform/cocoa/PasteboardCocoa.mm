@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #import "PlatformStrategies.h"
 #import "SharedBuffer.h"
 #import <ImageIO/ImageIO.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <wtf/ListHashSet.h>
 #import <wtf/text/StringHash.h>
 
@@ -57,46 +58,45 @@ enum class ImageType {
 
 static ImageType cocoaTypeToImageType(const String& cocoaType)
 {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 #if PLATFORM(MAC)
     if (cocoaType == String(legacyTIFFPasteboardType()))
         return ImageType::TIFF;
 #endif
-    if (cocoaType == String(kUTTypeTIFF))
+    if (cocoaType == String(UTTypeTIFF.identifier))
         return ImageType::TIFF;
 #if PLATFORM(MAC)
     if (cocoaType == String(legacyPNGPasteboardType())) // NSPNGPboardType
         return ImageType::PNG;
 #endif
-    if (cocoaType == String(kUTTypePNG))
+    if (cocoaType == String(UTTypePNG.identifier))
         return ImageType::PNG;
-    if (cocoaType == String(kUTTypeJPEG))
+    if (cocoaType == String(UTTypeJPEG.identifier))
         return ImageType::JPEG;
-    if (cocoaType == String(kUTTypeGIF))
+    if (cocoaType == String(UTTypeGIF.identifier))
         return ImageType::GIF;
-ALLOW_DEPRECATED_DECLARATIONS_END
+
     return ImageType::Invalid;
 }
 
 // String literals returned by this function must be defined exactly once
 // since read(PasteboardFileReader&) uses HashMap<const char*> to check uniqueness.
-static const char* imageTypeToMIMEType(ImageType type)
+static ASCIILiteral imageTypeToMIMEType(ImageType type)
 {
     switch (type) {
     case ImageType::Invalid:
-        return nullptr;
+        return { };
     case ImageType::TIFF:
 #if PLATFORM(MAC)
-        return "image/png"; // For Web compatibility, we pretend to have PNG instead.
+        return "image/png"_s; // For Web compatibility, we pretend to have PNG instead.
 #else
         return nullptr; // Don't support pasting TIFF on iOS for now.
 #endif
     case ImageType::PNG:
-        return "image/png";
+        return "image/png"_s;
     case ImageType::JPEG:
-        return "image/jpeg";
+        return "image/jpeg"_s;
     case ImageType::GIF:
-        return "image/gif";
+        return "image/gif"_s;
     }
 }
 
@@ -162,9 +162,7 @@ Pasteboard::FileContentState Pasteboard::fileContentState()
             if (cocoaType == String(legacyURLPasteboardType()))
                 return true;
 #endif
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            return cocoaType == String(kUTTypeURL);
-ALLOW_DEPRECATED_DECLARATIONS_END
+            return cocoaType == String(UTTypeURL.identifier);
         });
         mayContainFilePaths = indexOfURL != notFound && !platformStrategies()->pasteboardStrategy()->containsStringSafeForDOMToReadForType(cocoaTypes[indexOfURL], m_pasteboardName, context());
     }
@@ -229,8 +227,8 @@ void Pasteboard::read(PasteboardFileReader& reader, std::optional<size_t> itemIn
     auto readBufferAtIndex = [&](const PasteboardItemInfo& info, size_t itemIndex) {
         for (auto cocoaType : info.platformTypesByFidelity) {
             auto imageType = cocoaTypeToImageType(cocoaType);
-            auto* mimeType = imageTypeToMIMEType(imageType);
-            if (!mimeType || !reader.shouldReadBuffer(String::fromLatin1(mimeType)))
+            auto mimeType = imageTypeToMIMEType(imageType);
+            if (mimeType.isNull() || !reader.shouldReadBuffer(mimeType))
                 continue;
             auto buffer = readBuffer(itemIndex, cocoaType);
 #if PLATFORM(MAC)
@@ -238,7 +236,7 @@ void Pasteboard::read(PasteboardFileReader& reader, std::optional<size_t> itemIn
                 buffer = convertTIFFToPNG(buffer.releaseNonNull());
 #endif
             if (buffer) {
-                reader.readBuffer(imageTypeToFakeFilename(imageType), String::fromLatin1(mimeType), buffer.releaseNonNull());
+                reader.readBuffer(imageTypeToFakeFilename(imageType), mimeType, buffer.releaseNonNull());
                 break;
             }
         }

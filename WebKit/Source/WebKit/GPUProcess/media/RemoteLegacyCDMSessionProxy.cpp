@@ -78,7 +78,12 @@ static RefPtr<WebCore::SharedBuffer> convertToOptionalSharedBuffer(T array)
 {
     if (!array)
         return nullptr;
-    return SharedBuffer::create((const char*)array->data(), array->byteLength());
+    return SharedBuffer::create(array->span());
+}
+
+void RemoteLegacyCDMSessionProxy::setPlayer(WeakPtr<RemoteMediaPlayerProxy> player)
+{
+    m_player = WTFMove(player);
 }
 
 void RemoteLegacyCDMSessionProxy::generateKeyRequest(const String& mimeType, RefPtr<SharedBuffer>&& initData, GenerateKeyCallback&& completion)
@@ -151,7 +156,7 @@ void RemoteLegacyCDMSessionProxy::sendMessage(Uint8Array* message, String destin
     if (!m_factory)
         return;
 
-    auto* gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return;
 
@@ -163,7 +168,7 @@ void RemoteLegacyCDMSessionProxy::sendError(MediaKeyErrorCode errorCode, uint32_
     if (!m_factory)
         return;
 
-    auto* gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return;
 
@@ -175,7 +180,7 @@ String RemoteLegacyCDMSessionProxy::mediaKeysStorageDirectory() const
     if (!m_factory)
         return emptyString();
 
-    auto* gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return emptyString();
 

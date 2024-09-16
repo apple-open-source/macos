@@ -61,7 +61,7 @@ bool LayerTreeHost::prepareForRendering()
 
 void LayerTreeHost::compositeLayersToContext()
 {
-    IntSize windowSize = expandedIntSize(m_rootLayer->size());
+    IntSize windowSize = flooredIntSize(m_rootLayer->size() * deviceScaleFactor());
     glViewport(0, 0, windowSize.width(), windowSize.height());
 
     m_textureMapper->beginPainting();
@@ -259,6 +259,10 @@ void LayerTreeHost::setIsDiscardable(bool)
 }
 
 void LayerTreeHost::deviceOrPageScaleFactorChanged()
+{
+}
+
+void LayerTreeHost::backgroundColorDidChange()
 {
 }
 

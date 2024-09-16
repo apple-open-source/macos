@@ -94,7 +94,7 @@ typedef struct {
 } _UTF8State;
 
 int
-_UTF8_init(struct __xlocale_st_runelocale *xrl)
+_UTF8_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _UTF8_mbrtowc;

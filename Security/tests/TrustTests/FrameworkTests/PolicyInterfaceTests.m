@@ -89,7 +89,9 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
     SecPolicySetSHA256Pins(NULL, NULL, NULL);
+#endif
     XCTAssertEqualObjects((__bridge NSArray *)CFDictionaryGetValue(options, kSecPolicyCheckLeafSPKISHA256), pins);
     XCTAssertEqual(CFDictionaryGetValue(options, kSecPolicyCheckCAspkiSHA256), NULL);
 #pragma clang diagnostic pop

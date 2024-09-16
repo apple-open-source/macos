@@ -42,7 +42,7 @@ bool ProcessAclSubject::validates(const AclValidationContext &context) const
     // access the environment
     Environment *env = context.environment<Environment>();
     if (env == NULL) {
-        static Environment localEnvironment;
+        [[clang::no_destroy]] static Environment localEnvironment;
         env = &localEnvironment;
     }
     

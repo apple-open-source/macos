@@ -152,6 +152,7 @@
 		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
+		6C729F402A29547700988BA2 /* darwin_directory_enabled.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = darwin_directory_enabled.h; sourceTree = "<group>"; };
 		6CD512EC2885D940008BA24F /* darwin_directory.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = darwin_directory.c; sourceTree = "<group>"; };
 		6CF15C3528D52EF800086299 /* darwin_directory_helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = darwin_directory_helpers.h; sourceTree = "<group>"; usesTabs = 1; };
 		B73D52B02673D1C700E1E5CF /* lookupPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lookupPriv.h; sourceTree = "<group>"; };
@@ -386,6 +387,7 @@
 				BD1379B527D6BB380079209B /* od_debug.h */,
 				BDE3980E2044CDA300CAD4A2 /* pseudo_public.h */,
 				BDE3980F2044CDA300CAD4A2 /* pseudo_private.h */,
+				6C729F402A29547700988BA2 /* darwin_directory_enabled.h */,
 				6CF15C3528D52EF800086299 /* darwin_directory_helpers.h */,
 			);
 			path = Libinfo;

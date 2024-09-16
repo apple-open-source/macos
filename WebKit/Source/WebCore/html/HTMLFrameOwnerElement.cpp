@@ -78,17 +78,22 @@ void HTMLFrameOwnerElement::clearContentFrame()
 void HTMLFrameOwnerElement::disconnectContentFrame()
 {
     if (RefPtr frame = m_contentFrame.get()) {
-        if (frame->settings().siteIsolationEnabled())
-            frame->broadcastFrameRemovalToOtherProcesses();
         frame->frameDetached();
-        frame->disconnectOwnerElement();
+        if (frame == m_contentFrame.get())
+            frame->disconnectOwnerElement();
+        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(frame != m_contentFrame.get());
     }
 }
 
 HTMLFrameOwnerElement::~HTMLFrameOwnerElement()
 {
-    if (m_contentFrame)
-        m_contentFrame->disconnectOwnerElement();
+    if (RefPtr contentFrame = m_contentFrame.get())
+        contentFrame->disconnectOwnerElement();
+}
+
+RefPtr<Frame> HTMLFrameOwnerElement::protectedContentFrame() const
+{
+    return m_contentFrame.get();
 }
 
 Document* HTMLFrameOwnerElement::contentDocument() const

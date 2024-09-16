@@ -704,7 +704,7 @@ struct open_associatecachefile
 #define WEBDAV_ISMAPPED			0x00000080		/* Indicates that the file is mapped */
 #define WEBDAV_WASMAPPED		0x00000100		/* Indicates that the file is or was mapped */
 #define WEBDAV_NEGNCENTRIES		0x00000200		/* Indicates one or more negative name cache entries exist (directory nodes only) */
-#define WEBDAV_PAGEOUT_CLOSE_IN_RECLAIM	0x00000400 /* Indicates close from pageout during reclaim. */
+#define WEBDAV_PAGEOUT_CLOSE	0x00000400		/* Indicates close from pageout */
 
 /*
  * PM_MAX_STATFSTIME is the maximum time to cache statfs data. Since this

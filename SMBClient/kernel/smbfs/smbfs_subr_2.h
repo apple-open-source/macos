@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,12 @@
 
 struct compound_pb;
 
+/* SMB Data compression */
+int smb_check_user_list(const char* extension, size_t extension_len,
+                             char *list[], uint32_t list_cnt);
+int smb_compression_allowed(struct mount *mp, vnode_t vp);
+bool smb_compression_excluded(const char* extension, size_t extension_len);
+
 /* Directory Enumeration Caching functions */
 void smb_dir_cache_add_entry(vnode_t dvp, void *in_cachep,
                              const char *name, size_t name_len,
@@ -43,7 +49,7 @@ int32_t smb_dir_cache_get_attrs(struct smb_share *share, vnode_t dvp,
 void smb_dir_cache_invalidate(vnode_t vp, uint32_t forceInvalidate);
 void smb_dir_cache_remove(vnode_t dvp, void *in_cachep,
 						  const char *cache, const char *reason,
-						  int is_locked);
+						  int is_locked, off_t offset);
 void smb_dir_cache_remove_one(vnode_t dvp, void *in_cachep,
                               void *in_one_entryp, int is_locked);
 
@@ -56,6 +62,14 @@ void smb_global_dir_cache_prune(void *oldest_ptr, int is_locked,
 void smb_global_dir_cache_remove(int is_locked, int remove_all);
 void smb_global_dir_cache_remove_one(vnode_t dvp, int is_locked);
 int32_t smb_global_dir_cache_update_entry(vnode_t dvp);
+
+
+/* buf_map_range helper functions */
+void smbfs_init_buf_map(void);
+void smbfs_teardown_buf_map(void);
+uint32_t smbfs_hash_upl_addr(void *addr);
+int smbfs_buf_map(struct buf *bp, caddr_t *io_addr, vm_prot_t prot);
+int smbfs_buf_unmap(struct buf *bp);
 
 
 /* Helper functions */
@@ -246,6 +260,11 @@ int smb2fs_smb_validate_neg_info(struct smb_share *share, vfs_context_t context)
 int smb2fs_smb_query_network_interface_info(struct smb_share *share, vfs_context_t context);
 int smbfs_smb_undollardata(const char *fname, char *name, size_t *nmlen,
                            uint32_t *is_data);
-
-
+struct smbfs_fctx_query_t* smb2fs_smb_add_fctx_query(struct smbfs_fctx *ctx);
+int smb2fs_smb_free_fctx_query_head(struct smbfs_fctx *ctx) ;
+int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags, const char *name, size_t name_len,
+                        struct smbfattr *fap, int is_attrlist);
+int smbfs_enum_dir(struct vnode *dvp, uio_t uio, int is_attrlist, void* vnop_argsp);
+uint32_t smbfs_fill_direntry(void *de, const char *name, size_t nmlen, uint8_t dtype,
+                    uint64_t ino, int flags);
 #endif

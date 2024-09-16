@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 #include "ipconfig_ext.h"
 #include "globals.h"
 #include "IPConfigurationUtilPrivate.h"
+#include <dispatch/private.h>
 
 static uid_t S_uid = -1;
 static pid_t S_pid = -1;
@@ -545,84 +546,17 @@ _ipconfig_get_dhcp_ia_id(mach_port_t p,
     return (KERN_SUCCESS);
 }
 
-static void
-S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
-{
-    uint64_t 		reply_buf[(2048 + 256)/sizeof(uint64_t)];
-    mach_msg_options_t 	options = 0;
-    mig_reply_error_t * request = (mig_reply_error_t *)msg;
-    mig_reply_error_t *	reply;
-    mach_msg_return_t 	r = MACH_MSG_SUCCESS;
-
-    if (_ipconfig_subsystem.maxsize > sizeof(reply_buf)) {
-	syslog(LOG_NOTICE, "IPConfiguration server: %d > %ld",
-	       _ipconfig_subsystem.maxsize, sizeof(reply_buf));
-	reply = (mig_reply_error_t *)
-	    malloc(_ipconfig_subsystem.maxsize);
-    }
-    else {
-	reply = (mig_reply_error_t *)(void *)reply_buf;
-    }
-    if (ipconfig_server(&request->Head, &reply->Head) == FALSE) {
-	my_log(LOG_DEBUG, "IPConfiguration: unknown message ID (%d) received",
-	       request->Head.msgh_id);
-    }
-
-    /* Copied from Libc/mach/mach_msg.c:mach_msg_server_once(): Start */
-    if (!(reply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
-	if (reply->RetCode == MIG_NO_REPLY)
-	    reply->Head.msgh_remote_port = MACH_PORT_NULL;
-	else if ((reply->RetCode != KERN_SUCCESS) &&
-		 (request->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
-	    /* destroy the request - but not the reply port */
-	    request->Head.msgh_remote_port = MACH_PORT_NULL;
-	    mach_msg_destroy(&request->Head);
-	}
-    }
-    /*
-     *	We don't want to block indefinitely because the client
-     *	isn't receiving messages from the reply port.
-     *	If we have a send-once right for the reply port, then
-     *	this isn't a concern because the send won't block.
-     *	If we have a send right, we need to use MACH_SEND_TIMEOUT.
-     *	To avoid falling off the kernel's fast RPC path unnecessarily,
-     *	we only supply MACH_SEND_TIMEOUT when absolutely necessary.
-     */
-    if (reply->Head.msgh_remote_port != MACH_PORT_NULL) {
-	r = mach_msg(&reply->Head,
-		     (MACH_MSGH_BITS_REMOTE(reply->Head.msgh_bits) ==
-		      MACH_MSG_TYPE_MOVE_SEND_ONCE) ?
-		     MACH_SEND_MSG|options :
-		     MACH_SEND_MSG|MACH_SEND_TIMEOUT|options,
-		     reply->Head.msgh_size, 0, MACH_PORT_NULL,
-		     MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-	if ((r != MACH_SEND_INVALID_DEST) &&
-	    (r != MACH_SEND_TIMED_OUT))
-	    goto done_once;
-	r = MACH_MSG_SUCCESS;
-    }
-    if (reply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)
-	mach_msg_destroy(&reply->Head);
- done_once:
-    /* Copied from Libc/mach/mach_msg.c:mach_msg_server_once(): End */
-
-    /* ALIGN: reply_buf is aligned to at least sizeof(uint64_t) bytes */
-    if (reply != (mig_reply_error_t *)(void *)reply_buf) {
-	free(reply);
-    }
-
-    if (r != MACH_MSG_SUCCESS) {
-	my_log(LOG_DEBUG, "IPConfiguration msg_send: %s", mach_error_string(r));
-    }
-    return;
-}
+typedef union {
+    union __RequestUnion___ipconfig_subsystem req;
+    union __ReplyUnion___ipconfig_subsystem rep;
+} IPConfigurationUnion;
 
 PRIVATE_EXTERN void
 server_init()
 {
-    CFRunLoopSourceRef	rls;
-    CFMachPortRef	ipconfigd_port;
+    dispatch_block_t	handler;
     mach_port_t		server_port;
+    dispatch_source_t	source;
     kern_return_t 	status;
 
     status = bootstrap_check_in(bootstrap_port, IPCONFIG_SERVER, 
@@ -633,12 +567,25 @@ server_init()
 	       mach_error_string(status));
 	return;
     }
-    ipconfigd_port = _SC_CFMachPortCreateWithPort(NULL, server_port,
-						  S_ipconfig_server,
-						  NULL);
-    rls = CFMachPortCreateRunLoopSource(NULL, ipconfigd_port, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-    CFRelease(ipconfigd_port);
+    source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+				    server_port,
+				    0,
+				    IPConfigurationAgentQueue());
+    handler = ^{
+	mach_msg_return_t ret;
+
+	ret = dispatch_mig_server(source,
+				  sizeof(IPConfigurationUnion),
+				  ipconfig_server);
+	switch (ret) {
+	case MACH_MSG_SUCCESS:
+	    break;
+	default:
+	    my_log(LOG_NOTICE, "%s: failed %d", __func__, ret);
+	    break;
+	}
+    };
+    dispatch_source_set_event_handler(source, handler);
+    dispatch_activate(source);
     return;
 }

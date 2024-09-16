@@ -96,7 +96,7 @@ _SC_OSStateCopyFormattedString_dnsinfo(uint32_t data_size, void *data)
 	if ((data_size == 0) || (data == NULL)) {
 		return @"No DNS configuration";
 	} else if (data_size < sizeof(_dns_config_buf_t)) {
-		return SCNSWithFormat(@"DNS configuration: size error (%d < %zd)",
+		return SCNSWithFormat(@"DNS configuration: size error (%u < %zu)",
 				      data_size,
 				      sizeof(_dns_config_buf_t));
 	}
@@ -141,19 +141,19 @@ _SC_OSStateCopyFormattedString_nwi(uint32_t data_size, void *data)
 	}
 
 	if (data_size < sizeof(nwi_state)) {
-		return SCNSWithFormat(@"Network information: size error (%d < %zd)",
+		return SCNSWithFormat(@"Network information: size error (%u < %zu)",
 				      data_size,
 				      sizeof(_dns_config_buf_t));
 	}
 
 	if (state->version != NWI_STATE_VERSION) {
-		return SCNSWithFormat(@"Network information: version error (%d != %d)",
+		return SCNSWithFormat(@"Network information: version error (%u != %u)",
 				      state->version,
 				      NWI_STATE_VERSION);
 	}
 
 	if (data_size != nwi_state_size(state)) {
-		return SCNSWithFormat(@"Network information: size error (%d != %zd)",
+		return SCNSWithFormat(@"Network information: size error (%u != %zu)",
 				      data_size,
 				      nwi_state_size(state));
 	}

@@ -63,9 +63,12 @@ public:
     void canonicalizeUnit();
 
     const CSSPrimitiveValue& value() const { return m_value.get(); }
-    double doubleValue(CSSUnitType) const final;
+    Ref<CSSPrimitiveValue> protectedValue() const { return m_value; }
+
+    double doubleValue(CSSUnitType, const CSSCalcSymbolTable&) const final;
 
 private:
+    bool isResolvable() const final;
     bool isZero() const final;
     bool equals(const CSSCalcExpressionNode& other) const final;
     Type type() const final { return CssCalcPrimitiveValue; }

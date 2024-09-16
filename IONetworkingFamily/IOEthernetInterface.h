@@ -102,6 +102,7 @@ private:
         uint32_t    supportedWakeFilters;   // bitmask of supported wake filters
         OSNumber *  disabledWakeFilters;    // OSNumber of disabled wake filters
         uint64_t    wompEnabledAssertionID;
+        OSNumber *  linkActiveCount;        // monotonically increasing count for link active
 	};
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */

@@ -49,6 +49,7 @@
 #import "WebBackForwardCache.h"
 #import "WebMemoryPressureHandler.h"
 #import "WebPageGroup.h"
+#import "WebPageProxy.h"
 #import "WebPreferencesKeys.h"
 #import "WebPrivacyHelpers.h"
 #import "WebProcessCache.h"
@@ -79,6 +80,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -87,6 +89,10 @@
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/TextStream.h>
+
+#if ENABLE(NOTIFY_BLOCKING) || PLATFORM(MAC)
+#include <notify.h>
+#endif
 
 #import <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
 
@@ -98,7 +104,6 @@
 #if PLATFORM(MAC)
 #import "WebInspectorPreferenceObserver.h"
 #import <QuartzCore/CARemoteLayerServer.h>
-#import <notify.h>
 #import <notify_keys.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -217,10 +222,9 @@ static std::optional<bool>& cachedLockdownModeEnabledGlobally()
 
 void WebProcessPool::updateProcessSuppressionState()
 {
-    WebsiteDataStore::forEachWebsiteDataStore([enabled = processSuppressionEnabled()] (WebsiteDataStore& dataStore) {
-        if (auto* networkProcess = dataStore.networkProcessIfExists())
-            networkProcess->setProcessSuppressionEnabled(enabled);
-    });
+    bool enabled = processSuppressionEnabled();
+    for (Ref networkProcess : NetworkProcessProxy::allNetworkProcesses())
+        networkProcess->setProcessSuppressionEnabled(enabled);
 }
 
 NSMutableDictionary *WebProcessPool::ensureBundleParameters()
@@ -248,13 +252,22 @@ static AccessibilityPreferences accessibilityPreferences()
     if (auto* functionPointer = _AXSReduceMotionAutoplayAnimatedImagesEnabledPtr())
         preferences.imageAnimationEnabled = functionPointer();
 #endif
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    preferences.prefersNonBlinkingCursor = _AXSPrefersNonBlinkingCursorIndicator();
+#endif
     return preferences;
 }
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
 {
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [weakProcess = WeakPtr { process }] {
+    static dispatch_queue_t mediaAccessibilityQueue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        mediaAccessibilityQueue = dispatch_queue_create("MediaAccessibility queue", DISPATCH_QUEUE_SERIAL);
+    });
+
+    dispatch_async(mediaAccessibilityQueue, [weakProcess = WeakPtr { process }] {
         auto captionDisplayMode = WebCore::CaptionUserPreferencesMediaAF::platformCaptionDisplayMode();
         auto preferredLanguages = WebCore::CaptionUserPreferencesMediaAF::platformPreferredLanguages();
         callOnMainRunLoop([weakProcess, captionDisplayMode, preferredLanguages = crossThreadCopy(WTFMove(preferredLanguages))] {
@@ -265,29 +278,28 @@ void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
 }
 #endif
 
-static const char* description(ProcessThrottleState state)
-{
-    switch (state) {
-    case ProcessThrottleState::Foreground: return "foreground";
-    case ProcessThrottleState::Background: return "background";
-    case ProcessThrottleState::Suspended: return "suspended";
-    }
-    return nullptr;
-}
-
 static void logProcessPoolState(const WebProcessPool& pool)
 {
     for (Ref process : pool.processes()) {
-        WTF::TextStream stream;
-        stream << process;
+        WTF::TextStream processDescription;
+        processDescription << process;
 
-        if (auto taskInfo = process->taskInfo()) {
-            stream << ", state: " << description(taskInfo->state);
-            stream << ", phys_footprint_mb: " << (taskInfo->physicalFootprint / 1048576.0) << " MB";
+        RegistrableDomain domain = valueOrDefault(process->optionalRegistrableDomain());
+        String domainString = domain.isEmpty() ? "unknown"_s : domain.string();
+
+        WTF::TextStream pageURLs;
+        auto pages = process->pages();
+        if (pages.isEmpty())
+            pageURLs << "none";
+        else {
+            bool isFirst = true;
+            for (auto& page : pages) {
+                pageURLs << (isFirst ? "" : ", ") << page->currentURL();
+                isFirst = false;
+            }
         }
 
-        String domain = process->optionalRegistrableDomain() ? process->optionalRegistrableDomain()->string() : "unknown"_s;
-        RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING, process.ptr(), stream.release().utf8().data(), domain.utf8().data());
+        RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING ", pageURLs: %" SENSITIVE_LOG_STRING, process.ptr(), processDescription.release().utf8().data(), domainString.utf8().data(), pageURLs.release().utf8().data());
     }
 }
 
@@ -322,6 +334,11 @@ void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization needsGlo
         for (const auto& pool : WebProcessPool::allProcessPools())
             logProcessPoolState(pool.get());
     });
+
+    PAL::registerNotifyCallback("com.apple.WebKit.restrictedDomains"_s, ^{
+        RestrictedOpenerDomainsController::shared();
+    });
+
 }
 
 void WebProcessPool::platformResolvePathsForSandboxExtensions()
@@ -506,7 +523,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     parameters.storageAccessUserAgentStringQuirksData = StorageAccessUserAgentStringQuirkController::shared().cachedQuirks();
 
     for (auto&& entry : StorageAccessPromptQuirkController::shared().cachedQuirks()) {
-        for (auto&& domain : entry.domainPairings.keys())
+        if (!entry.triggerPages.isEmpty()) {
+            for (auto&& page : entry.triggerPages)
+                parameters.storageAccessPromptQuirksDomains.add(RegistrableDomain { page });
+            continue;
+        }
+        for (auto&& domain : entry.quirkDomains.keys())
             parameters.storageAccessPromptQuirksDomains.add(domain);
     }
 #endif
@@ -677,42 +699,39 @@ void WebProcessPool::registerNotificationObservers()
 {
     m_weakObserver = adoptNS([[WKProcessPoolWeakObserver alloc] initWithWeakPtr:*this]);
 
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(NOTIFY_BLOCKING)
+#define WK_NOTIFICATION_COMMENT(...)
+#define WK_NOTIFICATION(name) name ## _s,
     const Vector<ASCIILiteral> notificationMessages = {
-        "com.apple.WebKit.LibraryPathDiagnostics"_s,
-        "com.apple.WebKit.deleteAllCode"_s,
-        "com.apple.WebKit.dumpGCHeap"_s,
-        "com.apple.WebKit.dumpUntrackedMallocs"_s,
-        "com.apple.WebKit.fullGC"_s,
-        "com.apple.WebKit.logMemStats"_s,
-        "com.apple.WebKit.logPageState"_s,
-        "com.apple.WebKit.showAllDocuments"_s,
-        "com.apple.WebKit.showBackForwardCache"_s,
-        "com.apple.WebKit.showGraphicsLayerTree"_s,
-        "com.apple.WebKit.showLayerTree"_s,
-        "com.apple.WebKit.showLayoutTree"_s,
-        "com.apple.WebKit.showMemoryCache"_s,
-        "com.apple.WebKit.showPaintOrderTree"_s,
-        "com.apple.WebKit.showRenderTree"_s,
-        "com.apple.language.changed"_s,
-        "com.apple.system.lowpowermode"_s,
-        "org.WebKit.lowMemory"_s,
-        "org.WebKit.lowMemory.begin"_s,
-        "org.WebKit.lowMemory.end"_s,
-        "org.WebKit.memoryWarning"_s,
-        "org.WebKit.memoryWarning.begin"_s,
-        "org.WebKit.memoryWarning.end"_s,
+#include "Resources/cocoa/NotificationAllowList/ForwardedNotifications.def"
+#if PLATFORM(MAC)
+#include "Resources/cocoa/NotificationAllowList/MacForwardedNotifications.def"
+#else
+#include "Resources/cocoa/NotificationAllowList/EmbeddedForwardedNotifications.def"
+#endif
     };
-    m_notifyTokens = WTF::compactMap(notificationMessages, [this](const ASCIILiteral& message) -> std::optional<int> {
+#undef WK_NOTIFICATION
+#undef WK_NOTIFICATION_COMMENT
+
+    m_notifyTokens = WTF::compactMap(notificationMessages, [weakThis = WeakPtr { *this }](const ASCIILiteral& message) -> std::optional<int> {
         int notifyToken = 0;
-        auto status = notify_register_dispatch(message, &notifyToken, dispatch_get_main_queue(), ^(int token) {
-            if (!m_processes.isEmpty()) {
+        auto queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+        auto registerStatus = notify_register_dispatch(message, &notifyToken, queue, [weakThis, message](int token) {
+            uint64_t state = 0;
+            auto status = notify_get_state(token, &state);
+            callOnMainRunLoop([weakThis, message, state, status] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
                 String messageString(message);
-                for (auto& process : m_processes)
-                    process->send(Messages::WebProcess::PostNotification(messageString), 0);
-            }
+                for (auto& process : protectedThis->m_processes) {
+                    if (process->auditToken() && !WTF::hasEntitlement(process->auditToken().value(), "com.apple.developer.web-browser-engine.restrict.notifyd"_s))
+                        continue;
+                    process->send(Messages::WebProcess::PostNotification(messageString, (status == NOTIFY_STATUS_OK) ? std::optional<uint64_t>(state) : std::nullopt), 0);
+                }
+            });
         });
-        if (status)
+        if (registerStatus)
             return std::nullopt;
         return notifyToken;
     });
@@ -720,11 +739,14 @@ void WebProcessPool::registerNotificationObservers()
     const Vector<NSString*> nsNotificationMessages = {
         NSProcessInfoPowerStateDidChangeNotification
     };
-    m_notificationObservers = WTF::compactMap(nsNotificationMessages, [this](NSString* message) -> RetainPtr<NSObject>  {
-        RetainPtr<NSObject> observer = [[NSNotificationCenter defaultCenter] addObserverForName:message object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
-            if (!m_processes.isEmpty()) {
+    m_notificationObservers = WTF::compactMap(nsNotificationMessages, [weakThis = WeakPtr { *this }](NSString* message) -> RetainPtr<NSObject>  {
+        RetainPtr observer = [[NSNotificationCenter defaultCenter] addObserverForName:message object:nil queue:[NSOperationQueue currentQueue] usingBlock:[weakThis, message](NSNotification *notification) {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            if (!protectedThis->m_processes.isEmpty()) {
                 String messageString(message);
-                for (auto& process : m_processes)
+                for (auto& process : protectedThis->m_processes)
                     process->send(Messages::WebProcess::PostObserverNotification(message), 0);
             }
         }];
@@ -861,6 +883,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (canLoadkAXSReduceMotionAutoplayAnimatedImagesChangedNotification())
         addCFNotificationObserver(accessibilityPreferencesChangedCallback, getkAXSReduceMotionAutoplayAnimatedImagesChangedNotification());
 #endif
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSPrefersNonBlinkingCursorIndicatorDidChangeNotification);
+#endif
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     addCFNotificationObserver(mediaAccessibilityPreferencesChangedCallback, kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
@@ -871,7 +896,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 void WebProcessPool::unregisterNotificationObservers()
 {
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(NOTIFY_BLOCKING)
     for (auto token : m_notifyTokens)
         notify_cancel(token);
     for (auto observer : m_notificationObservers)

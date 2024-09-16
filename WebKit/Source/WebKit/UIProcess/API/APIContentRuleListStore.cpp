@@ -31,7 +31,6 @@
 #include "APIContentRuleList.h"
 #include "NetworkCacheData.h"
 #include "NetworkCacheFileSystem.h"
-#include "SharedMemory.h"
 #include "WebCompiledContentRuleList.h"
 #include <WebCore/CommonAtomStrings.h>
 #include <WebCore/ContentExtensionCompiler.h>
@@ -39,16 +38,18 @@
 #include <WebCore/ContentExtensionParser.h>
 #include <WebCore/QualifiedName.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/SharedMemory.h>
 #include <string>
 #include <wtf/CompletionHandler.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/FileSystem.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/persistence/PersistentDecoder.h>
 #include <wtf/persistence/PersistentEncoder.h>
-
+#include <wtf/text/MakeString.h>
 
 namespace API {
 using namespace WebKit::NetworkCache;
@@ -72,9 +73,9 @@ ContentRuleListStore::ContentRuleListStore()
 
 ContentRuleListStore::ContentRuleListStore(const WTF::String& storePath)
     : m_storePath(storePath)
-    , m_compileQueue(ConcurrentWorkQueue::create("ContentRuleListStore Compile Queue"))
-    , m_readQueue(WorkQueue::create("ContentRuleListStore Read Queue"))
-    , m_removeQueue(WorkQueue::create("ContentRuleListStore Remove Queue"))
+    , m_compileQueue(ConcurrentWorkQueue::create("ContentRuleListStore Compile Queue"_s))
+    , m_readQueue(WorkQueue::create("ContentRuleListStore Read Queue"_s))
+    , m_removeQueue(WorkQueue::create("ContentRuleListStore Remove Queue"_s))
 {
     makeAllDirectories(storePath);
 }
@@ -137,7 +138,7 @@ static WebKit::NetworkCache::Data encodeContentRuleListMetaData(const ContentRul
     encoder << metaData.unused64bits2;
 
     ASSERT(encoder.bufferSize() == CurrentVersionFileHeaderSize);
-    return WebKit::NetworkCache::Data(encoder.buffer(), encoder.bufferSize());
+    return WebKit::NetworkCache::Data(encoder.span());
 }
 
 template<typename T> void getData(const T&, const Function<bool(std::span<const uint8_t>)>&);
@@ -147,7 +148,7 @@ template<> void getData(const WebKit::NetworkCache::Data& data, const Function<b
 }
 template<> void getData(const WebCore::SharedBuffer& data, const Function<bool(std::span<const uint8_t>)>& function)
 {
-    function({ data.data(), data.size() });
+    function(data.span());
 }
 
 static std::optional<ContentRuleListMetaData> decodeContentRuleListMetaData(const WebKit::NetworkCache::Data& fileData)
@@ -239,7 +240,7 @@ static bool writeDataToFile(const WebKit::NetworkCache::Data& fileData, Platform
 {
     bool success = true;
     fileData.apply([fd, &success](std::span<const uint8_t> span) {
-        if (writeToFile(fd, span.data(), span.size()) == -1) {
+        if (writeToFile(fd, span) == -1) {
             success = false;
             return false;
         }
@@ -277,13 +278,11 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
             writeToFile(sourceJSON.is8Bit());
             m_sourceWritten += sizeof(bool);
             if (sourceJSON.is8Bit()) {
-                size_t serializedLength = sourceJSON.length() * sizeof(LChar);
-                writeToFile(WebKit::NetworkCache::Data(sourceJSON.characters8(), serializedLength));
-                m_sourceWritten += serializedLength;
+                writeToFile(WebKit::NetworkCache::Data(sourceJSON.span8()));
+                m_sourceWritten += sourceJSON.length();
             } else {
-                size_t serializedLength = sourceJSON.length() * sizeof(UChar);
-                writeToFile(WebKit::NetworkCache::Data(reinterpret_cast<const uint8_t*>(sourceJSON.characters16()), serializedLength));
-                m_sourceWritten += serializedLength;
+                writeToFile(WebKit::NetworkCache::Data(asBytes(sourceJSON.span16())));
+                m_sourceWritten += sourceJSON.length() * sizeof(UChar);
             }
         }
 
@@ -294,7 +293,7 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
             ASSERT(!m_topURLFiltersBytecodeWritten);
             ASSERT(!m_frameURLFiltersBytecodeWritten);
             m_actionsWritten += actions.size();
-            writeToFile(WebKit::NetworkCache::Data(actions.data(), actions.size()));
+            writeToFile(WebKit::NetworkCache::Data(actions.span()));
         }
 
         void writeURLFiltersBytecode(Vector<DFABytecode>&& bytecode) final
@@ -302,20 +301,20 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
             ASSERT(!m_topURLFiltersBytecodeWritten);
             ASSERT(!m_frameURLFiltersBytecodeWritten);
             m_urlFiltersBytecodeWritten += bytecode.size();
-            writeToFile(WebKit::NetworkCache::Data(bytecode.data(), bytecode.size()));
+            writeToFile(WebKit::NetworkCache::Data(bytecode.span()));
         }
         
         void writeTopURLFiltersBytecode(Vector<DFABytecode>&& bytecode) final
         {
             ASSERT(!m_frameURLFiltersBytecodeWritten);
             m_topURLFiltersBytecodeWritten += bytecode.size();
-            writeToFile(WebKit::NetworkCache::Data(bytecode.data(), bytecode.size()));
+            writeToFile(WebKit::NetworkCache::Data(bytecode.span()));
         }
 
         void writeFrameURLFiltersBytecode(Vector<DFABytecode>&& bytecode) final
         {
             m_frameURLFiltersBytecodeWritten += bytecode.size();
-            writeToFile(WebKit::NetworkCache::Data(bytecode.data(), bytecode.size()));
+            writeToFile(WebKit::NetworkCache::Data(bytecode.span()));
         }
         
         void finalize() final
@@ -339,7 +338,7 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
     private:
         void writeToFile(bool value)
         {
-            writeToFile(WebKit::NetworkCache::Data(reinterpret_cast<const uint8_t*>(&value), sizeof(value)));
+            writeToFile(WebKit::NetworkCache::Data({ reinterpret_cast<const uint8_t*>(&value), sizeof(value) }));
         }
         void writeToFile(const WebKit::NetworkCache::Data& data)
         {
@@ -359,17 +358,16 @@ static Expected<MappedData, std::error_code> compiledToFile(WTF::String&& json, 
         bool m_fileError { false };
     };
 
-    auto temporaryFileHandle = invalidPlatformFileHandle;
-    WTF::String temporaryFilePath = openTemporaryFile("ContentRuleList"_s, temporaryFileHandle);
+    auto [temporaryFilePath, temporaryFileHandle] = openTemporaryFile("ContentRuleList"_s);
     if (temporaryFileHandle == invalidPlatformFileHandle) {
         WTFLogAlways("Content Rule List compiling failed: Opening temporary file failed.");
         return makeUnexpected(ContentRuleListStore::Error::CompileFailed);
     }
     
-    char invalidHeader[CurrentVersionFileHeaderSize];
-    memset(invalidHeader, 0xFF, sizeof(invalidHeader));
+    std::array<uint8_t, CurrentVersionFileHeaderSize> invalidHeader;
+    memset(invalidHeader.data(), 0xFF, invalidHeader.size());
     // This header will be rewritten in CompilationClient::finalize.
-    if (writeToFile(temporaryFileHandle, invalidHeader, sizeof(invalidHeader)) == -1) {
+    if (writeToFile(temporaryFileHandle, invalidHeader) == -1) {
         WTFLogAlways("Content Rule List compiling failed: Writing header to file failed.");
         closeFile(temporaryFileHandle);
         return makeUnexpected(ContentRuleListStore::Error::CompileFailed);
@@ -455,18 +453,18 @@ static WTF::String getContentRuleListSourceFromMappedFile(const MappedData& mapp
         return { };
 
     auto headerSizeBytes = headerSize(mappedData.metaData.version);
-    bool is8Bit = mappedData.data.data()[headerSizeBytes];
+    bool is8Bit = mappedData.data.span()[headerSizeBytes];
     size_t start = headerSizeBytes + sizeof(bool);
     size_t length = mappedData.metaData.sourceSize - sizeof(bool);
     if (is8Bit)
-        return WTF::String(mappedData.data.data() + start, length);
+        return mappedData.data.span().subspan(start, length);
 
     if (length % sizeof(UChar)) {
         ASSERT_NOT_REACHED();
         return { };
     }
 
-    return WTF::String(reinterpret_cast<const UChar*>(mappedData.data.data() + start), length / sizeof(UChar));
+    return spanReinterpretCast<const UChar>(mappedData.data.span().subspan(start, length));
 }
 
 void ContentRuleListStore::lookupContentRuleList(WTF::String&& identifier, CompletionHandler<void(RefPtr<API::ContentRuleList>, std::error_code)> completionHandler)
@@ -594,7 +592,7 @@ void ContentRuleListStore::invalidateContentRuleListVersion(const WTF::String& i
         return;
 
     ContentRuleListMetaData invalidHeader = {0, 0, 0, 0, 0, 0};
-    auto bytesWritten = writeToFile(file, &invalidHeader, sizeof(invalidHeader));
+    auto bytesWritten = writeToFile(file, { reinterpret_cast<const uint8_t*>(&invalidHeader), sizeof(invalidHeader) });
     ASSERT_UNUSED(bytesWritten, bytesWritten == sizeof(invalidHeader));
     closeFile(file);
 }

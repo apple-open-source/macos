@@ -41,7 +41,7 @@ using FirstTimeRegistration = WebExtensionDynamicScripts::WebExtensionRegistered
 class WebExtension;
 
 class WebExtensionAPIScripting : public WebExtensionAPIObject, public JSWebExtensionWrappable {
-    WEB_EXTENSION_DECLARE_JS_WRAPPER_CLASS(WebExtensionAPIScripting, scripting);
+    WEB_EXTENSION_DECLARE_JS_WRAPPER_CLASS(WebExtensionAPIScripting, scripting, scripting);
 
 public:
 #if PLATFORM(COCOA)
@@ -68,14 +68,14 @@ private:
 
     void parseCSSInjectionOptions(NSDictionary *, WebExtensionScriptInjectionParameters&);
     void parseTargetInjectionOptions(NSDictionary *, WebExtensionScriptInjectionParameters&, NSString **outExceptionString);
-    void parseScriptInjectionOptions(NSDictionary *, WebExtensionScriptInjectionParameters&);
+    void parseScriptInjectionOptions(NSDictionary *, WebExtensionScriptInjectionParameters&, NSString **outExceptionString);
     static void parseRegisteredContentScripts(NSArray *, FirstTimeRegistration, Vector<WebExtensionRegisteredScriptParameters>&);
 
 #endif
 };
 
 NSArray *toWebAPI(const Vector<WebExtensionScriptInjectionResultParameters>&, bool returnExecutionResultOnly);
-NSArray *toWebAPI(const Vector<WebExtensionRegisteredScriptParameters>&);
+NSDictionary *toWebAPI(const WebExtensionRegisteredScriptParameters&);
 NSString *toWebAPI(WebExtension::InjectionTime);
 
 } // namespace WebKit

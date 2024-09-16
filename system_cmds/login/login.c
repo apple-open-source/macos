@@ -41,14 +41,7 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char sccsid[] = "@(#)login.c	8.4 (Berkeley) 4/2/94";
-#endif
-#endif
-
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 /*
  * login [ name ]
@@ -171,6 +164,8 @@ static u_int		timeout = 300;
 /* Buffer for signal handling of timeout */
 static jmp_buf		 timeout_buf;
 
+char			 pwbuf[1024];
+struct passwd		 pwres;
 struct passwd		*pwd;
 static int		 failures;
 
@@ -442,20 +437,22 @@ main(int argc, char *argv[])
 			getlastlogxbyname(username, &lastlog);
 #endif /* USE_PAM */
 
-		pwd = getpwnam(username);
+		(void)getpwnam_r(username, &pwres, pwbuf, sizeof(pwbuf), &pwd);
 #endif /* __APPLE__ */
 
 #ifdef USE_PAM
 		/*
 		 * Load the PAM policy and set some variables
 		 */
-		const char *pam_name = "login";	/* PAM config */
 #ifdef __APPLE__
+		const char *pam_name = "login";	/* PAM config */
 		if (fflag && (pwd != NULL) && (pwd->pw_uid == uid)) {
 			pam_name = "login.term";
 		}
-#endif
 		pam_err = pam_start(pam_name, username, &pamc, &pamh);
+#else
+		pam_err = pam_start("login", username, &pamc, &pamh);
+#endif
 		if (pam_err != PAM_SUCCESS) {
 			pam_syslog("pam_start()");
 #ifdef USE_BSM_AUDIT
@@ -482,7 +479,7 @@ main(int argc, char *argv[])
 #endif /* USE_PAM */
 
 #ifndef __APPLE__
-		pwd = getpwnam(username);
+		(void)getpwnam_r(username, &pwres, pwbuf, sizeof(pwbuf), &pwd);
 #endif
 		if (pwd != NULL && pwd->pw_uid == 0)
 			rootlogin = 1;
@@ -542,7 +539,7 @@ main(int argc, char *argv[])
 		 * If trying to log in as root but with insecure terminal,
 		 * refuse the login attempt.
 		 */
-		if (pwd && rootlogin && !rootterm(tty)) {
+		if (pwd != NULL && rootlogin && !rootterm(tty)) {
 			refused("root login refused on this terminal", "ROOTTERM", 0);
 #ifdef USE_BSM_AUDIT
 			au_login_fail("Login refused on terminal", 0);
@@ -551,7 +548,7 @@ main(int argc, char *argv[])
 		}
 #endif /* !USE_PAM */
 #endif /* __APPLE__ */
-		if (pwd && rval == 0)
+		if (pwd != NULL && rval == 0)
 			break;
 
 #ifdef USE_PAM
@@ -1106,8 +1103,10 @@ auth_pam(int skip_auth)
 		pam_err = pam_get_item(pamh, PAM_USER, &item);
 		if (pam_err == PAM_SUCCESS) {
 			tmpl_user = (const char *)item;
-			if (strcmp(username, tmpl_user) != 0)
-				pwd = getpwnam(tmpl_user);
+			if (strcmp(username, tmpl_user) != 0) {
+				(void)getpwnam_r(tmpl_user, &pwres, pwbuf,
+				    sizeof(pwbuf), &pwd);
+			}
 		} else {
 			pam_syslog("pam_get_item(PAM_USER)");
 		}

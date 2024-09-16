@@ -64,17 +64,17 @@ kern_corefile(void)
 static bool
 task_port_is_corpse(mach_port_t task_port)
 {
-	kern_return_t error;
-	mach_vm_address_t kcd_addr_begin;
-	mach_vm_size_t kcd_size;
+    kern_return_t error;
+    mach_vm_address_t kcd_addr_begin;
+    mach_vm_size_t kcd_size;
 
-	error = task_map_corpse_info_64(mach_task_self(), task_port, &kcd_addr_begin, &kcd_size);
-	if (error != KERN_SUCCESS) {
-		return false;
-	}
+    error = task_map_corpse_info_64(mach_task_self(), task_port, &kcd_addr_begin, &kcd_size);
+    if (error != KERN_SUCCESS) {
+        return false;
+    }
 
-	vm_deallocate(mach_task_self(), (vm_address_t)kcd_addr_begin, (int)kcd_size);
-	return true;
+    vm_deallocate(mach_task_self(), (vm_address_t)kcd_addr_begin, (int)kcd_size);
+    return true;
 }
 
 static const struct proc_bsdinfo *
@@ -400,6 +400,7 @@ static struct options options = {
 	.calgorithm = COMPRESSION_LZFSE,
 	.ncthresh = DEFAULT_NC_THRESHOLD,
 	.dsymforuuid = 0,
+	.notes = 0
 };
 
 static int
@@ -441,11 +442,12 @@ gcore_main(int argc, char *const *argv)
 
     char *corefmt = NULL;
     char *corefname = NULL;
+    int fd_parameter = -1;                         // File descriptor to be used (provided externally)
 
     int c;
     char *sopts, *value;
 
-    while ((c = getopt(argc, argv, "vdsxgCFSZ:o:c:b:t:")) != -1) {
+    while ((c = getopt(argc, argv, "vdsxgCFNSZ:o:c:b:tf:")) != -1) {
         switch (c) {
 
                 /*
@@ -456,6 +458,13 @@ gcore_main(int argc, char *const *argv)
                 break;
             case 'o':   /* Linux (& SunOS) compat: basic name */
                 corefname = strdup(optarg);
+                break;
+                /* That option should not be necesary, because caller can pass as
+                 * file argument '/dev/fd/xx' but gcore wants to create the file and
+                 * set its permissions.
+                 */
+            case 'f':
+                fd_parameter = atoi(optarg);
                 break;
             case 'c':   /* FreeBSD compat: basic name */
                 /* (also allows pattern-based naming) */
@@ -568,17 +577,17 @@ gcore_main(int argc, char *const *argv)
             case 'F':   /* maximize filerefs */
                 options.allfilerefs++;
                 break;
+			case 'N':
+				options.notes = true;
+				break;
             default:
                 errx(EX_USAGE, "unknown flag");
         }
     }
 
-	if (optind == argc)
-		errx(EX_USAGE, "no pid specified");
+    opt = &options;
 	if (optind < argc-1)
 		errx(EX_USAGE, "too many arguments");
-
-	opt = &options;
     if (NULL != corefname && NULL != corefmt)
         errx(EX_USAGE, "specify only one of -o and -c");
     if (!opt->extended && opt->allfilerefs)
@@ -599,8 +608,24 @@ gcore_main(int argc, char *const *argv)
         if (opt->gzip) {
             errx(EX_USAGE, "specify only one of -x and -g");
         }
+        if (opt->notes) {
+            errx(EX_USAGE, "specify only one of -x and -N");
+        }
     }
-
+    
+    if (opt->notes) {
+        if (opt->stream) {
+            errx(EX_USAGE, "specify only one of -N and -S");
+        }
+        if (opt->gzip) {
+            /* gzip requires streaming */
+            errx(EX_USAGE, "specify only one of -N and -g");
+        }
+    }
+    
+    if (fd_parameter != -1 && corefname!=NULL) {
+        errx(EX_USAGE, "Cannot use a coredump out filename and a file descriptor");
+    }
     setpageshift();
 
 	if (opt->ncthresh < ((vm_offset_t)1 << pageshift_host))
@@ -661,7 +686,7 @@ gcore_main(int argc, char *const *argv)
 			pbi->pbi_rgid != pbi->pbi_svgid)
 			errx(EX_NOPERM, "pid %d - not dumping a set-id process", pid);
 
-		if (NULL == corefname)
+		if (NULL == corefname && fd_parameter == -1)
 			corefname = make_gcore_path(&corefmt, pbi->pbi_pid, pbi->pbi_uid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
 
 		if (MACH_PORT_NULL == corpse && MACH_PORT_NULL == task) {
@@ -715,14 +740,17 @@ gcore_main(int argc, char *const *argv)
 
 		/*
 		 * Only have a corpse, thus no process credentials.
-		 * Switch to nobody.
+		 * Switch to nobody, if no task has been given in the options.
+		 * When gcore is launched from RME it will not work if executing as nobody
 		 */
-		change_credentials(-2, -2);
+        if (apid != 0) {
+            change_credentials(-2, -2);
+        }
 	}
 
 	struct stat cst;
     char *coretname = NULL;
-    const int fd = openout(corefname, &coretname, &cst);
+    const int fd = (fd_parameter != -1) ? fd_parameter : openout(corefname, &coretname, &cst);
     int outfd = fd;
     pid_t gpid = -1;
 

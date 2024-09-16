@@ -101,7 +101,7 @@ public:
 
     bool hasBackdropFilters() const;
 
-    OptionSet<Containment> effectiveContainment() const;
+    OptionSet<Containment> usedContain() const;
 
     std::optional<Length> containIntrinsicWidth;
     std::optional<Length> containIntrinsicHeight;
@@ -186,6 +186,10 @@ public:
     ScrollbarWidth scrollbarWidth { ScrollbarWidth::Auto };
 
     float zoom;
+    AtomString pseudoElementNameArgument;
+
+    Vector<AtomString> anchorNames;
+    AtomString positionAnchor;
 
     std::optional<Length> blockStepSize;
     unsigned blockStepInsert : 1; // BlockStepInsert
@@ -206,10 +210,8 @@ public:
 
     unsigned contentVisibility : 2; // ContentVisibility
 
-#if ENABLE(CSS_COMPOSITING)
     unsigned effectiveBlendMode: 5; // EBlendMode
     unsigned isolation : 1; // Isolation
-#endif
 
 #if ENABLE(APPLE_PAY)
     unsigned applePayButtonStyle : 2;
@@ -232,6 +234,8 @@ public:
     unsigned overflowAnchor : 1; // Scroll Anchoring- OverflowAnchor
 
     bool hasClip : 1;
+
+    FieldSizing fieldSizing { FieldSizing::Fixed };
 
 private:
     StyleRareNonInheritedData();

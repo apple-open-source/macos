@@ -78,19 +78,19 @@ String FunctionSignature::toString() const
 void FunctionSignature::dump(PrintStream& out) const
 {
     {
-        out.print("(");
+        out.print("("_s);
         CommaPrinter comma;
         for (FunctionArgCount arg = 0; arg < argumentCount(); ++arg)
             out.print(comma, makeString(argumentType(arg).kind));
-        out.print(")");
+        out.print(")"_s);
     }
 
     {
         CommaPrinter comma;
-        out.print(" -> [");
+        out.print(" -> ["_s);
         for (FunctionArgCount ret = 0; ret < returnCount(); ++ret)
             out.print(comma, makeString(returnType(ret).kind));
-        out.print("]");
+        out.print("]"_s);
     }
 }
 
@@ -101,13 +101,13 @@ String StructType::toString() const
 
 void StructType::dump(PrintStream& out) const
 {
-    out.print("(");
+    out.print("("_s);
     CommaPrinter comma;
     for (StructFieldCount fieldIndex = 0; fieldIndex < fieldCount(); ++fieldIndex) {
         out.print(comma, makeString(field(fieldIndex).type));
-        out.print(comma, field(fieldIndex).mutability ? "immutable" : "mutable");
+        out.print(comma, field(fieldIndex).mutability ? "immutable"_s : "mutable"_s);
     }
-    out.print(")");
+    out.print(")"_s);
 }
 
 StructType::StructType(FieldType* payload, StructFieldCount fieldCount, const FieldType* fieldTypes)
@@ -140,11 +140,11 @@ String ArrayType::toString() const
 
 void ArrayType::dump(PrintStream& out) const
 {
-    out.print("(");
+    out.print("("_s);
     CommaPrinter comma;
     out.print(comma, makeString(elementType().type));
-    out.print(comma, elementType().mutability ? "immutable" : "mutable");
-    out.print(")");
+    out.print(comma, elementType().mutability ? "immutable"_s : "mutable"_s);
+    out.print(")"_s);
 }
 
 String RecursionGroup::toString() const
@@ -154,13 +154,13 @@ String RecursionGroup::toString() const
 
 void RecursionGroup::dump(PrintStream& out) const
 {
-    out.print("(");
+    out.print("("_s);
     CommaPrinter comma;
     for (RecursionGroupCount typeIndex = 0; typeIndex < typeCount(); ++typeIndex) {
         out.print(comma);
         TypeInformation::get(type(typeIndex)).dump(out);
     }
-    out.print(")");
+    out.print(")"_s);
 }
 
 String Projection::toString() const
@@ -170,14 +170,14 @@ String Projection::toString() const
 
 void Projection::dump(PrintStream& out) const
 {
-    out.print("(");
+    out.print("("_s);
     CommaPrinter comma;
     if (isPlaceholder())
-        out.print("<current-rec-group>");
+        out.print("<current-rec-group>"_s);
     else
         TypeInformation::get(recursionGroup()).dump(out);
-    out.print(".", index());
-    out.print(")");
+    out.print("."_s, index());
+    out.print(")"_s);
 }
 
 String Subtype::toString() const
@@ -187,14 +187,14 @@ String Subtype::toString() const
 
 void Subtype::dump(PrintStream& out) const
 {
-    out.print("(");
+    out.print("("_s);
     CommaPrinter comma;
     if (supertypeCount() > 0) {
         TypeInformation::get(firstSuperType()).dump(out);
         out.print(comma);
     }
     TypeInformation::get(underlyingType()).dump(out);
-    out.print(")");
+    out.print(")"_s);
 }
 
 void StorageType::dump(PrintStream& out) const
@@ -293,7 +293,7 @@ static unsigned computeSubtypeHash(SupertypeCount supertypeCount, const TypeInde
     if (supertypeCount > 0)
         accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(superTypes[0]));
     accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(underlyingType));
-    accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(isFinal));
+    accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<bool>::hash(isFinal));
     return accumulator;
 }
 
@@ -544,6 +544,15 @@ bool TypeDefinition::hasRecursiveReference() const
     return TypeInformation::get(as<Subtype>()->underlyingType()).hasRecursiveReference();
 }
 
+bool TypeDefinition::isFinalType() const
+{
+    const auto& unrolled = unroll();
+    if (unrolled.is<Subtype>())
+        return unrolled.as<Subtype>()->isFinal();
+
+    return true;
+}
+
 RefPtr<RTT> RTT::tryCreateRTT(RTTKind kind, DisplayCount displaySize)
 {
     auto result = tryFastMalloc(allocatedRTTSize(displaySize));
@@ -594,6 +603,11 @@ const TypeDefinition& TypeInformation::signatureForLLIntBuiltin(LLIntBuiltin bui
         return *singleton().m_Arrayref_I32I32I32I32;
     case LLIntBuiltin::AnyConvertExtern:
         return *singleton().m_Anyref_Externref;
+    case LLIntBuiltin::ArrayCopy:
+        return *singleton().m_Void_I32AnyrefI32I32AnyrefI32I32;
+    case LLIntBuiltin::ArrayInitElem:
+    case LLIntBuiltin::ArrayInitData:
+        return *singleton().m_Void_I32AnyrefI32I32I32I32;
     }
     RELEASE_ASSERT_NOT_REACHED();
     return *singleton().m_I64_Void;
@@ -832,6 +846,9 @@ struct SubtypeParameterTypes {
         if (subtype->underlyingType() != params.underlyingType)
             return false;
 
+        if (subtype->isFinal() != params.isFinal)
+            return false;
+
         return true;
     }
 
@@ -888,6 +905,8 @@ TypeInformation::TypeInformation()
     m_Ref_RefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Arrayref_I32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { arrayrefType(false) }, { Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
     m_Anyref_Externref = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { anyrefType() }, { externrefType() } }).iterator->key;
+    m_Void_I32AnyrefI32I32AnyrefI32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
+    m_Void_I32AnyrefI32I32I32I32 = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { }, { Wasm::Types::I32, anyrefType(), Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32, Wasm::Types::I32 } }).iterator->key;
 }
 
 RefPtr<TypeDefinition> TypeInformation::typeDefinitionForFunction(const Vector<Type, 16>& results, const Vector<Type, 16>& args)
@@ -1059,11 +1078,12 @@ bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex 
 
     if (typeIndexIsType(typeIndex)) {
         switch (static_cast<TypeKind>(typeIndex)) {
-        case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Anyref:
-            // Casts to these types cannot fail as they are the top types of their respective hierarchies, and static type-checking does not allow cross-hierarchy casts.
+            // Casts to these types cannot fail as any value can be an externref/hostref.
             return true;
+        case TypeKind::Funcref:
+            return !!jsDynamicCast<WebAssemblyFunctionBase*>(refValue);
         case TypeKind::Eqref:
             return (refValue.isInt32() && refValue.asInt32() <= maxI31ref && refValue.asInt32() >= minI31ref) || jsDynamicCast<JSWebAssemblyArray*>(refValue) || jsDynamicCast<JSWebAssemblyStruct*>(refValue);
         case TypeKind::Nullref:
@@ -1080,18 +1100,18 @@ bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex 
             RELEASE_ASSERT_NOT_REACHED();
         }
     } else {
-        const TypeDefinition& signature = TypeInformation::get(typeIndex);
+        const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
         auto signatureRTT = TypeInformation::getCanonicalRTT(typeIndex);
-        if (signature.expand().is<FunctionSignature>()) {
+        if (signature.is<FunctionSignature>()) {
             WebAssemblyFunctionBase* funcRef = jsDynamicCast<WebAssemblyFunctionBase*>(refValue);
             if (!funcRef)
                 return false;
             auto funcRTT = funcRef->rtt();
-            if (funcRTT.get() == signatureRTT.get())
+            if (funcRTT == signatureRTT.get())
                 return true;
             return funcRTT->isSubRTT(*signatureRTT);
         }
-        if (signature.expand().is<ArrayType>()) {
+        if (signature.is<ArrayType>()) {
             JSWebAssemblyArray* arrayRef = jsDynamicCast<JSWebAssemblyArray*>(refValue);
             if (!arrayRef)
                 return false;
@@ -1100,7 +1120,7 @@ bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex 
                 return true;
             return arrayRTT->isSubRTT(*signatureRTT);
         }
-        ASSERT(signature.expand().is<StructType>());
+        ASSERT(signature.is<StructType>());
         JSWebAssemblyStruct* structRef = jsDynamicCast<JSWebAssemblyStruct*>(refValue);
         if (!structRef)
             return false;

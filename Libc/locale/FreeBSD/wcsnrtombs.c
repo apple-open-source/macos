@@ -42,7 +42,7 @@ wcsnrtombs_l(char * __restrict dst, const wchar_t ** __restrict src, size_t nwc,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_wcsnrtombs;
-	return (loc->__lc_ctype->__wcsnrtombs(dst, src, nwc, len, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__wcsnrtombs(dst, src, nwc, len, ps, loc));
 }
 
 size_t
@@ -61,7 +61,7 @@ __wcsnrtombs_std(char * __restrict dst, const wchar_t ** __restrict src,
 	const wchar_t *s;
 	size_t nbytes;
 	size_t nb;
-	struct __xlocale_st_runelocale *runeLocale = loc->__lc_ctype;
+	struct xlocale_ctype *runeLocale = XLOCALE_CTYPE(loc);
 	size_t (*__wcrtomb)(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t) = runeLocale->__wcrtomb;
 	int mb_cur_max = runeLocale->__mb_cur_max;
 

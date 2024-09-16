@@ -41,14 +41,14 @@ namespace WebCore {
 
 Vector<uint8_t> convertBytesToVector(const uint8_t byteArray[], const size_t length)
 {
-    return { byteArray, length };
+    return { std::span { byteArray, length } };
 }
 
 Vector<uint8_t> produceRpIdHash(const String& rpId)
 {
     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
     auto rpIdUTF8 = rpId.utf8();
-    crypto->addBytes(rpIdUTF8.data(), rpIdUTF8.length());
+    crypto->addBytes(rpIdUTF8.span());
     return crypto->computeHash();
 }
 
@@ -169,7 +169,7 @@ Ref<ArrayBuffer> buildClientDataJson(ClientDataType type, const BufferSource& ch
         object->setString("type"_s, "webauthn.get"_s);
         break;
     }
-    object->setString("challenge"_s, base64URLEncodeToString(challenge.data(), challenge.length()));
+    object->setString("challenge"_s, base64URLEncodeToString(challenge.span()));
     object->setString("origin"_s, origin.toRawString());
     
     if (!topOrigin.isNull())
@@ -178,15 +178,13 @@ Ref<ArrayBuffer> buildClientDataJson(ClientDataType type, const BufferSource& ch
     if (scope != WebAuthn::Scope::SameOrigin)
         object->setBoolean("crossOrigin"_s, scope != WebAuthn::Scope::SameOrigin);
 
-    auto utf8JSONString = object->toJSONString().utf8();
-
-    return ArrayBuffer::create(utf8JSONString.data(), utf8JSONString.length());
+    return ArrayBuffer::create(object->toJSONString().utf8().span());
 }
 
 Vector<uint8_t> buildClientDataJsonHash(const ArrayBuffer& clientDataJson)
 {
     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(clientDataJson.data(), clientDataJson.byteLength());
+    crypto->addBytes(clientDataJson.span());
     return crypto->computeHash();
 }
 

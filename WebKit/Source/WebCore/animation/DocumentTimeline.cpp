@@ -149,7 +149,8 @@ std::optional<Seconds> DocumentTimeline::currentTime()
 void DocumentTimeline::animationTimingDidChange(WebAnimation& animation)
 {
     AnimationTimeline::animationTimingDidChange(animation);
-    scheduleAnimationResolution();
+    if (!animation.isEffectInvalidationSuspended())
+        scheduleAnimationResolution();
 }
 
 void DocumentTimeline::removeAnimation(WebAnimation& animation)
@@ -211,6 +212,11 @@ void DocumentTimeline::documentDidUpdateAnimationsAndSendEvents()
 
     if (!m_animationResolutionScheduled)
         scheduleNextTick();
+}
+
+void DocumentTimeline::styleOriginatedAnimationsWereCreated()
+{
+    scheduleAnimationResolution();
 }
 
 bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
@@ -451,6 +457,13 @@ void DocumentTimeline::enqueueAnimationEvent(AnimationEventBase& event)
     m_pendingAnimationEvents.append(event);
     if (m_shouldScheduleAnimationResolutionForNewPendingEvents)
         scheduleAnimationResolution();
+}
+
+bool DocumentTimeline::hasPendingAnimationEventForAnimation(const WebAnimation& animation) const
+{
+    return m_pendingAnimationEvents.containsIf([&](auto& event) {
+        return event->animation() == &animation;
+    });
 }
 
 AnimationEvents DocumentTimeline::prepareForPendingAnimationEventsDispatch()

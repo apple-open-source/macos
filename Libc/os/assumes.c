@@ -64,9 +64,6 @@ typedef struct dl_info {
 #define os_set_crash_message(arg)
 #endif
 
-#define OSX_ASSUMES_LOG_REDIRECT_SECT_NAME "__osx_log_func"
-#define os_atomic_cmpxchg(p, o, n) __sync_bool_compare_and_swap((p), (o), (n))
-
 #if !TARGET_OS_DRIVERKIT
 static const char *
 _os_basename(const char *p)
@@ -159,17 +156,9 @@ _os_find_log_redirect_func(os_mach_header *hdr)
 	os_redirect_t result = NULL;
 
 #if !TARGET_OS_DRIVERKIT
-	char name[128];
 	unsigned long size = 0;
 	uint8_t *data = getsectiondata(hdr, OS_ASSUMES_REDIRECT_SEG, OS_ASSUMES_REDIRECT_SECT, &size);
-	if (!data) {
-		data = getsectiondata(hdr, "__TEXT", OSX_ASSUMES_LOG_REDIRECT_SECT_NAME, &size);
-
-		if (data && size < sizeof(name) - 2) {
-			(void)strlcpy(name, (const char *)data, size + 1);
-			result = dlsym(RTLD_DEFAULT, name);
-		}
-	} else if (size >= sizeof(struct _os_redirect_assumes_s)) {
+	if (data && size >= sizeof(struct _os_redirect_assumes_s)) {
 		struct _os_redirect_assumes_s *redirect = (struct _os_redirect_assumes_s *)data;
 		result = redirect->redirect;
 	}
@@ -233,12 +222,10 @@ os_crash_callback_t _os_crash_callback = NULL;
 
 __attribute__((always_inline))
 static inline void
-_os_crash_impl(const char *message) {
+_os_crash_impl(const char *message)
+{
 	os_set_crash_message(message);
 #if !TARGET_OS_DRIVERKIT
-	if (!_os_crash_callback) {
-		_os_crash_callback = dlsym(RTLD_MAIN_ONLY, "os_crash_function");
-	}
 	if (_os_crash_callback) {
 		_os_crash_callback(message);
 	}
@@ -257,16 +244,16 @@ _os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
 	const char *message = pack->olp_format;
 	_os_crash_impl(message);
 
-	char *(*_os_log_pack_send_and_compose)(os_log_pack_t, os_log_t,
-			os_log_type_t, char *, size_t) = NULL;
-	_os_log_pack_send_and_compose = dlsym(RTLD_DEFAULT, "os_log_pack_send_and_compose");
-	if (!_os_log_pack_send_and_compose) return false;
+	/*
+	 * If libtrace has been initialized then we can call it
+	 */
+	if (dlopen("libsystem_trace.dylib", RTLD_NOLOAD | RTLD_LAZY) == NULL) {
+		return false;
+	}
 
-	os_log_t __os_log_default = NULL;
-	__os_log_default = dlsym(RTLD_DEFAULT, "_os_log_default");
-	if (!__os_log_default) return false;
+	extern char *os_log_pack_send_and_compose(os_log_pack_t, os_log_t, os_log_type_t, char *, size_t);
 
-	char *composed = _os_log_pack_send_and_compose(pack, __os_log_default,
+	char *composed = os_log_pack_send_and_compose(pack, OS_LOG_DEFAULT,
 			OS_LOG_TYPE_ERROR, NULL, 0);
 
 	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, pack, pack_size, composed, 0);

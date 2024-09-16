@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <malloc/malloc.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
 
 static inline void*
 t_calloc(size_t count, size_t s)
@@ -43,7 +43,7 @@ test_calloc_random(size_t count, size_t min, size_t max, size_t incr, size_t n)
 	void *ptrs[P] = {};
 	for (size_t i = 0, j = 0, k = 0; i < n + P; i++, j = k, k = (k + 1) % P) {
 		void *ptr = NULL;
-		if (i < n) ptr = t_calloc(count, min + arc4random_uniform(r) * incr);
+		if (i < n) ptr = t_calloc(count, min + (arc4random() % r) * incr);
 		free(ptrs[j]);
 		ptrs[k] = ptr;
 	}

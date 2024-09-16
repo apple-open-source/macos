@@ -34,6 +34,15 @@
 #include <wtf/HashMap.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebKit {
+class RemoteMediaEngineConfigurationFactory;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteMediaEngineConfigurationFactory> : std::true_type { };
+}
+
 namespace IPC {
 class Connection;
 class Decoder;
@@ -54,7 +63,7 @@ public:
 
     void registerFactory();
 
-    static const char* supplementName();
+    static ASCIILiteral supplementName();
 
     GPUProcessConnection& gpuProcessConnection();
 

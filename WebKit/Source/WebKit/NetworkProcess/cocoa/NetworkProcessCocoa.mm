@@ -37,7 +37,7 @@
 #import "SandboxExtension.h"
 #import "WebCookieManager.h"
 #import <WebCore/NetworkStorageSession.h>
-#import <WebCore/PublicSuffix.h>
+#import <WebCore/PublicSuffixStore.h>
 #import <WebCore/ResourceRequestCFNet.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SecurityOrigin.h>
@@ -206,10 +206,12 @@ void saveCookies(NSHTTPCookieStorage *cookieStorage, CompletionHandler<void()>&&
 void NetworkProcess::platformFlushCookies(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
-    if (auto* networkStorageSession = storageSession(sessionID))
-        saveCookies(networkStorageSession->nsCookieStorage(), WTFMove(completionHandler));
-    else
-        completionHandler();
+    auto* networkStorageSession = storageSession(sessionID);
+    if (!networkStorageSession)
+        return completionHandler();
+
+    RetainPtr cookieStorage = networkStorageSession->nsCookieStorage();
+    saveCookies(cookieStorage.get(), WTFMove(completionHandler));
 }
 
 const String& NetworkProcess::uiProcessBundleIdentifier() const
@@ -225,7 +227,7 @@ void NetworkProcess::setBackupExclusionPeriodForTesting(PAL::SessionID sessionID
 {
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
     if (auto* session = networkSession(sessionID))
-        session->storageManager().setBackupExclusionPeriodForTesting(period, [callbackAggregator] { });
+        session->protectedStorageManager()->setBackupExclusionPeriodForTesting(period, [callbackAggregator] { });
 }
 #endif // PLATFORM(IOS_FAMILY)
 

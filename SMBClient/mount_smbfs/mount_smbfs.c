@@ -77,7 +77,7 @@ handle_options(int argc, char **argv, CFMutableDictionaryRef *mOptions,
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
 	{ "streams",        0, SMBFS_MNT_STREAMS_ON, 1 },
-	{ "notification",   1, SMBFS_MNT_NOTIFY_OFF, 1 }, /* negative flag */
+	{ "forcenotify",    1, SMBFS_MNT_NOTIFY_OFF, 1 }, /* negative flag */
 	{ "soft",           0, SMBFS_MNT_SOFT, 1 },
     { "timemachine",    0, SMBFS_MNT_TIME_MACHINE, 1 },
     { "hifi",           0, SMBFS_MNT_HIGH_FIDELITY, 1 },
@@ -193,6 +193,24 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+/*
+ * Convert all 'notification' occurrences with 'forcenotify,' so it can
+ * get parsed by getmntopts().
+ */
+static char *
+handle_notification_opt(char *opt)
+{
+    char *ptr = NULL;
+    const char *notification = "notification";
+    const char *forcenotify = "forcenotify,";
+
+    while ((ptr = strstr(opt, notification))) {
+        memcpy(ptr, forcenotify, strlen(notification));
+    }
+
+    return opt;
+}
+
 static void
 handle_mntopts(mntoptparse_t mp, int altflags, mode_t *fileMode,
                mode_t *dirMode, char *snapshot_time, int snapshot_time_len,
@@ -216,6 +234,7 @@ handle_mntopts(mntoptparse_t mp, int altflags, mode_t *fileMode,
     if ((altflags & SMBFS_MNT_DIR_MODE) == SMBFS_MNT_DIR_MODE) {
         str = getmntoptstr(mp, "dirmode");
         if (str) {
+            errno = 0;
             *dirMode = strtol(str, &next, 8);
             if (errno || *next != 0)
                 errx(EX_DATAERR, "invalid value for dir mode");
@@ -280,7 +299,7 @@ handle_options(int argc, char **argv, CFMutableDictionaryRef *mOptions,
                 *options |= kSMBOptionNoPrompt;
                 break;
             case 'o': {
-                mntoptparse_t mp = getmntopts(optarg, mopts, &mntflags, &altflags);
+                mntoptparse_t mp = getmntopts(handle_notification_opt(optarg), mopts, &mntflags, &altflags);
                 if (mp == NULL)
                     err(1, NULL);
                 handle_mntopts(mp, altflags, &fileMode, &dirMode, snapshot_time,

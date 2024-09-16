@@ -50,6 +50,7 @@ enum
     kDADiskStateCommandActive       = 0x00000001,
     kDADiskStateRequireRepair       = 0x00000002,
     kDADiskStateRequireRepairQuotas = 0x00000004,
+    kDADiskStateRequireReprobe      = 0x00000008,
     kDADiskStateStagedProbe         = 0x00010000,
     kDADiskStateStagedPeek          = 0x00020000,
     kDADiskStateStagedMount         = 0x00040000,
@@ -105,6 +106,9 @@ extern void               DADiskSetState( DADiskRef disk, DADiskState state, Boo
 extern void               DADiskSetContainerId( DADiskRef disk, char * containerId );
 extern char *             DADiskGetContainerId( DADiskRef disk );
 extern DADiskRef          DADiskGetContainerDisk( DADiskRef disk );
+#if TARGET_OS_OSX || TARGET_OS_IOS /* Should be DA_FSKIT but can't */
+extern void               DADiskSetFskitAdditions( DADiskRef disk, CFDictionaryRef additions );
+#endif
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

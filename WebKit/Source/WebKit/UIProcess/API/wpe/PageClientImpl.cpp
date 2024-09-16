@@ -32,7 +32,8 @@
 #include "NativeWebTouchEvent.h"
 #include "NativeWebWheelEvent.h"
 #include "TouchGestureController.h"
-#include "WPEWebView.h"
+#include "WPEWebViewLegacy.h"
+#include "WPEWebViewPlatform.h"
 #include "WebContextMenuProxy.h"
 #include "WebContextMenuProxyWPE.h"
 #include "WebKitPopupMenu.h"
@@ -41,8 +42,12 @@
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/NotImplemented.h>
 
-#if ENABLE(ACCESSIBILITY)
+#if USE(ATK)
 #include <atk/atk.h>
+#endif
+
+#if ENABLE(WPE_PLATFORM)
+#include <wpe/wpe-platform.h>
 #endif
 
 namespace WebKit {
@@ -213,15 +218,29 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent&, bool)
 #if ENABLE(TOUCH_EVENTS)
 void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, bool wasEventHandled)
 {
-    if (wasEventHandled)
+    if (wasEventHandled) {
+#if ENABLE(WPE_PLATFORM)
+        // If the touch event was handled, we must interrupt any gesture detection sequence ongoing so that gestures
+        // are not detected by engine itself.
+        if (!m_view.wpeView())
+            return;
+        if (auto* gestureController = wpe_view_get_gesture_controller(m_view.wpeView()))
+            wpe_gesture_controller_cancel(gestureController);
+#endif
         return;
+    }
+
+#if ENABLE(WPE_PLATFORM)
+    if (m_view.wpeView())
+        return;
+#endif
 
     const struct wpe_input_touch_event_raw* touchPoint = touchEvent.nativeFallbackTouchPoint();
     if (touchPoint->type == wpe_input_touch_event_type_null)
         return;
 
     auto& page = m_view.page();
-    auto& touchGestureController = m_view.touchGestureController();
+    auto& touchGestureController = static_cast<WKWPE::ViewLegacy&>(m_view).touchGestureController();
 
     auto generatedEvent = touchGestureController.handleEvent(touchPoint);
     WTF::switchOn(generatedEvent,
@@ -275,7 +294,8 @@ Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& pa
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& context)
 {
 #if ENABLE(WPE_PLATFORM)
-    m_view.updateAcceleratedSurface(context.contextID);
+    if (m_view.wpeView())
+        static_cast<WKWPE::ViewPlatform&>(m_view).updateAcceleratedSurface(context.contextID);
 #else
     UNUSED_PARAM(context);
 #endif
@@ -284,18 +304,20 @@ void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& con
 void PageClientImpl::exitAcceleratedCompositingMode()
 {
 #if ENABLE(WPE_PLATFORM)
-    m_view.updateAcceleratedSurface(0);
+    if (m_view.wpeView())
+        static_cast<WKWPE::ViewPlatform&>(m_view).updateAcceleratedSurface(0);
 #endif
 }
 
 void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext& context)
 {
 #if ENABLE(WPE_PLATFORM)
-    m_view.updateAcceleratedSurface(context.contextID);
+    if (m_view.wpeView())
+        static_cast<WKWPE::ViewPlatform&>(m_view).updateAcceleratedSurface(context.contextID);
 #endif
 }
 
-void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, const IPC::DataReference&)
+void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, std::span<const uint8_t>)
 {
 }
 
@@ -389,14 +411,14 @@ void PageClientImpl::enterFullScreen()
     m_view.willEnterFullScreen();
 #if ENABLE(WPE_PLATFORM)
     if (m_view.wpeView()) {
-        m_view.enterFullScreen();
+        static_cast<WKWPE::ViewPlatform&>(m_view).enterFullScreen();
         return;
     }
 #endif
 
     WebFullScreenManagerProxy* fullScreenManagerProxy = m_view.page().fullScreenManager();
     if (fullScreenManagerProxy) {
-        if (!m_view.setFullScreen(true))
+        if (!static_cast<WKWPE::ViewLegacy&>(m_view).setFullScreen(true))
             fullScreenManagerProxy->didExitFullScreen();
     }
 }
@@ -409,14 +431,14 @@ void PageClientImpl::exitFullScreen()
     m_view.willExitFullScreen();
 #if ENABLE(WPE_PLATFORM)
     if (m_view.wpeView()) {
-        m_view.exitFullScreen();
+        static_cast<WKWPE::ViewPlatform&>(m_view).exitFullScreen();
         return;
     }
 #endif
 
     WebFullScreenManagerProxy* fullScreenManagerProxy = m_view.page().fullScreenManager();
     if (fullScreenManagerProxy) {
-        if (!m_view.setFullScreen(false))
+        if (!static_cast<WKWPE::ViewLegacy&>(m_view).setFullScreen(false))
             fullScreenManagerProxy->didEnterFullScreen();
     }
 }
@@ -438,7 +460,7 @@ void PageClientImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebC
     completionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 }
 
-#if ENABLE(ACCESSIBILITY)
+#if USE(ATK)
 AtkObject* PageClientImpl::accessible()
 {
     return ATK_OBJECT(m_view.accessible());
@@ -468,6 +490,11 @@ void PageClientImpl::selectionDidChange()
 WebKitWebResourceLoadManager* PageClientImpl::webResourceLoadManager()
 {
     return m_view.webResourceLoadManager();
+}
+
+void PageClientImpl::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
+{
+    m_view.callAfterNextPresentationUpdate(WTFMove(callback));
 }
 
 } // namespace WebKit

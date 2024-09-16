@@ -530,7 +530,7 @@ create_tmpfs_mount(struct fstab *fs, char *options)
 	}
 
 #if !TARGET_OS_BRIDGE
-	if (enhanced_apfs_supported()) {
+	if (enhanced_apfs_supported() && UMLCreatePrimaryUserLayout) {
 		// Copy over user template
 		CFErrorRef error = NULL;
 		const CFStringRef system_path = CFSTR("/");

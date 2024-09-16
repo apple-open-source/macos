@@ -26,7 +26,7 @@ extern void rop_zfod_delete(struct region *);
 extern void rop_sparse_delete(struct region *);
 extern void rop_vanilla_delete(struct region *);
 
-extern struct regionhead *build_region_list(task_t);
+extern struct regionhead *build_region_list(task_t, bool force_all_regions);
 extern int walk_region_list(struct regionhead *, walk_region_cbfn_t, void *);
 extern void del_region_list(struct regionhead *);
 

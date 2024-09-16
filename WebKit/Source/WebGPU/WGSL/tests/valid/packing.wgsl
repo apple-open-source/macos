@@ -18,8 +18,8 @@ struct T {
 }
 
 struct U {
-    // CHECK: array<type\d::PackedType, 4> field0
-    ts: array<T, 4>,
+    // CHECK: array<type\d::PackedType, 1> field\d
+    ts: array<T>,
 }
 
 var<private> t: T;
@@ -32,21 +32,27 @@ var<private> m3: mat3x3<f32>;
 @group(0) @binding(2) var<storage, read_write> v1: vec3<f32>;
 @group(0) @binding(3) var<storage, read_write> v2: vec3<f32>;
 
-@group(0) @binding(4) var<storage, read_write> at1: array<T, 1>;
-@group(0) @binding(5) var<storage, read_write> at2: array<T, 1>;
+@group(0) @binding(4) var<storage, read_write> at1: array<T, 2>;
+@group(0) @binding(5) var<storage, read_write> at2: array<T, 2>;
+
+@group(0) @binding(6) var<storage, read_write> av1: array<vec3f, 2>;
+@group(0) @binding(7) var<storage, read_write> av2: array<vec3f, 2>;
 
 @group(0) @binding(8) var<storage, read_write> u1: U;
 
 fn testUnpacked() -> i32
 {
-    _ = t.v3f * m3;
-    _ = m3 * t.v3f;
+    { let x = t.v3f * m3; }
+    { let x = m3 * t.v3f; }
 
-    _ = t1.v2f * m2;
-    _ = m2 * t1.v2f;
+    { let x = t1.v2f * m2; }
+    { let x = m2 * t1.v2f; }
 
-    _ = u1.ts[0].v3f * m3;
-    _ = m3 * u1.ts[0].v3f;
+    { let x = u1.ts[0].v3f * m3; }
+    { let x = m3 * u1.ts[0].v3f; }
+
+    { let x = av1[0] * m3; }
+    { let x = m3 * av1[0]; }
 
     return 0;
 }
@@ -56,6 +62,8 @@ fn testAssignment() -> i32
     // packed struct
     // CHECK: local\d+ = __unpack\(global\d+\);
     var t = t1;
+    // CHECK: local\d+ = __unpack\(global\d+\);
+    t = t1;
     // CHECK-NEXT: global\d+ = global\d+;
     t1 = t2;
     // CHECK-NEXT: global\d+ = __pack\(local\d+\);
@@ -64,10 +72,22 @@ fn testAssignment() -> i32
     // array of packed structs
     // CHECK-NEXT: local\d+ = __unpack\(global\d+\);
     var at = at1;
+    // CHECK-NEXT: local\d+ = __unpack\(global\d+\);
+    at = at1;
     // CHECK-NEXT: global\d+ = global\d+;
     at1 = at2;
     // CHECK-NEXT: global\d+ = __pack\(local\d+\);
     at2 = at;
+
+    // array of vec3
+    // CHECK-NEXT: local\d+ = __unpack\(global\d+\);
+    var av = av1;
+    // CHECK-NEXT: local\d+ = __unpack\(global\d+\);
+    av = av1;
+    // CHECK-NEXT: global\d+ = global\d+;
+    av1 = av2;
+    // CHECK-NEXT: global\d+ = __pack\(local\d+\);
+    av2 = av;
 
     return 0;
 }
@@ -81,10 +101,10 @@ fn testFieldAccess() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = global\d+\.field\d\.x;
     // CHECK-NEXT: global\d+\.field\d\.x = global\d+\.field\d\.x;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
-    // CHECK-NEXT: global\d+\.field\d = float3\(global\d+\.field\d\);
+    // CHECK-NEXT: global\d+\.field\d = __unpack\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
-    // CHECK-NEXT: global\d+\.field\d = uint3\(global\d+\.field\d\);
+    // CHECK-NEXT: global\d+\.field\d = __unpack\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
@@ -139,10 +159,10 @@ fn testFieldAccess() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = global\d+\.field\d\.x;
     // CHECK-NEXT: global\d+\.field\d\.x = global\d+\.field\d\.x;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
-    // CHECK-NEXT: global\d+\.field\d = packed_uint3\(global\d+\.field\d\);
+    // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
+    // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d;
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d
     // CHECK-NEXT: global\d+\.field\d = global\d+\.field\d
@@ -168,10 +188,10 @@ fn testFieldAccess() -> i32
 fn testIndexAccess() -> i32
 {
     // CHECK: local\d+ = __unpack\(global\d+\);
-    // CHECK-NEXT: local\d+\[0\] = __unpack\(global\d+\[0\]\);
-    // CHECK-NEXT: global\d+\[0\] = global\d+\[0\];
-    // CHECK-NEXT: global\d+\[0\] = __pack\(local\d+\[0\]\);
-    // CHECK-NEXT: global\d+\[global\d+\] = __pack\(local\d+\[global\d+\]\);
+    // CHECK-NEXT: local\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\] = __unpack\(global\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\]\);
+    // CHECK-NEXT: global\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\] = global\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\];
+    // CHECK-NEXT: global\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\] = __pack\(local\d+\[min\(unsigned\(0\), \(2u - 1u\)\)\]\);
+    // CHECK-NEXT: global\d+\[min\(unsigned\(global\d+\), \(2u - 1u\)\)\] = __pack\(local\d+\[min\(unsigned\(global\d+\), \(2u - 1u\)\)\]\);
     var at = at1;
     at[0] = at1[0];
     at1[0] = at2[0];
@@ -190,10 +210,10 @@ fn testBinaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = \(2. \* float3\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2. \* __unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = \(2u \* uint3\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2u \* __unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
@@ -219,10 +239,10 @@ fn testBinaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(\(2. \* float3\(global\d+\.field\d\)\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2. \* __unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_uint3\(\(2u \* uint3\(global\d+\.field\d\)\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2u \* __unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
@@ -248,10 +268,10 @@ fn testBinaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(2u \* global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(\(2. \* global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_uint3\(\(2u \* global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2. \* global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(2u \* global\d+\.field\d\);
@@ -279,7 +299,7 @@ fn testUnaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = \(-float3\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(-__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     t.v2f.x = -t1.v2f.x;
@@ -294,7 +314,7 @@ fn testUnaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(\(-float3\(global\d+\.field\d\)\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(-__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     t1.v2f.x = -t2.v2f.x;
@@ -309,7 +329,7 @@ fn testUnaryOperations() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = \(-global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(\(-global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = \(-global\d+\.field\d\);
     t2.v2f.x = -t.v2f.x;
@@ -332,10 +352,10 @@ fn testCall() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = abs\(float3\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = abs\(uint3\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
@@ -361,10 +381,10 @@ fn testCall() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(abs\(float3\(global\d+\.field\d\)\)\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_uint3\(abs\(uint3\(global\d+\.field\d\)\)\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(__unpack\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
@@ -390,10 +410,10 @@ fn testCall() -> i32
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d\.x = abs\(global\d+\.field\d\.x\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_float3\(abs\(global\d+\.field\d\)\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
-    // CHECK-NEXT: global\d+\.field\d = packed_uint3\(abs\(global\d+\.field\d\)\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
+    // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
     // CHECK-NEXT: global\d+\.field\d = abs\(global\d+\.field\d\);
@@ -419,12 +439,32 @@ struct S {
     @size(16) x: i32,
     @align(32) y: array<i32>,
 }
-@group(0) @binding(6) var<storage, read_write> s: S;
+@group(0) @binding(10) var<storage, read_write> s: S;
 
 fn testRuntimeArray()
 {
     s.x = 0;
     s.y[0] = 0;
+}
+
+@group(0) @binding(11) var<storage,read_write> D: array<vec3f>;
+fn testPackedVec3CompoundAssignment()
+{
+    D[0] += vec3f(1);
+}
+
+struct InconstructibleS {
+    x: vec3f,
+    y: atomic<u32>
+}
+struct InconstructibleT {
+    x: InconstructibleS,
+}
+
+@group(0) @binding(12) var<storage, read_write> global: InconstructibleT;
+
+fn testInconstructible() {
+    var x = global.x.x;
 }
 
 @compute @workgroup_size(1)
@@ -437,5 +477,7 @@ fn main()
     _ = testBinaryOperations();
     _ = testUnaryOperations();
     _ = testCall();
-    _ = testRuntimeArray();
+    testRuntimeArray();
+    testPackedVec3CompoundAssignment();
+    testInconstructible();
 }

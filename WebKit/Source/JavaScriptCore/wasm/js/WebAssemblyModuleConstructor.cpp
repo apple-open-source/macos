@@ -35,6 +35,7 @@
 #include "JSCJSValueInlines.h"
 #include "JSGlobalObjectInlines.h"
 #include "JSObjectInlines.h"
+#include "JSWebAssemblyCompileError.h"
 #include "JSWebAssemblyHelpers.h"
 #include "JSWebAssemblyModule.h"
 #include "ObjectConstructor.h"
@@ -42,6 +43,7 @@
 #include "WasmModuleInformation.h"
 #include "WebAssemblyModulePrototype.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/MakeString.h>
 
 namespace JSC {
 static JSC_DECLARE_HOST_FUNCTION(webAssemblyModuleCustomSections);
@@ -85,8 +87,9 @@ JSC_DEFINE_HOST_FUNCTION(webAssemblyModuleCustomSections, (JSGlobalObject* globa
 
     const auto& customSections = module->moduleInformation().customSections;
     for (const Wasm::CustomSection& section : customSections) {
-        if (String::fromUTF8(section.name) == sectionNameString) {
-            auto buffer = ArrayBuffer::tryCreate(section.payload.data(), section.payload.size());
+        // FIXME: Add a function that compares a String with a span<char8_t> so we don't need to make a string.
+        if (WTF::makeString(section.name) == sectionNameString) {
+            auto buffer = ArrayBuffer::tryCreate(section.payload.span());
             if (!buffer)
                 return JSValue::encode(throwException(globalObject, throwScope, createOutOfMemoryError(globalObject)));
 
@@ -118,8 +121,8 @@ JSC_DEFINE_HOST_FUNCTION(webAssemblyModuleImports, (JSGlobalObject* globalObject
         for (const Wasm::Import& imp : imports) {
             JSObject* obj = constructEmptyObject(globalObject);
             RETURN_IF_EXCEPTION(throwScope, { });
-            obj->putDirect(vm, module, jsString(vm, String::fromUTF8(imp.module)));
-            obj->putDirect(vm, name, jsString(vm, String::fromUTF8(imp.field)));
+            obj->putDirect(vm, module, jsString(vm, WTF::makeString(imp.module)));
+            obj->putDirect(vm, name, jsString(vm, WTF::makeString(imp.field)));
             obj->putDirect(vm, kind, jsString(vm, String::fromLatin1(makeString(imp.kind))));
             result->push(globalObject, obj);
             RETURN_IF_EXCEPTION(throwScope, { });
@@ -148,7 +151,7 @@ JSC_DEFINE_HOST_FUNCTION(webAssemblyModuleExports, (JSGlobalObject* globalObject
         for (const Wasm::Export& exp : exports) {
             JSObject* obj = constructEmptyObject(globalObject);
             RETURN_IF_EXCEPTION(throwScope, { });
-            obj->putDirect(vm, name, jsString(vm, String::fromUTF8(exp.field)));
+            obj->putDirect(vm, name, jsString(vm, WTF::makeString(exp.field)));
             obj->putDirect(vm, kind, jsString(vm, String::fromLatin1(makeString(exp.kind))));
             result->push(globalObject, obj);
             RETURN_IF_EXCEPTION(throwScope, { });
@@ -173,7 +176,7 @@ JSC_DEFINE_HOST_FUNCTION(callJSWebAssemblyModule, (JSGlobalObject* globalObject,
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    return JSValue::encode(throwConstructorCannotBeCalledAsFunctionTypeError(globalObject, scope, "WebAssembly.Module"));
+    return JSValue::encode(throwConstructorCannotBeCalledAsFunctionTypeError(globalObject, scope, "WebAssembly.Module"_s));
 }
 
 JSWebAssemblyModule* WebAssemblyModuleConstructor::createModule(JSGlobalObject* globalObject, CallFrame* callFrame, Vector<uint8_t>&& buffer)
@@ -185,7 +188,13 @@ JSWebAssemblyModule* WebAssemblyModuleConstructor::createModule(JSGlobalObject* 
     Structure* structure = JSC_GET_DERIVED_STRUCTURE(vm, webAssemblyModuleStructure, newTarget, callFrame->jsCallee());
     RETURN_IF_EXCEPTION(scope, nullptr);
 
-    RELEASE_AND_RETURN(scope, JSWebAssemblyModule::createStub(vm, globalObject, structure, Wasm::Module::validateSync(vm, WTFMove(buffer))));
+    auto result = Wasm::Module::validateSync(vm, WTFMove(buffer));
+    if (UNLIKELY(!result.has_value())) {
+        throwException(globalObject, scope, createJSWebAssemblyCompileError(globalObject, vm, result.error()));
+        return nullptr;
+    }
+
+    RELEASE_AND_RETURN(scope, JSWebAssemblyModule::create(vm, structure, WTFMove(result.value())));
 }
 
 WebAssemblyModuleConstructor* WebAssemblyModuleConstructor::create(VM& vm, Structure* structure, WebAssemblyModulePrototype* thisPrototype)

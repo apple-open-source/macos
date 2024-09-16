@@ -375,10 +375,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let otcliqueContext = OTConfigurationContext()
-        otcliqueContext.context = contextName
-        otcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        otcliqueContext.otControl = self.otControl
+        let otcliqueContext = self.createOTConfigurationContextForTests(contextID: contextName,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -821,10 +820,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")

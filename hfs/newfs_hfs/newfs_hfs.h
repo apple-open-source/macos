@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -159,6 +159,7 @@ enum {
 	kMakeCaseSensitive = 0x08,
 	kUseAccessPerms    = 0x10,
 	kMakeContentProtect= 0x20,
+	kMakeExpandedTimes = 0x40,
 };
 
 

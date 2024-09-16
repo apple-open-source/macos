@@ -40,20 +40,17 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
+
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
 
         let signInCallback = self.expectation(description: "trigger sign in")
@@ -100,17 +97,15 @@ extension OctagonPairingTests {
         var v = Data(count: 0)
         var vS = Data(count: 0)
 
-        clientStateMachine.rpcVoucher(self.cuttlefishContextForAcceptor, peerID: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
             XCTAssertNotNil(v, "Prepare should have returned a voucher")
             XCTAssertNotNil(vS, "Prepare should have returned a voucherSig")
             XCTAssertNil(error, "error should be nil")
 
-            v = voucher
-            vS = voucherSig
+            v = voucher!
+            vS = voucherSig!
 
             rpcVoucherCallback.fulfill()
-
-            XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
         }
 
         self.wait(for: [rpcVoucherCallback], timeout: 10)
@@ -128,7 +123,7 @@ extension OctagonPairingTests {
         self.wait(for: [rpcJoinCallbackOccurs], timeout: 10)
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -149,16 +144,13 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
@@ -209,17 +201,15 @@ extension OctagonPairingTests {
         var v = Data(count: 0)
         var vS = Data(count: 0)
 
-        clientStateMachine.rpcVoucher(self.cuttlefishContextForAcceptor, peerID: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
             XCTAssertNotNil(v, "Prepare should have returned a voucher")
             XCTAssertNotNil(vS, "Prepare should have returned a voucherSig")
             XCTAssertNil(error, "error should be nil")
 
-            v = voucher
-            vS = voucherSig
+            v = voucher!
+            vS = voucherSig!
 
             rpcVoucherCallback.fulfill()
-
-            XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
         }
 
         self.wait(for: [rpcVoucherCallback], timeout: 10)
@@ -236,7 +226,7 @@ extension OctagonPairingTests {
 
         let rpcJoinCallbackOccurs = self.expectation(description: "rpcJoin callback occurs")
 
-        self.cuttlefishContext.sessionMetrics = OTMetricsSessionData.init(flowID:"OctagonTests-flowID", deviceSessionID:"OctagonTests-deviceSessionID")
+        self.cuttlefishContext.sessionMetrics = OTMetricsSessionData(flowID: "OctagonTests-flowID", deviceSessionID: "OctagonTests-deviceSessionID")
 
         self.cuttlefishContext.rpcJoin(v, vouchSig: vS) { error in
             XCTAssertNil(error, "error should be nil")
@@ -244,9 +234,10 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [rpcJoinCallbackOccurs], timeout: 64)
-        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
+
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -267,16 +258,12 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
@@ -329,17 +316,15 @@ extension OctagonPairingTests {
         var v = Data(count: 0)
         var vS = Data(count: 0)
 
-        clientStateMachine.rpcVoucher(self.cuttlefishContextForAcceptor, peerID: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
             XCTAssertNotNil(v, "Prepare should have returned a voucher")
             XCTAssertNotNil(vS, "Prepare should have returned a voucherSig")
             XCTAssertNil(error, "error should be nil")
 
-            v = voucher
-            vS = voucherSig
+            v = voucher!
+            vS = voucherSig!
 
             rpcVoucherCallback.fulfill()
-
-            XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
         }
 
         self.wait(for: [rpcVoucherCallback], timeout: 10)
@@ -375,8 +360,6 @@ extension OctagonPairingTests {
 
         self.getAcceptorInCircle()
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
         self.silentFetchesAllowed = false
         self.expectCKFetchAndRun {
             self.putFakeKeyHierarchiesInCloudKit()
@@ -384,13 +367,12 @@ extension OctagonPairingTests {
             self.silentFetchesAllowed = true
         }
 
-        clientStateMachine.startOctagonStateMachine()
         self.cuttlefishContext.startOctagonStateMachine()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
@@ -441,17 +423,15 @@ extension OctagonPairingTests {
         var v = Data(count: 0)
         var vS = Data(count: 0)
 
-        clientStateMachine.rpcVoucher(self.cuttlefishContextForAcceptor, peerID: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
             XCTAssertNotNil(v, "Prepare should have returned a voucher")
             XCTAssertNotNil(vS, "Prepare should have returned a voucherSig")
             XCTAssertNil(error, "error should be nil")
 
-            v = voucher
-            vS = voucherSig
+            v = voucher!
+            vS = voucherSig!
 
             rpcVoucherCallback.fulfill()
-
-            XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
         }
 
         self.wait(for: [rpcVoucherCallback], timeout: 10)
@@ -467,9 +447,10 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [rpcJoinCallbackOccurs], timeout: 10)
-        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
+
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
@@ -536,9 +517,10 @@ extension OctagonPairingTests {
 
         var voucher = Data(count: 0)
         var voucherSig = Data(count: 0)
+        let maxCap = KCPairingIntent_Capability._FullPeer
 
         let voucherCallback = self.expectation(description: "creating voucher message callback")
-        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPairingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig ) { v, vS, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPairingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: maxCap.rawValue) { v, vS, error in
             XCTAssertNil(error, "error should be nil")
             voucher = v
             voucherSig = vS
@@ -552,6 +534,8 @@ extension OctagonPairingTests {
             rpcJoinCallback.fulfill()
         }
         self.wait(for: [rpcJoinCallback], timeout: 10)
+
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -567,19 +551,149 @@ extension OctagonPairingTests {
 
         /*Setup acceptor first*/
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         self.getAcceptorInCircle()
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.startOctagonStateMachine()
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
 
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorAwaitingIdentity] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorAwaitingIdentity'")
+    }
+
+    func testJoinMismatchCapability() throws {
+
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+        let rpcEpochCallbackOccurs = self.expectation(description: "rpcEpoch callback occurs")
+
+        self.manager.rpcEpoch(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig) { epoch, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertEqual(epoch, 1, "epoch should be nil")
+            rpcEpochCallbackOccurs.fulfill()
+        }
+        self.wait(for: [rpcEpochCallbackOccurs], timeout: 10)
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+
+        var peerID: String = ""
+        var permanentInfo = Data(count: 0)
+        var permanentInfoSig = Data(count: 0)
+        var stableInfo = Data(count: 0)
+        var stableInfoSig = Data(count: 0)
+
+        /*begin message passing*/
+        let rpcFirstInitiatorJoiningCallBack = self.expectation(description: "Creating prepare callback")
+        self.manager.rpcPrepareIdentityAsApplicant(with: self.initiatorArguments, configuration: self.initiatorPiggybackingConfig) { pID, pI, pISig, sI, sISig, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(pID, "peer id should not be nil")
+            XCTAssertNotNil(pI, "permanentInfo should not be nil")
+            XCTAssertNotNil(sI, "sI should not be nil")
+            XCTAssertNotNil(sISig, "sISig should not be nil")
+
+            peerID = pID!
+            permanentInfo = pI!
+            permanentInfoSig = pISig!
+            stableInfo = sI!
+            stableInfoSig = sISig!
+
+            rpcFirstInitiatorJoiningCallBack.fulfill()
+        }
+        self.wait(for: [rpcFirstInitiatorJoiningCallBack], timeout: 10)
+
+        let firstAcceptorCallback = self.expectation(description: "creating vouch callback")
+
+        let fullPeerModelId = "iPhone12,3"
+        XCTAssertTrue(OTDeviceInformation.isFullPeer(fullPeerModelId), "test peer is not a full peer!")
+
+        // TEST1: Full peer joining in LimitedPeer max capability context == failure
+        let prevPeer = TPPeerPermanentInfo(peerID: peerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: TPECPublicKeyFactory())!
+        let keys = try EscrowKeys(secret: "toomany".data(using: .utf8)!, bottleSalt: "123456789")
+        let newPeer = try TPPeerPermanentInfo(machineID: prevPeer.machineID,
+                                              modelID: fullPeerModelId,
+                                              epoch: 1,
+                                              signing: keys.signingKey,
+                                              encryptionKeyPair: keys.encryptionKey,
+                                              creationTime: UInt64(Date().timeIntervalSince1970 * 1000),
+                                              peerIDHashAlgo: TPHashAlgo.SHA256)
+        peerID = newPeer.peerID
+        permanentInfo = newPeer.data
+        permanentInfoSig = newPeer.sig
+
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._LimitedPeer.rawValue) { voucher, voucherSig, error in
+            XCTAssertNotNil(voucher, "voucher should not be nil")
+            XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
+            XCTAssertTrue(voucher.isEmpty, "voucher should be empty")
+            XCTAssertTrue(voucherSig.isEmpty, "voucherSig should be empty")
+            XCTAssertNotNil(error, "error should be populated")
+            XCTAssertTrue(error!.localizedDescription.contains("full peer attempting to join limited capability pairing context"))
+            firstAcceptorCallback.fulfill()
+        }
+        self.wait(for: [firstAcceptorCallback], timeout: 10)
+
+        // TEST2: Limited peer joining in LimitedPeer max capability context == success
+        let secondAcceptorCallback = self.expectation(description: "creating vouch callback")
+
+        let limitedPeerModelId = "AppleTV12,2"
+        XCTAssertFalse(OTDeviceInformation.isFullPeer(limitedPeerModelId), "test peer is not a limited peer!")
+
+        let newPeerLimited = try TPPeerPermanentInfo(machineID: prevPeer.machineID,
+                                                     modelID: limitedPeerModelId,
+                                                     epoch: 1,
+                                                     signing: keys.signingKey,
+                                                     encryptionKeyPair: keys.encryptionKey,
+                                                     creationTime: UInt64(Date().timeIntervalSince1970 * 1000),
+                                                     peerIDHashAlgo: TPHashAlgo.SHA256)
+        peerID = newPeerLimited.peerID
+        permanentInfo = newPeerLimited.data
+        permanentInfoSig = newPeerLimited.sig
+
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._LimitedPeer.rawValue) { voucher, voucherSig, error in
+            XCTAssertNotNil(voucher, "voucher should not be nil")
+            XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
+            XCTAssertFalse(voucher.isEmpty, "voucher should not be empty")
+            XCTAssertFalse(voucherSig.isEmpty, "voucherSig should not be empty")
+            XCTAssertNil(error, "error should not be populated")
+            secondAcceptorCallback.fulfill()
+        }
+        self.wait(for: [secondAcceptorCallback], timeout: 10)
+
+        // TEST3: Limited peer joining in FullPeer max capability context == success
+        let thirdAcceptorCallback = self.expectation(description: "creating vouch callback")
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._FullPeer.rawValue) { voucher, voucherSig, error in
+            XCTAssertNotNil(voucher, "voucher should not be nil")
+            XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
+            XCTAssertFalse(voucher.isEmpty, "voucher should not be empty")
+            XCTAssertFalse(voucherSig.isEmpty, "voucherSig should not be empty")
+            XCTAssertNil(error, "error should not be populated")
+            thirdAcceptorCallback.fulfill()
+        }
+        self.wait(for: [thirdAcceptorCallback], timeout: 10)
+
+        // TEST4: Full peer joining in FullPeer max capability context == success
+        let fourthAcceptorCallback = self.expectation(description: "creating vouch callback")
+
+        peerID = newPeer.peerID
+        permanentInfo = newPeer.data
+        permanentInfoSig = newPeer.sig
+
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._FullPeer.rawValue) { voucher, voucherSig, error in
+            XCTAssertNotNil(voucher, "voucher should not be nil")
+            XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
+            XCTAssertFalse(voucher.isEmpty, "voucher should not be empty")
+            XCTAssertFalse(voucherSig.isEmpty, "voucherSig should not be empty")
+            XCTAssertNil(error, "error should not be populated")
+            fourthAcceptorCallback.fulfill()
+        }
+        self.wait(for: [fourthAcceptorCallback], timeout: 10)
     }
 
     func testVoucherCreation() throws {
@@ -587,19 +701,16 @@ extension OctagonPairingTests {
 
         /*Setup acceptor first*/
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         self.getAcceptorInCircle()
 
         let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
-        clientStateMachine.startOctagonStateMachine()
-        clientStateMachine.rpcEpoch(self.cuttlefishContextForAcceptor) { epoch, error in
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertEqual(epoch, 1, "epoch should be 1")
             rpcEpochCallbacks.fulfill()
         }
 
         self.wait(for: [rpcEpochCallbacks], timeout: 10)
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorAwaitingIdentity] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorAwaitingIdentity'")
 
         let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
@@ -652,19 +763,18 @@ extension OctagonPairingTests {
         var v = Data(count: 0)
         var vS = Data(count: 0)
 
-        clientStateMachine.rpcVoucher(self.cuttlefishContextForAcceptor, peerID: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
             XCTAssertNotNil(v, "Prepare should have returned a voucher")
             XCTAssertNotNil(vS, "Prepare should have returned a voucherSIg")
             XCTAssertNil(error, "error should be nil")
 
-            v = voucher
-            vS = voucherSig
+            v = voucher!
+            vS = voucherSig!
 
             rpcVoucherCallback.fulfill()
         }
 
         self.wait(for: [rpcVoucherCallback], timeout: 10)
-        XCTAssertEqual(0, (clientStateMachine.stateConditions[OctagonStateAcceptorDone] as! CKKSCondition).wait(10 * NSEC_PER_SEC), "State machine should enter 'OctagonStateAcceptorDone'")
     }
 
     func testPrepareTimeoutIfStateMachineUnstarted() {
@@ -701,9 +811,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -797,9 +904,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -884,9 +988,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -971,9 +1072,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1007,9 +1105,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1051,9 +1146,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1100,9 +1192,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1150,9 +1239,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1247,9 +1333,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1300,9 +1383,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1353,9 +1433,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1440,6 +1517,555 @@ extension OctagonPairingTests {
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
+    func testFetchEpochRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingEpochFetchWithXPCError()
+        acceptor.setControlObject(otControl)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorFirstPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, "NSCocoaErrorDomain", "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 4097, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchEpoch should have been invoked 3 times")
+    }
+
+    func testFetchEpochNonRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingEpochFetchWithRandomError()
+        acceptor.setControlObject(otControl)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorFirstPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 5, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 1, "fetchEpoch should have been invoked 1 time")
+    }
+
+    func testFetchVoucherRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingVoucherFetchWithXPCError()
+        acceptor.setControlObject(otControl)
+
+        /* ACCEPTOR SECOND RTT */
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorPreparedIdentityPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, "NSCocoaErrorDomain", "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 4097, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchVoucher should have been invoked 3 times")
+    }
+
+    func testFetchVoucherRetryOnNetworkFailure() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingVoucherFetchWithNetworkError()
+        acceptor.setControlObject(otControl)
+
+        /* ACCEPTOR SECOND RTT */
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorPreparedIdentityPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, NSURLErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, NSURLErrorTimedOut, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchVoucher should have been invoked 3 times")
+    }
+
+    func testFetchVoucherRetryOnNetworkFailureUnderlyingError() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkError()
+        acceptor.setControlObject(otControl)
+
+        /* ACCEPTOR SECOND RTT */
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorPreparedIdentityPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, CKErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, CKError.networkFailure.rawValue, "error codes should be equal")
+
+            let underlyingError: NSError = (error! as NSError).userInfo[NSUnderlyingErrorKey] as! NSError
+            XCTAssertEqual((underlyingError as NSError).domain, NSURLErrorDomain, "domains should be equal")
+            XCTAssertEqual((underlyingError as NSError).code, NSURLErrorTimedOut, "error codes should be equal")
+
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchVoucher should have been invoked 3 times")
+    }
+
+    func testFetchVoucherRetryOnNetworkFailureUnderlyingConnectionLostError() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingVoucherFetchWithUnderlyingNetworkErrorConnectionLost()
+        acceptor.setControlObject(otControl)
+
+        /* ACCEPTOR SECOND RTT */
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorPreparedIdentityPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, CKErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, CKError.networkFailure.rawValue, "error codes should be equal")
+
+            let underlyingError: NSError = (error! as NSError).userInfo[NSUnderlyingErrorKey] as! NSError
+            XCTAssertEqual((underlyingError as NSError).domain, NSURLErrorDomain, "domains should be equal")
+            XCTAssertEqual((underlyingError as NSError).code, NSURLErrorNetworkConnectionLost, "error codes should be equal")
+
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchVoucher should have been invoked 3 times")
+    }
+
+    func testFetchVoucherNoRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingVoucherFetchWithRandomError()
+        acceptor.setControlObject(otControl)
+
+        /* ACCEPTOR SECOND RTT */
+        let callback = self.expectation(description: "callback occurs")
+        acceptor.exchangePacket(initiatorPreparedIdentityPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 25, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 1, "fetchVoucher should have been invoked 1 time")
+    }
+
+    func testFetchPrepareRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        var otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingPrepareFetchWithXPCError()
+        initiator.setControlObject(otControl)
+
+        var callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorEpochPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, "NSCocoaErrorDomain", "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 4097, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchPrepare should have been invoked 3 times")
+
+        TestsObjectiveC.clearInvocationCount()
+
+        otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingPrepareFetchWithOctagonErrorICloudAccountStateUnknown()
+        initiator.setControlObject(otControl)
+
+        callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorEpochPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, OctagonError.iCloudAccountStateUnknown.rawValue, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchPrepare should have been invoked 3 times")
+    }
+
+    func testFetchPrepareNoRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingPrepareFetchWithRandomError()
+        initiator.setControlObject(otControl)
+
+        let callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorEpochPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, OctagonError.notSignedIn.rawValue, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 1, "fetchPrepare should have been invoked 1 time")
+    }
+
+    func testFetchJoinRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        /* ACCEPTOR SECOND RTT */
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingJoinWithXPCError()
+        initiator.setControlObject(otControl)
+
+        let callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorVoucherPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, "NSCocoaErrorDomain", "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 4097, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "join should have been invoked 3 times")
+    }
+
+    func testFetchJoinNoRetry() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        /* ACCEPTOR SECOND RTT */
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+
+        let otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingJoinWithRandomError()
+        initiator.setControlObject(otControl)
+
+        let callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorVoucherPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, OctagonError.notInSOS.rawValue, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 1, "join should have been invoked 1 time")
+    }
+
+    func testFetchJoinWithErrorsFromTPH() throws {
+        self.startCKAccountStatusMock()
+
+        self.getAcceptorInCircle()
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "pairing object should not be nil")
+        XCTAssertNotNil(initiator, "pairing object should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* INITIATOR FIRST RTT JOINING MESSAGE*/
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        /* ACCEPTOR FIRST RTT EPOCH*/
+        let acceptorEpochPacket = self.sendPairingExpectingReply(channel: acceptor, packet: initiatorFirstPacket, reason: "epoch return")
+
+        /* INITIATOR SECOND RTT PREPARE*/
+        let initiatorPreparedIdentityPacket = self.sendPairingExpectingReply(channel: initiator, packet: acceptorEpochPacket, reason: "prepared identity")
+
+        /* ACCEPTOR SECOND RTT */
+        let acceptorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: acceptor, packet: initiatorPreparedIdentityPacket, reason: "acceptor third packet")
+
+        let ckError = NSError(domain: AKAppleIDAuthenticationErrorDomain,
+                              code: 17,
+                              userInfo: [NSLocalizedDescriptionKey: "The Internet connection appears to be offline."])
+
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+
+        let fetchChangesExpectation = self.expectation(description: "fetchChanges")
+        fetchChangesExpectation.expectedFulfillmentCount = 20
+        fetchChangesExpectation.isInverted = true
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+            fetchChangesExpectation.fulfill()
+            return nil
+        }
+
+        let callback = self.expectation(description: "callback occurs")
+        initiator.exchangePacket(acceptorVoucherPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, AKAppleIDAuthenticationErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 17, "error codes should be equal")
+            XCTAssertTrue(complete, "Expected pairing session to halt early")
+            XCTAssertNil(response, "packet should be nil")
+            callback.fulfill()
+        }
+        self.wait(for: [callback], timeout: 10)
+        self.wait(for: [fetchChangesExpectation], timeout: 10)
+    }
+
     func testStressReadingWritingMetricsData() throws {
 
         let group1 = DispatchGroup()
@@ -1452,10 +2078,6 @@ extension OctagonPairingTests {
         self.getAcceptorInCircle()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -1489,13 +2111,239 @@ extension OctagonPairingTests {
                 _ = self.cuttlefishContextForAcceptor.operationDependencies()
             }
             queue3.async(group: group3) {
-                self.cuttlefishContextForAcceptor.sessionMetrics = OTMetricsSessionData.init(flowID: "testflowID", deviceSessionID: "testDeviceSessionID")
+                self.cuttlefishContextForAcceptor.sessionMetrics = OTMetricsSessionData(flowID: "testflowID", deviceSessionID: "testDeviceSessionID")
             }
         }
 
         group1.wait()
         group2.wait()
         group3.wait()
+    }
+
+    func testTDLFetchFailsDuringVouchOperation() throws {
+        self.startCKAccountStatusMock()
+
+        /*Setup acceptor first*/
+
+        self.getAcceptorInCircle()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: "initiatorContext")
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
+
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
+            rpcEpochCallbacks.fulfill()
+        }
+        self.wait(for: [rpcEpochCallbacks], timeout: 10)
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* now initiator's turn*/
+        /* calling prepare identity*/
+        let rpcInitiatorPrepareCallback = self.expectation(description: "rpcPrepare callback occurs")
+
+        var p = String()
+        var pI = Data()
+        var pIS = Data()
+        var sI = Data()
+        var sIS = Data()
+
+        initiator1Context.rpcPrepareIdentityAsApplicant(with: self.initiatorPairingConfig, epoch: 1) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+            XCTAssertNil(error, "Should be no error calling 'prepare'")
+            XCTAssertNotNil(peerID, "Prepare should have returned a peerID")
+            XCTAssertNotNil(permanentInfo, "Prepare should have returned a permanentInfo")
+            XCTAssertNotNil(permanentInfoSig, "Prepare should have returned a permanentInfoSig")
+            XCTAssertNotNil(stableInfo, "Prepare should have returned a stableInfo")
+            XCTAssertNotNil(stableInfoSig, "Prepare should have returned a stableInfoSig")
+
+            p = peerID!
+            pI = permanentInfo!
+            pIS = permanentInfoSig!
+            sI = stableInfo!
+            sIS = stableInfoSig!
+
+            rpcInitiatorPrepareCallback.fulfill()
+        }
+
+        self.wait(for: [rpcInitiatorPrepareCallback], timeout: 10)
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateInitiatorAwaitingVoucher, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        /* calling voucher */
+        let rpcVoucherCallback = self.expectation(description: "rpcVoucher callback occurs")
+
+        self.mockAuthKit3.injectAuthErrorsAtFetchTime = true
+        self.mockAuthKit3.removeAndSendNotification(self.mockAuthKit3.currentMachineID)
+
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+            XCTAssertNil(voucher, "should not have returned a voucher")
+            XCTAssertNil(voucherSig, "should not have returned a voucher signature")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertTrue(((error! as NSError).domain == CKKSResultErrorDomain) || ((error! as NSError).domain == AKAppleIDAuthenticationErrorDomain), "error domain should be CKKSResultErrorDomain or AKAuthenticationError")
+            XCTAssertTrue(((error! as NSError).code == CKKSResultTimedOut) || ((error! as NSError).code == AKAppleIDAuthenticationError.authenticationErrorNotPermitted.rawValue), "error domain should be CKKSResultTimedOut or AKAuthenticationErrorNotPermitted")
+            
+            rpcVoucherCallback.fulfill()
+        }
+
+        self.wait(for: [rpcVoucherCallback], timeout: 30)
+
+        self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testJoinWhenSecurityRestarts() throws {
+        self.startCKAccountStatusMock()
+
+        /*Setup acceptor first*/
+
+        self.getAcceptorInCircle()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
+            rpcEpochCallbacks.fulfill()
+        }
+
+        self.wait(for: [rpcEpochCallbacks], timeout: 10)
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        /* now initiator's turn*/
+        /* calling prepare identity*/
+        let rpcInitiatorPrepareCallback = self.expectation(description: "rpcPrepare callback occurs")
+
+        var p = String()
+        var pI = Data()
+        var pIS = Data()
+        var sI = Data()
+        var sIS = Data()
+
+        initiator1Context.rpcPrepareIdentityAsApplicant(with: self.initiatorPairingConfig, epoch: 1) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+            XCTAssertNil(error, "Should be no error calling 'prepare'")
+            XCTAssertNotNil(peerID, "Prepare should have returned a peerID")
+            XCTAssertNotNil(permanentInfo, "Prepare should have returned a permanentInfo")
+            XCTAssertNotNil(permanentInfoSig, "Prepare should have returned a permanentInfoSig")
+            XCTAssertNotNil(stableInfo, "Prepare should have returned a stableInfo")
+            XCTAssertNotNil(stableInfoSig, "Prepare should have returned a stableInfoSig")
+
+            p = peerID!
+            pI = permanentInfo!
+            pIS = permanentInfoSig!
+            sI = stableInfo!
+            sIS = stableInfoSig!
+
+            rpcInitiatorPrepareCallback.fulfill()
+        }
+
+        self.wait(for: [rpcInitiatorPrepareCallback], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateInitiatorAwaitingVoucher, within: 10 * NSEC_PER_SEC)
+
+        /* calling voucher */
+        let rpcVoucherCallback = self.expectation(description: "rpcVoucher callback occurs")
+
+        var v = Data(count: 0)
+        var vS = Data(count: 0)
+
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+            XCTAssertNotNil(v, "Prepare should have returned a voucher")
+            XCTAssertNotNil(vS, "Prepare should have returned a voucherSig")
+            XCTAssertNil(error, "error should be nil")
+
+            v = voucher!
+            vS = voucherSig!
+
+            rpcVoucherCallback.fulfill()
+        }
+
+        self.wait(for: [rpcVoucherCallback], timeout: 10)
+
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateInitiatorAwaitingVoucher, within: 10 * NSEC_PER_SEC)
+
+        self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        /* calling Join */
+        let rpcJoinCallbackOccurs = self.expectation(description: "rpcJoin callback occurs")
+
+        self.cuttlefishContext.rpcJoin(v, vouchSig: vS) { error in
+            XCTAssertNil(error, "error should be nil")
+            rpcJoinCallbackOccurs.fulfill()
+        }
+
+        self.wait(for: [rpcJoinCallbackOccurs], timeout: 10)
+
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
+
+        XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContextForAcceptor, sender: self.cuttlefishContext)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testPairWithUntrustedAcceptor() throws {
+
+        self.startCKAccountStatusMock()
+
+        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+
+        initiator1Context.startOctagonStateMachine()
+
+        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
+
+        XCTAssertNotNil(acceptor, "acceptor should not be nil")
+        XCTAssertNotNil(initiator, "initiator should not be nil")
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        let initiatorFirstPacket = self.sendPairingExpectingReply(channel: initiator, packet: nil, reason: "session initiation")
+
+        let firstPacketExpectation = self.expectation(description: "first packet expectation")
+        acceptor.exchangePacket(initiatorFirstPacket) { complete, response, error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertTrue(complete, "complete should be true")
+            XCTAssertNil(response, "response should be nil")
+            firstPacketExpectation.fulfill()
+        }
+        self.wait(for: [firstPacketExpectation], timeout: 10)
     }
 }
 

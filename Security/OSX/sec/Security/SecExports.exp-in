@@ -84,6 +84,7 @@ _kSecPolicyNameAppleHomeAppClipUploadService
 _kSecPolicyNameAppleHomeKitService
 _kSecPolicyNameAppleiCloudSetupService
 _kSecPolicyNameAppleIDSService
+_kSecPolicyNameAppleIssued
 _kSecPolicyNameAppleMacOSSoftwareUpdate
 _kSecPolicyNameAppleMapsService
 _kSecPolicyNameAppleMMCSService
@@ -165,9 +166,11 @@ _SecPolicyCreateWithProperties
 _SecPolicyGetName
 _SecPolicyGetOidString
 _SecPolicyGetTypeID
+_SecPolicySetATSPinning
 _SecPolicySetName
 _SecPolicySetOptionsValue
 _SecPolicySetSHA256Pins
+_SecPolicySetSSLHostname
 #if TARGET_OS_OSX
 _SecPolicyCopy
 _SecPolicyCreateAppleTimeStampingAndRevocationPolicies
@@ -243,6 +246,8 @@ _SecTrustCopyProperties
 _SecTrustCopyPublicKey
 _SecTrustCopyResult
 _SecTrustCopySummaryPropertiesAtIndex
+_SecTrustCopyTrustStoreAssetVersion
+_SecTrustCopyTrustStoreContentDigest
 _SecTrustCreateWithCertificates
 _SecTrustDeserialize
 _SecTrustEvaluate
@@ -455,6 +460,8 @@ _SecCertificateCopyRFC822NamesFromSAN
 _SecCertificateCopyRFC822NamesFromSubject
 _SecCertificateCopySerialNumber
 _SecCertificateCopySerialNumberData
+_SecCertificateCopyNotValidBeforeDate
+_SecCertificateCopyNotValidAfterDate
 #if TARGET_OS_OSX
 #if TARGET_CPU_ARM64
 _SecCertificateCopySerialNumber$LEGACYMAC
@@ -619,6 +626,7 @@ _SecASN1UTF8String
 _SecGenerateCertificateRequest
 _SecGenerateCertificateRequestWithParameters
 _SecGenerateSelfSignedCertificate
+_SecGenerateSelfSignedCertificateWithError
 _SecIdentitySignCertificate
 _SecIdentitySignCertificateWithAlgorithm
 _SecIdentitySignCertificateWithParameters
@@ -1134,11 +1142,13 @@ _SecKeyCopyPublicKey
 _SecKeyCopyPublicKeyHash
 _SecKeyCreate
 _SecKeyCreateAttestation
+_SecKeyCreateDecapsulatedKey
 _SecKeyCreateDecryptedData
 _SecKeyCreateDecryptedDataWithParameters
 _SecKeyCreateDuplicate
 _SecKeyCreateECPrivateKey
 _SecKeyCreateECPublicKey
+_SecKeyCreateEncapsulatedKey
 _SecKeyCreateEncryptedData
 _SecKeyCreateEncryptedDataWithParameters
 _SecKeyCreateFromAttributeDictionary
@@ -1202,6 +1212,9 @@ _SecKeyGetTypeID
 _SecKeyImportPair
 #endif /* TARGET_OS_OSX */
 _SecKeyIsAlgorithmSupported
+#if TARGET_OS_OSX
+_SecKeyIsLegacyInstance
+#endif /* TARGET_OS_OSX */
 _SecKeyRawSign
 #if TARGET_OS_OSX
 _SecKeyRawSign_macOS
@@ -1284,6 +1297,9 @@ _kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM
 _kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM
 _kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM
 _kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM
+_kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512
+_kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256
+_kSecKeyAlgorithmKEMKyber
 _kSecKeyAlgorithmRSAEncryptionOAEPSHA1
 _kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM
 _kSecKeyAlgorithmRSAEncryptionOAEPSHA224
@@ -1322,8 +1338,6 @@ _kSecKeyAlgorithmRSASignatureMessagePSSSHA384
 _kSecKeyAlgorithmRSASignatureMessagePSSSHA512
 _kSecKeyAlgorithmRSASignatureRaw
 _kSecKeyAlgorithmRSASignatureRawCCUnit
-_kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512
-_kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256
 #if TARGET_OS_OSX
 _kSecKeyAttributeName
 #endif /* TARGET_OS_OSX */
@@ -1335,6 +1349,8 @@ _kSecKeyKeyExchangeParameterRequestedSize
 _kSecKeyKeyExchangeParameterSharedInfo
 _kSecKeyParameterSETokenAttestationNonce
 _kSecKeyApplePayEnabled
+_kSecKeyOSBound
+_kSecKeySealedHashesBound
 _kSecPrivateKeyAttrs
 _kSecPublicKeyAttrs
 
@@ -1484,6 +1500,9 @@ _kSecAttrKeyTypeEd25519
 _kSecAttrKeyTypeX25519
 _kSecAttrKeyTypeEd448
 _kSecAttrKeyTypeX448
+_kSecAttrKeyTypeKyber
+_kSecAttrKeySizeKyber768
+_kSecAttrKeySizeKyber1024
 _kSecAttrSecureEnclaveKeyBlob
 _kSecUseSystemKeychainAlways
 #elif TARGET_OS_OSX
@@ -1643,6 +1662,9 @@ _kSecAttrKeyTypeEd25519
 _kSecAttrKeyTypeX25519
 _kSecAttrKeyTypeEd448
 _kSecAttrKeyTypeX448
+_kSecAttrKeyTypeKyber
+_kSecAttrKeySizeKyber768
+_kSecAttrKeySizeKyber1024
 _kSecAttrSecureEnclaveKeyBlob
 _kSecUseCertificatesWithMatchIssuers
 #endif // TARGET_OS_OSX
@@ -1683,6 +1705,7 @@ _kSecImportItemIdentity
 _kSecImportItemKeyID
 _kSecImportItemLabel
 _kSecImportItemTrust
+_kSecImportToMemoryOnly
 _kSecUseItemList
 _kSecUseTombstones
 _kSecUseSystemKeychain
@@ -1700,6 +1723,7 @@ _kSecMatchItemList
 _kSecMatchLimit
 _kSecMatchLimitAll
 _kSecMatchLimitOne
+_kSecMatchHostOrSubdomainOfHost
 _kSecMatchPolicy
 _kSecMatchSearchList
 _kSecMatchSubjectContains
@@ -1725,7 +1749,13 @@ _SecItemSetCurrentItemAcrossAllDevices
 _SecItemUnsetCurrentItemsAcrossAllDevices
 _SecItemFetchCurrentItemAcrossAllDevices
 _SecItemFetchCurrentItemDataAcrossAllDevices
+_SecItemFetchCurrentItemOutOfBand
+_SecItemFetchPCSIdentityOutOfBand
 .objc_class_name_SecItemCurrentItemData
+.objc_class_name_CKKSCurrentItemQuery
+.objc_class_name_CKKSCurrentItemQueryResult
+.objc_class_name_CKKSPCSIdentityQuery
+.objc_class_name_CKKSPCSIdentityQueryResult
 
 __SecItemFetchDigests
 __SecKeychainDeleteMultiUser
@@ -1825,6 +1855,7 @@ _kSecCodeSignerDetached
 _kSecCodeSignerDigestAlgorithm
 _kSecCodeSignerDryRun
 _kSecCodeSignerEntitlements
+_kSecCodeSignerForceLibraryEntitlements
 _kSecCodeSignerLaunchConstraintSelf
 _kSecCodeSignerLaunchConstraintParent
 _kSecCodeSignerLaunchConstraintResponsible

@@ -290,6 +290,23 @@ SecCertificateRef SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDiction
     SecKeyRef _Nullable publicKey, SecKeyRef privateKey);
 
 /*
+ @function SecGenerateSelfSignedCertificateWithError
+ @abstract Return a newly generated certificate for subject and keypair.
+ @param subject  RDNs in the subject in array format
+ @param parameters    Parameters for the CSR generation. See above.
+ @param publicKey    Public key (NOTE: This is unused)
+ @param privateKey   Private key
+ @param error   On failure, error encountered causing generation to fail
+ @result On success, a newly allocated certificate, otherwise NULL
+ @discussion See SecGenerateSelfSignedCertificate
+*/
+CF_RETURNS_RETAINED _Nullable
+SecCertificateRef SecGenerateSelfSignedCertificateWithError(CFArrayRef subject, CFDictionaryRef parameters,
+                                                            SecKeyRef _Nullable publicKey, SecKeyRef privateKey,
+                                                            CFErrorRef _Nullable *error);
+
+
+/*
  @function SecIdentitySignCertificate
  @param issuer      issuer's identity (certificate/private key pair)
  @param serialno    serial number for the issued certificate

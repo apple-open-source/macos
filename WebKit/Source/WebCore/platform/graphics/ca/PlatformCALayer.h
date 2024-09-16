@@ -27,7 +27,6 @@
 
 #include "FloatRoundedRect.h"
 #include "GraphicsLayer.h"
-#include <wtf/EnumTraits.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeCasts.h>
@@ -101,6 +100,7 @@ public:
     virtual ~PlatformCALayer();
 
     PlatformLayerIdentifier layerID() const { return m_layerID; }
+    virtual std::optional<WebCore::LayerHostingContextIdentifier> hostingContextIdentifier() const { return std::nullopt; }
 
     enum class Type : uint8_t {
         Cocoa,
@@ -130,6 +130,8 @@ public:
     virtual void setNeedsDisplay() = 0;
     virtual void setNeedsDisplayInRect(const FloatRect& dirtyRect) = 0;
 
+    virtual bool needsDisplay() const = 0;
+
     virtual void copyContentsFromLayer(PlatformCALayer*) = 0;
 
     LayerType layerType() const { return m_layerType; }
@@ -158,7 +160,7 @@ public:
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     virtual void clearAcceleratedEffectsAndBaseValues();
-    virtual void setAcceleratedEffectsAndBaseValues(const AcceleratedEffects&, AcceleratedEffectValues&);
+    virtual void setAcceleratedEffectsAndBaseValues(const AcceleratedEffects&, const AcceleratedEffectValues&);
 #endif
 
     virtual void setMaskLayer(RefPtr<PlatformCALayer>&&);
@@ -184,6 +186,8 @@ public:
     virtual void setSublayerTransform(const TransformationMatrix&) = 0;
 
     virtual void setIsBackdropRoot(bool) = 0;
+    virtual bool backdropRootIsOpaque() const = 0;
+    virtual void setBackdropRootIsOpaque(bool) = 0;
 
     virtual bool isHidden() const = 0;
     virtual void setHidden(bool) = 0;
@@ -243,9 +247,7 @@ public:
     virtual void setFilters(const FilterOperations&) = 0;
     virtual void copyFiltersFrom(const PlatformCALayer&) = 0;
 
-#if ENABLE(CSS_COMPOSITING)
     virtual void setBlendMode(BlendMode) = 0;
-#endif
 
     virtual void setName(const String&) = 0;
 
@@ -279,7 +281,7 @@ public:
     virtual void setEventRegion(const EventRegion&) { }
     
 #if ENABLE(SCROLLING_THREAD)
-    virtual ScrollingNodeID scrollingNodeID() const { return 0; }
+    virtual ScrollingNodeID scrollingNodeID() const { return { }; }
     virtual void setScrollingNodeID(ScrollingNodeID) { }
 #endif
 
@@ -301,7 +303,7 @@ public:
 
     virtual TiledBacking* tiledBacking() = 0;
 
-    virtual void drawTextAtPoint(CGContextRef, CGFloat x, CGFloat y, CGSize scale, CGFloat fontSize, const char* text, size_t length, CGFloat strokeWidthAsPercentageOfFontSize = 0, Color strokeColor = Color()) const;
+    void drawTextAtPoint(CGContextRef, CGFloat x, CGFloat y, CGSize scale, CGFloat fontSize, std::span<const char8_t> text, CGFloat strokeWidthAsPercentageOfFontSize = 0, Color strokeColor = Color()) const;
 
     static void flipContext(CGContextRef, CGFloat height);
     
@@ -330,14 +332,20 @@ public:
     static void drawRepaintIndicator(GraphicsContext&, PlatformCALayer*, int repaintCount, Color customBackgroundColor = { });
     static CGRect frameForLayer(const PlatformLayer*);
 
+    virtual void markFrontBufferVolatileForTesting() { }
     void moveToLayerPool();
 
     virtual void dumpAdditionalProperties(TextStream&, OptionSet<PlatformLayerTreeAsTextFlags>);
 
+    virtual void purgeFrontBufferForTesting() { }
+    virtual void purgeBackBufferForTesting() { }
+
+    bool needsPlatformContext() const;
+
 protected:
     PlatformCALayer(LayerType, PlatformCALayerClient* owner);
 
-    virtual LayerPool& layerPool();
+    virtual LayerPool* layerPool();
 
     const LayerType m_layerType;
     const PlatformLayerIdentifier m_layerID;

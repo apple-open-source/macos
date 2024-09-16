@@ -1,6 +1,6 @@
 /* state-machine.h
  *
- * Copyright (c) 2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,6 +137,11 @@ typedef enum {
     state_machine_event_type_daemon_disconnect,
     state_machine_event_type_stop,
     state_machine_event_type_dns_registration_invalidated,
+    state_machine_event_type_thread_interface_changed,
+    state_machine_event_type_wed_ml_eid_changed,
+    state_machine_event_type_neighbor_ml_eid_changed,
+    state_machine_event_type_srp_needed,
+    state_machine_event_type_dns_registration_bad_service,
 } state_machine_event_type_t;
 
 typedef struct state_machine_event state_machine_event_t;
@@ -192,6 +197,7 @@ state_machine_event_create(state_machine_event_type_t type,
 void state_machine_event_deliver(state_machine_header_t *NONNULL state_header, state_machine_event_t *NONNULL event);
 bool state_machine_header_setup(state_machine_header_t *NONNULL state_header, void *NONNULL state_object, const char *NULLABLE name,
                                 state_machine_type_t type, state_machine_decl_t *NONNULL states, size_t num_states);
+void state_machine_cancel(state_machine_header_t *NONNULL state_header);
 #endif // __STATE_MACHINE_H__
 
 // Local Variables:

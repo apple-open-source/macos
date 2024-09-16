@@ -11,6 +11,7 @@
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 T_DECL(tiny_region_cookie_test, "Crash on corruption of tiny region cookie",
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_ENVVAR("MallocNanoZone=0"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),
 		T_META_IGNORECRASHES("region_cookie_test"))
@@ -49,6 +50,7 @@ T_DECL(tiny_region_cookie_test, "Crash on corruption of tiny region cookie",
 }
 
 T_DECL(small_region_cookie_test, "Crash on corruption of small region cookie",
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_ENVVAR("MallocNanoZone=0"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),
 		T_META_IGNORECRASHES("region_cookie_test"))

@@ -1,6 +1,7 @@
 
 #import <CoreCDP/CDPError.h>
 #import <CoreCDP/CDPStateController.h>
+#import <CoreCDP/CDPContext.h>
 #import <CloudServices/CloudServices.h>
 
 #import "utilities/debugging.h"
@@ -177,7 +178,7 @@
                 secretType:(CDPDeviceSecretType)secretType
                      reply:(void (^)(BOOL didUpdate, NSError* _Nullable error))reply
 {
-    CDPStateController *controller = [[CDPStateController alloc] initWithContext:nil];
+    CDPStateController *controller = [[CDPStateController alloc] initWithContext: [CDPContext contextForPrimaryAccount]];
     [controller attemptToEscrowPreRecord:@"unknown-local-passcode"
                            preRecordUUID:recordToSend.uuid
                               secretType:secretType

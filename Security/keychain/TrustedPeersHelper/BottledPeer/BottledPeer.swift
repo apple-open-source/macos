@@ -57,16 +57,16 @@ class BottledPeer: NSObject {
 
         // Serialize the peer private keys into "contents"
         guard let contentsObj = OTBottleContents() else {
-            throw Error.OTErrorBottleCreation
+            throw Error.bottleCreation
         }
         guard let signingPK = OTPrivateKey() else {
-            throw Error.OTErrorPrivateKeyCreation
+            throw Error.privateKeyCreation
         }
         signingPK.keyType = OTPrivateKey_KeyType.EC_NIST_CURVES
         signingPK.keyData = peerSigningKey.keyData
 
         guard let encryptionPK = OTPrivateKey() else {
-            throw Error.OTErrorPrivateKeyCreation
+            throw Error.privateKeyCreation
         }
         encryptionPK.keyType = OTPrivateKey_KeyType.EC_NIST_CURVES
         encryptionPK.keyData = peerEncryptionKey.keyData
@@ -74,14 +74,14 @@ class BottledPeer: NSObject {
         contentsObj.peerSigningPrivKey = signingPK
         contentsObj.peerEncryptionPrivKey = encryptionPK
         guard let clearContentsData = contentsObj.data else {
-            throw Error.OTErrorBottleCreation
+            throw Error.bottleCreation
         }
 
         // Encrypt the contents
         let op = BottledPeer.encryptionOperation()
         let cipher = try op.encrypt(clearContentsData, with: escrowKeys.symmetricKey)
         guard let cipher = cipher as? _SFAuthenticatedCiphertext else {
-            throw Error.OTErrorAuthCipherTextCreation
+            throw Error.authCipherTextCreation
         }
 
         let escrowSigningECPubKey: _SFECPublicKey = (escrowKeys.signingKey.publicKey as! _SFECPublicKey)
@@ -92,7 +92,7 @@ class BottledPeer: NSObject {
 
         // Serialize the whole thing
         guard let obj = OTBottle() else {
-            throw Error.OTErrorBottleCreation
+            throw Error.bottleCreation
         }
         obj.peerID = peerID
         obj.bottleID = bottleID
@@ -102,7 +102,7 @@ class BottledPeer: NSObject {
         obj.peerEncryptionSPKI = peerEncryptionECPublicKey.encodeSubjectPublicKeyInfo()
 
         guard let authObj = OTAuthenticatedCiphertext() else {
-            throw Error.OTErrorAuthCipherTextCreation
+            throw Error.authCipherTextCreation
         }
         authObj.ciphertext = cipher.ciphertext
         authObj.authenticationCode = cipher.authenticationCode
@@ -139,20 +139,20 @@ class BottledPeer: NSObject {
 
         guard let escrowSigningECKey: _SFECPublicKey = escrowKeys.signingKey.publicKey() as? _SFECPublicKey else {
             logger.info("escrow key not an SFECPublicKey?")
-            throw Error.OTErrorBottleCreation
+            throw Error.bottleCreation
         }
         self.escrowSigningSPKI = escrowSigningECKey.encodeSubjectPublicKeyInfo()
 
         // Deserialize the whole thing
         guard let obj = OTBottle(data: contents) else {
             logger.info("Unable to deserialize bottle")
-            throw Error.OTErrorDeserializationFailure
+            throw Error.deserializationFailure
         }
 
         // First, the easy check: did the entropy create the keys that are supposed to be in the bottle?
         guard obj.escrowedSigningSPKI == self.escrowSigningSPKI else {
             logger.info("Bottled SPKI does not match re-created SPKI")
-            throw Error.OTErrorEntropyKeyMismatch
+            throw Error.entropyKeyMismatch
         }
 
         // Second, does the signature verify on the given data?
@@ -169,12 +169,12 @@ class BottledPeer: NSObject {
 
         let clearContentsData = try op.decrypt(ciphertext, with: escrowKeys.symmetricKey)
         if clearContentsData.isEmpty {
-            throw Error.OTErrorDecryptionFailure
+            throw Error.decryptionFailure
         }
 
         // Deserialize contents into private peer keys
         guard let contentsObj = OTBottleContents(data: clearContentsData) else {
-            throw Error.OTErrorDeserializationFailure
+            throw Error.deserializationFailure
         }
 
         self.peerID = obj.peerID
@@ -192,10 +192,10 @@ class BottledPeer: NSObject {
 
         // Check the private keys match the public keys
         if self.peerKeys.signingKey.publicKey != peerSigningPubKey {
-            throw Error.OTErrorKeyMismatch
+            throw Error.keyMismatch
         }
         if self.peerKeys.encryptionKey.publicKey != peerEncryptionPubKey {
-            throw Error.OTErrorKeyMismatch
+            throw Error.keyMismatch
         }
 
         self.escrowSigningSPKI = escrowSigningECKey.encodeSubjectPublicKeyInfo()
@@ -207,7 +207,7 @@ class BottledPeer: NSObject {
 
         let peerSigned = _SFSignedData.init(data: self.contents, signature: signatureUsingPeerKey)
         guard let peerPublicKey = self.peerKeys.publicSigningKey else {
-            throw Error.OTErrorKeyMismatch
+            throw Error.keyMismatch
         }
         try xso.verify(peerSigned, with: peerPublicKey)
     }
@@ -230,53 +230,90 @@ class BottledPeer: NSObject {
     }
 
     class func makeMeSomeEntropy(requiredLength: Int) throws -> Data {
-        let bytesPointer = UnsafeMutableRawPointer.allocate(byteCount: requiredLength, alignment: 1)
-
-        if SecRandomCopyBytes(kSecRandomDefault, requiredLength, bytesPointer) != 0 {
-            throw Error.OTErrorEntropyCreation
+        var bytes = Data(count: requiredLength)
+        try bytes.withUnsafeMutableBytes { (bufferPointer: UnsafeMutableRawBufferPointer) throws -> Void in
+            guard let bytes = bufferPointer.baseAddress else {
+                throw Error.entropyCreation
+            }
+            if SecRandomCopyBytes(kSecRandomDefault, bufferPointer.count, bytes) != 0 {
+                throw Error.entropyCreation
+            }
         }
-        return Data(bytes: bytesPointer, count: requiredLength)
+        return bytes
     }
 }
 
 extension BottledPeer {
     enum Error: Swift.Error {
-        case OTErrorDeserializationFailure
-        case OTErrorDecryptionFailure
-        case OTErrorKeyInstantiation
-        case OTErrorKeyMismatch
-        case OTErrorBottleCreation
-        case OTErrorAuthCipherTextCreation
-        case OTErrorPrivateKeyCreation
-        case OTErrorEscrowKeyCreation
-        case OTErrorEntropyCreation
-        case OTErrorEntropyKeyMismatch
+        case deserializationFailure
+        case decryptionFailure
+        case keyMismatch
+        case bottleCreation
+        case authCipherTextCreation
+        case privateKeyCreation
+        case escrowKeyCreation
+        case entropyCreation
+        case entropyKeyMismatch
     }
 }
 
-extension BottledPeer.Error: LocalizedError {
-    var errorDescription: String? {
+extension BottledPeer.Error: CustomNSError {
+    public static var errorDomain: String {
+        return "TrustedPeersHelper.BottledPeer.Error"
+    }
+
+    public var errorCode: Int {
         switch self {
-        case .OTErrorDeserializationFailure:
+        case .deserializationFailure:
+            return 0
+        case .decryptionFailure:
+            return 1
+        // reserved 2
+        case .keyMismatch:
+            return 3
+        case .bottleCreation:
+            return 4
+        case .authCipherTextCreation:
+            return 5
+        case .privateKeyCreation:
+            return 6
+        case .escrowKeyCreation:
+            return 7
+        case .entropyCreation:
+            return 8
+        case .entropyKeyMismatch:
+            return 9
+        }
+    }
+
+    public var errorDescription: String? {
+        switch self {
+        case .deserializationFailure:
             return "Failed to deserialize bottle peer"
-        case .OTErrorDecryptionFailure:
+        case .decryptionFailure:
             return "could not decrypt bottle contents"
-        case .OTErrorKeyInstantiation:
-            return "Failed to instantiate octagon peer keys"
-        case .OTErrorKeyMismatch:
+        case .keyMismatch:
             return "public and private peer signing keys do not match"
-        case .OTErrorBottleCreation:
+        case .bottleCreation:
             return "failed to create bottle"
-        case .OTErrorAuthCipherTextCreation:
+        case .authCipherTextCreation:
             return "failed to create authenticated ciphertext"
-        case .OTErrorPrivateKeyCreation:
+        case .privateKeyCreation:
             return "failed to create private key"
-        case .OTErrorEscrowKeyCreation:
+        case .escrowKeyCreation:
             return "failed to create escrow keys"
-        case .OTErrorEntropyCreation:
+        case .entropyCreation:
             return "failed to create entropy"
-        case .OTErrorEntropyKeyMismatch:
+        case .entropyKeyMismatch:
             return "keys generated by the entropy+salt do not match the bottle contents"
         }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        var ret = [String: Any]()
+        if let desc = self.errorDescription {
+            ret[NSLocalizedDescriptionKey] = desc
+        }
+        return ret
     }
 }

@@ -23,7 +23,7 @@
 
 #import "mockaksxcbase.h"
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 
 NSString* homeDirUUID;
 

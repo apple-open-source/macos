@@ -1,7 +1,8 @@
 /* START OF SPEC @generated CONTENTS */
 
 /* General settings */
-#define WRAPPER_APPLICATION_COUNT 1
+#define WRAPPER_APPLICATION_COUNT 2
+#define WRAPPER_ENV_VAR "CHOSEN_RSYNC"
 #define WRAPPER_ANALYTICS_IDENT "com.apple.rsync"
 #define WRAPPER_ANALYTICS_NOARGS true
 
@@ -74,11 +75,21 @@ struct application {
 	const char		*app_path;
 
 	/*
+	 * Additional arguments that the wrapper should insert when this
+	 * application is selected.
+	 */
+	const char		 **app_add_argv;
+	int			 app_add_nargv;
+
+	/*
 	 * If optstr is set, we'll use getopt(3) or getopt_long(3) to determine
 	 * if we can use this application as the backend.
 	 */
 	const char		*app_optstr;
 	const struct option	*app_longopts;
+
+	size_t			 app_nlogonly;
+	const bool		*app_logonly_opts;
 
 	/*
 	 * Relative paths are relative to cwd, rather than to the selected
@@ -95,22 +106,87 @@ struct application {
 
 /* START OF SPEC @generated CONTENTS */
 
-/* Long Option Declarations */
-static const struct option	rsync_samba_longopts[];
-
-/* Application Definitions */
-static const struct application wrapper_apps[] = {
-	{
-		.app_name = "rsync_samba",
-		.app_path = "/usr/libexec/rsync/rsync.samba",
-		.app_path_relcwd = false,
-		.app_opts_logonly = true,
-		.app_optstr = "f:B:e:T:",
-		.app_longopts = rsync_samba_longopts,
-	},
+/* Long and Logonly Option Definitions */
+static const struct option rsync_openrsync_longopts[] = {
+	{"address", required_argument, NULL, CHAR_MAX + 0 },
+	{"archive", no_argument, NULL, 'a' },
+	{"compare-dest", required_argument, NULL, CHAR_MAX + 1 },
+	{"link-dest", required_argument, NULL, CHAR_MAX + 2 },
+	{"copy-dirlinks", no_argument, NULL, 'k' },
+	{"copy-links", no_argument, NULL, 'L' },
+	{"no-D", no_argument, NULL, CHAR_MAX + 3 },
+	{"del", no_argument, NULL, CHAR_MAX + 4 },
+	{"delete", no_argument, NULL, CHAR_MAX + 5 },
+	{"delete-before", no_argument, NULL, CHAR_MAX + 6 },
+	{"delete-during", no_argument, NULL, CHAR_MAX + 7 },
+	{"delete-delay", no_argument, NULL, CHAR_MAX + 8 },
+	{"delete-excluded", no_argument, NULL, CHAR_MAX + 9 },
+	{"devices", no_argument, NULL, CHAR_MAX + 10 },
+	{"no-devices", no_argument, NULL, CHAR_MAX + 11 },
+	{"dry-run", no_argument, NULL, 'n' },
+	{"exclude", required_argument, NULL, CHAR_MAX + 12 },
+	{"exclude-from", required_argument, NULL, CHAR_MAX + 13 },
+	{"existing", no_argument, NULL, CHAR_MAX + 14 },
+	{"group", no_argument, NULL, 'g' },
+	{"no-group", no_argument, NULL, CHAR_MAX + 15 },
+	{"no-g", no_argument, NULL, CHAR_MAX + 16 },
+	{"hard-links", no_argument, NULL, 'H' },
+	{"help", no_argument, NULL, 'h' },
+	{"ignore-existing", no_argument, NULL, CHAR_MAX + 17 },
+	{"ignore-non-existing", no_argument, NULL, CHAR_MAX + 18 },
+	{"ignore-times", no_argument, NULL, 'I' },
+	{"include", required_argument, NULL, CHAR_MAX + 19 },
+	{"include-from", required_argument, NULL, CHAR_MAX + 20 },
+	{"links", no_argument, NULL, 'l' },
+	{"max-size", required_argument, NULL, CHAR_MAX + 21 },
+	{"min-size", required_argument, NULL, CHAR_MAX + 22 },
+	{"no-links", no_argument, NULL, CHAR_MAX + 23 },
+	{"no-l", no_argument, NULL, CHAR_MAX + 24 },
+	{"no-motd", no_argument, NULL, CHAR_MAX + 25 },
+	{"numeric-ids", no_argument, NULL, CHAR_MAX + 26 },
+	{"owner", no_argument, NULL, 'o' },
+	{"no-owner", no_argument, NULL, CHAR_MAX + 27 },
+	{"no-o", no_argument, NULL, CHAR_MAX + 28 },
+	{"perms", no_argument, NULL, 'p' },
+	{"no-perms", no_argument, NULL, CHAR_MAX + 29 },
+	{"no-p", no_argument, NULL, CHAR_MAX + 30 },
+	{"port", required_argument, NULL, CHAR_MAX + 31 },
+	{"recursive", no_argument, NULL, 'r' },
+	{"no-recursive", no_argument, NULL, CHAR_MAX + 32 },
+	{"no-r", no_argument, NULL, CHAR_MAX + 33 },
+	{"one-file-system", no_argument, NULL, 'x' },
+	{"rsh", required_argument, NULL, 'e' },
+	{"rsync-path", required_argument, NULL, CHAR_MAX + 34 },
+	{"sender", no_argument, NULL, CHAR_MAX + 35 },
+	{"server", no_argument, NULL, CHAR_MAX + 36 },
+	{"specials", no_argument, NULL, CHAR_MAX + 37 },
+	{"sparse", no_argument, NULL, 'S' },
+	{"no-specials", no_argument, NULL, CHAR_MAX + 38 },
+	{"timeout", required_argument, NULL, CHAR_MAX + 39 },
+	{"times", no_argument, NULL, 't' },
+	{"no-times", no_argument, NULL, CHAR_MAX + 40 },
+	{"no-t", no_argument, NULL, CHAR_MAX + 41 },
+	{"verbose", no_argument, NULL, 'v' },
+	{"no-verbose", no_argument, NULL, CHAR_MAX + 42 },
+	{"version", no_argument, NULL, 'V' },
+	{"relative", no_argument, NULL, 'R' },
+	{"no-R", no_argument, NULL, CHAR_MAX + 43 },
+	{"no-relative", no_argument, NULL, CHAR_MAX + 44 },
+	{"dirs", no_argument, NULL, 'd' },
+	{"no-dirs", no_argument, NULL, CHAR_MAX + 45 },
+	{"files-from", required_argument, NULL, CHAR_MAX + 46 },
+	{"delay-updates", no_argument, NULL, CHAR_MAX + 47 },
+	{ NULL, 0, 0, 0 },
+};
+static const bool rsync_openrsync_logonly[] = {
+	[CHAR_MAX + 1] = true,
+	[CHAR_MAX + 12] = true,
+	[CHAR_MAX + 13] = true,
+	[CHAR_MAX + 19] = true,
+	[CHAR_MAX + 20] = true,
+	[CHAR_MAX + 46] = true,
 };
 
-/* Long Option Definitions */
 static const struct option rsync_samba_longopts[] = {
 	{"modify-window", required_argument, NULL, CHAR_MAX + 0 },
 	{"chmod", required_argument, NULL, CHAR_MAX + 1 },
@@ -153,6 +229,32 @@ static const struct option rsync_samba_longopts[] = {
 	{ NULL, 0, 0, 0 },
 };
 
+/* Additional Arg Definitions */
+
+
+/* Application Definitions */
+static const struct application wrapper_apps[] = {
+	{
+		.app_name = "rsync_openrsync",
+		.app_path = "/usr/libexec/rsync/rsync.openrsync",
+		.app_path_relcwd = false,
+		.app_opts_logonly = false,
+		.app_optstr = "akLDngHhIloprxe:StvVRd",
+		.app_longopts = rsync_openrsync_longopts,
+		.app_nlogonly = nitems(rsync_openrsync_logonly),
+		.app_logonly_opts = rsync_openrsync_logonly,
+	},
+	{
+		.app_name = "rsync_samba",
+		.app_path = "/usr/libexec/rsync/rsync.samba",
+		.app_path_relcwd = false,
+		.app_opts_logonly = true,
+		.app_optstr = "f:B:e:T:",
+		.app_longopts = rsync_samba_longopts,
+	},
+};
+
+
 /* END OF SPEC @generated CONTENTS */
 
 /*
@@ -184,6 +286,10 @@ static const struct option rsync_samba_longopts[] = {
  * all; better safe than sorry, though.
  */
 _Static_assert(nitems(wrapper_apps) > 0, "No applications specified");
+
+#define wrapper_assert_unreachable(msg) assert(0 && msg)
+
+#define	WRAPPER_XCODE_PREFIX	"$XCODE/"
 
 #ifdef WRAPPER_ANALYTICS_IDENT
 static const char wrapper_arg_redacted[] = "*REDACTED*";
@@ -334,8 +440,22 @@ wrapper_check_env(void)
 }
 
 static bool
-wrapper_check_args_long(const char *optstr, const struct option *longopts,
-    int argc, char *argv[])
+wrapper_check_args_excluded(const struct application *app, int opt)
+{
+
+	/*
+	 * Checks whether the returned option is a logonly option to be excluded
+	 * from considering this a candidate.
+	 */
+	if (opt >= app->app_nlogonly)
+		return (false);
+
+	return (app->app_logonly_opts[opt]);
+}
+
+static bool
+wrapper_check_args_long(const struct application *app, const char *optstr,
+    const struct option *longopts, int argc, char *argv[])
 {
 	int ch;
 
@@ -343,9 +463,10 @@ wrapper_check_args_long(const char *optstr, const struct option *longopts,
 	optind = optreset = 1;
 	while ((ch = getopt_long(argc, argv, optstr, longopts, NULL)) != -1) {
 		/*
-		 * If we encounter an unrecognized flag, we can't use this one.
+		 * If we encounter an unrecognized flag or a logonly flag, we
+		 * can't use this one.
 		 */
-		if (ch == '?')
+		if (ch == '?' || wrapper_check_args_excluded(app, ch))
 			return (false);
 	}
 
@@ -372,7 +493,7 @@ wrapper_check_args_app(const struct application *app, int argc, char *argv[])
 	if (app->app_opts_logonly)
 		return (true);
 
-	return (wrapper_check_args_long(app->app_optstr, app->app_longopts,
+	return (wrapper_check_args_long(app, app->app_optstr, app->app_longopts,
 	    argc, argv));
 }
 
@@ -424,6 +545,92 @@ wrapper_execute_analytics_testing(const struct application *app, int argc,
 }
 #endif	/* WRAPPER_ANALYTICS_TESTING */
 
+#ifdef WRAPPER_NEEDS_XCSELECT
+static void
+wrapper_invoke_xcrun(const struct application *app, int argc, char *argv[])
+{
+	const char *path;
+
+	path = strchr(app->app_path, '/');
+	assert(path != NULL);
+
+	while (path[0] == '/')
+		path++;
+
+	assert(path[0] != '\0');
+
+	/* Chop off the program name when we're running xcrun */
+	xcselect_invoke_xcrun(path, argc - 1, argv + 1, true);
+}
+#endif
+
+/*
+ * wrapper_handle_relpath will do one of three things:
+ * - Execute something else
+ * - Error out
+ * - Return with path populated to something that we should try to exec.
+ */
+static void
+wrapper_handle_relpath(const struct application *app, char *path, size_t pathsz,
+    int argc, char *argv[])
+{
+#ifndef WRAPPER_NEEDS_XCSELECT
+	wrapper_assert_unreachable("broken wrapper shim configuration");
+#else
+	bool env, cltools, dflt;
+
+	/* Shell out to xcrun for $XCODE/ paths */
+	if (strncmp(app->app_path, WRAPPER_XCODE_PREFIX,
+	    sizeof(WRAPPER_XCODE_PREFIX) - 1) == 0) {
+		wrapper_invoke_xcrun(app, argc, argv);
+		/* UNREACHABLE */
+	}
+
+	if (!xcselect_get_developer_dir_path(path, pathsz, &env, &cltools,
+	    &dflt))
+		errx(1, "Could not obtain developer dir path");
+
+	/* We'll catch this strlcat() error with the next one; just ignore it. */
+	(void)strlcat(path, "/", pathsz);
+
+	if (strlcat(path, app->app_path, pathsz) >= pathsz)
+		errx(1, "File name too long: %s", path);
+#endif	/* !WRAPPER_NEEDS_XCSELECT */
+}
+
+static void
+wrapper_execute_addargs(const struct application *app, int *argc,
+    char **argv[])
+{
+	char **args;
+	int i, total_args;
+
+	if (app->app_add_nargv == 0)
+		return;
+
+	total_args = *argc + app->app_add_nargv;
+	args = malloc(sizeof(*args) * (total_args + 1));
+	if (args == NULL)
+		err(1, "malloc");
+
+	/*
+	 * Push args[1] and up out of the way for the injected args to be
+	 * prepended.
+	 */
+	i = 0;
+	args[i++] = *argv[0];
+
+	/* Arguments are off-by-one from where they land in argv. */
+	for (; i <= app->app_add_nargv; i++)
+		args[i] = __DECONST(char *, app->app_add_argv[i - 1]);
+
+	/* Copy in the trailing args */
+	memcpy(&args[i], *argv + 1, sizeof(*args) * *argc);
+
+	*argv = args;
+	*argc = total_args;
+}
+
 static int
 wrapper_execute(const struct application *app, int argc, char *argv[])
 {
@@ -450,37 +657,30 @@ wrapper_execute(const struct application *app, int argc, char *argv[])
 #endif	/* WRAPPER_ANALYTICS_IDENT */
 
 	/*
+	 * Augment argv *after* we've reported analytics on it; we only want
+	 * to collect user usage for telemetry purpose.
+	 */
+	wrapper_execute_addargs(app, &argc, &argv);
+
+	/*
 	 * Absolute paths are run directly, relative paths are relative to the
 	 * selected developer dir unless it's a cwdpath that was specified.
 	 *
 	 * cwdpaths are undocumented and only really intended for regression
 	 * testing purposes at this time.
 	 */
-	if (app->app_path[0] == '/' || app->app_path_relcwd) {
-		if (strlcpy(path, app->app_path, sizeof(path)) >= sizeof(path))
-			errx(1, "File name too long: %s", path);
-		goto run;
-	}
+	if (app->app_path[0] != '/' && !app->app_path_relcwd) {
+		wrapper_handle_relpath(app, path, sizeof(path), argc, argv);
 
-#ifdef WRAPPER_NEEDS_XCSELECT
-	bool env, cltools, dflt;
-
-	if (!xcselect_get_developer_dir_path(path, sizeof(path), &env, &cltools,
-	    &dflt)) {
-		snprintf(path, sizeof(path), "/%s", app->app_path);
-		goto run;
-	}
-
-	/* We'll catch this strlcat() error with the next one; just ignore it. */
-	(void)strlcat(path, "/", sizeof(path));
-
-	if (strlcat(path, app->app_path, sizeof(path)) >= sizeof(path))
+		/*
+		 * If wrapper_handle_relpath returns, it must have populated
+		 * path with the path to execute.
+		 */
+		assert(path[0] != '\0');
+	} else if (strlcpy(path, app->app_path, sizeof(path)) >= sizeof(path)) {
 		errx(1, "File name too long: %s", path);
-#else	/* !WRAPPER_NEEDS_XCSELECT */
-	/* UNREACHABLE */
-#endif	/* WRAPPER_NEEDS_XCSELECT */
+	}
 
-run:
 	execv(path, argv);
 	err(1, "execv(%s)", path);
 	/* UNREACHABLE */

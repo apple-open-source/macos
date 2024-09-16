@@ -1,6 +1,6 @@
 /* macos-ioloop.c
  *
- * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 #include <ifaddrs.h>
 #include <dns_sd.h>
 
+#include <CoreUtils/SystemUtils.h>  // For `IsAppleTV()`.
 #include <dispatch/dispatch.h>
 
 #include "srp.h"
@@ -45,13 +46,18 @@
 #include "tls-macos.h"
 #include "tls-keychain.h"
 #include "srp-dnssd.h"
+#include "ifpermit.h"
 
 dispatch_queue_t ioloop_main_queue;
+static int cur_connection_serial;
 
 // Forward references
 static void ioloop_tcp_input_start(comm_t *NONNULL connection);
 static void listener_finalize(comm_t *listener);
 static bool connection_write_now(comm_t *NONNULL connection);
+static bool ioloop_listener_connection_ready(comm_t *connection);
+
+#define DSCP_CS5 0x28
 
 int
 getipaddr(addr_t *addr, const char *p)
@@ -812,12 +818,18 @@ ioloop_udp_input_start(comm_t *connection)
 }
 
 static void
-connection_state_changed(comm_t *connection, nw_connection_state_t state, nw_error_t error)
+ioloop_connection_state_changed(comm_t *connection, nw_connection_state_t state, nw_error_t error)
 {
     char errbuf[512];
     connection_error_to_string(error, errbuf, sizeof(errbuf));
 
     if (state == nw_connection_state_ready) {
+        if (connection->server) {
+            if (!ioloop_listener_connection_ready(connection)) {
+                ioloop_comm_cancel(connection);
+                return;
+            }
+        }
         INFO(PRI_S_SRP " (%p %p) state is ready; error = " PUB_S_SRP,
              connection->name != NULL ? connection->name : "<no name>", connection, connection->connection, errbuf);
         // Set up a reader.
@@ -884,7 +896,7 @@ ioloop_connection_get_address_from_endpoint(addr_t *addr, nw_endpoint_t endpoint
 }
 
 static void
-ioloop_connection_set_name_from_endpoint(comm_t *listener, comm_t *connection, nw_endpoint_t endpoint)
+ioloop_connection_set_name_from_endpoint(comm_t *connection, nw_endpoint_t endpoint)
 {
     nw_endpoint_type_t endpoint_type = nw_endpoint_get_type(endpoint);
     if (endpoint_type == nw_endpoint_type_address) {
@@ -893,7 +905,15 @@ ioloop_connection_set_name_from_endpoint(comm_t *listener, comm_t *connection, n
         if (port_string == NULL || address_string == NULL) {
             ERROR("Unable to get description of new connection.");
         } else {
-            asprintf(&connection->name, "%s connection from %s/%s", listener->name, address_string, port_string);
+            const char *listener_name = connection->name == NULL ? "bogus" : connection->name;
+            char *free_name = connection->name;
+            connection->name = NULL;
+            asprintf(&connection->name, "%s connection from %s/%s", listener_name, address_string, port_string);
+            if (free_name != NULL) {
+                free(free_name);
+                free_name = NULL;
+                listener_name = NULL;
+            }
             getipaddr(&connection->address, address_string);
             if (connection->address.sa.sa_family == AF_INET6) {
                 SEGMENTED_IPv6_ADDR_GEN_SRP(&connection->address.sin6.sin6_addr, rdata_buf);
@@ -908,8 +928,10 @@ ioloop_connection_set_name_from_endpoint(comm_t *listener, comm_t *connection, n
         free(port_string);
         free(address_string);
     } else {
-        ERROR("incoming connection of unexpected type %d", endpoint_type);
-        connection->name = nw_connection_copy_description(connection->connection);
+        if (connection->name == NULL) {
+            connection->name = nw_connection_copy_description(connection->connection);
+        }
+        ERROR("incoming connection " PRI_S_SRP " is of unexpected type %d", connection->name, endpoint_type);
     }
 }
 
@@ -925,6 +947,7 @@ ioloop_udp_receive(comm_t *listener, dispatch_data_t content, nw_content_context
             ERROR("%p: " PRI_S_SRP ": no memory for response state.", listener, listener->name);
             return;
         }
+        response_state->serial = ++cur_connection_serial;
         RETAIN_HERE(response_state, comm);
         response_state->listener_state = listener;
         RETAIN_HERE(response_state->listener_state, listener);
@@ -941,23 +964,14 @@ ioloop_udp_receive(comm_t *listener, dispatch_data_t content, nw_content_context
 #else
 #endif
 
-static void
-connection_callback(comm_t *listener, nw_connection_t new_connection)
-{
-    comm_t *connection = calloc(1, sizeof *connection);
-    if (connection == NULL) {
-        ERROR("Unable to receive connection: no memory.");
-        nw_connection_cancel(new_connection);
-        return;
-    }
 
-    connection->connection = new_connection;
-    nw_retain(connection->connection);
-    nw_connection_created++;
+static bool
+ioloop_listener_connection_ready(comm_t *connection)
+{
 
     nw_endpoint_t endpoint = nw_connection_copy_endpoint(connection->connection);
     if (endpoint != NULL) {
-        ioloop_connection_set_name_from_endpoint(listener, connection, endpoint);
+        ioloop_connection_set_name_from_endpoint(connection, endpoint);
         nw_release(endpoint);
     }
     if (connection->name != NULL) {
@@ -974,19 +988,41 @@ connection_callback(comm_t *listener, nw_connection_t new_connection)
         nw_release(local_endpoint);
     }
 
+    if (connection->connected != NULL) {
+        connection->connected(connection, connection->context);
+    }
+    return true;
+}
+
+static void
+ioloop_listener_connection_callback(comm_t *listener, nw_connection_t new_connection)
+{
+    nw_connection_set_queue(new_connection, ioloop_main_queue);
+    nw_connection_start(new_connection);
+
+    comm_t *connection = calloc(1, sizeof *connection);
+    if (connection == NULL) {
+        ERROR("Unable to receive connection: no memory.");
+        nw_connection_cancel(new_connection);
+        return;
+    }
+    connection->serial = ++cur_connection_serial;
+
+    connection->connection = new_connection;
+    nw_retain(connection->connection);
+    nw_connection_created++;
+
+    connection->name = strdup(listener->name);
     connection->datagram_callback = listener->datagram_callback;
     connection->tcp_stream = listener->tcp_stream;
     connection->server = true;
     connection->context = listener->context;
+    connection->connected = listener->connected;
     RETAIN_HERE(connection, comm); // The connection state changed handler has a reference to the connection.
     nw_connection_set_state_changed_handler(connection->connection,
                                             ^(nw_connection_state_t state, nw_error_t error)
-                                            { connection_state_changed(connection, state, error); });
-    nw_connection_set_queue(connection->connection, ioloop_main_queue);
-    nw_connection_start(connection->connection);
-    if (listener->connected != NULL) {
-        listener->connected(connection, listener->context);
-    }
+                                            { ioloop_connection_state_changed(connection, state, error); });
+    INFO("started " PRI_S_SRP, connection->name);
 }
 
 static void
@@ -1180,6 +1216,8 @@ ioloop_listener_state_changed_handler(comm_t *listener, nw_listener_state_t stat
     }
 #endif // DEBUG_VERBOSE
 
+    INFO("%p %p " PUB_S_SRP " %d", listener, listener->listener, listener->name, state);
+
     // Should never happen.
     if (listener->listener == NULL && state != nw_listener_state_cancelled) {
         return;
@@ -1245,34 +1283,14 @@ ioloop_udp_listener_setup(comm_t *listener)
 }
 #else
 static comm_t *
-ioloop_udp_listener_setup(comm_t *listener, const addr_t *ip_address, uint16_t port)
+ioloop_udp_listener_setup(comm_t *listener, const addr_t *ip_address, uint16_t port, const char *launchd_name, int ifindex)
 {
     sa_family_t family = (ip_address != NULL) ? ip_address->sa.sa_family : AF_UNSPEC;
     sa_family_t real_family = family == AF_UNSPEC ? AF_INET6 : family;
     int true_flag = 1;
     addr_t sockname;
-
-    listener->io.fd = socket(real_family, SOCK_DGRAM, IPPROTO_UDP);
-    if (listener->io.fd < 0) {
-        ERROR("Can't get socket: %s", strerror(errno));
-        goto out;
-    }
-    int rv = setsockopt(listener->io.fd, SOL_SOCKET, SO_REUSEADDR, &true_flag, sizeof true_flag);
-    if (rv < 0) {
-        ERROR("SO_REUSEADDR failed: %s", strerror(errno));
-        goto out;
-    }
-
-    rv = setsockopt(listener->io.fd, SOL_SOCKET, SO_REUSEPORT, &true_flag, sizeof true_flag);
-    if (rv < 0) {
-        ERROR("SO_REUSEPORT failed: %s", strerror(errno));
-        goto out;
-    }
-
-    if (fcntl(listener->io.fd, F_SETFL, O_NONBLOCK) < 0) {
-        ERROR("%s: Can't set O_NONBLOCK: %s", listener->name, strerror(errno));
-        goto out;
-    }
+    socklen_t sl;
+    int rv;
 
     listener->address.sa.sa_family = real_family;
     listener->address.sa.sa_len = (real_family == AF_INET
@@ -1284,53 +1302,128 @@ ioloop_udp_listener_setup(comm_t *listener, const addr_t *ip_address, uint16_t p
         listener->address.sin.sin_port = htons(port);
     }
 
-    // skipping multicast support for now
-
-    if (family == AF_INET6) {
-        // Don't use a dual-stack socket.
-        rv = setsockopt(listener->io.fd, IPPROTO_IPV6, IPV6_V6ONLY, &true_flag, sizeof true_flag);
-        if (rv < 0) {
-            SEGMENTED_IPv6_ADDR_GEN_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
-            ERROR("Unable to set IPv6-only flag on UDP socket for " PRI_SEGMENTED_IPv6_ADDR_SRP,
-                  SEGMENTED_IPv6_ADDR_PARAM_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf));
-            goto out;
-        }
-        SEGMENTED_IPv6_ADDR_GEN_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
-        ERROR("Successfully set IPv6-only flag on UDP socket for " PRI_SEGMENTED_IPv6_ADDR_SRP,
-              SEGMENTED_IPv6_ADDR_PARAM_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf));
-    }
-
-    socklen_t sl = listener->address.sa.sa_len;
-    if (bind(listener->io.fd, &listener->address.sa, sl) < 0) {
-        if (family == AF_INET) {
-            IPv4_ADDR_GEN_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf);
-            ERROR("Can't bind to " PRI_IPv4_ADDR_SRP "#%d: %s",
-                  IPv4_ADDR_PARAM_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf), port,
-                  strerror(errno));
+    listener->io.fd = -1;
+#ifndef SRP_TEST_SERVER
+    if (launchd_name != NULL) {
+        int *fds;
+        size_t cnt;
+        int ret = launch_activate_socket(launchd_name, &fds, &cnt);
+        if (ret != 0) {
+            FAULT("launchd_activate_socket failed for " PUB_S_SRP ": " PUB_S_SRP, launchd_name, strerror(ret));
+            listener->io.fd = -1;
+        } else if (cnt == 0) {
+            FAULT("too few sockets returned from launchd_active_socket for " PUB_S_SRP" : %zd", launchd_name, cnt);
+            listener->io.fd = -1;
+        } else if (cnt != 1) {
+            FAULT("too many sockets returned from launchd_active_socket for " PUB_S_SRP" : %zd", launchd_name, cnt);
+            for (size_t i = 0; i < cnt; i++) {
+                close(fds[i]);
+            }
+            free(fds);
         } else {
-            SEGMENTED_IPv6_ADDR_GEN_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
-            ERROR("Can't bind to " PRI_SEGMENTED_IPv6_ADDR_SRP "#%d: %s",
-                  SEGMENTED_IPv6_ADDR_PARAM_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf), port,
-                  strerror(errno));
+            listener->io.fd = fds[0];
+            free(fds);
         }
-    out:
-        close(listener->io.fd);
-        listener->io.fd = -1;
-        RELEASE_HERE(listener, listener);
-        return NULL;
     }
-
-    // We may have bound to an unspecified port, so fetch the port we got.
-    if (port == 0 && family != AF_LOCAL) {
-        if (getsockname(listener->io.fd, (struct sockaddr *)&sockname, &sl) < 0) {
-            ERROR("ioloop_listener_create: getsockname: %s", strerror(errno));
+#endif
+    if (listener->io.fd == -1) {
+        listener->io.fd = socket(real_family, SOCK_DGRAM, IPPROTO_UDP);
+        if (listener->io.fd < 0) {
+            ERROR("Can't get socket: %s", strerror(errno));
             goto out;
         }
-        port = ntohs(real_family == AF_INET6 ? sockname.sin6.sin6_port : sockname.sin.sin_port);
-        INFO("port is %d", port);
-    }
-    listener->listen_port = port;
+        rv = setsockopt(listener->io.fd, SOL_SOCKET, SO_REUSEADDR, &true_flag, sizeof true_flag);
+        if (rv < 0) {
+            ERROR("SO_REUSEADDR failed: %s", strerror(errno));
+            goto out;
+        }
 
+        rv = setsockopt(listener->io.fd, SOL_SOCKET, SO_REUSEPORT, &true_flag, sizeof true_flag);
+        if (rv < 0) {
+            ERROR("SO_REUSEPORT failed: %s", strerror(errno));
+            goto out;
+        }
+
+        // shift the DSCP value to the left by 2 bits to make the 8-bit field
+        int dscp = DSCP_CS5 << 2;
+        if (real_family == AF_INET6) {
+            // IPV6_TCLASS.
+            rv = setsockopt(listener->io.fd, IPPROTO_IPV6, IPV6_TCLASS, &dscp, sizeof(dscp));
+            if (rv < 0) {
+                ERROR("IPV6_TCLASS failed: %s", strerror(errno));
+                goto out;
+            }
+        } else {
+            // IP_TOS
+            rv = setsockopt(listener->io.fd, IPPROTO_IP, IP_TOS, &dscp, sizeof(dscp));
+            if (rv < 0) {
+                ERROR("IP_TOS failed: %s", strerror(errno));
+                goto out;
+            }
+        }
+        // skipping multicast support for now
+
+        if (family == AF_INET6) {
+            // Don't use a dual-stack socket.
+            rv = setsockopt(listener->io.fd, IPPROTO_IPV6, IPV6_V6ONLY, &true_flag, sizeof true_flag);
+            if (rv < 0) {
+                SEGMENTED_IPv6_ADDR_GEN_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
+                ERROR("Unable to set IPv6-only flag on UDP socket for " PRI_SEGMENTED_IPv6_ADDR_SRP,
+                      SEGMENTED_IPv6_ADDR_PARAM_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf));
+                goto out;
+            }
+            SEGMENTED_IPv6_ADDR_GEN_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
+            ERROR("Successfully set IPv6-only flag on UDP socket for " PRI_SEGMENTED_IPv6_ADDR_SRP,
+                  SEGMENTED_IPv6_ADDR_PARAM_SRP(listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf));
+        }
+
+        sl = listener->address.sa.sa_len;
+        if (bind(listener->io.fd, &listener->address.sa, sl) < 0) {
+            if (family == AF_INET) {
+                IPv4_ADDR_GEN_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf);
+                ERROR("Can't bind to " PRI_IPv4_ADDR_SRP "#%d: %s",
+                      IPv4_ADDR_PARAM_SRP(&listener->address.sin.sin_addr.s_addr, ipv4_addr_buf), ntohs(port),
+                      strerror(errno));
+            } else {
+                SEGMENTED_IPv6_ADDR_GEN_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf);
+                ERROR("Can't bind to " PRI_SEGMENTED_IPv6_ADDR_SRP "#%d: %s",
+                      SEGMENTED_IPv6_ADDR_PARAM_SRP(&listener->address.sin6.sin6_addr.s6_addr, ipv6_addr_buf), ntohs(port),
+                      strerror(errno));
+            }
+        out:
+            close(listener->io.fd);
+            listener->io.fd = -1;
+            RELEASE_HERE(listener, listener);
+            return NULL;
+        }
+    }
+
+    if (fcntl(listener->io.fd, F_SETFL, O_NONBLOCK) < 0) {
+        ERROR("%s: Can't set O_NONBLOCK: %s", listener->name, strerror(errno));
+        goto out;
+    }
+
+    // We may have bound to an unspecified port, so fetch the port we got. Or we may have got the port from
+    // launchd, in which case let's make sure we got the right port.
+    if (launchd_name != NULL || port == 0) {
+        sl = sizeof(sockname);
+        if (getsockname(listener->io.fd, (struct sockaddr *)&sockname, &sl) < 0) {
+            ERROR("getsockname: %s", strerror(errno));
+            goto out;
+        }
+        listener->listen_port = ntohs(real_family == AF_INET6 ? sockname.sin6.sin6_port : sockname.sin.sin_port);
+        if (launchd_name != NULL && listener->listen_port != port) {
+            ERROR("launchd port mismatch: %u %u", port, listener->listen_port);
+        }
+    } else {
+        listener->listen_port = port;
+    }
+    INFO("port is %d", listener->listen_port);
+
+    if (ifindex != 0) {
+        setsockopt(listener->io.fd, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex));
+        setsockopt(listener->io.fd, IPPROTO_IPV6, IPV6_BOUND_IF, &ifindex, sizeof(ifindex));
+    }
     rv = setsockopt(listener->io.fd, family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6,
                     family == AF_INET ? IP_PKTINFO : IPV6_RECVPKTINFO, &true_flag, sizeof true_flag);
     if (rv < 0) {
@@ -1365,11 +1458,11 @@ ioloop_udp_listener_setup(comm_t *listener, const addr_t *ip_address, uint16_t p
 #endif // UDP_LISTENER_USES_CONNECTION_GROUPS
 
 comm_t *
-ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avoid_ports,
+ioloop_listener_create(bool stream, bool tls, bool launchd, uint16_t *avoid_ports, int num_avoid_ports,
                        const addr_t *ip_address, const char *multicast, const char *name,
                        datagram_callback_t datagram_callback, connect_callback_t connected, cancel_callback_t cancel,
                        ready_callback_t ready, finalize_callback_t finalize, tls_config_callback_t tls_config,
-                       void *context)
+                       unsigned ifindex, void *context)
 {
     comm_t *listener;
     int family = (ip_address != NULL) ? ip_address->sa.sa_family : AF_UNSPEC;
@@ -1411,6 +1504,7 @@ ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avo
         }
         return NULL;
     }
+    listener->serial = ++cur_connection_serial;
     if (avoid_ports != NULL) {
         listener->avoid_ports = malloc(num_avoid_ports * sizeof(uint16_t));
         if (listener->avoid_ports == NULL) {
@@ -1448,7 +1542,7 @@ ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avo
 
 #if !UDP_LISTENER_USES_CONNECTION_GROUPS
     if (stream == FALSE) {
-        comm_t *ret = ioloop_udp_listener_setup(listener, ip_address, port);
+        comm_t *ret = ioloop_udp_listener_setup(listener, ip_address, port, launchd ? name : NULL, ifindex);
         if (ret == NULL) {
             return ret;
         }
@@ -1531,9 +1625,21 @@ ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avo
     // Set SO_REUSEADDR.
     nw_parameters_set_reuse_local_address(listener->parameters, true);
 
+
     if (stream) {
         // Create the nw_listener_t.
-        listener->listener = nw_listener_create(listener->parameters);
+        listener->listener = NULL;
+#ifndef SRP_TEST_SERVER
+        if (launchd && name != NULL) {
+            listener->listener = nw_listener_create_with_launchd_key(listener->parameters, name);
+            if (listener->listener == NULL) {
+                ERROR("launchd listener create failed, trying to create it without relying on launchd.");
+            }
+        }
+#endif
+        if (listener->listener == NULL) {
+            listener->listener = nw_listener_create(listener->parameters);
+        }
         if (listener->listener == NULL) {
             ERROR("no memory for nw_listener object");
             RELEASE_HERE(listener, listener);
@@ -1541,8 +1647,9 @@ ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avo
         }
         nw_listener_created++;
         nw_listener_set_new_connection_handler(listener->listener,
-                                               ^(nw_connection_t connection) { connection_callback(listener, connection); }
-                                               );
+                                               ^(nw_connection_t connection) {
+                                                   ioloop_listener_connection_callback(listener, connection);
+                                               });
 
         nw_listener_set_state_changed_handler(listener->listener, ^(nw_listener_state_t state, nw_error_t error) {
             ioloop_listener_state_changed_handler(listener, state, error);
@@ -1552,6 +1659,10 @@ ioloop_listener_create(bool stream, bool tls, uint16_t *avoid_ports, int num_avo
         nw_listener_start(listener->listener);
 #if UDP_LISTENER_USES_CONNECTION_GROUPS
     } else {
+        if (launchd) {
+            FAULT("launchd not yet supported for connection groups");
+            return NULL;
+        }
         if (!ioloop_udp_listener_setup(listener)) {
             RELEASE_HERE(listener, listener);
             return NULL;
@@ -1585,6 +1696,8 @@ ioloop_connection_create(addr_t *NONNULL remote_address, bool tls, bool stream, 
         ERROR("No memory for connection");
         return NULL;
     }
+    connection->serial = ++cur_connection_serial;
+
     // If we don't release this because of an error, this is the caller's reference to the comm_t.
     RETAIN_HERE(connection, comm);
     endpoint = nw_endpoint_create_host(addrbuf, portbuf);
@@ -1674,7 +1787,7 @@ ioloop_connection_create(addr_t *NONNULL remote_address, bool tls, bool stream, 
     RETAIN_HERE(connection, comm); // The connection state changed handler has a reference to the connection.
     nw_connection_set_state_changed_handler(connection->connection,
                                             ^(nw_connection_state_t state, nw_error_t error)
-                                            { connection_state_changed(connection, state, error); });
+                                            { ioloop_connection_state_changed(connection, state, error); });
     nw_connection_set_queue(connection->connection, ioloop_main_queue);
     nw_connection_start(connection->connection);
     return connection;
@@ -2002,6 +2115,7 @@ ioloop_read_source_finalize(void *context)
         if (io->context_release != NULL) {
             io->context_release(io->context);
         }
+        FINALIZED(file_descriptor_finalized);
     } else {
         RELEASE_HERE(io, file_descriptor);
     }
@@ -2062,7 +2176,7 @@ ioloop_add_reader(io_t *NONNULL io, io_callback_t NONNULL callback)
     dispatch_source_set_cancel_handler_f(io->read_source, ioloop_read_source_cancel_callback);
     dispatch_set_finalizer_f(io->read_source, ioloop_read_source_finalize);
     dispatch_set_context(io->read_source, io);
-    RETAIN_HERE(io, io); // Dispatch will hold a reference.
+    RETAIN_HERE(io, file_descriptor); // Dispatch will hold a reference.
     dispatch_resume(io->read_source);
     INFO("io %p fd %d, read source %p, write_source %p", io, io->fd, io->read_source, io->write_source);
 }
@@ -2083,6 +2197,12 @@ connection_get_local_address(message_t *message)
         return NULL;
     }
     return &message->local.sa;
+}
+
+bool
+ioloop_is_device_apple_tv(void)
+{
+    return IsAppleTV();
 }
 
 // Local Variables:

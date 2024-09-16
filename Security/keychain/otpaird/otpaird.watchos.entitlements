@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.keystore.lockassertion</key>
 	<true/>
+	<key>com.apple.private.accounts.allaccounts</key>
+	<true/>
 	<key>com.apple.private.ids.messaging</key>
 	<array>
 		<string>com.apple.private.alloy.octagon</string>

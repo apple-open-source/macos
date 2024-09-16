@@ -252,6 +252,10 @@ ExtendedAutoFileDesc TranslocationPath::findOuterMostCodeBundleForFD(ExtendedAut
      return lastGood
      */
     while (currentIndex) {
+        if (access(pathToCheck.c_str(), R_OK) != 0) {
+            break;
+        }
+        
         ExtendedAutoFileDesc currFd(pathToCheck);
 
         if (currFd.isMountPoint() || !currFd.isQuarantined() || !currFd.isUserApproved()) {

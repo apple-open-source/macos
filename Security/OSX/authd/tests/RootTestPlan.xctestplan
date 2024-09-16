@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "47A41340-04B3-4648-B569-8BF8F8EC9751",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Security.xcodeproj",
+        "identifier" : "F660178D2BA0F26D00EB7606",
+        "name" : "AuthorizationRootTests"
+      }
+    }
+  ],
+  "version" : 1
+}

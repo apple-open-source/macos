@@ -128,7 +128,7 @@ pdfjs-document-properties-modification-date = Dátum úpravy:
 #   $date (Date) - the creation/modification date of the PDF file
 #   $time (Time) - the creation/modification time of the PDF file
 pdfjs-document-properties-date-string = { $date }, { $time }
-pdfjs-document-properties-creator = Vytvoril:
+pdfjs-document-properties-creator = Aplikácia:
 pdfjs-document-properties-producer = Tvorca PDF:
 pdfjs-document-properties-version = Verzia PDF:
 pdfjs-document-properties-page-count = Počet strán:
@@ -156,7 +156,7 @@ pdfjs-document-properties-page-size-dimension-name-string = { $width } × { $hei
 
 # The linearization status of the document; usually called "Fast Web View" in
 # English locales of Adobe software.
-pdfjs-document-properties-linearized = Rýchle Web View:
+pdfjs-document-properties-linearized = Rýchle zobrazovanie z webu:
 pdfjs-document-properties-linearized-yes = Áno
 pdfjs-document-properties-linearized-no = Nie
 pdfjs-document-properties-close-button = Zavrieť
@@ -300,13 +300,34 @@ pdfjs-editor-free-text-button =
     .title = Text
 pdfjs-editor-free-text-button-label = Text
 pdfjs-editor-ink-button =
-    .title = Kreslenie
+    .title = Kresliť
 pdfjs-editor-ink-button-label = Kresliť
 pdfjs-editor-stamp-button =
     .title = Pridať alebo upraviť obrázky
 pdfjs-editor-stamp-button-label = Pridať alebo upraviť obrázky
-pdfjs-editor-remove-button =
-    .title = Odstrániť
+pdfjs-editor-highlight-button =
+    .title = Zvýrazniť
+pdfjs-editor-highlight-button-label = Zvýrazniť
+pdfjs-highlight-floating-button =
+    .title = Zvýrazniť
+pdfjs-highlight-floating-button1 =
+    .title = Zvýrazniť
+    .aria-label = Zvýrazniť
+pdfjs-highlight-floating-button-label = Zvýrazniť
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Odstrániť kresbu
+pdfjs-editor-remove-freetext-button =
+    .title = Odstrániť text
+pdfjs-editor-remove-stamp-button =
+    .title = Odstrániť obrázok
+pdfjs-editor-remove-highlight-button =
+    .title = Odstrániť zvýraznenie
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Farba
 pdfjs-editor-free-text-size-input = Veľkosť
@@ -316,6 +337,10 @@ pdfjs-editor-ink-opacity-input = Priehľadnosť
 pdfjs-editor-stamp-add-image-button =
     .title = Pridať obrázok
 pdfjs-editor-stamp-add-image-button-label = Pridať obrázok
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Hrúbka
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Zmeňte hrúbku pre zvýrazňovanie iných položiek ako textu
 pdfjs-free-text =
     .aria-label = Textový editor
 pdfjs-free-text-default-content = Začnite písať…
@@ -353,3 +378,29 @@ pdfjs-editor-resizer-label-bottom-right = Pravý dolný roh – zmena veľkosti
 pdfjs-editor-resizer-label-bottom-middle = Stred dole – zmena veľkosti
 pdfjs-editor-resizer-label-bottom-left = Ľavý dolný roh – zmena veľkosti
 pdfjs-editor-resizer-label-middle-left = Vľavo uprostred – zmena veľkosti
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Farba zvýraznenia
+pdfjs-editor-colorpicker-button =
+    .title = Zmeniť farbu
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Výber farieb
+pdfjs-editor-colorpicker-yellow =
+    .title = Žltá
+pdfjs-editor-colorpicker-green =
+    .title = Zelená
+pdfjs-editor-colorpicker-blue =
+    .title = Modrá
+pdfjs-editor-colorpicker-pink =
+    .title = Ružová
+pdfjs-editor-colorpicker-red =
+    .title = Červená
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Zobraziť všetko
+pdfjs-editor-highlight-show-all-button =
+    .title = Zobraziť všetko

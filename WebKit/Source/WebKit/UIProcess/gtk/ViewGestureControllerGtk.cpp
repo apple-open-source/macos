@@ -56,7 +56,6 @@ static const double swipeCancelArea = 0.5;
 static const double swipeCancelVelocityThreshold = 0.4;
 
 #if USE(GTK4)
-static const float swipeOverlayShadowOpacity = 0.06;
 static const float swipeOverlayBorderOpacity = 0.05;
 static const float swipeOverlayOutlineOpacity = 0.05;
 static const float swipeOverlayDimmingOpacity = 0.12;
@@ -353,7 +352,7 @@ void ViewGestureController::beginSwipeGesture(WebBackForwardListItem* targetItem
 
         if (snapshot->hasImage() && shouldUseSnapshotForSize(*snapshot, viewSize, 0))
 #if USE(GTK4)
-            m_currentSwipeSnapshotPattern = gsk_texture_node_new(snapshot->texture(), &bounds);
+            m_currentSwipeSnapshotPattern = adoptGRef(gsk_texture_node_new(snapshot->texture(), &bounds));
 #else
             m_currentSwipeSnapshotPattern = adoptRef(cairo_pattern_create_for_surface(snapshot->surface()));
 #endif
@@ -430,7 +429,7 @@ void ViewGestureController::handleSwipeGesture(WebBackForwardListItem*, double, 
 
 void ViewGestureController::cancelSwipe()
 {
-    m_pendingSwipeTracker.reset("cancelling swipe");
+    m_pendingSwipeTracker.reset("cancelling swipe"_s);
 
     if (m_activeGestureType == ViewGestureType::Swipe) {
         m_swipeProgressTracker.reset();
@@ -680,6 +679,9 @@ void ViewGestureController::setMagnification(double scale, FloatPoint origin)
         return;
 
     willBeginGesture(ViewGestureType::Magnification);
+
+    auto minMagnification = m_webPageProxy.minPageZoomFactor();
+    auto maxMagnification = m_webPageProxy.maxPageZoomFactor();
 
     double absoluteScale = scale * m_initialMagnification;
     m_magnification = clampTo<double>(absoluteScale, minMagnification, maxMagnification);

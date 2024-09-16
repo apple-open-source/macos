@@ -30,14 +30,18 @@
 #include "MediaStreamTrackPrivate.h"
 #include "RealtimeMediaSource.h"
 #include "WebAudioSourceProviderCocoa.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/MediaTime.h>
 
 namespace WebCore {
 
 class MediaStreamTrackAudioSourceProviderCocoa final
     : public WebAudioSourceProviderCocoa
-    , MediaStreamTrackPrivate::Observer
-    , RealtimeMediaSource::AudioSampleObserver {
+    , MediaStreamTrackPrivateObserver
+    , RealtimeMediaSource::AudioSampleObserver
+    , public CanMakeCheckedPtr<MediaStreamTrackAudioSourceProviderCocoa> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(MediaStreamTrackAudioSourceProviderCocoa);
 public:
     static Ref<MediaStreamTrackAudioSourceProviderCocoa> create(MediaStreamTrackPrivate&);
     ~MediaStreamTrackAudioSourceProviderCocoa();
@@ -45,13 +49,19 @@ public:
 private:
     explicit MediaStreamTrackAudioSourceProviderCocoa(MediaStreamTrackPrivate&);
 
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+
     // WebAudioSourceProviderCocoa
     void hasNewClient(AudioSourceProviderClient*) final;
 #if !RELEASE_LOG_DISABLED
     WTF::LoggerHelper& loggerHelper() final { return m_source.get(); }
 #endif
 
-    // MediaStreamTrackPrivate::Observer
+    // MediaStreamTrackPrivateObserver
     void trackEnded(MediaStreamTrackPrivate&) final { }
     void trackMutedChanged(MediaStreamTrackPrivate&) final { }
     void trackSettingsChanged(MediaStreamTrackPrivate&) final { }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,7 +86,7 @@ DHCPv6SocketReceiveIsEnabled(DHCPv6SocketRef sock);
 void
 DHCPv6SocketDisableReceive(DHCPv6SocketRef sock);
 
-int
+errno_t
 DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 		     DHCPv6PacketRef pkt, int pkt_len);
 

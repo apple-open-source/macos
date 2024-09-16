@@ -24,11 +24,13 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import "DADisk.h"
 #import "DAFileSystem.h"
+#import "DAMain.h"
 #import <Foundation/Foundation.h>
 #import "DALog.h"
 #if TARGET_OS_OSX || TARGET_OS_IOS
 #import <FSKit/FSKit.h>
 #import <FSKit/FSKitDiskArbHelper_private.h>
+#import <FSKit/FSAuditToken_private.h>
 #import <UserFS/LiveFSUSBLocalStorageClient.h>
 #import <LiveFS/LiveFSMountManagerClient.h>
 #import <LiveFS/LiveFS_LiveFileMounter.h>
@@ -40,24 +42,15 @@ int __DAMountUserFSVolume( void * parameter )
 {
     int returnValue                            = 0;
     __DAFileSystemContext *context             = parameter;
-
+    FSAuditToken          *token;
+    
     NSString *fsType       = (__bridge NSString *)context->fileSystem;
     NSString *deviceName   = (__bridge NSString *)context->deviceName;
     NSString *mountpoint   = (__bridge NSString *)context->mountPoint;
     NSString *volumeName   = (__bridge NSString *)context->volumeName;
     NSString *mountOptions = (__bridge NSString *)context->mountOptions;
 
-    if ( [fsType hasSuffix:@"_fskit"] )
-    {
-        /*
-         * Remove the _fskit suffix from the fs type.
-         */
-        fsType = [fsType substringToIndex:
-                  [fsType rangeOfCharacterFromSet:
-                   [NSCharacterSet characterSetWithCharactersInString:@"_"]].location];
-    }
-
-    if ( [FSKitConstants class] == nil )
+    if ( [FSClient class] == nil )
     {
         // No FSKit in the run time, bail
         DALogError("Attempt to use FSKit, when not present, to mount volume of type %@",
@@ -66,10 +59,14 @@ int __DAMountUserFSVolume( void * parameter )
         goto exit;
     }
 
+    token = [FSAuditToken new];
+    token = [token tokenWithRuid:gDAConsoleUserUID];
+    
     returnValue = [FSKitDiskArbHelper DAMountUserFSVolume:fsType
                                                deviceName:deviceName
                                                mountPoint:mountpoint
                                                volumeName:volumeName
+                                               auditToken:token.audit_token
                                              mountOptions:mountOptions];
 
 exit:

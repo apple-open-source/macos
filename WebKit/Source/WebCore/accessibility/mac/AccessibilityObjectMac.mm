@@ -26,6 +26,7 @@
 #import "config.h"
 #import "AccessibilityObject.h"
 
+#import "AXRemoteFrame.h"
 #import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
 #import "ColorCocoa.h"
@@ -44,13 +45,16 @@
 #import "TextCheckerClient.h"
 #import "TextCheckingHelper.h"
 #import "TextDecorationPainter.h"
+#import "TextIterator.h"
+#import <wtf/cocoa/SpanCocoa.h>
 
-#if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
+#if PLATFORM(MAC)
 
 #import "PlatformScreen.h"
 #import "WebAccessibilityObjectWrapperMac.h"
 #import "Widget.h"
 
+#import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
 
 namespace WebCore {
@@ -176,7 +180,15 @@ void AccessibilityObject::setCaretBrowsingEnabled(bool on)
 
 String AccessibilityObject::rolePlatformString() const
 {
-    AccessibilityRole role = roleValue();
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    if (isAttachment())
+        return [[wrapper() attachmentView] accessibilityAttributeValue:NSAccessibilityRoleAttribute];
+
+    if (isRemoteFrame())
+        return [remoteFramePlatformElement().get() accessibilityAttributeValue:NSAccessibilityRoleAttribute];
+ALLOW_DEPRECATED_DECLARATIONS_END
+
+    auto role = roleValue();
 
     // If it is a label with just static text or an anonymous math operator, remap role to StaticText.
     // The mfenced element creates anonymous RenderMathMLOperators with no RenderText
@@ -191,8 +203,43 @@ String AccessibilityObject::rolePlatformString() const
     return Accessibility::roleToPlatformString(role);
 }
 
+static bool isEmptyGroup(AccessibilityObject& object)
+{
+#if ENABLE(MODEL_ELEMENT)
+    if (object.isModel())
+        return false;
+#endif
+
+    if (object.isRemoteFrame())
+        return false;
+
+    return [object.rolePlatformString() isEqual:NSAccessibilityGroupRole]
+        && object.children().isEmpty()
+        && ![renderWidgetChildren(object) count];
+}
+
+NSArray *renderWidgetChildren(const AXCoreObject& object)
+{
+    if (!object.isWidget())
+        return nil;
+
+    id child = Accessibility::retrieveAutoreleasedValueFromMainThread<id>([object = Ref { object }] () -> RetainPtr<id> {
+        auto* widget = object->widget();
+        return widget ? widget->accessibilityObject() : nil;
+    });
+
+    if (child)
+        return @[child];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    return [object.platformWidget() accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
+ALLOW_DEPRECATED_DECLARATIONS_END
+}
+
 String AccessibilityObject::subrolePlatformString() const
 {
+    if (isEmptyGroup(*const_cast<AccessibilityObject*>(this)))
+        return @"AXEmptyGroup";
+
     if (isSecureField())
         return NSAccessibilitySecureTextFieldSubrole;
     if (isSearchField())
@@ -266,10 +313,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return "AXApplicationAlertDialog"_s;
     case AccessibilityRole::ApplicationDialog:
         return "AXApplicationDialog"_s;
-    case AccessibilityRole::ApplicationGroup:
-    case AccessibilityRole::ApplicationTextGroup:
     case AccessibilityRole::Feed:
     case AccessibilityRole::Footnote:
+    case AccessibilityRole::Group:
         return "AXApplicationGroup"_s;
     case AccessibilityRole::ApplicationLog:
         return "AXApplicationLog"_s;
@@ -307,6 +353,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     default:
         break;
     }
+
+    // Only return a subrole for explicitly defined (via ARIA) text groups.
+    if (ariaRoleAttribute() == AccessibilityRole::TextGroup)
+        return "AXApplicationGroup"_s;
 
     if (role == AccessibilityRole::MathElement) {
         if (isMathFraction())
@@ -408,7 +458,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 String AccessibilityObject::rolePlatformDescription() const
 {
-    AccessibilityRole role = roleValue();
+    // Attachments have the AXImage role, but may have different subroles.
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    if (isAttachment())
+        return [[wrapper() attachmentView] accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
+
+    if (isRemoteFrame())
+        return [remoteFramePlatformElement().get() accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
+ALLOW_DEPRECATED_DECLARATIONS_END
+
     NSString *axRole = rolePlatformString();
 
     if ([axRole isEqualToString:NSAccessibilityGroupRole]) {
@@ -419,7 +477,7 @@ String AccessibilityObject::rolePlatformDescription() const
         if (!ariaLandmarkRoleDescription.isEmpty())
             return ariaLandmarkRoleDescription;
 
-        switch (role) {
+        switch (roleValue()) {
         case AccessibilityRole::Audio:
             return localizedMediaControlElementString("AudioElement"_s);
         case AccessibilityRole::Definition:
@@ -442,7 +500,7 @@ String AccessibilityObject::rolePlatformDescription() const
         case AccessibilityRole::GraphicsDocument:
             return AXARIAContentGroupText("ARIADocument"_s);
         default:
-            return String();
+            return { };
         }
     }
 
@@ -462,20 +520,19 @@ String AccessibilityObject::rolePlatformDescription() const
         return AXHeadingText();
 
     if ([axRole isEqualToString:NSAccessibilityTextFieldRole]) {
-        auto* node = this->node();
-        if (is<HTMLInputElement>(node)) {
-            auto& input = downcast<HTMLInputElement>(*node);
-            if (input.isEmailField())
+        if (RefPtr input = dynamicDowncast<HTMLInputElement>(node())) {
+            if (input->isEmailField())
                 return AXEmailFieldText();
-            if (input.isTelephoneField())
+            if (input->isTelephoneField())
                 return AXTelephoneFieldText();
-            if (input.isURLField())
+            if (input->isURLField())
                 return AXURLFieldText();
-            if (input.isNumberField())
+            if (input->isNumberField())
                 return AXNumberFieldText();
 
             // These input types are not enabled on mac yet, we check the type attribute for now.
-            auto& type = input.attributeWithoutSynchronization(HTMLNames::typeAttr);
+            // FIXME: "date", "time", and "datetime-local" are enabled on macOS.
+            auto& type = input->attributeWithoutSynchronization(HTMLNames::typeAttr);
             if (equalLettersIgnoringASCIICase(type, "date"_s))
                 return AXDateFieldText();
             if (equalLettersIgnoringASCIICase(type, "time"_s))
@@ -497,7 +554,7 @@ String AccessibilityObject::rolePlatformDescription() const
     if (isDescriptionList())
         return AXDescriptionListText();
 
-    if (role == AccessibilityRole::HorizontalRule)
+    if (roleValue() == AccessibilityRole::HorizontalRule)
         return AXHorizontalRuleDescriptionText();
 
     // AppKit also returns AXTab for the role description for a tab item.
@@ -507,7 +564,7 @@ String AccessibilityObject::rolePlatformDescription() const
     if (isSummary())
         return AXSummaryText();
 
-    return String();
+    return { };
 }
 
 // NSAttributedString support.
@@ -604,7 +661,7 @@ static void attributedStringSetBlockquoteLevel(NSMutableAttributedString *attrSt
         return;
 
     auto* cache = renderer->document().axObjectCache();
-    RefPtr object = cache ? cache->getOrCreate(renderer) : nullptr;
+    RefPtr object = cache ? cache->getOrCreate(*renderer) : nullptr;
     if (!object)
         return;
 
@@ -619,18 +676,22 @@ static void attributedStringSetExpandedText(NSMutableAttributedString *attrStrin
         return;
 
     auto* cache = renderer->document().axObjectCache();
-    RefPtr object = cache ? cache->getOrCreate(renderer) : nullptr;
+    RefPtr object = cache ? cache->getOrCreate(*renderer) : nullptr;
     if (object && object->supportsExpandedTextValue())
         [attrString addAttribute:NSAccessibilityExpandedTextValueAttribute value:object->expandedTextValue() range:range];
 }
 
 static void attributedStringSetElement(NSMutableAttributedString *attrString, NSString *attribute, AccessibilityObject* object, const NSRange& range)
 {
-    if (!attributedStringContainsRange(attrString, range) || !is<AccessibilityRenderObject>(object))
+    if (!attributedStringContainsRange(attrString, range))
+        return;
+
+    auto* renderObject = dynamicDowncast<AccessibilityRenderObject>(object);
+    if (!renderObject)
         return;
 
     // Make a serializable AX object.
-    auto* renderer = downcast<AccessibilityRenderObject>(*object).renderer();
+    auto* renderer = renderObject->renderer();
     if (!renderer)
         return;
 
@@ -753,6 +814,28 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
     return result;
 }
 
+std::span<const uint8_t> AXRemoteFrame::generateRemoteToken() const
+{
+    if (auto* parent = parentObject()) {
+        // We use the parent's wrapper so that the remote frame acts as a pass through for the remote token bridge.
+        NSData *data = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:parent->wrapper()];
+        return span(data);
+    }
+
+    return std::span<const uint8_t> { };
+}
+
+void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uint8_t> token, int processIdentifier)
+{
+    m_processIdentifier = processIdentifier;
+    if ([wrapper() respondsToSelector:@selector(accessibilitySetPresenterProcessIdentifier:)])
+        [(id)wrapper() accessibilitySetPresenterProcessIdentifier:processIdentifier];
+    m_remoteFramePlatformElement = adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:toNSData(token).get()]);
+
+    if (auto* cache = axObjectCache())
+        cache->onRemoteFrameInitialized(*this);
+}
+
 namespace Accessibility {
 
 PlatformRoleMap createPlatformRoleMap()
@@ -795,6 +878,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Meter, NSAccessibilityLevelIndicatorRole },
         { AccessibilityRole::Incrementor, NSAccessibilityIncrementorRole },
         { AccessibilityRole::ComboBox, NSAccessibilityComboBoxRole },
+        { AccessibilityRole::DateTime, @"AXDateTimeArea" },
         { AccessibilityRole::Splitter, NSAccessibilitySplitterRole },
         { AccessibilityRole::Code, NSAccessibilityGroupRole },
         { AccessibilityRole::ColorWell, NSAccessibilityColorWellRole },
@@ -832,8 +916,6 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::ApplicationAlert, NSAccessibilityGroupRole },
         { AccessibilityRole::ApplicationAlertDialog, NSAccessibilityGroupRole },
         { AccessibilityRole::ApplicationDialog, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationGroup, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationTextGroup, NSAccessibilityGroupRole },
         { AccessibilityRole::ApplicationLog, NSAccessibilityGroupRole },
         { AccessibilityRole::ApplicationMarquee, NSAccessibilityGroupRole },
         { AccessibilityRole::ApplicationStatus, NSAccessibilityGroupRole },
@@ -842,6 +924,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::DocumentArticle, NSAccessibilityGroupRole },
         { AccessibilityRole::DocumentMath, NSAccessibilityGroupRole },
         { AccessibilityRole::DocumentNote, NSAccessibilityGroupRole },
+        { AccessibilityRole::Emphasis, NSAccessibilityGroupRole },
         { AccessibilityRole::UserInterfaceTooltip, NSAccessibilityGroupRole },
         { AccessibilityRole::Tab, NSAccessibilityRadioButtonRole },
         { AccessibilityRole::TabList, NSAccessibilityTabGroupRole },
@@ -890,10 +973,12 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Caption, NSAccessibilityGroupRole },
         { AccessibilityRole::Deletion, NSAccessibilityGroupRole },
         { AccessibilityRole::Insertion, NSAccessibilityGroupRole },
+        { AccessibilityRole::Strong, NSAccessibilityGroupRole },
         { AccessibilityRole::Subscript, NSAccessibilityGroupRole },
         { AccessibilityRole::Superscript, NSAccessibilityGroupRole },
         { AccessibilityRole::Model, NSAccessibilityGroupRole },
         { AccessibilityRole::Suggestion, NSAccessibilityGroupRole },
+        { AccessibilityRole::RemoteFrame, NSAccessibilityGroupRole },
     };
     PlatformRoleMap roleMap;
     for (auto& role : roles)
@@ -905,4 +990,4 @@ PlatformRoleMap createPlatformRoleMap()
 
 } // WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
+#endif // PLATFORM(MAC)

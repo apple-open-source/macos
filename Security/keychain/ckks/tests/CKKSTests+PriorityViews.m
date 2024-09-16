@@ -41,7 +41,6 @@
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
-#import "keychain/ckks/CKKSManifest.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 
@@ -193,12 +192,12 @@
 
     // Put sample data in zones, both priority and not, and save off a change token for later fetch shenanigans
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"manatee0"]];
-    CKServerChangeToken* manateeChangeToken = self.manateeZone.currentChangeToken;
+    FakeCKServerChangeToken* manateeChangeToken = self.manateeZone.currentChangeToken;
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"manatee1"]];
     self.manateeZone.limitFetchTo = manateeChangeToken;
 
     [self.limitedZone addToZone:[self createFakeRecord:self.limitedZoneID recordName:@"7B598D31-0000-0000-FFFF-5A507ACB2D00" withAccount:@"limited0"]];
-    CKServerChangeToken* limitedChangeToken = self.limitedZone.currentChangeToken;
+    FakeCKServerChangeToken* limitedChangeToken = self.limitedZone.currentChangeToken;
     [self.limitedZone addToZone:[self createFakeRecord:self.limitedZoneID recordName:@"7B598D31-0000-0000-FFFF-5A507ACB2D01" withAccount:@"limited1"]];
     self.limitedZone.limitFetchTo = limitedChangeToken;
 
@@ -235,6 +234,8 @@
                   runBeforeFinished:^{
             STRONGIFY(self);
             [self holdCloudKitFetches];
+            // Also pause the state machine, to be able to inspect state before re-starting everything
+            [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateExpandToHandleAllViews];
 
             // And this is the fetch finishing up the Manatee view
             [self expectCKFetchForZones:[NSSet setWithArray:self.zones.allKeys] runBeforeFinished:^{}];
@@ -248,15 +249,16 @@
     [self expectCKKSTLKSelfShareUpload:self.limitedZoneID];
     [self expectCKKSTLKSelfShareUpload:self.homeZoneID];
 
+    // Snag CKKSCondition now to avoid potential race with CKKS state machine; we only care about the first time it goes through CKKSStateBeginFetch
+    CKKSCondition* fetchBegins = self.defaultCKKS.stateMachine.stateConditions[CKKSStateBeginFetch];
+
     [self startCKKSSubsystem];
 
-    XCTAssertEqual([self.defaultCKKS.stateMachine.stateConditions[CKKSStateBeginFetch] wait:30 * NSEC_PER_SEC], 0, "CKKS should begin a fetch");
-
-    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateBeginFetch];
+    XCTAssertEqual([fetchBegins wait:30 * NSEC_PER_SEC], 0, "CKKS should begin a fetch");
 
     [self waitForExpectations:@[trustBegins] timeout:10];
 
-    // Ensure that the API waits sufficiently
+    // Ensure that the API waits sufficiently now that the fetch has started
     sleep(1);
     XCTAssertFalse(waitForPriorityView.finished, "rpcWaitForPriorityViewProcessing should not have finished");
 
@@ -266,9 +268,14 @@
     [waitForPriorityView waitUntilFinished];
     XCTAssertNil(waitForPriorityView.error, "Should be no error waiting for PriorityView processing");
 
+    XCTAssertEqual([self.defaultCKKS.stateMachine.stateConditions[CKKSStateExpandToHandleAllViews] wait:30 * NSEC_PER_SEC], 0, "CKKS should be about to expand to non-priority views");
+
     XCTAssertEqual([self.homeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Home should enter key state ready");
     XCTAssertEqual([self.limitedView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "LimitedPeersAllowed should enter key state ready");
     XCTAssertNotEqual([self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:1 * NSEC_PER_SEC], 0, "Manatee should not be in key state ready");
+
+    // Allow the zone expansion (which will modify the states for the zones we checked above)
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateExpandToHandleAllViews];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 

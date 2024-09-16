@@ -44,6 +44,7 @@
 #include <wtf/Deque.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
+#include <wtf/text/MakeString.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
 #include "ContentRuleListResults.h"
@@ -101,6 +102,9 @@ StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
     // FIXME: Copy import rules.
     ASSERT(o.m_importRules.isEmpty());
 
+    // FIXME: Copy namespace rules.
+    ASSERT(o.m_namespaceRules.isEmpty());
+
     for (size_t i = 0; i < m_layerRulesBeforeImportRules.size(); ++i)
         m_layerRulesBeforeImportRules[i] = o.m_layerRulesBeforeImportRules[i]->copy();
 
@@ -118,6 +122,9 @@ bool StyleSheetContents::isCacheable() const
     // FIXME: Support copying import rules.
     if (!m_importRules.isEmpty())
         return false;
+    // FIXME: Support copying namespace rules.
+    if (!m_namespaceRules.isEmpty())
+        return false;
     // FIXME: Support cached stylesheets in import rules.
     if (m_ownerRule)
         return false;
@@ -134,6 +141,15 @@ bool StyleSheetContents::isCacheable() const
     if (!m_hasSyntacticallyValidCSSHeader)
         return false;
     if (hasNestingRules())
+        return false;
+    return true;
+}
+
+bool StyleSheetContents::isCacheableWithNoBaseURLDependency() const
+{
+    if (!isCacheable())
+        return false;
+    if (mayDependOnBaseURL())
         return false;
     return true;
 }
@@ -399,11 +415,11 @@ bool StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cached
         if (auto* document = singleOwnerDocument()) {
             if (auto* page = document->page()) {
                 if (isStrictParserMode(m_parserContext.mode))
-                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed in strict mode."));
+                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '"_s, cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed in strict mode."_s));
                 else if (!cachedStyleSheet->mimeTypeAllowedByNosniff())
-                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed when 'X-Content-Type-Options: nosniff' is given."));
+                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '"_s, cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed when 'X-Content-Type-Options: nosniff' is given."_s));
                 else
-                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed for cross-origin stylesheets."));
+                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '"_s, cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed for cross-origin stylesheets."_s));
             }
         }
         return false;
@@ -604,6 +620,43 @@ bool StyleSheetContents::isLoadingSubresources() const
 {
     return traverseSubresources([](const CachedResource& resource) {
         return resource.isLoading();
+    });
+}
+
+bool StyleSheetContents::mayDependOnBaseURL() const
+{
+    return traverseRules([&](const StyleRuleBase& rule) -> bool {
+        switch (rule.type()) {
+        case StyleRuleType::Style:
+            return uncheckedDowncast<StyleRule>(rule).properties().mayDependOnBaseURL();
+        case StyleRuleType::StyleWithNesting:
+            return uncheckedDowncast<StyleRuleWithNesting>(rule).properties().mayDependOnBaseURL();
+        case StyleRuleType::FontFace:
+            return uncheckedDowncast<StyleRuleFontFace>(rule).properties().mayDependOnBaseURL();
+        case StyleRuleType::Import:
+        case StyleRuleType::CounterStyle:
+        case StyleRuleType::Media:
+        case StyleRuleType::Page:
+        case StyleRuleType::Keyframes:
+        case StyleRuleType::Namespace:
+        case StyleRuleType::Unknown:
+        case StyleRuleType::Charset:
+        case StyleRuleType::Keyframe:
+        case StyleRuleType::Supports:
+        case StyleRuleType::LayerBlock:
+        case StyleRuleType::LayerStatement:
+        case StyleRuleType::Container:
+        case StyleRuleType::FontFeatureValues:
+        case StyleRuleType::FontFeatureValuesBlock:
+        case StyleRuleType::FontPaletteValues:
+        case StyleRuleType::Margin:
+        case StyleRuleType::Property:
+        case StyleRuleType::Scope:
+        case StyleRuleType::StartingStyle:
+            return false;
+        };
+        ASSERT_NOT_REACHED();
+        return false;
     });
 }
 

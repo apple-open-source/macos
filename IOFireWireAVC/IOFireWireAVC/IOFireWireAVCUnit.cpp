@@ -137,19 +137,19 @@ void IOFireWireAVCAsynchronousCommand::free()
 
 	if (pCommandBuf)
 	{
-		delete[] pCommandBuf;
+		IOFreeData( pCommandBuf, cmdLen);
 		pCommandBuf = NULL;
 	}
 	
 	if (pInterimResponseBuf)
 	{
-		delete[] pInterimResponseBuf;
+		IOFreeData( pInterimResponseBuf, interimResponseLen);
 		pInterimResponseBuf = NULL;
 	}
 	
 	if (pFinalResponseBuf)
 	{
-		delete[] pFinalResponseBuf;
+		IOFreeData( pFinalResponseBuf, finalResponseLen);
 		pFinalResponseBuf = NULL;
 	}
 
@@ -171,7 +171,7 @@ IOReturn IOFireWireAVCAsynchronousCommand::init(const UInt8 * command,
         return kIOReturnBadArgument;
 	
 	// Initialize async command object
-	pCommandBuf = new UInt8[len];
+	pCommandBuf = (UInt8 *)IOMallocData( len );
 	if (!pCommandBuf)
 		return kIOReturnNoMemory;
 	bcopy(command, pCommandBuf, len);
@@ -352,16 +352,16 @@ IOReturn IOFireWireAVCAsynchronousCommand::reinit(const UInt8 * command, UInt32 
 		fMem->release();
 	
 	if (pCommandBuf)
-		delete pCommandBuf;
+		IOFreeData( pCommandBuf, cmdLen);
 	
 	if (pInterimResponseBuf)
-		delete pInterimResponseBuf;
+		IOFreeData( pInterimResponseBuf, interimResponseLen);
 	
 	if (pFinalResponseBuf)
-		delete pFinalResponseBuf;
+		IOFreeData( pFinalResponseBuf, finalResponseLen);
 
 	// Initialize async command object
-	pCommandBuf = new UInt8[len];
+	pCommandBuf = (UInt8 *)IOMallocData( len );
 	if (!pCommandBuf)
 		return kIOReturnNoMemory;
 	bcopy(command, pCommandBuf, len);
@@ -584,7 +584,7 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 			// Interim Response
 
 			// Allocate the command's interim response buffer, and copy response bytes
-			pCmd->pInterimResponseBuf = new UInt8[len];
+			pCmd->pInterimResponseBuf = (UInt8 *)IOMallocData(len);
 			if (pCmd->pInterimResponseBuf)
 			{
 				pCmd->interimResponseLen = len;
@@ -606,7 +606,7 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 			// Final Response
 			
 			// Allocate the command's final response buffer, and copy response bytes
-			pCmd->pFinalResponseBuf = new UInt8[len];
+			pCmd->pFinalResponseBuf = (UInt8 *)IOMallocData(len);
 			if (pCmd->pFinalResponseBuf)
 			{
 				pCmd->finalResponseLen = len;
@@ -924,101 +924,124 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     }
     
 // Get Unit type
-    IOReturn res;
+    IOReturn memoryresult = kIOReturnSuccess;
+    IOReturn res = kIOReturnSuccess;
     UInt32 size;
-    UInt8 cmd[8],response[8];
+    UInt8 * cmd = NULL;
+    UInt8 * response = NULL;
 	UInt32 unitInfoRetryCount = 0;
+	Boolean didstart = false;
 
-    cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
-    cmd[kAVCAddress] = kAVCUnitAddress;
-    cmd[kAVCOpcode] = kAVCUnitInfoOpcode;
-    cmd[3] = cmd[4] = cmd[5] = cmd[6] = cmd[7] = 0xff;
-    size = 8;
-    res = AVCCommand(cmd, 8, response, &size);
-	if(kIOReturnSuccess != res)
+	if(kIOReturnSuccess == memoryresult)
 	{
-		do
-		{
-			unitInfoRetryCount++;
-			IOSleep(2000);	// two seconds, give device time to get it's act together
-			size = 8;
-			res = AVCCommand(cmd, 8, response, &size);
-		}while((kIOReturnSuccess != res) && (unitInfoRetryCount <= 4));
-    }
-
-	if(kIOReturnSuccess != res || response[kAVCCommandResponse] != kAVCImplementedStatus)
-        type = kAVCVideoCamera;	// Anything that doesn't implement AVC properly is probably a camcorder!
-    else
-        type = IOAVCType(response[kAVCOperand1]);
-
-    // Copy over matching properties from FireWire Unit
-    prop = provider->getProperty(gFireWireVendor_ID);
-    if(prop)
-        setProperty(gFireWireVendor_ID, prop);
-
-
-	prop = provider->getProperty(gFireWire_GUID);
-    if(prop)
-	{
-        setProperty(gFireWire_GUID, prop);
-
-		// Check the guid to see if this device requires special asynch throttling
-		deviceGUID = OSDynamicCast( OSNumber, prop );
-		guidVal = deviceGUID->unsigned64BitValue();
-		if ((guidVal & 0xFFFFFFFFFF000000LL) == 0x0000850000000000LL)
-		{
-			series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
-			if ((series <= 0x13) || ((series >= 0x18) && (series <= 0x23)))
-				fDevice->setNodeFlags( kIOFWLimitAsyncPacketSize );
-			
-			series = (UInt8) (((guidVal & 0x00000000FFFFFFFFLL) >> 18) & 0x3f); // GL-2
-			if(series == 0x19) // GL-2
-				fDevice->setNodeFlags(kIOFWMustNotBeRoot);
-		}
+		cmd = (UInt8 *)IOMallocData( 8 );
+		response = (UInt8 *)IOMallocData( 8 );
 		
-		if ((guidVal & 0xFFFFFF0000000000LL) == 0x0080450000000000LL) // panasonic
+		if( (NULL == cmd) || (NULL == response) )
+			memoryresult = kIOReturnNoMemory;
+	}
+
+    if(kIOReturnSuccess == memoryresult)
+	{
+		cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
+		cmd[kAVCAddress] = kAVCUnitAddress;
+		cmd[kAVCOpcode] = kAVCUnitInfoOpcode;
+		cmd[3] = cmd[4] = cmd[5] = cmd[6] = cmd[7] = 0xff;
+		size = 8;
+		res = AVCCommand(cmd, 8, response, &size);
+	
+		if(kIOReturnSuccess != res)
 		{
-			series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
-			
-			prop = provider->getProperty(gFireWireProduct_Name);
-			if(prop)
+			do
 			{
-				OSString * string = OSDynamicCast ( OSString, prop ) ;
-				if (string->isEqualTo("PV-GS15"))
-				{
+				unitInfoRetryCount++;
+				IOSleep(2000);	// two seconds, give device time to get it's act together
+				size = 8;
+				res = AVCCommand(cmd, 8, response, &size);
+			}while((kIOReturnSuccess != res) && (unitInfoRetryCount <= 4));
+		}
+
+		if(kIOReturnSuccess != res || response[kAVCCommandResponse] != kAVCImplementedStatus)
+			type = kAVCVideoCamera;	// Anything that doesn't implement AVC properly is probably a camcorder!
+		else
+			type = IOAVCType(response[kAVCOperand1]);
+
+		// Copy over matching properties from FireWire Unit
+		prop = provider->getProperty(gFireWireVendor_ID);
+		if(prop)
+			setProperty(gFireWireVendor_ID, prop);
+
+
+		prop = provider->getProperty(gFireWire_GUID);
+		if(prop)
+		{
+			setProperty(gFireWire_GUID, prop);
+
+			// Check the guid to see if this device requires special asynch throttling
+			deviceGUID = OSDynamicCast( OSNumber, prop );
+			guidVal = deviceGUID->unsigned64BitValue();
+			if ((guidVal & 0xFFFFFFFFFF000000LL) == 0x0000850000000000LL)
+			{
+				series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
+				if ((series <= 0x13) || ((series >= 0x18) && (series <= 0x23)))
+					fDevice->setNodeFlags( kIOFWLimitAsyncPacketSize );
+			
+				series = (UInt8) (((guidVal & 0x00000000FFFFFFFFLL) >> 18) & 0x3f); // GL-2
+				if(series == 0x19) // GL-2
 					fDevice->setNodeFlags(kIOFWMustNotBeRoot);
-					fDevice->setNodeFlags(kIOFWMustHaveGap63);
-					IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
-				}
-				else if (string->isEqualTo("PV-GS120 "))
+			}
+		
+			if ((guidVal & 0xFFFFFF0000000000LL) == 0x0080450000000000LL) // panasonic
+			{
+				series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
+			
+				prop = provider->getProperty(gFireWireProduct_Name);
+				if(prop)
 				{
-					fDevice->setNodeFlags(kIOFWMustBeRoot);
-					IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
-				}
-				else
-				{
-					FIRELOG_MSG(( "Unknown Panasonic series\n" ));
+					OSString * string = OSDynamicCast ( OSString, prop ) ;
+					if (string->isEqualTo("PV-GS15"))
+					{
+						fDevice->setNodeFlags(kIOFWMustNotBeRoot);
+						fDevice->setNodeFlags(kIOFWMustHaveGap63);
+						IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
+					}
+					else if (string->isEqualTo("PV-GS120 "))
+					{
+						fDevice->setNodeFlags(kIOFWMustBeRoot);
+						IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
+					}
+					else
+					{
+						FIRELOG_MSG(( "Unknown Panasonic series\n" ));
+					}
 				}
 			}
 		}
+	
+		prop = provider->getProperty(gFireWireProduct_Name);
+		if(prop)
+			setProperty(gFireWireProduct_Name, prop);
+	
+		setProperty("Unit_Type", type, 32);
+	
+		// mark ourselves as started, this allows us to service resumed messages
+		// resumed messages after this point should be safe.
+		fStarted = true;
+	
+		updateSubUnits(true);
+	
+		// Finally enable matching on this object.
+		registerService();
+		didstart = true;
 	}
 	
-	prop = provider->getProperty(gFireWireProduct_Name);
-    if(prop)
-        setProperty(gFireWireProduct_Name, prop);
-    
-    setProperty("Unit_Type", type, 32);
-    
-	// mark ourselves as started, this allows us to service resumed messages
-	// resumed messages after this point should be safe.
-	fStarted = true;
+	if( cmd )
+		IOFreeData( cmd, 8 );
 	
-    updateSubUnits(true);
-    
-    // Finally enable matching on this object.
-    registerService();
+	if( response )
+		IOFreeData( response, 8 );
 
-    return true;
+	return didstart;
 }
 
 bool IOFireWireAVCUnit::available()

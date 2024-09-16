@@ -29,6 +29,7 @@
 #include "ASTDeclaration.h"
 #include "ASTDirective.h"
 #include "ASTIdentityExpression.h"
+#include "CallGraph.h"
 #include "TypeStore.h"
 #include "WGSL.h"
 #include "WGSLEnums.h"
@@ -60,6 +61,12 @@ public:
     TypeStore& types() { return m_types; }
     AST::Builder& astBuilder() { return m_astBuilder; }
 
+    const CallGraph& callGraph() const { return *m_callGraph; }
+    void setCallGraph(CallGraph&& callGraph)
+    {
+        m_callGraph = WTFMove(callGraph);
+    }
+
     bool usesExternalTextures() const { return m_usesExternalTextures; }
     void setUsesExternalTextures() { m_usesExternalTextures = true; }
     void clearUsesExternalTextures() { m_usesExternalTextures = false; }
@@ -68,13 +75,17 @@ public:
     void setUsesPackArray() { m_usesPackArray = true; }
     void clearUsesPackArray() { m_usesPackArray = false; }
 
-    bool usesPackedStructs() const { return m_usesPackedStructs; }
-    void setUsesPackedStructs() { m_usesPackedStructs = true; }
-    void clearUsesPackedStructs() { m_usesPackedStructs = false; }
-
     bool usesUnpackArray() const { return m_usesUnpackArray; }
     void setUsesUnpackArray() { m_usesUnpackArray = true; }
     void clearUsesUnpackArray() { m_usesUnpackArray = false; }
+
+    bool usesPackVector() const { return m_usesPackVector; }
+    void setUsesPackVector() { m_usesPackVector = true; }
+    void clearUsesPackVector() { m_usesPackVector = false; }
+
+    bool usesUnpackVector() const { return m_usesUnpackVector; }
+    void setUsesUnpackVector() { m_usesUnpackVector = true; }
+    void clearUsesUnpackVector() { m_usesUnpackVector = false; }
 
     bool usesWorkgroupUniformLoad() const { return m_usesWorkgroupUniformLoad; }
     void setUsesWorkgroupUniformLoad() { m_usesWorkgroupUniformLoad = true; }
@@ -90,6 +101,46 @@ public:
 
     bool usesModf() const { return m_usesModf; }
     void setUsesModf() { m_usesModf = true; }
+
+    bool usesAtomicCompareExchange() const { return m_usesAtomicCompareExchange; }
+    void setUsesAtomicCompareExchange() { m_usesAtomicCompareExchange = true; }
+
+    bool usesFragDepth() const { return m_usesFragDepth; }
+    void setUsesFragDepth() { m_usesFragDepth = true; }
+
+    bool usesDot() const { return m_usesDot; }
+    void setUsesDot() { m_usesDot = true; }
+
+    bool usesFirstLeadingBit() const { return m_usesFirstLeadingBit; }
+    void setUsesFirstLeadingBit() { m_usesFirstLeadingBit = true; }
+
+    bool usesFirstTrailingBit() const { return m_usesFirstTrailingBit; }
+    void setUsesFirstTrailingBit() { m_usesFirstTrailingBit = true; }
+
+    bool usesSign() const { return m_usesSign; }
+    void setUsesSign() { m_usesSign = true; }
+
+    bool usesSampleMask() const { return m_usesSampleMask; }
+    void setUsesSampleMask() { m_usesSampleMask = true; }
+
+    bool usesFrontFacing() const { return m_usesFrontFacing; }
+    void setUsesFrontFacing() { m_usesFrontFacing = true; }
+
+    bool usesSampleIndex() const { return m_usesSampleIndex; }
+    void setUsesSampleIndex() { m_usesSampleIndex = true; }
+
+    bool usesDot4I8Packed() const { return m_usesDot4I8Packed; }
+    void setUsesDot4I8Packed() { m_usesDot4I8Packed = true; }
+
+    bool usesDot4U8Packed() const { return m_usesDot4U8Packed; }
+    void setUsesDot4U8Packed() { m_usesDot4U8Packed = true; }
+
+    bool usesExtractBits() const { return m_usesExtractBits; }
+    void setUsesExtractBits() { m_usesExtractBits = true; }
+
+    bool usesPackedVec3() const { return m_usesPackedVec3; }
+    void setUsesPackedVec3() { m_usesPackedVec3 = true; }
+    void clearUsesPackedVec3() { m_usesPackedVec3 = false; }
 
     template<typename T>
     std::enable_if_t<std::is_base_of_v<AST::Node, T>, void> replace(T* current, T&& replacement)
@@ -203,25 +254,6 @@ public:
         m_replacements.clear();
     }
 
-    class Compilation {
-    public:
-        Compilation(ShaderModule& shaderModule)
-            : m_shaderModule(shaderModule)
-            , m_builderState(shaderModule.astBuilder().saveCurrentState())
-        {
-        }
-
-        ~Compilation()
-        {
-            m_shaderModule.revertReplacements();
-            m_shaderModule.astBuilder().restore(WTFMove(m_builderState));
-        }
-
-    private:
-        ShaderModule& m_shaderModule;
-        AST::Builder::State m_builderState;
-    };
-
     OptionSet<Extension>& enabledExtensions() { return m_enabledExtensions; }
     OptionSet<LanguageFeature> requiredFeatures() { return m_requiredFeatures; }
     bool containsOverride(uint32_t idValue) const
@@ -232,18 +264,33 @@ public:
     {
         m_pipelineOverrideIds.add(idValue);
     }
+    bool hasFeature(const String& featureName) const { return m_configuration.supportedFeatures.contains(featureName); }
 
 private:
     String m_source;
     bool m_usesExternalTextures { false };
     bool m_usesPackArray { false };
-    bool m_usesPackedStructs { false };
     bool m_usesUnpackArray { false };
+    bool m_usesPackVector { false };
+    bool m_usesUnpackVector { false };
     bool m_usesWorkgroupUniformLoad { false };
     bool m_usesDivision { false };
     bool m_usesModulo { false };
     bool m_usesFrexp { false };
     bool m_usesModf { false };
+    bool m_usesAtomicCompareExchange { false };
+    bool m_usesFragDepth { false };
+    bool m_usesDot { false };
+    bool m_usesFirstLeadingBit { false };
+    bool m_usesFirstTrailingBit { false };
+    bool m_usesSign { false };
+    bool m_usesSampleMask { false };
+    bool m_usesFrontFacing { false };
+    bool m_usesSampleIndex { false };
+    bool m_usesDot4I8Packed { false };
+    bool m_usesDot4U8Packed { false };
+    bool m_usesExtractBits { false };
+    bool m_usesPackedVec3 { false };
     OptionSet<Extension> m_enabledExtensions;
     OptionSet<LanguageFeature> m_requiredFeatures;
     Configuration m_configuration;
@@ -251,6 +298,7 @@ private:
     AST::Directive::List m_directives;
     TypeStore m_types;
     AST::Builder m_astBuilder;
+    std::optional<CallGraph> m_callGraph;
     Vector<std::function<void()>> m_replacements;
     HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_pipelineOverrideIds;
 };

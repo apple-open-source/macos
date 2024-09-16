@@ -9,16 +9,22 @@ module os_availability [system] {
     header "Availability.h"
     export *
   }
+}
 
-  explicit module AvailabilityVersions {
-    header "AvailabilityVersions.h"
+// Implementation details, use os_availability.
+module os_availability_internal [system] {
+  explicit module AvailabilityInternal {
+    header "AvailabilityInternal.h"
     export *
   }
 
-  // Shared implementation.
-  module AvailabilityInternal {
-    header "AvailabilityInternal.h"
+  explicit module AvailabilityInternalLegacy {
     header "AvailabilityInternalLegacy.h"
+    export *
+  }
+
+  explicit module AvailabilityVersions {
+    header "AvailabilityVersions.h"
     export *
   }
 }

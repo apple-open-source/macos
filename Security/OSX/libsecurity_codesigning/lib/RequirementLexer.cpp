@@ -1128,29 +1128,29 @@ void RequirementLexer::mCPP_COMMENT(bool _createToken) {
 
 
 const unsigned long RequirementLexer::_tokenSet_0_data_[] = { 0UL, 0UL, 134217726UL, 134217726UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
-const antlr::BitSet RequirementLexer::_tokenSet_0(_tokenSet_0_data_,10);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_0(_tokenSet_0_data_,10);
 const unsigned long RequirementLexer::_tokenSet_1_data_[] = { 0UL, 67043328UL, 126UL, 126UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0 1 2 3 4 5 6 7 8 9 
-const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,10);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,10);
 const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
-const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,16);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,16);
 const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xb 0xc 0xd 0xe 0xf 0x10 0x11 
 // 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 
 //   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
-const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,16);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,16);
 const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : ; < = 
-const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,16);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,16);
 const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
 // 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
-const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,16);
+[[clang::no_destroy]] const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,16);
 
 ANTLR_END_NAMESPACE

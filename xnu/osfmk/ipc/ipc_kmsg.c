@@ -99,9 +99,10 @@
 
 #include <machine/limits.h>
 
-#include <vm/vm_map.h>
-#include <vm/vm_object.h>
-#include <vm/vm_kern.h>
+#include <vm/vm_map_xnu.h>
+#include <vm/vm_object_xnu.h>
+#include <vm/vm_kern_xnu.h>
+#include <vm/vm_protos.h>
 
 #include <ipc/port.h>
 #include <ipc/ipc_types.h>
@@ -1643,10 +1644,10 @@ ipc_kmsg_validate_reply_context_locked(
 }
 
 
-#define moved_provisional_reply_ports() \
-	(moved_provisional_reply_port(dest_type, dest_soright) \
-	|| moved_provisional_reply_port(reply_type, reply_soright) \
-	|| moved_provisional_reply_port(voucher_type, voucher_soright)) \
+#define moved_provisional_reply_ports(dest_type, dest_port, reply_type, reply_port, voucher_type, voucher_port) \
+	(moved_provisional_reply_port(dest_type, dest_port) \
+	|| moved_provisional_reply_port(reply_type, reply_port) \
+	|| moved_provisional_reply_port(voucher_type, voucher_port)) \
 
 
 #pragma mark ipc_kmsg copyin and inflate (from user)
@@ -2199,7 +2200,7 @@ ipc_kmsg_copyin_header(
 		}
 	}
 
-	if (moved_provisional_reply_ports()) {
+	if (moved_provisional_reply_ports(dest_type, ip_object_to_port(dest_port), reply_type, ip_object_to_port(reply_port), voucher_type, voucher_port)) {
 		send_prp_telemetry(msg->msgh_id);
 	}
 
@@ -2876,7 +2877,7 @@ ipc_kmsg_copyin_body(
 		kern_return_t kr;
 
 		kr  = mach_vm_allocate_kernel(ipc_kernel_copy_map, &paddr, psize,
-		    VM_FLAGS_ANYWHERE, VM_KERN_MEMORY_IPC);
+		    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vm_tag = VM_KERN_MEMORY_IPC));
 		if (kr != KERN_SUCCESS) {
 			ipc_kmsg_clean_header(kmsg);
 			return MACH_MSG_VM_KERNEL;
@@ -3855,7 +3856,7 @@ ipc_kmsg_deflate_port_descriptor(
 #if 0 /* done to avoid merge conflicts, will be cleaned up with RDAR_91262248 */
 }
 
-extern char *proc_best_name(struct proc *proc);
+extern const char *proc_best_name(struct proc *proc);
 static mach_msg_descriptor_t *
 
 #endif
@@ -3895,8 +3896,8 @@ ipc_kmsg_copyout_ool_descriptor(
 
 			rounded_size = vm_map_round_page(copy->offset + size, effective_page_mask) - vm_map_trunc_page(copy->offset, effective_page_mask);
 
-			kr = mach_vm_allocate_kernel(map, &rounded_addr,
-			    rounded_size, VM_FLAGS_ANYWHERE, VM_MEMORY_MACH_MSG);
+			kr = mach_vm_allocate_kernel(map, &rounded_addr, rounded_size,
+			    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vm_tag = VM_MEMORY_MACH_MSG));
 
 			if (kr == KERN_SUCCESS) {
 				/*
@@ -4014,7 +4015,7 @@ ipc_kmsg_copyout_ool_ports_descriptor(
 		}
 
 		kr = mach_vm_allocate_kernel(map, &rcv_addr, names_length,
-		    VM_FLAGS_ANYWHERE, tag);
+		    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vm_tag = tag));
 
 		/*
 		 * Handle the port rights and copy out the names

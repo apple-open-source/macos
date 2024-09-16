@@ -77,6 +77,8 @@ extern const CFStringRef kDADiskDescriptionDeviceTDMLockedKey  /* ( CFBoolean   
 extern const CFStringRef kDADiskDescriptionBusNameKey          /* ( CFString     ) */  API_AVAILABLE(macos(10.4));
 extern const CFStringRef kDADiskDescriptionBusPathKey          /* ( CFString     ) */  API_AVAILABLE(macos(10.4));
 
+extern const CFStringRef kDADiskDescriptionFSKitPrefix         /* -- Key Prefix -- */  API_AVAILABLE(macos(14.4));
+
 
 #ifndef __DISKARBITRATIOND__
 

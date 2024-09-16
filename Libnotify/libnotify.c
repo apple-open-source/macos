@@ -39,11 +39,13 @@
 #include <dispatch/dispatch.h>
 #include <string.h>
 #include <os/collections.h>
+#include <xpc/private.h>
+#include <os/log_simple_private.h>
+#include <os/reason_private.h>
 
 #include "libnotify.h"
 #include "notify.h"
 #include "notify_internal.h"
-
 
 #pragma mark -
 const char *
@@ -120,6 +122,34 @@ _notify_shm_id(void)
 #else
     return "apple.shm.notification_center";
 #endif
+}
+
+static const uint32_t LAUNCHD_PID = 1;
+
+// do this so we don't have to link against libtrace
+__printflike(1, 2)
+void
+_simulate_crash(char *fmt, ...)
+{
+	char *desc = NULL;
+	va_list ap;
+	int len;
+
+	if (getpid() == LAUNCHD_PID) {
+		return;
+	}
+
+	va_start(ap, fmt);
+	len = vasprintf(&desc, fmt, ap);
+	va_end(ap);
+
+	if (desc == NULL) {
+		return;
+	}
+
+	os_fault_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT,
+			desc, len + 1, desc, 0);
+	free(desc);
 }
 
 inline uint64_t
@@ -513,9 +543,24 @@ _internal_send(notify_state_t *ns, client_t *c,
 			int rc = xpc_event_publisher_fire_noboost(ns->event_publisher, c->deliver.event_token, payload);
 			xpc_release(payload);
 			if (rc != 0) {
-				return NOTIFY_STATUS_TOKEN_FIRE_FAILED;
+				if (rc == ENOBUFS) {
+					if (!c->simulated_crash) {
+						c->simulated_crash = true;
+
+						event_name_t service_name;
+						if (xpc_get_service_identifier_for_token(c->deliver.event_token, service_name)) {
+							simulate_crash("BUG IN CLIENT OF NOTIFYD: %s has not dequeued the last %d messages", service_name, INFLIGHT_XPC_EVENT_SOFT_LIMIT);
+						}
+					}
+
+					c->state_and_type |= NOTIFY_CLIENT_STATE_THROTTLED;
+					return NOTIFY_STATUS_TOKEN_BACKPRESSURE;
+				} else {
+					return NOTIFY_STATUS_TOKEN_FIRE_FAILED;
+				}
 			}
 
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_THROTTLED;
 			c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
 			c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 

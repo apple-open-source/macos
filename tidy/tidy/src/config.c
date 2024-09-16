@@ -27,6 +27,8 @@
   line continuation.
 */
 
+#include <limits.h>
+
 #include "config.h"
 #include "tidy-int.h"
 #include "message.h"
@@ -205,110 +207,110 @@ static ParseProperty ParseRepeatAttr;
 
 static const TidyOptionImpl option_defs[] =
 {
-  { TidyUnknownOption,           MS, "unknown!",                    IN, 0,               NULL,              NULL            },
-  { TidyIndentSpaces,            PP, "indent-spaces",               IN, 2,               ParseInt,          NULL            },
-  { TidyWrapLen,                 PP, "wrap",                        IN, 68,              ParseInt,          NULL            },
-  { TidyTabSize,                 PP, "tab-size",                    IN, 8,               ParseInt,          NULL            },
-  { TidyCharEncoding,            CE, "char-encoding",               IN, ASCII,           ParseCharEnc,      charEncPicks    },
-  { TidyInCharEncoding,          CE, "input-encoding",              IN, LATIN1,          ParseCharEnc,      charEncPicks    },
-  { TidyOutCharEncoding,         CE, "output-encoding",             IN, ASCII,           ParseCharEnc,      charEncPicks    },
-  { TidyNewline,                 CE, "newline",                     IN, DLF,             ParseNewline,      newlinePicks    },
-  { TidyDoctypeMode,             MU, "doctype-mode",                IN, TidyDoctypeAuto, NULL,              doctypePicks    },
-  { TidyDoctype,                 MU, "doctype",                     ST, 0,               ParseDocType,      doctypePicks    },
-  { TidyDuplicateAttrs,          MU, "repeated-attributes",         IN, TidyKeepLast,    ParseRepeatAttr,   repeatAttrPicks },
-  { TidyAltText,                 MU, "alt-text",                    ST, 0,               ParseString,       NULL            },
+  { TidyUnknownOption,           MS, "unknown!",                    IN, 0,               NULL,              NULL,            NULL },
+  { TidyIndentSpaces,            PP, "indent-spaces",               IN, 2,               ParseInt,          NULL,            NULL },
+  { TidyWrapLen,                 PP, "wrap",                        IN, 68,              ParseInt,          NULL,            NULL },
+  { TidyTabSize,                 PP, "tab-size",                    IN, 8,               ParseInt,          NULL,            NULL },
+  { TidyCharEncoding,            CE, "char-encoding",               IN, ASCII,           ParseCharEnc,      charEncPicks,    NULL },
+  { TidyInCharEncoding,          CE, "input-encoding",              IN, LATIN1,          ParseCharEnc,      charEncPicks,    NULL },
+  { TidyOutCharEncoding,         CE, "output-encoding",             IN, ASCII,           ParseCharEnc,      charEncPicks,    NULL },
+  { TidyNewline,                 CE, "newline",                     IN, DLF,             ParseNewline,      newlinePicks,    NULL },
+  { TidyDoctypeMode,             MU, "doctype-mode",                IN, TidyDoctypeAuto, NULL,              doctypePicks,    NULL },
+  { TidyDoctype,                 MU, "doctype",                     ST, 0,               ParseDocType,      doctypePicks,    NULL },
+  { TidyDuplicateAttrs,          MU, "repeated-attributes",         IN, TidyKeepLast,    ParseRepeatAttr,   repeatAttrPicks, NULL },
+  { TidyAltText,                 MU, "alt-text",                    ST, 0,               ParseString,       NULL,            NULL },
 
   /* obsolete */
-  { TidySlideStyle,              MS, "slide-style",                 ST, 0,               ParseName,         NULL            },
+  { TidySlideStyle,              MS, "slide-style",                 ST, 0,               ParseName,         NULL,            NULL },
 
-  { TidyErrFile,                 MS, "error-file",                  ST, 0,               ParseString,       NULL            },
-  { TidyOutFile,                 MS, "output-file",                 ST, 0,               ParseString,       NULL            },
-  { TidyWriteBack,               MS, "write-back",                  BL, no,              ParseBool,         boolPicks       },
-  { TidyShowMarkup,              PP, "markup",                      BL, yes,             ParseBool,         boolPicks       },
-  { TidyShowWarnings,            DG, "show-warnings",               BL, yes,             ParseBool,         boolPicks       },
-  { TidyQuiet,                   MS, "quiet",                       BL, no,              ParseBool,         boolPicks       },
-  { TidyIndentContent,           PP, "indent",                      IN, TidyNoState,     ParseAutoBool,     autoBoolPicks   },
-  { TidyHideEndTags,             MU, "hide-endtags",                BL, no,              ParseBool,         boolPicks       },
-  { TidyXmlTags,                 MU, "input-xml",                   BL, no,              ParseBool,         boolPicks       },
-  { TidyXmlOut,                  MU, "output-xml",                  BL, no,              ParseBool,         boolPicks       },
-  { TidyXhtmlOut,                MU, "output-xhtml",                BL, no,              ParseBool,         boolPicks       },
-  { TidyHtmlOut,                 MU, "output-html",                 BL, no,              ParseBool,         boolPicks       },
-  { TidyXmlDecl,                 MU, "add-xml-decl",                BL, no,              ParseBool,         boolPicks       },
-  { TidyUpperCaseTags,           MU, "uppercase-tags",              BL, no,              ParseBool,         boolPicks       },
-  { TidyUpperCaseAttrs,          MU, "uppercase-attributes",        BL, no,              ParseBool,         boolPicks       },
-  { TidyMakeBare,                MU, "bare",                        BL, no,              ParseBool,         boolPicks       },
-  { TidyMakeClean,               MU, "clean",                       BL, no,              ParseBool,         boolPicks       },
-  { TidyLogicalEmphasis,         MU, "logical-emphasis",            BL, no,              ParseBool,         boolPicks       },
-  { TidyDropPropAttrs,           MU, "drop-proprietary-attributes", BL, no,              ParseBool,         boolPicks       },
-  { TidyDropFontTags,            MU, "drop-font-tags",              BL, no,              ParseBool,         boolPicks       },
-  { TidyDropEmptyParas,          MU, "drop-empty-paras",            BL, yes,             ParseBool,         boolPicks       },
-  { TidyFixComments,             MU, "fix-bad-comments",            BL, yes,             ParseBool,         boolPicks       },
-  { TidyBreakBeforeBR,           PP, "break-before-br",             BL, no,              ParseBool,         boolPicks       },
+  { TidyErrFile,                 MS, "error-file",                  ST, 0,               ParseString,       NULL,            NULL },
+  { TidyOutFile,                 MS, "output-file",                 ST, 0,               ParseString,       NULL,            NULL },
+  { TidyWriteBack,               MS, "write-back",                  BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyShowMarkup,              PP, "markup",                      BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyShowWarnings,            DG, "show-warnings",               BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyQuiet,                   MS, "quiet",                       BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyIndentContent,           PP, "indent",                      IN, TidyNoState,     ParseAutoBool,     autoBoolPicks,   NULL },
+  { TidyHideEndTags,             MU, "hide-endtags",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXmlTags,                 MU, "input-xml",                   BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXmlOut,                  MU, "output-xml",                  BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXhtmlOut,                MU, "output-xhtml",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyHtmlOut,                 MU, "output-html",                 BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXmlDecl,                 MU, "add-xml-decl",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyUpperCaseTags,           MU, "uppercase-tags",              BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyUpperCaseAttrs,          MU, "uppercase-attributes",        BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyMakeBare,                MU, "bare",                        BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyMakeClean,               MU, "clean",                       BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyLogicalEmphasis,         MU, "logical-emphasis",            BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyDropPropAttrs,           MU, "drop-proprietary-attributes", BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyDropFontTags,            MU, "drop-font-tags",              BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyDropEmptyParas,          MU, "drop-empty-paras",            BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyFixComments,             MU, "fix-bad-comments",            BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyBreakBeforeBR,           PP, "break-before-br",             BL, no,              ParseBool,         boolPicks,       NULL },
 
   /* obsolete */
-  { TidyBurstSlides,             PP, "split",                       BL, no,              ParseBool,         boolPicks       },
+  { TidyBurstSlides,             PP, "split",                       BL, no,              ParseBool,         boolPicks,       NULL },
 
-  { TidyNumEntities,             MU, "numeric-entities",            BL, no,              ParseBool,         boolPicks       },
-  { TidyQuoteMarks,              MU, "quote-marks",                 BL, no,              ParseBool,         boolPicks       },
-  { TidyQuoteNbsp,               MU, "quote-nbsp",                  BL, yes,             ParseBool,         boolPicks       },
-  { TidyQuoteAmpersand,          MU, "quote-ampersand",             BL, yes,             ParseBool,         boolPicks       },
-  { TidyWrapAttVals,             PP, "wrap-attributes",             BL, no,              ParseBool,         boolPicks       },
-  { TidyWrapScriptlets,          PP, "wrap-script-literals",        BL, no,              ParseBool,         boolPicks       },
-  { TidyWrapSection,             PP, "wrap-sections",               BL, yes,             ParseBool,         boolPicks       },
-  { TidyWrapAsp,                 PP, "wrap-asp",                    BL, yes,             ParseBool,         boolPicks       },
-  { TidyWrapJste,                PP, "wrap-jste",                   BL, yes,             ParseBool,         boolPicks       },
-  { TidyWrapPhp,                 PP, "wrap-php",                    BL, yes,             ParseBool,         boolPicks       },
-  { TidyFixBackslash,            MU, "fix-backslash",               BL, yes,             ParseBool,         boolPicks       },
-  { TidyIndentAttributes,        PP, "indent-attributes",           BL, no,              ParseBool,         boolPicks       },
-  { TidyXmlPIs,                  MU, "assume-xml-procins",          BL, no,              ParseBool,         boolPicks       },
-  { TidyXmlSpace,                MU, "add-xml-space",               BL, no,              ParseBool,         boolPicks       },
-  { TidyEncloseBodyText,         MU, "enclose-text",                BL, no,              ParseBool,         boolPicks       },
-  { TidyEncloseBlockText,        MU, "enclose-block-text",          BL, no,              ParseBool,         boolPicks       },
-  { TidyKeepFileTimes,           MS, "keep-time",                   BL, no,              ParseBool,         boolPicks       },
-  { TidyWord2000,                MU, "word-2000",                   BL, no,              ParseBool,         boolPicks       },
-  { TidyMark,                    MS, "tidy-mark",                   BL, yes,             ParseBool,         boolPicks       },
-  { TidyEmacs,                   MS, "gnu-emacs",                   BL, no,              ParseBool,         boolPicks       },
-  { TidyEmacsFile,               MS, "gnu-emacs-file",              ST, 0,               ParseString,       NULL            },
-  { TidyLiteralAttribs,          MU, "literal-attributes",          BL, no,              ParseBool,         boolPicks       },
-  { TidyBodyOnly,                MU, "show-body-only",              BL, no,              ParseBool,         boolPicks       },
-  { TidyFixUri,                  MU, "fix-uri",                     BL, yes,             ParseBool,         boolPicks       },
-  { TidyLowerLiterals,           MU, "lower-literals",              BL, yes,             ParseBool,         boolPicks       },
-  { TidyHideComments,            MU, "hide-comments",               BL, no,              ParseBool,         boolPicks       },
-  { TidyIndentCdata,             MU, "indent-cdata",                BL, no,              ParseBool,         boolPicks       },
-  { TidyForceOutput,             MS, "force-output",                BL, no,              ParseBool,         boolPicks       },
-  { TidyShowErrors,              DG, "show-errors",                 IN, 6,               ParseInt,          NULL            },
-  { TidyAsciiChars,              CE, "ascii-chars",                 BL, no,              ParseBool,         boolPicks       },
-  { TidyJoinClasses,             MU, "join-classes",                BL, no,              ParseBool,         boolPicks       },
-  { TidyJoinStyles,              MU, "join-styles",                 BL, yes,             ParseBool,         boolPicks       },
-  { TidyEscapeCdata,             MU, "escape-cdata",                BL, no,              ParseBool,         boolPicks       },
+  { TidyNumEntities,             MU, "numeric-entities",            BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyQuoteMarks,              MU, "quote-marks",                 BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyQuoteNbsp,               MU, "quote-nbsp",                  BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyQuoteAmpersand,          MU, "quote-ampersand",             BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyWrapAttVals,             PP, "wrap-attributes",             BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyWrapScriptlets,          PP, "wrap-script-literals",        BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyWrapSection,             PP, "wrap-sections",               BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyWrapAsp,                 PP, "wrap-asp",                    BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyWrapJste,                PP, "wrap-jste",                   BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyWrapPhp,                 PP, "wrap-php",                    BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyFixBackslash,            MU, "fix-backslash",               BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyIndentAttributes,        PP, "indent-attributes",           BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXmlPIs,                  MU, "assume-xml-procins",          BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyXmlSpace,                MU, "add-xml-space",               BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyEncloseBodyText,         MU, "enclose-text",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyEncloseBlockText,        MU, "enclose-block-text",          BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyKeepFileTimes,           MS, "keep-time",                   BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyWord2000,                MU, "word-2000",                   BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyMark,                    MS, "tidy-mark",                   BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyEmacs,                   MS, "gnu-emacs",                   BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyEmacsFile,               MS, "gnu-emacs-file",              ST, 0,               ParseString,       NULL,            NULL },
+  { TidyLiteralAttribs,          MU, "literal-attributes",          BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyBodyOnly,                MU, "show-body-only",              BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyFixUri,                  MU, "fix-uri",                     BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyLowerLiterals,           MU, "lower-literals",              BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyHideComments,            MU, "hide-comments",               BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyIndentCdata,             MU, "indent-cdata",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyForceOutput,             MS, "force-output",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyShowErrors,              DG, "show-errors",                 IN, 6,               ParseInt,          NULL,            NULL },
+  { TidyAsciiChars,              CE, "ascii-chars",                 BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyJoinClasses,             MU, "join-classes",                BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyJoinStyles,              MU, "join-styles",                 BL, yes,             ParseBool,         boolPicks,       NULL },
+  { TidyEscapeCdata,             MU, "escape-cdata",                BL, no,              ParseBool,         boolPicks,       NULL },
 #if SUPPORT_ASIAN_ENCODINGS
-  { TidyLanguage,                CE, "language",                    ST, 0,               ParseName,         NULL            },
-  { TidyNCR,                     MU, "ncr",                         BL, yes,             ParseBool,         boolPicks       },
+  { TidyLanguage,                CE, "language",                    ST, 0,               ParseName,         NULL,            NULL },
+  { TidyNCR,                     MU, "ncr",                         BL, yes,             ParseBool,         boolPicks,       NULL },
 #endif
 #if SUPPORT_UTF16_ENCODINGS
-  { TidyOutputBOM,               CE, "output-bom",                  IN, TidyAutoState,   ParseAutoBool,     autoBoolPicks   },
+  { TidyOutputBOM,               CE, "output-bom",                  IN, TidyAutoState,   ParseAutoBool,     autoBoolPicks,   NULL },
 #endif
-  { TidyReplaceColor,            MU, "replace-color",               BL, no,              ParseBool,         boolPicks       },
-  { TidyCSSPrefix,               MU, "css-prefix",                  ST, 0,               ParseCSS1Selector, NULL            },
-  { TidyInlineTags,              MU, "new-inline-tags",             ST, 0,               ParseTagNames,     NULL            },
-  { TidyBlockTags,               MU, "new-blocklevel-tags",         ST, 0,               ParseTagNames,     NULL            },
-  { TidyEmptyTags,               MU, "new-empty-tags",              ST, 0,               ParseTagNames,     NULL            },
-  { TidyPreTags,                 MU, "new-pre-tags",                ST, 0,               ParseTagNames,     NULL            },
-  { TidyAccessibilityCheckLevel, DG, "accessibility-check",         IN, 0,               ParseAcc,          accessPicks     },
-  { TidyVertSpace,               PP, "vertical-space",              BL, no,              ParseBool,         boolPicks       },
+  { TidyReplaceColor,            MU, "replace-color",               BL, no,              ParseBool,         boolPicks,       NULL },
+  { TidyCSSPrefix,               MU, "css-prefix",                  ST, 0,               ParseCSS1Selector, NULL,            NULL },
+  { TidyInlineTags,              MU, "new-inline-tags",             ST, 0,               ParseTagNames,     NULL,            NULL },
+  { TidyBlockTags,               MU, "new-blocklevel-tags",         ST, 0,               ParseTagNames,     NULL,            NULL },
+  { TidyEmptyTags,               MU, "new-empty-tags",              ST, 0,               ParseTagNames,     NULL,            NULL },
+  { TidyPreTags,                 MU, "new-pre-tags",                ST, 0,               ParseTagNames,     NULL,            NULL },
+  { TidyAccessibilityCheckLevel, DG, "accessibility-check",         IN, 0,               ParseAcc,          accessPicks,     NULL },
+  { TidyVertSpace,               PP, "vertical-space",              BL, no,              ParseBool,         boolPicks,       NULL },
 #if SUPPORT_ASIAN_ENCODINGS
-  { TidyPunctWrap,               PP, "punctuation-wrap",            BL, no,              ParseBool,         boolPicks       },
+  { TidyPunctWrap,               PP, "punctuation-wrap",            BL, no,              ParseBool,         boolPicks,       NULL },
 #endif
-  { TidyMergeDivs,               MU, "merge-divs",                  IN, TidyAutoState,   ParseAutoBool,     autoBoolPicks   },
-  { TidyDecorateInferredUL,      MU, "decorate-inferred-ul",        BL, no,              ParseBool,         boolPicks       },
+  { TidyMergeDivs,               MU, "merge-divs",                  IN, TidyAutoState,   ParseAutoBool,     autoBoolPicks,   NULL },
+  { TidyDecorateInferredUL,      MU, "decorate-inferred-ul",        BL, no,              ParseBool,         boolPicks,       NULL },
 #if TIDY_APPLE_CHANGES
-  { TidyRelativePathBaseUri,     MU, "_relative-path-base-uri",     ST, 0,               ParseString,       NULL            },
-  { TidyAbsolutePathBaseUri,     MU, "_absolute-path-base-uri",     ST, 0,               ParseString,       NULL            },
-  { TidyDropClassesWithPrefix,   MU, "_drop-classes-with-prefix",   ST, 0,               ParseString,       NULL            },
-  { TidyDropIdsWithPrefix,       MU, "_drop-ids-with-prefix",       ST, 0,               ParseString,       NULL            },
-  { TidySanitizeAgainstXSS,      MU, "_sanitize-against-xss",       BL, no,              ParseBool,         boolPicks       },
+  { TidyRelativePathBaseUri,     MU, "_relative-path-base-uri",     ST, 0,               ParseString,       NULL,            NULL },
+  { TidyAbsolutePathBaseUri,     MU, "_absolute-path-base-uri",     ST, 0,               ParseString,       NULL,            NULL },
+  { TidyDropClassesWithPrefix,   MU, "_drop-classes-with-prefix",   ST, 0,               ParseString,       NULL,            NULL },
+  { TidyDropIdsWithPrefix,       MU, "_drop-ids-with-prefix",       ST, 0,               ParseString,       NULL,            NULL },
+  { TidySanitizeAgainstXSS,      MU, "_sanitize-against-xss",       BL, no,              ParseBool,         boolPicks,       NULL },
 #endif
-  { N_TIDY_OPTIONS,              XX, NULL,                          XY, 0,               NULL,              NULL            }
+  { N_TIDY_OPTIONS,              XX, NULL,                          XY, 0,               NULL,              NULL,            NULL }
 };
 
 /* Should only be called by options set by name
@@ -680,7 +682,7 @@ static ctmbstr ExpandTilde( ctmbstr filename )
 
     if ( home_dir )
     {
-        uint len = TY_(tmbstrlen)(filename) + TY_(tmbstrlen)(home_dir) + 1;
+        size_t len = TY_(tmbstrlen)(filename) + TY_(tmbstrlen)(home_dir) + 1;
         tmbstr p = (tmbstr)MemAlloc( len );
         TY_(tmbstrcpy)( p, home_dir );
         TY_(tmbstrcat)( p, filename );
@@ -855,7 +857,9 @@ Bool TY_(ParseConfigValue)( TidyDocImpl* doc, TidyOptionId optId, ctmbstr optval
     else
     {
         TidyBuffer inbuf = {0};            /* Set up input source */
-        tidyBufAttach( &inbuf, (byte*)optval, TY_(tmbstrlen)(optval)+1 );
+        size_t optval_len = TY_(tmbstrlen)(optval);
+        assert( optval_len <= UINT_MAX - 1 );
+        tidyBufAttach( &inbuf, (byte*)optval, (uint)optval_len+1 );
         doc->config.cfgIn = TY_(BufferInput)( doc, &inbuf, ASCII );
         doc->config.c = GetC( &doc->config );
 
@@ -1152,7 +1156,7 @@ static void DeclareUserTag( TidyDocImpl* doc, TidyOptionId optId,
   ctmbstr theval = name;
   if ( prvval )
   {
-    uint len = TY_(tmbstrlen)(name) + TY_(tmbstrlen)(prvval) + 3;
+    size_t len = TY_(tmbstrlen)(name) + TY_(tmbstrlen)(prvval) + 3;
     catval = TY_(tmbstrndup)( prvval, len );
     TY_(tmbstrcat)( catval, ", " );
     TY_(tmbstrcat)( catval, name );
@@ -1517,10 +1521,10 @@ static int  WriteOptionString( const TidyOptionImpl* option,
   return 0;
 }
 
-static int  WriteOptionInt( const TidyOptionImpl* option, uint ival, StreamOut* out )
+static int  WriteOptionInt( const TidyOptionImpl* option, ulong ival, StreamOut* out )
 {
   tmbchar sval[ 32 ] = {0};
-  TY_(tmbsnprintf)(sval, sizeof(sval), "%u", ival );
+  TY_(tmbsnprintf)(sval, sizeof(sval), "%lu", ival );
   return WriteOptionString( option, sval, out );
 }
 
@@ -1530,9 +1534,9 @@ static int  WriteOptionBool( const TidyOptionImpl* option, Bool bval, StreamOut*
   return WriteOptionString( option, sval, out );
 }
 
-static int  WriteOptionPick( const TidyOptionImpl* option, uint ival, StreamOut* out )
+static int  WriteOptionPick( const TidyOptionImpl* option, ulong ival, StreamOut* out )
 {
-    uint ix;
+    ulong ix;
     const ctmbstr* val = option->pickList;
     for ( ix=0; val[ix] && ix<ival; ++ix )
         /**/;
@@ -1622,8 +1626,8 @@ int  TY_(SaveConfigFile)( TidyDocImpl* doc, ctmbstr cfgfil )
 {
     int status = -1;
     StreamOut* out = NULL;
-    uint outenc = cfg( doc, TidyOutCharEncoding );
-    uint nl = cfg( doc, TidyNewline );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+    uint nl = (uint)cfg( doc, TidyNewline );
     FILE* fout = fopen( cfgfil, "wb" );
     if ( fout )
     {
@@ -1637,8 +1641,8 @@ int  TY_(SaveConfigFile)( TidyDocImpl* doc, ctmbstr cfgfil )
 
 int  TY_(SaveConfigSink)( TidyDocImpl* doc, TidyOutputSink* sink )
 {
-    uint outenc = cfg( doc, TidyOutCharEncoding );
-    uint nl = cfg( doc, TidyNewline );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+    uint nl = (uint)cfg( doc, TidyNewline );
     StreamOut* out = TY_(UserOutput)( sink, outenc, nl );
     int status = SaveConfigToStream( doc, out );
     MemFree( out );

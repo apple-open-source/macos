@@ -38,7 +38,6 @@
 #import <wtf/CrossThreadCopier.h>
 #import <wtf/NativePromise.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/UniqueRef.h>
 
 #define GRANTER_RELEASE_LOG(envID, fmt, ...) RELEASE_LOG(ProcessCapabilities, "%{public}s[envID=%{public}s] " fmt, __FUNCTION__, envID.utf8().data(), ##__VA_ARGS__)
 #define GRANTER_RELEASE_LOG_ERROR(envID, fmt, ...) RELEASE_LOG_ERROR(ProcessCapabilities, "%{public}s[envID=%{public}s] " fmt, __FUNCTION__, envID.utf8().data(), ##__VA_ARGS__)
@@ -47,7 +46,7 @@ namespace WebKit {
 
 static WorkQueue& granterQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("ExtensionCapabilityGranter Queue", WorkQueue::QOS::UserInitiated));
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("ExtensionCapabilityGranter Queue"_s, WorkQueue::QOS::UserInitiated));
     return queue.get();
 }
 
@@ -143,12 +142,12 @@ static bool finalizeGrant(ExtensionCapabilityGranter& granter, const String& env
     return false;
 }
 
-UniqueRef<ExtensionCapabilityGranter> ExtensionCapabilityGranter::create(Client& client)
+UniqueRef<ExtensionCapabilityGranter> ExtensionCapabilityGranter::create(ExtensionCapabilityGranterClient& client)
 {
     return makeUniqueRef<ExtensionCapabilityGranter>(client);
 }
 
-ExtensionCapabilityGranter::ExtensionCapabilityGranter(Client& client)
+ExtensionCapabilityGranter::ExtensionCapabilityGranter(ExtensionCapabilityGranterClient& client)
     : m_client { client }
 {
 }

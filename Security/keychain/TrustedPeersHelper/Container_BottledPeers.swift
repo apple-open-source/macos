@@ -61,7 +61,7 @@ extension Container {
                             return
                         }
 
-                        self.fetchViableBottlesWithSemaphore(from: .default) { _, _, fetchBottlesError in
+                        self.fetchViableBottlesWithSemaphore(from: .default, flowID: nil, deviceSessionID: nil) { _, _, fetchBottlesError in
                             guard fetchBottlesError == nil else {
                                 logger.info("preflightVouchWithBottle unable to fetch viable bottles: \(String(describing: fetchPolicyDocumentsError), privacy: .public)")
                                 reply(nil, nil, true, fetchBottlesError)
@@ -105,7 +105,7 @@ extension Container {
         do {
             sponsorPeer = try self.model.peer(withID: bottleMO.peerID ?? "")
         } catch {
-            logger.warning("preflightVouchWithBottle Error finding peer with ID \(bottleMO.peerID ?? "no peer ID given", privacy: .public): \(String(describing:error), privacy: .public)")
+            logger.warning("preflightVouchWithBottle Error finding peer with ID \(bottleMO.peerID ?? "no peer ID given", privacy: .public): \(String(describing: error), privacy: .public)")
             throw error
         }
 

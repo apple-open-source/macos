@@ -8,6 +8,7 @@
 #import <TargetConditionals.h>
 #import <AppleFeatures/AppleFeatures.h>
 #import <LowPowerMode/_PMLowPowerModeProtocol.h>
+#import <LowPowerMode/_PMPowerModeState.h>
 
 extern NSString *const kPMLowPowerModeServiceName;
 

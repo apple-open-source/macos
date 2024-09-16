@@ -71,10 +71,6 @@
         XCTAssertNotNil(self.keychainView, "CKKS knows about the keychain view");
         [self.ckksViews addObject:self.keychainView];
     }
-
-    // Check that your environment is set up correctly
-    XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
-    XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
 }
 
 

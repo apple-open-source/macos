@@ -73,6 +73,7 @@ private:
 
     GRefPtr<GstEncodingProfile> m_audioEncodingProfile;
     GRefPtr<GstEncodingProfile> m_videoEncodingProfile;
+    String m_videoCodec;
     GRefPtr<GstTranscoder> m_transcoder;
     GRefPtr<GstTranscoderSignalAdapter> m_signalAdapter;
     GRefPtr<GstElement> m_pipeline;
@@ -93,6 +94,7 @@ private:
 
 class MediaRecorderPrivateGStreamer final : public MediaRecorderPrivate {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(MediaRecorderPrivateGStreamer);
 public:
     static std::unique_ptr<MediaRecorderPrivateGStreamer> create(MediaStreamPrivate&, const MediaRecorderPrivateOptions&);
     explicit MediaRecorderPrivateGStreamer(Ref<MediaRecorderPrivateBackend>&&);

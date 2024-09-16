@@ -43,6 +43,7 @@
 #include "FloatQuad.h"
 #include "FocusController.h"
 #include "FrameTree.h"
+#include "GCReachableRef.h"
 #include "GraphicsContext.h"
 #include "HTMLBodyElement.h"
 #include "HTMLFormElement.h"
@@ -74,6 +75,7 @@
 #include "RenderedPosition.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
+#include "ShadowRoot.h"
 #include "SimpleCaretAnimator.h"
 #include "SimpleRange.h"
 #include "SpatialNavigation.h"
@@ -369,7 +371,7 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
 
     VisibleSelection oldSelection = m_selection;
     bool willMutateSelection = oldSelection != newSelection;
-    if (willMutateSelection && document)
+    if (willMutateSelection && document && !options.contains(SetSelectionOption::DoNotNotifyEditorClients))
         document->editor().selectionWillChange();
 
     {
@@ -411,8 +413,11 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
     }
 
     // Selection offsets should increase when LF is inserted before the caret in InsertLineBreakCommand. See <https://webkit.org/b/56061>.
-    if (RefPtr textControl = enclosingTextFormControl(newSelection.start()))
-        textControl->selectionChanged(options.contains(SetSelectionOption::FireSelectEvent));
+    // https://www.w3.org/TR/selection-api/#selectionchange-event
+    RefPtr textControl = enclosingTextFormControl(newSelection.start());
+    bool shouldScheduleSelectionChangeEvent = willMutateSelection;
+    if (textControl)
+        shouldScheduleSelectionChangeEvent = textControl->selectionChanged(options.contains(SetSelectionOption::FireSelectEvent));
 
     if (!willMutateSelection)
         return false;
@@ -433,10 +438,22 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
     // It will be restored by the vertical arrow navigation code if necessary.
     m_xPosForVerticalArrowNavigation = std::nullopt;
     selectFrameElementInParentIfFullySelected();
-    document->editor().respondToChangedSelection(oldSelection, options);
-    // https://www.w3.org/TR/selection-api/#selectionchange-event
-    // FIXME: Spec doesn't specify which task source to use.
-    document->queueTaskToDispatchEvent(TaskSource::UserInteraction, Event::create(eventNames().selectionchangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    if (!options.contains(SetSelectionOption::DoNotNotifyEditorClients))
+        document->editor().respondToChangedSelection(oldSelection, options);
+
+    if (shouldScheduleSelectionChangeEvent) {
+        if (textControl)
+            textControl->scheduleSelectionChangeEvent();
+        else if (!m_hasScheduledSelectionChangeEventOnDocument) {
+            m_hasScheduledSelectionChangeEventOnDocument = true;
+            document->eventLoop().queueTask(TaskSource::UserInteraction, [weakDocument = WeakPtr { document.get() }] {
+                if (RefPtr document = weakDocument.get()) {
+                    document->selection().m_hasScheduledSelectionChangeEventOnDocument = false;
+                    document->dispatchEvent(Event::create(eventNames().selectionchangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+                }
+            });
+        }
+    }
 
     return true;
 }
@@ -550,10 +567,8 @@ static bool removingNodeRemovesPosition(Node& node, const Position& position)
     if (position.anchorNode() == &node)
         return true;
 
-    if (!is<Element>(node))
-        return false;
-
-    return downcast<Element>(node).containsIncludingShadowDOM(position.anchorNode());
+    RefPtr element = dynamicDowncast<Element>(node);
+    return element && element->containsIncludingShadowDOM(position.anchorNode());
 }
 
 void DragCaretController::nodeWillBeRemoved(Node& node)
@@ -1743,7 +1758,8 @@ void FrameSelection::willBeRemovedFromFrame()
     if (auto* view = m_document->renderView())
         view->selection().clear();
 
-    setSelectionWithoutUpdatingAppearance(VisibleSelection(), defaultSetSelectionOptions(), CursorAlignOnScroll::IfNeeded, TextGranularity::CharacterGranularity);
+    setSelectionWithoutUpdatingAppearance(VisibleSelection(), defaultSetSelectionOptions() | SetSelectionOption::DoNotNotifyEditorClients,
+        CursorAlignOnScroll::IfNeeded, TextGranularity::CharacterGranularity);
     m_previousCaretNode = nullptr;
     m_typingStyle = nullptr;
 }
@@ -1809,6 +1825,9 @@ RenderBlock* FrameSelection::caretRendererWithoutUpdatingLayout() const
 
 RenderBlock* DragCaretController::caretRenderer() const
 {
+    if (m_position.isNull())
+        return nullptr;
+
     return rendererForCaretPainting(m_position.deepEquivalent().deprecatedNode());
 }
 
@@ -2010,7 +2029,9 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
         return;
 
     Color caretColor = Color::black;
-    RefPtr element = is<Element>(node) ? downcast<Element>(&node) : node.parentElement();
+    RefPtr element = dynamicDowncast<Element>(node);
+    if (!element)
+        element = node.parentElement();
     if (element && element->renderer())
         caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node);
 
@@ -2041,6 +2062,13 @@ void FrameSelection::caretAnimationDidUpdate(CaretAnimator&)
 {
     invalidateCaretRect();
 }
+
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+void FrameSelection::setPrefersNonBlinkingCursor(bool enabled)
+{
+    caretAnimator().setPrefersNonBlinkingCursor(enabled);
+}
+#endif
 
 #if PLATFORM(MAC)
 void FrameSelection::caretAnimatorInvalidated(CaretAnimatorType caretType)
@@ -2089,7 +2117,7 @@ bool FrameSelection::contains(const LayoutPoint& point) const
         return false;
     }
 
-    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->positionForPoint(result.localPoint(), nullptr)));
+    return WebCore::contains<ComposedTree>(*range, makeBoundaryPoint(innerNode->renderer()->positionForPoint(result.localPoint(), HitTestSource::User, nullptr)));
 }
 
 // Workaround for the fact that it's hard to delete a frame.
@@ -2153,10 +2181,9 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
 void FrameSelection::selectAll()
 {
     RefPtr focusedElement = m_document->focusedElement();
-    if (is<HTMLSelectElement>(focusedElement)) {
-        HTMLSelectElement& selectElement = downcast<HTMLSelectElement>(*focusedElement);
-        if (selectElement.canSelectAll()) {
-            selectElement.selectAll();
+    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(focusedElement)) {
+        if (selectElement->canSelectAll()) {
+            selectElement->selectAll();
             return;
         }
     }
@@ -2548,12 +2575,12 @@ static RefPtr<HTMLFormElement> scanForForm(Element* start)
     if (!start)
         return nullptr;
     for (Ref element : descendantsOfType<HTMLElement>(start->document())) {
-        if (is<HTMLFormElement>(element))
-            return downcast<HTMLFormElement>(WTFMove(element));
+        if (RefPtr form = dynamicDowncast<HTMLFormElement>(element))
+            return form;
         if (element->isFormListedElement())
             return element->asFormListedElement()->form();
-        if (is<HTMLFrameElementBase>(element)) {
-            if (RefPtr contentDocument = downcast<HTMLFrameElementBase>(element.get()).contentDocument()) {
+        if (RefPtr frameElement = dynamicDowncast<HTMLFrameElementBase>(element)) {
+            if (RefPtr contentDocument = frameElement->contentDocument()) {
                 if (RefPtr frameResult = scanForForm(contentDocument->documentElement()))
                     return frameResult;
             }
@@ -2694,6 +2721,20 @@ void FrameSelection::showTreeForThis() const
 }
 
 #endif
+
+std::optional<SimpleRange> FrameSelection::rangeByExtendingCurrentSelection(TextGranularity granularity) const
+{
+    if (m_selection.isNone())
+        return std::nullopt;
+
+    FrameSelection frameSelection;
+    frameSelection.setSelection(m_selection);
+
+    frameSelection.modify(Alteration::Move, SelectionDirection::Backward, granularity);
+    frameSelection.modify(Alteration::Extend, SelectionDirection::Forward, granularity);
+
+    return frameSelection.selection().toNormalizedRange();
+}
 
 #if PLATFORM(IOS_FAMILY)
 

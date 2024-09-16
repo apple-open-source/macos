@@ -46,6 +46,7 @@ extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
 #define WEBCONTENT_SERVICE_INITIALIZER WebContentServiceInitializer
 #define NETWORK_SERVICE_INITIALIZER NetworkServiceInitializer
 #define GPU_SERVICE_INITIALIZER GPUServiceInitializer
+#define MODEL_SERVICE_INITIALIZER ModelServiceInitializer
 
 namespace WebKit {
 
@@ -115,6 +116,13 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
             JSC::Options::initialize();
             JSC::Options::AllowUnfinalizedAccessScope scope;
             JSC::Options::useSharedArrayBuffer() = true;
+            optionsChanged = true;
+        }
+        // FIXME (276012): Remove this XPC bootstrap message when it's no longer necessary. See rdar://130669638 for more context.
+        if (xpc_dictionary_get_bool(initializerMessage, "disable-jit-cage")) {
+            JSC::Options::initialize();
+            JSC::Options::AllowUnfinalizedAccessScope scope;
+            JSC::Options::useJITCage() = false;
             optionsChanged = true;
         }
         if (optionsChanged)

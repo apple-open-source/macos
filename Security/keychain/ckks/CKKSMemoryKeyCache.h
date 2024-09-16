@@ -52,6 +52,8 @@ NS_ASSUME_NONNULL_BEGIN
                                contextID:(NSString*)contextID
                                   zoneID:(CKRecordZoneID*)zoneID
                                    error:(NSError *__autoreleasing*)error;
+- (void)addKeyToCache:(NSString*)keyUUID
+                  key:(CKKSKey*)key;
 
 @end
 

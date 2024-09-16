@@ -26,6 +26,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
+#include <DiskArbitration/DiskArbitrationPrivate.h>
 #if TARGET_OS_OSX
 #include <Security/Authorization.h>
 #endif
@@ -66,6 +67,7 @@ extern AuthorizationRef  DASessionGetAuthorization( DASessionRef session );
 extern CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session );
 extern CFMutableArrayRef DASessionGetCallbackRegister( DASessionRef session );
 extern mach_port_t       DASessionGetID( DASessionRef session );
+extern Boolean           DASessionGetIsFSKitd( DASessionRef session );
 extern Boolean           DASessionGetOption( DASessionRef session, DASessionOption option );
 extern DASessionOptions  DASessionGetOptions( DASessionRef session );
 extern mach_port_t       DASessionGetServerPort( DASessionRef session );
@@ -79,6 +81,9 @@ extern void              DASessionRegisterCallback( DASessionRef session, DACall
 extern void              DASessionSetAuthorization( DASessionRef session, AuthorizationRef authorization );
 #endif
 extern void              DASessionSetClientPort( DASessionRef session, mach_port_t client );
+#ifdef DA_FSKIT
+extern void              DASessionSetIsFSKitd( DASessionRef session, Boolean value );
+#endif
 extern void              DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value );
 extern void              DASessionSetOptions( DASessionRef session, DASessionOptions options, Boolean value );
 extern void              DASessionSetState( DASessionRef session, DASessionState state, Boolean value );

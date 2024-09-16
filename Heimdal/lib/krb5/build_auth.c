@@ -170,7 +170,6 @@ _krb5_build_authenticator (krb5_context context,
 	if (auth.authorization_data == NULL) {
 	    ALLOC(auth.authorization_data, 1);
 	    if (auth.authorization_data == NULL) {
-		free(buf);
 		ret = krb5_enomem(context);
 		goto fail;
 	    }
@@ -181,7 +180,6 @@ _krb5_build_authenticator (krb5_context context,
 	ade.ad_data.data = buf;
 
 	ret = add_AuthorizationData(auth.authorization_data, &ade);
-	free(buf);
 	if (ret)
 	    goto fail;
     }

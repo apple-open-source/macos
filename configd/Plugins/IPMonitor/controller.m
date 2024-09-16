@@ -165,7 +165,7 @@ typedef struct resolverList {
 		/*	The queue to run the all processing on */
 
 		if (self.controllerQueue == nil) {
-			self.controllerQueue = dispatch_queue_create("com.apple.SystemConfiguration.controllerQueue", NULL);
+			self.controllerQueue = dispatch_queue_create("IPMonitorAgentControllerQueue", NULL);
 			if (self.controllerQueue == nil) {
 				errorMessage = "Failed to create a queue";
 				break;
@@ -883,7 +883,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 			}
 		}
 
-		SC_log(LOG_INFO, "Resolvers: %d default, %d multicast, %d private",
+		SC_log(LOG_INFO, "Resolvers: %u default, %u multicast, %u private",
 		      resolvers->n_default_resolvers,
 		      resolvers->n_multicast_resolvers,
 		      resolvers->n_private_resolvers);
@@ -1273,7 +1273,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 				if (i == 0) {
 					resolverName = @(dnsAgentDefault);
 				} else {
-					resolverName = [NSString stringWithFormat:@dnsAgentDefault multipleEntitySuffix "%d", i+1 ];
+					resolverName = [NSString stringWithFormat:@dnsAgentDefault multipleEntitySuffix "%u", i+1 ];
 				}
 
 				dnsAgent = [self.floatingDNSAgentList objectForKey:resolverName];

@@ -81,6 +81,7 @@ struct _citrus_iconv_std_shared {
 	/* Optimization */
 	struct _citrus_iconv_std_dst		*is_lone_dst;
 	_csid_t					 is_lone_dst_csid;
+	int					 is_mapdir;
 #endif
 	struct _citrus_iconv_std_src_list	 is_srcs;
 	_citrus_wc_t				 is_invalid;

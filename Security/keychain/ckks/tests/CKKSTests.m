@@ -48,11 +48,11 @@
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
-#import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 
@@ -84,8 +84,8 @@
 
     // Fail next upload
     NSError* noNetwork = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
-                                                                                                                       CKErrorRetryAfterKey: @(0.2),
-                                                                                                                       }];
+        CKErrorRetryAfterKey: @(0.2),
+    }];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
 
     [self addGenericPassword: @"data" account: @"account-delete-me"];
@@ -646,6 +646,35 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testItemUploadFailsDueToUnprocessedKeyHierarchy {
+    [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    // Pause the state machine after it gets to process key hierarchy state
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateProcessReceivedKeys];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessReceivedKeys] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of processing key hierarchy");
+    
+    // Add an item
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    // OQE creation for item fails due to classC key being unavailable.
+    OCMVerifyAllWithDelay(self.mockDatabase, 10);
+
+    // Force CKKS to pause immediately after entering local scan.
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateScanLocalItems];
+
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateProcessReceivedKeys];
+    
+    // Observe that CKKS uploads the item as part of a local scan.
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateScanLocalItems] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of scanning local items");
+    
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+    
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateScanLocalItems];
+    
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testUploadAndUseKeyHierarchy {
     [self startCKKSSubsystem];
     [self performOctagonTLKUpload:self.ckksViews];
@@ -662,6 +691,9 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    
     // We expect a single class C record to be uploaded.
     [self expectCKModifyItemRecords:1
                      deletedRecords:0
@@ -693,6 +725,113 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testCustomBinaryFieldSync {
+    [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    NSData* extraNotes = [@"binn field" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* extraHistory = [@"binh field" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* extraClient0 = [@"bin0 field" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* extraClient1 = [@"bin1 field" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* extraClient2 = [@"bin2 field" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* extraClient3 = [@"bin3 field" dataUsingEncoding:NSUTF8StringEncoding];
+
+    WEAKIFY(self);
+    [self expectCKModifyItemRecords:1
+                     deletedRecords:0
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:^BOOL(CKRecord* record) {
+        STRONGIFY(self);
+
+        NSDictionary* itemContents = [self decryptRecord:record];
+        XCTAssertNotNil(itemContents, "should have some item contents");
+
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraNotes], extraNotes, "Extra notes should match API input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraHistory], extraHistory, "Extra history should match API input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined0], extraClient0, "Extra client0 should match API input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined1], extraClient1, "Extra client1 should match API input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined2], extraClient2, "Extra client2 should match API input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined3], extraClient3, "Extra client3 should match API input");
+
+        return YES;
+    }
+         expectedOperationGroupName:@"keychain-api-use"];
+
+    NSDictionary *addQuery = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+        (id)kSecAttrAccount : @"account-delete-me-local-addition",
+        (id)kSecAttrServer : @"server-delete-me-local-addition",
+        (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+
+        (id)kSecDataInetExtraNotes : extraNotes,
+        (id)kSecDataInetExtraHistory : extraHistory,
+        (id)kSecDataInetExtraClientDefined0 : extraClient0,
+        (id)kSecDataInetExtraClientDefined1 : extraClient1,
+        (id)kSecDataInetExtraClientDefined2 : extraClient2,
+        (id)kSecDataInetExtraClientDefined3 : extraClient3,
+    };
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL), errSecSuccess, @"Should be able to add item");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    {
+        // Now, receive an item with these fields filled out
+        NSMutableDictionary* item = [[self fakeINetRecordDictionary:@"server-remote" account:@"account-delete-me" zoneID:self.keychainZoneID] mutableCopy];
+        item[(id)kSecDataInetExtraNotes] = extraNotes;
+        item[(id)kSecDataInetExtraHistory] = extraHistory;
+        item[(id)kSecDataInetExtraClientDefined0] = extraClient0;
+        item[(id)kSecDataInetExtraClientDefined1] = extraClient1;
+        item[(id)kSecDataInetExtraClientDefined2] = extraClient2;
+        item[(id)kSecDataInetExtraClientDefined3] = extraClient3;
+
+        CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:@"FFFF8D31-F9C5-481E-98AC-5A507ACB2D85" zoneID:self.keychainZoneID];
+        CKRecord* ckr = [self newRecord:ckrid withNewItemData:item];
+
+        [self.keychainZone addToZone:ckr];
+
+        [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+        [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+        NSMutableDictionary* query = [@{
+            (id)kSecClass : (id)kSecClassInternetPassword,
+            (id)kSecAttrAccount : @"account-delete-me",
+            (id)kSecAttrServer : @"server-remote",
+            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+            (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+            (id)kSecReturnData : @(YES),
+            (id)kSecReturnAttributes : @(YES),
+        } mutableCopy];
+
+        CFTypeRef cfitem = nil;
+        XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef)query, &cfitem), @"Should have found newly-arriving item");
+
+        NSArray* array = (NSArray*)CFBridgingRelease(cfitem);
+        cfitem = NULL;
+        XCTAssertNotNil(array, @"Should have some array of items");
+        XCTAssertEqual(array.count, 1, @"Should have found one inet");
+
+        NSDictionary* itemContents = array[0];
+        XCTAssertNotNil(itemContents, @"Have an item");
+
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraNotes], extraNotes, "Extra notes should match synced input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraHistory], extraHistory, "Extra history should match synced input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined0], extraClient0, "Extra client0 should match synced input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined1], extraClient1, "Extra client1 should match synced input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined2], extraClient2, "Extra client2 should match synced input");
+        XCTAssertEqualObjects(itemContents[(id)kSecDataInetExtraClientDefined3], extraClient3, "Extra client3 should match synced input");
+    }
+}
+
 - (void)testUploadInitialKeyHierarchyTriggersBackup {
     // We also expect the view manager's notifyNewTLKsInKeychain call to fire (after some delay)
     OCMExpect([self.mockCKKSViewManager notifyNewTLKsInKeychain]);
@@ -717,8 +856,11 @@
     self.keychainZone.flag = true;
 
     [self startCKKSSubsystem];
+
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingZone];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:20*NSEC_PER_SEC], @"Key state should become 'resetzone'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingZone] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'resetzone'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingZone];
 
     // But then, it'll fire off the reset and reach 'ready', with a little help from octagon
     OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
@@ -753,8 +895,10 @@
     self.keychainZone.flag = true;
 
     [self startCKKSSubsystem];
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingZone];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:20*NSEC_PER_SEC], @"Key state should become 'resetzone'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingZone] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'resetzone'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingZone];
 
     OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
     [self performOctagonTLKUpload:self.ckksViews];
@@ -797,8 +941,10 @@
     self.keychainZone.flag = true;
 
     [self startCKKSSubsystem];
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingZone];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:20*NSEC_PER_SEC], @"Key state should become 'resetzone'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingZone] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'resetzone'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingZone];
 
     OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
     [self performOctagonTLKUpload:self.ckksViews];
@@ -921,8 +1067,10 @@
 
     self.keychainZone.flag = true;
     [self startCKKSSubsystem];
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingZone];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:20*NSEC_PER_SEC], @"Key state should become 'resetzone'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingZone] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'resetzone'");
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingZone];
 
     OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
     [self performOctagonTLKUpload:self.ckksViews];
@@ -1647,13 +1795,13 @@
     SecCKKSEnable();
 
     // To make this more challenging, CK returns the refetch in multiple batches. This shouldn't affect the resync...
-    CKServerChangeToken* ck1 = self.keychainZone.currentChangeToken;
+    FakeCKServerChangeToken* ck1 = self.keychainZone.currentChangeToken;
     self.silentFetchesAllowed = false;
     [self expectCKFetch];
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:ck1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:ck1.token]) {
             return YES;
         } else {
             return NO;
@@ -2263,8 +2411,8 @@
                                                                            code:CKErrorServerRejectedRequest
                                                                        userInfo:@{
         NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
-                                                               code:CKUnderlyingErrorDuplicateSubscription
-                                                           userInfo:@{
+                                                         code:CKUnderlyingErrorDuplicateSubscription
+                                                     userInfo:@{
             NSLocalizedDescriptionKey: @"subscription is duplicate of 'zone:keychain''",
         }]
     }];
@@ -2438,6 +2586,43 @@
     [self.defaultCKKS waitForKeyHierarchyReadiness];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testRecoverFromNullCurrentKeyPointersWithBatchedUpload {
+    // Test starts with a broken key hierarchy in our fake CloudKit, but the TLK already arrived.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    ZoneKeys* zonekeys = self.keys[self.keychainZoneID];
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+    ckzone.currentDatabase[zonekeys.currentTLKPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = nil;
+    ckzone.currentDatabase[zonekeys.currentClassAPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = nil;
+    ckzone.currentDatabase[zonekeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = nil;
+    
+    // Let's set up a ton of peers.
+    NSMutableSet<CKKSSOSPeer*>* peers = [[NSMutableSet alloc] init];
+    for(int i = 0; i < 15; i++) {
+        CKKSSOSPeer* untrustedPeer = [[CKKSSOSPeer alloc] initWithSOSPeerID:[NSString stringWithFormat:@"untrusted-peer-%d", i]
+                                                        encryptionPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
+                                                           signingPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
+                                                                       viewList:self.managedViewList];
+        [peers addObject:untrustedPeer];
+    }
+    
+    [self.mockSOSAdapter.trustedPeers unionSet:peers];
+    
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    // The CKKS subsystem should figure out the issue, and fix it.
+    // We first upload our fixed currentKeyPointers, and then the rest of the TLKShareRecords, including one for the existing trusted local non-self peer.
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:3 tlkShareRecords:7 zoneID:self.keychainZoneID];
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:9 zoneID:self.keychainZoneID];
+
+    [self.defaultCKKS waitForKeyHierarchyReadiness];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
 }
 
 - (void)testRecoverFromNoCurrentKeyPointers {
@@ -2971,8 +3156,8 @@
     [self.reachabilityTracker setNetworkReachability:false];
 
     NSError* noNetwork = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{
-                                                                                                                       CKErrorRetryAfterKey: @(0.2),
-                                                                                                                       }];
+        CKErrorRetryAfterKey: @(0.2),
+    }];
     [self failNextCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID blockAfterReject:nil withError:noNetwork];
     [self addGenericPassword: @"data" account: @"account-delete-me"];
 
@@ -3058,13 +3243,31 @@
     // We expect a total local flush and refetch
     self.silentFetchesAllowed = false;
     [self expectCKFetch]; // one to fail with a CKErrorChangeTokenExpired error
-    [self expectCKFetch]; // and one to succeed
-
-    // Trigger a fake change notification
+    [self expectCKFetch]; // and its retry to succeed
+    
+    // Trigger a fake change notification to trigger a fetch
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
 
+    // Fetch should fail with change token expired, making state machine go into resetlocaldata
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateResettingLocalData];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateResettingLocalData] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of resetting local data");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    
+    // Release the pause
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateResettingLocalData];
+    
+    // After local reset, state machine should go back into initializing.
+    [self holdCloudKitFetches];
+    [self.defaultCKKS.stateMachine testPauseStateMachineAfterEntering:CKKSStateInitializing];
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateInitializing] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter state of initializing zones");
 
+    [self expectCKFetch]; // This fetch is kicked off by the initializing operation
+    [self.defaultCKKS.stateMachine testReleaseStateMachinePause:CKKSStateInitializing];
+    
+    [self releaseCloudKitFetchHold];
+    
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    
     // And check that a new upload happens just fine.
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
     [self addGenericPassword:@"asdf"

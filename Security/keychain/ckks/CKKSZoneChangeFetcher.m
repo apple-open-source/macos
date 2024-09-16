@@ -52,6 +52,7 @@ CKKSFetchBecause* const CKKSFetchBecauseResync = (CKKSFetchBecause*) @"resync";
 CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-coming";
 CKKSFetchBecause* const CKKSFetchBecauseResolvingConflict = (CKKSFetchBecause*) @"conflict";
 CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"periodic";
+CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete = (CKKSFetchBecause*) @"octagon-pairing-complete";
 
 #pragma mark - CKKSZoneChangeFetchDependencyOperation
 @interface CKKSZoneChangeFetchDependencyOperation : CKKSResultOperation
@@ -135,8 +136,8 @@ CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch = (CKKSFetchBecause*) @"
         _altDSID = altDSID;
         _sendMetric = sendMetric;
 
-        // If we're testing, for the initial delay, use 0.5 second. Otherwise, 2s.
-        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 500 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
+        // If we're testing, for the initial delay, use 0.1 second. Otherwise, 2s.
+        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 100 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
 
         // If we're testing, for the maximum delay, use 6 second. Otherwise, 2m.
         dispatch_time_t maximumDelay = (SecCKKSReduceRateLimiting() ? 6 * NSEC_PER_SEC : 120 * NSEC_PER_SEC);

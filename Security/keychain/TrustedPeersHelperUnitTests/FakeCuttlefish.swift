@@ -5,7 +5,8 @@
 //  Created by Ben Williamson on 5/23/18.
 //
 
-@_spi(CloudKitPrivate) import CloudKit
+@_spi(CloudKitPrivate)
+import CloudKit
 import CloudKitCode
 import Foundation
 import InternalSwiftProtobuf
@@ -194,7 +195,51 @@ extension TLKShare {
     }
 }
 
-class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
+struct ItemRecord {
+    let parentRefID: String
+    let recordID: String
+    let zoneName: String
+    let pcsService: Int
+    let pcsPublicKey: Data
+    let pcsPublicIdentity: Data
+
+    func fakeRecord() -> CKRecord {
+        let zoneID = CKRecordZone.ID(__zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(__recordName: recordID, zoneID: zoneID)
+        let record = CKRecord(recordType: SecCKRecordItemType, recordID: recordID)
+
+        record[SecCKRecordParentKeyRefKey] = CKRecord.Reference(recordID: CKRecord.ID(__recordName: parentRefID, zoneID: zoneID), action: .none)
+        record[SecCKRecordDataKey] = Data("data".utf8)
+        record[SecCKRecordWrappedKeyKey] = "wrappedKey"
+        record[SecCKRecordGenerationCountKey] = 3
+        record[SecCKRecordEncryptionVersionKey] = 2
+        record[SecCKRecordPCSServiceIdentifier] = pcsService
+        record[SecCKRecordPCSPublicKey] = pcsPublicKey
+        record[SecCKRecordPCSPublicIdentity] = pcsPublicIdentity
+        record[SecCKRecordServerWasCurrent] = 1
+        record[SecCKRecordHostOSVersionKey] = 1
+
+        return record
+    }
+}
+
+struct CurrentItemRecord {
+    let itemRecordID: String
+    let currentItemRecordID: String
+    let zoneName: String
+
+    func fakeRecord() -> CKRecord {
+        let zoneID = CKRecordZone.ID(__zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(__recordName: currentItemRecordID, zoneID: zoneID)
+        let record = CKRecord(recordType: SecCKRecordCurrentItemType, recordID: recordID)
+
+        record[SecCKRecordItemRefKey] = itemRecordID
+        return record
+    }
+}
+
+@objc
+class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     // FakeCuttlefishServer will handle all callers (TODO: split apart)
     func configuredFor(user: TPSpecificUser) -> Bool {
@@ -217,7 +262,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
 
         func model(updating newPeer: Peer?) throws -> TPModel {
             let tpmimdb = TPModelInMemoryDb()
-            let model = TPModel(decrypter: Decrypter(), dbAdapter: tpmimdb)
+            let model = TPModel(decrypter: PolicyRedactionCrypter(), dbAdapter: tpmimdb)
 
             for existingPeer in self.peersByID.values {
                 if let pi = existingPeer.permanentInfoAndSig.toPermanentInfo(peerID: existingPeer.peerID),
@@ -281,6 +326,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     var nextEstablishReturnsMoreChanges: Bool = false
 
     var establishListener: ((EstablishRequest) -> NSError?)?
+    var addCustodianRecoveryKeyListener: ((AddCustodianRecoveryKeyRequest) -> NSError?)?
     var updateListener: ((UpdateTrustRequest) -> NSError?)?
     var fetchChangesListener: ((FetchChangesRequest) -> NSError?)?
     var joinListener: ((JoinWithVoucherRequest) -> NSError?)?
@@ -291,8 +337,17 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
     var removeRecoveryKeyListener: ((RemoveRecoveryKeyRequest) -> NSError?)?
 
+    static let mapper = { (doc: TPPolicyDocument) in (doc.version.versionNumber, (doc.version.policyHash, doc.protobuf)) }
+
+    static let fnMapper = { (docFn: () -> TPPolicyDocument) in
+        return mapper(docFn())
+    }
+
     // Any policies in here will be returned by FetchPolicy before any inbuilt policies
     var policyOverlay: [TPPolicyDocument] = []
+
+    // the inbuilt policies, in dictionary form for faster lookup
+    let policies = Dictionary(uniqueKeysWithValues: builtInPolicyDocumentsFilteredByVersion { _ in true }.map(fnMapper))
 
     var fetchViableBottlesDontReturnBottleWithID: String?
 
@@ -417,7 +472,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         }
 
         guard let fakeZone = self.fakeCKZones[zoneID] as? FakeCKZone else {
-            print("Received an unexpected zone id: \(zoneID)")
+            print("getKeys: Received an unexpected zone id: \(zoneID)")
             abort()
         }
 
@@ -502,7 +557,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 }
             } else {
                 // we made the zone above, shoudn't ever get here
-                print("Received an unexpected zone id: \(rzid)")
+                print("store:viewKeys: Received an unexpected zone id: \(rzid)")
                 abort()
             }
         }
@@ -524,7 +579,39 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 fakeZone.add(toZone: record)
                 allRecords.append(record)
             } else {
-                print("Received an unexpected zone id: \(rzid)")
+                print("store:tlkShares: Received an unexpected zone id: \(rzid)")
+            }
+        }
+
+        return allRecords
+    }
+
+    func store(itemRecords: [ItemRecord]) -> [CKRecord] {
+        var allRecords: [CKRecord] = []
+
+        itemRecords.forEach { item in
+            if let fakeZone = self.fakeCKZones[CKRecordZone.ID(zoneName: item.zoneName)] as? FakeCKZone {
+                let fakeItemRecord = item.fakeRecord()
+                allRecords.append(fakeItemRecord)
+                fakeZone.add(toZone: fakeItemRecord)
+            } else {
+                print("store:itemRecords: Received an unexpected zone id: \(item.zoneName)")
+            }
+        }
+
+        return allRecords
+    }
+
+    func store(currentItemRecords: [CurrentItemRecord]) -> [CKRecord] {
+        var allRecords: [CKRecord] = []
+
+        currentItemRecords.forEach { currentItem in
+            if let fakeZone = self.fakeCKZones[CKRecordZone.ID(zoneName: currentItem.zoneName)] as? FakeCKZone {
+                let fakeCurrentItemRecord = currentItem.fakeRecord()
+                allRecords.append(fakeCurrentItemRecord)
+                fakeZone.add(toZone: fakeCurrentItemRecord)
+            } else {
+                print("store:currentItemRecords: Received an unexpected zone id: \(currentItem.zoneName)")
             }
         }
 
@@ -570,6 +657,10 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 $0.bottleID = request.bottle.bottleID
                 $0.escrowedSpki = request.bottle.escrowedSigningSpki
                 $0.serial = serial!
+                $0.build = "18A214"
+                $0.passcodeGeneration = PasscodeGeneration.with {
+                    $0.value = 1
+                }
                 let cm = EscrowInformation.Metadata.ClientMetadata.with {
                     $0.deviceColor = "#202020"
                     $0.deviceEnclosureColor = "#020202"
@@ -577,7 +668,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                     $0.deviceModelClass = "modelClass"
                     $0.deviceModelVersion = "modelVersion"
                     $0.deviceMid = "mid"
-                    $0.deviceName = "my device"
+                    $0.deviceName = "establish device"
                     $0.devicePlatform = 1
                     $0.secureBackupNumericPassphraseLength = 6
                     $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
@@ -657,6 +748,10 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 $0.bottleID = request.bottle.bottleID
                 $0.escrowedSpki = request.bottle.escrowedSigningSpki
                 $0.serial = serial!
+                $0.build = "18A214"
+                $0.passcodeGeneration = PasscodeGeneration.with {
+                    $0.value = 2
+                }
                 let cm = EscrowInformation.Metadata.ClientMetadata.with {
                     $0.deviceColor = "#202020"
                     $0.deviceEnclosureColor = "#020202"
@@ -837,6 +932,14 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
     func addCustodianRecoveryKey(_ request: AddCustodianRecoveryKeyRequest, completion: @escaping (Result<AddCustodianRecoveryKeyResponse, Error>) -> Void) {
         print("FakeCuttlefish: addCustodianRecoverykey called")
 
+        if let addCustodianRecoveryKeyListener = self.addCustodianRecoveryKeyListener {
+            let possibleError = addCustodianRecoveryKeyListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+
         guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
             completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)))
             return
@@ -862,6 +965,11 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
             print("FakeCuttlefish: addCustodianRecoveryKey failed to make model: ", String(describing: error))
         }
 
+        // Ensure tlkshares point at real viewKeys
+        guard request.tlkShares.allSatisfy({ self.state.viewKeys.map { _, val in val.newTlk.uuid }.contains($0.keyUuid) }) else {
+            completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .malformedViewKeyHierarchy)))
+            return
+        }
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.peersByID[request.peerID] = peer
 
@@ -1020,9 +1128,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
         print("FakeCuttlefish: fetchPolicyDocuments called")
         var response = FetchPolicyDocumentsResponse()
 
-        let policies = builtInPolicyDocuments
-        let dummyPolicies = Dictionary(uniqueKeysWithValues: policies.map { ($0.version.versionNumber, ($0.version.policyHash, $0.protobuf)) })
-        let overlayPolicies = Dictionary(uniqueKeysWithValues: self.policyOverlay.map { ($0.version.versionNumber, ($0.version.policyHash, $0.protobuf)) })
+        let overlayPolicies = Dictionary(uniqueKeysWithValues: policyOverlay.map({ $0 }).map(FakeCuttlefishServer.mapper))
 
         for key in request.keys {
             if let (hash, data) = overlayPolicies[key.version], hash == key.hash {
@@ -1030,7 +1136,7 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
                 continue
             }
 
-            guard let (hash, data) = dummyPolicies[key.version] else {
+            guard let (hash, data) = policies[key.version] else {
                 continue
             }
             if hash == key.hash {
@@ -1127,5 +1233,120 @@ class FakeCuttlefishServer: ConfiguredCuttlefishAPIAsync {
 
     func performAtoprvactions(_ request: PerformATOPRVActionsRequest, completion: @escaping (Result<PerformATOPRVActionsResponse, Error>) -> Void) {
         completion(.success(PerformATOPRVActionsResponse()))
+    }
+
+    func fetchCurrentItem(_ request: CurrentItemFetchRequest, completion: @escaping (Result<CurrentItemFetchResponse, any Error>) -> Void) {
+
+        var currentItems: [CurrentCKKSItem] = []
+        var synckeys: Set<CloudKitCode.Ckcode_RecordTransport> = []
+        var failure: Bool = false
+
+        for currentItemSpecifier in request.currentItems {
+
+            // Grab zone
+            let zoneID = CKRecordZone.ID(zoneName: currentItemSpecifier.zone)
+            guard let fakeZone = self.fakeCKZones[zoneID] as? FakeCKZone else {
+                print("fetchCurrentItem: Received an unexpected zone id: \(currentItemSpecifier.zone)")
+                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .unknownView)))
+                return
+            }
+
+            fakeZone.queue.sync {
+                let zoneDB = fakeZone.currentDatabase
+
+                guard let currentItemRecord = zoneDB[CKRecord.ID(__recordName: currentItemSpecifier.itemPointerName, zoneID: zoneID)] as? CKRecord else {
+                    print("No such record found: \(currentItemSpecifier.itemPointerName)")
+                    failure = true
+                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)))
+                    return
+                }
+
+                guard let itemName: String = currentItemRecord[SecCKRecordItemRefKey] else {
+                    print("CurrentItemRecord \(currentItemSpecifier.itemPointerName) does not have an `item` field")
+                    failure = true
+                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .malformedRecord)))
+                    return
+                }
+
+                guard let itemRecord = zoneDB[CKRecord.ID(__recordName: itemName, zoneID: zoneID)] as? CKRecord else {
+                    print("No such record found: \(itemName)")
+                    failure = true
+                    completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)))
+                    return
+                }
+
+                currentItems.append(CurrentCKKSItem.with {
+                    $0.itemSpecifier = currentItemSpecifier
+                    $0.item = try! CloudKitCode.Ckcode_RecordTransport(itemRecord)
+                })
+            }
+
+            if failure {
+                // Completion handler has already been called by scope causing failure, return from function
+                return
+            }
+
+            // Item was found, add all sync keys for the zone
+            let syncKeysForZone = self.getKeys(zoneID: zoneID)
+            synckeys.insert(syncKeysForZone?.tlk ?? CloudKitCode.Ckcode_RecordTransport())
+            synckeys.insert(syncKeysForZone?.classA ?? CloudKitCode.Ckcode_RecordTransport())
+            synckeys.insert(syncKeysForZone?.classC ?? CloudKitCode.Ckcode_RecordTransport())
+        }
+
+        completion(.success(CurrentItemFetchResponse.with {
+            $0.items = currentItems
+            $0.synckeys = Array(synckeys)
+        }))
+    }
+
+    func fetchPcsidentityByPublicKey(_ request: DirectPCSIdentityFetchRequest, completion: @escaping (Result<DirectPCSIdentityFetchResponse, any Error>) -> Void) {
+
+        var pcsIdentities: [DirectPCSIdentity] = []
+        var synckeys: Set<CloudKitCode.Ckcode_RecordTransport> = []
+
+        for pcsService in request.pcsServices {
+
+            // Grab zone
+            let zoneID = CKRecordZone.ID(zoneName: pcsService.zone)
+            guard let fakeZone = self.fakeCKZones[zoneID] as? FakeCKZone else {
+                print("fetchPCSIdentityByPublicKey: Received an unexpected zone id: \(pcsService.zone)")
+                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .unknownView)))
+                return
+            }
+
+            var found: Bool = false
+            fakeZone.queue.sync {
+                let zone = fakeZone.currentDatabase as? [CKRecord.ID: CKRecord]
+                for (_, record) in zone! {
+                    // Check for item type record and that it has our PCSServiceNumber & PCSPublicKey
+                    if (record.recordType == SecCKRecordItemType) && (record[SecCKRecordPCSServiceIdentifier] == pcsService.serviceIdentifier) && (record[SecCKRecordPCSPublicKey] == pcsService.publicKey) {
+                        pcsIdentities.append(DirectPCSIdentity.with {
+                            $0.item = try! CloudKitCode.Ckcode_RecordTransport(record)
+                            $0.pcsService = pcsService
+                        })
+                        found = true
+                        break
+                    }
+                }
+            }
+
+            if found {
+                // Add all sync keys for the zone
+                let syncKeysForZone = self.getKeys(zoneID: zoneID)
+                synckeys.insert(syncKeysForZone?.tlk ?? CloudKitCode.Ckcode_RecordTransport())
+                synckeys.insert(syncKeysForZone?.classA ?? CloudKitCode.Ckcode_RecordTransport())
+                synckeys.insert(syncKeysForZone?.classC ?? CloudKitCode.Ckcode_RecordTransport())
+            } else {
+                // We didn't find an item. Return.
+                print("fetchPCSIdentityByPublicKey: Couldn't find service: \(pcsService)")
+                completion(.failure(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .malformedRecord)))
+                return
+            }
+        }
+
+        completion(.success(DirectPCSIdentityFetchResponse.with {
+            $0.items = pcsIdentities
+            $0.synckeys = Array(synckeys)
+        }))
     }
 }

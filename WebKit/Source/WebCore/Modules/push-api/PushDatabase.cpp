@@ -38,7 +38,7 @@
 #include <wtf/RunLoop.h>
 #include <wtf/Scope.h>
 #include <wtf/UniqueRef.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 
 #define PUSHDB_RELEASE_LOG(fmt, ...) RELEASE_LOG(Push, "%p - PushDatabase::" fmt, this, ##__VA_ARGS__)
 #define PUSHDB_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(Push, "%p - PushDatabase::" fmt, this, ##__VA_ARGS__)
@@ -223,7 +223,7 @@ static Expected<UniqueRef<SQLiteDatabase>, ShouldDeleteAndRetry> openAndMigrateD
             }
         }
 
-        if (!db->executeCommandSlow(makeString("PRAGMA user_version = ", currentPushDatabaseVersion)))
+        if (!db->executeCommandSlow(makeString("PRAGMA user_version = "_s, currentPushDatabaseVersion)))
             RELEASE_LOG_ERROR(Push, "Error setting user version for PushDatabase at path %s: %d", path.utf8().data(), db->lastError());
 
         transaction.commit();
@@ -258,7 +258,7 @@ void PushDatabase::create(const String& path, CreationHandler&& completionHandle
 {
     ASSERT(RunLoop::isMain());
 
-    auto queue = WorkQueue::create("PushDatabase I/O Thread");
+    auto queue = WorkQueue::create("PushDatabase I/O Thread"_s);
     queue->dispatch([queue, path = crossThreadCopy(path), completionHandler = WTFMove(completionHandler)]() mutable {
         auto database = openAndMigrateDatabase(path);
         WorkQueue::main().dispatch([queue = WTFMove(queue), database = WTFMove(database), completionHandler = WTFMove(completionHandler)]() mutable {
@@ -349,7 +349,7 @@ static std::span<const uint8_t> uuidToSpan(const std::optional<WTF::UUID>& uuid)
         return std::span(&junk, static_cast<size_t>(0));
     }
 
-    return uuid->toSpan();
+    return uuid->span();
 }
 
 static std::optional<WTF::UUID> uuidFromSpan(std::span<const uint8_t> span)

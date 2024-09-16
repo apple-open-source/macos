@@ -1379,6 +1379,15 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		
 	}
 	
+	// Retrieve the original SCSI Task.
+	clientRequest = GetSCSITaskIdentifier ( completedTask );
+	if ( clientRequest == NULL )
+	{
+		// i/o might be completed due to timeout
+		IOLog ( "IOSCSIParallelInterfaceDevice::CompleteSCSITask: clientRequest is NULL, completedTask = %p\n", completedTask );
+		return;
+	}
+	
 	// Check if the device rejected the task because its queue is full.
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( completionStatus == kSCSITaskStatus_TASK_SET_FULL ) &&
@@ -1399,13 +1408,6 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// Make sure that the task is removed from the outstanding task list
 	// so that the driver no longer sees this task as outstanding.
 	RemoveFromOutstandingTaskList ( completedTask );
-	
-	// Retrieve the original SCSI Task.
-	clientRequest = GetSCSITaskIdentifier ( completedTask );
-	if ( clientRequest == NULL )
-	{
-		panic ( "IOSCSIParallelInterfaceDevice::CompleteSCSITask: clientRequest is NULL, completedTask = %p\n", completedTask );
-	}
 	
 	// Set the appropriate fields in the SCSI Task.
 	IOSCSIProtocolServices::SetRealizedDataTransferCount ( clientRequest, GetRealizedDataTransferCount ( completedTask ) );

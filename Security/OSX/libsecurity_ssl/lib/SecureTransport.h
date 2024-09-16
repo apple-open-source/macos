@@ -287,7 +287,7 @@ __SECURETRANSPORT_API_DEPRECATED(macos(10.2, 10.13), ios(5.0, 11.0));
  * and earlier versions, a new context is created using SSLNewContext,
  * and is disposed by calling SSLDisposeContext.
  *
- * On i0S 5.0 and later, as well as Mac OS X versions after 10.7, the
+ * On i0S 5.0 and later, as well as macOS versions after 10.7, the
  * SSLContextRef is a true CFType object with retain-release semantics.
  * New code should create a new context using SSLCreateContext (instead
  * of SSLNewContext), and dispose the context by calling CFRelease
@@ -324,10 +324,10 @@ SSLCreateContext(CFAllocatorRef __nullable alloc, SSLProtocolSide protocolSide, 
  * @note
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * NOTE: this function is not available on iOS, and should be considered
- * deprecated on Mac OS X. Your code should use SSLCreateContext instead.
+ * deprecated on macOS. Your code should use SSLCreateContext instead.
  *
  * @param isServer Flag indicating if the context is for the server (true) or client (false).
  * @param contextPtr Pointer to SSLContextRef where result will be stored.
@@ -344,10 +344,10 @@ SSLNewContext				(Boolean 			isServer,
  * @note
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * NOTE: this function is not available on iOS, and should be considered
- * deprecated on Mac OS X. Your code should use CFRelease to dispose a session
+ * deprecated on macOS. Your code should use CFRelease to dispose a session
  * created with SSLCreateContext.
  *
  * @param context A SSLContextRef to deallocate and destroy.
@@ -357,7 +357,7 @@ OSStatus
 SSLDisposeContext			(SSLContextRef		context)
     __SECURETRANSPORT_API_DEPRECATED(macos(10.2, 10.9));
 
-#endif /* MAC OS X */
+#endif /* MACOS */
 
 /*
  * @function SSLGetSessionState
@@ -524,10 +524,10 @@ SSLGetProtocolVersionMax  (SSLContextRef      context,
  *		kSSLProtocolAll
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note this function is not available on iOS, and should be considered
- * deprecated on Mac OS X. You can use SSLSetProtocolVersionMin and/or
+ * deprecated on macOS. You can use SSLSetProtocolVersionMin and/or
  * SSLSetProtocolVersionMax to specify which protocols are enabled.
  * @param context A valid SSLContextRef.
  * @param protocol A SSLProtocol enumerated value.
@@ -544,10 +544,10 @@ SSLSetProtocolVersionEnabled (SSLContextRef 	context,
  * Obtain a value specified in SSLSetProtocolVersionEnabled.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * NOTE: this function is not available on iOS, and should be considered
- * deprecated on Mac OS X. You can use SSLGetProtocolVersionMin and/or
+ * deprecated on macOS. You can use SSLGetProtocolVersionMin and/or
  * SSLGetProtocolVersionMax to check whether a protocol is enabled.
  */
 OSStatus
@@ -564,7 +564,7 @@ SSLGetProtocolVersionEnabled(SSLContextRef 		context,
  * @discussion SSLSetProtocolVersion cannot be called when a session is active.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note this function is not available on iOS, and deprecated on Mac OS X 10.8.
  *   Use SSLSetProtocolVersionMin and/or SSLSetProtocolVersionMax to specify
@@ -587,7 +587,7 @@ SSLSetProtocolVersion		(SSLContextRef 		context,
  *   SSL2 and TLS1 enabled, SSL3 disabled).
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note this function is not available on iOS, and deprecated on Mac OS X 10.8.
  *   Use SSLGetProtocolVersionMin and/or SSLGetProtocolVersionMax to check
@@ -601,7 +601,7 @@ SSLGetProtocolVersion		(SSLContextRef		context,
 							 SSLProtocol		*protocol)	/* RETURNED */
     __SECURETRANSPORT_API_DEPRECATED(macos(10.2, 10.8));
 
-#endif /* MAC OS X */
+#endif /* MACOS */
 
 /*
  * @function SSLSetCertificate
@@ -906,10 +906,10 @@ SSLSetSessionTicketsEnabled     (SSLContextRef          context,
  *    chain before proceeding with data transfer.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To disable peer certificate chain validation, you
+ *    deprecated on macOS. To disable peer certificate chain validation, you
  *    can instead use SSLSetSessionOption to set kSSLSessionOptionBreakOnServerAuth
  *    to true. This will disable verification and cause SSLHandshake to return with
  *    an errSSLServerAuthCompleted result when the peer certificates have been
@@ -929,10 +929,10 @@ SSLSetEnableCertVerify		(SSLContextRef 			context,
  * @abstract Check whether peer certificate chain validation is enabled.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To check whether peer certificate chain validation
+ *    deprecated on macOS. To check whether peer certificate chain validation
  *    is enabled in a context, call SSLGetSessionOption to obtain the value of
  *    the kSSLSessionOptionBreakOnServerAuth session option flag. If the value
  *    of this option flag is true, then verification is disabled.
@@ -952,10 +952,10 @@ SSLGetEnableCertVerify		(SSLContextRef 			context,
  *    flag is false, meaning expired certs result in an errSSLCertExpired error.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To ignore expired certificate errors, first disable
+ *    deprecated on macOS. To ignore expired certificate errors, first disable
  *    Secure Transport's automatic verification of peer certificates by calling
  *    SSLSetSessionOption to set kSSLSessionOptionBreakOnServerAuth to true. When
  *    SSLHandshake subsequently returns an errSSLServerAuthCompleted result,
@@ -1020,10 +1020,10 @@ SSLSetAllowsExpiredCerts	(SSLContextRef		context,
  * @abstract Obtain the current value of an SSLContext's "allowExpiredCerts" flag.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X.
+ *    deprecated on macOS.
  * @param context A valid SSLContextRef.
  * @param allowsExpired Pointer to Boolean where the expired certificate allowance Boolean is stored.
  * @result errSecSuccess on success, alternative error on failure.
@@ -1041,10 +1041,10 @@ SSLGetAllowsExpiredCerts	(SSLContextRef		context,
  *    errSSLCertExpired error.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To ignore expired certificate errors, first disable
+ *    deprecated on macOS. To ignore expired certificate errors, first disable
  *    Secure Transport's automatic verification of peer certificates by calling
  *    SSLSetSessionOption to set kSSLSessionOptionBreakOnServerAuth to true. When
  *    SSLHandshake subsequently returns an errSSLServerAuthCompleted result,
@@ -1070,10 +1070,10 @@ SSLSetAllowsExpiredRoots	(SSLContextRef		context,
  * @abstract Obtain the current value of an SSLContext's "allow expired roots" flag.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X.
+ *    deprecated on macOS.
  * @param context A valid SSLContextRef.
  * @param allowsExpired Pointer to Boolean where the expired root certificate allowance
  *                      Boolean is stored.
@@ -1101,10 +1101,10 @@ SSLGetAllowsExpiredRoots	(SSLContextRef		context,
  *    true, allowing connection to a totally untrusted peer.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To ignore unknown root cert errors, first disable
+ *    deprecated on macOS. To ignore unknown root cert errors, first disable
  *    Secure Transport's automatic verification of peer certificates by calling
  *    SSLSetSessionOption to set kSSLSessionOptionBreakOnServerAuth to true. When
  *    SSLHandshake subsequently returns an errSSLServerAuthCompleted result,
@@ -1129,10 +1129,10 @@ SSLSetAllowsAnyRoot			(SSLContextRef		context,
  * @abstract Obtain the current value of an SSLContext's "allow any root" flag.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X.
+ *    deprecated on macOS.
  * @param context A valid SSLContextRef.
  * @param anyRoot Pointer to Boolean to store any root allowance Boolean.
  * @result errSecSuccess on success, alternative error on failure.
@@ -1157,10 +1157,10 @@ SSLGetAllowsAnyRoot			(SSLContextRef		context,
  *    The trustedRoots array contains SecCertificateRefs.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To trust specific roots in a session, first disable
+ *    deprecated on macOS. To trust specific roots in a session, first disable
  *    Secure Transport's automatic verification of peer certificates by calling
  *    SSLSetSessionOption to set kSSLSessionOptionBreakOnServerAuth to true. When
  *    SSLHandshake subsequently returns an errSSLServerAuthCompleted result,
@@ -1191,10 +1191,10 @@ SSLSetTrustedRoots			(SSLContextRef 		context,
  *    Caller must CFRelease the returned CFArray.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To get the current set of trusted roots, call the
+ *    deprecated on macOS. To get the current set of trusted roots, call the
  *    SSLCopyPeerTrust function to obtain the SecTrustRef for the peer certificate
  *    chain, then SecTrustCopyCustomAnchorCertificates (see SecTrust.h).
  * @param context A valid SSLContextRef.
@@ -1218,10 +1218,10 @@ SSLCopyTrustedRoots			(SSLContextRef 		context,
  *    the end of the returned array.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. To get peer certificates, call SSLCopyPeerTrust
+ *    deprecated on macOS. To get peer certificates, call SSLCopyPeerTrust
  *    to obtain the SecTrustRef for the peer certificate chain, then use the
  *    SecTrustCopyCertificateChain to retrieve individual certificates in
  *    the chain (see SecTrust.h).
@@ -1234,7 +1234,7 @@ SSLCopyPeerCertificates		(SSLContextRef 		context,
 							 CFArrayRef			* __nonnull CF_RETURNS_RETAINED certs)		/* RETURNED */
 	__SECURETRANSPORT_API_DEPRECATED(macos(10.5, 10.9));
 
-#endif /* MAC OS X */
+#endif /* MACOS */
 
 /*
  * @function SSLCopyPeerTrust
@@ -1469,7 +1469,7 @@ SSLCopyCertificateAuthorities(SSLContextRef		context,
 							  CFArrayRef		* __nonnull CF_RETURNS_RETAINED certificates)	/* RETURNED */
     __SECURETRANSPORT_API_DEPRECATED(macos(10.5, 10.15));
 
-#endif /* MAC OS X */
+#endif /* MACOS */
 
 /*
  * @function SSLCopyDistinguishedNames
@@ -1549,10 +1549,10 @@ SSLGetDiffieHellmanParams	(SSLContextRef			context,
  *    enabled.
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X. RSA blinding is enabled unconditionally, as
+ *    deprecated on macOS. RSA blinding is enabled unconditionally, as
  *    it prevents a known way for an attacker to recover the private key,
  *    and the performance gain of disabling it is negligible.
  * @param context A valid SSLContextRef.
@@ -1570,10 +1570,10 @@ SSLSetRsaBlinding			(SSLContextRef			context,
  * @discussion See SSLSetRsaBlinding().
  *
  * ==========================
- * MAC OS X ONLY (DEPRECATED)
+ * MACOS ONLY (DEPRECATED)
  * ==========================
  * @note This function is not available on iOS, and should be considered
- *    deprecated on Mac OS X.
+ *    deprecated on macOS.
  * @param context A valid SSLContextRef.
  * @param blinding Pointer to Boolean storage for RSA blinding state.
  * @result errSecSuccess on success, alternative error on failure.
@@ -1583,7 +1583,7 @@ SSLGetRsaBlinding			(SSLContextRef			context,
                              Boolean				*blinding)
     __SECURETRANSPORT_API_DEPRECATED(macos(10.2, 10.9));
 
-#endif /* MAC OS X */
+#endif /* MACOS */
 
 /*******************************
  ******** I/O Functions ********

@@ -103,6 +103,43 @@ void do_cleanups(void);
 
 #define check_io(fn, len) check_io_((fn), len, __FILE__, __LINE__, #fn)
 
+//
+// assert that a call (likely a syscall) fails with a particular errno
+// if the call is permitted to fail with any errno, pass `expected_errno' = 0
+//
+// this has a strange name to not conflict with preexisting `assert_fail()'
+//
+#define assert_call_fail_(call_expr, expr_str, expected_errno, ...) \
+	do { \
+		if ((call_expr) == -1) { \
+			int save_errno = errno; \
+			if ((expected_errno != 0) && (save_errno != expected_errno)) { \
+				assert_fail("%s returned errno %d != %d; '%s' != '%s'", \
+						expr_str, save_errno, expected_errno, \
+						strerror(save_errno), strerror(expected_errno)); \
+			} \
+		} else { \
+			assert_fail("%s returned success, but should have failed " \
+					"with '%s', errno %d", \
+					expr_str, \
+					(expected_errno) ? \
+						strerror(expected_errno) : \
+						"*", \
+					expected_errno); \
+		} \
+	} while (0)
+
+/*
+ * Permit assert_call_fail_() to be used with no specified errno.
+ * Expressions like
+ *   assert_call_fail(fcntl(...));
+ *   assert_call_fail(fcntl(...), EINVAL);
+ * are both valid. The first form will test that fcntl() will fail with any
+ * error.
+ */
+#define assert_call_fail(call_expr, ...) \
+	assert_call_fail_((call_expr), #call_expr, ##__VA_ARGS__, 0)
+
 static inline ssize_t check_io_(ssize_t res, ssize_t len, const char *file,
 								int line, const char *fn_str)
 {

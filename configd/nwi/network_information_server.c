@@ -396,7 +396,7 @@ add_state_handler(void)
 		state_len = (S_nwi_info.data != NULL) ? CFDataGetLength(S_nwi_info.data) : 0;
 		state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
 		if (state_data_size > MAX_STATEDUMP_SIZE) {
-			SC_log(LOG_ERR, "Network information : state data too large (%zd > %zd)",
+			SC_log(LOG_ERR, "Network information : state data too large (%zu > %zu)",
 			       state_data_size,
 			       (size_t)MAX_STATEDUMP_SIZE);
 			return NULL;
@@ -555,7 +555,7 @@ _nwi_state_store(nwi_state *state)
 		_nwi_state_force_refresh();
 		status = notify_post(notify_key);
 		if (status != NOTIFY_STATUS_OK) {
-			SC_log(LOG_ERR, "notify_post() failed: %d", status);
+			SC_log(LOG_ERR, "notify_post() failed: %u", status);
 			// notification posting failures are non-fatal
 		}
 	}

@@ -1,6 +1,6 @@
 /* srputil.c
  *
- * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -557,43 +557,170 @@ start_tcp_test(void)
     return kDNSSDAdvertisingProxyStatus_NoError;
 }
 
+const char *need_name, *need_service;
+bool needed_flag;
+
+advertising_proxy_conn_ref service_sub;
+
+static void
+service_callback(advertising_proxy_conn_ref UNUSED sub, void *UNUSED context, advertising_proxy_error_type error)
+{
+    fprintf(stderr, "service callback: %d\n", error);
+    exit(0);
+}
+
+static void
+start_needing_service(void)
+{
+    advertising_proxy_error_type ret = advertising_proxy_set_service_needed(&service_sub, dispatch_get_main_queue(),
+                                                                            service_callback, NULL, NULL, need_service,
+                                                                            needed_flag);
+    if (ret != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "advertising_proxy_service_create failed: %d\n", ret);
+        exit(1);
+    }
+}
+
+advertising_proxy_conn_ref instance_sub;
+
+static void
+instance_callback(advertising_proxy_conn_ref UNUSED sub, void *UNUSED context, advertising_proxy_error_type error)
+{
+    fprintf(stderr, "instance callback: %d\n", error);
+    exit(0);
+}
+
+static void
+start_needing_instance(void)
+{
+    advertising_proxy_error_type ret = advertising_proxy_set_service_needed(&instance_sub, dispatch_get_main_queue(),
+                                                                            instance_callback, NULL, need_name,
+                                                                            need_service, needed_flag);
+    if (ret != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "advertising_proxy_set_service_needed failed: %d\n", ret);
+        exit(1);
+    }
+}
+
+const char *browse_service, *resolve_name, *resolve_service;
+
+advertising_proxy_subscription_t *browse_sub;
+
+static void
+browse_callback(advertising_proxy_subscription_t *UNUSED sub, advertising_proxy_error_type error, uint32_t interface_index,
+                bool add, const char *instance_name, const char *service_type, void *UNUSED context)
+{
+    if (error != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "browse_callback: %d\n", error);
+        exit(1);
+    }
+
+    fprintf(stderr, "browse: %d %s %s %s\n", interface_index, add ? "add" : "rmv", instance_name, service_type);
+}
+
+static void
+start_browsing_service(void)
+{
+    advertising_proxy_error_type ret = advertising_proxy_browse_create(&browse_sub, dispatch_get_main_queue(),
+                                                                        browse_service, browse_callback, NULL);
+    if (ret != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "advertising_proxy_browse_create failed: %d\n", ret);
+        exit(1);
+    }
+}
+
+advertising_proxy_subscription_t *resolve_sub;
+
+static void
+resolve_callback(advertising_proxy_subscription_t *UNUSED sub, advertising_proxy_error_type error,
+                 uint32_t interface_index, bool add, const char *fullname, const char *hostname, uint16_t port,
+                 uint16_t txt_length, const uint8_t *UNUSED txt_record, void *UNUSED context)
+{
+    if (error != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "resolve_create callback: %d\n", error);
+        exit(1);
+    }
+
+    fprintf(stderr, "resolved: %d %s %s %s %d %d\n", interface_index, add ? "add" : "rmv",
+            fullname, hostname, port, txt_length);
+}
+
+static void
+start_resolving_service(void)
+{
+    advertising_proxy_error_type ret = advertising_proxy_resolve_create(&resolve_sub, dispatch_get_main_queue(),
+                                                                        resolve_name, resolve_service, NULL,
+                                                                        resolve_callback, NULL);
+    if (ret != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "advertising_proxy_resolve_create failed: %d\n", ret);
+        exit(1);
+    }
+}
+
+advertising_proxy_subscription_t *registrar_sub;
+
+static void
+registrar_callback(advertising_proxy_subscription_t *UNUSED sub,
+                   advertising_proxy_error_type error, void *UNUSED context)
+{
+    if (error != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "registrar_callback: %d\n", error);
+        exit(1);
+    }
+
+    INFO("SRP registrar is enabled.");
+}
+
+static void
+start_registrar(void)
+{
+    advertising_proxy_error_type ret = advertising_proxy_registrar_create(&registrar_sub, dispatch_get_main_queue(),
+                                                                          registrar_callback, NULL);
+    if (ret != kDNSSDAdvertisingProxyStatus_NoError) {
+        fprintf(stderr, "advertising_proxy_registrar_create failed: %d", ret);
+        exit(1);
+    }
+}
+
+
 static void
 usage(void)
 {
-    fprintf(stderr, "srputil start                        -- start the SRP MDNS Proxy through launchd\n");
-    fprintf(stderr,
-            "  tcp-zero                           -- connect to port 53, send a DNS message that's got a zero-length payload\n");
-    fprintf(stderr,
-            "  tcp-fin-length                     -- connect to port 53, send a DNS message that ends before length is complete\n");
-    fprintf(stderr,
-            "  tcp-fin-payload                    -- connect to port 53, send a DNS message that ends before payload is complete\n");
-    fprintf(stderr, "  services                           -- get the list of services currently being advertised\n");
-    fprintf(stderr, "  block                              -- block the SRP listener\n");
-    fprintf(stderr, "  unblock                            -- unblock the SRP listener\n");
-    fprintf(stderr, "  regenerate-ula                     -- generate a new ULA and restart the network\n");
-    fprintf(stderr, "  adv-prefix-high                    -- advertise high-priority prefix to thread network\n");
-    fprintf(stderr, "  adv-prefix                         -- advertise prefix to thread network\n");
-    fprintf(stderr, "  stop                               -- stop advertising as SRP server\n");
-    fprintf(stderr, "  get-ula                            -- fetch the current ULA prefix configured on the SRP server\n");
-    fprintf(stderr, "  disable-srpl                       -- disable SRP replication\n");
-    fprintf(stderr, "  add-prefix <ipv6 prefix>           -- add an OMR prefix\n");
-    fprintf(stderr, "  remove-prefix <ipv6 prefix         -- remove an OMR prefix\n");
-    fprintf(stderr, "  add-nat64-prefix <nat64 prefix>    -- add an nat64 prefix\n");
-    fprintf(stderr, "  remove-nat64-prefix <nat64 prefix> -- remove an nat64 prefix\n");
-    fprintf(stderr, "  drop-srpl-connection               -- drop existing srp replication connections\n");
-    fprintf(stderr, "  undrop-srpl-connection             -- restart srp replication connections that were dropped \n");
-    fprintf(stderr, "  drop-srpl-advertisement            -- stop advertising srpl service (but keep it around)\n");
-    fprintf(stderr, "  undrop-srpl-advertisement          -- resume advertising srpl service\n");
-    fprintf(stderr, "  start-dropping-push                -- start repeatedly dropping any active push connections after 90 seconds\n");
-    fprintf(stderr, "  start-breaking-time                -- start breaking time validation on replicated SRP registrations\n");
-    fprintf(stderr, "  set [variable] [value]             -- set the value of variable to value (e.g. set min-lease-time 100)\n");
-    fprintf(stderr, "  block-anycast-service              -- block advertising anycast service\n");
-    fprintf(stderr, "  unblock-anycast-service            -- unblock advertising anycast service\n");
-    fprintf(stderr, "  start-thread-shutdown              -- start thread network shutdown\n");
-    fprintf(stderr, "  advertise-winning-unicast-service  -- advertise a unicast service that wins over the current service\n");
-    fprintf(stderr, "  remove-unicast-service             -- remove our unicast service\n");
+    fprintf(stderr, "srputil start [if1 .. ifN -]            -- start the SRP MDNS Proxy through launchd\n");
+    fprintf(stderr, "  tcp-zero                              -- connect to port 53, send a DNS message that's got a zero-length payload\n");
+    fprintf(stderr, "  tcp-fin-length                        -- connect to port 53, send a DNS message that ends before length is complete\n");
+    fprintf(stderr, "  tcp-fin-payload                       -- connect to port 53, send a DNS message that ends before payload is complete\n");
+    fprintf(stderr, "  services                              -- get the list of services currently being advertised\n");
+    fprintf(stderr, "  block                                 -- block the SRP listener\n");
+    fprintf(stderr, "  unblock                               -- unblock the SRP listener\n");
+    fprintf(stderr, "  regenerate-ula                        -- generate a new ULA and restart the network\n");
+    fprintf(stderr, "  adv-prefix-high                       -- advertise high-priority prefix to thread network\n");
+    fprintf(stderr, "  adv-prefix                            -- advertise prefix to thread network\n");
+    fprintf(stderr, "  stop                                  -- stop advertising as SRP server\n");
+    fprintf(stderr, "  get-ula                               -- fetch the current ULA prefix configured on the SRP server\n");
+    fprintf(stderr, "  disable-srpl                          -- disable SRP replication\n");
+    fprintf(stderr, "  add-prefix <ipv6 prefix>              -- add an OMR prefix\n");
+    fprintf(stderr, "  remove-prefix <ipv6 prefix            -- remove an OMR prefix\n");
+    fprintf(stderr, "  add-nat64-prefix <nat64 prefix>       -- add an nat64 prefix\n");
+    fprintf(stderr, "  remove-nat64-prefix <nat64 prefix>    -- remove an nat64 prefix\n");
+    fprintf(stderr, "  drop-srpl-connection                  -- drop existing srp replication connections\n");
+    fprintf(stderr, "  undrop-srpl-connection                -- restart srp replication connections that were dropped \n");
+    fprintf(stderr, "  drop-srpl-advertisement               -- stop advertising srpl service (but keep it around)\n");
+    fprintf(stderr, "  undrop-srpl-advertisement             -- resume advertising srpl service\n");
+    fprintf(stderr, "  start-dropping-push                   -- start repeatedly dropping any active push connections after 90 seconds\n");
+    fprintf(stderr, "  start-breaking-time                   -- start breaking time validation on replicated SRP registrations\n");
+    fprintf(stderr, "  set [variable] [value]                -- set the value of variable to value (e.g. set min-lease-time 100)\n");
+    fprintf(stderr, "  block-anycast-service                 -- block advertising anycast service\n");
+    fprintf(stderr, "  unblock-anycast-service               -- unblock advertising anycast service\n");
+    fprintf(stderr, "  start-thread-shutdown                 -- start thread network shutdown\n");
+    fprintf(stderr, "  advertise-winning-unicast-service     -- advertise a unicast service that wins over the current service\n");
+    fprintf(stderr, "  browse <service>                      -- start an advertising_proxy_browse on the specified service\n");
+    fprintf(stderr, "  resolve <name> <service>              -- start an advertising_proxy_resolve on the specified service instance\n");
+    fprintf(stderr, "  need-service <service> <flag>         -- signal to srp-mdns-proxy that we need to discover a service\n");
+    fprintf(stderr, "  need-instance <name> <service> <flag> -- signal to srp-mdns-proxy that we need to discover a service\n");
+    fprintf(stderr, "  start-srp                             -- on thread device, enable srp registration\n");
 #ifdef NOTYET
-    fprintf(stderr, "  flush                              -- flush all entries from the SRP proxy (for testing only)\n");
+    fprintf(stderr, "  flush                                 -- flush all entries from the SRP proxy (for testing only)\n");
 #endif
 }
 
@@ -626,12 +753,15 @@ bool unblock_anycast_service = false;
 bool start_thread_shutdown = false;
 bool advertise_winning_unicast_service = false;
 bool remove_unicast_service = false;
+bool start_srp = false;
 uint8_t prefix_buf[16];
 #ifdef NOTYET
 bool watch = false;
 bool get = false;
 #endif
 variable_t *variables;
+int num_permitted_interfaces;
+char **permitted_interfaces;
 
 static void
 start_activities(void *context)
@@ -719,6 +849,24 @@ start_activities(void *context)
     if (err == kDNSSDAdvertisingProxyStatus_NoError && remove_unicast_service) {
         start_removing_unicast_service();
     }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && advertise_winning_unicast_service) {
+        start_advertising_winning_unicast_service();
+    }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && browse_service != NULL) {
+        start_browsing_service();
+    }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && resolve_service != NULL) {
+        start_resolving_service();
+    }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && need_service != NULL && need_name == NULL) {
+        start_needing_service();
+    }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && need_service != NULL && need_name != NULL) {
+        start_needing_instance();
+    }
+    if (err == kDNSSDAdvertisingProxyStatus_NoError && start_srp) {
+        start_registrar();
+    }
     if (err == kDNSSDAdvertisingProxyStatus_NoError && variables != NULL) {
         for (variable_t *variable = variables; variable != NULL; variable = variable->next) {
             err = advertising_proxy_set_variable(&cref, main_queue, set_variable_callback, variable, variable->name, variable->value);
@@ -765,6 +913,15 @@ main(int argc, char **argv)
         if (!strcmp(argv[i], "start")) {
 			start_proxy = true;
             something = true;
+            int j;
+            for (j = i + 1; j < argc; j++) {
+                if (!strcmp(argv[j], "-")) {
+                    break;
+                }
+            }
+            num_permitted_interfaces = j - i - 1;
+            permitted_interfaces = argv + i + 1;
+            i = j;
         } else if (!strcmp(argv[i], "tcp-zero")) {
             do_tcp_zero_test = true;
             something = true;
@@ -809,37 +966,96 @@ main(int argc, char **argv)
             disable_srp_replication = true;
             something = true;
         } else if (!strcmp(argv[i], "add-prefix")) {
+            if (i + 1 >= argc) {
+                usage();
+            }
             if (inet_pton(AF_INET6, argv[i + 1], prefix_buf) < 1) {
-                fprintf(stderr, "Wrong ipv6 prefix.\n");
+                fprintf(stderr, "Invalid ipv6 prefix %s.\n", argv[i + 1]);
+                usage();
             } else {
                 add_thread_prefix = true;
                 something = true;
                 i++;
             }
         } else if (!strcmp(argv[i], "remove-prefix")) {
+            if (i + 1 >= argc) {
+                usage();
+            }
             if (inet_pton(AF_INET6, argv[i + 1], prefix_buf) < 1) {
-                fprintf(stderr, "Wrong ipv6 prefix.\n");
+                fprintf(stderr, "Invalid ipv6 prefix %s.\n", argv[i + 1]);
+                usage();
             } else {
                 remove_thread_prefix = true;
                 something = true;
                 i++;
             }
         } else if (!strcmp(argv[i], "add-nat64-prefix")) {
+            if (i + 1 >= argc) {
+                usage();
+            }
             if (inet_pton(AF_INET6, argv[i + 1], prefix_buf) < 1) {
-                fprintf(stderr, "Wrong ipv6 prefix.\n");
+                fprintf(stderr, "Invalid ipv6 prefix %s.\n", argv[i + 1]);
+                usage();
             } else {
                 add_nat64_prefix = true;
                 something = true;
                 i++;
             }
         } else if (!strcmp(argv[i], "remove-nat64-prefix")) {
+            if (i + 1 >= argc) {
+                usage();
+            }
             if (inet_pton(AF_INET6, argv[i + 1], prefix_buf) < 1) {
-                fprintf(stderr, "Wrong ipv6 prefix.\n");
+                fprintf(stderr, "Invalid ipv6 prefix %s.\n", argv[i + 1]);
+                usage();
             } else {
                 remove_nat64_prefix = true;
                 something = true;
                 i++;
             }
+        } else if (!strcmp(argv[i], "browse")) {
+            if (i + 1 >= argc) {
+                usage();
+            }
+            browse_service = argv[i + 1];
+            i++;
+            something = true;
+        } else if (!strcmp(argv[i], "resolve")) {
+            if (i + 2 >= argc) {
+                usage();
+            }
+            resolve_name = argv[i + 1];
+            resolve_service = argv[i + 2];
+            i += 2;
+            something = true;
+        } else if (!strcmp(argv[i], "need-service")) {
+            if (i + 2 >= argc) {
+                usage();
+            }
+            need_service = argv[i + 1];
+            if (!strcmp(argv[i + 2], "true")) {
+                needed_flag = true;
+            } else {
+                needed_flag = false;
+            }
+            i += 2;
+            something = true;
+        } else if (!strcmp(argv[i], "need-instance")) {
+            if (i + 3 >= argc) {
+                usage();
+            }
+            need_name = argv[i + 1];
+            need_service = argv[i + 2];
+            if (!strcmp(argv[i + 3], "true")) {
+                needed_flag = true;
+            } else {
+                needed_flag = false;
+            }
+            i += 3;
+            something = true;
+        } else if (!strcmp(argv[i], "start-srp")) {
+            start_srp = true;
+            something = true;
         } else if (!strcmp(argv[i], "drop-srpl-connection")) {
             drop_srpl_connection = true;
             something = true;

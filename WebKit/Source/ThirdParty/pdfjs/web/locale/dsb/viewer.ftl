@@ -305,8 +305,29 @@ pdfjs-editor-ink-button-label = Kresliś
 pdfjs-editor-stamp-button =
     .title = Wobraze pśidaś abo wobźěłaś
 pdfjs-editor-stamp-button-label = Wobraze pśidaś abo wobźěłaś
-pdfjs-editor-remove-button =
-    .title = Wótwónoźeś
+pdfjs-editor-highlight-button =
+    .title = Wuzwignuś
+pdfjs-editor-highlight-button-label = Wuzwignuś
+pdfjs-highlight-floating-button =
+    .title = Wuzwignjenje
+pdfjs-highlight-floating-button1 =
+    .title = Wuzwignuś
+    .aria-label = Wuzwignuś
+pdfjs-highlight-floating-button-label = Wuzwignuś
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Kreslanku wótwónoźeś
+pdfjs-editor-remove-freetext-button =
+    .title = Tekst wótwónoźeś
+pdfjs-editor-remove-stamp-button =
+    .title = Wobraz wótwónoźeś
+pdfjs-editor-remove-highlight-button =
+    .title = Wuzwignjenje wótpóraś
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Barwa
 pdfjs-editor-free-text-size-input = Wjelikosć
@@ -316,6 +337,10 @@ pdfjs-editor-ink-opacity-input = Opacita
 pdfjs-editor-stamp-add-image-button =
     .title = Wobraz pśidaś
 pdfjs-editor-stamp-add-image-button-label = Wobraz pśidaś
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Tłustosć
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Tłustosć změniś, gaž se zapiski wuzwiguju, kótarež tekst njejsu
 pdfjs-free-text =
     .aria-label = Tekstowy editor
 pdfjs-free-text-default-content = Zachopśo pisaś…
@@ -353,3 +378,29 @@ pdfjs-editor-resizer-label-bottom-right = Dołojce napšawo – wjelikosć změn
 pdfjs-editor-resizer-label-bottom-middle = Dołojce wesrjejź – wjelikosć změniś
 pdfjs-editor-resizer-label-bottom-left = Dołojce nalěwo – wjelikosć změniś
 pdfjs-editor-resizer-label-middle-left = Wesrjejź nalěwo – wjelikosć změniś
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Barwa wuzwignjenja
+pdfjs-editor-colorpicker-button =
+    .title = Barwu změniś
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Wuběrk barwow
+pdfjs-editor-colorpicker-yellow =
+    .title = Žołty
+pdfjs-editor-colorpicker-green =
+    .title = Zeleny
+pdfjs-editor-colorpicker-blue =
+    .title = Módry
+pdfjs-editor-colorpicker-pink =
+    .title = Pink
+pdfjs-editor-colorpicker-red =
+    .title = Cerwjeny
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Wšykne pokazaś
+pdfjs-editor-highlight-show-all-button =
+    .title = Wšykne pokazaś

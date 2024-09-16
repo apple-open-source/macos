@@ -15,6 +15,7 @@
 #include "libANGLE/queryconversions.h"
 #include "libANGLE/renderer/GLImplFactory.h"
 #include "libANGLE/renderer/ProgramExecutableImpl.h"
+#include "libANGLE/renderer/ProgramImpl.h"
 
 namespace gl
 {
@@ -727,7 +728,8 @@ ProgramExecutable::ProgramExecutable(rx::GLImplFactory *factory, InfoLog *infoLo
     : mImplementation(factory->createProgramExecutable(this)),
       mInfoLog(infoLog),
       mCachedBaseVertex(0),
-      mCachedBaseInstance(0)
+      mCachedBaseInstance(0),
+      mIsPPO(false)
 {
     memset(&mPod, 0, sizeof(mPod));
     reset();
@@ -735,12 +737,22 @@ ProgramExecutable::ProgramExecutable(rx::GLImplFactory *factory, InfoLog *infoLo
 
 ProgramExecutable::~ProgramExecutable()
 {
+    ASSERT(mPostLinkSubTasks.empty());
+    ASSERT(mPostLinkSubTaskWaitableEvents.empty());
     ASSERT(mImplementation == nullptr);
 }
 
 void ProgramExecutable::destroy(const Context *context)
 {
     ASSERT(mImplementation != nullptr);
+
+    for (SharedProgramExecutable &executable : mPPOProgramExecutables)
+    {
+        if (executable)
+        {
+            UninstallExecutable(context, &executable);
+        }
+    }
 
     mImplementation->destroy(context);
     SafeDelete(mImplementation);
@@ -820,6 +832,9 @@ void ProgramExecutable::reset()
     mSamplerBindings.clear();
     mSamplerBoundTextureUnits.clear();
     mImageBindings.clear();
+
+    mPostLinkSubTasks.clear();
+    mPostLinkSubTaskWaitableEvents.clear();
 }
 
 void ProgramExecutable::load(gl::BinaryInputStream *stream)
@@ -2456,19 +2471,10 @@ GLuint ProgramExecutable::getUniformIndex(const std::string &name) const
 
 bool ProgramExecutable::shouldIgnoreUniform(UniformLocation location) const
 {
-    if (location.value < 0)
-    {
-        return true;
-    }
-
-    if (static_cast<size_t>(location.value) >= mUniformLocations.size())
-    {
-        ERR() << "Invalid uniform location " << location.value << ", expected [0, "
-              << mUniformLocations.size() << ")";
-        return true;
-    }
-
-    return mUniformLocations[location.value].ignored;
+    // Casting to size_t will convert negative values to large positive avoiding double check.
+    // Adding ERR() log to report out of bound location harms performance on Android.
+    return ANGLE_UNLIKELY(static_cast<size_t>(location.value) >= mUniformLocations.size() ||
+                          mUniformLocations[location.value].ignored);
 }
 
 GLuint ProgramExecutable::getUniformIndexFromName(const std::string &name) const
@@ -2593,7 +2599,6 @@ void ProgramExecutable::setUniformGeneric(UniformLocation location,
     const VariableLocation &locationInfo = mUniformLocations[location.value];
     GLsizei clampedCount                 = clampUniformCount(locationInfo, count, UniformSize, v);
     (mImplementation->*SetUniformFunc)(location.value, clampedCount, v);
-    onStateChange(angle::SubjectMessage::ProgramUniformUpdated);
 }
 
 void ProgramExecutable::setUniform1fv(UniformLocation location, GLsizei count, const GLfloat *v)
@@ -2634,10 +2639,6 @@ void ProgramExecutable::setUniform1iv(Context *context,
     if (isSamplerUniformIndex(locationInfo.index))
     {
         updateSamplerUniform(context, locationInfo, clampedCount, v);
-    }
-    else
-    {
-        onStateChange(angle::SubjectMessage::ProgramUniformUpdated);
     }
 }
 
@@ -2693,7 +2694,6 @@ void ProgramExecutable::setUniformMatrixGeneric(UniformLocation location,
 
     GLsizei clampedCount = clampMatrixUniformCount<MatrixC, MatrixR>(location, count, transpose, v);
     (mImplementation->*SetUniformMatrixFunc)(location.value, clampedCount, transpose, v);
-    onStateChange(angle::SubjectMessage::ProgramUniformUpdated);
 }
 
 void ProgramExecutable::setUniformMatrix2fv(UniformLocation location,
@@ -3150,6 +3150,19 @@ void ProgramExecutable::setBaseInstanceUniform(GLuint baseInstance)
     mCachedBaseInstance   = baseInstance;
     GLint baseInstanceInt = baseInstance;
     mImplementation->setUniform1iv(mPod.baseInstanceLocation, 1, &baseInstanceInt);
+}
+
+void ProgramExecutable::waitForPostLinkTasks(const Context *context)
+{
+    if (mPostLinkSubTasks.empty())
+    {
+        return;
+    }
+
+    mImplementation->waitForPostLinkTasks(context);
+
+    // Implementation is expected to call |onPostLinkTasksComplete|.
+    ASSERT(mPostLinkSubTasks.empty());
 }
 
 void InstallExecutable(const Context *context,

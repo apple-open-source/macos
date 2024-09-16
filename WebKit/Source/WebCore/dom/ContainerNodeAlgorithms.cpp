@@ -149,7 +149,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
 {
     RefPtr<Node> next;
     for (RefPtr node = container.firstChild(); node; node = WTFMove(next)) {
-        ASSERT(!node->m_deletionHasBegun);
+        ASSERT(!node->deletionHasBegun());
 
         next = node->nextSibling();
         node->setNextSibling(nullptr);
@@ -158,8 +158,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
         if (next)
             next->setPreviousSibling(nullptr);
 
-        // Unable to ref the document here as it may have started destruction.
-        node->setTreeScopeRecursively(container.document());
+        node->setTreeScopeRecursively(RefAllowingPartiallyDestroyed<Document> { container.document() });
         if (node->isInTreeScope())
             notifyChildNodeRemoved(container, *node);
         ASSERT_WITH_SECURITY_IMPLICATION(!node->isInTreeScope());

@@ -45,7 +45,7 @@
  * @param argc  The number of arguments.
  * @param argv  The arguments.
  */
-void
+BcStatus
 dc_main(int argc, char* argv[])
 {
 	// All of these just set dc-specific items in BcVm.
@@ -59,6 +59,6 @@ dc_main(int argc, char* argv[])
 	vm->parse = dc_parse_parse;
 	vm->expr = dc_parse_expr;
 
-	bc_vm_boot(argc, argv);
+	return bc_vm_boot(argc, argv);
 }
 #endif // DC_ENABLED

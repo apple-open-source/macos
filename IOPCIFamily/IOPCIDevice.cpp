@@ -35,6 +35,7 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOUserServer.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOCommandGate.h>
 #include <libkern/OSKextLib.h>
 
@@ -92,8 +93,6 @@ mach_vm_protect(
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOPCIDevice, IOService)
-OSMetaClassDefineReservedUnused(IOPCIDevice,  4);
-OSMetaClassDefineReservedUnused(IOPCIDevice,  5);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  6);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  7);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  8);
@@ -201,8 +200,6 @@ IOPCIDeviceDMAOriginator(IOPCIDevice * device)
 //
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define kIOPCIDeviceManualEnableS2RMatchTimeoutMS (5 * 1000)
-
 bool IOPCIDevice::attach( IOService * provider )
 {
     if (!super::attach(provider)) return (false);
@@ -286,53 +283,8 @@ bool IOPCIDevice::attach( IOService * provider )
 	// initialize superclass variables
 	PMinit();
 
-	reserved->_powerAssertion = kIOPMUndefinedDriverAssertionID;
-	reserved->_powerAssertionTimer = NULL;
-
 	if (dtParent && (dtParent->getProperty("manual-enable-s2r") != nullptr || dtParent->getProperty("manual-enable-s2r-ep") != nullptr))
 	{
-		// Temporarily prevent system sleep while the descendants match, to ensure matching occurs
-		// before the first system power transition, Use a kIOPCIDeviceManualEnableS2RMatchTimeoutMS (arbitrary)
-		// timeout in case there is no match. Restart the timer each time a descendant is published.
-		DLOG("[%s()] Device %s's parent has the manual-enable-s2r or manual-enable-s2r-ep property, creating PM assertion\n", __func__, getName());
-		reserved->_powerAssertionTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOPCIDevice::powerAssertionTimeout));
-		if(reserved->_powerAssertionTimer != NULL)
-		{
-			char pmAssertionString[128] = { 0 };
-			snprintf(pmAssertionString, sizeof(pmAssertionString), "com.apple.pci.%s", getLocation());
-
-			reserved->_powerAssertion = getPMRootDomain()->createPMAssertion(kIOPMDriverAssertionCPUBit, kIOPMDriverAssertionLevelOn, this, pmAssertionString);
-
-			this->parent->getConfiguratorWorkLoop()->addEventSource(reserved->_powerAssertionTimer);
-			reserved->_powerAssertionTimer->enable();
-
-			reserved->_powerAssertionTimer->setTimeoutMS(kIOPCIDeviceManualEnableS2RMatchTimeoutMS);
-
-			reserved->_powerAssertionRefCnt = 1;
-		}
-
-		// Create publish and matched notifiers with an empty matching dictionary, so all services match.
-		// The callbacks will determine whether this IOPCIDevice is an ancestor of the published service.
-		// Don't NULL-check the notifier; if it's not created, it's not a fatal error for the IOPCIDevice.
-		OSDictionary* matchingDictionary = OSDictionary::withCapacity(1);
-
-		if (matchingDictionary)
-		{
-			reserved->_publishNotifier = addMatchingNotification(gIOPublishNotification, matchingDictionary,
-																 OSMemberFunctionCast(IOServiceMatchingNotificationHandler,
-																					  this,
-																					  &IOPCIDevice::childPublished),
-																 this, 0, INT_MIN);
-
-			reserved->_matchedNotifier = addMatchingNotification(gIOMatchedNotification, matchingDictionary,
-																 OSMemberFunctionCast(IOServiceMatchingNotificationHandler,
-																					  this,
-																					  &IOPCIDevice::childMatched),
-																 this, 0, INT_MIN);
-		}
-
-		OSSafeReleaseNULL(matchingDictionary);
-
 		// rdar://95285826: Set wifi/bt's desired power before issuing a temporaryPowerClampOn()
 		if (reserved->configEntry && (reserved->configEntry->vendorProduct & 0xFFFF) == 0x14e4) {
 			changePowerStateToPriv(kIOPCIDeviceOnState);
@@ -370,27 +322,6 @@ void IOPCIDevice::detach( IOService * provider )
 		setTunnelL1Enable(this, true);
 	}
 
-    parent->getConfiguratorWorkLoop()->runActionBlock(^IOReturn
-	{
-		releasePowerAssertion();
-
-		return kIOReturnSuccess;
-	});
-
-	OSSafeReleaseNULL(reserved->_powerAssertionTimer);
-
-	if (reserved->_matchedNotifier != NULL)
-	{
-		reserved->_matchedNotifier->remove();
-		reserved->_matchedNotifier = NULL;
-	}
-
-	if (reserved->_publishNotifier != NULL)
-	{
-		reserved->_publishNotifier->remove();
-		reserved->_publishNotifier = NULL;
-	}
-
     PMstop();
 
 	IORecursiveLockLock(reserved->lock);
@@ -406,6 +337,33 @@ void IOPCIDevice::detach( IOService * provider )
     super::detach(provider);
 
     detachAbove(gIODTPlane);
+}
+
+bool IOPCIDevice::shouldSkipReset(void)
+{
+    return false;
+}
+
+void IOPCIDevice::detachFromChild(IORegistryEntry *child, const IORegistryPlane *plane)
+{
+	IOService *childService = OSDynamicCast(IOService, child);
+
+	// If the IOPCIDevice is not terminating (e.g. on an unplug), its driver
+	// did not crash (the client crash handler will reset the function/device),
+	// and this is not a detach as part of matching, mark this nub as needing
+	// reset.
+	if (   !isInactive()
+		&& !reserved->clientCrashed
+		&& !shouldSkipReset()
+		&& (childService && childService->isInactive()))
+	{
+		// Set a flag to reset the function/device next time drivers match on this nub. Use
+		// function level reset if supported, else fall back to hot reset.
+		DLOG("[%s()] Marking %s as needing hardware reset\n", __func__, getName());
+		reserved->hardwareResetNeeded = true;
+	}
+
+	super::detachFromChild(child, plane);
 }
 
 void
@@ -480,6 +438,21 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
                                               unsigned long   stateNumber, 
                                               IOService*      whatDevice)
 {
+#if ACPI_SUPPORT
+	return powerStateWillChangeToGated(&capabilities, &stateNumber, whatDevice);
+#else
+    return parent->getConfiguratorWorkLoop()->runAction(
+                OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCIDevice::powerStateWillChangeToGated),
+                this, &capabilities, &stateNumber, whatDevice);
+#endif
+}
+
+IOReturn IOPCIDevice::powerStateWillChangeToGated (IOPMPowerFlags  *_capabilities,
+                                              unsigned long   *_stateNumber,
+                                              IOService*      whatDevice)
+{
+	IOPMPowerFlags capabilities = *_capabilities;
+	unsigned long stateNumber = *_stateNumber;
     IOReturn ret;
     uint16_t pmcsr;
 
@@ -537,7 +510,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	}
 	else effectiveState = powerState;
 
-    DLOG("%s[%p]::pciSetPowerState(%d->%d,%d)\n", getName(), this, reserved->pciPMState, powerState, effectiveState);
+    DLOG("%s[%p]::setPCIPowerState(%d->%d,%d)\n", getName(), this, reserved->pciPMState, powerState, effectiveState);
 
 #if ACPI_SUPPORT
 	IOACPIPlatformDevice * device;
@@ -586,7 +559,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	prevState = reserved->pciPMState;
 	if (powerState != prevState)
 	{
-		reserved->pciPMState = powerState;
+		atomic_store((atomic_char*)&reserved->pciPMState, powerState);
 		if (!isInactive()) switch (powerState)
 		{
 			case kIOPCIDeviceOffState:
@@ -667,32 +640,6 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void
-IOPCIDevice::releasePowerAssertion(void)
-{
-	if(reserved->_powerAssertion != kIOPMUndefinedDriverAssertionID)
-	{
-		DLOG("[%s()] Releasing device %s's PM assertion\n", __func__, getName());
-		getPMRootDomain()->releasePMAssertion(reserved->_powerAssertion);
-		reserved->_powerAssertion = kIOPMUndefinedDriverAssertionID;
-	}
-
-	if (reserved->_powerAssertionTimer)
-	{
-		reserved->_powerAssertionTimer->cancelTimeout();
-		parent->getConfiguratorWorkLoop()->removeEventSource(reserved->_powerAssertionTimer);
-	}
-
-	reserved->_powerAssertionRefCnt = 0;
-}
-
-void
-IOPCIDevice::powerAssertionTimeout(IOTimerEventSource* timer __unused)
-{
-	DLOG("[%s()] device %s's PM assertion (%p) timeout fired\n", __func__, getName(), reserved->_powerAssertion);
-	releasePowerAssertion();
-}
-
 IOReturn IOPCIDevice::addPowerChild(IOService *theChild)
 {
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
@@ -740,93 +687,6 @@ void IOPCIDevice::updateWakeReason(uint16_t pmeState)
     }
 }
 
-static bool isDescendant(IOService *newService, IOService *device)
-{
-	IORegistryEntry *entry = OSDynamicCast(IORegistryEntry, newService);
-
-	if (entry == NULL)
-	{
-		return NULL;
-	}
-
-	entry = entry->getParentEntry(gIOServicePlane);
-	while (entry && (entry != device))
-	{
-		entry = entry->getParentEntry(gIOServicePlane);
-	}
-
-	return (entry != NULL);
-}
-
-bool IOPCIDevice::childPublished(void* refcon __unused, IOService* newService, IONotifier* notifier __unused)
-{
-	if (!isDescendant(newService, this))
-	{
-		return true;
-	}
-
-	DLOG("[%s()] device %s's child %s published\n", __func__, getName(), newService->getName());
-
-    parent->getConfiguratorWorkLoop()->runActionBlock(^IOReturn
-	{
-		// If the device is holding a power assertion, reset the timeout to kIOPCIDeviceManualEnableS2RMatchTimeoutMS from now
-		if(reserved->_powerAssertion != kIOPMUndefinedDriverAssertionID)
-		{
-			DLOG("[%s()] Restarting device %s's timeout\n", __func__, getName());
-			reserved->_powerAssertionTimer->cancelTimeout();
-			reserved->_powerAssertionTimer->setTimeoutMS(kIOPCIDeviceManualEnableS2RMatchTimeoutMS);
-			reserved->_powerAssertionRefCnt++;
-		}
-		// If the device is not holding a power assertion, create one with a timeout
-		else
-		{
-			reserved->_powerAssertionTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOPCIDevice::powerAssertionTimeout));
-			if(reserved->_powerAssertionTimer != NULL)
-			{
-				char pmAssertionString[128] = { 0 };
-				snprintf(pmAssertionString, sizeof(pmAssertionString), "com.apple.pci.%s", getLocation());
-
-				reserved->_powerAssertion = getPMRootDomain()->createPMAssertion(kIOPMDriverAssertionCPUBit, kIOPMDriverAssertionLevelOn, this, pmAssertionString);
-
-				this->parent->getConfiguratorWorkLoop()->addEventSource(reserved->_powerAssertionTimer);
-				reserved->_powerAssertionTimer->enable();
-
-				reserved->_powerAssertionTimer->setTimeoutMS(kIOPCIDeviceManualEnableS2RMatchTimeoutMS);
-				reserved->_powerAssertionRefCnt = 1;
-				DLOG("[%s()] Creating %s's power assertion!\n", __func__, getName());
-			}
-		}
-
-		return kIOReturnSuccess;
-	});
-
-    return true;
-}
-
-bool IOPCIDevice::childMatched(void* refcon __unused, IOService* newService, IONotifier* notifier __unused)
-{
-	if (!isDescendant(newService, this))
-	{
-		return true;
-	}
-
-	DLOG("[%s()] device %s's child %s matched\n", __func__, getName(), newService->getName());
-
-    parent->getConfiguratorWorkLoop()->runActionBlock(^IOReturn
-	{
-		reserved->_powerAssertionRefCnt -= (reserved->_powerAssertionRefCnt > 0) ? 1 : 0;
-
-		if (reserved->_powerAssertionRefCnt == 0)
-		{
-			releasePowerAssertion();
-		}
-
-		return kIOReturnSuccess;
-	});
-
-    return true;
-}
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // PM setPowerState
 //
@@ -835,6 +695,19 @@ bool IOPCIDevice::childMatched(void* refcon __unused, IOService* newService, ION
 IOReturn IOPCIDevice::setPowerState( unsigned long newState,
                                      IOService * whatDevice )
 {
+#if ACPI_SUPPORT
+	return setPowerStateGated(&newState, whatDevice);
+#else
+    return parent->getConfiguratorWorkLoop()->runAction(
+                OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCIDevice::setPowerStateGated),
+                this, &newState, whatDevice);
+#endif
+}
+
+IOReturn IOPCIDevice::setPowerStateGated( unsigned long *_newState,
+                                          IOService * whatDevice )
+{
+	unsigned long newState = *_newState;
 	IOReturn ret;
 	unsigned long prevState;
 	
@@ -993,9 +866,51 @@ bool IOPCIDevice::compareName( OSString * name, OSString ** matched ) const
     return (result);
 }
 
+// Reset nub software state that could have been modified by a client driver
+void IOPCIDevice::resetNubState(void)
+{
+	// TODO: Reset interrupt state (reserved->interruptVectorsResolved,
+	// IOInterruptControllers, IOInterruptSpecifiers. This requires IOKit support
+	// (rdar://118153788). For now, nubs cannot resize their first interrupt
+	// configuration.
+
+	// Remove crash reset type override property
+	removeProperty(kIOPCIDeviceCrashResetType);
+
+	// Reset the shadow config state
+	configShadow(this)->flags &= ~kIOPCIConfigShadowPermanent;
+	configShadow(this)->restoreCount = 0;
+
+	reserved->clientCrashed = false;
+}
+
 IOReturn IOPCIDevice::getResources( void )
 {
-    return (parent->getNubResources(this));
+    if (getProperty(kIOPCIResourcedKey) && !getChildEntry(gIOServicePlane))
+	{
+		if (reserved->hardwareResetNeeded)
+		{
+			tIOPCIDeviceResetTypes type = supportsFLR() ? kIOPCIDeviceResetTypeFunctionReset : kIOPCIDeviceResetTypeHotReset;
+
+			DLOG("[%s()] Performing %s on nub %s\n", __func__, (type == kIOPCIDeviceResetTypeFunctionReset) ? "FLR" : "hot reset", getName());
+
+			IOReturn ret = reset(type);
+
+			reserved->hardwareResetNeeded = false;
+
+			if (ret != kIOReturnSuccess)
+			{
+				return ret;
+			}
+		}
+
+		DLOG("[%s()] resetting nub %s's software state\n", __func__, getName());
+
+		// resetNubState() is effectively a no-op on the first match
+		resetNubState();
+	}
+
+	return parent->getNubResources(this);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1691,8 +1606,36 @@ IOPCIDevice::configureInterrupts(UInt32 interruptType, UInt32 numRequired, UInt3
     IORecursiveLockLock(reserved->lock);
     if (reserved->interruptVectorsResolved) // TODO add cleanup support on numRequired == 0 (if needed).
     {
+        // Return success if this request is satisfied by the existing allocation.
+        ret = kIOReturnUnsupported;
+
+        switch (interruptType)
+        {
+        case kIOInterruptTypeLevel:
+            if (reserved->legacyInterruptResolved)
+            {
+                ret = kIOReturnSuccess;
+            }
+            break;
+
+        case kIOInterruptTypePCIMessaged:
+            if (   !(reserved->msiMode & kMSIX)
+                && (reserved->msiPhysVectorCount >= numRequired))
+            {
+                ret = kIOReturnSuccess;
+            }
+            break;
+        case kIOInterruptTypePCIMessagedX:
+            if (   (reserved->msiMode & kMSIX)
+                && (reserved->msiPhysVectorCount >= numRequired))
+            {
+                ret = kIOReturnSuccess;
+            }
+            break;
+        }
+
         IORecursiveLockUnlock(reserved->lock);
-        return kIOReturnUnsupported;
+        return ret;
     }
     reserved->interruptVectorsResolved = 1;
     switch (interruptType)
@@ -1851,7 +1794,7 @@ IOReturn IOPCIDevice::requestProbe(IOOptionBits options)
 
 IOReturn IOPCIDevice::kernelRequestProbe(uint32_t options)
 {
-    return (parent->kernelRequestProbe(this, options));
+    return (parent->busProbe(this, options));
 }
 
 IOReturn IOPCIDevice::protectDevice(uint32_t space, uint32_t prot)
@@ -1947,23 +1890,11 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
 
 uint16_t IOPCIDevice::getCloseCommandMask(uint32_t vendorDevice)
 {
-    //rdar:84595017: Disabling Bus Lead can cause CTOs on subsequent config accesses in certain wifi chipsets
-    uint32_t buggyVendorDeviceTable[] = {
-        //0x<DID><VID>
-        0x43a314e4,
-        0x43dc14e4,
-        0x47ab14e4,
-        0x446414e4,
-    };
     uint16_t commandMask = kIOPCICommandBusLead | kIOPCICommandMemorySpace;
 
-    for (int i = 0; i < arrayCount(buggyVendorDeviceTable); i++)
+    if (IOPCIBridge::hasBusLeadCTOBug(vendorDevice))
     {
-        if (vendorDevice == buggyVendorDeviceTable[i])
-        {
-            commandMask &= ~kIOPCICommandBusLead;
-            break;
-        }
+        commandMask &= ~kIOPCICommandBusLead;
     }
 
     return commandMask;
@@ -2103,9 +2034,32 @@ void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit
     }
 }
 
-IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
-                                         uint64_t  offset,
-                                         uint64_t* readData)
+OSMetaClassDefineReservedUsed(IOPCIDevice,  4);
+IOReturn IOPCIDevice::deviceMemoryRead(uint8_t   memoryIndex,
+									   uint64_t  offset,
+									   void*     data,
+									   uint8_t   size,
+									   IOOptionBits options)
+{
+	switch (size)
+	{
+	case sizeof(uint64_t):
+		return deviceMemoryRead64(memoryIndex, offset, reinterpret_cast<uint64_t*>(data), options);
+	case sizeof(uint32_t):
+		return deviceMemoryRead32(memoryIndex, offset, reinterpret_cast<uint32_t*>(data), options);
+	case sizeof(uint16_t):
+		return deviceMemoryRead16(memoryIndex, offset, reinterpret_cast<uint16_t*>(data), options);
+	case sizeof(uint8_t):
+		return deviceMemoryRead8(memoryIndex, offset, reinterpret_cast<uint8_t*>(data), options);
+	default:
+		return kIOReturnBadArgument;
+	}
+}
+
+IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint64_t*    readData,
+                                         IOOptionBits options)
 {
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
@@ -2128,7 +2082,7 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
     }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (reserved->offloadEngineMMIODisable == 0)
+    if(   ((reserved->offloadEngineMMIODisable == 0) || (options & kIOPCIAccessLatencyTolerantHint))
        && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
@@ -2167,9 +2121,17 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
-                                   uint64_t  offset,
-                                   uint32_t* readData)
+IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint64_t*    readData)
+{
+	return deviceMemoryRead64(memoryIndex, offset, readData, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint32_t*    readData,
+                                         IOOptionBits options)
 {
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
@@ -2192,7 +2154,7 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
     }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (reserved->offloadEngineMMIODisable == 0)
+    if(   ((reserved->offloadEngineMMIODisable == 0) || (options & kIOPCIAccessLatencyTolerantHint))
        && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
@@ -2230,9 +2192,17 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
-                                 uint64_t  offset,
-                                 uint16_t* readData)
+IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint32_t*    readData)
+{
+	return deviceMemoryRead32(memoryIndex, offset, readData, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint16_t*    readData,
+                                         IOOptionBits options)
 {
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
@@ -2255,7 +2225,7 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
     }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (reserved->offloadEngineMMIODisable == 0)
+    if(   ((reserved->offloadEngineMMIODisable == 0) || (options & kIOPCIAccessLatencyTolerantHint))
        && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
@@ -2293,9 +2263,17 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
-                                        uint64_t offset,
-                                        uint8_t* readData)
+IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint16_t*    readData)
+{
+	return deviceMemoryRead16(memoryIndex, offset, readData, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t      memoryIndex,
+                                        uint64_t     offset,
+                                        uint8_t*     readData,
+                                        IOOptionBits options)
 {
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
@@ -2318,7 +2296,7 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
     }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
-    if(   (reserved->offloadEngineMMIODisable == 0)
+    if(   ((reserved->offloadEngineMMIODisable == 0) || (options & kIOPCIAccessLatencyTolerantHint))
        && (ml_get_interrupts_enabled() == true)
        && (ml_at_interrupt_context() == false))
     {
@@ -2356,10 +2334,40 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
     return result;
 }
 
+IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t      memoryIndex,
+                                        uint64_t     offset,
+                                        uint8_t*     readData)
+{
+	return deviceMemoryRead8(memoryIndex, offset, readData, 0);
+}
+
+OSMetaClassDefineReservedUsed(IOPCIDevice,  5);
+IOReturn IOPCIDevice::deviceMemoryWrite(uint8_t      memoryIndex,
+										uint64_t     offset,
+										uint64_t     data,
+										uint8_t      size,
+										IOOptionBits options)
+{
+	switch (size)
+	{
+	case sizeof(uint64_t):
+		return deviceMemoryWrite64(memoryIndex, offset, static_cast<uint64_t>(data), options);
+	case sizeof(uint32_t):
+		return deviceMemoryWrite32(memoryIndex, offset, static_cast<uint32_t>(data), options);
+	case sizeof(uint16_t):
+		return deviceMemoryWrite16(memoryIndex, offset, static_cast<uint16_t>(data), options);
+	case sizeof(uint8_t):
+		return deviceMemoryWrite8(memoryIndex, offset, static_cast<uint8_t>(data), options);
+	default:
+		return kIOReturnBadArgument;
+	}
+}
+
 // TODO: support memory writes being routed to the host bridge?
-IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t  memoryIndex,
-                                          uint64_t offset,
-                                          uint64_t data)
+IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint64_t     data,
+                                          IOOptionBits options)
 {
     IOReturn result = kIOReturnUnsupported;
 
@@ -2388,9 +2396,17 @@ IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t  memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t  memoryIndex,
-                                          uint64_t offset,
-                                          uint32_t data)
+IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint64_t     data)
+{
+	deviceMemoryWrite64(memoryIndex, offset, data, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint32_t     data,
+                                          IOOptionBits options)
 {
     IOReturn result = kIOReturnUnsupported;
 
@@ -2419,9 +2435,17 @@ IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t  memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t  memoryIndex,
-                                          uint64_t offset,
-                                          uint16_t data)
+IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint32_t     data)
+{
+	deviceMemoryWrite32(memoryIndex, offset, data, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint16_t     data,
+                                          IOOptionBits options)
 {
     IOReturn result = kIOReturnUnsupported;
 
@@ -2450,9 +2474,17 @@ IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t  memoryIndex,
     return result;
 }
 
-IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t  memoryIndex,
-                                         uint64_t offset,
-                                         uint8_t  data)
+IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t      memoryIndex,
+                                          uint64_t     offset,
+                                          uint16_t     data)
+{
+	deviceMemoryWrite16(memoryIndex, offset, data, 0);
+}
+
+IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint8_t      data,
+                                         IOOptionBits options)
 {
     IOReturn result = kIOReturnUnsupported;
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
@@ -2480,6 +2512,13 @@ IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t  memoryIndex,
     return result;
 }
 
+IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t      memoryIndex,
+                                         uint64_t     offset,
+                                         uint8_t      data)
+{
+	deviceMemoryWrite8(memoryIndex, offset, data, 0);
+}
+
 IOReturn IOPCIDevice::setLinkSpeed(tIOPCILinkSpeed linkSpeed,
 								   bool            retrain)
 {
@@ -2491,14 +2530,161 @@ IOReturn IOPCIDevice::getLinkSpeed(tIOPCILinkSpeed *linkSpeed)
 	return parent->getLinkSpeed(linkSpeed);
 }
 
+void IOPCIDevice::launchReprobeThread(void)
+{
+	thread_call_t threadCall = thread_call_allocate(OSMemberFunctionCast(thread_call_func_t,
+																		 this,
+																		 &IOPCIDevice::reprobeThreadCall),
+													this);
+
+	if(threadCall != NULL)
+	{
+		retain();
+		parent->retain();
+		if(thread_call_enter1(threadCall, threadCall /* so the call cleans itself up */) == TRUE)
+		{
+			thread_call_free(threadCall);
+			parent->release();
+			release();
+		}
+	}
+}
+
+void IOPCIDevice::prepareFLR(void)
+{
+	// Prepare for the FLR by preventing new upstream transactions and flushing
+	// in-flight ones, in order to satisfy the requirement that software "must
+	// not initialize the Function until allowing adequate time for any
+	// associated Completions to arrive."
+
+	// Clear the function's Bus Lead and SERR bits, and set the Interrupt Disable bit,
+	// to prevent the function from initiating new transactions.
+	uint16_t command = extendedConfigRead16(kIOPCIConfigCommand);
+	command &= ~(kIOPCICommandBusLead | kIOPCICommandSERR);
+	command |= kIOPCICommandInterruptDisable;
+	extendedConfigWrite16(kIOPCIConfigCommand, command);
+
+	// Poll the transactions pending bit for up to 50ms
+	const uint32_t tpTimeoutMs = 50;
+	AbsoluteTime deadline, now = 0;
+	uint16_t deviceStatus = 0;
+
+	clock_interval_to_deadline(tpTimeoutMs, kMillisecondScale, &deadline);
+	do
+	{
+		deviceStatus = extendedConfigRead8(reserved->expressCapability + 0x0A);
+		IOSleep(2);
+		clock_get_uptime(&now);
+	}
+	while (    (deviceStatus & (1 << 5))
+			&& (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline)));
+}
+
+void IOPCIDevice::flr(void)
+{
+	// Initiate FLR
+	uint16_t control = extendedConfigRead16(reserved->expressCapability + 0x08);
+	control |= (1 << 15);
+	extendedConfigWrite16(reserved->expressCapability + 0x08, control);
+}
+
+void IOPCIDevice::completeFLR(void)
+{
+	// Wait 100ms
+	IOSleep(100);
+}
+
+IOReturn IOPCIDevice::resetFunction(tIOPCIDeviceResetOptions options)
+{
+	if (!supportsFLR())
+	{
+		DLOG("[%s()] Function %u:%u:%u does not support FLR\n", __func__, PCI_ADDRESS_TUPLE(this));
+		return kIOReturnUnsupported;
+	}
+
+	// Save device state
+	if (!(options & kIOPCIDeviceResetOptionTerminate))
+	{
+		parent->saveDeviceState(this, kIOPCIConfigShadowVolatile);
+	}
+
+	prepareFLR();
+	flr();
+	completeFLR();
+
+	// Restore device state
+	if (!(options & kIOPCIDeviceResetOptionTerminate))
+	{
+		parent->restoreDeviceState(this, 0);
+	}
+
+	if (options & kIOPCIDeviceResetOptionTerminate)
+	{
+		terminate(kIOServiceTerminateNeedWillTerminate);
+
+		launchReprobeThread();
+	}
+
+	return kIOReturnSuccess;
+}
+
 IOReturn IOPCIDevice::reset(tIOPCIDeviceResetTypes type, tIOPCIDeviceResetOptions options)
 {
     DLOG("%s[%p]::%s(0x%x, 0x%x)\n", getName(), this, __func__, type, options);
 
+	if (type == kIOPCIDeviceResetTypeFunctionReset)
+	{
+		// FLR is different from conventional reset and can be
+		// handled almost entirely in IOPCIDevice.
+		return resetFunction(options);
+	}
+
 	return parent->resetDevice(type, options);
 }
 
+IOReturn IOPCIDevice::reprobeThreadCall(thread_call_t threadCall)
+{
+    IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
+    if (bridgeDevice != NULL)
+    {
+        DLOG("%s waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
+        // wait for the drivers and termination to settle
+        IOReturn ret = parent->waitQuiet(60ULL * kSecondScale);
+		if (ret == kIOReturnTimeout)
+		{
+			OSIterator* childIterator = parent->getChildIterator(gIOServicePlane);
+			IOService* child = NULL;
+			while (childIterator && (child = OSDynamicCast(IOService, childIterator->getNextObject())))
+			{
+				IOLog("%s child %s did not complete termination\n", __PRETTY_FUNCTION__, child->getName());
+			}
+			OSSafeReleaseNULL(childIterator);
+
+			if (!PE_i_can_has_debugger(nullptr))
+			{
+				IOLog("%s waitQuiet() timed out waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
+			}
+			else
+			{
+				panic("%s waitQuiet() timed out waiting for downstream devices to finish terminating", __PRETTY_FUNCTION__);
+			}
+		}
+
+        DLOG("%s reprobing bus\n", __PRETTY_FUNCTION__);
+        // re-scan the bridge for this device and its functions
+        parent->busProbe(bridgeDevice, kIOPCIProbeOptionNeedsScan | kIOPCIProbeOptionDone);
+    }
+
+    // clean up threadcall
+    parent->release();
+    release();
+    thread_call_free(threadCall);
+
+    return kIOReturnSuccess;
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 #if TARGET_OS_HAS_PCIDRIVERKIT_IOPCIDEVICE
 
 #pragma mark Public DriverKit Methods
@@ -2548,10 +2734,28 @@ IMPL(IOPCIDevice, _ManageSession)
 {
     IOReturn result = kIOReturnNotOpen;
 
-	DLOG("IOPCIDevice::%s: for client %s\n", __FUNCTION__, (forClient) ? forClient->getName() : "unknown");
-
     if(openClient == true)
     {
+        // If the nub is published during sleep entry, xnu will defer dext matching.
+        // Ensure the nub is powered on before allowing the client to proceed (with
+        // a 10s timeout).
+        const uint32_t powerTimeout = 10;
+        AbsoluteTime deadline, now = 0;
+
+        clock_interval_to_deadline(powerTimeout, kSecondScale, &deadline);
+
+        while (   (atomic_load((atomic_char*)&reserved->pciPMState) != kIOPCIDeviceOnState)
+               && (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline)))
+        {
+            if (isInactive())
+            {
+                return kIOReturnError;
+            }
+            DLOG("[%s()] Device %s is not powered, sleeping 100ms\n", __func__, getName());
+            IOSleepWithLeeway(100, 10);
+            clock_get_uptime(&now);
+        }
+
         if(open(forClient, (openOptions & (~kIOServiceFamilyOpenOptions)) | kIOPCISessionOptionDriverkit, NULL) == true)
         {
             result = kIOReturnSuccess;
@@ -2580,122 +2784,24 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
               getName(),
               PCI_ADDRESS_TUPLE(this));
 
-        IOReturn ret = parent->terminateChild(this);
-        if (ret == kIOReturnNoDevice)
-        {
-            return kIOReturnSuccess;
-        }
+        IOReturn ret = parent->childClientCrashRecovery(this);
 
-        thread_call_t threadCall = thread_call_allocate(OSMemberFunctionCast(thread_call_func_t,
-                                                                             this,
-                                                                             &IOPCIDevice::clientCrashedThreadCall),
-                                                        this);
-
-        // threadcall because waiting for termination in this context can deadlock
-        if(threadCall != NULL)
-        {
-            retain();
-            parent->retain();
-            if(thread_call_enter1(threadCall, threadCall /* so the call cleans itself up */) == TRUE)
-            {
-                thread_call_free(threadCall);
-                parent->release();
-                release();
-            }
-        }
+		// rdar://122664049 (Remove terminate-on-crash option from PCIDriverKit crash recovery)
+		if (ret == kIOReturnSuccess && getProperty("terminate-on-crash"))
+		{
+			launchReprobeThread();
+		}
     }
 	else
 	{
-        IOLog("%s: PCIDriverKit client, %s, did not open device %s[%u:%u:%u], skipping recovery\n",
+        IOLog("%s: PCIDriverKit client %s does not have open session with device %s[%u:%u:%u], skipping recovery\n",
               __PRETTY_FUNCTION__,
               (client != NULL) ? client->getName() : "unknown",
               getName(),
               PCI_ADDRESS_TUPLE(this));
 	}
 
-    return kIOReturnSuccess;
-}
-
-IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
-{
-    IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
-    if (bridgeDevice != NULL)
-    {
-        DLOG("%s waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
-        // wait for the drivers and termination to settle
-        IOReturn ret = parent->waitQuiet(60ULL * kSecondScale);
-		if (ret == kIOReturnTimeout)
-		{
-			OSIterator* childIterator = parent->getChildIterator(gIOServicePlane);
-			IOService* child = NULL;
-			while (childIterator && (child = OSDynamicCast(IOService, childIterator->getNextObject())))
-			{
-				IOLog("%s child %s did not complete termination\n", __PRETTY_FUNCTION__, child->getName());
-			}
-			OSSafeReleaseNULL(childIterator);
-
-			if (!PE_i_can_has_debugger(nullptr))
-			{
-				IOLog("%s waitQuiet() timed out waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
-			}
-			else
-			{
-				panic("%s waitQuiet() timed out waiting for downstream devices to finish terminating", __PRETTY_FUNCTION__);
-			}
-		}
-
-		char pmAssertionString[128] = { 0 };
-		IOPMDriverAssertionID powerAssertion = kIOPMUndefinedDriverAssertionID;
-
-		snprintf(pmAssertionString, sizeof(pmAssertionString), "com.apple.pci.%p crash", this);
-
-		do {
-			IOPCIHostBridgeData *vars = parent->reserved->hostBridgeData;
-			if (!vars)
-			{
-				// This should never happen, but if so just continue
-				break;
-			}
-
-			// Grab a PM assertion
-			powerAssertion = getPMRootDomain()->createPMAssertion(kIOPMDriverAssertionCPUBit, kIOPMDriverAssertionLevelOn, this, pmAssertionString);
-
-			// Check if system is going to sleep
-			if (!vars->systemActive() || (bridgeDevice->reserved->pmState != kIOPCIDeviceOnState) || (powerAssertion == kIOPMUndefinedDriverAssertionID))
-			{
-				// Release the assertion and defer this thread until parent bridge is powered on
-				//DLOG("[%s()] Entering sleep, defer %s probe until wake\n", __func__, getName());
-				DLOG("[%s()] Defer %s probe until parent is on and system is active\n", __func__, getName());
-				if (powerAssertion != kIOPMUndefinedDriverAssertionID)
-				{
-					getPMRootDomain()->releasePMAssertion(powerAssertion);
-					powerAssertion = kIOPMUndefinedDriverAssertionID;
-				}
-
-				IOSleepWithLeeway(100, 10);
-			}
-			else
-			{
-				// PM assertion will keep the system awake until we release it
-				break;
-			}
-		} while (1);
-
-        DLOG("%s reprobing bus\n", __PRETTY_FUNCTION__);
-        // re-scan the bridge for this device and its functions
-        parent->kernelRequestProbe(bridgeDevice, kIOPCIProbeOptionNeedsScan | kIOPCIProbeOptionDone);
-
-		if (powerAssertion != kIOPMUndefinedDriverAssertionID)
-		{
-			getPMRootDomain()->releasePMAssertion(powerAssertion);
-			powerAssertion = kIOPMUndefinedDriverAssertionID;
-		}
-    }
-
-    // clean up threadcall
-    parent->release();
-    release();
-    thread_call_free(threadCall);
+    DLOG("IOPCIDevice::ClientCrashed_Impl() for client %s done\n", (client) ? client->getName() : "unknown");
 
     return kIOReturnSuccess;
 }
@@ -2872,42 +2978,42 @@ IMPL(IOPCIDevice, _MemoryAccess)
             }
             case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit:
             {
-                result = deviceMemoryRead64(memoryIndex, offset, readData);
+                result = deviceMemoryRead(memoryIndex, offset, static_cast<void *>(readData), sizeof(uint64_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit:
             {
-                result = deviceMemoryRead32(memoryIndex, offset, reinterpret_cast<uint32_t*>(readData));
+                result = deviceMemoryRead(memoryIndex, offset, static_cast<void *>(readData), sizeof(uint32_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit:
             {
-                result = deviceMemoryRead16(memoryIndex, offset, reinterpret_cast<uint16_t*>(readData));
+                result = deviceMemoryRead(memoryIndex, offset, static_cast<void *>(readData), sizeof(uint16_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit:
             {
-                result = deviceMemoryRead8(memoryIndex, offset, reinterpret_cast<uint8_t*>(readData));
+                result = deviceMemoryRead(memoryIndex, offset, static_cast<void *>(readData), sizeof(uint8_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation64Bit:
             {
-                result = deviceMemoryWrite64(memoryIndex, offset, static_cast<uint64_t>(data));
+                result = deviceMemoryWrite(memoryIndex, offset, static_cast<uint64_t>(data), sizeof(uint64_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation32Bit:
             {
-                result = deviceMemoryWrite32(memoryIndex, offset, static_cast<uint32_t>(data));
+                result = deviceMemoryWrite(memoryIndex, offset, static_cast<uint32_t>(data), sizeof(uint32_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation16Bit:
             {
-                result = deviceMemoryWrite16(memoryIndex, offset, static_cast<uint16_t>(data));
+                result = deviceMemoryWrite(memoryIndex, offset, static_cast<uint16_t>(data), sizeof(uint16_t), options);
                 break;
             }
             case kPCIDriverKitMemoryAccessOperationDeviceWrite | kPCIDriverKitMemoryAccessOperation8Bit:
             {
-                result = deviceMemoryWrite8(memoryIndex, offset, static_cast<uint8_t>(data));
+                result = deviceMemoryWrite(memoryIndex, offset, static_cast<uint8_t>(data), sizeof(uint8_t), options);
                 break;
             }
             default:
@@ -2998,14 +3104,13 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 kern_return_t
 IMPL(IOPCIDevice, FindPCICapability)
 {
-    IOReturn result = kIOReturnNotFound;
-    *foundCapabilityOffset = searchOffset;
-    if(extendedFindPCICapability(capabilityID, foundCapabilityOffset) != 0)
-    {
-        result = kIOReturnSuccess;
-    }
+    IOByteCount _foundCapabilityOffset = static_cast<IOByteCount>(searchOffset);
+    uint32_t offset = 0;
 
-    return result;
+    offset = extendedFindPCICapability(capabilityID, &_foundCapabilityOffset);
+    *foundCapabilityOffset = _foundCapabilityOffset;
+
+    return (offset != 0) ? kIOReturnSuccess : kIOReturnNotFound;
 }
 
 kern_return_t
@@ -3179,6 +3284,19 @@ void IOPCIDevice::unregisterCrashNotification(void)
 {
 	reserved->crashNotification = NULL;
 	reserved->crashNotificationRef = NULL;
+}
+
+bool IOPCIDevice::supportsFLR(void)
+{
+	return !!(reserved->expressDeviceCapabilities & (1 << 28));
+}
+
+bool IOPCIDevice::isDownstreamFacing(void)
+{
+	uint8_t portType = (reserved->expressCapabilities >> 4) & 0xF;
+
+	return (   (portType == 4)   // Root port
+			|| (portType == 6)); // Switch downstream port
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

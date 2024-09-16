@@ -647,8 +647,9 @@ OSStatus SecItemImport(
     @enum Import/Export options
     @discussion Predefined key constants used when passing dictionary-based arguments to import/export functions.
     @constant kSecImportExportPassphrase Specifies a passphrase represented by a CFStringRef to be used when exporting to (or importing from) PKCS#12 format.
-     @constant kSecImportExportKeychain On OSX, specifies a keychain represented by a SecKeychainRef to be used as the target when importing from PKCS#12 format.
-     @constant kSecImportExportAccess On OSX, specifies an access represented by a SecAccessRef for the initial access (ACL) of a key imported from PKCS#12 format.
+    @constant kSecImportExportKeychain On macOS, specifies a keychain represented by a SecKeychainRef to be used as the target when importing from PKCS#12 format.
+    @constant kSecImportExportAccess On macOS, specifies an access represented by a SecAccessRef for the initial access (ACL) of a key imported from PKCS#12 format.
+    @constant kSecImportToMemoryOnly Specifies (with a value of kCFBooleanTrue) that items imported from PKCS#12 format should be kept in process memory only and not permanently stored in the keychain. This can be specified on either macOS or iOS, though it is already default behavior on iOS. If this key is provided, keychain-related import options are ignored since the keychain will not be used.
 */
 extern const CFStringRef kSecImportExportPassphrase
     API_AVAILABLE(macos(10.6), ios(2.0));
@@ -656,6 +657,8 @@ extern const CFStringRef kSecImportExportKeychain
     API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecImportExportAccess
     API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
+extern const CFStringRef kSecImportToMemoryOnly
+    API_AVAILABLE(macos(15.0), ios(18.0));
 
 /*!
     @enum Import/Export item description
@@ -698,6 +701,15 @@ extern const CFStringRef kSecImportItemIdentity
      @result errSecSuccess in case of success. errSecDecode means either the
        blob can't be read or it is malformed. errSecAuthFailed means an
        incorrect password was supplied, or data in the container is damaged.
+     @discussion The normal behavior of this function is to import items into process
+       memory on iOS, and into the default keychain on macOS. You can modify this behavior
+       with entries in the options dictionary. To specify a file-based keychain and
+       legacy access control on macOS, provide kSecImportExportKeychain with a SecKeychainRef
+       value, and/or kSecImportExportAccess with a SecAccessRef value. In macOS 14 and later,
+       it is possible to specify the data protection keychain instead of a file-based keychain
+       by including kSecUseDataProtectionKeychain with a value of kCFBooleanTrue. Starting with
+       macOS 15 and iOS 18, kSecImportToMemoryOnly (with a value of kCFBooleanTrue) allows you
+       to skip importing to the keychain on macOS and explicitly specify iOS behavior.
 */
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef * __nonnull CF_RETURNS_RETAINED items)
      API_AVAILABLE(macos(10.6), ios(2.0));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2018, 2020, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2017, 2018, 2020, 2021, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -88,29 +88,7 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 
 		addr.sa = resolver->nameserver[i];
 		_SC_sockaddr_to_string(addr.sa, buf, sizeof(buf));
-		if ((addr.sa->sa_family == AF_INET6) &&
-		    (addr.sin6->sin6_scope_id != 0) &&
-		    (resolver->if_name != NULL)) {
-			size_t	n;
-			char	*p;
 
-			/*
-			 * unless we are logging the live configuration we
-			 * can't trust the result of if_indextoname() using
-			 * the sin6_scope_id embedded in the address.  Here,
-			 * we report the numeric index.
-			 */
-			p = strrchr(buf, '%');
-			if (p != NULL) {
-				*p = 0;	// remove the [likely] incorrect name
-			}
-
-			n = strlen(buf);
-			snprintf(&buf[n],
-				 sizeof(buf) - n,
-				 "%%%ud",
-				 addr.sin6->sin6_scope_id);
-		}
 		my_log(LOG_INFO, "  nameserver[%d] : %s", i, buf);
 	}
 
@@ -128,11 +106,11 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 	}
 
 	if (resolver->port != 0) {
-		my_log(LOG_INFO, "  port     : %hd", resolver->port);
+		my_log(LOG_INFO, "  port     : %hu", resolver->port);
 	}
 
 	if (resolver->timeout != 0) {
-		my_log(LOG_INFO, "  timeout  : %d", resolver->timeout);
+		my_log(LOG_INFO, "  timeout  : %u", resolver->timeout);
 	}
 
 	if (resolver->if_index != 0) {
@@ -148,13 +126,13 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 			if_name = if_indextoname(resolver->if_index, buf);
 #endif	// !_LIBLOG_SYSTEMCONFIGURATION_
 		}
-		my_log(LOG_INFO, "  if_index : %d (%s)",
+		my_log(LOG_INFO, "  if_index : %u (%s)",
 		       resolver->if_index,
 		       (if_name != NULL) ? if_name : "?");
 	}
 
 	if (resolver->service_identifier != 0) {
-		my_log(LOG_INFO, "  service_identifier : %d",
+		my_log(LOG_INFO, "  service_identifier : %u",
 		       resolver->service_identifier);
 	}
 
@@ -202,7 +180,7 @@ _dns_resolver_log(uint32_t version, dns_resolver_t *resolver, int index, Boolean
 	my_log(LOG_INFO, "  reach    : %s", reach_str);
 
 	if (resolver->search_order != 0) {
-		my_log(LOG_INFO, "  order    : %d", resolver->search_order);
+		my_log(LOG_INFO, "  order    : %u", resolver->search_order);
 	}
 
 	if (debug && (resolver->cid != NULL)) {

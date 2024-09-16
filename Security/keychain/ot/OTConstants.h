@@ -26,15 +26,15 @@
 
 #include <stdbool.h>
 
-bool SecErrorIsNestedErrorCappingEnabled(void);
-bool SecKeychainIsStaticPersistentRefsEnabled(void);
-void SecKeychainSetOverrideStaticPersistentRefsIsEnabled(bool value);
 bool OctagonIsSOSFeatureEnabled(void);
 bool OctagonPlatformSupportsSOS(void);
 void OctagonSetSOSFeatureEnabled(bool value);
 bool SOSCompatibilityModeEnabled(void);
 void SetSOSCompatibilityMode(bool value);
 void ClearSOSCompatibilityModeOverride(void);
+bool IsRollOctagonIdentityEnabled(void);
+void SetRollOctagonIdentityEnabled(bool value);
+void ClearRollOctagonIdentityEnabledOverride(void);
 
 #if __OBJC__
 
@@ -92,6 +92,9 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorNotInSOS                                        = 71,
     OctagonErrorInjectedError                                   = 72,
     OctagonErrorCannotSetAccountSettings                        = 73,
+    OctagonErrorInvalidPeerIDforPermanentInfo                   = 74,
+    OctagonErrorInvalidPeerTypeForMaxCapability                 = 75,
+    OctagonErrorCKKSLackingTrust                                = 76,
 };
 
 /* used for defaults writes */
@@ -109,7 +112,6 @@ bool OctagonSupportsPersonaMultiuser(void);
 void OctagonSetSupportsPersonaMultiuser(bool value);
 void OctagonClearSupportsPersonaMultiuserOverride(void);
 
-void SecErrorSetOverrideNestedErrorCappingIsEnabled(bool value);
 
 
 typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
@@ -134,6 +136,18 @@ typedef NS_ENUM(NSInteger, OTEscrowRecordFetchSource) {
     
     /// Forces the escrow record fetch to only use cuttlefish, even if cache is recent.
     OTEscrowRecordFetchSourceCuttlefish = 2,
+};
+
+extern NSString* const TrustedPeersHelperRecoveryKeySetErrorDomain;
+extern NSString* const TrustedPeersHelperErrorDomain;
+
+typedef NS_ERROR_ENUM(TrustedPeersHelperRecoveryKeySetErrorDomain, TrustedPeersHelperRecoveryKeySetErrorCode) {
+    TrustedPeersHelperRecoveryKeySetErrorKeyGeneration = 1,
+    TrustedPeersHelperRecoveryKeySetErrorItemDoesNotExist = 2,
+    TrustedPeersHelperRecoveryKeySetErrorFailedToSaveToKeychain = 3,
+    TrustedPeersHelperRecoveryKeySetErrorUnsupportedKeyType = 4,
+    TrustedPeersHelperRecoveryKeySetErrorCoreCryptoKeyGeneration = 5,
+    TrustedPeersHelperRecoveryKeySetErrorFailedToGenerateRandomKey = 6
 };
 
 #endif // __OBJC__

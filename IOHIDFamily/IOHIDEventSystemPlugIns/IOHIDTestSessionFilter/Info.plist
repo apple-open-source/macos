@@ -18,22 +18,6 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>Matching</key>
-	<dict>
-		<key>DeviceUsagePairs</key>
-		<array>
-			<dict>
-				<key>DeviceUsage</key>
-				<integer>6</integer>
-				<key>DeviceUsagePage</key>
-				<integer>1</integer>
-			</dict>
-		</array>
-		<key>Hidden</key>
-		<true/>
-		<key>VendorID</key>
-		<real>12345678</real>
-	</dict>
 	<key>NSPrincipalClass</key>
 	<string>IOHIDTestSessionFilter</string>
 </dict>

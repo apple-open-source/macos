@@ -280,22 +280,23 @@ diffit(struct dirent *dp, char *path1, size_t plen1, struct dirent *dp2,
 	}
 #ifdef __APPLE__
 	/*
-	 * rdar://problem/87480531 -- we shouldn't use D_SKIPPED, we should
-	 * declare mismatches as appropriate for comparisons we cannot do,
-	 * namely, no dir/file, no special/file.  diffreg() itself will already
-	 * forbid directory/non-directory comparisons.
+	 * rdar://problem/87480531 -- we shouldn't use D_SKIPPED when the
+	 * two sides don't match, we should declare mismatches as appropriate
+	 * for comparisons we cannot do, namely, no dir/file, no special/file.
+	 * diffreg() itself will already forbid directory/non-directory
+	 * comparisons.
 	 */
-	if ((DIFF_ISSPECIAL(stb1.st_mode) && S_ISREG(stb2.st_mode)) ||
-	    (S_ISREG(stb1.st_mode) && DIFF_ISSPECIAL(stb2.st_mode)))
+	if (!S_ISREG(stb1.st_mode) && !S_ISDIR(stb1.st_mode))
 		dp->d_status = D_MISMATCH;
-	else
+	else if (!S_ISREG(stb2.st_mode) && !S_ISDIR(stb2.st_mode))
+		dp->d_status = D_MISMATCH;
 #else
 	if (!S_ISREG(stb1.st_mode) && !S_ISDIR(stb1.st_mode))
 		dp->d_status = D_SKIPPED1;
 	else if (!S_ISREG(stb2.st_mode) && !S_ISDIR(stb2.st_mode))
 		dp->d_status = D_SKIPPED2;
-	else
 #endif
+	else
 		dp->d_status = diffreg(path1, path2, flags, 0);
 #ifdef __APPLE__
 	print_status(dp->d_status, path1, &stb1, path2, &stb2, "");

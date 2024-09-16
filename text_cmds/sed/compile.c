@@ -492,7 +492,7 @@ compile_delimited(char *p, char *d, int is_tr)
 static char *
 compile_ccl(char **sp, char *t)
 {
-#ifdef __APPLE_
+#ifdef __APPLE__
 	int c, d;
 #else
 	int c, d, hexlen;

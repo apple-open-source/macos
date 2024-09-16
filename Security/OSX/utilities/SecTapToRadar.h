@@ -31,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, retain) NSString* componentID;
 @property (nonatomic, retain) NSString* componentName;
 @property (nonatomic, retain) NSString* componentVersion;
+@property (nonatomic, retain) NSString* reason;
 
 - (instancetype)init NS_UNAVAILABLE;
 

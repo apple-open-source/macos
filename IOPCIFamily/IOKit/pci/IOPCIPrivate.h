@@ -83,12 +83,15 @@ struct IOPCIDeviceExpansionData
     uint16_t pmLastWakeBits;     // bits read on wake
 
     uint16_t expressCapability;
-    uint16_t expressCapabilities;
+    uint32_t expressCapabilities;
+    uint32_t expressDeviceCapabilities;
     uint16_t expressASPMDefault;
     int16_t  expressMaxReadRequestSize;
 	uint16_t aspmCaps;
     uint16_t l1pmCapability;
     uint32_t l1pmCaps;
+    uint32_t l1pmTpoweron;
+    uint32_t l1pmTcommonmode;
 
     uint16_t fpbCapability;
 
@@ -96,6 +99,7 @@ struct IOPCIDeviceExpansionData
 
     uint16_t ariCapability;
 
+    bool legacyInterruptResolved;
 
     uint16_t            msiCapability;
     uint16_t            msiControl;
@@ -156,15 +160,12 @@ struct IOPCIDeviceExpansionData
 
 	bool inReset;
 
-	IOTimerEventSource*     _powerAssertionTimer;
-	IOPMDriverAssertionID   _powerAssertion;
-	uint32_t                _powerAssertionRefCnt;
-	IONotifier*             _publishNotifier;
-	IONotifier*             _matchedNotifier;
-
 	uint32_t probeTimeMS;
 
     bool isMFD;
+
+	bool hardwareResetNeeded;
+	bool clientCrashed;
 };
 
 enum
@@ -349,6 +350,8 @@ enum
 
 #define kIOCLxEnabledKey           "CLx Enabled"
 
+#define kIOPCISkipRematchReset "pci-skip-rematch-reset"
+
 // PCI Express Capabilities Structure Mask (sec 7.5.3)
 enum
 {
@@ -412,7 +415,13 @@ enum
 };
 #define kIOPCIExpressACSDefault (kIOPCIExpressACSSourceValidation | kIOPCIExpressACSTranslationBlocking)
 
+// The L1PM control key is used to set the L1 PM Substates Control 1 and Control 2 registers.
 #define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
+// The L1SS enable key is used to set which L1 PM substates are enabled as well as
+// the LTR L1.2 Threshold. The Tcommonmode and Tpoweron timing parameters are calculated
+// by software according to the link partners' L1 PM capabilities.
+#define kIOPCIExpressL1SSEnableKey	"pci-l1ss-enable"
+
 #define kIOPCIDeviceHiddenKey       "pci-device-hidden"
 
 #ifndef kIODebugArgumentsKey
@@ -426,6 +435,8 @@ enum
 #define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
 
 #define kIOPCILinkUpTimeoutKey			"link-up-timeout"
+
+#define kIOPCIDeviceDeadOnRestoreKey	"IOPCIDeviceDeadOnRestore"
 
 // Entitlements
 #define kIOPCITransportDextEntitlement                     "com.apple.developer.driverkit.transport.pci"
@@ -655,8 +666,12 @@ public:
     OSSet *             _waitingPauseSet;
     OSSet *             _pausedSet;
     OSSet *             _probeSet;
+    // The set of bridges that have yet to run probeBus. probeBusGated() will
+	// join type 0 children to the power plane, and will add type 1 children
+    // to the publish set, inside the configurator workloop.
+    OSSet *             _publishSet;
 
-    IOSimpleLock *      _eventSourceLock;
+    IORecursiveLock *   _eventSourceLock;
     queue_head_t        _eventSourceQueue;
 
     IOSimpleLock *      _allPCI2PCIBridgesLock;
@@ -689,15 +704,24 @@ private:
                                       void * messageArgument, vm_size_t argSize);
 public:
     uint16_t           _aspmDefault;
+    uint32_t           _l1ssOverride;
 	bool               systemActive(void);
 private:
-	uint32_t           _lastSystemPowerMessage;
+	uint32_t           _systemActive;
+	IOTimerEventSource*     _powerAssertionTimer;
+	IOPMDriverAssertionID   _powerAssertion;
+
+	void disablePowerAssertion(void);
+	void powerAssertionTimeout(IOTimerEventSource* timer);
+public:
+	void restartPowerAssertionTimer(void);
 };
 
 class IOPCIHostBridge : public IOPCIBridge
 {
     OSDeclareDefaultStructors(IOPCIHostBridge);
 public:
+    virtual bool start(IOService *provider) override;
     virtual void free(void) override;
 
     virtual IOService *probe(IOService * provider, SInt32 *score) override;
@@ -711,6 +735,9 @@ public:
 protected:
     virtual IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain) override { return kIOReturnUnsupported; };
     virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) override { return kIOReturnUnsupported; };
+private:
+	bool childPublished(void* refcon __unused, IOService* newService, IONotifier* notifier __unused);
+	IONotifier *_publishNotifier;
 };
 __exported_pop
 

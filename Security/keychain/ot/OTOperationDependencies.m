@@ -21,6 +21,7 @@
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
           permittedToSendMetrics:(BOOL)permittedToSendMetrics
+             reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
 {
     if((self = [super init])) {
         _containerName = containerName;
@@ -42,6 +43,7 @@
         _flowID = flowID;
         _deviceSessionID = deviceSessionID;
         _permittedToSendMetrics = permittedToSendMetrics;
+        _reachabilityTracker = reachabilityTracker;
     }
     return self;
 }

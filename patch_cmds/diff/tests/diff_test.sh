@@ -25,7 +25,7 @@ atf_test_case noderef
 atf_test_case ignorecase
 #ifdef __APPLE__
 atf_test_case unified_timestamp
-atf_test_case crlfeol_body
+atf_test_case crlfeol
 atf_test_case color
 #endif
 
@@ -278,6 +278,10 @@ report_identical_body()
 {
 	printf "\tA\n" > A
 	printf "\tB\n" > B
+	atf_check -s exit:0 -o match:"are identical" \
+		  diff -s A A
+	atf_check -s exit:1 -o not-match:"are identical" \
+		  diff -s A B
 	chmod -r B
 	atf_check -s exit:2 -e inline:"diff: B: Permission denied\n" \
 		-o empty diff -s A B
@@ -390,6 +394,7 @@ crlfeol_body()
 	atf_check -s exit:0 \
 		diff -A stone -b a b
 
+	atf_expect_fail "Myers does not support -b"
 	atf_check -s exit:0 \
 		diff -A myers -b a b
 }
@@ -433,6 +438,18 @@ truncated_body()
 
 	atf_check -s exit:1 -o match:"${expected}" diff -u file2.txt file1.txt
 }
+
+atf_test_case fifodiff
+fifodiff_body()
+{
+	mkdir src
+	echo "Hello" > src/file
+
+	atf_check mkfifo src/fifo
+	atf_check cp -a src dst
+
+	atf_check -o match:"fifo.+is a.+" diff -ur src dst
+}
 #endif
 
 atf_init_test_cases()
@@ -465,5 +482,6 @@ atf_init_test_cases()
 	atf_add_test_case crlfeol
 	atf_add_test_case color
 	atf_add_test_case truncated
+	atf_add_test_case fifodiff
 #endif
 }

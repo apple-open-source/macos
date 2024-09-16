@@ -52,16 +52,16 @@ void
 mvm_aslr_init(void);
 
 MALLOC_NOEXPORT
-void *
-mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int label, plat_map_t *map_out) __alloc_size(2);
+void * __alloc_size(2) __sized_by_or_null(size)
+mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int label, plat_map_t *map_out);
 
 MALLOC_NOEXPORT
-void *
-mvm_allocate_pages(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label) __alloc_size(1);
+void * __alloc_size(1) __sized_by_or_null(size)
+mvm_allocate_pages(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label);
 
 MALLOC_NOEXPORT
-void *
-mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label, plat_map_t *map_out) __alloc_size(1);
+void * __alloc_size(1) __sized_by_or_null(size)
+mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags, int vm_page_label, plat_map_t *map_out);
 
 MALLOC_NOEXPORT
 void

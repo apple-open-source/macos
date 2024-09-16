@@ -16,120 +16,104 @@
 #endif /* not lint */
 
 bool_t
-xdr_fhandle(xdrs, objp)
-	XDR *xdrs;
-	fhandle objp;
+xdr_fhandle(XDR *xdrs, fhandle objp)
 {
-
-	if (!xdr_opaque(xdrs, (uint8_t *) objp, FHSIZE))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_opaque(xdrs, (uint8_t *) objp, FHSIZE)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_fhandle3(xdrs, objp)
-	XDR *xdrs;
-	fhandle3 *objp;
+xdr_fhandle3(XDR *xdrs, fhandle3 *objp)
 {
-
-	if (!xdr_bytes(xdrs, (uint8_t **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_bytes(xdrs, (uint8_t **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_fhstatus(xdrs, objp)
-	XDR *xdrs;
-	fhstatus *objp;
+xdr_fhstatus(XDR *xdrs, fhstatus *objp)
 {
-
-	if (!xdr_u_int(xdrs, &objp->fhs_status))
-		return (FALSE);
+	if (!xdr_u_int(xdrs, &objp->fhs_status)) {
+		return FALSE;
+	}
 	switch (objp->fhs_status) {
 	case 0:
-		if (!xdr_fhandle(xdrs, objp->fhstatus_u.fhs_fhandle))
-			return (FALSE);
+		if (!xdr_fhandle(xdrs, objp->fhstatus_u.fhs_fhandle)) {
+			return FALSE;
+		}
 		break;
 	default:
 		break;
 	}
-	return (TRUE);
+	return TRUE;
 }
 
 bool_t
-xdr_mountstat3(xdrs, objp)
-	XDR *xdrs;
-	mountstat3 *objp;
+xdr_mountstat3(XDR *xdrs, mountstat3 *objp)
 {
-
-	if (!xdr_enum(xdrs, (enum_t *)objp))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_enum(xdrs, (enum_t *)objp)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_mountres3_ok(xdrs, objp)
-	XDR *xdrs;
-	mountres3_ok *objp;
+xdr_mountres3_ok(XDR *xdrs, mountres3_ok *objp)
 {
-
-	if (!xdr_fhandle3(xdrs, &objp->fhandle))
-		return (FALSE);
-	if (!xdr_array(xdrs, (void **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_fhandle3(xdrs, &objp->fhandle)) {
+		return FALSE;
+	}
+	if (!xdr_array(xdrs, (void **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_mountres3(xdrs, objp)
-	XDR *xdrs;
-	mountres3 *objp;
+xdr_mountres3(XDR *xdrs, mountres3 *objp)
 {
-
-	if (!xdr_mountstat3(xdrs, &objp->fhs_status))
-		return (FALSE);
+	if (!xdr_mountstat3(xdrs, &objp->fhs_status)) {
+		return FALSE;
+	}
 	switch (objp->fhs_status) {
 	case 0:
-		if (!xdr_mountres3_ok(xdrs, &objp->mountres3_u.mountinfo))
-			return (FALSE);
+		if (!xdr_mountres3_ok(xdrs, &objp->mountres3_u.mountinfo)) {
+			return FALSE;
+		}
 		break;
 	default:
 		break;
 	}
-	return (TRUE);
+	return TRUE;
 }
 
 bool_t
-xdr_dirpath(xdrs, objp)
-	XDR *xdrs;
-	dirpath *objp;
+xdr_dirpath(XDR *xdrs, dirpath *objp)
 {
-
-	if (!xdr_string(xdrs, objp, MNTPATHLEN))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_string(xdrs, objp, MNTPATHLEN)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_name(xdrs, objp)
-	XDR *xdrs;
-	name *objp;
+xdr_name(XDR *xdrs, name *objp)
 {
-
-	if (!xdr_string(xdrs, objp, MNTNAMLEN))
-		return (FALSE);
-	return (TRUE);
+	if (!xdr_string(xdrs, objp, MNTNAMLEN)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool_t
-xdr_mountlist(xdrs, objp)
-	XDR *xdrs;
-	mountlist *objp;
+xdr_mountlist(XDR *xdrs, mountlist *objp)
 {
 	bool_t more_data;
 
 	switch (xdrs->x_op) {
-
 	case XDR_FREE: {
 		mountbody *mb, *tmp;
 
@@ -138,10 +122,12 @@ xdr_mountlist(xdrs, objp)
 		while (tmp != NULL) {
 			mb = tmp;
 			tmp = mb->ml_next;
-			if (!xdr_name(xdrs, &mb->ml_hostname))
-				return (FALSE);
-			if (!xdr_dirpath(xdrs, &mb->ml_directory))
-				return (FALSE);
+			if (!xdr_name(xdrs, &mb->ml_hostname)) {
+				return FALSE;
+			}
+			if (!xdr_dirpath(xdrs, &mb->ml_directory)) {
+				return FALSE;
+			}
 			free(mb);
 		}
 
@@ -154,17 +140,19 @@ xdr_mountlist(xdrs, objp)
 
 		*objp = NULL;
 		for (;;) {
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (!more_data)
+			if (!more_data) {
 				break;
+			}
 
-			mb = (mountbody *)malloc(sizeof (struct mountbody));
+			mb = (mountbody *)malloc(sizeof(struct mountbody));
 			if (mb == NULL) {
 				fprintf(stderr,
 				    "xdr_mountlist: out of memory\n");
-				return (FALSE);
+				return FALSE;
 			}
 			mb->ml_hostname = NULL;
 			mb->ml_directory = NULL;
@@ -180,7 +168,7 @@ xdr_mountlist(xdrs, objp)
 				}
 				/* Now free the node itself */
 				free(mb);
-				return (FALSE);
+				return FALSE;
 			}
 
 			if (!xdr_dirpath(xdrs, &mb->ml_directory)) {
@@ -195,7 +183,7 @@ xdr_mountlist(xdrs, objp)
 				/* Now free the node itself */
 				free(mb->ml_hostname);
 				free(mb);
-				return (FALSE);
+				return FALSE;
 			}
 
 			if (mb_prev == NULL) {
@@ -219,16 +207,20 @@ xdr_mountlist(xdrs, objp)
 		for (;;) {
 			more_data = mb != NULL;
 
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (mb == NULL)
+			if (mb == NULL) {
 				break;
+			}
 
-			if (!xdr_name(xdrs, &mb->ml_hostname))
-				return (FALSE);
-			if (!xdr_dirpath(xdrs, &mb->ml_directory))
-				return (FALSE);
+			if (!xdr_name(xdrs, &mb->ml_hostname)) {
+				return FALSE;
+			}
+			if (!xdr_dirpath(xdrs, &mb->ml_directory)) {
+				return FALSE;
+			}
 
 			mb = mb->ml_next;
 		}
@@ -239,19 +231,15 @@ xdr_mountlist(xdrs, objp)
 		break;
 	}
 
-	return (TRUE);
+	return TRUE;
 }
 
 bool_t
-xdr_groups(xdrs, objp)
-	XDR *xdrs;
-	groups *objp;
+xdr_groups(XDR *xdrs, groups *objp)
 {
-
 	bool_t more_data;
 
 	switch (xdrs->x_op) {
-
 	case XDR_FREE: {
 		groupnode *gn, *tmp;
 
@@ -260,8 +248,9 @@ xdr_groups(xdrs, objp)
 		while (tmp != NULL) {
 			gn = tmp;
 			tmp = gn->gr_next;
-			if (!xdr_name(xdrs, &gn->gr_name))
-				return (FALSE);
+			if (!xdr_name(xdrs, &gn->gr_name)) {
+				return FALSE;
+			}
 			free(gn);
 		}
 
@@ -274,17 +263,19 @@ xdr_groups(xdrs, objp)
 
 		*objp = NULL;
 		for (;;) {
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (!more_data)
+			if (!more_data) {
 				break;
+			}
 
-			gn = (groupnode *)malloc(sizeof (struct groupnode));
+			gn = (groupnode *)malloc(sizeof(struct groupnode));
 			if (gn == NULL) {
 				fprintf(stderr,
 				    "xdr_groups: out of memory\n");
-				return (FALSE);
+				return FALSE;
 			}
 			gn->gr_name = NULL;
 			gn->gr_next = NULL;
@@ -299,7 +290,7 @@ xdr_groups(xdrs, objp)
 				}
 				/* Now free the node itself */
 				free(gn);
-				return (FALSE);
+				return FALSE;
 			}
 
 			if (gn_prev == NULL) {
@@ -323,14 +314,17 @@ xdr_groups(xdrs, objp)
 		for (;;) {
 			more_data = gn != NULL;
 
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (gn == NULL)
+			if (gn == NULL) {
 				break;
+			}
 
-			if (!xdr_name(xdrs, &gn->gr_name))
-				return (FALSE);
+			if (!xdr_name(xdrs, &gn->gr_name)) {
+				return FALSE;
+			}
 
 			gn = gn->gr_next;
 		}
@@ -341,19 +335,15 @@ xdr_groups(xdrs, objp)
 		break;
 	}
 
-	return (TRUE);
+	return TRUE;
 }
 
 bool_t
-xdr_exports(xdrs, objp)
-	XDR *xdrs;
-	exports *objp;
+xdr_exports(XDR *xdrs, exports *objp)
 {
-
 	bool_t more_data;
 
 	switch (xdrs->x_op) {
-
 	case XDR_FREE: {
 		exportnode *en, *tmp;
 
@@ -362,10 +352,12 @@ xdr_exports(xdrs, objp)
 		while (tmp != NULL) {
 			en = tmp;
 			tmp = en->ex_next;
-			if (!xdr_dirpath(xdrs, &en->ex_dir))
-				return (FALSE);
-			if (!xdr_groups(xdrs, &en->ex_groups))
-				return (FALSE);
+			if (!xdr_dirpath(xdrs, &en->ex_dir)) {
+				return FALSE;
+			}
+			if (!xdr_groups(xdrs, &en->ex_groups)) {
+				return FALSE;
+			}
 			free(en);
 		}
 
@@ -378,17 +370,19 @@ xdr_exports(xdrs, objp)
 
 		*objp = NULL;
 		for (;;) {
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (!more_data)
+			if (!more_data) {
 				break;
+			}
 
-			en = (exportnode *)malloc(sizeof (struct exportnode));
+			en = (exportnode *)malloc(sizeof(struct exportnode));
 			if (en == NULL) {
 				fprintf(stderr,
 				    "xdr_exports: out of memory\n");
-				return (FALSE);
+				return FALSE;
 			}
 			en->ex_dir = NULL;
 			en->ex_groups = NULL;
@@ -404,7 +398,7 @@ xdr_exports(xdrs, objp)
 				}
 				/* now free the node that caused us all this trouble */
 				free(en);
-				return (FALSE);
+				return FALSE;
 			}
 			if (!xdr_groups(xdrs, &en->ex_groups)) {
 				/* Oh joy, we failed, possible after decoding for a while */
@@ -416,7 +410,7 @@ xdr_exports(xdrs, objp)
 				}
 				/* now free the node that caused us all this trouble */
 				free(en);
-				return (FALSE);
+				return FALSE;
 			}
 
 			if (en_prev == NULL) {
@@ -440,16 +434,20 @@ xdr_exports(xdrs, objp)
 		for (;;) {
 			more_data = en != NULL;
 
-			if (!xdr_bool(xdrs, &more_data))
-				return (FALSE);
+			if (!xdr_bool(xdrs, &more_data)) {
+				return FALSE;
+			}
 
-			if (en == NULL)
+			if (en == NULL) {
 				break;
+			}
 
-			if (!xdr_dirpath(xdrs, &en->ex_dir))
-				return (FALSE);
-			if (!xdr_groups(xdrs, &en->ex_groups))
-				return (FALSE);
+			if (!xdr_dirpath(xdrs, &en->ex_dir)) {
+				return FALSE;
+			}
+			if (!xdr_groups(xdrs, &en->ex_groups)) {
+				return FALSE;
+			}
 
 			en = en->ex_next;
 		}
@@ -460,5 +458,5 @@ xdr_exports(xdrs, objp)
 		break;
 	}
 
-	return (TRUE);
+	return TRUE;
 }

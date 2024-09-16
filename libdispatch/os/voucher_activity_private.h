@@ -164,6 +164,13 @@ voucher_activity_create_with_data(firehose_tracepoint_id_t *trace_id,
 		voucher_t base, firehose_activity_flags_t flags,
 		const void *pubdata, size_t publen);
 
+API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0), visionos(2.0))
+OS_VOUCHER_EXPORT OS_OBJECT_RETURNS_RETAINED OS_WARN_RESULT OS_NOTHROW
+voucher_t
+voucher_activity_create_with_data_2(firehose_tracepoint_id_t *trace_id,
+		voucher_t base, firehose_activity_flags_t flags,
+		const void *pubdata, size_t publen, uint32_t append_flags);
+
 API_DEPRECATED_WITH_REPLACEMENT("voucher_activity_create_with_data",
 		macos(10.12,10.12.4), ios(10.0,10.3), tvos(10.0,10.2), watchos(3.0,3.2))
 OS_VOUCHER_EXPORT OS_OBJECT_RETURNS_RETAINED OS_WARN_RESULT OS_NOTHROW

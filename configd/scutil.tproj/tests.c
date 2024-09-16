@@ -589,7 +589,7 @@ do_watchNWI(int argc, char * const argv[])
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%u\n"), status);
+		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%d\n"), status);
 		exit(1);
 	}
 
@@ -784,7 +784,7 @@ do_watchDNSConfiguration(int argc, char * const argv[])
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%u\n"), status);
+		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%d\n"), status);
 		exit(1);
 	}
 

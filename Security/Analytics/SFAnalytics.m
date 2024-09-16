@@ -84,6 +84,7 @@ NSString* const SFAnalyticsTopicCloudServices = @"CloudServicesTopic";
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
 NSString* const SFAnalyticsTopicTrust = @"TrustTopic";
 NSString* const SFAnalyticsTopicTransparency = @"TransparencyTopic";
+NSString* const SFAnalyticsTopicSWTransparency = @"SWTransparencyTopic";
 NSString* const SFAnalyticsTopicNetworking = @"NetworkingTopic";
 
 NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_failures (\n"

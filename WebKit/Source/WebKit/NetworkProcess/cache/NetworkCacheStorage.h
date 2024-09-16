@@ -94,7 +94,7 @@ public:
         unsigned bodyShareCount;
         String bodyHash;
     };
-    enum TraverseFlag {
+    enum class TraverseFlag : uint8_t {
         ComputeWorth = 1 << 0,
         ShareCount = 1 << 1,
     };
@@ -108,8 +108,7 @@ public:
     size_t approximateSize() const;
 
     // Incrementing this number will delete all existing cache content for everyone. Do you really need to do it?
-    // FIXME: When this is incremented, remove LegacyCertificateInfoType.
-    static const unsigned version = 16;
+    static const unsigned version = 17;
 
     String basePathIsolatedCopy() const;
     String versionPath() const;

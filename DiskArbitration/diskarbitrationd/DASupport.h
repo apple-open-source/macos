@@ -33,10 +33,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#if TARGET_OS_OSX || TARGET_OS_IOS
-#define DA_FSKIT
-#endif
-
 typedef void ( *DAAuthorizeCallback )( DAReturn status, void * context );
 
 extern DAReturn DAAuthorize( DASessionRef        session,
@@ -69,6 +65,16 @@ extern void DARepairWithFSKit( CFStringRef deviceName ,
                                CFStringRef bundleID ,
                                DAFileSystemCallback callback ,
                                void *callbackContext );
+
+typedef void ( *DAProbeCandidateCallback )( CFDictionaryRef candidate ,
+                                            void *probeCallbackContext );
+
+extern void DACheckForFSKit( void );
+
+extern void DAGetFSModulesForUser( uid_t user ,
+                                   void *probeCallbackContext );
+
+extern CFStringRef DAGetFSKitBundleID( CFStringRef filesystemName );
 #endif
 
 extern const CFStringRef kDAMountMapMountAutomaticKey; /* ( CFBoolean ) */

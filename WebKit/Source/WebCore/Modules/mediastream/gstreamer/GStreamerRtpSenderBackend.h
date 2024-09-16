@@ -28,6 +28,15 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
+class GStreamerRtpSenderBackend;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::GStreamerRtpSenderBackend> : std::true_type { };
+}
+
+namespace WebCore {
 
 class GStreamerPeerConnectionBackend;
 
@@ -70,6 +79,7 @@ public:
     void takeSource(GStreamerRtpSenderBackend&);
 
     void stopSource();
+    void tearDown();
 
 private:
     bool replaceTrack(RTCRtpSender&, MediaStreamTrack*) final;

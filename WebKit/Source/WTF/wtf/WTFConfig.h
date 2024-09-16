@@ -48,6 +48,16 @@ namespace WebConfig {
 using Slot = uint64_t;
 extern "C" WTF_EXPORT_PRIVATE Slot g_config[];
 
+constexpr size_t reservedSlotsForExecutableAllocator = 2;
+constexpr size_t additionalReservedSlots = 2;
+
+enum ReservedConfigByteOffset {
+    ReservedByteForAllocationProfiling,
+    NumberOfReservedConfigBytes
+};
+
+static_assert(NumberOfReservedConfigBytes <= sizeof(Slot) * additionalReservedSlots);
+
 } // namespace WebConfig
 #endif // ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
 
@@ -59,6 +69,8 @@ constexpr size_t ConfigSizeToProtect = std::max(CeilingOnPageSize, 16 * KB);
 struct Config {
     WTF_EXPORT_PRIVATE static void permanentlyFreeze();
     WTF_EXPORT_PRIVATE static void initialize();
+    WTF_EXPORT_PRIVATE static void finalize();
+    WTF_EXPORT_PRIVATE static void disableFreezingForTesting();
 
     struct AssertNotFrozenScope {
         AssertNotFrozenScope();
@@ -73,6 +85,7 @@ struct Config {
     uintptr_t highestAccessibleAddress;
 
     bool isPermanentlyFrozen;
+    bool disabledFreezingForTesting;
     bool useSpecialAbortForExtraSecurityImplications;
 #if PLATFORM(COCOA)
     bool disableForwardingVPrintfStdErrToOSLog;

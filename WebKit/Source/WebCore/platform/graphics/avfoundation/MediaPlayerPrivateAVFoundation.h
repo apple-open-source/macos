@@ -151,7 +151,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
-    const char* logClassName() const override { return "MediaPlayerPrivateAVFoundation"; }
+    ASCIILiteral logClassName() const override { return "MediaPlayerPrivateAVFoundation"_s; }
     const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
     WTFLogChannel& logChannel() const final;
 #endif
@@ -183,9 +183,9 @@ protected:
     FloatSize naturalSize() const override;
     bool hasVideo() const override { return m_cachedHasVideo; }
     bool hasAudio() const override { return m_cachedHasAudio; }
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
-    MediaTime durationMediaTime() const override;
-    MediaTime currentMediaTime() const override = 0;
+    void setPageIsVisible(bool) final;
+    MediaTime duration() const override;
+    MediaTime currentTime() const override = 0;
     void seekToTarget(const SeekTarget&) final;
     bool seeking() const final;
     bool paused() const override;
@@ -193,8 +193,8 @@ protected:
     bool hasClosedCaptions() const override { return m_cachedHasCaptions; }
     MediaPlayer::NetworkState networkState() const override { return m_networkState; }
     MediaPlayer::ReadyState readyState() const override { return m_readyState; }
-    MediaTime maxMediaTimeSeekable() const override;
-    MediaTime minMediaTimeSeekable() const override;
+    MediaTime maxTimeSeekable() const override;
+    MediaTime minTimeSeekable() const override;
     const PlatformTimeRanges& buffered() const override;
     bool didLoadingProgress() const override;
     void paint(GraphicsContext&, const FloatRect&) override = 0;
@@ -239,6 +239,7 @@ protected:
         MediaPlayerAVAssetStatusLoading,
         MediaPlayerAVAssetStatusFailed,
         MediaPlayerAVAssetStatusCancelled,
+        MediaPlayerAVAssetStatusNetworkError,
         MediaPlayerAVAssetStatusLoaded,
         MediaPlayerAVAssetStatusPlayable,
     };
@@ -276,9 +277,6 @@ protected:
 
     virtual bool isHLS() const { return false; }
 
-    static bool isUnsupportedMIMEType(const String&);
-    static const HashSet<String>& staticMIMETypeList();
-
     void updateStates();
 
     void setHasVideo(bool);
@@ -288,10 +286,11 @@ protected:
     void setDelayCharacteristicsChangedNotification(bool);
     void setIgnoreLoadStateChanges(bool delay) { m_ignoreLoadStateChanges = delay; }
     void setNaturalSize(FloatSize);
-    bool isLiveStream() const { return std::isinf(duration()); }
+    bool isLiveStream() const { return duration().isPositiveInfinite(); }
     void setNetworkState(MediaPlayer::NetworkState);
     void setReadyState(MediaPlayer::ReadyState);
 
+    bool isVisible() const { return m_visible; }
     MediaRenderingMode currentRenderingMode() const;
     MediaRenderingMode preferredRenderingMode() const;
 
@@ -315,10 +314,8 @@ protected:
     long platformErrorCode() const override { return assetErrorCode(); }
 
     void trackModeChanged() override;
-#if ENABLE(AVF_CAPTIONS)
     void notifyTrackModeChanged() override { }
     virtual void synchronizeTextTrackState() { }
-#endif
     void processNewAndRemovedTextTracks(const Vector<RefPtr<InbandTextTrackPrivateAVF>>&);
     void clearTextTracks();
     Vector<RefPtr<InbandTextTrackPrivateAVF>> m_textTracks;

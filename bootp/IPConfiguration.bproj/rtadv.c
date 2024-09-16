@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,6 +77,8 @@
 #include "RTADVSocket.h"
 #include "DNSNameList.h"
 #include "IPv6AWDReport.h"
+#include "PvDInfoRequest.h"
+#include "PvDInfoContext.h"
 
 typedef enum {
       rtadv_state_inactive_e = 0,
@@ -107,8 +109,8 @@ typedef struct {
     DHCPv6ClientRef		dhcp_client;
     rtadv_state_t		state;
     int				try;
-    CFAbsoluteTime		start;
-    CFAbsoluteTime		dhcpv6_complete;
+    absolute_time_t		start;
+    absolute_time_t		dhcpv6_complete;
     boolean_t			success_report_submitted;
     boolean_t			lladdr_ok; /* ok to send link-layer address */
     boolean_t			renew;
@@ -117,10 +119,271 @@ typedef struct {
     boolean_t			pref64_configured;
     boolean_t			router_lifetime_zero;
     CFStringRef			nat64_prefix;
+    PvDInfoRequestRef		pvd_request;
+    PvDInfoContext		pvd_context;
 } Service_rtadv_t;
 
 STATIC void
 rtadv_address_changed(ServiceRef service_p);
+STATIC void
+rtadv_pvd_additional_info_schedule_fetch(ServiceRef service_p);
+
+STATIC void
+rtadv_pvd_additional_info_request_callback(ServiceRef service_p,
+					   PvDInfoRequestRef pvd_request)
+{
+    Service_rtadv_t *	rtadv = NULL;
+    CFDictionaryRef	addinfo = NULL;
+    PvDInfoRequestState	completion_status = UINT32_MAX;
+
+    my_log(LOG_DEBUG, "%s", __func__);
+    if (pvd_request == NULL) {
+	my_log(LOG_DEBUG,
+	       "ignoring pvd info request callback: no longer active");
+	goto done;
+    }
+    if (service_p == NULL) {
+	my_log(LOG_DEBUG,
+	       "ignoring pvd info request callback: no parent service");
+	goto done;
+    }
+    rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    completion_status = PvDInfoRequestGetCompletionStatus(pvd_request);
+    if (completion_status == kPvDInfoRequestStateObtained) {
+	/* request completed in success state */
+	addinfo = PvDInfoRequestCopyAdditionalInformation(pvd_request);
+	PvDInfoContextSetAdditionalInformation(&rtadv->pvd_context,
+					       addinfo);
+	PvDInfoContextSetIsOk(&rtadv->pvd_context, true);
+	PvDInfoContextSetLastFetchedDateToNow(&rtadv->pvd_context);
+	PvDInfoContextCalculateEffectiveExpiration(&rtadv->pvd_context);
+    } else if (completion_status == kPvDInfoRequestStateIdle) {
+	/* request couldn't complete due to no internet connection */
+	/* allow immediate retry whenever next RA comes */
+	PvDInfoContextFlush(&rtadv->pvd_context, false);
+    } else {
+	/* request completed in fail state */
+	PvDInfoContextSetIsOk(&rtadv->pvd_context, false);
+	PvDInfoContextFlush(&rtadv->pvd_context, true);
+	PvDInfoContextSetLastFetchedDateToNow(&rtadv->pvd_context);
+    }
+    rtadv_address_changed(service_p);
+
+done:
+    my_CFRelease(&rtadv->pvd_request);
+    my_CFRelease(&addinfo);
+    return;
+}
+
+STATIC uint64_t
+_calculate_randomized_backoff(uint16_t delay)
+{
+    uint32_t ms_delay = UINT32_MAX;
+    uint8_t uint8_delay = 0x0f; // only the lower 4 bits matter for PvD Delay
+    uint8_t delay_capped = 0;
+
+    if (delay > (uint16_t)uint8_delay) {
+	my_log(LOG_ERR, "%s: can't have delay value greater than 15", __func__);
+	goto done;
+    }
+    uint8_delay &= (uint8_t)delay;
+    // Note: RFC8801 allows max delay is 2^(10+15) milliseconds,
+    // so max delay 2^25 ms = 2^15 seconds (???)
+    /* cap backoff at 16 seconds max, so around 2^14 milliseconds */
+    delay_capped = ((uint8_delay > 4U) ? 4U : uint8_delay);
+    ms_delay = arc4random_uniform(1U << (10U + delay_capped));
+    my_log(LOG_INFO,
+	    "%s: delaying PvD Additional Info fetch by %u milliseconds",
+	    __func__, ms_delay);
+
+done:
+    return (ms_delay == UINT32_MAX ? UINT64_MAX : (uint64_t)ms_delay);
+}
+
+STATIC void
+rtadv_pvd_flush(Service_rtadv_t * rtadv)
+{
+    /* cleanup and release all retained PvD info */
+    if (rtadv->pvd_request != NULL) {
+	PvDInfoRequestCancel(rtadv->pvd_request);
+	my_CFRelease(&rtadv->pvd_request);
+    }
+    PvDInfoContextFlush(&rtadv->pvd_context, false);
+}
+
+STATIC void
+_new_pvd_info_request(ServiceRef service_p,
+		      CFStringRef pvdid,
+		      uint16_t seqnr,
+		      uint64_t ms_delay)
+{
+    Service_rtadv_t * rtadv = NULL;
+    RouterAdvertisementRef ra = NULL;
+    dispatch_block_t completion = NULL;
+    CFArrayRef ipv6_prefixes = NULL;
+    const char *ifname = NULL;
+    bool success = false;
+
+    my_log(LOG_DEBUG, "%s", __func__);
+    rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    ra = rtadv->ra;
+
+    /* cleanup old request if there's one in-flight */
+    rtadv_pvd_flush(rtadv);
+
+    /* make and save new context */
+    PvDInfoContextSetPvDID(&rtadv->pvd_context, pvdid);
+    PvDInfoContextSetSequenceNumber(&rtadv->pvd_context, seqnr);
+    ipv6_prefixes = RouterAdvertisementCopyPrefixes(ra);
+    if (ipv6_prefixes == NULL) {
+	my_log(LOG_ERR, "%s: couldn't copy prefixes from RA", __func__);
+	goto done;
+    }
+    PvDInfoContextSetPrefixes(&rtadv->pvd_context, ipv6_prefixes);
+    ifname = if_name(service_interface(service_p));
+    PvDInfoContextSetInterfaceName(&rtadv->pvd_context, ifname);
+
+    /* make new request and resume */
+    rtadv->pvd_request = PvDInfoRequestCreate(pvdid, ipv6_prefixes, ifname,
+					      ms_delay);
+    if (rtadv->pvd_request == NULL) {
+	my_log(LOG_ERR, "%s: couldn't create pvd info request",
+	       __func__);
+	goto done;
+    }
+    completion = ^{
+	rtadv_pvd_additional_info_request_callback(service_p,
+						   rtadv->pvd_request);
+    };
+    PvDInfoRequestSetCompletionHandler(rtadv->pvd_request, completion,
+				       IPConfigurationAgentQueue());
+    my_log(LOG_INFO,
+	   "%s: requesting PvD Additional Information fetch via if '%s' "
+	   "for PvD ID '%@' and IPv6 Prefixes %@",
+	   __func__, ifname, pvdid, ipv6_prefixes);
+    PvDInfoRequestResume(rtadv->pvd_request);
+    success = true;
+
+done:
+    if (!success) {
+	PvDInfoContextFlush(&rtadv->pvd_context, false);
+    }
+    my_CFRelease(&ipv6_prefixes);
+    return;
+}
+
+STATIC void
+rtadv_pvd_additional_info_schedule_fetch(ServiceRef service_p)
+{
+    Service_rtadv_t * 		rtadv = NULL;
+    RouterAdvertisementRef 	ra = NULL;
+    RA_PvDFlagsDelay 		flags = { 0 };
+    const uint8_t * 		pvd_id = NULL;
+    size_t 			pvd_id_length = 0;
+    CFStringRef 		pvdid = NULL;
+    CFStringRef			old_pvdid = NULL;
+    bool			updated_pvd = false;
+    uint16_t 			seqnr = 0;
+    uint16_t 			old_seqnr = 0;
+    uint64_t			ms_delay = UINT64_MAX;
+    CFAbsoluteTime 		expiration = 0;
+    CFAbsoluteTime 		current_time = 0;
+    bool			new_request = false;
+    const char *		reason = NULL;
+
+    rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    /*
+     * only deals with current RA if there's a PvD option
+     * and if said option's H-flag is set
+     */
+    ra = rtadv->ra;
+    pvd_id = RouterAdvertisementGetPvD(ra, &pvd_id_length, &seqnr, &flags);
+    if (!flags.http) {
+	PvDInfoContextFlush(&rtadv->pvd_context, true);
+	goto done;
+    }
+    pvdid = DNSNameStringCreate(pvd_id, pvd_id_length);
+    if (pvdid == NULL) {
+	CFMutableStringRef bytes_str = NULL;
+
+	bytes_str = CFStringCreateMutable(NULL, 0);
+	print_data_cfstr(bytes_str, pvd_id, pvd_id_length);
+	my_log(LOG_ERR, "%s: failed to create pvd id from raw str:\n%@",
+	       __func__, bytes_str);
+	my_CFRelease(&bytes_str);
+	PvDInfoContextFlush(&rtadv->pvd_context, true);
+	goto done;
+    }
+    old_pvdid = PvDInfoContextGetPvDID(&rtadv->pvd_context);
+    if (old_pvdid == NULL) {
+	new_request = true;
+	goto done;
+    }
+    updated_pvd = (CFStringCompare(pvdid, old_pvdid, kCFCompareCaseInsensitive)
+		   != kCFCompareEqualTo);
+    if (updated_pvd) {
+	/* new PvD: toss old, fetch new */
+	PvDInfoContextFlush(&rtadv->pvd_context, false);
+	new_request = true;
+	goto done;
+    }
+    /* same PvD */
+    if (!PvDInfoContextFetchAllowed(&rtadv->pvd_context)) {
+	/* fetching failed before, mustn't retry */
+	my_log(LOG_NOTICE, "%s: not allowed to fetch info for pvdid '%@'",
+	       __func__, pvdid);
+	goto done;
+    } else if (!PvDInfoContextCanRefetch(&rtadv->pvd_context)) {
+	/* can't refetch within 10 seconds */
+	my_log(LOG_DEBUG, "%s: hasn't been %d seconds since last fetch",
+	       __func__, kPvDInfoClientRefetchSamePvDIDMinWaitSeconds);
+	goto done;
+    }
+    /* this checks for deprecation by new seqnr or expired info */
+    old_seqnr = PvDInfoContextGetSequenceNumber(&rtadv->pvd_context);
+    expiration = PvDInfoContextGetEffectiveExpirationTime(&rtadv->pvd_context);
+    current_time = CFAbsoluteTimeGetCurrent();
+    if (seqnr != old_seqnr) {
+	my_log(LOG_DEBUG, "%s: got new seqnr != old seqnr", __func__);
+	/*
+	 * pvd-aware host must delay new fetch to mitigate pvd server
+	 * overloading from synchronized requests of different network hosts
+	 * when a deprecation event happens by new seqnr being issued
+	 */
+	ms_delay = _calculate_randomized_backoff(flags.delay);
+	if (ms_delay == UINT64_MAX) {
+	    /* bad delay value, toss info */
+	    PvDInfoContextFlush(&rtadv->pvd_context, true);
+	    goto done;
+	}
+	new_request = true;
+	reason = "new sequence number";
+    } else if (expiration != 0 && (expiration < current_time)) {
+	my_log(LOG_DEBUG, "%s: pvd addinfo has expired, need new fetch",
+	       __func__);
+	new_request = true;
+	reason = "expired";
+    }
+    if (!new_request) {
+	/* info is up to date, no need for new fetch, ignore this new RA */
+	my_log(LOG_DEBUG, "%s: no need to refetch", __func__);
+	goto done;
+    }
+    /* deprecation */
+    my_log(LOG_INFO, "%s: deprecating info for PvD ID '%@' with reason '%s'",
+	   __func__, pvdid, reason);
+    PvDInfoContextFlush(&rtadv->pvd_context, false);
+
+done:
+    if (new_request) {
+	_new_pvd_info_request(service_p, pvdid, seqnr, ms_delay);
+    }
+    if (flags.http) {
+	my_log(LOG_DEBUG, "%s: %sscheduled", __func__, new_request ? "" : "not ");
+    }
+    my_CFRelease(&pvdid);
+    return;
+}
 
 STATIC struct in_addr
 S_get_clat46_address(void)
@@ -519,7 +782,7 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 
     if (success) {
 	/* success report */
-	CFAbsoluteTime	complete;
+	absolute_time_t	complete;
 	CFTimeInterval	delta;
 
 	complete = RouterAdvertisementGetReceiveTime(rtadv->ra);
@@ -533,7 +796,7 @@ rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
 	    IPv6AWDReportSetDHCPv6AddressAcquisitionSeconds(report, delta);
 	}
 	if (dns_complete) {
-	    CFAbsoluteTime	now = timer_get_current_time();
+	    absolute_time_t	now = timer_get_current_time();
 
 	    if (now > rtadv->start) {
 		delta = now - rtadv->start;
@@ -631,6 +894,7 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
     rtadv_set_state(service_p, rtadv_state_inactive_e);
     rtadv->try = 0;
     my_CFRelease(&rtadv->ra);
+    rtadv_pvd_flush(rtadv);
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
     rtadv_set_nat64_prefixlist(service_p, NULL);
@@ -671,9 +935,10 @@ rtadv_log_ra(const char * ifname, RouterAdvertisementRef ra)
 STATIC void
 rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 {
-    CFAbsoluteTime		dns_expiration = 0;
+    absolute_time_t		earliest_expiration = 0;
+    absolute_time_t		pvd_info_expiration = 0;
     interface_t *		if_p = service_interface(service_p);
-    CFAbsoluteTime		now;
+    absolute_time_t		now;
     RouterAdvertisementRef	ra;
     Service_rtadv_t *		rtadv;
 
@@ -746,7 +1011,8 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		if (mode != expected_mode) {
 		    bool	privacy_required;
 
-		    privacy_required = ServiceIsPrivacyRequired(service_p);
+		    privacy_required
+			= ServiceIsPrivacyRequired(service_p, NULL);
 		    DHCPv6ClientStop(rtadv->dhcp_client);
 		    DHCPv6ClientSetUsePrivateAddress(rtadv->dhcp_client,
 						     privacy_required);
@@ -761,32 +1027,60 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	if (rtadv->ra != NULL) {
 	    /* if needed, set a DNS expiration timer */
 	    now = RouterAdvertisementGetReceiveTime(rtadv->ra);
-	    dns_expiration
-		= RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
+	    earliest_expiration
+	    = RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
 							  NULL, NULL);
 	}
-	if (dns_expiration != 0) {
-	    CFDateRef	date;
+	/* DNS may have been updated, force publish */
+	rtadv_address_changed(service_p);
+	    
+	/* starts PvD Additional Info fetching if needed */
+	if (rtadv->ra != NULL) {
+	    rtadv_pvd_additional_info_schedule_fetch(service_p);
+	}
 
-	    date = CFDateCreate(NULL, dns_expiration);
+	/* pick earliest of DNS and PvD expirations for timer */
+	if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
+	    pvd_info_expiration
+	    = PvDInfoContextGetEffectiveExpirationTime(&rtadv->pvd_context);
+
+	    if (pvd_info_expiration != 0
+		&& pvd_info_expiration < earliest_expiration) {
+		earliest_expiration = pvd_info_expiration;
+	    }
+	}
+	if (earliest_expiration != 0) {
+	    CFDateRef	date;
+	    
+	    date = CFDateCreate(NULL, earliest_expiration);
 	    my_log(LOG_INFO, "RTADV %s: DNS expiration time %@",
 		   if_name(if_p), date);
 	    CFRelease(date);
 	    timer_callout_set_absolute(rtadv->timer,
-				       dns_expiration,
+				       earliest_expiration,
 				       (timer_func_t *)rtadv_acquired,
 				       service_p,
 				       (void *)IFEventID_timeout_e,
 				       NULL);
 	}
-	/* DNS may have been updated, force publish */
-	rtadv_address_changed(service_p);
 	break;
     case IFEventID_timeout_e:
 	if (rtadv->ra == NULL) {
 	    break;
 	}
-	/* DNS expired, force publish */
+	
+	/* if PvD expired, deprecate info, schedule new fetch */
+	if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
+	    pvd_info_expiration
+	    = PvDInfoContextGetEffectiveExpirationTime(&rtadv->pvd_context);
+	    now = timer_get_current_time();
+	    
+	    if (pvd_info_expiration != 0 && pvd_info_expiration < now) {
+		rtadv_pvd_additional_info_schedule_fetch(service_p);
+	    }
+	}
+	    
+	/* DNS or PvD expired, force publish */
 	rtadv_address_changed(service_p);
 
 	/* check again, rtadv->ra could have been released */
@@ -796,18 +1090,29 @@ rtadv_acquired(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	/* check if we need to set another timer */
 	now = timer_get_current_time();
-	dns_expiration
+	earliest_expiration
 	    = RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
 						      NULL, NULL);
-	if (dns_expiration != 0) {
-	    CFDateRef	date;
+	if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
+	    pvd_info_expiration
+		= PvDInfoContextGetEffectiveExpirationTime(&rtadv->pvd_context);
 
-	    date = CFDateCreate(NULL, dns_expiration);
+	    if (pvd_info_expiration != 0
+		&& pvd_info_expiration < earliest_expiration) {
+		earliest_expiration = pvd_info_expiration;
+	    }
+	}
+
+	/* pick earliest of DNS and PvD expirations for timer */
+	if (earliest_expiration != 0) {
+	    CFDateRef	date;
+	    
+	    date = CFDateCreate(NULL, earliest_expiration);
 	    my_log(LOG_INFO, "RTADV %s: DNS expiration time %@",
 		   if_name(if_p), date);
 	    CFRelease(date);
 	    timer_callout_set_absolute(rtadv->timer,
-				       dns_expiration,
+				       earliest_expiration,
 				       (timer_func_t *)rtadv_acquired,
 				       service_p,
 				       (void *)IFEventID_timeout_e,
@@ -1024,7 +1329,7 @@ create_signature(RouterAdvertisementRef ra,
     netaddr = list_p[0].addr;
     in6_netaddr(&netaddr, list_p[0].prefix_length);
     sig_str = CFStringCreateMutable(NULL, 0);
-    CFStringAppendFormat(sig_str, NULL, 
+    CFStringAppendFormat(sig_str, NULL,
 			 CFSTR("IPv6.Prefix=%s/%d;IPv6.RouterHardwareAddress="),
 			 inet_ntop(AF_INET6, &netaddr,
 				   ntopbuf, sizeof(ntopbuf)),
@@ -1106,6 +1411,7 @@ rtadv_address_changed_common(ServiceRef service_p,
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
     boolean_t		try_was_zero = FALSE;
 
+    my_log(LOG_DEBUG, "%s", __func__);
     linklocal = inet6_addrlist_get_linklocal(addr_list_p);
     if (linklocal == NULL) {
 	/* no linklocal address assigned, nothing to do */
@@ -1226,6 +1532,11 @@ rtadv_address_changed_common(ServiceRef service_p,
 		if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
 		    rtadv->dhcpv6_complete = timer_get_current_time();
 		}
+	    }
+	    /* this checks whether there's current pvd addinfo to publish */
+	    if (PvDInfoContextIsOk(&rtadv->pvd_context)) {
+		info.pvd_additional_info_dict
+		= PvDInfoContextGetAdditionalInformation(&rtadv->pvd_context);
 	    }
 	    /* check whether to enable CLAT46 or not */
 	    clat46_is_configured = service_clat46_is_configured(service_p);
@@ -1388,9 +1699,10 @@ rtadv_provide_summary(ServiceRef service_p, CFMutableDictionaryRef summary)
 STATIC bool
 rtadv_handle_wake(ServiceRef service_p)
 {
-    CFAbsoluteTime	dns_expiration;
+    CFAbsoluteTime	earliest_expiration;
+    CFAbsoluteTime	pvd_info_expiration;
     bool		has_dns = false;
-    bool		has_expired = false;
+    bool		dns_has_expired = false;
     interface_t *	if_p = service_interface(service_p);
     bool		need_init = false;
     CFAbsoluteTime	now;
@@ -1402,31 +1714,39 @@ rtadv_handle_wake(ServiceRef service_p)
 	goto done;
     }
     now = timer_get_current_time();
-    dns_expiration
+    earliest_expiration
 	= RouterAdvertisementGetDNSExpirationTime(rtadv->ra, now,
-						  &has_dns, &has_expired);
-    if (!has_dns) {
-	/* no DNS */
+						  &has_dns, &dns_has_expired);
+    if (!has_dns || !PvDInfoContextIsOk(&rtadv->pvd_context)) {
+	/* there's no DNS nor PvD, nothing to wake for */
 	goto done;
     }
-    if (has_expired) {
+    if (dns_has_expired) {
 	/* DNS has expired */
 	need_init = true;
 	my_log(LOG_NOTICE, "RTADV %s: DNS expired", if_name(if_p));
 	timer_cancel(rtadv->timer);
 	goto done;
     }
-
+    /* pick earliest of DNS or PvD expirations for new timer */
+    pvd_info_expiration
+    = PvDInfoContextGetEffectiveExpirationTime(&rtadv->pvd_context);
+    if (pvd_info_expiration != 0
+	&& pvd_info_expiration < earliest_expiration) {
+	earliest_expiration = pvd_info_expiration;
+	/* pvd info has expired, schedule new fetch */
+	rtadv_pvd_additional_info_schedule_fetch(service_p);
+    }
     /* set a new expiration timer */
-    if (dns_expiration != 0) {
+    if (earliest_expiration != 0) {
 	CFDateRef		date;
-
-	date = CFDateCreate(NULL, dns_expiration);
+	
+	date = CFDateCreate(NULL, earliest_expiration);
 	my_log(LOG_INFO, "%s %s: DNS expiration time %@",
 	       __func__, if_name(if_p), date);
 	CFRelease(date);
 	timer_callout_set_absolute(rtadv->timer,
-				   dns_expiration,
+				   earliest_expiration,
 				   (timer_func_t *)rtadv_acquired,
 				   service_p,
 				   (void *)IFEventID_timeout_e,
@@ -1509,10 +1829,16 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	    goto stop;
 	}
 	if (G_dhcpv6_enabled) {
-	    rtadv->dhcp_client = DHCPv6ClientCreate(service_p);
-	    DHCPv6ClientSetNotificationCallBack(rtadv->dhcp_client,
-						rtadv_dhcp_callback,
-						service_p);
+	    if (service_disable_dhcpv6(service_p)) {
+		my_log(LOG_NOTICE, "RTADV %s: DHCPv6 client is disabled",
+		       if_name(if_p));
+	    }
+	    else {
+		rtadv->dhcp_client = DHCPv6ClientCreate(service_p);
+		DHCPv6ClientSetNotificationCallBack(rtadv->dhcp_client,
+						    rtadv_dhcp_callback,
+						    service_p);
+	    }
 	}
 	/* clear out prefix (in case of crash) */
 	rtadv_set_nat64_prefixlist(service_p, NULL);
@@ -1586,7 +1912,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		    need_init = FALSE;
 		}
 	    }
-	    if (evid == IFEventID_renew_e 
+	    if (evid == IFEventID_renew_e
 		&& if_ift_type(if_p) == IFT_CELLULAR) {
 		rtadv->renew = TRUE;
 	    }

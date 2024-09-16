@@ -328,7 +328,6 @@
     self.updateOp = [[OTUpdateTrustedDeviceListOperation alloc] initWithDependencies:self.deps
                                                                        intendedState:OctagonStateReady
                                                                     listUpdatesState:OctagonStateReady
-                                                            authenticationErrorState:OctagonStateLostAccountAuth
                                                                           errorState:OctagonStateError
                                                                            retryFlag:nil];
     self.updateOp.logForUpgrade = YES;

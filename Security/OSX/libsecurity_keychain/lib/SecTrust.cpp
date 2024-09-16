@@ -347,6 +347,8 @@ typedef struct __TSecTrust {
     dispatch_queue_t        _trustQueue;
     CFDataRef               _auditToken;
     uint64_t                _attribution;
+    bool                    _pendingEvaluation;
+    dispatch_group_t        _asyncEvalGroup;
 } TSecTrust;
 
 CFArrayRef SecTrustCopyInputCertificates(SecTrustRef trust)

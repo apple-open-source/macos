@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Test a valid ID < 0 (UINT32_MAX + ID)
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+: ${BIG_UID=nobody}
+: ${BIG_GID=nobody}
+
+rm -rf src dst
+mkdir -p src
+
+touch src/badid_file
+
+# We'll give it 0777 in case we're not running as root, a subsequent cleanup can
+# just kind of happen and we'll escalate as needed.
+sudo chmod 0777 src/badid_file
+sudo chown "$BIG_UID":"$BIG_GID" src/badid_file
+
+# $rsync or RSYNC_CLIENT_EXECUTOR need to be run as root.
+rsync -pgor -- src/ dst
+compare_trees src dst

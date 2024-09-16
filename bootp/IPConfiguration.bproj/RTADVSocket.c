@@ -109,7 +109,7 @@ typedef struct RTADVSocketGlobals {
 struct RTADVSocket {
     interface_t *		if_p;
     struct in6_addr		linklocal_addr;
-    boolean_t			fd_open;
+    bool			fd_open;
     RTADVSocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
     void *			receive_arg2;
@@ -166,27 +166,6 @@ RTADVSocketCreateGlobals(void)
     return (globals);
 }
 
-STATIC void
-RTADVSocketReleaseGlobals(RTADVSocketGlobalsRef * globals_p)
-{
-    RTADVSocketGlobalsRef	globals;
-
-    if (globals_p == NULL) {
-	return;
-    }
-    globals = *globals_p;
-    if (globals == NULL) {
-	return;
-    }
-    *globals_p = NULL;
-    dynarray_free(&globals->sockets);
-    FDCalloutRelease(&globals->read_fd);
-    timer_callout_free(&globals->timer_callout);
-    bzero(globals, sizeof(*globals));
-    free(globals);
-    return;
-}
-
 STATIC RTADVSocketGlobalsRef
 RTADVSocketGetGlobals(void)
 {
@@ -216,6 +195,12 @@ RTADVSocketFind(int if_index)
 }
 
 STATIC void
+RTADVSocketScheduleClose(void)
+{
+    FDCalloutRelease(&S_globals->read_fd);
+}
+
+STATIC void
 RTADVSocketDelayedClose(void * arg1, void * arg2, void * arg3)
 {
     if (S_globals->read_fd == NULL) {
@@ -232,8 +217,7 @@ RTADVSocketDelayedClose(void * arg1, void * arg2, void * arg3)
 	   "RTADVSocketDelayedClose(): closing RTADV socket %d",
 	   FDCalloutGetFD(S_globals->read_fd));
 
-    /* this closes the file descriptor */
-    FDCalloutRelease(&S_globals->read_fd);
+    RTADVSocketScheduleClose();
     return;
 }
 
@@ -435,7 +419,7 @@ RTADVSocketCreate(interface_t * if_p)
 	return (NULL);
     }
     bzero(sock, sizeof(*sock));
-    if (dynarray_add(&globals->sockets, sock) == FALSE) {
+    if (!dynarray_add(&globals->sockets, sock)) {
 	free(sock);
 	return (NULL);
     }
@@ -472,16 +456,13 @@ RTADVSocketRelease(RTADVSocketRef * sock_p)
     }
     RTADVSocketFreeElement(sock);
     *sock_p = NULL;
-    if (dynarray_count(&S_globals->sockets) == 0) {
-	RTADVSocketReleaseGlobals(&S_globals);
-    }
     return;
 }
 
 STATIC void
 RTADVSocketCloseSocket(RTADVSocketRef sock)
 {
-    if (sock->fd_open == FALSE) {
+    if (!sock->fd_open) {
 	return;
     }
     if (S_globals->read_fd_refcount <= 0) {
@@ -492,7 +473,7 @@ RTADVSocketCloseSocket(RTADVSocketRef sock)
     S_globals->read_fd_refcount--;
     my_log(LOG_DEBUG, "RTADVSocketCloseSocket(%s): refcount %d",
 	   if_name(sock->if_p), S_globals->read_fd_refcount);
-    sock->fd_open = FALSE;
+    sock->fd_open = false;
     if (S_globals->read_fd_refcount == 0) {
 	struct timeval tv;
 
@@ -508,47 +489,84 @@ RTADVSocketCloseSocket(RTADVSocketRef sock)
     return;
 }
 
-STATIC bool
+STATIC void
+RTADVSocketFDComplete(int sockfd);
+
+STATIC void
+RTADVSocketEnableReceiveCallBack(int sockfd)
+{
+    dispatch_block_t	cancel_handler;
+
+    my_log(LOG_DEBUG, "%s: enabling receive on socket %d",
+	   __func__, sockfd);
+    cancel_handler = ^{
+	RTADVSocketFDComplete(sockfd);
+    };
+    S_globals->read_fd = FDCalloutCreate(sockfd,
+					 RTADVSocketRead,
+					 NULL, NULL,
+					 cancel_handler);
+}
+
+STATIC void
+RTADVSocketFDComplete(int sockfd)
+{
+    my_log(LOG_DEBUG, "%s: socket %d complete, closing", __func__, sockfd);
+    close(sockfd);
+}
+
+STATIC errno_t
+RTADVSocketOpenSocketFD(void)
+{
+    errno_t	error = 0;
+    int		sockfd;
+
+    sockfd = open_rtadv_socket();
+    if (sockfd < 0) {
+	error = errno;
+	my_log(LOG_ERR,
+	       "%s: socket() failed, %s", __func__,
+	       strerror(error));
+	goto done;
+    }
+    my_log(LOG_DEBUG,
+	   "%s: opened RTADV socket %d", __func__, sockfd);
+    RTADVSocketEnableReceiveCallBack(sockfd);
+
+ done:
+    return (error);
+}
+
+
+STATIC errno_t
 RTADVSocketOpenSocket(RTADVSocketRef sock)
 {
+    errno_t	error = 0;
+
     if (sock->fd_open) {
-	return (TRUE);
+	goto done;
     }
     timer_cancel(S_globals->timer_callout);
     S_globals->read_fd_refcount++;
-    my_log(LOG_DEBUG, "RTADVSocketOpenSocket (%s): refcount %d",
-	   if_name(sock->if_p), S_globals->read_fd_refcount);
-    sock->fd_open = TRUE;
+    my_log(LOG_DEBUG, "%s(%s): refcount %d",
+	   __func__, if_name(sock->if_p), S_globals->read_fd_refcount);
+    sock->fd_open = true;
     if (S_globals->read_fd_refcount > 1) {
 	/* already open */
-	return (TRUE);
+	goto done;
     }
     if (S_globals->read_fd != NULL) {
-	my_log(LOG_INFO, "RTADVSocketOpenSocket(): socket is still open");
+	my_log(LOG_INFO, "%s: socket is still open",
+	       __func__);
+	goto done;
     }
-    else {
-	int	sockfd;
-
-	sockfd = open_rtadv_socket();
-	if (sockfd < 0) {
-	    my_log(LOG_ERR, 
-		   "RTADVSocketOpenSocket: socket() failed, %s",
-		   strerror(errno));
-	    goto failed;
-	}
-	my_log(LOG_DEBUG,
-	       "RTADVSocketOpenSocket(): opened RTADV socket %d",
-	       sockfd);
-	/* register as a reader */
-	S_globals->read_fd = FDCalloutCreate(sockfd,
-					     RTADVSocketRead,
-					     NULL, NULL);
+    error = RTADVSocketOpenSocketFD();
+    if (error != 0) {
+	RTADVSocketCloseSocket(sock);
     }
-    return (TRUE);
 
- failed:
-    RTADVSocketCloseSocket(sock);
-    return (FALSE);
+ done:
+    return (error);
 }
 
 PRIVATE_EXTERN void
@@ -556,11 +574,15 @@ RTADVSocketEnableReceive(RTADVSocketRef sock,
 			 RTADVSocketReceiveFuncPtr func, 
 			 void * arg1, void * arg2)
 {
+    errno_t	error;
+
     sock->receive_func = func;
     sock->receive_arg1 = arg1;
     sock->receive_arg2 = arg2;
-    if (RTADVSocketOpenSocket(sock) == FALSE) {
-	my_log_fl(LOG_NOTICE, "%s: failed", if_name(sock->if_p));
+    error = RTADVSocketOpenSocket(sock);
+    if (error != 0) {
+	my_log_fl(LOG_NOTICE, "%s: failed, %s", if_name(sock->if_p),
+		  strerror(error));
     }
     return;
 }
@@ -576,39 +598,41 @@ RTADVSocketDisableReceive(RTADVSocketRef sock)
     return;
 }
 
-PRIVATE_EXTERN int
+PRIVATE_EXTERN errno_t
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
 {
+    errno_t		error = 0;
     interface_t *	if_p = RTADVSocketGetInterface(sock);
-    boolean_t		needs_close = FALSE;
-    int			ret;
+    bool		needs_close = false;
     uint32_t		txbuf[RTSOL_PACKET_MAX / sizeof(uint32_t)];
     int			txbuf_used;	/* amount actually used */
 
-
-    if (sock->fd_open == FALSE) {
+    if (!sock->fd_open) {
 	/* open the RTADV socket in case it's needed */
-	if (RTADVSocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_NOTICE, "RTADVSocket: failed to open socket");
-	    return (FALSE);
+	error = RTADVSocketOpenSocket(sock);
+	if (error != 0) {
+	    my_log(LOG_NOTICE,
+		   "RTADVSocket: failed to open socket, %s",
+		   strerror(error));
+	    goto done;
 	}
-	needs_close = TRUE;
+	needs_close = true;
     }
     txbuf_used = RTADVSocketInitTXBuf(sock, txbuf, lladdr_ok);
-    ret = IPv6SocketSend(FDCalloutGetFD(S_globals->read_fd),
-			 if_link_index(if_p),
-			 &sin6_allrouters,
-			 (void *)txbuf, txbuf_used,
-			 ND_RTADV_HOP_LIMIT);
+    error = IPv6SocketSend(FDCalloutGetFD(S_globals->read_fd),
+			   if_link_index(if_p),
+			   &sin6_allrouters,
+			   (void *)txbuf, txbuf_used,
+			   ND_RTADV_HOP_LIMIT);
     if (needs_close) {
 	RTADVSocketCloseSocket(sock);
     }
-    return (ret);
+ done:
+    return (error);
 }
 
 #ifdef TEST_RTADVSOCKET
 
-#include <CoreFoundation/CFRunLoop.h>
 #include "ipconfigd_threads.h"
 #include "DNSNameList.h"
 
@@ -734,7 +758,12 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	    my_log(LOG_NOTICE, "Router Link Address %s",
 		   link_addr_buf);
 	}
-	timer_cancel(rtadv->timer);
+	RTADVSocketDisableReceive(rtadv->sock);
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	timer_set_relative(rtadv->timer, tv,
+			   (timer_func_t *)start_rtadv,
+			   rtadv, (void *)IFEventID_start_e, NULL);
 	break;
     default:
 	break;
@@ -745,15 +774,11 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 int
 main(int argc, char * argv[])
 {
-    os_log_t 		handle;
     interface_t *	if_p;
     const char *	ifname;
     interface_list_t *	interfaces = NULL;
     RTADVInfo		rtadv;
 
-    handle = os_log_create(kIPConfigurationLogSubsystem,
-			   kIPConfigurationLogCategoryServer);
-    IPConfigLogSetHandle(handle);
     interfaces = ifl_init();
     if (argc != 2) {
 	fprintf(stderr, "rtadv <ifname>\n");
@@ -768,7 +793,7 @@ main(int argc, char * argv[])
     rtadv.sock = RTADVSocketCreate(if_p);
     rtadv.timer = timer_callout_init("test-RTADVSocket");
     start_rtadv(&rtadv, IFEventID_start_e, NULL);
-    CFRunLoopRun();
+    dispatch_main();
     exit(0);
     return (0);
 }

@@ -58,6 +58,7 @@
     if(localError && [self.deps.lockStateTracker isLockedError:localError]) {
         secnotice("octagon-cdp-status", "Device is locked! restarting on unlock");
         self.nextState = OctagonStateWaitForClassCUnlock;
+        self.error = localError;
         return;
     }
 
@@ -83,6 +84,14 @@
             STRONGIFY(self);
             if(xpcError) {
                 secnotice("octagon-cdp-status", "Unable to talk with TPH; leaving CDP status as 'unknown': %@", xpcError);
+                self.error = xpcError;
+
+                if ([self.deps.reachabilityTracker isNetworkError:xpcError]) {
+                    OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagPendingNetworkAvailablity
+                                                                                    conditions:OctagonPendingConditionsNetworkReachable
+                                                                                delayInSeconds:.2];
+                    [self.deps.flagHandler handlePendingFlag:pendingFlag];
+                }
                 return;
             }
 
@@ -132,6 +141,7 @@
 
             if(stateError) {
                 secnotice("octagon-cdp-status", "Failed to load account metadata: %@", stateError);
+                self.error = stateError;
             }
         }
 

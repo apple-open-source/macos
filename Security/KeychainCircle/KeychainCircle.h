@@ -8,3 +8,4 @@
 #import <KeychainCircle/KCAccountKCCircleDelegate.h>
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
 #import <KeychainCircle/PairingChannel.h>
+#import <KeychainCircle/SecurityAnalyticsConstants.h>

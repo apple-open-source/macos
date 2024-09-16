@@ -511,6 +511,29 @@ static void SecPolicyCheckIssuerCommonName(SecPVCRef pvc,
     }
 }
 
+static void SecPolicyCheckIssuerCommonNamePrefix(SecPVCRef pvc,
+    CFStringRef key) {
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    if (count < 2) {
+        /* Can't check intermediates common name if there is no intermediate. */
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        return;
+    }
+
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 1);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFStringRef commonName =
+        (CFStringRef)CFDictionaryGetValue(policy->_options, key);
+    if (!isString(commonName)) {
+        /* @@@ We can't return an error here and making the evaluation fail
+           won't help much either. */
+        return;
+    }
+    if (!SecPolicyCheckCertSubjectCommonNamePrefix(cert, commonName)) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -1065,6 +1088,7 @@ static void SecPolicyCheckIntermediateCountry(SecPVCRef pvc, CFStringRef key)
 
 #define POLICY_MAPPING 1
 #define POLICY_SUBTREES 1
+#define POLICY_SUBTREES_MAX 1024
 
 /* rfc5280 basic cert processing. */
 static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
@@ -1192,19 +1216,28 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         /* (b) (c) */
         if (!is_self_issued || i == n) {
             bool found = false;
+            CFIndex subtreesCount = 0;
             /* Verify certificate Subject Name and SubjectAltNames are not within any of the excluded_subtrees */
-            if(excluded_subtrees && CFArrayGetCount(excluded_subtrees)) {
-                if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, excluded_subtrees, &found, false)) || found) {
+            subtreesCount = (excluded_subtrees) ? CFArrayGetCount(excluded_subtrees) : 0;
+            if (subtreesCount) {
+                if (subtreesCount >= POLICY_SUBTREES_MAX) {
+                    secnotice("policy", "excluded subtrees too large");
+                    if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+                } else if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, excluded_subtrees, &found, false)) || found) {
                     secnotice("policy", "name in excluded subtrees");
                     if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
                 }
             }
             /* Verify certificate Subject Name and SubjectAltNames are within the permitted_subtrees */
-            if(permitted_subtrees && CFArrayGetCount(permitted_subtrees)) {
-               if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, permitted_subtrees, &found, true)) || !found) {
-                   secnotice("policy", "name not in permitted subtrees");
-                   if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
-               }
+            subtreesCount = (permitted_subtrees) ? CFArrayGetCount(permitted_subtrees) : 0;
+            if (subtreesCount) {
+                if (subtreesCount >= POLICY_SUBTREES_MAX) {
+                    secnotice("policy", "permitted subtrees too large");
+                    if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+                } else if ((errSecSuccess != SecNameContraintsMatchSubtrees(cert, permitted_subtrees, &found, true)) || !found) {
+                    secnotice("policy", "name not in permitted subtrees");
+                    if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+                }
             }
         }
 #endif
@@ -1222,15 +1255,30 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
          */
         CFArrayRef permitted_subtrees_in_cert = SecCertificateGetPermittedSubtrees(cert);
         if (permitted_subtrees_in_cert) {
-            SecNameConstraintsIntersectSubtrees(permitted_subtrees, permitted_subtrees_in_cert);
+            CFIndex curPermittedSubtreesCount = CFArrayGetCount(permitted_subtrees);
+            CFIndex nextPermittedSubtreesCount = CFArrayGetCount(permitted_subtrees_in_cert);
+            if (nextPermittedSubtreesCount >= POLICY_SUBTREES_MAX ||
+                nextPermittedSubtreesCount + curPermittedSubtreesCount >= POLICY_SUBTREES_MAX) {
+                secnotice("policy", "permitted subtrees too large");
+                if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+            } else {
+                SecNameConstraintsIntersectSubtrees(permitted_subtrees, permitted_subtrees_in_cert);
+            }
         }
 
         // could do something smart here to avoid inserting the exact same constraint
         CFArrayRef excluded_subtrees_in_cert = SecCertificateGetExcludedSubtrees(cert);
         if (excluded_subtrees_in_cert) {
-            CFIndex num_trees = CFArrayGetCount(excluded_subtrees_in_cert);
-            CFRange range = { 0, num_trees };
-            CFArrayAppendArray(excluded_subtrees, excluded_subtrees_in_cert, range);
+            CFIndex curExcludedSubtreesCount = CFArrayGetCount(excluded_subtrees);
+            CFIndex nextExcludedSubtreesCount = CFArrayGetCount(excluded_subtrees_in_cert);
+            if (nextExcludedSubtreesCount >= POLICY_SUBTREES_MAX ||
+                nextExcludedSubtreesCount + curExcludedSubtreesCount >= POLICY_SUBTREES_MAX) {
+                secnotice("policy", "excluded subtrees too large");
+                if(!SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, n - i, kCFBooleanFalse, true)) { goto errOut; }
+            } else {
+                CFRange range = { 0, nextExcludedSubtreesCount };
+                CFArrayAppendArray(excluded_subtrees, excluded_subtrees_in_cert, range);
+            }
         }
 #endif
         /* (h), (i), (j) done by SecCertificatePathVCVerifyPolicyTree */
@@ -1807,9 +1855,11 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
      * 0. Kill Switch not enabled */
     require_quiet(!SecOTAPKIKillSwitchEnabled(kOTAPKIKillSwitchCT), out);
 
-    /*  1. Not a pinning policy */
+    /*  1. Not a pinning policy or a policy that explicitly disabled this check (see rdar://132272332) */
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     require_quiet(CFEqualSafe(SecPolicyGetName(policy),kSecPolicyNameSSLServer), out);
+    CFTypeRef optionValue = CFDictionaryGetValue(policy->_options, kSecPolicyCheckSystemTrustedCTRequired);
+    require_quiet(optionValue && !CFEqual(optionValue, kCFBooleanFalse), out);
 
     /*  2. Device has checked in to MobileAsset for a current log list within the last 60 days.
      *     Or the caller passed in the trusted log list. */
@@ -2049,6 +2099,81 @@ static void SecPolicyCheckEmailProtectionEKU(SecPVCRef pvc, CFStringRef key) {
                 SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
             }
         }
+    }
+}
+
+static void SecPolicyCheckSinglePurposeChainEKU(SecPVCRef pvc, CFStringRef key) {
+    /* Enforce that for each Subscriber Certificate (leaf) and Subordinate CA
+     * (intermediate), there is an EKU extension that contains only the
+     * single EKU OID associated with this policy key and no other. */
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFStringRef ekuOid = CFDictionaryGetValue(policy->_options, key);
+
+    /* Iterate through leaf and sub-CAs, if any */
+    for (CFIndex ix = 0; ix == 0 || (count > 2 && ix < count - 1); ix++) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        CFArrayRef eku = SecCertificateCopyExtendedKeyUsage(cert);
+        if (!eku || !(CFArrayGetCount(eku) == 1) || !ekuOid ||
+            !SecPolicyCheckCertExtendedKeyUsage(cert, ekuOid)) {
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+        CFReleaseNull(eku);
+    }
+}
+
+static void SecPolicyCheckMarkRepresentation(SecPVCRef pvc, CFStringRef key) {
+    /* Check that the SVG mark representation's digest (in the policy options) is matched
+     * by the logotype extension in the Subscriber Certificate (leaf).
+     */
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFDictionaryRef digests = CFDictionaryGetValue(policy->_options, key);
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFStringRef logotypeOid = CFSTR("1.3.6.1.5.5.7.1.12"); // logotype extension OID
+    CFDataRef logotypeData = NULL;
+    DERItem *der = SecCertificateGetExtensionValue(leaf, logotypeOid);
+    bool matched = false;
+    if (digests && der && der->data && der->length > 0) {
+        logotypeData = CFDataCreate(kCFAllocatorDefault, der->data, (CFIndex)der->length);
+    }
+    if (logotypeData) {
+        // Rather than introduce the complexity of a full LogotypeData parser (rdar://115538252),
+        // we really only need to determine if it contains the digest of our representation
+        // following the mediaType in LogotypeDetails, which must always be 'image/svg+xml'
+        // per RFC6170. Currently SHA-1 and SHA-256 digests are supported.
+        const uint8_t mediaType[] = {0x69,0x6D,0x61,0x67,0x65,0x2F,0x73,0x76,0x67,0x2B,0x78,0x6D,0x6C};
+        const uint8_t sha1AlgIdSeq[] = {0x30,0x23,0x30,0x21,
+            0x30,0x09,0x06,0x05,0x2B,0x0E,0x03,0x02,0x1A,0x05,0x00,0x04,0x14};
+        const uint8_t sha256AlgIdSeq[] = {0x30,0x33,0x30,0x31,
+            0x30,0x0D,0x06,0x09,0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x01,0x05,0x00,0x04,0x20};
+        CFDataRef sha1Digest = CFDictionaryGetValue(digests, CFSTR("sha1"));
+        CFDataRef sha256Digest = CFDictionaryGetValue(digests, CFSTR("sha256"));
+        if (!matched && sha256Digest) {
+            CFMutableDataRef logotypeSubData = CFDataCreateMutable(kCFAllocatorDefault, 0);
+            CFDataAppendBytes(logotypeSubData, mediaType, sizeof(mediaType));
+            CFDataAppendBytes(logotypeSubData, sha256AlgIdSeq, sizeof(sha256AlgIdSeq));
+            CFDataAppend(logotypeSubData, sha256Digest);
+            CFRange range = CFDataFind(logotypeData, logotypeSubData, CFRangeMake(0, CFDataGetLength(logotypeData)), 0);
+            if (range.location > 0 && range.length == CFDataGetLength(logotypeSubData)) {
+                matched = true;
+            }
+            CFReleaseNull(logotypeSubData);
+        }
+        if (!matched && sha1Digest) {
+            CFMutableDataRef logotypeSubData = CFDataCreateMutable(kCFAllocatorDefault, 0);
+            CFDataAppendBytes(logotypeSubData, mediaType, sizeof(mediaType));
+            CFDataAppendBytes(logotypeSubData, sha1AlgIdSeq, sizeof(sha1AlgIdSeq));
+            CFDataAppend(logotypeSubData, sha1Digest);
+            CFRange range = CFDataFind(logotypeData, logotypeSubData, CFRangeMake(0, CFDataGetLength(logotypeData)), 0);
+            if (range.location > 0 && range.length == CFDataGetLength(logotypeSubData)) {
+                matched = true;
+            }
+            CFReleaseNull(logotypeSubData);
+        }
+    }
+    CFReleaseNull(logotypeData);
+    if (!matched) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
     }
 }
 

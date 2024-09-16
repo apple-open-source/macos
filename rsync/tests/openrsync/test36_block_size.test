@@ -1,0 +1,134 @@
+#! /bin/sh
+
+# Test that the --block-size argument is accepted/rejected and appears
+# to otherwise work as expected
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+
+# Create the source tree:
+#
+mkdir src
+date > src/one
+jot -p7 1000000 > src/two
+
+
+# Test valid --block-size args that should succeed:
+#
+date >> src/one
+rsync -a --block-size=123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a --block-size 123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a -B123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a -B 123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a -B123 --block-size=456 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a --block-size=123 -B456 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/one
+rsync -a --block-size=0123 -- src/ dst/
+compare_trees -t src dst
+
+date >> src/two
+rsync -a --block-size=0 -- src/ dst/
+compare_trees -t src dst
+
+
+# Test invalid --block-size args that should fail:
+#
+rsync -a --block-size=123x -- src/ dst/ 2>&1 |grep invalid
+rsync -a --block-size=abc --src/ dst/ 2>&1 |grep invalid
+rsync -a -B123x -- src/ dst/ 2>&1 |grep invalid
+rsync -a -Babc --src/ dst/ 2>&1 |grep invalid
+compare_trees -t src dst
+
+
+# Key on the version output to determine the max block size.  Note that
+# openrsync does not produce a version number so it's the default case.
+#
+VMAJ=$(rsync --version 2>&1 |awk '$3 ~ /[23].[0-9].[0-9]/ {printf "%d\n", $3}')
+case ${VMAJ} in
+3)	BSMAX=$(expr 128 \* 1024)
+	rsync -a --block-size=-1 -- src/ dst/ 2>&1 |egrep 'too large|invalid|no less'
+	;;
+
+2)	BSMAX=$(expr 512 \* 1024 \* 1024)
+	;;
+
+*)	BSMAX=$(expr 512 \* 1024 \* 1024)
+
+	if [ -n "$RSYNC_CLIENT" -a "$RSYNC_CLIENT" == "openrsync" -a "$RSYNC_SERVER" == "openrsync" ]; then
+		rsync -a --block-size=-1 -- src/ dst/ 2>&1 |egrep 'too large|invalid|no less'
+		rsync -avvvvv -B123 --block-size=456 -- src/ dst/ 2>&1 |grep -- "exec.*-B456"
+		rsync -avvvvv --block-size=123 -B456 -- src/ dst/ 2>&1 |grep -- "exec.*-B456"
+		compare_trees -t src dst
+	fi
+	;;
+esac
+
+date > src/one
+jot -p7 1000000 > src/two
+
+BSLIST='0 1 127 128 500 512 513 767 768 769 1000 1023 1024 1025 4093 4096 4099 8192 16384 32768 65536 131071 131072 131073 524287 524288'
+
+# Test a range of block sizes with full transfer:
+#
+for bs in ${BSLIST} ; do
+    [ ${bs} -gt ${BSMAX} ] && continue
+    date >> src/one
+    date >> src/two
+    rm -rf dst
+    rsync -a --block-size=${bs} -- src/ dst/
+    compare_trees -t src dst
+done
+
+date > src/one
+jot -p7 1000000 > src/two
+
+# Test a range of block sizes with differential transfer:
+#
+for bs in ${BSLIST} ; do
+    [ ${bs} -gt ${BSMAX} ] && continue
+    date >> src/one
+    date >> src/two
+    rsync -a --block-size=${bs} -- src/ dst/
+    compare_trees -t src dst
+done
+
+
+BSLIST="128 256 512 700 1024 2048 4096 8192 16384 32768 65536 131072 1048576"
+
+# For each block size, create three files that are one-byte smaller,
+# one-byte larger, and one that is exactly the block size.
+#
+for bs in ${BSLIST} ; do
+    [ ${bs} -gt ${BSMAX} ] && continue
+    for i in -1 0 1 ; do
+	sz=$(expr ${bs} + $i)
+	echo "bs ${bs}, sz ${sz}"
+	dd if=/dev/random of=src/foo bs=${sz} count=1
+	cp -a src/foo src/bar
+	rm -f dst/bar
+	rsync -a --block-size=${bs} -- src/ dst/
+	compare_trees -t src dst
+    done
+done

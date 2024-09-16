@@ -478,6 +478,13 @@ set(char *t, NODE *ip)
 					errx(1, "line %d: invalid value for dataless: %s", lineno, val);
 				}
 				break;
+			case F_PROTECTION_CLASS:
+				ip->protection_class = (uint)strtoul(val, &ep, 10);
+				if (*ep) {
+					RECORD_FAILURE(1875702, EINVAL);
+					errx(1, "line %d: invalid value for protectionclass: %s", lineno, val);
+				}
+				break;
 		}
 	}
 }

@@ -23,6 +23,19 @@ rsync [OPTION]\&.\&.\&. rsync://[USER@]HOST[:PORT]/SRC [DEST]
 .SH "DESCRIPTION"
 
 .PP 
+The version of rsync described by this man page, samba rsync, is in the process
+of being replaced by openrsync.
+When /usr/bin/rsync is invoked, the actual implementation that is executed will
+depend on the set of flags passed on the command-line.
+.PP 
+There are two ways to force a specific rsync implementation to be selected.
+To change the default system-wide, a symlink may be placed at /var/select/rsync
+with a target of either "rsync_samba" for this version of rsync, or
+"rsync_openrsync" for openrsync.
+To select a specific implementation for a single invocation of rsync, the
+CHOSEN_RSYNC environment variable may be set to either "rsync_samba" or
+"rsync_openrsync" as with the /var/select symlink.
+.PP 
 rsync is a program that behaves in much the same way that rcp does,
 but has many more options and uses the rsync remote-update protocol to
 greatly speed up file transfers when the destination file is being
@@ -2972,6 +2985,16 @@ Timeout in data send/receive
 .SH "ENVIRONMENT VARIABLES"
 
 .PP 
+.IP "\fBCHOSEN_RSYNC\fP"
+The CHOSEN_RSYNC environment variable allows you to explicitly select an rsync
+implementation to use when /usr/bin/rsync is invoked.
+It may be set to either "rsync_samba" to use this version of rsync, or
+"rsync_openrsync" to use openrsync instead.
+Note that for remote transfers, setting this environment variable locally has no
+effect on the rsync implementation used on the remote end.
+The \fB\-\-rsync\-path\fP option may be used in conjunction with the \fBenv\fP(1)
+utility to request a specific implementation on the remote end, if the remote
+end supports also supports the CHOSEN_RSYNC environment variable.
 .IP "\fBCVSIGNORE\fP"
 The CVSIGNORE environment variable supplements any
 ignore patterns in \&.cvsignore files\&. See the \fB\-\-cvs\-exclude\fP option for
@@ -3006,6 +3029,7 @@ default \&.cvsignore file\&.
 .SH "SEE ALSO"
 
 .PP 
+\fBopenrsync\fP(1)
 \fBrsyncd\&.conf\fP(5)
 \fBfcntl\fP(2)
 .PP 

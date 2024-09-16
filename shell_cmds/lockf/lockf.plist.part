@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>lockf</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-07-27</string>
+		<string>2023-11-25</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/lockf?id=bd4fcf75ee6e6604b4ce40635152a63bb8c2577f</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/lockf?id=e4967d4d48b0a7d873e4f778c0a6e560e09d4dc3</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-10-12</string>
+		<string>2023-11-26</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		</array>

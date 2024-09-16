@@ -46,6 +46,7 @@
 #import "AppleSmartBatteryKeys.h"
 #include <os/feature_private.h>
 #include <TargetConditionals.h>
+#include "PowerManagementSignposts.h"
 
 
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
@@ -70,6 +71,7 @@
 #include "IOUPSPrivate.h"
 #include "BatteryData.h"
 #include "BatteryCapacityCalibration.h"
+#include "AppleSmartBatteryKeysPrivate.h"
 
 #define QUOTIENT_OF_5(soc) (soc/5)
 #define ROUND_TO_MULTIPLE_OF_5(soc) abs((5 * QUOTIENT_OF_5(soc)) - soc) < abs((5 * (QUOTIENT_OF_5(soc)+1)) - soc) ? (5 * QUOTIENT_OF_5(soc)) : (5 * (QUOTIENT_OF_5(soc)+1))
@@ -930,9 +932,8 @@ static void ioregBatteryInterest(
     if (kIOPMMessageBatteryStatusHasChanged != messageType) {
         return;
     }
-
+    kdebug_trace(SYSTEMCHARGING_POWERD_HANDLE_BATTERY_STATUS_UPDATE, 0, 0, 0, 0);
     IOPMBattery *changed_batt = (IOPMBattery *)refcon;
-
     ioregBatteryProcess(changed_batt, batt);
 }
 
@@ -1774,6 +1775,7 @@ static void HandlePublishAllPowerSources(void)
 
         INFO_LOG("Power Source change. Source:%{public}s", externalConnected ? "AC" : "Batt");
         notify_post(kIOPSNotifyPowerSource);
+        kdebug_trace(SYSTEMCHARGING_POWERD_PUBLISH_POWER_SOURCE_CHANGE, externalConnected, is_charging, showChargingUI, playChargingChime);
     }
 
     notify_post(kIOPSNotifyAnyPowerSource);
@@ -2764,6 +2766,29 @@ static void unstickCalibration1Data(CFMutableDictionaryRef bhData)
     return;
 }
 
+static int checkNominalCapacityTrusted(NSDictionary *trustedBatteryHealth, NSDictionary *bhDict, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    int maximumCapacity = -1;
+    if (bhDict[@kIOPSBatteryHealthMaxCapacityPercent]) {
+        maximumCapacity = [bhDict[@kIOPSBatteryHealthMaxCapacityPercent] intValue];
+        INFO_LOG("uninitialized maximum capacity in storage, init to (%d)", maximumCapacity);
+    }
+
+    if (trustedBatteryHealth[@kIOPSTrustedMaximumCapacity]) {
+        if (maximumCapacity == -1 || [trustedBatteryHealth[@kIOPSTrustedMaximumCapacity] intValue] <= maximumCapacity) { // Although monotonicity should be guaranteed from the gauge, still keep a safe check here 
+            maximumCapacity = [trustedBatteryHealth[@kIOPSTrustedMaximumCapacity] intValue];
+        } else {
+            ERROR_LOG("monotonicity interrupted saved (%d) incoming (%d)\n", maximumCapacity, [trustedBatteryHealth[@kIOPSTrustedMaximumCapacity] intValue]);
+        }
+    } else {
+        //error condition, should never happen!
+        ERROR_LOG("missing trusted maximumCapacity\n");
+        *svcFlags |= kBHSvcFlagNCCNotDet;
+
+    }
+    return maximumCapacity;
+}
+
 static bool isSupportedFreezeMaximumCapacity(void)
 {
     return batteryCapacityMonitor_isCapacityQmaxAware() && [gDeviceSupportsBatteryInformation boolValue];
@@ -2848,9 +2873,16 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
         }
     }
 
-    IOPSBatteryHealthServiceFlags prevSvcFlags = [((__bridge NSDictionary *) bhData)[@kIOPSBatteryHealthServiceFlagsKey] intValue];
+    NSMutableDictionary *bhDict = (__bridge NSMutableDictionary *) bhData;
+    IOPSBatteryHealthServiceFlags prevSvcFlags = [bhDict[@kIOPSBatteryHealthServiceFlagsKey] intValue];
     if (isSupportedCapacityMonitoring()) {
-        batteryCapactiyMonitorUpdate((__bridge NSDictionary *) batteryProps, (__bridge NSMutableDictionary *) bhData, svcFlags, &prevSvcFlags);
+        batteryCapactiyMonitorUpdate((__bridge NSDictionary *) batteryProps, bhDict, svcFlags, &prevSvcFlags);
+    }
+
+    NSDictionary *trustedBatteryHealth = batteryTrustedDataGetTrustedData();
+    if (MGIsiPhone() && trustedBatteryHealth != NULL && trustedBatteryHealth[@kIOPSTrustedDataEnabled] && [trustedBatteryHealth[@kIOPSTrustedDataEnabled] intValue] != 0 && bhDict != NULL) {
+        nccp = checkNominalCapacityTrusted(trustedBatteryHealth, bhDict, svcFlags);
+        goto out;
     }
 
     CFDictionaryGetIntValue(batteryProps, CFSTR("NominalChargeCapacity"), ncc);
@@ -2962,6 +2994,7 @@ void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef b
         }
     }
 
+out:
     if (nccp < kNominalCapacityPercentageThreshold) {
         *svcFlags |= kBHSvcFlagNCC;
         INFO_LOG("Nominal Capacity percentage(%d) is less than the threshold(%d)\n", nccp, kNominalCapacityPercentageThreshold);
@@ -3042,19 +3075,24 @@ TARGET_OS_XR_UNUSED STATIC void checkWeightedRa(CFDictionaryRef batteryProps, IO
 
     // read/update wRa value from provider 
     if ((weightedRa <= 0) || (timeDelta >= battReadTimeDelta)) {
-        weightedRa = -1; // Reset to -1 to avoid re-using previous value
-        batteryData = CFDictionaryGetValue(batteryProps, CFSTR("BatteryData"));
-        NSNumber *wRa = getWeightedRa((__bridge NSDictionary *)batteryData);
-        if (wRa) {
-            weightedRa = [wRa intValue];
+        NSDictionary *trustedBatteryHealth = batteryTrustedDataGetTrustedData();
+        if (MGIsiPhone() && trustedBatteryHealth != NULL && trustedBatteryHealth[@kIOPSTrustedDataEnabled] && [trustedBatteryHealth[@kIOPSTrustedDataEnabled] intValue] != 0) {
+            weightedRa = [trustedBatteryHealth[@kIOPSTrustedLifetimeMaxWRdc] intValue];
+            DEBUG_LOG("Using updated wRA %d from trusted battery data after %llu secs\n", weightedRa, timeDelta);
+        } else {
+            weightedRa = -1; // Reset to -1 to avoid re-using previous value
+            batteryData = CFDictionaryGetValue(batteryProps, CFSTR("BatteryData"));
+            NSNumber *wRa = getWeightedRa((__bridge NSDictionary *)batteryData);
+            if (wRa) {
+                weightedRa = [wRa intValue];
+            }
+            DEBUG_LOG("Using updated wRA %d from battery properties after %llu secs\n", weightedRa, timeDelta);
         }
-        DEBUG_LOG("Using updated wRA %d from battery properties after %llu secs\n", weightedRa, timeDelta);
         wraUpdate_ts = currentTime;
     }
     else {
         DEBUG_LOG("Using previous wRA %d\n", weightedRa);
     }
-
 
     if (weightedRa <= 0) {
         ERROR_LOG("Failed to read battery weightedRa\n");
@@ -4324,6 +4362,7 @@ bool isFullyCharged(IOPMBattery *b)
 
 
 
+
 /*
  * Implicit argument: All the global variables that track battery state
  */
@@ -5047,7 +5086,7 @@ static NSArray *copy_powersources_info(audit_token_t token, int type, bool preci
         if (gPSList[i].description == NULL) {
             continue;
         }
-
+        
         switch(type) {
         case kIOPSSourceInternal:
             if (gPSList[i].psType != kPSTypeIntBattery)

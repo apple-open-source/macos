@@ -42,6 +42,8 @@ __BEGIN_DECLS
 
 #if defined(__LP64__)
 
+#ifndef EXCLAVES_NO_L4_TYPES
+
 /* -------------------------------------------------------------------------- */
 
 /* Void data type */
@@ -416,14 +418,18 @@ Exclaves_L4_SetMessageMr(Exclaves_L4_Word32_t mr, Exclaves_L4_Word_t word)
 /* Return value of the endpoint message forwarding call. */
 #define EXCLAVES_XNU_PROXY_CR_RETVAL(ipcb) ((ipcb)->dcr[3])
 
+#endif /* EXCLAVES_NO_L4_TYPES */
+
+/* -------------------------------------------------------------------------- */
+
 /* identifiers for exclaves reachable through xnuproxy */
 typedef enum : uint64_t {
 	/* HelloExclaves: c-hello-exclave */
 	EXCLAVES_XNUPROXY_EXCLAVE_HELLOEXCLAVE = 0,
 	/* templated user_app */
 	EXCLAVES_XNUPROXY_EXCLAVE_USERAPP,
-	/* HelloTightbeam: swift-hello-exclave */
-	EXCLAVES_XNUPROXY_EXCLAVE_HELLOTIGHTBEAM,
+	/* Removed */
+	EXCLAVES_XNUPROXY_EXCLAVE_RESERVED,
 	/* HelloDrivers */
 	EXCLAVES_XNUPROXY_EXCLAVE_HELLODRIVERS,
 	/* HelloStorage */

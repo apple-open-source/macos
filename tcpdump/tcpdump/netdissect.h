@@ -323,21 +323,24 @@ extern void nd_pop_all_packet_info(netdissect_options *);
 /*
  * Values of ndo_flags that control printing of packet metadata
  */
-#define PRMD_NONE       0x0000
-#define PRMD_IF         0x0001
-#define PRMD_PNAME      0x0002
-#define PRMD_PID        0x0004
-#define PRMD_SVC        0x0008
-#define PRMD_DIR        0x0010
-#define PRMD_COMMENT    0x0020
-#define PRMD_PUUID      0x0040
-#define PRMD_VERBOSE    0x0800 /* print pcapng description blocks */
-#define PRMD_FLAGS      0x1000
-#define PRMD_FLOWID     0x2000
-#define PRMD_TRACETAG   0x4000
-#define PRMD_DLT        0x8000
-#define PRMD_DEFAULT    (PRMD_IF|PRMD_PNAME|PRMD_PID|PRMD_SVC|PRMD_DIR|PRMD_COMMENT|PRMD_FLAGS)
-#define PRMD_ALL		0xffff
+#define PRMD_NONE         0x0000
+#define PRMD_IF           0x0001
+#define PRMD_PNAME        0x0002
+#define PRMD_PID          0x0004
+#define PRMD_SVC          0x0008
+#define PRMD_DIR          0x0010
+#define PRMD_COMMENT      0x0020
+#define PRMD_PUUID        0x0040
+#define PRMD_VERBOSE      0x0800 /* print pcapng description blocks */
+#define PRMD_FLAGS        0x1000
+#define PRMD_FLOWID       0x2000
+#define PRMD_TRACETAG     0x4000
+#define PRMD_DLT          0x8000
+#define PRMD_DROP_REASON 0x10000
+#define PRMD_DROP_FUNC   0x20000
+#define PRMD_DROP_LINE   0x40000
+#define PRMD_DEFAULT (PRMD_IF|PRMD_PNAME|PRMD_PID|PRMD_SVC|PRMD_DIR|PRMD_COMMENT|PRMD_FLAGS|PRMD_DROP_REASON|PRMD_DROP_FUNC|PRMD_DROP_LINE)
+#define PRMD_ALL		0x1ffff
 #endif /* __APPLE__ */
 
 /*

@@ -34,9 +34,7 @@
 
 #include <sysexits.h>
 #include <unistd.h>
-#if TARGET_OS_OSX
 #include <FSPrivate.h>
-#endif
 #include <sys/attr.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
@@ -175,7 +173,6 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 ///w:start
                 if ( strcmp( mountList[mountListIndex].f_fstypename, "hfs" ) == 0 )
                 {
- #if TARGET_OS_OSX
                     object = _FSCopyNameForVolumeFormatAtURL( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) );
 
                     if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeTypeKey, object ) )
@@ -189,7 +186,6 @@ DAReturn _DADiskRefresh( DADiskRef disk )
                     {
                         CFRelease( object );
                     }
-#endif
                 }
 ///w:stop
                 /*

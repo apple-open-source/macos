@@ -22,7 +22,6 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.30.inc';
 my @FilePreviousList = qw(5.18.inc);
 my $URLprefix = 'https://cpan.metacpan.org/authors/id';
 

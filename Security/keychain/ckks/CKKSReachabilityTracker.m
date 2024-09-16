@@ -196,7 +196,7 @@
     }
 
     if ([error.domain isEqualToString:NSURLErrorDomain] &&
-        error.code == NSURLErrorTimedOut) {
+        (error.code == NSURLErrorTimedOut || error.code == NSURLErrorNotConnectedToInternet)) {
         return true;
     }
 

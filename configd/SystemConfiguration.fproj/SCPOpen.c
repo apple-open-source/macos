@@ -173,7 +173,13 @@ static const CFRuntimeClass __SCPreferencesClass = {
 	NULL,				// equal
 	NULL,				// hash
 	NULL,				// copyFormattingDesc
-	__SCPreferencesCopyDescription	// copyDebugDesc
+	__SCPreferencesCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -1110,7 +1116,7 @@ __SCPreferencesUpdateLockedState(SCPreferencesRef prefs, Boolean locked)
 			state_len = (ok && (data != NULL)) ? CFDataGetLength(data) : 0;
 			state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
 			if (state_data_size > MAX_STATEDUMP_SIZE) {
-				SC_log(LOG_ERR, "locked SCPreferences : state data too large (%zd > %zd)",
+				SC_log(LOG_ERR, "locked SCPreferences : state data too large (%zu > %zu)",
 				       state_data_size,
 				       (size_t)MAX_STATEDUMP_SIZE);
 				if (data != NULL) CFRelease(data);

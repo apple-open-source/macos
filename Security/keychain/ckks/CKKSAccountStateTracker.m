@@ -62,7 +62,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
 @property CKContainer* container; // used only for fetching the CKAccountStatus
 @property bool firstCKAccountFetch;
-@property bool forceReload;
 
 // make writable
 @property (nullable) OTCliqueStatusWrapper* octagonStatus;
@@ -92,7 +91,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         _queue = dispatch_queue_create("ck-account-state", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
         _firstCKAccountFetch = false;
-        _forceReload = false;
 
         _finishedInitialDispatches = [[CKKSCondition alloc] init];
         _ckdeviceIDInitialized = [[CKKSCondition alloc] init];
@@ -228,12 +226,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     WEAKIFY(self);
 
-    __block bool reload = false;
-    dispatch_sync(self.queue, ^{
-        reload = self.forceReload;
-        self.forceReload = false;
-    });
-
     void (^block)(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) = ^(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) {
         STRONGIFY(self);
 
@@ -251,21 +243,8 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         });
     };
 
-    if (reload) {
-        [self.container reloadAccountWithCompletionHandler:^(NSError *_Nullable error) {
-                STRONGIFY(self);
+    [self.container accountInfoWithCompletionHandler:block];
 
-                if (error) {
-                    ckkserror_global("ckksaccount", "error reloading account info(altDSID: %@): %@", self.container.options.accountOverrideInfo.altDSID, error);
-                    [self.fetchCKAccountStatusScheduler trigger];
-                    dispatch_semaphore_signal(finishedSema);
-                    return;
-                }
-                [self.container accountInfoWithCompletionHandler:block];
-            }];
-    } else {
-        [self.container accountInfoWithCompletionHandler:block];
-    }
 
     return finishedSema;
 }
@@ -462,10 +441,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
 - (void)recheckCKAccountStatus
 {
-    dispatch_sync(self.queue, ^{
-        self.forceReload = true;
-    });
-
     [self.fetchCKAccountStatusScheduler trigger];
 }
 

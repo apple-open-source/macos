@@ -1,0 +1,16 @@
+Minimum steps required:
+
+1.) Update the dev/UPSTREAM branch
+2.) Apply the diff from the new commit on dev/UPSTREAM to ncurses/ in the
+    release branch.
+3.) If the cchar_t/WINDOW ABI changes again, the NCURSES_MAX_ABI in
+    curses.priv.h will need bumped.
+4.) *New* libncurses symbols need NCURSES_ABI_PUSH()/NCURSES_ABI_POP() with the
+    maximum supported ABI at the time (see NCURSES_MAX_ABI in curses.priv.h)
+5.) *Old* libncurses symbols that are affected by any ABI change need an
+    implementation in nc_abi.c for the new version.  generate-syms.py will take
+    care of this, the current_abi_version at the top of the script will need
+    bumped to the new version accordingly.  Any filters for symbols unaffected
+    by the update may be added to generate-syms.filters.  generate-syms.py
+    should ideally be run by simply executing the top-level configure.sh, which
+    will also regenerate the relevant curses headers.

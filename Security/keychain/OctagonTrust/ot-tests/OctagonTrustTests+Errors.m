@@ -32,7 +32,6 @@ NS_ASSUME_NONNULL_BEGIN
 @implementation OctagonTrustTests (OctagonTrustTestsErrors)
 - (void) testDepthCountOnErrors
 {
-    SecErrorSetOverrideNestedErrorCappingIsEnabled(true);
     //previousError == nil case
     CFErrorRef errorWithoutPreviousSet = NULL;
     SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, &errorWithoutPreviousSet, NULL, CFSTR("no previous error"));
@@ -65,7 +64,6 @@ NS_ASSUME_NONNULL_BEGIN
 }
 - (void) testErrorCap
 {
-    SecErrorSetOverrideNestedErrorCappingIsEnabled(true);
     //previousError == nil case
     CFErrorRef previous= NULL;
     SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, &previous, NULL, CFSTR("no previous error"));
@@ -123,53 +121,8 @@ NS_ASSUME_NONNULL_BEGIN
     }
 }
 
-- (void) testErrorCapWithFeatureFlagDisable
-{
-    SecErrorSetOverrideNestedErrorCappingIsEnabled(false);
-    //previousError == nil case
-    CFErrorRef previous= NULL;
-    SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, &previous, NULL, CFSTR("no previous error"));
-    XCTAssertNotNil((__bridge NSError*) previous, "errorWithoutPreviousSet should not be nil");
-    NSDictionary *userInfo = [(__bridge NSError*)previous userInfo];
-    XCTAssertNotNil(userInfo, "userInfo should not be nil");
-    NSNumber *depth = userInfo[@"numberOfErrorsDeep"];
-    XCTAssertNotNil(depth, "depth should not be nil");
-    XCTAssertEqual([depth longValue], 0, "depth should be 0");
-
-    //stay within the cap limit
-    CFErrorRef newError = NULL;
-    for(int i = 0; i<200; i++) {
-        SOSCreateErrorWithFormat(kSOSErrorNoCircle, previous, &newError, NULL, CFSTR("previousError exists %d!"), i);
-        XCTAssertNotNil((__bridge NSError*) newError, "newError should not be nil");
-        userInfo = [(__bridge NSError*)newError userInfo];
-        XCTAssertNotNil(userInfo, "userInfo should not be nil");
-        depth = userInfo[@"numberOfErrorsDeep"];
-        XCTAssertNotNil(depth, "depth should not be nil");
-        XCTAssertEqual([depth longValue], i+1, "depth should be i+1");
-        previous = newError;
-        newError = nil;
-    }
-
-    //now blow the cap limit
-    previous = NULL;
-    newError = NULL;
-
-    for(int i = 0; i < 500; i++) {
-        SOSCreateErrorWithFormat(kSOSErrorNoCircle, previous, &newError, NULL, CFSTR("previousError exists %d!"), i);
-        XCTAssertNotNil((__bridge NSError*) newError, "newError should not be nil");
-        userInfo = [(__bridge NSError*)newError userInfo];
-        XCTAssertNotNil(userInfo, "userInfo should not be nil");
-        depth = userInfo[@"numberOfErrorsDeep"];
-        XCTAssertNotNil(depth, "depth should not be nil");
-        XCTAssertEqual([depth longValue], i, "depth should be %d", i);
-        previous = newError;
-        newError = nil;
-    }
-}
-
 - (void) testNestedErrorCreationUsingSameErrorParameters
 {
-    SecErrorSetOverrideNestedErrorCappingIsEnabled(true);
     //previousError == nil case
     CFErrorRef previous= NULL;
     SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, &previous, NULL, CFSTR("no previous error"));

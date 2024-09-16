@@ -56,8 +56,8 @@ ___tolower_l(__ct_rune_t c, locale_t loc)
 	 * when compatibility for Panther and lower is no longer needed
 	 */
 	if (c < _CACHED_RUNES)
-		return loc->__lc_ctype->_CurrentRuneLocale.__maplower[c];
-	rr = &loc->__lc_ctype->_CurrentRuneLocale.__maplower_ext;
+		return XLOCALE_CTYPE(loc)->_CurrentRuneLocale->__maplower[c];
+	rr = &XLOCALE_CTYPE(loc)->_CurrentRuneLocale->__maplower_ext;
 	/* Binary search -- see bsearch.c for explanation. */
 	base = rr->__ranges;
 	for (lim = rr->__nranges; lim != 0; lim >>= 1) {

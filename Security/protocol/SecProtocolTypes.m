@@ -464,10 +464,13 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
     if (self = [super init]) {
         CFBundleRef bundle = CFBundleGetMainBundle();
         if (bundle != NULL) {
-            CFTypeRef rawATS = CFBundleGetValueForInfoDictionaryKey(bundle, CFSTR(kATSInfoKey));
-            self->dictionary = (CFDictionaryRef)rawATS;
-            CFRetainSafe(self->dictionary);
-            self->is_apple = _is_apple_bundle();
+            CFDictionaryRef info = CFBundleGetInfoDictionary(bundle);
+            if (info != NULL) {
+                CFTypeRef rawATS = CFDictionaryGetValue(info, CFSTR(kATSInfoKey));
+                self->dictionary = (CFDictionaryRef)rawATS;
+                CFRetainSafe(self->dictionary);
+                self->is_apple = _is_apple_bundle();
+            }
         }
     }
     return self;

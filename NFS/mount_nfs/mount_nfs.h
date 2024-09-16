@@ -105,6 +105,7 @@ struct nfs_options_client {
 	struct timespec request_timeout;                        /* NFS request timeout */
 	uint32_t        soft_retry_count;                       /* soft retrans count */
 	int             readlink_nocache;                       /* readlink no-cache mode */
+	int             access_cache;                           /* access cache size */
 	struct timespec dead_timeout;                           /* dead timeout value */
 	fhandle_t       fh;                                     /* initial file handle */
 	char *          realm;                                  /* realm of the client. use for setting up kerberos creds */

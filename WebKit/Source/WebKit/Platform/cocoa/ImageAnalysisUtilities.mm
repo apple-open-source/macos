@@ -139,7 +139,7 @@ TextRecognitionResult makeTextRecognitionResult(CocoaImageAnalysis *analysis)
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     if ([analysis isKindOfClass:PAL::getVKCImageAnalysisClass()])
-        result.platformData = analysis;
+        result.imageAnalysisData = TextRecognitionResult::encodeVKCImageAnalysis(analysis);
 #endif
 
     return result;
@@ -401,7 +401,7 @@ void requestPayloadForQRCode(CGImageRef image, CompletionHandler<void(NSString *
     if (!image || !PAL::isVisionFrameworkAvailable())
         return completion(nil);
 
-    auto queue = WorkQueue::create("com.apple.WebKit.ImageAnalysisUtilities.QRCodePayloadRequest");
+    auto queue = WorkQueue::create("com.apple.WebKit.ImageAnalysisUtilities.QRCodePayloadRequest"_s);
     queue->dispatch([image = retainPtr(image), completion = WTFMove(completion)]() mutable {
         auto adjustedImage = imageFilledWithWhiteBackground(image.get());
 

@@ -1532,7 +1532,7 @@ _exsltDateAdd (exsltDateValPtr dt, exsltDateDurValPtr dur)
         temp  -= 12;
         carry += 1;
     }
-    ret->mon = temp;
+    ret->mon = (unsigned)temp;
 
     /*
      * year (may be modified later)
@@ -1565,7 +1565,7 @@ _exsltDateAdd (exsltDateValPtr dt, exsltDateDurValPtr dur)
         temp  -= 60;
         carry += 1;
     }
-    ret->min = temp;
+    ret->min = (unsigned)temp;
 
     /* hours */
     temp  = dt->hour + carry % 24;
@@ -1574,7 +1574,7 @@ _exsltDateAdd (exsltDateValPtr dt, exsltDateDurValPtr dur)
         temp  -= 24;
         carry += 1;
     }
-    ret->hour = temp;
+    ret->hour = (unsigned)temp;
 
     /* days */
     if (dt->day > MAX_DAYINMONTH(ret->year, ret->mon))
@@ -1617,7 +1617,7 @@ _exsltDateAdd (exsltDateValPtr dt, exsltDateDurValPtr dur)
             break;
     }
 
-    ret->day = temp;
+    ret->day = (unsigned)temp;
 
     /*
      * adjust the date/time type to the date values

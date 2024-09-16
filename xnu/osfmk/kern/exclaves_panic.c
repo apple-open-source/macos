@@ -36,11 +36,13 @@
 
 #include <uuid/uuid.h>
 
-#include <xnuproxy/messages.h>
 #include <xnuproxy/panic.h>
 
 #include "exclaves_debug.h"
 #include "exclaves_panic.h"
+#include "exclaves_boot.h"
+#include "exclaves_xnuproxy.h"
+#include "exclaves_internal.h"
 
 /* Use the new version of xnuproxy_msg_t. */
 #define xnuproxy_msg_t xnuproxy_msg_new_t
@@ -84,19 +86,13 @@ copy_panic_buffer_pages(pmap_paddr_t addr)
 }
 
 static void
-exclaves_xnu_proxy_panic_thread(void *arg __unused, wait_result_t wr __unused)
+exclaves_xnuproxy_panic_thread(void *arg __unused, wait_result_t wr __unused)
 {
 	kern_return_t kr = KERN_SUCCESS;
-	Exclaves_L4_Word_t spawned_scid = 0;
-	thread_t thread;
 
-	xnuproxy_msg_t msg = {
-		.cmd = XNUPROXY_CMD_PANIC_SETUP,
-	};
-
-	extern kern_return_t exclaves_xnu_proxy_send(xnuproxy_msg_t *,
-	    Exclaves_L4_Word_t *);
-	kr = exclaves_xnu_proxy_send(&msg, &spawned_scid);
+	uint64_t phys;
+	uint64_t scid;
+	kr = exclaves_xnuproxy_panic_setup(&phys, &scid);
 	if (kr != KERN_SUCCESS) {
 		exclaves_debug_printf(show_errors,
 		    "exclaves: panic thread init: xnu proxy send failed.");
@@ -105,19 +101,17 @@ exclaves_xnu_proxy_panic_thread(void *arg __unused, wait_result_t wr __unused)
 
 	/* Dont copy if the panic buffer initialisation already happended */
 	if (exclaves_panic_buffer_pages[0] == 0) {
-		copy_panic_buffer_pages(msg.cmd_panic_setup.response.physical_address);
+		copy_panic_buffer_pages(phys);
 	}
 
-	thread = current_thread();
-	thread->th_exclaves_scheduling_context_id = spawned_scid;
+	thread_t thread = current_thread();
+	thread->th_exclaves_ipc_ctx.scid = scid;
 
 	assert3u(thread->th_exclaves_state & TH_EXCLAVES_STATE_ANY, ==, 0);
 	thread->th_exclaves_state |= TH_EXCLAVES_SCHEDULER_CALL;
 
 	while (1) {
-		extern kern_return_t exclaves_scheduler_resume_scheduling_context(Exclaves_L4_Word_t,
-		    Exclaves_L4_Word_t *);
-		kr = exclaves_scheduler_resume_scheduling_context(spawned_scid, NULL);
+		kr = exclaves_scheduler_resume_scheduling_context(&thread->th_exclaves_ipc_ctx, false);
 		assert3u(kr, ==, KERN_SUCCESS);
 	}
 }
@@ -267,9 +261,12 @@ void
 exclaves_panic_append_info(void)
 {
 	uint32_t status = 0;
+	kern_return_t kr = 0;
 	char *status_str;
 
-	kern_return_t kr = exclaves_panic_buffer_sync();
+	paniclog_append_noflush("Exclaves boot status: %s\n", exclaves_get_boot_status_string());
+
+	kr = exclaves_panic_buffer_sync();
 	if (kr != KERN_SUCCESS) {
 		return;
 	}
@@ -321,7 +318,7 @@ exclaves_panic_thread_setup(void)
 	thread_t thread = THREAD_NULL;
 	kern_return_t kr = KERN_FAILURE;
 
-	kr = kernel_thread_start_priority(exclaves_xnu_proxy_panic_thread, NULL,
+	kr = kernel_thread_start_priority(exclaves_xnuproxy_panic_thread, NULL,
 	    BASEPRI_DEFAULT, &thread);
 	if (kr != KERN_SUCCESS) {
 		return kr;

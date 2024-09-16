@@ -1,7 +1,7 @@
 /*
     File:		MBCBoardWin.h
     Contains:	Manage the board window
-    Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+    Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
     IMPORTANT: This Apple software is supplied to you by Apple Computer,
     Inc.  ("Apple") in consideration of your agreement to the following
@@ -45,7 +45,8 @@
 
 #import <Cocoa/Cocoa.h>
 #import <GameKit/GameKit.h>
-#include <UserNotifications/UserNotifications.h>
+#import <MetalKit/MTKView.h>
+#import <UserNotifications/UserNotifications.h>
 
 #ifdef CHESS_TUNER
 #import "Chess_Tuner-Swift.h"
@@ -54,26 +55,32 @@
 #endif
 
 #import "MBCBoard.h"
+#import "MBCBoardViewInterface.h"
 
 @class MBCBoard;
 @class MBCBoardView;
+@class MBCBoardMTLView;
 @class MBCEngine;
 @class MBCInteractivePlayer;
 @class MBCGameInfo;
 @class MBCRemotePlayer;
 @class MBCAnimation;
+@class MBCMetalRenderer;
 
 @interface MBCBoardWin : NSWindowController <NSWindowDelegate,
     GKAchievementViewControllerDelegate,
-    GKTurnBasedMatchmakerViewControllerDelegate, GKGameCenterControllerDelegate, MBCSharePlayManagerBoardWindowDelegate, UNUserNotificationCenterDelegate>
+    GKTurnBasedMatchmakerViewControllerDelegate, GKGameCenterControllerDelegate, MBCSharePlayManagerBoardWindowDelegate, UNUserNotificationCenterDelegate, MTKViewDelegate>
 {
     NSMutableArray *                fObservers;
     GKAchievementViewController *   fAchievements;
     MBCAnimation *                  fCurAnimation;
     int                             currentSharePlayMoveStringCount;
+    MBCMetalRenderer *              fMetalRenderer;
 }
 
-@property (nonatomic, assign) IBOutlet MBCBoardView *           gameView;
+@property (nonatomic, assign) IBOutlet MBCBoardView<MBCBoardViewInterface> *           gameView;
+@property (nonatomic, assign) IBOutlet MBCBoardMTLView<MBCBoardViewInterface> *        gameMTLView;
+@property (nonatomic, assign) IBOutlet NSView *                 mtlBackingView;
 @property (nonatomic, assign) IBOutlet NSPanel *                gameNewSheet;
 @property (nonatomic, assign) IBOutlet NSBox *                  logContainer;
 @property (nonatomic, assign) IBOutlet NSView *                 logView;
@@ -91,6 +98,8 @@
 @property (assign) IBOutlet NSMenu *playersPopupMenu;
 @property (nonatomic, assign) IBOutlet NSMenu * sharePlayMenu;
 
++ (BOOL)isRenderingWithMetal;
+- (NSView <MBCBoardViewInterface> *)renderView;
 - (void) removeChessObservers;
 - (IBAction)takeback:(id)sender;
 - (void) requestTakeback;
@@ -103,7 +112,8 @@
 - (IBAction) cancelNewGame:(id)sender;
 - (IBAction) showAchievements:(id)sender;
 - (IBAction) profileDraw:(id)sender;
-- (void)adjustLogView;
+- (void)adjustLogViewForReusedWindow;
+- (void)checkEdgeNotationVisibilityForReusedWindow;
 - (BOOL)listenForMoves;
 - (NSString *)speakOpponentTitle;
 - (BOOL)speakMoves;
@@ -122,5 +132,6 @@
 - (void)handleRemoteResponse:(NSString *)response;
 - (void)endAnimation;
 - (BOOL)hideSharePlayProperties;
+- (IBAction)toggleEdgeNotation:(id)sender;
 
 @end

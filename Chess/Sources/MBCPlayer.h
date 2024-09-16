@@ -1,7 +1,7 @@
 /*
 	File:		MBCPlayer.h
 	Contains:	Infrastructure for agents participating in game
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following

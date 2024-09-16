@@ -44,6 +44,7 @@ T_DECL(tiny_mem_pressure, "tiny memory pressure",
 		T_META_ENVVAR("MallocScribble=1"),
 		T_META_ENVVAR("MallocSpaceEfficient=1"),
 		T_META_ENVVAR("MallocMaxMagazines=1"),
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_CHECK_LEAKS(false))
 {
 	dispatch_queue_t q = dispatch_queue_create("pressure queue", 0); // serial
@@ -58,6 +59,8 @@ T_DECL(tiny_mem_pressure, "tiny memory pressure",
 }
 
 T_DECL(small_mem_pressure, "small memory pressure thread",
+		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_RUN_CONCURRENTLY(true),
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
@@ -121,6 +124,7 @@ T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
+		T_META_TAG_VM_NOT_PREFERRED,
 		T_META_CHECK_LEAKS(false)) {
 	dispatch_group_t g = dispatch_group_create();
 	for (int i=0; i<16; i++) {
@@ -142,6 +146,8 @@ T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 }
 
 T_DECL(small_mem_pressure_multi, "test memory pressure in small on threads",
+		T_META_TAG_VM_NOT_PREFERRED,
+		T_META_RUN_CONCURRENTLY(true),
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
@@ -169,7 +175,9 @@ T_DECL(medium_mem_pressure_multi, "test memory pressure in medium on threads",
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
 #endif // TARGET_OS_WATCH
-		T_META_CHECK_LEAKS(false)) {
+		T_META_CHECK_LEAKS(false),
+	    T_META_TAG_VM_NOT_PREFERRED,
+	    T_META_RUN_CONCURRENTLY(true)) {
 	dispatch_group_t g = dispatch_group_create();
 	for (int i=0; i<30; i++) {
 		dispatch_group_async(g, dispatch_get_global_queue(0, 0), ^{

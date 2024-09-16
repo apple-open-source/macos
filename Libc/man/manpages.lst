@@ -53,6 +53,7 @@ alloca.3 alloca.3
 arc4random.3 arc4random.3 arc4random_addrandom.3 arc4random_buf.3 arc4random_stir.3 arc4random_uniform.3
 assert.3 assert.3
 atexit.3 atexit.3 atexit_b.3
+at_quick_exit.3 at_quick_exit.3
 atof.3 atof.3 atof_l.3
 atoi.3 atoi.3 atoi_l.3
 atol.3 atol.3 atol_l.3 atoll.3 atoll_l.3
@@ -229,6 +230,7 @@ putwc_l.3 putwc_l.3 fputwc_l.3 putwchar_l.3
 pwcache.3 pwcache.3 group_from_gid.3 user_from_uid.3
 qsort.3 qsort.3 heapsort.3 mergesort.3 qsort_r.3 heapsort_b.3 mergesort_b.3 qsort_b.3
 querylocale.3 querylocale.3
+quick_exit.3 quick_exit.3
 radixsort.3 radixsort.3 sradixsort.3
 raise.3 raise.3
 rand.3 rand.3 rand_r.3 srand.3 sranddev.3

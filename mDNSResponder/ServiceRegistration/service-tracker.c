@@ -1,6 +1,6 @@
 /* service-tracker.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -278,7 +278,6 @@ service_tracker_callback(void *context, cti_service_vec_t *services, cti_status_
                 }
             }
         }
-
         accumulator_t accumulator;
         for (service = tracker->thread_services; service != NULL; service = service->next) {
             // For unicast services, see if there's also an anycast service on the same RLOC16.
@@ -345,18 +344,24 @@ exit:
 void
 service_tracker_start(service_tracker_t *tracker)
 {
-    if (tracker->thread_service_context == NULL) {
-        int status = cti_get_service_list(tracker->server_state, &tracker->thread_service_context,
-                                          tracker, service_tracker_callback, NULL);
-        if (status != kCTIStatus_NoError) {
-            INFO("[ST%lld] service list get failed: %d", tracker->id, status);
-            return;
+    if (tracker->thread_service_context != NULL) {
+        cti_events_discontinue(tracker->thread_service_context);
+        tracker->thread_service_context = NULL;
+        INFO("[ST%lld] restarting", tracker->id);
+        if (tracker->ref_count != 1) {
+            RELEASE_HERE(tracker, service_tracker); // Release the old retain for the callback.
+        } else {
+            FAULT("service tracker reference count should not be 1 here!");
         }
-        INFO("[ST%lld] service list get started", tracker->id);
-        RETAIN_HERE(tracker, service_tracker); // for the callback.
-    } else {
-        INFO("[ST%lld] already started", tracker->id);
     }
+    int status = cti_get_service_list(tracker->server_state, &tracker->thread_service_context,
+                                      tracker, service_tracker_callback, NULL);
+    if (status != kCTIStatus_NoError) {
+        INFO("[ST%lld] service list get failed: %d", tracker->id, status);
+        return;
+    }
+    INFO("[ST%lld] service list get started", tracker->id);
+    RETAIN_HERE(tracker, service_tracker); // for the callback.
 }
 
 bool
@@ -608,6 +613,19 @@ service_tracker_verify_next_service(service_tracker_t *NULLABLE tracker)
         RETAIN_HERE(tracker, service_tracker); // For the srp probe
         probe_srp_service(service, tracker, service_tracker_probe_callback, service_tracker_context_release);
         return;
+    }
+}
+
+void
+service_tracker_cancel_probes(service_tracker_t *NULLABLE tracker)
+{
+    if (tracker == NULL) {
+        return;
+    }
+    for (thread_service_t *service = tracker->thread_services; service != NULL; service = service->next) {
+        if (service->probe_state) {
+            probe_srp_service_probe_cancel(service);
+        }
     }
 }
 

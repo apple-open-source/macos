@@ -20,7 +20,7 @@
 #include "config.h"
 #include "ImageGStreamer.h"
 
-#if ENABLE(VIDEO) && USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER) && USE(CAIRO)
 
 #include "GStreamerCommon.h"
 
@@ -73,6 +73,8 @@ ImageGStreamer::ImageGStreamer(GRefPtr<GstSample>&& sample)
     int width = GST_VIDEO_FRAME_WIDTH(&m_videoFrame);
     int height = GST_VIDEO_FRAME_HEIGHT(&m_videoFrame);
     RefPtr<cairo_surface_t> surface;
+
+    m_size = { static_cast<float>(width), static_cast<float>(height) };
 
     if (m_hasAlpha || componentSwapRequired) {
         uint8_t* surfaceData = static_cast<uint8_t*>(fastMalloc(height * stride));
@@ -156,7 +158,7 @@ ImageGStreamer::ImageGStreamer(GRefPtr<GstSample>&& sample)
         surface = adoptRef(cairo_image_surface_create_for_data(bufferData, CAIRO_FORMAT_ARGB32, width, height, stride));
 
     ASSERT(cairo_surface_status(surface.get()) == CAIRO_STATUS_SUCCESS);
-    m_image = BitmapImage::create(WTFMove(surface));
+    m_image = WTFMove(surface);
 
     if (GstVideoCropMeta* cropMeta = gst_buffer_get_video_crop_meta(buffer))
         setCropRect(FloatRect(cropMeta->x, cropMeta->y, cropMeta->width, cropMeta->height));
@@ -177,4 +179,4 @@ ImageGStreamer::~ImageGStreamer()
 
 } // namespace WebCore
 
-#endif // USE(GSTREAMER)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER) && USE(CAIRO)

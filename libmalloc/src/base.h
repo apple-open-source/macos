@@ -98,7 +98,14 @@ __ptrcheck_abi_assume_single()
 #define MALLOC_COLD __attribute__((cold))
 #define MALLOC_NOESCAPE __attribute__((noescape))
 #define MALLOC_PRESERVE_MOST __attribute__((preserve_most))
+#define MALLOC_FALLTHROUGH __attribute__((fallthrough))
 #define CHECK_MAGAZINE_PTR_LOCKED(szone, mag_ptr, fun) {}
+
+#if __has_feature(bounds_safety)
+#define __malloc_bidi_indexable __bidi_indexable
+#else
+#define __malloc_bidi_indexable
+#endif
 
 #define SCRIBBLE_BYTE 0xaa /* allocated scribble */
 #define SCRABBLE_BYTE 0x55 /* free()'d scribble */
@@ -189,6 +196,10 @@ extern size_t malloc_absolute_max_size; // caches the definition above
 #define MALLOC_ABORT_ON_CORRUPTION (1 << 8)
 // don't populate the mapping for the allocation
 #define MALLOC_NO_POPULATE (1 << 9)
+
+// See malloc_implementation.h
+// MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS == (1 << 10)
+
 
 /*
  * These commpage routines provide fast access to the logical cpu number

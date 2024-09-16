@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
 
 #include "MessageReceiver.h"
 #include "PushMessageForTesting.h"
@@ -38,6 +38,7 @@
 #include <wtf/Forward.h>
 #include <wtf/Identified.h>
 #include <wtf/OSObjectPtr.h>
+#include <wtf/ObjectIdentifier.h>
 #include <wtf/RefCounted.h>
 #include <wtf/UUID.h>
 #include <wtf/WeakPtr.h>
@@ -61,7 +62,10 @@ using WebKit::WebPushD::WebPushDaemonConnectionConfiguration;
 
 namespace WebPushD {
 
-class PushClientConnection : public RefCounted<PushClientConnection>, public Identified<PushClientConnection>, public IPC::MessageReceiver {
+enum class PushClientConnectionIdentifierType { };
+using PushClientConnectionIdentifier = AtomicObjectIdentifier<PushClientConnectionIdentifierType>;
+
+class PushClientConnection : public RefCounted<PushClientConnection>, public Identified<PushClientConnectionIdentifier>, public IPC::MessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<PushClientConnection> create(xpc_connection_t);
@@ -77,15 +81,9 @@ public:
     const String& pushPartitionString() const { return m_pushPartitionString; }
     std::optional<WTF::UUID> dataStoreIdentifier() const { return m_dataStoreIdentifier; }
 
-    bool debugModeIsEnabled() const { return m_debugModeEnabled; }
-    void setDebugModeIsEnabled(bool);
-
     bool useMockBundlesForTesting() const { return m_useMockBundlesForTesting; }
 
     void connectionClosed();
-
-    void broadcastDebugMessage(const String&);
-    void sendDebugMessage(const String&);
 
     void didReceiveMessageWithReplyHandler(IPC::Decoder&, Function<void(UniqueRef<IPC::Encoder>&&)>&&) override;
 
@@ -94,9 +92,9 @@ private:
 
     // PushClientConnectionMessages
     void setPushAndNotificationsEnabledForOrigin(const String& originString, bool, CompletionHandler<void()>&& replySender);
-    void deletePushAndNotificationRegistration(const String& originString, CompletionHandler<void(const String&)>&& replySender);
     void injectPushMessageForTesting(PushMessageForTesting&&, CompletionHandler<void(const String&)>&&);
     void injectEncryptedPushMessageForTesting(const String&, CompletionHandler<void(bool)>&&);
+    void getPendingPushMessage(CompletionHandler<void(const std::optional<WebKit::WebPushMessage>&)>&& replySender);
     void getPendingPushMessages(CompletionHandler<void(const Vector<WebKit::WebPushMessage>&)>&& replySender);
     void subscribeToPushService(URL&& scopeURL, const Vector<uint8_t>& applicationServerKey, CompletionHandler<void(const Expected<WebCore::PushSubscriptionData, WebCore::ExceptionData>&)>&& replySender);
     void unsubscribeFromPushService(URL&& scopeURL, std::optional<WebCore::PushSubscriptionIdentifier>, CompletionHandler<void(const Expected<bool, WebCore::ExceptionData>&)>&& replySender);
@@ -109,6 +107,7 @@ private:
     void getPushPermissionState(URL&& scopeURL, CompletionHandler<void(const Expected<uint8_t, WebCore::ExceptionData>&)>&&);
     void setHostAppAuditTokenData(const Vector<uint8_t>&);
     void getPushTopicsForTesting(CompletionHandler<void(Vector<String>, Vector<String>)>&&);
+    void didShowNotificationForTesting(URL&& scopeURL, CompletionHandler<void()>&&);
     String bundleIdentifierFromAuditToken(audit_token_t);
     bool hostHasEntitlement(ASCIILiteral);
 
@@ -127,4 +126,4 @@ private:
 
 } // namespace WebPushD
 
-#endif // ENABLE(BUILT_IN_NOTIFICATIONS)
+#endif // ENABLE(WEB_PUSH_NOTIFICATIONS)

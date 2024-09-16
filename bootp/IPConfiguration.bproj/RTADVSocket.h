@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,7 +71,7 @@ RTADVSocketEnableReceive(RTADVSocketRef sock,
 void
 RTADVSocketDisableReceive(RTADVSocketRef sock);
 
-int
+errno_t
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok);
 
 #endif /* _S_RTADVSOCKET_H */

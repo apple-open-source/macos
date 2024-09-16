@@ -42,7 +42,7 @@ wcsrtombs_l(char * __restrict dst, const wchar_t ** __restrict src, size_t len,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_wcsrtombs;
-	return (loc->__lc_ctype->__wcsnrtombs(dst, src, SIZE_T_MAX, len, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__wcsnrtombs(dst, src, SIZE_T_MAX, len, ps, loc));
 }
 
 size_t

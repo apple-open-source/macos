@@ -28,7 +28,9 @@
 
 #include "config.h"
 #include "AXCoreObject.h"
+
 #include "LocalFrameView.h"
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -81,8 +83,6 @@ bool AXCoreObject::isGroup() const
     switch (roleValue()) {
     case AccessibilityRole::Group:
     case AccessibilityRole::TextGroup:
-    case AccessibilityRole::ApplicationGroup:
-    case AccessibilityRole::ApplicationTextGroup:
         return true;
     default:
         return false;
@@ -108,30 +108,6 @@ bool AXCoreObject::isTextControl() const
     case AccessibilityRole::SearchField:
     case AccessibilityRole::TextArea:
     case AccessibilityRole::TextField:
-        return true;
-    default:
-        return false;
-    }
-}
-
-bool AXCoreObject::canHaveSelectedChildren() const
-{
-    switch (roleValue()) {
-    // These roles are containers whose children support aria-selected:
-    case AccessibilityRole::Grid:
-    case AccessibilityRole::ListBox:
-    case AccessibilityRole::TabList:
-    case AccessibilityRole::Tree:
-    case AccessibilityRole::TreeGrid:
-    case AccessibilityRole::List:
-    // These roles are containers whose children are treated as selected by assistive
-    // technologies. We can get the "selected" item via aria-activedescendant or the
-    // focused element.
-    case AccessibilityRole::Menu:
-    case AccessibilityRole::MenuBar:
-#if USE(ATSPI)
-    case AccessibilityRole::MenuListPopup:
-#endif
         return true;
     default:
         return false;
@@ -227,9 +203,12 @@ AXCoreObject::AXValue AXCoreObject::value()
     if (isTabItem())
         return isSelected();
 
+    if (isDateTime())
+        return dateTimeValue();
+
     if (isColorWell()) {
         auto color = convertColor<SRGBA<float>>(colorValue()).resolved();
-        return makeString("rgb ", String::numberToStringFixedPrecision(color.red, 6, TrailingZerosPolicy::Keep), " ", String::numberToStringFixedPrecision(color.green, 6, TrailingZerosPolicy::Keep), " ", String::numberToStringFixedPrecision(color.blue, 6, TrailingZerosPolicy::Keep), " 1");
+        return makeString("rgb "_s, String::numberToStringFixedPrecision(color.red, 6, TrailingZerosPolicy::Keep), ' ', String::numberToStringFixedPrecision(color.green, 6, TrailingZerosPolicy::Keep), ' ', String::numberToStringFixedPrecision(color.blue, 6, TrailingZerosPolicy::Keep), " 1"_s);
     }
 
     return stringValue();
@@ -267,7 +246,7 @@ bool AXCoreObject::hasPopup() const
     if (!equalLettersIgnoringASCIICase(popupValue(), "false"_s))
         return true;
 
-    for (auto* ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
+    for (RefPtr ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
         if (!ancestor->isLink())
             continue;
 
@@ -283,7 +262,7 @@ unsigned AXCoreObject::tableLevel() const
         return 0;
 
     unsigned level = 0;
-    auto* current = exposedTableAncestor(true /* includeSelf */);
+    RefPtr current = exposedTableAncestor(true /* includeSelf */);
     while (current) {
         level++;
         current = current->exposedTableAncestor(false);
@@ -362,11 +341,28 @@ String AXCoreObject::ariaLandmarkRoleDescription() const
     }
 }
 
+bool AXCoreObject::supportsActiveDescendant() const
+{
+    switch (roleValue()) {
+    case AccessibilityRole::ComboBox:
+    case AccessibilityRole::Grid:
+    case AccessibilityRole::List:
+    case AccessibilityRole::ListBox:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::TreeGrid:
+        return true;
+    default:
+        return false;
+    }
+}
+
 AXCoreObject* AXCoreObject::activeDescendant() const
 {
     auto activeDescendants = relatedObjects(AXRelationType::ActiveDescendant);
     ASSERT(activeDescendants.size() <= 1);
-    return activeDescendants.size() ? activeDescendants[0].get() : nullptr;
+    if (!activeDescendants.isEmpty())
+        return activeDescendants[0].get();
+    return nullptr;
 }
 
 AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedCells()
@@ -380,7 +376,7 @@ AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedCells()
             selectedCells.append(cell);
     }
 
-    if (auto* activeDescendant = this->activeDescendant()) {
+    if (RefPtr activeDescendant = this->activeDescendant()) {
         if (activeDescendant->isExposedTableCell() && !selectedCells.contains(activeDescendant))
             selectedCells.append(activeDescendant);
     }
@@ -535,6 +531,63 @@ String AXCoreObject::helpTextAttributeValue() const
     return { };
 }
 #endif // PLATFORM(COCOA)
+
+AXCoreObject* AXCoreObject::titleUIElement() const
+{
+    auto labels = relatedObjects(AXRelationType::LabeledBy);
+#if PLATFORM(COCOA)
+    // We impose the restriction that if there is more than one label, then we should return none.
+    // FIXME: the behavior should be the same in all platforms.
+    return labels.size() == 1 ? labels.first().get() : nullptr;
+#else
+    return labels.size() ? labels.first().get() : nullptr;
+#endif
+}
+
+AXCoreObject::AccessibilityChildrenVector AXCoreObject::linkedObjects() const
+{
+    auto linkedObjects = flowToObjects();
+
+    if (isLink()) {
+        if (RefPtr linkedAXElement = internalLinkElement())
+            linkedObjects.append(linkedAXElement);
+    } else if (isRadioButton())
+        appendRadioButtonGroupMembers(linkedObjects);
+
+    linkedObjects.appendVector(controlledObjects());
+    linkedObjects.appendVector(ownedObjects());
+
+    return linkedObjects;
+}
+
+void AXCoreObject::appendRadioButtonDescendants(AXCoreObject& parent, AccessibilityChildrenVector& linkedUIElements) const
+{
+    for (const auto& child : parent.children()) {
+        if (child->isRadioButton())
+            linkedUIElements.append(child);
+        else
+            appendRadioButtonDescendants(*child, linkedUIElements);
+    }
+}
+
+void AXCoreObject::appendRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const
+{
+    if (!isRadioButton())
+        return;
+
+    if (isRadioInput()) {
+        for (auto& radioSibling : radioButtonGroup())
+            linkedUIElements.append(radioSibling);
+    } else {
+        // If we didn't find any radio button siblings with the traditional naming, lets search for a radio group role and find its children.
+        for (RefPtr parent = parentObject(); parent; parent = parent->parentObject()) {
+            if (parent->roleValue() == AccessibilityRole::RadioGroup) {
+                appendRadioButtonDescendants(*parent, linkedUIElements);
+                break;
+            }
+        }
+    }
+}
 
 namespace Accessibility {
 

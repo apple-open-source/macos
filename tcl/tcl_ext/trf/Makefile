@@ -15,7 +15,7 @@ TEApotVersion         = $(Release).2009.05.20.12.34.07
 
 Extra_Configure_Flags = $(TEA_Configure_Flags) \
 			--with-zlib=$(SDKROOT)$(USRDIR) \
-			--with-ssl=$(SDKROOT)$(USRDIR)/local/libressl \
+			--with-ssl=$(SDKROOT)$(USRDIR)/local/libressl-3.3 \
 			--with-bz2=$(SDKROOT)$(USRDIR)
 
 Extra_Environment     = $(TEA_Environment)

@@ -176,13 +176,11 @@ private:
         m_changeFlags.add(change);
     }
 
-    ChangeFlags m_changeFlags;
-
     SourceBrush m_fillBrush { Color::black };
-    WindRule m_fillRule { WindRule::NonZero };
-
     SourceBrush m_strokeBrush { Color::black };
+    ChangeFlags m_changeFlags;
     float m_strokeThickness { 0 };
+    WindRule m_fillRule { WindRule::NonZero };
     StrokeStyle m_strokeStyle { StrokeStyle::SolidStroke };
 
     CompositeMode m_compositeMode { CompositeOperator::SourceOver, BlendMode::Normal };
@@ -209,36 +207,3 @@ TextStream& operator<<(TextStream&, GraphicsContextState::Change);
 TextStream& operator<<(TextStream&, const GraphicsContextState&);
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::GraphicsContextState::Change> {
-    using values = EnumValues<
-        WebCore::GraphicsContextState::Change,
-        WebCore::GraphicsContextState::Change::FillBrush,
-        WebCore::GraphicsContextState::Change::FillRule,
-
-        WebCore::GraphicsContextState::Change::StrokeBrush,
-        WebCore::GraphicsContextState::Change::StrokeThickness,
-        WebCore::GraphicsContextState::Change::StrokeStyle,
-
-        WebCore::GraphicsContextState::Change::CompositeMode,
-        WebCore::GraphicsContextState::Change::DropShadow,
-        WebCore::GraphicsContextState::Change::Style,
-
-        WebCore::GraphicsContextState::Change::Alpha,
-        WebCore::GraphicsContextState::Change::TextDrawingMode,
-        WebCore::GraphicsContextState::Change::ImageInterpolationQuality,
-
-        WebCore::GraphicsContextState::Change::ShouldAntialias,
-        WebCore::GraphicsContextState::Change::ShouldSmoothFonts,
-        WebCore::GraphicsContextState::Change::ShouldSubpixelQuantizeFonts,
-        WebCore::GraphicsContextState::Change::ShadowsIgnoreTransforms,
-        WebCore::GraphicsContextState::Change::DrawLuminanceMask
-#if HAVE(OS_DARK_MODE_SUPPORT)
-        , WebCore::GraphicsContextState::Change::UseDarkAppearance
-#endif
-    >;
-};
-
-} // namespace WTF

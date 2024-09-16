@@ -32,12 +32,13 @@
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-static CapabilityRange defaultVolumeCapability()
+static DoubleCapabilityRange defaultVolumeCapability()
 {
-    return CapabilityRange(0.0, 1.0);
+    return { 0.0, 1.0 };
 }
 const static RealtimeMediaSourceCapabilities::EchoCancellation defaultEchoCancellationCapability = RealtimeMediaSourceCapabilities::EchoCancellation::ReadWrite;
 
@@ -67,7 +68,7 @@ CaptureSourceOrError GStreamerAudioCaptureSource::create(String&& deviceID, Medi
 {
     auto device = GStreamerAudioCaptureDeviceManager::singleton().gstreamerDeviceWithUID(deviceID);
     if (!device) {
-        auto errorMessage = makeString("GStreamerAudioCaptureSource::create(): GStreamer did not find the device: ", deviceID, '.');
+        auto errorMessage = makeString("GStreamerAudioCaptureSource::create(): GStreamer did not find the device: "_s, deviceID, '.');
         return CaptureSourceOrError({ WTFMove(errorMessage), MediaAccessDenialReason::PermissionDenied });
     }
 
@@ -75,7 +76,7 @@ CaptureSourceOrError GStreamerAudioCaptureSource::create(String&& deviceID, Medi
 
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
-            return CaptureSourceOrError({ WTFMove(result->badConstraint), MediaAccessDenialReason::InvalidConstraint });
+            return CaptureSourceOrError(CaptureSourceError { result->invalidConstraint });
     }
     return CaptureSourceOrError(WTFMove(source));
 }
@@ -136,7 +137,7 @@ const RealtimeMediaSourceCapabilities& GStreamerAudioCaptureSource::capabilities
         return m_capabilities.value();
 
     uint i;
-    GRefPtr<GstCaps> caps = m_capturer->caps();
+    auto caps = m_capturer->caps();
     int minSampleRate = 0, maxSampleRate = 0;
     for (i = 0; i < gst_caps_get_size(caps.get()); i++) {
         int capabilityMinSampleRate = 0, capabilityMaxSampleRate = 0;
@@ -160,7 +161,7 @@ const RealtimeMediaSourceCapabilities& GStreamerAudioCaptureSource::capabilities
     capabilities.setDeviceId(hashedId());
     capabilities.setEchoCancellation(defaultEchoCancellationCapability);
     capabilities.setVolume(defaultVolumeCapability());
-    capabilities.setSampleRate(CapabilityRange(minSampleRate, maxSampleRate));
+    capabilities.setSampleRate({ minSampleRate, maxSampleRate });
     m_capabilities = WTFMove(capabilities);
 
     return m_capabilities.value();

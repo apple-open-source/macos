@@ -47,7 +47,12 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/exit.c,v 1.9 2007/01/09 00:28:09 imp Exp
 
 #include <TargetConditionals.h>
 
+#if __APPLE__
+int __cleanup = 0;
+#else
 void (* CLEANUP_PTRAUTH __cleanup)(void);
+#endif // __APPLE__
+
 extern void __exit(int) __attribute__((noreturn));
 #if __has_feature(cxx_thread_local) || __has_feature(c_thread_local)
 extern void _tlv_exit();
@@ -64,7 +69,11 @@ exit(int status)
 #endif // __has_feature(cxx_thread_local) || __has_feature(c_thread_local)
 	__cxa_finalize(NULL);
 	if (__cleanup)
+#ifdef __APPLE__
+		_cleanup();
+#else
 		(*__cleanup)();
+#endif // __APPLE__
 	__exit(status);
 }
 #pragma clang diagnostic pop

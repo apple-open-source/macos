@@ -194,7 +194,7 @@ setlocale(int category, const char *locale)
 
 	save__numeric_fp_cvt = __global_locale.__numeric_fp_cvt;
 	save__lc_numeric_loc = __global_locale.__lc_numeric_loc;
-	XL_RETAIN(save__lc_numeric_loc);
+	xlocale_retain(save__lc_numeric_loc);
 	for (i = 1; i < _LC_LAST; ++i) {
 		(void)strcpy(saved_categories[i], current_categories[i]);
 		if (loadlocale(i) == NULL) {
@@ -209,12 +209,12 @@ setlocale(int category, const char *locale)
 			}
 			__global_locale.__numeric_fp_cvt = save__numeric_fp_cvt;
 			__global_locale.__lc_numeric_loc = save__lc_numeric_loc;
-			XL_RELEASE(save__lc_numeric_loc);
+			xlocale_release(save__lc_numeric_loc);
 			errno = saverr;
 			UNLOCK_AND_RETURN (NULL);
 		}
 	}
-	XL_RELEASE(save__lc_numeric_loc);
+	xlocale_release(save__lc_numeric_loc);
 	UNLOCK_AND_RETURN (currentlocale());
 }
 
@@ -297,6 +297,7 @@ loadlocale(int category)
 
 	if (func(new, &__global_locale) != _LDP_ERROR) {
 		(void)strcpy(old, new);
+		xlocale_fill_name(__global_locale.components[category-1], new);
 		switch (category) {
 		case LC_CTYPE:
 			if (__global_locale.__numeric_fp_cvt == LC_NUMERIC_FP_SAME_LOCALE)
@@ -304,7 +305,7 @@ loadlocale(int category)
 			break;
 		case LC_NUMERIC:
 			__global_locale.__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
-			XL_RELEASE(__global_locale.__lc_numeric_loc);
+			xlocale_release(__global_locale.__lc_numeric_loc);
 			__global_locale.__lc_numeric_loc = NULL;
 			break;
 		}

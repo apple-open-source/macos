@@ -125,7 +125,7 @@ extension OctagonPairingTests {
         var voucher = Data(count: 0)
         var voucherSig = Data(count: 0)
 
-        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { v, vS, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._FullPeer.rawValue) { v, vS, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(v, "voucher should not be nil")
             XCTAssertNotNil(vS, "voucher signature should not be nil")
@@ -480,9 +480,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-
-        clientStateMachine.startOctagonStateMachine()
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -515,7 +512,7 @@ extension OctagonPairingTests {
 
         let firstAcceptorCallback = self.expectation(description: "creating vouch callback")
 
-        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig) { voucher, voucherSig, error in
+        self.manager.rpcVoucher(with: self.acceptorArguments, configuration: self.acceptorPiggybackingConfig, peerID: peerID, permanentInfo: permanentInfo, permanentInfoSig: permanentInfoSig, stableInfo: stableInfo, stableInfoSig: stableInfoSig, maxCapability: KCPairingIntent_Capability._FullPeer.rawValue) { voucher, voucherSig, error in
             XCTAssertNotNil(voucher, "voucher should not be nil")
             XCTAssertNotNil(voucherSig, "voucherSig should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1086,7 +1083,6 @@ extension OctagonPairingTests {
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
-        _ = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
         initiator1Context.startOctagonStateMachine()
 
         self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)

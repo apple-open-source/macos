@@ -109,19 +109,6 @@
 				<false/>
 			</dict>
 		</dict>
-		<key>com.apple.notifyd.matching</key>
-		<dict>
-			<key>com.apple.springboard.lockstate</key>
-			<dict>
-				<key>Notification</key>
-				<string>com.apple.springboard.lockstate</string>
-			</dict>
-			<key>kSOSCCHoldLockForInitialSync</key>
-			<dict>
-				<key>Notification</key>
-				<string>com.apple.security.secureobjectsync.holdlock</string>
-			</dict>
-		</dict>
 	</dict>
 	<key>_LimitLoadFromVariant</key>
 	<string>IsRecovery</string>

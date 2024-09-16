@@ -25,35 +25,40 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
 #include "GPUIntegralTypes.h"
+#include "GPUTextureAspect.h"
 #include "GPUTextureDimension.h"
 #include "GPUTextureFormat.h"
 #include "WebGPUTexture.h"
 #include <optional>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class GPUDevice;
 class GPUTextureView;
 
 struct GPUTextureDescriptor;
 struct GPUTextureViewDescriptor;
 
-class GPUTexture : public RefCounted<GPUTexture> {
+class GPUTexture : public RefCounted<GPUTexture>, public CanMakeWeakPtr<GPUTexture> {
 public:
-    static Ref<GPUTexture> create(Ref<WebGPU::Texture>&& backing, const GPUTextureDescriptor& descriptor)
+    static Ref<GPUTexture> create(Ref<WebGPU::Texture>&& backing, const GPUTextureDescriptor& descriptor, const GPUDevice& device)
     {
-        return adoptRef(*new GPUTexture(WTFMove(backing), descriptor));
+        return adoptRef(*new GPUTexture(WTFMove(backing), descriptor, device));
     }
 
     String label() const;
     void setLabel(String&&);
 
-    Ref<GPUTextureView> createView(const std::optional<GPUTextureViewDescriptor>&) const;
+    ExceptionOr<Ref<GPUTextureView>> createView(const std::optional<GPUTextureViewDescriptor>&) const;
 
     void destroy();
+    bool isDestroyed() const;
 
     WebGPU::Texture& backing() { return m_backing; }
     const WebGPU::Texture& backing() const { return m_backing; }
@@ -67,8 +72,19 @@ public:
     GPUTextureDimension dimension() const;
     GPUFlagsConstant usage() const;
 
+    static GPUTextureFormat aspectSpecificFormat(GPUTextureFormat, GPUTextureAspect);
+    static uint32_t texelBlockSize(GPUTextureFormat);
+    static uint32_t texelBlockWidth(GPUTextureFormat);
+    static uint32_t texelBlockHeight(GPUTextureFormat);
+
+    virtual ~GPUTexture();
 private:
-    GPUTexture(Ref<WebGPU::Texture>&&, const GPUTextureDescriptor&);
+    GPUTexture(Ref<WebGPU::Texture>&&, const GPUTextureDescriptor&, const GPUDevice&);
+
+    GPUTexture(const GPUTexture&) = delete;
+    GPUTexture(GPUTexture&&) = delete;
+    GPUTexture& operator=(const GPUTexture&) = delete;
+    GPUTexture& operator=(GPUTexture&&) = delete;
 
     Ref<WebGPU::Texture> m_backing;
     const GPUTextureFormat m_format;
@@ -79,6 +95,8 @@ private:
     const GPUSize32Out m_sampleCount;
     const GPUTextureDimension m_dimension;
     const GPUFlagsConstant m_usage;
+    Ref<const GPUDevice> m_device;
+    bool m_isDestroyed { false };
 };
 
 }

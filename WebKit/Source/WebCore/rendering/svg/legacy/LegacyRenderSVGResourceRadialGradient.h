@@ -29,11 +29,13 @@ class SVGRadialGradientElement;
 
 class LegacyRenderSVGResourceRadialGradient final : public LegacyRenderSVGResourceGradient {
     WTF_MAKE_ISO_ALLOCATED(LegacyRenderSVGResourceRadialGradient);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LegacyRenderSVGResourceRadialGradient);
 public:
     LegacyRenderSVGResourceRadialGradient(SVGRadialGradientElement&, RenderStyle&&);
     virtual ~LegacyRenderSVGResourceRadialGradient();
 
     inline SVGRadialGradientElement& radialGradientElement() const;
+    inline Ref<SVGRadialGradientElement> protectedRadialGradientElement() const;
 
     FloatPoint centerPoint(const RadialGradientAttributes&) const;
     FloatPoint focalPoint(const RadialGradientAttributes&) const;

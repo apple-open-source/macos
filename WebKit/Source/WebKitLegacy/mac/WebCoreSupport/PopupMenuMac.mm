@@ -96,8 +96,9 @@ void PopupMenuMac::populate()
         NSWritingDirection writingDirection = style.textDirection() == TextDirection::LTR ? NSWritingDirectionLeftToRight : NSWritingDirectionRightToLeft;
         [paragraphStyle setBaseWritingDirection:writingDirection];
         if (style.hasTextDirectionOverride()) {
-            RetainPtr<NSNumber> writingDirectionValue = adoptNS([[NSNumber alloc] initWithInteger:writingDirection + NSWritingDirectionOverride]);
-            RetainPtr<NSArray> writingDirectionArray = adoptNS([[NSArray alloc] initWithObjects:writingDirectionValue.get(), nil]);
+            auto writingDirectionValue = static_cast<NSInteger>(writingDirection) + static_cast<NSInteger>(NSWritingDirectionOverride);
+            RetainPtr<NSNumber> writingDirectionNumber = adoptNS([[NSNumber alloc] initWithInteger:writingDirectionValue]);
+            RetainPtr<NSArray> writingDirectionArray = adoptNS([[NSArray alloc] initWithObjects:writingDirectionNumber.get(), nil]);
             [attributes setObject:writingDirectionArray.get() forKey:NSWritingDirectionAttributeName];
         }
         [attributes setObject:paragraphStyle.get() forKey:NSParagraphStyleAttributeName];
@@ -126,7 +127,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 }
 
-void PopupMenuMac::show(const IntRect& r, LocalFrameView* v, int selectedIndex)
+void PopupMenuMac::show(const IntRect& r, LocalFrameView& frameView, int selectedIndex)
 {
     populate();
     int numItems = [m_popup numberOfItems];
@@ -141,7 +142,7 @@ void PopupMenuMac::show(const IntRect& r, LocalFrameView* v, int selectedIndex)
     if (selectedIndex == -1 && numItems == 2 && !m_client->shouldPopOver() && ![[m_popup itemAtIndex:1] isEnabled])
         selectedIndex = 0;
 
-    NSView* view = v->documentView();
+    NSView* view = frameView.documentView();
 
     TextDirection textDirection = m_client->menuStyle().textDirection();
 
@@ -180,7 +181,7 @@ void PopupMenuMac::show(const IntRect& r, LocalFrameView* v, int selectedIndex)
     }
     // Save the current event that triggered the popup, so we can clean up our event
     // state after the NSMenu goes away.
-    Ref frame { v->frame() };
+    Ref frame { frameView.frame() };
     RetainPtr<NSEvent> event = frame->eventHandler().currentNSEvent();
     
     Ref<PopupMenuMac> protector(*this);

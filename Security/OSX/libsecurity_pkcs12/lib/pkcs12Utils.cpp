@@ -433,6 +433,7 @@ CSSM_RETURN p12VerifyMac(
 	SecNssCoder					&coder)	// for temp mallocs
 {
 	if(pfx.macData == NULL) {
+		p12EventLog("invalid signature");
 		return CSSMERR_CSP_INVALID_SIGNATURE;
 	}
 	NSS_P12_MacData &macData = *pfx.macData;
@@ -440,11 +441,13 @@ CSSM_RETURN p12VerifyMac(
 	CSSM_OID &algOid = digestInfo.digestAlgorithm.algorithm;
 	CSSM_ALGORITHMS macAlg;
 	if(!cssmOidToAlg(&algOid, &macAlg)) {
+		p12EventLog("unsupported algorithm: 0x%08llX", *((uint64*)algOid.Data));
 		return CSSMERR_CSP_INVALID_ALGORITHM;
 	}
 	uint32 iterCount = 0;
 	CSSM_DATA &citer = macData.iterations;
 	if(!p12DataToInt(citer, iterCount)) {
+		p12EventLog("unsupported iter count: %lu", (unsigned long)iterCount);
 		return CSSMERR_CSP_INVALID_ATTR_ROUNDS;
 	}
 	if(iterCount == 0) {
@@ -453,11 +456,11 @@ CSSM_RETURN p12VerifyMac(
 	}
 
 	/*
-	 * In classic fashion, the PKCS12 spec now says:
-	 *
-	 *      When password integrity mode is used to secure a PFX PDU, 
-	 *      an SHA-1 HMAC is computed on the BER-encoding of the contents 
-	 *      of the content field of the authSafe field in the PFX PDU.
+	 * from RFC 7292 Appendix A:
+	 * When password integrity mode is used to secure a PFX PDU, an HMAC
+	 * with SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, or
+	 * SHA-512/256 is computed on the BER-encoding of the contents of the
+	 * content field of the authSafe field in the PFX PDU (see Section 5.1).
 	 *
 	 * So here we go.
 	 */

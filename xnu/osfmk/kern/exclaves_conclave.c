@@ -43,6 +43,7 @@
 #include "exclaves_debug.h"
 #include "exclaves_conclave.h"
 #include "exclaves_resource.h"
+#include "exclaves_internal.h"
 
 /* -------------------------------------------------------------------------- */
 #pragma mark Conclave Launcher
@@ -281,8 +282,6 @@ typedef struct conclave_test_context {
 	tb_endpoint_t conclave_debug_endpoint;
 	conclave_launcher_conclavedebug_s conclave_debug;
 } conclave_test_context_t;
-
-extern lck_grp_t exclaves_lck_grp;
 
 LCK_MTX_DECLARE(exclaves_conclave_lock, &exclaves_lck_grp);
 

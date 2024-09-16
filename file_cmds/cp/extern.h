@@ -27,9 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)extern.h	8.2 (Berkeley) 4/1/94
- * $FreeBSD$
  */
 
 #ifndef _CP_EXTERN_H_
@@ -42,7 +39,7 @@ typedef struct {
 } PATH_T;
 
 extern PATH_T to;
-extern int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
+extern int Nflag, fflag, iflag, lflag, nflag, pflag, sflag, vflag;
 #ifdef __APPLE__
 extern int unix2003_compat;
 extern int cflag;
@@ -59,7 +56,7 @@ int	copy_special(struct stat *, int);
 int	setfile(struct stat *, int);
 int	preserve_dir_acls(struct stat *, char *, char *);
 int	preserve_fd_acls(int, int);
-void	usage(void);
+void	usage(void) __dead2;
 __END_DECLS
 
 #endif /* _CP_EXTERN_H_ */

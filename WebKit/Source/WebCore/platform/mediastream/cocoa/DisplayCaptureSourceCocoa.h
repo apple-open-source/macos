@@ -43,6 +43,15 @@ using CVPixelBufferRef = struct __CVBuffer*;
 using IOSurfaceRef = struct __IOSurface*;
 using CMSampleBufferRef = struct opaqueCMSampleBuffer*;
 
+namespace WebCore {
+class CapturerObserver;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CapturerObserver> : std::true_type { };
+}
+
 namespace WTF {
 class MediaTime;
 }
@@ -77,6 +86,7 @@ public:
 
         virtual bool start() = 0;
         virtual void stop() = 0;
+        virtual void end() { stop(); }
         virtual DisplayFrameType generateFrame() = 0;
         virtual CaptureDevice::DeviceType deviceType() const = 0;
         virtual DisplaySurfaceType surfaceType() const = 0;
@@ -131,6 +141,7 @@ private:
     // RealtimeMediaSource
     void startProducingData() final;
     void stopProducingData() final;
+    void endProducingData() final;
     void settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag>) final;
     bool isCaptureSource() const final { return true; }
     const RealtimeMediaSourceCapabilities& capabilities() final;
@@ -138,10 +149,10 @@ private:
     CaptureDevice::DeviceType deviceType() const { return m_capturer->deviceType(); }
     void endApplyingConstraints() final { commitConfiguration(); }
     IntSize computeResizedVideoFrameSize(IntSize desiredSize, IntSize actualSize) final;
-    void setSizeFrameRateAndZoom(std::optional<int> width, std::optional<int> height, std::optional<double>, std::optional<double>) final;
+    void setSizeFrameRateAndZoom(const VideoPresetConstraints&) final;
     double observedFrameRate() const final;
 
-    const char* logClassName() const final { return "DisplayCaptureSourceCocoa"; }
+    ASCIILiteral logClassName() const final { return "DisplayCaptureSourceCocoa"_s; }
     void setLogger(const Logger&, const void*) final;
 
     // CapturerObserver

@@ -660,7 +660,9 @@ _cupsRasterReadHeader(
             CUPS_CSPACE_ADOBERGB,
             CUPS_CSPACE_W,
             CUPS_CSPACE_RGB,
-            CUPS_CSPACE_CMYK
+            CUPS_CSPACE_CMYK,
+            CUPS_CSPACE_P3E,
+            CUPS_CSPACE_GRAYE,
           };
           static const unsigned rawnumcolors[] =
           {
@@ -670,7 +672,9 @@ _cupsRasterReadHeader(
             3,
             1,
             3,
-            4
+            4,
+            3,
+            1
           };
 
 	  if (cups_raster_read(r, appleheader, sizeof(appleheader)) < (ssize_t)sizeof(appleheader))
@@ -1137,7 +1141,9 @@ _cupsRasterWriteHeader(
                         r->header.cupsColorSpace == CUPS_CSPACE_ADOBERGB ? 3 :
                         r->header.cupsColorSpace == CUPS_CSPACE_W ? 4 :
                         r->header.cupsColorSpace == CUPS_CSPACE_RGB ? 5 :
-                        r->header.cupsColorSpace == CUPS_CSPACE_CMYK ? 6 : 0;
+                        r->header.cupsColorSpace == CUPS_CSPACE_CMYK ? 6 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_P3E ? 7 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_GRAYE ? 8 : 0;
     appleheader[2]  = r->header.Duplex ? (r->header.Tumble ? 2 : 3) : 1;
     appleheader[3]  = (unsigned char)(r->header.cupsInteger[CUPS_RASTER_PWG_PrintQuality]);
     appleheader[5]  = (unsigned char)(r->header.MediaPosition);

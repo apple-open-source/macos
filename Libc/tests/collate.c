@@ -11,8 +11,6 @@ void __collate_lookup_l(const __darwin_wchar_t *, int *, int *, int *,
                         locale_t);
 void __collate_lookup(const unsigned char *, int *, int *, int *);
 
-#define CHARS_WITHOUT_ENTRIES "\xdf"
-
 /*
  * in C or POSIX locales
  *  __collate_lookup("", ... )  -> len: 0 prim: 0 sec: 0
@@ -81,9 +79,8 @@ T_DECL(collate_lookup, "Test __collate_lookup() behavior") {
     __collate_lookup(str, &len, &prim, &sec);
     T_ASSERT_EQ_INT(len, (c == '\0' ? 0 : 1), "Only read one character");
     str[1] = '\0';
-    if (strstr(CHARS_WITHOUT_ENTRIES, str)) {
-      T_EXPECT_EQ(prim, -1, "0x%x is not present in the table", c);
-      T_EXPECT_EQ(sec, -1, "0x%x is not present in the table", c);
+    if (prim == 0 || prim == -1) {
+      T_EXPECT_EQ(sec, prim, "0x%x has no secondary weight", c);
     } else {
       T_EXPECT_GT(prim, 0, "0x%x Has primary weight", c);
       T_EXPECT_GT(sec, 0, "0x%x Has secondary weight", c);
@@ -117,9 +114,8 @@ T_DECL(collate_lookup, "Test __collate_lookup() behavior") {
     str[0] = c;
     __collate_lookup(str, &len, &prim, &sec);
     T_ASSERT_EQ_INT(len, 1, "Only read one character");
-    if (strstr(CHARS_WITHOUT_ENTRIES, (const char *)str)) {
-      T_EXPECT_EQ(prim, -1, "0x%x is not present in the table", c);
-      T_EXPECT_GT(sec, -1, "0x%x is not present in the table", c);
+    if (prim == 0 || prim == -1) {
+      T_EXPECT_EQ(sec, prim, "0x%x has no secondary weight", c);
     } else {
       T_EXPECT_GT(prim, 0, "0x%x Has primary weight", c);
       /* weight will be 0 for sequences that result in mb failure */
@@ -213,9 +209,8 @@ T_DECL(collate_lookup_l, "Test __collate_lookup_l() behavior") {
     str[0] = wc & 0xFF;
     __collate_lookup_l(wcs, &len, &prim, &sec, LC_GLOBAL_LOCALE);
     T_ASSERT_EQ_INT(len, 1, "Only read one character");
-    if (strstr(CHARS_WITHOUT_ENTRIES, str)) {
-      T_EXPECT_EQ(prim, -1, "0x%x is not present in the table", wc);
-      T_EXPECT_EQ(sec, -1, "0x%x is not present in the table", wc);
+    if (prim == 0 || prim == -1) {
+      T_EXPECT_EQ(sec, prim, "Wide char 0x%x has no secondary weight", wc);
     } else {
       T_EXPECT_GT(prim, 0, "Wide char 0x%x Has primary weight", wc);
       T_EXPECT_GT(sec, 0, "Wide char 0x%x Has secondary weight", wc);
@@ -248,9 +243,8 @@ T_DECL(collate_lookup_l, "Test __collate_lookup_l() behavior") {
     str[0] = wc & 0xFF;
     __collate_lookup_l(wcs, &len, &prim, &sec, LC_GLOBAL_LOCALE);
     T_ASSERT_EQ_INT(len, 1, "Only read one character");
-    if (strstr(CHARS_WITHOUT_ENTRIES, str)) {
-      T_EXPECT_EQ(prim, -1, "0x%x is not present in the table", wc);
-      T_EXPECT_EQ(sec, -1, "0x%x is not present in the table", wc);
+    if (prim == 0 || prim == -1) {
+      T_EXPECT_EQ(sec, prim, "0x%x has no secondary weight", wc);
     } else {
       T_EXPECT_GT(prim, 0, "Wide char 0x%x Has primary weight", wc);
       T_EXPECT_GT(sec, 0, "Wide char 0x%x Has secondary weight", wc);

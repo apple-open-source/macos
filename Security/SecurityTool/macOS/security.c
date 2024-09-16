@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2019 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,6 +59,7 @@
 #include "translocate.h"
 #include "requirement.h"
 #include "fvunlock.h"
+#include "psso.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -105,7 +106,7 @@ const command commands[] =
 	  "Show all commands, or show usage for a command." },
 
 	{ "list-keychains", keychain_list,
-	  "[-d user|system|common|dynamic] [-s [keychain...]]\n"
+	  "[-h] [-d user|system|common|dynamic] [-s [keychain...]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the search list to the specified keychains\n"
 	  "With no parameters, display the search list.",
@@ -116,21 +117,21 @@ const command commands[] =
       "Display available smartcards." },
 
 	{ "default-keychain", keychain_default,
-	  "[-d user|system|common|dynamic] [-s [keychain]]\n"
+	  "[-h] [-d user|system|common|dynamic] [-s [keychain]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the default keychain to the specified keychain\n"
 	  "With no parameters, display the default keychain.",
 	  "Display or set the default keychain." },
 
 	{ "login-keychain", keychain_login,
-	  "[-d user|system|common|dynamic] [-s [keychain]]\n"
+	  "[-h] [-d user|system|common|dynamic] [-s [keychain]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the login keychain to the specified keychain\n"
 	  "With no parameters, display the login keychain.",
 	  "Display or set the login keychain." },
 
 	{ "create-keychain", keychain_create,
-	  "[-P] [-p password] [keychains...]\n"
+	  "[-hP] [-p password] [keychain...]\n"
 	  "    -p  Use \"password\" as the password for the keychains being created\n"
 	  "    -P  Prompt the user for a password using the SecurityAgent\n"
       "Use of the -p option is insecure",
@@ -138,30 +139,30 @@ const command commands[] =
     },
 
 	{ "delete-keychain", keychain_delete,
-	  "[keychains...]",
+	  "[-h] [keychain...]",
 	  "Delete keychains and remove them from the search list." },
 
 	{ "lock-keychain", keychain_lock,
-	  "[-a | keychain]\n"
+	  "[-h] [-a|keychain]\n"
 	  "    -a  Lock all keychains",
 	  "Lock the specified keychain."},
 
 	{ "unlock-keychain", keychain_unlock,
-	  "[-u] [-p password] [keychain]\n"
+	  "[-hu] [-p password] [keychain]\n"
 	  "    -p  Use \"password\" as the password to unlock the keychain\n"
 	  "    -u  Do not use the password\n"
       "Use of the -p option is insecure",
 	  "Unlock the specified keychain."},
 
 	{ "set-keychain-settings", keychain_set_settings,
-	  "[-lu] [-t timeout] [keychain]\n"
+	  "[-hlu] [-t timeout] [keychain]\n"
 	  "    -l  Lock keychain when the system sleeps\n"
 	  "    -u  Lock keychain after timeout interval\n"
 	  "    -t  Timeout in seconds (omitting this option specifies \"no timeout\")\n",
 	  "Set settings for a keychain."},
 
 	{ "set-keychain-password", keychain_set_password,
-	  "[-o oldPassword] [-p newPassword] [keychain]\n"
+	  "[-h] [-o oldPassword] [-p newPassword] [keychain]\n"
 	  "    -o  Old keychain password (if not provided, will prompt)\n"
 	  "    -p  New keychain password (if not provided, will prompt)\n"
       "Use of either the -o or -p options is insecure\n",
@@ -172,7 +173,7 @@ const command commands[] =
 	  "Show the settings for keychain." },
 
 	{ "dump-keychain", keychain_dump,
-	  "[-adir] [keychain...]\n"
+	  "[-adhir] [keychain...]\n"
 	  "    -a  Dump access control list of items\n"
 	  "    -d  Dump (decrypted) data of items\n"
 	  "    -i  Interactive access control list editing mode\n"
@@ -186,7 +187,7 @@ const command commands[] =
 #endif
 
 	{ "create-keypair", key_create_pair,
-	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T appPath] description\n"
+	  "[-h] [-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T appPath] [description]\n"
 	  "    -a  Use alg as the algorithm, can be rsa, dh, dsa or fee (default rsa)\n"
 	  "    -s  Specify the keysize in bits (default 512)\n"
 	  "    -f  Make a key valid from the specified date\n"
@@ -215,7 +216,7 @@ const command commands[] =
 	#endif
 
 	{ "add-generic-password", keychain_add_generic_password,
-	  "[-a account] [-s service] [-w password] [options...] [-A|-T appPath] [keychain]\n"
+	  "[-h] [-a account] [-s service] [-w password] [options...] [-A|-T appPath] [keychain]\n"
 	  "    -a  Specify account name (required)\n"
 	  "    -c  Specify item creator (optional four-character code)\n"
 	  "    -C  Specify item type (optional four-character code)\n"
@@ -238,7 +239,7 @@ const command commands[] =
 	  "Add a generic password item."},
 
 	{ "add-internet-password", keychain_add_internet_password,
-	  "[-a account] [-s server] [-w password] [options...] [-A|-T appPath] [keychain]\n"
+	  "[-h] [-a account] [-s server] [-w password] [options...] [-A|-T appPath] [keychain]\n"
 	  "    -a  Specify account name (required)\n"
 	  "    -c  Specify item creator (optional four-character code)\n"
 	  "    -C  Specify item type (optional four-character code)\n"
@@ -264,12 +265,12 @@ const command commands[] =
 	  "Add an internet password item."},
 
 	{ "add-certificates", keychain_add_certificates,
-	  "[-k keychain] file...\n"
+	  "[-h] [-k keychain] file...\n"
 	  "If no keychain is specified, the certificates are added to the default keychain.",
 	  "Add certificates to a keychain."},
 
 	{ "find-generic-password", keychain_find_generic_password,
-	  "[-a account] [-s service] [options...] [-g] [keychain...]\n"
+	  "[-h] [-a account] [-s service] [options...] [-g] [keychain...]\n"
 	  "    -a  Match \"account\" string\n"
 	  "    -c  Match \"creator\" (four-character code)\n"
 	  "    -C  Match \"type\" (four-character code)\n"
@@ -284,7 +285,7 @@ const command commands[] =
 	  "Find a generic password item."},
 
 	{ "delete-generic-password", keychain_delete_generic_password,
-		"[-a account] [-s service] [options...] [keychain...]\n"
+		"[-h] [-a account] [-s service] [options...] [keychain...]\n"
 		"    -a  Match \"account\" string\n"
 		"    -c  Match \"creator\" (four-character code)\n"
 		"    -C  Match \"type\" (four-character code)\n"
@@ -297,7 +298,7 @@ const command commands[] =
 		"Delete a generic password item."},
 
     { "set-generic-password-partition-list", keychain_set_generic_password_partition_list,
-        "[-a account] [-s service] [-S partition-list] [-k keychain password] [options...] [keychain]\n"
+        "[-a account] [-s service] [-S partition-list] [-k password] [options...] [keychain]\n"
         "    -a  Match \"account\" string\n"
         "    -c  Match \"creator\" (four-character code)\n"
         "    -C  Match \"type\" (four-character code)\n"
@@ -313,7 +314,7 @@ const command commands[] =
         "Set the partition list of a generic password item."},
 
 	{ "find-internet-password", keychain_find_internet_password,
-	  "[-a account] [-s server] [options...] [-g] [keychain...]\n"
+	  "[-h] [-a account] [-s server] [options...] [-g] [keychain...]\n"
 	  "    -a  Match \"account\" string\n"
 	  "    -c  Match \"creator\" (four-character code)\n"
 	  "    -C  Match \"type\" (four-character code)\n"
@@ -332,7 +333,7 @@ const command commands[] =
 	  "Find an internet password item."},
 
 	{ "delete-internet-password", keychain_delete_internet_password,
-		"[-a account] [-s server] [options...] [keychain...]\n"
+		"[-h] [-a account] [-s server] [options...] [keychain...]\n"
 		"    -a  Match \"account\" string\n"
 		"    -c  Match \"creator\" (four-character code)\n"
 		"    -C  Match \"type\" (four-character code)\n"
@@ -349,7 +350,7 @@ const command commands[] =
 		"Delete an internet password item."},
 
     { "set-internet-password-partition-list", keychain_set_internet_password_partition_list,
-        "[-a account] [-s service] [-S partition-list] [-k keychain password] [options...] [keychain]\n"
+        "[-a account] [-s server] [-S partition-list] [-k password] [options...] [keychain]\n"
         "    -a  Match \"account\" string\n"
         "    -c  Match \"creator\" (four-character code)\n"
         "    -C  Match \"type\" (four-character code)\n"
@@ -389,7 +390,7 @@ const command commands[] =
         "Find keys in the keychain"},
 
     { "set-key-partition-list", keychain_set_key_partition_list,
-        "[options...] [keychain]\n"
+        "[-S partition-list] [-k password] [options...] [keychain]\n"
         "    -a  Match \"application label\" string\n"
         "    -c  Match \"creator\" (four-character code)\n"
         "    -d  Match keys that can decrypt\n"
@@ -410,7 +411,7 @@ const command commands[] =
         "Set the partition list of a key."},
 
 	{ "find-certificate", keychain_find_certificate,
-	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"
+	  "[-h] [-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"
 	  "    -a  Find all matching certificates, not just the first one\n"
 	  "    -c  Match on \"name\" when searching (optional)\n"
 	  "    -e  Match on \"emailAddress\" when searching (optional)\n"
@@ -421,7 +422,7 @@ const command commands[] =
 	  "Find a certificate item."},
 
 	{ "find-identity", keychain_find_identity,
-		"[-p policy] [-s string] [-v] [keychain...]\n"
+		"[-h] [-p policy] [-s string] [-v] [keychain...]\n"
 		"    -p  Specify policy to evaluate (multiple -p options are allowed)\n"
 		"        Supported policies: basic, ssl-client, ssl-server, smime, eap,\n"
 		"        ipsec, ichat, codesigning, sys-default, sys-kerberos-kdc, macappstore, appleID\n"
@@ -432,7 +433,7 @@ const command commands[] =
 	"Find an identity (certificate + private key)."},
 
 	{ "delete-certificate", keychain_delete_certificate,
-	  "[-c name] [-Z hash] [-t] [keychain...]\n"
+	  "[-h] [-c name] [-Z hash] [-t] [keychain...]\n"
 	  "    -c  Specify certificate to delete by its common name\n"
 	  "    -Z  Specify certificate to delete by its SHA-256 (or SHA-1) hash value\n"
 	  "    -t  Also delete user trust settings for this certificate\n"
@@ -442,7 +443,7 @@ const command commands[] =
 	  "Delete a certificate from a keychain."},
 
 	{ "delete-identity", keychain_delete_identity,
-	  "[-c name] [-Z hash] [-t] [keychain...]\n"
+	  "[-h] [-c name] [-Z hash] [-t] [keychain...]\n"
 	  "    -c  Specify certificate to delete by its common name\n"
 	  "    -Z  Specify certificate to delete by its SHA-256 (or SHA-1) hash value\n"
 	  "    -t  Also delete user trust settings for this identity certificate\n"
@@ -452,7 +453,7 @@ const command commands[] =
 	  "Delete an identity (certificate + private key) from a keychain."},
 
 	{ "set-identity-preference", set_identity_preference,
-	  "[-n] [-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
+	  "[-h] [-n] [-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
 	  "    -n  Specify no identity (clears existing preference for service)\n"
 	  "    -c  Specify identity by common name of the certificate\n"
 	  "    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
@@ -462,7 +463,7 @@ const command commands[] =
 	  "Set the preferred identity to use for a service."},
 
 	{ "get-identity-preference", get_identity_preference,
-		"[-s service] [-u keyUsage] [-p] [-c] [-Z] [keychain...]\n"
+		"[-h] [-s service] [-u keyUsage] [-p] [-c] [-Z]\n"
 		"    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
 		"        other name)\n"
 		"    -u  Specify key usage (optional) - see man page for values\n"
@@ -472,7 +473,7 @@ const command commands[] =
 	"Get the preferred identity to use for a service."},
 
 	{ "create-db", db_create,
-	  "[-ao0] [-g dl|cspdl] [-m mode] [name]\n"
+	  "[-aho0] [-g dl|cspdl] [-m mode] [name]\n"
 	  "    -a  Turn off autocommit\n"
 	  "    -g  Attach to \"guid\" rather than the AppleFileDL\n"
 	  "    -m  Set the inital mode of the created db to \"mode\"\n"
@@ -509,7 +510,7 @@ const command commands[] =
 	  "Import items into a keychain." },
 
     { "export-smartcard" , ctk_export,
-        "[-i id] [-t type] [-e exportPath] \n"
+        "token [-i id] [-t type] [-e exportPath]\n"
         "    -i  id of the smartcard to export (available IDs can be listed by list-smartcards\n"
         "        command, default: export/display all smartcards)\n"
         "    -t  Type = certs|privKeys|identities|all  (Default: all)\n"
@@ -517,7 +518,7 @@ const command commands[] =
         "Export items from a smartcard." },
 
 	{ "cms", cms_util,
-	  "[-C|-D|-E|-S] [<options>]\n"
+	  "[-C|-D|-E|-S] [options...]\n"
 	  "  -C           create a CMS encrypted message\n"
 	  "  -D           decode a CMS message\n"
 	  "  -E           create a CMS enveloped message\n"
@@ -571,7 +572,7 @@ const command commands[] =
 	  "Install (or re-install) the MDS database." },
 
 	{ "add-trusted-cert" , trusted_cert_add,
-	  " [<options>] [certFile]\n"
+	  "[-d] [-r resultType] [-p policy] [-a appPath] [-s policyString] [-e allowedError] [-u keyUsage] [-k keychain] [-i settingsFileIn] [-o settingsFileOut] [certFile]\n"
 	  "    -d                  Add to admin cert store; default is user\n"
 	  "    -r resultType       resultType = trustRoot|trustAsRoot|deny|unspecified;\n"
 	  "                              default is trustRoot\n"
@@ -588,14 +589,13 @@ const command commands[] =
 	  "Add trusted certificate(s)." },
 
 	{ "remove-trusted-cert" , trusted_cert_remove,
-	  " [-d] [-D] [certFile]\n"
+	  "[-d] certFile\n"
 	  "    -d                  Remove from admin cert store (default is user)\n"
-	  "    -D                  Remove default setting instead of per-cert setting\n"
 	  "    certFile            Certificate(s)",
 	  "Remove trusted certificate(s)." },
 
 	{ "dump-trust-settings" , trusted_cert_dump,
-	  " [-s] [-d]\n"
+	  "[-s] [-d]\n"
 	  "    -s                  Display trusted system certs (default is user)\n"
 	  "    -d                  Display trusted admin certs (default is user)\n",
 	  "Display contents of trust settings." },
@@ -608,18 +608,18 @@ const command commands[] =
 	  "Display or manipulate user-level trust settings." },
 
 	{ "trust-settings-export", trust_settings_export,
-	  " [-s] [-d] settings_file\n"
+	  "[-s] [-d] settings_file\n"
 	  "    -s                  Export system trust settings (default is user)\n"
 	  "    -d                  Export admin trust settings (default is user)\n",
 	  "Export trust settings." },
 
 	{ "trust-settings-import", trust_settings_import,
-	  " [-d] settings_file\n"
+	  "[-d] settings_file\n"
 	  "    -d                  Import admin trust settings (default is user)\n",
 	  "Import trust settings." },
 
 	{ "verify-cert" , verify_cert,
-	  "[<options>] [<url>]\n"
+	  "[options...] [url]\n"
 	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
 	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
 	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, swUpdate, pkgSign,\n"
@@ -652,7 +652,7 @@ const command commands[] =
 	  "Verify certificate(s)." },
 
 	{ "authorize" , authorize,
-	  "[<options>] <right(s)...>\n"
+	  "[options...] right...\n"
 	  "  -u        Allow user interaction.\n"
 	  "  -c        Use login name and prompt for password.\n"
 	  "  -C login  Use given login name and prompt for password.\n"
@@ -695,7 +695,7 @@ const command commands[] =
 	  "Run /usr/bin/leaks on this process." },
 
 	{ "error", display_error_code,
-	  "<error code(s)...>\n"
+	  "[error-code...]\n"
 	  "Display an error string for the given security-related error code.\n"
 	  "The error can be in decimal or hex, e.g. 1234 or 0x1234. Multiple "
 	  "errors can be separated by spaces.",
@@ -716,11 +716,6 @@ const command commands[] =
         "  -e token   Enable specified token\n"
         "  -d token   Disable specified token\n",
         "Enable, disable or list disabled smartcard tokens." },
-
-    { "translocate-create", translocate_create,
-      "<path to translocate>\n"
-      "Displays the created path or the error returned.",
-      "Create a translocation point for the provided path" },
 
     { "translocate-policy-check", translocate_policy,
         "<path to check>\n"
@@ -754,6 +749,12 @@ const command commands[] =
         "     status     Tells the current state of the SmartCard overrides\n",
         "Handles FileVault specific settings and overrides."},
 #endif
+    { "platformsso", psso,
+        "bypass-login-policy [-u user] [-v volumeUUID]\n"
+        "  -u user name\n"
+        "  -v APFS volume UUID (case insensitive)\n"
+        "  If any argument is missing, the tool will prompt for it\n",
+        "Handles Platform SSO specific settings and overrides." },
     {}
 };
 

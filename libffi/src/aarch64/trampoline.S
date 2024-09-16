@@ -35,7 +35,12 @@ CNAME(ffi_closure_trampoline_table_page):
 #else
     adr x16, -PAGE_MAX_SIZE
 #endif
+/* arm64_32 have 32-bit pointers */
+#ifdef __ILP32__
+    ldp w17, w16, [x16]
+#else
     ldp x17, x16, [x16]
+#endif
     BRANCH_TO_REG x16
 	nop		/* each entry in the trampoline config page is 2*sizeof(void*) so the trampoline itself cannot be smaller that 16 bytes */
     .endr

@@ -53,14 +53,15 @@
 #import "keychain/ckks/CKKSScanLocalItemsOperation.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSUpdateDeviceStateOperation.h"
-#import "keychain/ckks/CKKSZoneModifier.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
 #import "keychain/ckks/CKKSProvideKeySetOperation.h"
 #import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ckks/CKKSCuttlefishAdapter.h"
 #import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/OTAccountsAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 
@@ -122,6 +123,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Full of condition variables, if you'd like to try to wait until the key hierarchy is in some state
 @property (readonly) NSDictionary<CKKSState*, CKKSCondition*>* stateConditions;
 
+@property id<OTAccountsAdapter> accountsAdapter;
+@property id<CKKSCuttlefishAdapterProtocol> cuttlefishAdapter;
+
 @property CKKSZoneChangeFetcher* zoneChangeFetcher;
 
 @property (nullable) CKKSNearFutureScheduler* suggestTLKUpload;
@@ -158,7 +162,9 @@ NS_ASSUME_NONNULL_BEGIN
               reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                  savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
-                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter;
+                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
+                  accountsAdapter:(id<OTAccountsAdapter>)accountsAdapter
+                cuttlefishAdapter:(id<CKKSCuttlefishAdapterProtocol>)cuttlefishAdapter;
 
 /* Trust state management */
 
@@ -213,6 +219,16 @@ NS_ASSUME_NONNULL_BEGIN
                             viewHint:(NSString*)viewHint
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^)(CKKSCurrentItemData* _Nullable data, NSError* _Nullable operror))complete;
+
+- (void)getCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*) currentItemRequests
+                     forceFetch:(bool)forceFetch
+                       complete:(void(^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* error))complete;
+
+- (void)fetchPCSIdentityOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*) pcsServices
+                       forceFetch:(bool)forceFetch
+                         complete:(void(^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* error))complete;
+
+- (BOOL)allowOutOfBandFetch:(NSError* __autoreleasing*)error;
 
 - (bool)outgoingQueueEmpty:(NSError* __autoreleasing*)error;
 

@@ -40,6 +40,10 @@ extern int		yyline;
 
 /* Application logic */
 struct app;
+#define	ARGFLAG_LOGONLY	0x0001
+
+/* Don't add these flags to aliases. */
+#define	ARGFLAG_NO_ALIAS	(ARGFLAG_LOGONLY)
 
 struct app *app_add(struct app *current_app, const char *name);
 void app_set_default(struct app *app);
@@ -48,7 +52,7 @@ void app_add_addarg(struct app *app, const char **argv, int nargv);
 void app_set_path(struct app *app, const char *path, bool relcwd);
 const char *app_get_path(const struct app *app);
 void app_add_flag(struct app *app, const char *flag, const char *alias,
-    int argument);
+    int argument, uint32_t flags, const char *pattern);
 
 void wrapper_set_analytics(const char *id, bool noargs);
 void wrapper_set_envvar(const char *var);

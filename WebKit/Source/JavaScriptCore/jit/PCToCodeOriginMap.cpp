@@ -34,11 +34,6 @@
 #include "WasmOpcodeOrigin.h"
 #include <wtf/TZoneMallocInlines.h>
 
-#if COMPILER(MSVC)
-// See https://msdn.microsoft.com/en-us/library/4wz07268.aspx
-#pragma warning(disable: 4333)
-#endif
-
 namespace JSC {
 
 namespace {
@@ -126,7 +121,7 @@ PCToCodeOriginMapBuilder::PCToCodeOriginMapBuilder(JSTag, VM& vm, B3::PCToOrigin
 }
 #endif
 
-#if ENABLE(WEBASSEMBLY_OMGJIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT) || ENABLE(WEBASSEMBLY_BBQJIT)
 PCToCodeOriginMapBuilder::PCToCodeOriginMapBuilder(WasmTag, B3::PCToOriginMap b3PCToOriginMap)
     : m_shouldBuildMapping(true)
 {

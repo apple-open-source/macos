@@ -2,7 +2,7 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -859,6 +859,72 @@ int md_get_mem(mdchain_t mdp, caddr_t target, size_t size, int type)
     
     mdp->md_len += size_request;
 	return 0;
+}
+
+/*
+ * md_get_mem_put_mem() is copied from md_get_mem() but modified to copy the
+ * bytes directly from mdp to mbp. This is used for the SMB Compression code
+ * to copy non compressed data
+ */
+int md_get_mem_put_mem(mdchain_t mdp, mbchain_t mbp, size_t size, int type)
+{
+    size_t size_request = size;
+    mbuf_t m = mdp->md_cur;
+    size_t count;
+    u_char *s;
+    int ret;
+    
+    while (size > 0) {
+        if (m == NULL) {
+            /* Note some calls expect this to happen, see notify change */
+#ifdef KERNEL
+            SMBWARNING("WARNING: Incomplete copy original size = %ld size = %ld\n", size_request, size);
+#else // KERNEL
+            os_log_debug(OS_LOG_DEFAULT,
+                         "%s - WARNING: Incomplete copy original size = %ld size = %ld, syserr = %s",
+                         __FUNCTION__, size_request, size, strerror(EBADRPC));
+#endif // KERNEL
+            return EBADRPC;
+        }
+        
+        s = mdp->md_pos;
+        count = (size_t)mbuf_data(m) + mbuf_len(m) - (size_t)s;
+        if (count == 0) {
+            mdp->md_cur = m = mbuf_next(m);
+            if (m) {
+                mdp->md_pos = mbuf_data(m);
+            }
+            continue;
+        }
+        
+        if (count > size) {
+            count = size;
+        }
+        
+        size -= count;
+        mdp->md_pos += count;
+        if (mbp == NULL) {
+            continue;
+        }
+        
+        switch (type) {
+            case MB_MSYSTEM:
+                ret = mb_put_mem(mbp, (char *) s, count, type);
+                if (ret) {
+                    return(ret);
+                }
+                break;
+            case MB_MINLINE:
+                ret = mb_put_mem(mbp, (char *) s, count, type);
+                if (ret) {
+                    return(ret);
+                }
+                continue;
+        }
+    }
+    
+    mdp->md_len += size_request;
+    return 0;
 }
 
 #ifdef KERNEL

@@ -77,6 +77,7 @@ using BorderEdges = RectEdges<BorderEdge>;
 
 class RenderBoxModelObject : public RenderLayerModelObject {
     WTF_MAKE_ISO_ALLOCATED(RenderBoxModelObject);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBoxModelObject);
 public:
     virtual ~RenderBoxModelObject();
     
@@ -117,6 +118,7 @@ public:
 
     // These functions are used during layout. Table cells and the MathML
     // code override them to include some extra intrinsic padding.
+    virtual inline RectEdges<LayoutUnit> padding() const;
     virtual inline LayoutUnit paddingTop() const;
     virtual inline LayoutUnit paddingBottom() const;
     virtual inline LayoutUnit paddingLeft() const;
@@ -126,12 +128,15 @@ public:
     virtual inline LayoutUnit paddingStart() const;
     virtual inline LayoutUnit paddingEnd() const;
 
+    virtual inline RectEdges<LayoutUnit> borderWidths() const;
     virtual inline LayoutUnit borderTop() const;
     virtual inline LayoutUnit borderBottom() const;
     virtual inline LayoutUnit borderLeft() const;
     virtual inline LayoutUnit borderRight() const;
+
     virtual inline LayoutUnit horizontalBorderExtent() const;
     virtual inline LayoutUnit verticalBorderExtent() const;
+
     virtual inline LayoutUnit borderBefore() const;
     virtual inline LayoutUnit borderAfter() const;
     virtual inline LayoutUnit borderStart() const;
@@ -177,6 +182,8 @@ public:
     LayoutUnit marginLogicalHeight() const { return marginBefore() + marginAfter(); }
     LayoutUnit marginLogicalWidth() const { return marginStart() + marginEnd(); }
 
+    RoundedRect roundedContentBoxRect(const LayoutRect& borderBoxRect, bool includeLeftEdge = true, bool includeRightEdge = true) const;
+
     inline bool hasInlineDirectionBordersPaddingOrMargin() const;
     inline bool hasInlineDirectionBordersOrPadding() const;
 
@@ -205,11 +212,6 @@ public:
 
     bool hasRunningAcceleratedAnimations() const;
 
-    virtual std::optional<LayoutUnit> overridingContainingBlockContentWidth() const { ASSERT_NOT_REACHED(); return -1_lu; }
-    virtual std::optional<LayoutUnit> overridingContainingBlockContentHeight() const { ASSERT_NOT_REACHED(); return -1_lu; }
-    virtual bool hasOverridingContainingBlockContentWidth() const { return false; }
-    virtual bool hasOverridingContainingBlockContentHeight() const { return false; }
-
     void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption>) const override;
 
 protected:
@@ -233,13 +235,13 @@ public:
 
     void paintMaskForTextFillBox(ImageBuffer*, const FloatRect&, const InlineIterator::InlineBoxIterator&, const LayoutRect&);
 
-    // For RenderBlocks and RenderInlines with m_style->styleType() == PseudoId::FirstLetter, this tracks their remaining text fragments
+    // For RenderBlocks and RenderInlines with m_style->pseudoElementType() == PseudoId::FirstLetter, this tracks their remaining text fragments
     RenderTextFragment* firstLetterRemainingText() const;
     void setFirstLetterRemainingText(RenderTextFragment&);
     void clearFirstLetterRemainingText();
 
-    enum ScaleByEffectiveZoomOrNot { ScaleByEffectiveZoom, DoNotScaleByEffectiveZoom };
-    LayoutSize calculateImageIntrinsicDimensions(StyleImage*, const LayoutSize& scaledPositioningAreaSize, ScaleByEffectiveZoomOrNot) const;
+    enum class ScaleByUsedZoom : bool { No, Yes };
+    LayoutSize calculateImageIntrinsicDimensions(StyleImage*, const LayoutSize& scaledPositioningAreaSize, ScaleByUsedZoom) const;
 
     RenderBlock* containingBlockForAutoHeightDetection(Length logicalHeight) const;
 
@@ -259,7 +261,7 @@ public:
     ContinuationChainNode* continuationChainNode() const;
 
 protected:
-    WEBCORE_EXPORT LayoutUnit computedCSSPadding(const Length&) const;
+    LayoutUnit resolveLengthPercentageUsingContainerLogicalWidth(const Length&) const;
     virtual void absoluteQuadsIgnoringContinuation(const FloatRect&, Vector<FloatQuad>&, bool* /*wasFixed*/) const { ASSERT_NOT_REACHED(); }
     void collectAbsoluteQuadsForContinuation(Vector<FloatQuad>& quads, bool* wasFixed) const;
 

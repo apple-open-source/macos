@@ -42,6 +42,7 @@ const NSString *kSecTestTODOFailureResources = @"si-18-certificate-parse/TODOFai
 const NSString *kSecTestExtensionFailureResources = @"si-18-certificate-parse/ExtensionFailureCerts";
 const NSString *kSecTestNameFailureResources = @"si-18-certificate-parse/NameFailureCerts";
 const NSString *kSecTrustDuplicateExtensionResources = @"si-18-certificate-parse/DuplicateExtensionCerts";
+const NSString *kSecTrustKnownExtensionResources = @"si-18-certificate-parse/KnownExtensionCerts";
 
 @interface CertificateParseTests : TrustFrameworkTestCase
 
@@ -187,6 +188,21 @@ const NSString *kSecTrustDuplicateExtensionResources = @"si-18-certificate-parse
             SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
             isnt(cert, NULL, "Failed to parse bad cert with duplicate extensions: %@", url);
             isnt(SecCertificateGetDuplicateExtension(cert), kCFNotFound, "Unable to find duplicate extension: %@", url);
+            CFReleaseNull(cert);
+        }];
+    }
+}
+
+- (void)testKnownCriticalExtensions {
+    NSArray <NSURL *>* certURLs = [[NSBundle bundleForClass:[self class]]URLsForResourcesWithExtension:@".cer" subdirectory:(NSString *)kSecTrustKnownExtensionResources];
+    XCTAssertTrue([certURLs count] > 0, "Unable to find parse test extension known certs in bundle.");
+
+    if ([certURLs count] > 0) {
+        [certURLs enumerateObjectsUsingBlock:^(NSURL *url, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSData *certData = [NSData dataWithContentsOfURL:url];
+            SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
+            isnt(cert, NULL, "Failed to parse bad cert with duplicate extensions: %@", url);
+            XCTAssertFalse(SecCertificateHasUnknownCriticalExtension(cert), "Unable to find duplicate extension: %@", url);
             CFReleaseNull(cert);
         }];
     }

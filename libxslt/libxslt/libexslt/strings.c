@@ -598,6 +598,7 @@ exsltStrReplaceFunction (xmlXPathParserContextPtr ctxt, int nargs) {
     int i, i_empty, n, slen0, rlen0, *slen, *rlen;
     void *mem = NULL;
     const xmlChar *src, *start;
+    long start_len;
     xmlChar *string, *search_str = NULL, *replace_str = NULL;
     xmlChar **search, **replace;
     xmlNodeSetPtr search_set = NULL, replace_set = NULL;
@@ -735,7 +736,8 @@ exsltStrReplaceFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 
         if (max_len == 0) {
             if (i_empty >= 0 && start < src) {
-                if (xmlBufferAdd(buf, start, src - start) ||
+                start_len = src - start;
+                if (xmlBufferAdd(buf, start, CLAMP_TO_INT_MAX(start_len)) ||
                     xmlBufferAdd(buf, replace[i_empty], rlen[i_empty]))
                 {
                     xmlXPathSetError(ctxt, XPATH_MEMORY_ERROR);
@@ -747,8 +749,9 @@ exsltStrReplaceFunction (xmlXPathParserContextPtr ctxt, int nargs) {
             src += xmlUTF8Strsize(src, 1);
         }
         else {
+            start_len = src - start;
             if ((start < src &&
-                 xmlBufferAdd(buf, start, src - start)) ||
+                 xmlBufferAdd(buf, start, CLAMP_TO_INT_MAX(start_len))) ||
                 (rlen[i_match] &&
                  xmlBufferAdd(buf, replace[i_match], rlen[i_match])))
             {
@@ -761,7 +764,8 @@ exsltStrReplaceFunction (xmlXPathParserContextPtr ctxt, int nargs) {
         }
     }
 
-    if (start < src && xmlBufferAdd(buf, start, src - start)) {
+    start_len = src - start;
+    if (start < src && xmlBufferAdd(buf, start, CLAMP_TO_INT_MAX(start_len))) {
         xmlXPathSetError(ctxt, XPATH_MEMORY_ERROR);
         goto fail_buffer_add;
     }

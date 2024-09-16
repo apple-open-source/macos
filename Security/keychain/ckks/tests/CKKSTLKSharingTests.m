@@ -1399,6 +1399,46 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'waitfortrust'");
 }
 
+- (void)testTLKSharingBatchUploads {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    // Test starts with the TLK shared to all trusted peers from peer1
+    
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+    // The CKKS subsystem should accept the keys, and share the TLK back to itself
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    
+    [self startCKKSSubsystem];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], "CKKS state machine should enter ready");
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:10 zoneID:self.keychainZoneID];
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:6 zoneID:self.keychainZoneID]; // includes peer 1's TLKshare, since we are about to break peer 1.
+    
+    // Let's set up a ton of peers.
+    NSMutableSet<CKKSSOSPeer*>* peers = [[NSMutableSet alloc] init];
+    for(int i = 0; i < 15; i++) {
+        CKKSSOSPeer* untrustedPeer = [[CKKSSOSPeer alloc] initWithSOSPeerID:[NSString stringWithFormat:@"untrusted-peer-%d", i]
+                                                        encryptionPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
+                                                           signingPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
+                                                                       viewList:self.managedViewList];
+        [peers addObject:untrustedPeer];
+    }
+
+    [self.mockSOSAdapter.trustedPeers unionSet:peers];
+    
+    // Delete remote peer 1's keys to trigger a heal TLK shares operation.
+    CKKSSOSPeer* brokenRemotePeer1 = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.remotePeer1.peerID
+                                                        encryptionPublicKey:nil
+                                                           signingPublicKey:nil
+                                                                   viewList:self.managedViewList];
+    [self.mockSOSAdapter.trustedPeers removeObject:self.remotePeer1];
+    [self.mockSOSAdapter.trustedPeers addObject:brokenRemotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
+    
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 @end
 
 #endif // OCTAGON

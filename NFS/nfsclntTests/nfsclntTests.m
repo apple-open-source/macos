@@ -328,6 +328,11 @@ _testMountArg(char *mountArg)
 	_testNFSArg("readlink_nocache=2");
 }
 
+- (void)testMountAccessCache
+{
+	_testNFSArg("accesscache=5");
+}
+
 - (void)testMountDeadTimeout
 {
 	_testNFSArg("deadtimeout=30");
@@ -557,6 +562,8 @@ struct nfs_options_client expected_options;
 	writeArgToOptions(NFSTESTS_OPTIONS_REALM, "myrealm.test.com", (void *)"@myrealm.test.com");
 	writeArgToOptions(NFSTESTS_OPTIONS_PRINCIPAL, "myprincipal", (void *)"myprincipal");
 	writeArgToOptions(NFSTESTS_OPTIONS_SVCPRINCIPAL, "mysvcprincipal", (void *)"mysvcprincipal");
+	writeArgToOptions(NFSTESTS_OPTIONS_READLINK_NOCACHE, "1", (void *)1);
+	writeArgToOptions(NFSTESTS_OPTIONS_ACCESS_CACHE, "10", (void *)10);
 
 	handle_mntopts(test_options);
 	optionsVerify();

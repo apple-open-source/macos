@@ -50,7 +50,7 @@ ___runetype_l(__ct_rune_t c, locale_t loc)
 		return(0L);
 
 	NORMALIZE_LOCALE(loc);
-	rr = &loc->__lc_ctype->_CurrentRuneLocale.__runetype_ext;
+	rr = &XLOCALE_CTYPE(loc)->_CurrentRuneLocale->__runetype_ext;
 	/* Binary search -- see bsearch.c for explanation. */
 	base = rr->__ranges;
 	for (lim = rr->__nranges; lim != 0; lim >>= 1) {

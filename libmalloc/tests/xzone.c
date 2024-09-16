@@ -7,6 +7,7 @@
 
 T_DECL(zzz_a_xzone_enable_bootargs,
 		"Enable libmalloc boot-args support via ffctl",
+		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ENABLED(CONFIG_XZONE_MALLOC))
 {
 	dt_spawn_t ffctl = dt_spawn_create(NULL);
@@ -34,12 +35,22 @@ T_DECL(zzz_a_xzone_enable_bootargs,
 
 T_DECL(zzz_b_xzone_malloc_systemwide, "Enable xzone malloc system-wide",
 		T_META_BOOTARGS_SET("malloc_secure_allocator=1"),
+		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ENABLED(CONFIG_XZONE_MALLOC))
 {
 	T_PASS("Successfully booted the OS with xzone malloc enabled system-wide");
 }
 
+T_DECL(zzz_b_xzone_guards_systemwide, "Enable xzone guard pages system-wide",
+		T_META_BOOTARGS_SET("malloc_secure_allocator=1"),
+		T_META_BOOTARGS_SET("xzone_guard_pages=1"),
+		T_META_ENABLED(CONFIG_XZONE_MALLOC))
+{
+	T_PASS("Successfully booted the OS with xzone guard pages system-wide");
+}
+
 T_DECL(xzone_debug_dylib, "Ensure xzone malloc tests run with debug dylib",
+		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_TAG_XZONE_ONLY)
 {
 	T_ASSERT_TRUE(malloc_variant_is_debug_4test(),

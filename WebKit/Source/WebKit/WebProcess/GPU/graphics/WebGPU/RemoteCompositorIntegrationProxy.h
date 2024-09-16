@@ -35,6 +35,9 @@
 namespace WebCore {
 class ImageBuffer;
 class NativeImage;
+namespace WebGPU {
+class Device;
+}
 }
 
 namespace WebKit::WebGPU {
@@ -61,7 +64,7 @@ public:
     }
 
     void paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t) final;
-    void withDisplayBufferAsNativeImage(uint32_t, Function<void(WebCore::NativeImage&)>) final;
+    void withDisplayBufferAsNativeImage(uint32_t, Function<void(WebCore::NativeImage*)>) final;
 
 private:
     friend class DowncastConvertToBackingContext;
@@ -88,7 +91,7 @@ private:
     }
 
 #if PLATFORM(COCOA)
-    Vector<MachSendRight> recreateRenderBuffers(int width, int height) override;
+    Vector<MachSendRight> recreateRenderBuffers(int width, int height, WebCore::DestinationColorSpace&&, WebCore::AlphaPremultiplication, WebCore::WebGPU::TextureFormat, WebCore::WebGPU::Device&) override;
 #endif
 
     void prepareForDisplay(CompletionHandler<void()>&&) override;

@@ -55,7 +55,8 @@ T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("scheduler"),
 	T_META_OWNER("chimene"),
-	T_META_ENABLED(TARGET_OS_OSX)
+	T_META_ENABLED(TARGET_OS_OSX),
+	T_META_TAG_VM_NOT_ELIGIBLE
 	);
 
 static void *stat_thread(void *arg);
@@ -642,7 +643,8 @@ sigprof_received(int __unused sig)
 }
 
 T_DECL(setitimer_prof,
-    "ensure a single-threaded process doesn't receive early signals")
+    "ensure a single-threaded process doesn't receive early signals",
+    T_META_TAG_VM_PREFERRED)
 {
 	T_SETUPBEGIN;
 	(void)signal(SIGPROF, sigprof_received);
@@ -676,7 +678,8 @@ T_DECL(setitimer_prof,
 }
 
 T_DECL(setitimer_prof_multi_threaded,
-    "ensure a multi-threaded process doesn't receive early signals")
+    "ensure a multi-threaded process doesn't receive early signals",
+    T_META_TAG_VM_PREFERRED)
 {
 	T_SETUPBEGIN;
 	(void)signal(SIGPROF, sigprof_received);
@@ -731,7 +734,7 @@ sigprof_received_usage(int __unused sig)
 
 T_DECL(setitimer_prof_latency,
     "measure the latency of delivering SIGPROF",
-    T_META_TAG_PERF,
+    T_META_TAG_PERF, T_META_TAG_VM_NOT_ELIGIBLE,
     T_META_TIMEOUT(10))
 {
 	T_SETUPBEGIN;

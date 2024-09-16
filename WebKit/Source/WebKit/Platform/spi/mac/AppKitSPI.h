@@ -30,6 +30,7 @@
 #define CGCOLORTAGGEDPOINTER_H_
 
 #import <AppKit/NSInspectorBar.h>
+#import <AppKit/NSPreviewRepresentingActivityItem_Private.h>
 #import <AppKit/NSTextInputClient_Private.h>
 #import <AppKit/NSWindow_Private.h>
 
@@ -71,7 +72,17 @@ typedef NS_OPTIONS(NSUInteger, NSWindowShadowOptions) {
 
 @end
 
+@class LPLinkMetadata;
+
+@interface NSPreviewRepresentingActivityItem ()
+- (instancetype)initWithItem:(id)item linkMetadata:(LPLinkMetadata *)linkMetadata;
+@end
+
 #endif
+
+@interface NSPopover (IPI)
+@property (readonly) NSView *positioningView;
+@end
 
 @interface NSWorkspace (NSWorkspaceAccessibilityDisplayInternal_IPI)
 + (void)_invalidateAccessibilityDisplayValues;

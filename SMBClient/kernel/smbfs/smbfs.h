@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2019 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,13 +40,14 @@
 #include <netinet/in.h>
 #include <netsmb/netbios.h>
 #include <netsmb/smb_2.h>
+#include <netsmb/smb_conn.h>
 
-#define SMBFS_VERMAJ	5
-#define SMBFS_VERMIN	1000
+#define SMBFS_VERMAJ	6
+#define SMBFS_VERMIN	0000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 5.1"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 14"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 6.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 15"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	1024	/* maximum number of path components */
@@ -84,14 +85,14 @@ struct gssdProxyPB
 {
 	uint32_t	mechtype;		
 	uint32_t	alignPad1;
-	uint8_t	*intoken;
+	uint8_t		*intoken;
 	uint32_t	intokenLen;		
 	uint32_t	uid;		
-	uint8_t	*svc_namestr;
+	uint8_t		*svc_namestr;
 	uint64_t	verifier;		// inout
 	uint32_t	context;		// inout
 	uint32_t	cred_handle;		// inout
-	uint8_t	*outtoken;		// out
+	uint8_t		*outtoken;		// out
 	uint32_t	outtokenLen;		// inout
 	uint32_t	major_stat;		// out
 	uint32_t	minor_stat;		// out
@@ -201,8 +202,9 @@ struct smb_byte_range_locks {
 /* smb_file flags */
 typedef enum _SMB_FILE_FLAGS
 {
-	SMB_FILE_UBC_CACHING = 0x0001,
-	SMB_FILE_MMAPPED = 0x0002
+	SMB_FILE_UBC_CACHING = 		0x0001,
+	SMB_FILE_MMAPPED = 		0x0002,
+	SMB_FILE_DONT_COMPRESS = 	0x0004
 } _SMB_FILE_FLAGS;
 
 #define SMB_MAX_LOCKS_RETURNED 25
@@ -369,7 +371,7 @@ struct smb_update_lease {
 struct smb_mount_args {
 	int32_t		version;
 	int32_t		dev;
-	int32_t		altflags;
+	int64_t		altflags;
 	int32_t		KernelLogLevel;
 	uid_t		uid;
 	gid_t 		gid;
@@ -393,10 +395,25 @@ struct smb_mount_args {
 	int32_t		read_count[3];
 	int32_t		write_size[3];
 	int32_t		write_count[3];
-	int32_t		rw_thread_control;
+	int32_t		rw_max_check_time;
+	int32_t		rw_gb_threshold;
 	/* Snapshot time support */
 	char		snapshot_time[32] __attribute((aligned(8)));
 	time_t 		snapshot_local_time;
+	
+	/*
+	 * Compression
+	 */
+	
+	/* Client compression algorithm map passed into session via ioctl */
+	uint32_t	compression_io_threshold; /* Min IO size to try to compress */
+	uint32_t        compression_chunk_len;
+	uint32_t        compression_max_fail_cnt;
+	
+	char		compression_exclude[kClientCompressMaxEntries][kClientCompressMaxExtLen];
+	uint32_t	compression_exclude_cnt;
+	char		compression_include[kClientCompressMaxEntries][kClientCompressMaxExtLen];
+	uint32_t	compression_include_cnt;
 };
 
 #define SMBFS_SYSCTL_REMOUNT 1
@@ -420,7 +437,7 @@ struct smb_remount_info {
 
 /* The items the mount point keeps in memory */
 struct smbfs_args {
-	int32_t		altflags;
+	int64_t		altflags;
 	uid_t		uid;
 	gid_t 		gid;
 	guid_t		uuid;		/* The UUID of the user that mounted the volume */
@@ -445,7 +462,25 @@ struct smbfs_args {
 	int32_t		write_size[3];
 	int32_t		write_count[3];
 	
-	int32_t		rw_thread_control;
+	int32_t		rw_max_check_time;
+	int32_t		rw_gb_threshold;
+
+	/*
+	 * Compression
+	 */
+	
+	/* Client compression algorithm map passed into session via ioctl */
+	uint32_t	compression_io_threshold; /* Min IO size to try to compress */
+	uint32_t        compression_chunk_len;
+	uint32_t        compression_max_fail_cnt;
+	
+	char *          compression_exclude[kClientCompressMaxEntries];
+	size_t          compression_exclude_allocsize[kClientCompressMaxEntries];
+	uint32_t        compression_exclude_cnt;
+	
+	char *          compression_include[kClientCompressMaxEntries];
+	size_t          compression_include_allocsize[kClientCompressMaxEntries];
+	uint32_t        compression_include_cnt;
 };
 
 
@@ -554,6 +589,7 @@ int smbfs_readlink(struct smb_share *share, vnode_t vp, struct uio *uiop,
 		   vfs_context_t context);
 int smbfs_getattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		  vfs_context_t context);
+int smbfs_do_strategy(struct buf *bp);
 
 /*
  * Notify change routines
@@ -570,7 +606,6 @@ void smbfs_restart_change_notify(struct smb_share *share, vnode_t vp,
 				 vfs_context_t context);
 
 #define SMB_IOMIN (1024 * 1024)
-#define SMB_IOMAXCACHE (SMB_IOMIN * 8)
 #define SMB_IOMAX ((size_t)MAX_UPL_SIZE * PAGE_SIZE)
 
 /*
@@ -591,110 +626,125 @@ void smbfs_restart_change_notify(struct smb_share *share, vnode_t vp,
 //SMB_LOG_KTRACE(SMB_DBG_MOUNT | DBG_FUNC_NONE, 0xabc001, error, 0, 0, 0);
 
 enum {
-        /* VFS OPs */
-        SMB_DBG_MOUNT                     = SMB_DBG_CODE(0),    /* 0x030A0000 */
-        SMB_DBG_UNMOUNT                   = SMB_DBG_CODE(1),    /* 0x030A0004 */
-        SMB_DBG_ROOT                      = SMB_DBG_CODE(2),    /* 0x030A0008 */
-        SMB_DBG_VFS_GETATTR               = SMB_DBG_CODE(3),    /* 0x030A000C */
-        SMB_DBG_SYNC                      = SMB_DBG_CODE(4),    /* 0x030A0010 */
-        SMB_DBG_VGET                      = SMB_DBG_CODE(5),    /* 0x030A0014 */
-        SMB_DBG_SYSCTL                    = SMB_DBG_CODE(6),    /* 0x030A0018 */
+	/* VFS OPs */
+	SMB_DBG_MOUNT                     = SMB_DBG_CODE(0),    /* 0x030A0000 */
+	SMB_DBG_UNMOUNT                   = SMB_DBG_CODE(1),    /* 0x030A0004 */
+	SMB_DBG_ROOT                      = SMB_DBG_CODE(2),    /* 0x030A0008 */
+	SMB_DBG_VFS_GETATTR               = SMB_DBG_CODE(3),    /* 0x030A000C */
+	SMB_DBG_SYNC                      = SMB_DBG_CODE(4),    /* 0x030A0010 */
+	SMB_DBG_VGET                      = SMB_DBG_CODE(5),    /* 0x030A0014 */
+	SMB_DBG_SYSCTL                    = SMB_DBG_CODE(6),    /* 0x030A0018 */
     
-        /* VFS VNODE OPs */
-        SMB_DBG_ADVLOCK                   = SMB_DBG_CODE(7),    /* 0x030A001C */
-        SMB_DBG_CLOSE                     = SMB_DBG_CODE(8),    /* 0x030A0020 */
-        SMB_DBG_CREATE                    = SMB_DBG_CODE(9),    /* 0x030A0024 */
-        SMB_DBG_FSYNC                     = SMB_DBG_CODE(10),   /* 0x030A0028 */
-        SMB_DBG_GET_ATTR                  = SMB_DBG_CODE(11),   /* 0x030A002C */
-        SMB_DBG_PAGE_IN                   = SMB_DBG_CODE(12),   /* 0x030A0030 */
-        SMB_DBG_INACTIVE                  = SMB_DBG_CODE(13),   /* 0x030A0034 */
-        SMB_DBG_IOCTL                     = SMB_DBG_CODE(14),   /* 0x030A0038 */
-        SMB_DBG_LINK                      = SMB_DBG_CODE(15),   /* 0x030A003C */
-        SMB_DBG_LOOKUP                    = SMB_DBG_CODE(16),   /* 0x030A0040 */
-        SMB_DBG_MKDIR                     = SMB_DBG_CODE(17),   /* 0x030A0044 */
-        SMB_DBG_MKNODE                    = SMB_DBG_CODE(18),   /* 0x030A0048 */
-        SMB_DBG_MMAP                      = SMB_DBG_CODE(19),   /* 0x030A004C */
-        SMB_DBG_MNOMAP                    = SMB_DBG_CODE(20),   /* 0x030A0050 */
-        SMB_DBG_OPEN                      = SMB_DBG_CODE(21),   /* 0x030A0054 */
-        SMB_DBG_CMPD_OPEN                 = SMB_DBG_CODE(22),   /* 0x030A0058 */
-        SMB_DBG_PATHCONF                  = SMB_DBG_CODE(23),   /* 0x030A005C */
-        SMB_DBG_PAGE_OUT                  = SMB_DBG_CODE(24),   /* 0x030A0060 */
-        SMB_DBG_COPYFILE                  = SMB_DBG_CODE(25),   /* 0x030A0064 */
-        SMB_DBG_READ                      = SMB_DBG_CODE(26),   /* 0x030A0068 */
-        SMB_DBG_READ_DIR                  = SMB_DBG_CODE(27),   /* 0x030A006C */
-        SMB_DBG_READ_DIR_ATTR             = SMB_DBG_CODE(28),   /* 0x030A0070 */
-        SMB_DBG_READ_LINK                 = SMB_DBG_CODE(29),   /* 0x030A0074 */
-        SMB_DBG_RECLAIM                   = SMB_DBG_CODE(30),   /* 0x030A0078 */
-        SMB_DBG_REMOVE                    = SMB_DBG_CODE(31),   /* 0x030A007C */
-        SMB_DBG_RENAME                    = SMB_DBG_CODE(32),   /* 0x030A0080 */
-        SMB_DBG_RM_DIR                    = SMB_DBG_CODE(33),   /* 0x030A0084 */
-        SMB_DBG_SET_ATTR                  = SMB_DBG_CODE(34),   /* 0x030A0088 */
-        SMB_DBG_SYM_LINK                  = SMB_DBG_CODE(35),   /* 0x030A008C */
-        SMB_DBG_WRITE                     = SMB_DBG_CODE(36),   /* 0x030A0090 */
-        SMB_DBG_STRATEGY                  = SMB_DBG_CODE(37),   /* 0x030A0094 */
-        SMB_DBG_GET_XATTR                 = SMB_DBG_CODE(38),   /* 0x030A0098 */
-        SMB_DBG_SET_XATTR                 = SMB_DBG_CODE(39),   /* 0x030A009C */
-        SMB_DBG_RM_XATTR                  = SMB_DBG_CODE(40),   /* 0x030A00A0 */
-        SMB_DBG_LIST_XATTR                = SMB_DBG_CODE(41),   /* 0x030A00A4 */
-        SMB_DBG_MONITOR                   = SMB_DBG_CODE(42),   /* 0x030A00A8 */
-        SMB_DBG_GET_NSTREAM               = SMB_DBG_CODE(43),   /* 0x030A00AC */
-        SMB_DBG_MAKE_NSTREAM              = SMB_DBG_CODE(44),   /* 0x030A00B0 */
-        SMB_DBG_RM_NSTREAM                = SMB_DBG_CODE(45),   /* 0x030A00B4 */
-        SMB_DBG_ACCESS                    = SMB_DBG_CODE(46),   /* 0x030A00B8 */
-        SMB_DBG_ALLOCATE                  = SMB_DBG_CODE(47),   /* 0x030A00BC */
+	/* VFS VNODE OPs */
+	SMB_DBG_ADVLOCK                   = SMB_DBG_CODE(7),    /* 0x030A001C */
+	SMB_DBG_CLOSE                     = SMB_DBG_CODE(8),    /* 0x030A0020 */
+	SMB_DBG_CREATE                    = SMB_DBG_CODE(9),    /* 0x030A0024 */
+	SMB_DBG_FSYNC                     = SMB_DBG_CODE(10),   /* 0x030A0028 */
+	SMB_DBG_GET_ATTR                  = SMB_DBG_CODE(11),   /* 0x030A002C */
+	SMB_DBG_PAGE_IN                   = SMB_DBG_CODE(12),   /* 0x030A0030 */
+	SMB_DBG_INACTIVE                  = SMB_DBG_CODE(13),   /* 0x030A0034 */
+	SMB_DBG_IOCTL                     = SMB_DBG_CODE(14),   /* 0x030A0038 */
+	SMB_DBG_LINK                      = SMB_DBG_CODE(15),   /* 0x030A003C */
+	SMB_DBG_LOOKUP                    = SMB_DBG_CODE(16),   /* 0x030A0040 */
+	SMB_DBG_MKDIR                     = SMB_DBG_CODE(17),   /* 0x030A0044 */
+	SMB_DBG_MKNODE                    = SMB_DBG_CODE(18),   /* 0x030A0048 */
+	SMB_DBG_MMAP                      = SMB_DBG_CODE(19),   /* 0x030A004C */
+	SMB_DBG_MNOMAP                    = SMB_DBG_CODE(20),   /* 0x030A0050 */
+	SMB_DBG_OPEN                      = SMB_DBG_CODE(21),   /* 0x030A0054 */
+	SMB_DBG_CMPD_OPEN                 = SMB_DBG_CODE(22),   /* 0x030A0058 */
+	SMB_DBG_PATHCONF                  = SMB_DBG_CODE(23),   /* 0x030A005C */
+	SMB_DBG_PAGE_OUT                  = SMB_DBG_CODE(24),   /* 0x030A0060 */
+	SMB_DBG_COPYFILE                  = SMB_DBG_CODE(25),   /* 0x030A0064 */
+	SMB_DBG_READ                      = SMB_DBG_CODE(26),   /* 0x030A0068 */
+	SMB_DBG_READ_DIR                  = SMB_DBG_CODE(27),   /* 0x030A006C */
+	SMB_DBG_READ_DIR_ATTR             = SMB_DBG_CODE(28),   /* 0x030A0070 */
+	SMB_DBG_READ_LINK                 = SMB_DBG_CODE(29),   /* 0x030A0074 */
+	SMB_DBG_RECLAIM                   = SMB_DBG_CODE(30),   /* 0x030A0078 */
+	SMB_DBG_REMOVE                    = SMB_DBG_CODE(31),   /* 0x030A007C */
+	SMB_DBG_RENAME                    = SMB_DBG_CODE(32),   /* 0x030A0080 */
+	SMB_DBG_RM_DIR                    = SMB_DBG_CODE(33),   /* 0x030A0084 */
+	SMB_DBG_SET_ATTR                  = SMB_DBG_CODE(34),   /* 0x030A0088 */
+	SMB_DBG_SYM_LINK                  = SMB_DBG_CODE(35),   /* 0x030A008C */
+	SMB_DBG_WRITE                     = SMB_DBG_CODE(36),   /* 0x030A0090 */
+	SMB_DBG_STRATEGY                  = SMB_DBG_CODE(37),   /* 0x030A0094 */
+	SMB_DBG_GET_XATTR                 = SMB_DBG_CODE(38),   /* 0x030A0098 */
+	SMB_DBG_SET_XATTR                 = SMB_DBG_CODE(39),   /* 0x030A009C */
+	SMB_DBG_RM_XATTR                  = SMB_DBG_CODE(40),   /* 0x030A00A0 */
+	SMB_DBG_LIST_XATTR                = SMB_DBG_CODE(41),   /* 0x030A00A4 */
+	SMB_DBG_MONITOR                   = SMB_DBG_CODE(42),   /* 0x030A00A8 */
+	SMB_DBG_GET_NSTREAM               = SMB_DBG_CODE(43),   /* 0x030A00AC */
+	SMB_DBG_MAKE_NSTREAM              = SMB_DBG_CODE(44),   /* 0x030A00B0 */
+	SMB_DBG_RM_NSTREAM                = SMB_DBG_CODE(45),   /* 0x030A00B4 */
+	SMB_DBG_ACCESS                    = SMB_DBG_CODE(46),   /* 0x030A00B8 */
+	SMB_DBG_ALLOCATE                  = SMB_DBG_CODE(47),   /* 0x030A00BC */
     
-        /* Sub Functions */
-        SMB_DBG_SMBFS_CLOSE               = SMB_DBG_CODE(48),   /* 0x030A00C0 */
-        SMB_DBG_SMBFS_CREATE              = SMB_DBG_CODE(49),   /* 0x030A00C4 */
-        SMB_DBG_SMBFS_FSYNC               = SMB_DBG_CODE(50),   /* 0x030A00C8 */
-        SMB_DBG_SMB_FSYNC                 = SMB_DBG_CODE(51),   /* 0x030A00CC */
-        SMB_DBG_SMBFS_UPDATE_CACHE        = SMB_DBG_CODE(52),   /* 0x030A00D0 */
-        SMB_DBG_SMBFS_OPEN                = SMB_DBG_CODE(53),   /* 0x030A00D4 */
-        SMB_DBG_SMB_READ                  = SMB_DBG_CODE(54),   /* 0x030A00D8 */
-        SMB_DBG_SMB_RW_ASYNC              = SMB_DBG_CODE(55),   /* 0x030A00DC */
-        SMB_DBG_SMB_RW_FILL               = SMB_DBG_CODE(56),   /* 0x030A00E0 */
-        SMB_DBG_PACK_ATTR_BLK             = SMB_DBG_CODE(57),   /* 0x030A00E4 */
-        SMB_DBG_SMBFS_REMOVE              = SMB_DBG_CODE(58),   /* 0x030A00E8 */
-        SMB_DBG_SMBFS_SETATTR             = SMB_DBG_CODE(59),   /* 0x030A00EC */
-        SMB_DBG_SMBFS_GET_SEC             = SMB_DBG_CODE(60),   /* 0x030A00F0 */
-        SMB_DBG_SMBFS_SET_SEC             = SMB_DBG_CODE(61),   /* 0x030A00F4 */
-        SMB_DBG_SMBFS_GET_MAX_ACCESS      = SMB_DBG_CODE(62),   /* 0x030A00F8 */
-        SMB_DBG_SMBFS_LOOKUP              = SMB_DBG_CODE(63),   /* 0x030A00FC */
-        SMB_DBG_SMBFS_NOTIFY              = SMB_DBG_CODE(64),   /* 0x030A0100 */
-        SMB_DBG_GET_ATTRLIST_BULK         = SMB_DBG_CODE(65),   /* 0x030A0104 */
-        SMB_DBG_SMBFS_FETCH_NEW_ENTRIES   = SMB_DBG_CODE(66),   /* 0x030A0108 */
+	/* Sub Functions */
+	SMB_DBG_SMBFS_CLOSE               = SMB_DBG_CODE(48),   /* 0x030A00C0 */
+	SMB_DBG_SMBFS_CREATE              = SMB_DBG_CODE(49),   /* 0x030A00C4 */
+	SMB_DBG_SMBFS_FSYNC               = SMB_DBG_CODE(50),   /* 0x030A00C8 */
+	SMB_DBG_SMB_FSYNC                 = SMB_DBG_CODE(51),   /* 0x030A00CC */
+	SMB_DBG_SMBFS_UPDATE_CACHE        = SMB_DBG_CODE(52),   /* 0x030A00D0 */
+	SMB_DBG_SMBFS_OPEN                = SMB_DBG_CODE(53),   /* 0x030A00D4 */
+	SMB_DBG_SMB_READ                  = SMB_DBG_CODE(54),   /* 0x030A00D8 */
+	SMB_DBG_SMB_RW_ASYNC              = SMB_DBG_CODE(55),   /* 0x030A00DC */
+	SMB_DBG_SMB_RW_FILL               = SMB_DBG_CODE(56),   /* 0x030A00E0 */
+	SMB_DBG_PACK_ATTR_BLK             = SMB_DBG_CODE(57),   /* 0x030A00E4 */
+	SMB_DBG_SMBFS_REMOVE              = SMB_DBG_CODE(58),   /* 0x030A00E8 */
+	SMB_DBG_SMBFS_SETATTR             = SMB_DBG_CODE(59),   /* 0x030A00EC */
+	SMB_DBG_SMBFS_GET_SEC             = SMB_DBG_CODE(60),   /* 0x030A00F0 */
+	SMB_DBG_SMBFS_SET_SEC             = SMB_DBG_CODE(61),   /* 0x030A00F4 */
+	SMB_DBG_SMBFS_GET_MAX_ACCESS      = SMB_DBG_CODE(62),   /* 0x030A00F8 */
+	SMB_DBG_SMBFS_LOOKUP              = SMB_DBG_CODE(63),   /* 0x030A00FC */
+	SMB_DBG_SMBFS_NOTIFY              = SMB_DBG_CODE(64),   /* 0x030A0100 */
+	SMB_DBG_GET_ATTRLIST_BULK         = SMB_DBG_CODE(65),   /* 0x030A0104 */
+	SMB_DBG_SMBFS_FETCH_NEW_ENTRIES   = SMB_DBG_CODE(66),   /* 0x030A0108 */
 	SMB_DBG_SMBFS_HANDLE_LEASE_BREAK  = SMB_DBG_CODE(67),   /* 0x030A010C */
 
 	/* Signing/Sealing */
-	SMB_DBG_SMB_RQ_SIGN               = SMB_DBG_CODE(68),   /* 0x030A0110 */
-        SMB_DBG_SMB_RQ_VERIFY             = SMB_DBG_CODE(69),   /* 0x030A0114 */
-        SMB_DBG_SMB_RQ_ENCRYPT            = SMB_DBG_CODE(70),   /* 0x030A0118 */
-        SMB_DBG_SMB_RQ_DECRYPT            = SMB_DBG_CODE(71),   /* 0x030A011C */
+	SMB_DBG_RQ_SIGN                   = SMB_DBG_CODE(68),   /* 0x030A0110 */
+	SMB_DBG_RQ_VERIFY                 = SMB_DBG_CODE(69),   /* 0x030A0114 */
+	SMB_DBG_RQ_ENCRYPT                = SMB_DBG_CODE(70),   /* 0x030A0118 */
+	SMB_DBG_RQ_DECRYPT                = SMB_DBG_CODE(71),   /* 0x030A011C */
 
 	/* Dir enum caching */
-        SMB_DBG_SMB_DIR_CACHE_CHECK       = SMB_DBG_CODE(72),   /* 0x030A0120 */
-        SMB_DBG_SMB_DIR_CACHE_REMOVE      = SMB_DBG_CODE(73),   /* 0x030A0124 */
-        SMB_DBG_GLOBAL_DIR_CACHE_CNT      = SMB_DBG_CODE(74),   /* 0x030A0128 */
-        SMB_DBG_GLOBAL_DIR_LOW_MEMORY     = SMB_DBG_CODE(75),   /* 0x030A012C */
+	SMB_DBG_DIR_CACHE_CHECK           = SMB_DBG_CODE(72),   /* 0x030A0120 */
+	SMB_DBG_DIR_CACHE_REMOVE          = SMB_DBG_CODE(73),   /* 0x030A0124 */
+	SMB_DBG_GLOBAL_DIR_CACHE_PRUNE    = SMB_DBG_CODE(74),   /* 0x030A0128 */
+	SMB_DBG_GLOBAL_DIR_LOW_MEMORY     = SMB_DBG_CODE(75),   /* 0x030A012C */
 
-	/* MultiChannel */
-        SMB_DBG_IOD_MUXCNT             	  = SMB_DBG_CODE(76),   /* 0x030A0130 */
+	SMB_DBG_IOD_ENQUEUE               = SMB_DBG_CODE(76),   /* 0x030A0130 */
 	SMB_DBG_IOD_RECONNECT             = SMB_DBG_CODE(77),   /* 0x030A0134 */
-	SMB_DBG_SMB_ECHO           	  = SMB_DBG_CODE(78),   /* 0x030A0138 */
+	SMB_DBG_IOD_SENDALL       	  = SMB_DBG_CODE(78),   /* 0x030A0138 */
+	SMB_DBG_IOD_RECVALL               = SMB_DBG_CODE(79),   /* 0x030A013C */
 
-	SMB_DBG_RQ_REPLY_TIME             = SMB_DBG_CODE(79),   /* 0x030A013C */
+	SMB_DBG_IOD_THREAD                = SMB_DBG_CODE(80),   /* 0x030A0140 */
+	SMB_DBG_IOD_MAIN                  = SMB_DBG_CODE(81),   /* 0x030A0144 */
+	SMB_DBG_IOD_WAITRQ                = SMB_DBG_CODE(82),   /* 0x030A0148 */
+	SMB_DBG_IOD_RQPROCESSED           = SMB_DBG_CODE(83),   /* 0x030A014C */
 
-	SMB_DBG_CURR_CREDITS              = SMB_DBG_CODE(80),   /* 0x030A0140 */
-        SMB_DBG_MAX_CREDITS               = SMB_DBG_CODE(81),   /* 0x030A0144 */
-        SMB_DBG_SMB_RQ_CREDIT_DECREMENT   = SMB_DBG_CODE(82),   /* 0x030A0148 */
-
-        SMB_DBG_SMB_RW_THREAD             = SMB_DBG_CODE(83),   /* 0x030A014C */
-	SMB_DBG_READ_QUANTUM_SIZE         = SMB_DBG_CODE(84),   /* 0x030A0150 */
-	SMB_DBG_WRITE_QUANTUM_SIZE        = SMB_DBG_CODE(85),   /* 0x030A0154 */
-	SMB_DBG_READ_BYTES_PER_SEC        = SMB_DBG_CODE(86),   /* 0x030A0158 */
-	SMB_DBG_WRITE_BYTES_PER_SEC       = SMB_DBG_CODE(87),   /* 0x030A015C */
+	SMB_DBG_IOD_RQ_SIGN               = SMB_DBG_CODE(84),   /* 0x030A0150 */
+	SMB_DBG_IOD_SENDRQ                = SMB_DBG_CODE(85),   /* 0x030A0154 */
+	SMB_DBG_NBST_SEND                 = SMB_DBG_CODE(86),   /* 0x030A0158 */
+	SMB_DBG_NBST_RECV                 = SMB_DBG_CODE(87),   /* 0x030A015C */
 	
-	SMB_DBG_MMAP_CHECK                = SMB_DBG_CODE(88)    /* 0x030A0160 */
+	SMB_DBG_MMAP_CHECK                = SMB_DBG_CODE(88),   /* 0x030A0160 */
+	SMB_DBG_WRITE_COMPRESS       	  = SMB_DBG_CODE(89),   /* 0x030A0164 */
+	SMB_DBG_READ_DECOMPRESS      	  = SMB_DBG_CODE(90),   /* 0x030A0168 */
+	SMB_DBG_DO_STRATEGY      	  = SMB_DBG_CODE(91),   /* 0x030A016C */
+	
+	SMB_DBG_SMB_WRITE                 = SMB_DBG_CODE(92),   /* 0x030A0170 */
+	SMB_DBG_RQ_CREDIT_DECREMENT       = SMB_DBG_CODE(93),   /* 0x030A0174 */
+	SMB_DBG_RQ_CREDIT_INCREMENT       = SMB_DBG_CODE(94),   /* 0x030A0178 */
+	SMB_DBG_RQ_REPLY                  = SMB_DBG_CODE(95),   /* 0x030A017C */
+	
+	SMB_DBG_SMB_ECHO                  = SMB_DBG_CODE(96),   /* 0x030A0180 */
+	SMB_DBG_RW_THREAD                 = SMB_DBG_CODE(97),   /* 0x030A0184 */
+	SMB_DBG_SMB_READ_ONE              = SMB_DBG_CODE(98),   /* 0x030A0188 */
+	SMB_DBG_SMB_WRITE_ONE             = SMB_DBG_CODE(99),   /* 0x030A018C */
+	
+	SMB_DBG_ADJUST_QUANTUM_SIZES      = SMB_DBG_CODE(100),  /* 0x030A0190 */
+	SMB_DBG_BUF_MAP           	  = SMB_DBG_CODE(101),  /* 0x030A0194 */
+	SMB_DBG_BUF_UNMAP           	  = SMB_DBG_CODE(102)   /* 0x030A0198 */
 };
 
 /* 
@@ -745,6 +795,7 @@ enum {
 #define k_LotsOfGB_max_dirs_cached 300
 #define k_LotsOfGB_max_dir_entries_cached 10000
 
+#define k_entry_struct_size 600;
 
 struct global_dir_cache_entry {
 	const char		*name;			/* dir name */

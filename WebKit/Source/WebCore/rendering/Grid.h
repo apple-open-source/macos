@@ -107,7 +107,7 @@ private:
 
     GridAsMatrix m_grid;
 
-    HashMap<const RenderBox*, GridArea> m_gridItemArea;
+    HashMap<SingleThreadWeakRef<const RenderBox>, GridArea> m_gridItemArea;
 
     std::unique_ptr<OrderedTrackIndexSet> m_autoRepeatEmptyColumns;
     std::unique_ptr<OrderedTrackIndexSet> m_autoRepeatEmptyRows;
@@ -120,7 +120,7 @@ public:
     // GridIterator(m_grid, ForColumns, 1) will walk over the rows of the 2nd column.
     GridIterator(const Grid&, GridTrackSizingDirection, unsigned fixedTrackIndex, unsigned varyingTrackIndex = 0);
 
-    static GridIterator createForSubgrid(const RenderGrid& subgrid, const GridIterator& outer);
+    static GridIterator createForSubgrid(const RenderGrid& subgrid, const GridIterator& outer, GridSpan subgridSpanInOuter);
 
     RenderBox* nextGridItem();
     bool isEmptyAreaEnough(unsigned rowSpan, unsigned columnSpan) const;

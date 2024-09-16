@@ -5,6 +5,8 @@
 #include <darwintest.h>
 #include <darwintest_utils.h>
 
+#include "libc_hooks_helper.h"
+
 static char tmpfile_template[] = "/tmp/libc_test_fflushXXXXX";
 #define BUFSZ 128
 static char wrbuf[BUFSZ] = "";
@@ -433,4 +435,24 @@ T_DECL(putc_writedrop, "ensure writes are flushed with a pending read buffer") {
 	T_ASSERT_EQ_STR(buf, "testin!", "read all the new data");
 
 	(void)fclose(fp);
+}
+
+T_DECL(libc_hooks_fflush, "Test libv_hooks for fflush")
+{
+    // Setup
+    T_SETUPBEGIN;
+    FILE *f = fopen("/dev/null", "w");
+    T_SETUPEND;
+
+    // Test
+    libc_hooks_log_start();
+    fflush(f);
+    libc_hooks_log_stop(1);
+
+    // Check
+    T_LOG("fflush(f)");
+    libc_hooks_log_expect(LIBC_HOOKS_LOG(libc_hooks_will_write, f, sizeof(*f)), "checking f");
+
+    // Cleanup
+    fclose(f);
 }

@@ -27,6 +27,7 @@
 #import "VideoMediaSampleRenderer.h"
 
 #import "WebCoreDecompressionSession.h"
+#import "WebSampleBufferVideoRendering.h"
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CMFormatDescription.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
@@ -45,33 +46,27 @@
 
 namespace WebCore {
 
-VideoMediaSampleRenderer::VideoMediaSampleRenderer(AVSampleBufferDisplayLayer* layer)
-    : m_displayLayer(layer)
+VideoMediaSampleRenderer::VideoMediaSampleRenderer(WebSampleBufferVideoRendering *renderer)
+    : m_renderer(renderer)
 {
 }
 
 VideoMediaSampleRenderer::~VideoMediaSampleRenderer()
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [m_displayLayer flush];
-    [m_displayLayer stopRequestingMediaData];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    [m_renderer flush];
+    [m_renderer stopRequestingMediaData];
     if (m_decompressionSession)
         m_decompressionSession->invalidate();
 }
 
 bool VideoMediaSampleRenderer::isReadyForMoreMediaData() const
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return (!m_decompressionSession || m_decompressionSession->isReadyForMoreMediaData()) && [m_displayLayer isReadyForMoreMediaData];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    return (!m_decompressionSession || m_decompressionSession->isReadyForMoreMediaData()) && [m_renderer isReadyForMoreMediaData];
 }
 
 void VideoMediaSampleRenderer::stopRequestingMediaData()
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [m_displayLayer stopRequestingMediaData];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    [m_renderer stopRequestingMediaData];
 }
 
 void VideoMediaSampleRenderer::enqueueSample(CMSampleBufferRef sample, bool displaying)
@@ -88,9 +83,7 @@ void VideoMediaSampleRenderer::enqueueSample(CMSampleBufferRef sample, bool disp
 #endif
 
     if (!m_decompressionSession) {
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        [m_displayLayer enqueueSampleBuffer:sample];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+        [m_renderer enqueueSampleBuffer:sample];
         return;
     }
     m_decompressionSession->enqueueSample(sample, displaying);
@@ -121,31 +114,28 @@ void VideoMediaSampleRenderer::initializeDecompressionSession()
     if (m_decompressionSession)
         m_decompressionSession->invalidate();
     m_decompressionSession = WebCoreDecompressionSession::createOpenGL();
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    m_decompressionSession->setTimebase([m_displayLayer timebase]);
+    m_decompressionSession->setTimebase([m_renderer timebase]);
     m_decompressionSession->setResourceOwner(m_resourceOwner);
     m_decompressionSession->decodedFrameWhenAvailable([weakThis = ThreadSafeWeakPtr { *this }](RetainPtr<CMSampleBufferRef>&& sample) {
         if (RefPtr protectedThis = weakThis.get())
-            [protectedThis->m_displayLayer enqueueSampleBuffer:sample.get()];
+            [protectedThis->m_renderer enqueueSampleBuffer:sample.get()];
     });
     m_decompressionSession->setErrorListener([weakThis = ThreadSafeWeakPtr { *this }, this](OSStatus status) {
         if (RefPtr protectedThis = weakThis.get()) {
             // Simulate AVSBDL decoding error.
             RetainPtr error = [NSError errorWithDomain:@"com.apple.WebKit" code:status userInfo:nil];
             NSDictionary *userInfoDict = @{ (__bridge NSString *)AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey: (__bridge NSError *)error.get() };
-            [NSNotificationCenter.defaultCenter postNotificationName:AVSampleBufferDisplayLayerFailedToDecodeNotification object:m_displayLayer.get() userInfo:userInfoDict];
+            [NSNotificationCenter.defaultCenter postNotificationName:AVSampleBufferDisplayLayerFailedToDecodeNotification object:m_renderer.get() userInfo:userInfoDict];
+            [NSNotificationCenter.defaultCenter postNotificationName:AVSampleBufferVideoRendererDidFailToDecodeNotification object:m_renderer.get() userInfo:userInfoDict];
         }
     });
-    ALLOW_DEPRECATED_DECLARATIONS_END
 
     resetReadyForMoreSample();
 }
 
 void VideoMediaSampleRenderer::flush()
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [m_displayLayer flush];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    [m_renderer flush];
     if (m_decompressionSession)
         m_decompressionSession->flush();
 }
@@ -159,12 +149,10 @@ void VideoMediaSampleRenderer::requestMediaDataWhenReady(Function<void()>&& func
 void VideoMediaSampleRenderer::resetReadyForMoreSample()
 {
     ThreadSafeWeakPtr weakThis { *this };
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [m_displayLayer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
+    [m_renderer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
         if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_readyForMoreSampleFunction)
             protectedThis->m_readyForMoreSampleFunction();
     }];
-    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void VideoMediaSampleRenderer::expectMinimumUpcomingSampleBufferPresentationTime(const MediaTime& time)
@@ -172,7 +160,7 @@ void VideoMediaSampleRenderer::expectMinimumUpcomingSampleBufferPresentationTime
     if (![PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(expectMinimumUpcomingSampleBufferPresentationTime:)])
         return;
     if (!m_decodePending)
-        [m_displayLayer expectMinimumUpcomingSampleBufferPresentationTime:PAL::toCMTime(time)];
+        [m_renderer expectMinimumUpcomingSampleBufferPresentationTime:PAL::toCMTime(time)];
     else
         m_minimumUpcomingPresentationTime = time;
 }
@@ -181,20 +169,25 @@ void VideoMediaSampleRenderer::resetUpcomingSampleBufferPresentationTimeExpectat
 {
     if (![PAL::getAVSampleBufferDisplayLayerClass() instancesRespondToSelector:@selector(resetUpcomingSampleBufferPresentationTimeExpectations)])
         return;
-    [m_displayLayer resetUpcomingSampleBufferPresentationTimeExpectations];
+    [m_renderer resetUpcomingSampleBufferPresentationTimeExpectations];
     m_minimumUpcomingPresentationTime.reset();
+}
+
+AVSampleBufferDisplayLayer *VideoMediaSampleRenderer::displayLayer() const
+{
+    return dynamic_objc_cast<AVSampleBufferDisplayLayer>(m_renderer.get(), PAL::getAVSampleBufferDisplayLayerClass());
 }
 
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
 
 RetainPtr<CVPixelBufferRef> VideoMediaSampleRenderer::copyDisplayedPixelBuffer() const
 {
-    return adoptCF([m_displayLayer copyDisplayedPixelBuffer]);
+    return adoptCF([m_renderer copyDisplayedPixelBuffer]);
 }
 
 CGRect VideoMediaSampleRenderer::bounds() const
 {
-    return [m_displayLayer bounds];
+    return [displayLayer() bounds];
 }
 
 #endif

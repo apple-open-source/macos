@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CachedPage.h"
 
+#include "BackForwardController.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -36,6 +37,7 @@
 #include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
 #include "LocalFrameView.h"
+#include "Navigation.h"
 #include "Node.h"
 #include "Page.h"
 #include "PageTransitionEvent.h"
@@ -60,7 +62,10 @@ CachedPage::CachedPage(Page& page)
     : m_page(page)
     , m_expirationTime(MonotonicTime::now() + page.settings().backForwardCacheExpirationInterval())
     , m_cachedMainFrame(makeUnique<CachedFrame>(page.mainFrame()))
-    , m_loadedSubresourceDomains(is<LocalFrame>(page.mainFrame()) ? downcast<LocalFrame>(page.mainFrame()).loader().client().loadedSubresourceDomains() : Vector<RegistrableDomain>())
+    , m_loadedSubresourceDomains([&] {
+        auto* localFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
+        return localFrame ? localFrame->loader().client().loadedSubresourceDomains() : Vector<RegistrableDomain>();
+    }())
 {
 #ifndef NDEBUG
     cachedPageCounter.increment();
@@ -80,20 +85,18 @@ CachedPage::~CachedPage()
 static void firePageShowEvent(Page& page)
 {
     // Dispatching JavaScript events can cause frame destruction.
-    auto& mainFrame = page.mainFrame();
+    Ref mainFrame = page.mainFrame();
 
     Vector<Ref<LocalFrame>> childFrames;
-    for (auto* child = mainFrame.tree().traverseNextInPostOrder(CanWrap::Yes); child; child = child->tree().traverseNextInPostOrder(CanWrap::No)) {
-        auto* localChild = dynamicDowncast<LocalFrame>(child);
-        if (!localChild)
-            continue;
-        childFrames.append(*localChild);
+    for (auto* child = mainFrame->tree().traverseNextInPostOrder(CanWrap::Yes); child; child = child->tree().traverseNextInPostOrder(CanWrap::No)) {
+        if (RefPtr localChild = dynamicDowncast<LocalFrame>(child))
+            childFrames.append(localChild.releaseNonNull());
     }
 
     for (auto& child : childFrames) {
-        if (!child->tree().isDescendantOf(&mainFrame))
+        if (!child->tree().isDescendantOf(mainFrame.ptr()))
             continue;
-        auto* document = child->document();
+        RefPtr document = child->document();
         if (!document)
             continue;
 
@@ -109,16 +112,16 @@ public:
     CachedPageRestorationScope(Page& page)
         : m_page(page)
     {
-        m_page.setIsRestoringCachedPage(true);
+        m_page->setIsRestoringCachedPage(true);
     }
 
     ~CachedPageRestorationScope()
     {
-        m_page.setIsRestoringCachedPage(false);
+        m_page->setIsRestoringCachedPage(false);
     }
 
 private:
-    Page& m_page;
+    WeakRef<Page> m_page;
 };
 
 void CachedPage::restore(Page& page)
@@ -128,7 +131,7 @@ void CachedPage::restore(Page& page)
     ASSERT(m_cachedMainFrame->view()->frame().isMainFrame());
     ASSERT(!page.subframeCount());
 
-    auto& mainFrame = page.mainFrame();
+    Ref mainFrame = page.mainFrame();
     RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame);
 
     CachedPageRestorationScope restorationScope(page);
@@ -149,7 +152,7 @@ void CachedPage::restore(Page& page)
             localMainFrame->selection().suppressScrolling();
 
         bool hadProhibitsScrolling = false;
-        auto* frameView = mainFrame.virtualView();
+        RefPtr frameView = mainFrame->virtualView();
         if (frameView) {
             hadProhibitsScrolling = frameView->prohibitsScrolling();
             frameView->setProhibitsScrolling(true);
@@ -160,14 +163,12 @@ void CachedPage::restore(Page& page)
         if (frameView)
             frameView->setProhibitsScrolling(hadProhibitsScrolling);
         if (localMainFrame)
-            localMainFrame->selection().restoreScrolling();
+            localMainFrame->checkedSelection()->restoreScrolling();
 #endif
     }
 
-    if (m_needsDeviceOrPageScaleChanged) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame))
-            localMainFrame->deviceOrPageScaleFactorChanged();
-    }
+    if (m_needsDeviceOrPageScaleChanged && localMainFrame)
+        localMainFrame->deviceOrPageScaleFactorChanged();
 
     page.setNeedsRecalcStyleInAllFrames();
 
@@ -177,15 +178,21 @@ void CachedPage::restore(Page& page)
 #endif
 
     if (m_needsUpdateContentsSize) {
-        if (auto* frameView = mainFrame.virtualView())
+        if (RefPtr frameView = mainFrame->virtualView())
             frameView->updateContentsSize();
+    }
+
+    if (auto& backForwardController = page.backForward(); page.settings().navigationAPIEnabled() && focusedDocument->domWindow() && backForwardController.currentItem()) {
+        Ref currentItem = *backForwardController.currentItem();
+        auto allItems = backForwardController.allItems();
+        focusedDocument->domWindow()->navigation().updateForReactivation(allItems, currentItem);
     }
 
     firePageShowEvent(page);
 
     for (auto& domain : m_loadedSubresourceDomains) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame))
-            localMainFrame->loader().client().didLoadFromRegistrableDomain(WTFMove(domain));
+        if (localMainFrame)
+            localMainFrame->checkedLoader()->client().didLoadFromRegistrableDomain(WTFMove(domain));
     }
 
     clear();

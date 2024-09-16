@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,7 +48,12 @@
  */
 #define kAllowNewInterfaces			CFSTR("AllowNewInterfaces")
 
-static _SCControlPrefsRef			S_control;
+/*
+ * kConfigureNewInterfaces
+ * - indicates whether InterfaceNamer should configure new interfaces as they
+ *   appear
+ */
+#define kConfigureNewInterfaces			CFSTR("ConfigureNewInterfaces")
 
 __private_extern__
 _SCControlPrefsRef
@@ -57,40 +62,61 @@ InterfaceNamerControlPrefsInit(CFRunLoopRef				runloop,
 {
 	_SCControlPrefsRef	control;
 
-	control = _SCControlPrefsCreate(kInterfaceNamerControlPrefsIDStr, runloop, callback);
+	control = _SCControlPrefsCreate(kInterfaceNamerControlPrefsIDStr,
+					runloop, callback);
 	return control;
 }
 
 /**
  ** Get
  **/
-__private_extern__ Boolean
-InterfaceNamerControlPrefsAllowNewInterfaces(void)
+static Boolean
+get_prefs_bool(_SCControlPrefsRef control, CFStringRef key)
 {
-	Boolean	allow	= FALSE;
+	Boolean	val	= FALSE;
 
-	if (S_control == NULL) {
-		S_control = InterfaceNamerControlPrefsInit(NULL, NULL);
+	if (control != NULL) {
+		val = _SCControlPrefsGetBoolean(control, key);
 	}
-	if (S_control != NULL) {
-		allow = _SCControlPrefsGetBoolean(S_control, kAllowNewInterfaces);
-	}
-	return allow;
+	return val;
+}
+
+__private_extern__ Boolean
+InterfaceNamerControlPrefsAllowNewInterfaces(_SCControlPrefsRef control)
+{
+	return get_prefs_bool(control, kAllowNewInterfaces);
+}
+
+__private_extern__ Boolean
+InterfaceNamerControlPrefsConfigureNewInterfaces(_SCControlPrefsRef control)
+{
+	return get_prefs_bool(control, kConfigureNewInterfaces);
 }
 
 /**
  ** Set
  **/
-__private_extern__ Boolean
-InterfaceNamerControlPrefsSetAllowNewInterfaces(Boolean allow)
+static Boolean
+set_prefs_bool(_SCControlPrefsRef control, CFStringRef key, Boolean val)
 {
 	Boolean	ok	= FALSE;
 
-	if (S_control == NULL) {
-		S_control = InterfaceNamerControlPrefsInit(NULL, NULL);
-	}
-	if (S_control != NULL) {
-		ok = _SCControlPrefsSetBoolean(S_control, kAllowNewInterfaces, allow);
+	if (control != NULL) {
+		ok = _SCControlPrefsSetBoolean(control, key, val);
 	}
 	return ok;
+}
+
+__private_extern__ Boolean
+InterfaceNamerControlPrefsSetAllowNewInterfaces(_SCControlPrefsRef control,
+						Boolean allow)
+{
+	return set_prefs_bool(control, kAllowNewInterfaces, allow);
+}
+
+Boolean
+InterfaceNamerControlPrefsSetConfigureNewInterfaces(_SCControlPrefsRef control,
+						    Boolean configure)
+{
+	return set_prefs_bool(control, kConfigureNewInterfaces, configure);
 }

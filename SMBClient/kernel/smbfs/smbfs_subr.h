@@ -159,6 +159,13 @@ struct compound_pb {
 #define	SMB_SKEYLEN		21			/* search context */
 #define SMB_DENTRYLEN		(SMB_SKEYLEN + 22)	/* entire entry */
 
+struct smbfs_fctx_query_t{
+    struct smb_rq   *create_rqp;
+    struct smb_rq   *query_rqp;
+    uint32_t        output_buf_len;   /* bytes left in current response */
+    SLIST_ENTRY(smbfs_fctx_query_t) next;
+};
+
 struct smbfs_fctx {
     uint32_t        f_is_readdir;
 	int				f_flags;	/* SMBFS_RDD_ */
@@ -190,12 +197,12 @@ struct smbfs_fctx {
 	uint32_t	f_rnameofs;
 	int			f_rkey;		/* resume key */
     /* SMB 2/3 fields */
-    struct smb_rq *f_create_rqp;
-    struct smb_rq *f_query_rqp;
+    SLIST_HEAD(f_queries_head, smbfs_fctx_query_t) f_queries;
+    uint32_t    f_queries_total_memory;
     int         f_need_close;
+    int         f_fid_closed;
     SMBFID      f_create_fid;
 	uint32_t	f_resume_file_index;
-	uint32_t	f_output_buf_len;   /* bytes left in current response */
     uint32_t    f_parsed_cnt;       /* number of entries parsed out so far */
 
 };
@@ -340,6 +347,7 @@ int smbfs_smb_findopen(struct smb_share *share, struct smbnode *dnp,
 int smbfs_findnext(struct smbfs_fctx *, vfs_context_t);
 void smbfs_closedirlookup(struct smbnode *, int32_t is_readdir,
                           const char *reason, vfs_context_t);
+void smbfs_remove_dir_lease(struct smbnode *np, const char *reason);
 int smbfs_lookup(struct smb_share *share, struct smbnode *dnp, const char **namep, 
 				 size_t *nmlenp, size_t *name_allocsize, struct smbfattr *fap, vfs_context_t context);
 int smbfs_smb_getsec(struct smb_share *share, struct smbnode *np,

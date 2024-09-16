@@ -355,9 +355,13 @@ static void GeneralizedTime_SecCMS(void) {
     uint8_t expectedData[] = { 0x18, 0x0f, 0x32, 0x30, 0x35, 0x32, 0x30, 0x31, 0x30, 0x38, 0x30, 0x36, 0x31, 0x33, 0x32, 0x30, 0x5a };
     is([unparsedExpirationDate isEqualToData:[NSData dataWithBytes:expectedData length:sizeof(expectedData)]], true, "Failed to get correct expiration date");
 
+#if !TARGET_OS_WATCH || HEIMDAL_FIX_TIME_T
+    // rdar://85417172 (libheimdal_asn1 shouldn't use time_t on watchOS)
+
     /* verify we can get the "cooked" expiration data out */
     ok(expirationDate = attrs[(__bridge NSString*)kSecCMSExpirationDate], "Failed to get pre-parsed expiration date from attributes");
     is([expirationDate isEqualToDate:expectedDate], true, "Failed to get correct expiration date");
+#endif
 
 exit:
     CFReleaseNull(policy);

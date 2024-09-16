@@ -65,7 +65,7 @@ CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, AtomStri
     Ref<RealtimeMediaSource> source = adoptRef(*new MockRealtimeVideoSourceMac(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), pageIdentifier));
     if (constraints) {
         if (auto error = source->applyConstraints(*constraints))
-            return CaptureSourceOrError({ WTFMove(error->badConstraint), MediaAccessDenialReason::InvalidConstraint });
+            return CaptureSourceOrError(CaptureSourceError { error->invalidConstraint });
     }
 
     return source;
@@ -78,7 +78,7 @@ Ref<MockRealtimeVideoSource> MockRealtimeVideoSourceMac::createForMockDisplayCap
 
 MockRealtimeVideoSourceMac::MockRealtimeVideoSourceMac(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, PageIdentifier pageIdentifier)
     : MockRealtimeVideoSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalts), pageIdentifier)
-    , m_workQueue(WorkQueue::create("MockRealtimeVideoSource Render Queue", WorkQueue::QOS::UserInteractive))
+    , m_workQueue(WorkQueue::create("MockRealtimeVideoSource Render Queue"_s, WorkQueue::QOS::UserInteractive))
 {
 }
 
@@ -100,7 +100,7 @@ void MockRealtimeVideoSourceMac::updateSampleBuffer()
     auto presentationTime = MediaTime::createWithDouble((elapsedTime() + 100_ms).seconds());
     auto videoFrame = m_imageTransferSession->createVideoFrame(platformImage.get(), presentationTime, size(), videoFrameRotation());
     if (!videoFrame) {
-        static const size_t MaxPixelGenerationFailureCount = 30;
+        static const size_t MaxPixelGenerationFailureCount = 150;
         if (++m_pixelGenerationFailureCount > MaxPixelGenerationFailureCount)
             captureFailed();
         return;

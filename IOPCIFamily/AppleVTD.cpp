@@ -876,6 +876,17 @@ AppleVTD::space_destroy(vtd_space_t * bf)
     uint32_t    present, missing;
 
 	VTHWLOCK(fHWLock);
+	// Flush free_queue entries belonging to this space to avoid a race
+	// where another thread calls checkFree() while/after this space is
+	// freed.
+	while (bf->pending_free > 0)
+	{
+		for (int i = 0; i < kFreeQCount; i++)
+		{
+			checkFree(bf, i);
+		}
+	}
+
 	if (bf->domain) vtd_bitmap_bitset(fDomainBitmap, false, bf->domain);
 	VTHWUNLOCK(fHWLock);
 
@@ -1074,7 +1085,6 @@ AppleVTD::space_create(ppnum_t vsize, uint32_t buddybits, ppnum_t rsize)
 		bf->rsize = rsize;
 		vtd_rballocator_init(bf, rsize, vsize - rsize);
 		STAT_ADD(bf, vsize, vsize);
-		bf->free_mask  = (kFreeQElems - 1);
 		ok = true;
 	}
 	while (false);
@@ -1319,26 +1329,31 @@ AppleVTD::addMemoryRange(IOPhysicalAddress start, IOPhysicalLength length)
 		return;
 	}
 
-	if (vtd->fNumMemoryRanges == kMaxMemRegions)
+	return vtd->fWorkLoop->runActionBlock(^IOReturn
 	{
-		IOLog("[%s()] Mem regions limit reached\n", __func__);
-		return;
-	}
+		if (vtd->fNumMemoryRanges == kMaxMemRegions)
+		{
+			IOLog("[%s()] Mem regions limit reached\n", __func__);
+			return kIOReturnError;
+		}
 
-	vtd->fMemoryRangeBase[vtd->fNumMemoryRanges] = start;
-	vtd->fMemoryRangeLen[vtd->fNumMemoryRanges] = length;
+		vtd->fMemoryRangeBase[vtd->fNumMemoryRanges] = start;
+		vtd->fMemoryRangeLen[vtd->fNumMemoryRanges] = length;
 
-	if (vtd->fSpace)
-	{
-		uint64_t idx = vtd->fNumMemoryRanges;
-		uint64_t addr = vtd->fMemoryRangeBase[idx];
-		uint32_t count = atop_32(vtd->fMemoryRangeLen[idx]);
+		if (vtd->fSpace)
+		{
+			uint64_t idx = vtd->fNumMemoryRanges;
+			uint64_t addr = vtd->fMemoryRangeBase[idx];
+			uint32_t count = atop_32(vtd->fMemoryRangeLen[idx]);
 
-		VTLOG("[%s(%p)] Freeing 0x%llx->0x%llx\n", __func__, vtd->fSpace, vtd->fMemoryRangeBase[idx], vtd->fMemoryRangeBase[idx] + vtd->fMemoryRangeLen[idx]);
-		vtd->space_alloc_fixed(vtd->fSpace, static_cast<vtd_baddr_t>(atop_64(vtd->fMemoryRangeBase[idx])), count, false);
-	}
+			VTLOG("[%s(%p)] Freeing 0x%llx->0x%llx\n", __func__, vtd->fSpace, vtd->fMemoryRangeBase[idx], vtd->fMemoryRangeBase[idx] + vtd->fMemoryRangeLen[idx]);
+			vtd->space_alloc_fixed(vtd->fSpace, static_cast<vtd_baddr_t>(atop_64(vtd->fMemoryRangeBase[idx])), count, false);
+		}
 
-	vtd->fNumMemoryRanges++;
+		vtd->fNumMemoryRanges++;
+
+		return kIOReturnSuccess;
+	});
 }
 
 void
@@ -1406,6 +1421,7 @@ AppleVTD::initHardware(IOService *provider)
 	fDisabled     = (!IOService::getPlatform()->getProperty(kIOPlatformMapperPresentKey));
 	fIsSystem     = !fDisabled;
 	mapInterrupts = (fIsSystem && (0 != (kIOPCIConfiguratorMapInterrupts & gIOPCIFlags)));
+	free_mask     = (kFreeQElems - 1);
 
 	fTreeBits = 0;
 	// prefer smallest tree?
@@ -2104,31 +2120,33 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 	}
 #endif
 
-	freeQueueIdx = space->free_tail[isLarge];
-	next = (freeQueueIdx + 1) & space->free_mask;
-	if (next == space->free_head[isLarge])
+	freeQueueIdx = free_tail[isLarge];
+	next = (freeQueueIdx + 1) & free_mask;
+	if (next == free_head[isLarge])
 	{
 	    uint64_t deadline;
 	    clock_interval_to_deadline(600, kMillisecondScale, &deadline);
 	    while (true)
 	    {
 			checkFree(space, isLarge);
-			freeQueueIdx = space->free_tail[isLarge];
-			next = (freeQueueIdx + 1) & space->free_mask;
-			if (next != space->free_head[isLarge]) break;
+			freeQueueIdx = free_tail[isLarge];
+			next = (freeQueueIdx + 1) & free_mask;
+			if (next != free_head[isLarge]) break;
 			if (mach_absolute_time() >= deadline) panic("qfull");
 	    }
 	}
-	space->free_queue[isLarge][freeQueueIdx].addr = addr;
-	space->free_queue[isLarge][freeQueueIdx].size = pages;
-	space->free_tail[isLarge] = next;
+	free_queue[isLarge][freeQueueIdx].addr = addr;
+	free_queue[isLarge][freeQueueIdx].size = pages;
+	free_queue[isLarge][freeQueueIdx].space = space;
+	space->pending_free++;
+	free_tail[isLarge] = next;
 
 	for (unitIdx = 0; (unit = units[unitIdx]); unitIdx++)
 	{
 		if (!unit->translating) continue;
 
 		stamp = ++fQIStamp[unitIdx];
-		space->free_queue[isLarge][freeQueueIdx].stamp[unitIdx] = stamp;
+		free_queue[isLarge][freeQueueIdx].stamp[unitIdx] = stamp;
 
 		unitAddr = addr;
 		unitPages = pages;
@@ -2196,6 +2214,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 void 
 AppleVTD::checkFree(vtd_space_t * space, uint32_t isLarge)
 {
+	vtd_space_t *free_space;
 	vtd_unit_t * unit;
 	uint32_t     unitIdx;
 	uint32_t     idx;
@@ -2204,28 +2223,30 @@ AppleVTD::checkFree(vtd_space_t * space, uint32_t isLarge)
     bool         ok;
 
 	count = 0;
-	idx = space->free_head[isLarge];
+	idx = free_head[isLarge];
 	do
 	{
-		if (idx == space->free_tail[isLarge]) break;
+		if (idx == free_tail[isLarge]) break;
 		for (unitIdx = 0, ok = true; ok && (unit = units[unitIdx]); unitIdx++)
 		{
 			if (!unit->translating) continue;
-			ok &= stampPassed(unit->qi_stamp, space->free_queue[isLarge][idx].stamp[unitIdx]);
+			ok &= stampPassed(unit->qi_stamp, free_queue[isLarge][idx].stamp[unitIdx]);
 		}
 	
 		if (ok)
 		{
-			next = (idx + 1) & space->free_mask;
-			addr = space->free_queue[isLarge][idx].addr;
-			size = space->free_queue[isLarge][idx].size;
-			space->free_head[isLarge] = next;
+			next = (idx + 1) & free_mask;
+			addr = free_queue[isLarge][idx].addr;
+			size = free_queue[isLarge][idx].size;
+			free_space = free_queue[isLarge][idx].space;
+			free_head[isLarge] = next;
 			VTHWUNLOCK(fHWLock);
 
-			space_free(space, addr, size);
+			space_free(free_space, addr, size);
 
 			VTHWLOCK(fHWLock);
-			idx = space->free_head[isLarge];
+			free_space->pending_free--;
+			idx = free_head[isLarge];
 			count++;
 		}
 	}
@@ -2562,7 +2583,7 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 
 		if (!mapper->fSpace)
 		{
-			mapper->fSpace = space_create(mapper->vsize, 0, 1);
+			mapper->fSpace = space_create(mapper->vsize, kBPagesLog2, (1 << kBPagesLog2));
 			created = true;
 		}
 		space = mapper->fSpace;
@@ -2654,8 +2675,7 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 							 || (0x92351b4b == vendorProduct)
 							 || (0x08300034 == vendorProduct));
 
-	// rdar://91139135: AppleVTD: limit non-AMD device mappers to 4GB DVA space
-	mapper->vsize = 1<<20;
+	mapper->vsize = 1<<21;
 	if (isAMD)
 	{
 		mapper->vsize = kVPages;

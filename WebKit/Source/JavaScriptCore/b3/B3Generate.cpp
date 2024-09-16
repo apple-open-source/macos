@@ -39,6 +39,7 @@
 #include "B3HoistLoopInvariantValues.h"
 #include "B3InferSwitches.h"
 #include "B3LegalizeMemoryOffsets.h"
+#include "B3LowerInt64.h"
 #include "B3LowerMacros.h"
 #include "B3LowerMacrosAfterOptimizations.h"
 #include "B3LowerToAir.h"
@@ -54,7 +55,7 @@ namespace JSC { namespace B3 {
 
 void prepareForGeneration(Procedure& procedure)
 {
-    CompilerTimingScope timingScope("Total B3+Air", "prepareForGeneration");
+    CompilerTimingScope timingScope("Total B3+Air"_s, "prepareForGeneration"_s);
 
     generateToAir(procedure);
     Air::prepareForGeneration(procedure.code());
@@ -67,7 +68,7 @@ void generate(Procedure& procedure, CCallHelpers& jit)
 
 void generateToAir(Procedure& procedure)
 {
-    CompilerTimingScope timingScope("Total B3", "generateToAir");
+    CompilerTimingScope timingScope("Total B3"_s, "generateToAir"_s);
     
     if ((shouldDumpIR(procedure, B3Mode) || Options::dumpGraphAfterParsing()) && !shouldDumpIRAtEachPhase(B3Mode)) {
         dataLog(tierName, "Initial B3:\n");
@@ -102,6 +103,9 @@ void generateToAir(Procedure& procedure)
         reduceStrength(procedure);
     }
 
+#if USE(JSVALUE32_64)
+    lowerInt64(procedure);
+#endif
     // This puts the IR in quirks mode.
     lowerMacros(procedure);
 

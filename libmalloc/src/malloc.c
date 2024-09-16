@@ -21,6 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*
+ * Needed for definition of MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS
+ */
+#ifndef MALLOC_ENABLE_MSL_LITE_SPI
+#define MALLOC_ENABLE_MSL_LITE_SPI 1
+#endif // MALLOC_ENABLE_MSL_LITE_SPI
+
 #include "internal.h"
 
 #if MALLOC_TARGET_IOS
@@ -62,11 +69,20 @@ malloc_zone_t *initial_xzone_zone;
 static malloc_zone_t *default_purgeable_zone;
 static bool has_injected_zone0;
 static bool malloc_xzone_enabled = MALLOC_XZONE_ENABLED_DEFAULT;
-static enum {
-	MALLOC_XZONE_NANO_DEFAULT,
-	MALLOC_XZONE_NANO_DISABLED,
-	MALLOC_XZONE_NANO_ENABLED,
-} malloc_xzone_nano_override;
+
+typedef enum {
+	MALLOC_XZONE_OVERRIDE_DEFAULT,
+	MALLOC_XZONE_OVERRIDE_DISABLED,
+	MALLOC_XZONE_OVERRIDE_ENABLED,
+} malloc_xzone_override_t;
+
+static malloc_xzone_override_t malloc_xzone_enabled_override;
+static malloc_xzone_override_t malloc_xzone_nano_override;
+static malloc_xzone_override_t malloc_nano_on_xzone_override;
+
+#if CONFIG_CHECK_PLATFORM_BINARY
+static bool malloc_xzone_allow_non_platform;
+#endif // CONFIG_CHECK_PLATFORM_BINARY
 
 unsigned malloc_debug_flags = 0;
 bool malloc_tracing_enabled = false;
@@ -114,36 +130,6 @@ static void malloc_sanitizer_fallback_deallocate_poison(uintptr_t ptr, size_t sz
 /* These masks are exported for libdispatch to register with (see "internal.h") */
 const unsigned long malloc_memorypressure_mask_default_4libdispatch = MALLOC_MEMORYPRESSURE_MASK_DEFAULT;
 const unsigned long malloc_memorypressure_mask_msl_4libdispatch = MALLOC_MEMORYPRESSURE_MASK_MSL;
-
-// TODO delete this, its only used some deprecated functions like turn_on_stack_logging,
-// which have been replaced by functions in MallocStackLogging.framework
-// (like msl_turn_on_stack_logging)
-static struct msl_dylib {
-	
-	void *dylib;
-
-	kern_return_t (*get_frames_for_address)(task_t task,
-											mach_vm_address_t address,
-											mach_vm_address_t *stack_frames_buffer,
-											uint32_t max_stack_frames,
-											uint32_t *count);
-	
-	uint64_t (*stackid_for_vm_region) (task_t task, mach_vm_address_t address);
-	
-	kern_return_t (*get_frames_for_stackid) (task_t task,
-											 uint64_t stack_identifier,
-											 mach_vm_address_t *stack_frames_buffer,
-											 uint32_t max_stack_frames,
-											 uint32_t *count,
-											 bool *last_frame_is_threadid);
-	
-	
-	kern_return_t (*uniquing_table_read_stack) (struct backtrace_uniquing_table *uniquing_table,
-												uint64_t stackid,
-												mach_vm_address_t *out_frames_buffer,
-												uint32_t *out_frames_count,
-												uint32_t max_frames);
-} msld = {};
 
 MALLOC_NOEXPORT malloc_zone_t* lite_zone = NULL;
 
@@ -211,6 +197,9 @@ static const char medium_space_efficient_boot_arg[] = "malloc_medium_space_effic
 static const char medium_madvise_dram_scale_divisor_boot_arg[] = "malloc_medium_madvise_dram_scale_divisor";
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
+static
+bool malloc_report_config = false;
+
 /*********	Utilities	************/
 static bool _malloc_entropy_initialized;
 
@@ -236,6 +225,7 @@ malloc_slowpath_update(void)
 			lite_zone ||
 			malloc_tracing_enabled ||
 			malloc_simple_stack_logging ||
+			(malloc_debug_flags & MALLOC_DO_SCRIBBLE) != 0 ||
 			malloc_interposition_compat;
 
 	if (malloc_slowpath != slowpath) {
@@ -475,6 +465,18 @@ _malloc_check_process_identity(const char *apple[])
 		{ "com.apple.quicklook.extension.previewUI", MALLOC_PROCESS_QUICKLOOK_PREVIEW, },
 		{ "QuickLookUIExtension",     MALLOC_PROCESS_QUICKLOOK_PREVIEW, },
 		{ "ThumbnailExtension",       MALLOC_PROCESS_QUICKLOOK_THUMBNAIL },
+#if TARGET_OS_OSX
+		// Load-bearing: not already MallocSpaceEfficient
+		{ "QuickLookUIService",       MALLOC_PROCESS_QUICKLOOK_UISERVICE },
+		// Already MallocSpaceEfficient, but valuable to identify as
+		// security-relevant for other special treatment
+		{ "ThumbnailExtension_macOS", MALLOC_PROCESS_QUICKLOOK_THUMBNAIL },
+		{ "QuickLookSatellite",       MALLOC_PROCESS_QUICKLOOK_MACOS },
+		{ "quicklookd",               MALLOC_PROCESS_QUICKLOOK_MACOS },
+		{ "com.apple.quicklook.ThumbnailsAgent", MALLOC_PROCESS_QUICKLOOK_MACOS },
+		{ "ExternalQuickLookSatellite-arm64",    MALLOC_PROCESS_QUICKLOOK_MACOS },
+		{ "ExternalQuickLookSatellite-x86_64",   MALLOC_PROCESS_QUICKLOOK_MACOS },
+#endif // TARGET_OS_OSX
 
 		{ "MobileSafari",                MALLOC_PROCESS_BROWSER, },
 		{ "com.apple.WebKit.Networking", MALLOC_PROCESS_BROWSER, },
@@ -483,19 +485,18 @@ _malloc_check_process_identity(const char *apple[])
 		{ "com.apple.WebKit.WebContent.CaptivePortal", MALLOC_PROCESS_BROWSER, },
 		{ "MTLCompilerService",          MALLOC_PROCESS_MTLCOMPILERSERVICE },
 
-		{ "telnetd",             MALLOC_PROCESS_TELNETD, },
-		{ "sshd",                MALLOC_PROCESS_SSHD, },
-		{ "sshd-keygen-wrapper", MALLOC_PROCESS_SSHD_KEYGEN_WRAPPER, },
-		{ "bash",                MALLOC_PROCESS_BASH, },
-		{ "dash",                MALLOC_PROCESS_DASH, },
-		{ "sh",                  MALLOC_PROCESS_SH, },
-		{ "zsh",                 MALLOC_PROCESS_ZSH, },
-		{ "python3",             MALLOC_PROCESS_PYTHON3, },
-		{ "perl",                MALLOC_PROCESS_PERL, },
-		{ "su",                  MALLOC_PROCESS_SU, },
-		{ "time",                MALLOC_PROCESS_TIME, },
-		{ "find",                MALLOC_PROCESS_FIND, },
-		{ "xargs",               MALLOC_PROCESS_XARGS, },
+#if TARGET_OS_OSX
+		{ "Safari",                                      MALLOC_PROCESS_SAFARI, },
+		{ "com.apple.Safari.CredentialExtractionHelper", MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.Safari.History",                    MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.Safari.SandboxBroker",              MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.Safari.SearchHelper",               MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.SafariFoundation.CredentialProviderExtensionHelper", MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.SafariPlatformSupport.Helper",      MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.SafariServices.ExtensionHelper",    MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "com.apple.SafariServices",                    MALLOC_PROCESS_SAFARI_SUPPORT, },
+		{ "VTDecoderXPCService",                         MALLOC_PROCESS_VTDECODERXPCSERVICE, },
+#endif // TARGET_OS_OSX
 
 		{ "callservicesd",       MALLOC_PROCESS_CALLSERVICESD, },
 		{ "maild",               MALLOC_PROCESS_MAILD, },
@@ -509,6 +510,8 @@ _malloc_check_process_identity(const char *apple[])
 		{ "CommCenter",          MALLOC_PROCESS_COMMCENTER, },
 		{ "wifip2pd",            MALLOC_PROCESS_WIFIP2PD, },
 		{ "wifianalyticsd",      MALLOC_PROCESS_WIFIANALYTICSD, },
+
+		{ "mds_stores",          MALLOC_PROCESS_MDS_STORES },
 
 		{ "AegirPoster",         MALLOC_PROCESS_AEGIRPOSTER, },
 		{ "CollectionsPoster",   MALLOC_PROCESS_COLLECTIONSPOSTER, },
@@ -563,77 +566,79 @@ _malloc_check_secure_allocator_process_enablement(void)
 		return MALLOC_SECURE_ALLOCATOR_LAUNCHD_ENABLED_DEFAULT;
 	}
 
-	if (os_feature_enabled_simple(libmalloc,
-			SecureAllocator_AllInitialProcesses, false)) {
-		switch (malloc_process_identity) {
-		case MALLOC_PROCESS_COMMCENTER:
-			// Enabled by explicit feature flag only
-			break;
-		default:
-			return true;
-		}
-	}
-
-#define ENABLEMENT_CASE(id, name, simulator_default) \
+#define ENABLEMENT_CASE(id, enable_status) \
 		case MALLOC_PROCESS_##id: \
-			return os_feature_enabled_simple(libmalloc, \
-					SecureAllocator_process_##name, (simulator_default))
+			return (enable_status);
+#define ENABLEMENT_CASE_FF(id, name, darwin_default, simulator_default) \
+		case MALLOC_PROCESS_##id: \
+			return malloc_secure_feature_enabled(SecureAllocator_process_##name, \
+					(darwin_default), (simulator_default))
+
 
 	switch (malloc_process_identity) {
-	ENABLEMENT_CASE(LOGD, logd, true);
-	ENABLEMENT_CASE(NOTIFYD, notifyd, true);
+	ENABLEMENT_CASE(LOGD, true);
+	ENABLEMENT_CASE(NOTIFYD, true);
 
-	ENABLEMENT_CASE(MEDIAPARSERD, mediaparserd, true);
-	ENABLEMENT_CASE(VIDEOCODECD, videocodecd, true);
-	ENABLEMENT_CASE(MEDIAPLAYBACKD, mediaplaybackd, true);
-	ENABLEMENT_CASE(AVCONFERENCED, avconferenced, true);
-	ENABLEMENT_CASE(MEDIASERVERD, mediaserverd, true);
-	ENABLEMENT_CASE(AUDIOMXD, audiomxd, true);
-	ENABLEMENT_CASE(CAMERACAPTURED, cameracaptured, true);
+	ENABLEMENT_CASE(MEDIAPARSERD, true);
+	ENABLEMENT_CASE(VIDEOCODECD, true);
+	ENABLEMENT_CASE(MEDIAPLAYBACKD, true);
+	ENABLEMENT_CASE(AVCONFERENCED, true);
+	ENABLEMENT_CASE(MEDIASERVERD, true);
+	ENABLEMENT_CASE(AUDIOMXD, true);
+	ENABLEMENT_CASE(CAMERACAPTURED, true);
 
-	ENABLEMENT_CASE(BLASTDOOR_MESSAGES, blastdoor_messages, true);
-	ENABLEMENT_CASE(BLASTDOOR_IDS, blastdoor_ids, true);
-	ENABLEMENT_CASE(IMDPERSISTENCEAGENT, IMDPersistenceAgent, true);
-	ENABLEMENT_CASE(IMAGENT, imagent, true);
+	ENABLEMENT_CASE(BLASTDOOR_MESSAGES, true);
+	ENABLEMENT_CASE(BLASTDOOR_IDS, true);
+	ENABLEMENT_CASE(IMDPERSISTENCEAGENT, true);
+	ENABLEMENT_CASE(IMAGENT, true);
 
-	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL_SECURE, ThumbnailExtensionSecure, true);
-	ENABLEMENT_CASE(QUICKLOOK_PREVIEW, quicklook_preview, true);
-	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL, ThumbnailExtension, true);
+#if TARGET_OS_OSX
+	ENABLEMENT_CASE(QUICKLOOK_MACOS, true);
+	ENABLEMENT_CASE(QUICKLOOK_UISERVICE, true);
+#endif
+	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL_SECURE, true);
+	ENABLEMENT_CASE(QUICKLOOK_PREVIEW, true);
+	ENABLEMENT_CASE(QUICKLOOK_THUMBNAIL, true);
 
-	ENABLEMENT_CASE(MTLCOMPILERSERVICE, MTLCompilerService, true);
+#if TARGET_OS_OSX
+	ENABLEMENT_CASE_FF(MTLCOMPILERSERVICE, MTLCompilerService, false, false);
+#else
+	ENABLEMENT_CASE(MTLCOMPILERSERVICE, true);
+#endif
 
-	ENABLEMENT_CASE(TELNETD, telnetd, false);
-	ENABLEMENT_CASE(SSHD, sshd, false);
-	ENABLEMENT_CASE(SSHD_KEYGEN_WRAPPER, sshd_keygen_wrapper, false);
-	ENABLEMENT_CASE(BASH, bash, false);
-	ENABLEMENT_CASE(DASH, dash, false);
-	ENABLEMENT_CASE(SH, sh, false);
-	ENABLEMENT_CASE(ZSH, zsh, false);
-	ENABLEMENT_CASE(PYTHON3, python3, false);
-	ENABLEMENT_CASE(PERL, perl, false);
-	ENABLEMENT_CASE(SU, su, false);
-	ENABLEMENT_CASE(TIME, time, false);
-	ENABLEMENT_CASE(FIND, find, false);
-	ENABLEMENT_CASE(XARGS, xargs, false);
+	ENABLEMENT_CASE(CALLSERVICESD, true);
+	ENABLEMENT_CASE(MAILD, true);
+	ENABLEMENT_CASE(MDNSRESPONDER, true);
+	ENABLEMENT_CASE(ASVASSETVIEWER, true);
+	ENABLEMENT_CASE(IDENTITYSERVICESD, true);
+	ENABLEMENT_CASE(WIFID, true);
+	ENABLEMENT_CASE(FMFD, true);
+	ENABLEMENT_CASE(SEARCHPARTYD, true);
+	ENABLEMENT_CASE(VMD, true);
+	ENABLEMENT_CASE(WIFIP2PD, true);
+	ENABLEMENT_CASE(WIFIANALYTICSD, true);
 
-	ENABLEMENT_CASE(CALLSERVICESD, callservicesd, true);
-	ENABLEMENT_CASE(MAILD, maild, true);
-	ENABLEMENT_CASE(MDNSRESPONDER, mDNSResponder, true);
-	ENABLEMENT_CASE(ASVASSETVIEWER, ASVAssetViewer, true);
-	ENABLEMENT_CASE(IDENTITYSERVICESD, identityservicesd, true);
-	ENABLEMENT_CASE(WIFID, wifid, true);
-	ENABLEMENT_CASE(FMFD, fmfd, true);
-	ENABLEMENT_CASE(SEARCHPARTYD, searchpartyd, true);
-	ENABLEMENT_CASE(VMD, vmd, true);
-	ENABLEMENT_CASE(WIFIP2PD, wifip2pd, true);
-	ENABLEMENT_CASE(WIFIANALYTICSD, wifianalyticsd, true);
+	ENABLEMENT_CASE(COMMCENTER, true);
 
-	ENABLEMENT_CASE(COMMCENTER, CommCenter, true);
+#if TARGET_OS_SIMULATOR
+	ENABLEMENT_CASE(BROWSER, false);
+#else
+	ENABLEMENT_CASE(BROWSER, true);
+#endif // TARGET_OS_SIMULATOR
 
-	ENABLEMENT_CASE(BROWSER, Browser, false);
+#if TARGET_OS_OSX
+	ENABLEMENT_CASE(SAFARI, true);
+	ENABLEMENT_CASE(SAFARI_SUPPORT, true);
+#endif
 
-	ENABLEMENT_CASE(AEGIRPOSTER, aegirposter, false);
-	ENABLEMENT_CASE(COLLECTIONSPOSTER, CollectionsPoster, false);
+	ENABLEMENT_CASE_FF(AEGIRPOSTER, aegirposter, false, false);
+	ENABLEMENT_CASE_FF(COLLECTIONSPOSTER, CollectionsPoster, false, false);
+
+#if TARGET_OS_OSX
+	ENABLEMENT_CASE(VTDECODERXPCSERVICE, true);
+#endif
+
+	ENABLEMENT_CASE(MDS_STORES, true);
 
 	default:
 		return false;
@@ -661,14 +666,33 @@ _malloc_init_featureflags(void)
 	} else
 #endif // CONFIG_MALLOC_PROCESS_IDENTITY
 	{
-		secure_allocator = os_feature_enabled_simple(libmalloc,
-				SecureAllocator_SystemWide, false);
+#if MALLOC_TARGET_IOS_ONLY
+		secure_allocator = malloc_secure_feature_enabled(
+				SecureAllocator_SystemWide, true, true);
+#else
+		secure_allocator = malloc_secure_feature_enabled(
+				SecureAllocator_SystemWide, false, false);
+#endif	// MALLOC_TARGET_IOS_ONLY
 	}
+
+#if TARGET_OS_OSX && !TARGET_CPU_ARM64
+	if (!os_feature_enabled_simple(libmalloc, SecureAllocator_Intel, false)) {
+		secure_allocator = false;
+	}
+#endif // TARGET_OS_OSX && !TARGET_CPU_ARM64
+
+#if TARGET_OS_OSX
+	bool allow_non_platform = os_feature_enabled_simple(libmalloc,
+			SecureAllocator_NonPlatform, false);
+	if (malloc_xzone_allow_non_platform != allow_non_platform) {
+		malloc_xzone_allow_non_platform = allow_non_platform;
+	}
+#endif // TARGET_OS_OSX
 
 	if (secure_allocator != malloc_xzone_enabled) {
 		malloc_xzone_enabled = secure_allocator;
 	}
-#endif
+#endif // CONFIG_FEATUREFLAGS_SIMPLE
 }
 
 extern malloc_zone_t *force_asan_init_if_present(void)
@@ -704,6 +728,20 @@ __malloc_init(const char *apple[])
 	// Cache the calculation of this "constant", which unfortunately depends on
 	// runtime values of vm_kernel_page_size and vm_page_size
 	malloc_absolute_max_size = _MALLOC_ABSOLUTE_MAX_SIZE;
+
+#if CONFIG_CHECK_PLATFORM_BINARY
+	bool is_platform_binary = _malloc_is_platform_binary();
+	if (malloc_is_platform_binary != is_platform_binary) {
+		malloc_is_platform_binary = is_platform_binary;
+	}
+#endif
+
+#if CONFIG_CHECK_SECURITY_POLICY
+	bool allow_internal_security = _malloc_allow_internal_security_policy();
+	if (allow_internal_security != malloc_internal_security_policy) {
+		malloc_internal_security_policy = allow_internal_security;
+	}
+#endif
 
 #if CONFIG_MALLOC_PROCESS_IDENTITY
 	_malloc_check_process_identity(apple);
@@ -1048,9 +1086,9 @@ has_default_zone0(void)
 	return !has_injected_zone0;
 }
 
-static inline malloc_zone_t *find_registered_zone(const void *, size_t *, bool) __attribute__((always_inline));
+static inline malloc_zone_t *_find_registered_zone(const void *, size_t *, bool) __attribute__((always_inline));
 static inline malloc_zone_t *
-find_registered_zone(const void *ptr, size_t *returned_size, bool known_non_default)
+_find_registered_zone(const void *ptr, size_t *returned_size, bool known_non_default)
 {
 	// Returns a zone which contains ptr, else NULL
 
@@ -1136,6 +1174,13 @@ out:
 	}
 	OSAtomicDecrement32Barrier(pFRZCounter); // our thread is leaving FRZ
 	return zone;
+}
+
+malloc_zone_t *
+find_registered_zone(const void *ptr, size_t *returned_size,
+		bool known_non_default)
+{
+	return _find_registered_zone(ptr, returned_size, known_non_default);
 }
 
 void
@@ -1278,7 +1323,9 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	phys_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_PHYSICAL_CPUS;
 	logical_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_LOGICAL_CPUS;
 #if CONFIG_MAGAZINE_PER_CLUSTER
-	ncpuclusters = *(uint8_t *)(uintptr_t)_COMM_PAGE_CPU_CLUSTERS;
+	{
+		ncpuclusters = *(uint8_t *)(uintptr_t)_COMM_PAGE_CPU_CLUSTERS;
+	}
 #endif // CONFIG_MAGAZINE_PER_CLUSTER
 
 	if (0 != (logical_ncpus % phys_ncpus)) {
@@ -1316,7 +1363,11 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 		max_medium_magazines = max_magazines;
 	}
 
-#if CONFIG_MAGAZINE_PER_CLUSTER
+	// The "single-cluster" concept doesn't apply to macOS: there is no
+	// non-Intel real hardware without multiple AMP clusters, so this will only
+	// happen under virtualization, and for that case we'd prefer the
+	// straight-to-pcpu behaviour rather than falling back to the old allocator.
+#if CONFIG_MAGAZINE_PER_CLUSTER && !(TARGET_OS_OSX || MALLOC_TARGET_DK_OSX)
 	if (ncpuclusters == 1) {
 #if CONFIG_FEATUREFLAGS_SIMPLE
 		// Not with the other feature flag checks because ncpuclusters needs to
@@ -1330,12 +1381,12 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 			malloc_xzone_enabled = false;
 		}
 	}
-#endif // CONFIG_MAGAZINE_PER_CLUSTER
+#endif // CONFIG_MAGAZINE_PER_CLUSTER && !(TARGET_OS_OSX || MALLOC_TARGET_DK_OSX)
 
 	_malloc_detect_interposition();
 
 
-	set_flags_from_environment(); // will only set flags up to two times
+	set_flags_from_environment();
 
 
 #if CONFIG_SANITIZER
@@ -1359,18 +1410,28 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	}
 #endif // CONFIG_NANOZONE
 
+	bool nano_on_xzone = false;
 
-	if (!initial_xzone_zone) {
-		initial_scalable_zone = create_scalable_zone(0, malloc_debug_flags);
-		malloc_set_zone_name(initial_scalable_zone, DEFAULT_MALLOC_ZONE_STRING);
-		malloc_zone_register_while_locked(initial_scalable_zone, /*make_default=*/true);
+
+	if (!initial_xzone_zone || nano_on_xzone) {
+		if (!initial_xzone_zone) {
+			initial_scalable_zone = create_scalable_zone(0, malloc_debug_flags);
+			malloc_set_zone_name(initial_scalable_zone, DEFAULT_MALLOC_ZONE_STRING);
+			malloc_zone_register_while_locked(initial_scalable_zone, /*make_default=*/true);
+		}
 
 #if CONFIG_NANOZONE
 		nano_common_configure();
 
-		malloc_zone_t *helper_zone = initial_scalable_zone;
+		malloc_zone_t *helper_zone = initial_xzone_zone ?: initial_scalable_zone;
 
 		if (_malloc_engaged_nano == NANO_V2) {
+			if (malloc_report_config) {
+				bool nano_on_xzone_enabled = (helper_zone == initial_xzone_zone);
+				malloc_report(ASL_LEVEL_INFO, "NanoV2 Config:\n"
+						"\tNano On Xzone: %d\n",
+						nano_on_xzone_enabled);
+			}
 			initial_nano_zone = nanov2_create_zone(helper_zone, malloc_debug_flags);
 		}
 
@@ -1397,19 +1458,38 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 	initial_num_zones = malloc_num_zones;
 
 #if CONFIG_DEFERRED_RECLAIM
+	kern_return_t vmdr_kr = KERN_SUCCESS;
 	if (large_cache_enabled) {
 		if (initial_xzone_zone) {
 			// xzone_malloc will own the deferred_reclaim buffer
 			large_cache_enabled = false;
 		} else {
-			kern_return_t kr = mvm_deferred_reclaim_init();
-			if (kr != KERN_SUCCESS) {
+			vmdr_kr = mvm_deferred_reclaim_init();
+			if (vmdr_kr != KERN_SUCCESS) {
 				large_cache_enabled = false;
-				malloc_report(ASL_LEVEL_ERR, "Unable to set up reclaim buffer (%d) - disabling large cache\n", kr);
+				malloc_report(ASL_LEVEL_ERR, "Unable to set up reclaim buffer (%d) - disabling large cache\n", vmdr_kr);
 			}
 		}
 	}
 #endif /* CONFIG_DEFERRED_RECLAIM */
+
+	if (malloc_report_config && initial_scalable_zone) {
+		bool scribble = !!(malloc_debug_flags & MALLOC_DO_SCRIBBLE);
+		malloc_report(ASL_LEVEL_INFO, "Magazine Config:\n"
+				"\tMax Magazines: %d\n"
+				"\tMedium Enabled: %d\n"
+				"\tAggressive Madvise: %d\n"
+#if CONFIG_DEFERRED_RECLAIM
+				"\tLarge Cache: %d%s\n"
+#endif // CONFIG_DEFERRED_RECLAIM
+				"\tScribble: %d\n",
+				max_magazines, magazine_medium_enabled,
+				aggressive_madvise_enabled,
+#if CONFIG_DEFERRED_RECLAIM
+				vmdr_kr ?: large_cache_enabled, vmdr_kr ? " (ERROR)" : "",
+#endif // CONFIG_DEFERRED_RECLAIM
+				scribble);
+	}
 
 #if CONFIG_MEDIUM_ALLOCATOR
 	uint64_t memsize = platform_hw_memsize();
@@ -1430,17 +1510,20 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 }
 
 static bool
-enable_pgm(void)
+enable_pgm(unsigned flags)
 {
 	bool other_debug_tool = has_injected_zone0 || malloc_sanitizer_enabled;
-	return !other_debug_tool && pgm_should_enable();
+	// To avoid allocations in the lite helper zone that don't have msl data at
+	// the end of the allocation, don't enable PGM on the lite helper zone
+	bool zone_is_msl = flags & MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS;
+	return !other_debug_tool && !zone_is_msl && pgm_should_enable();
 }
 
 static void
 register_pgm_zone(bool internal_diagnostics)
 {
 	pgm_init_config(internal_diagnostics);
-	if (enable_pgm()) {
+	if (enable_pgm(0)) {
 		malloc_zone_t *wrapped_zone = malloc_zones[0];
 		malloc_zone_t *pgm_zone = pgm_create_zone(wrapped_zone);
 		malloc_zone_register_while_locked(pgm_zone, /*make_default=*/true);
@@ -1616,6 +1699,9 @@ set_flags_from_environment(void)
 	if (getenv("MallocSimpleStackLogging")) {
 		malloc_simple_stack_logging = true;
 	}
+	if (getenv("MallocReportConfig")) {
+		malloc_report_config = true;
+	}
 
 #if defined(__LP64__)
 /* initialization above forces MALLOC_ABORT_ON_CORRUPTION of 64-bit processes */
@@ -1681,8 +1767,12 @@ set_flags_from_environment(void)
 			malloc_report(ASL_LEVEL_INFO, "Maximum magazines defaulted to %d\n", max_magazines);
 #if CONFIG_MAGAZINE_PER_CLUSTER
 		} else if (value == UINT16_MAX) {
-			max_magazines = ncpuclusters;
-			malloc_report(ASL_LEVEL_INFO, "Maximum magazines limited to number of logical CPU clusters (%d)\n", max_magazines);
+			{
+				max_magazines = ncpuclusters;
+				malloc_report(ASL_LEVEL_INFO,
+						"Maximum magazines limited to ncpuclusters (%d)\n",
+						max_magazines);
+			}
 #endif // CONFIG_MAGAZINE_PER_CLUSTER
 		} else if (value < 0) {
 			malloc_report(ASL_LEVEL_ERR, "Maximum magazines must be positive - ignored.\n");
@@ -1880,11 +1970,14 @@ set_flags_from_environment(void)
 	}
 
 	flag = getenv("MallocSecureAllocator");
-	if (flag) {
+	if (flag && malloc_internal_security_policy) {
 		const char *endp;
 		long value = malloc_common_convert_to_long(flag, &endp);
 		if (!*endp && endp != flag && (value == 0 || value == 1)) {
 			malloc_xzone_enabled = value;
+			malloc_xzone_enabled_override = value ?
+					MALLOC_XZONE_OVERRIDE_ENABLED :
+					MALLOC_XZONE_OVERRIDE_DISABLED;
 		} else {
 			malloc_report(ASL_LEVEL_ERR, "MallocSecureAllocator must be 0 or 1.\n");
 		}
@@ -1895,12 +1988,26 @@ set_flags_from_environment(void)
 		const char *endp;
 		long value = malloc_common_convert_to_long(flag, &endp);
 		if (!*endp && endp != flag && (value == 0 || value == 1)) {
-			malloc_xzone_nano_override = value ? MALLOC_XZONE_NANO_ENABLED :
-					MALLOC_XZONE_NANO_DISABLED;
+			malloc_xzone_nano_override = value ? MALLOC_XZONE_OVERRIDE_ENABLED :
+					MALLOC_XZONE_OVERRIDE_DISABLED;
 		} else {
 			malloc_report(ASL_LEVEL_ERR, "MallocSecureAllocatorNano must be 0 or 1.\n");
 		}
 	}
+
+	flag = getenv("MallocNanoOnXzone");
+	if (flag) {
+		const char *endp;
+		long value = malloc_common_convert_to_long(flag, &endp);
+		if (!*endp && endp != flag && (value == 0 || value == 1)) {
+			malloc_nano_on_xzone_override = value ? MALLOC_XZONE_OVERRIDE_ENABLED :
+					MALLOC_XZONE_OVERRIDE_DISABLED;
+		} else {
+			malloc_report(ASL_LEVEL_ERR, "MallocNanoOnXzone must be 0 or 1.\n");
+		}
+	}
+
+
 
 	if (getenv("MallocHelp")) {
 		malloc_report(ASL_LEVEL_INFO,
@@ -1932,22 +2039,28 @@ set_flags_from_environment(void)
 malloc_zone_t *
 malloc_create_zone(vm_size_t start_size, unsigned flags)
 {
-	malloc_zone_t *zone;
+	malloc_zone_t *zone = NULL;
 
 	/* start_size doesn't actually appear to be used, but we test anyway. */
 	if (start_size > malloc_absolute_max_size) {
 		return NULL;
 	}
 
-	zone = create_scalable_zone(start_size, flags | malloc_debug_flags);
-	malloc_zone_register(zone);
 
-#if CONFIG_PGM_WRAP_CUSTOM_ZONES
-	if (enable_pgm()) {
-		zone = pgm_create_zone(zone);
-		malloc_zone_register(zone);
+	if (!zone) {
+		zone = create_scalable_zone(start_size, flags | malloc_debug_flags);
 	}
-#endif
+
+	if (enable_pgm(flags)) {
+		malloc_zone_t *pgm_zone = pgm_create_zone(zone);
+		MALLOC_LOCK();
+		malloc_zone_register_while_locked(pgm_zone, false);
+		malloc_zone_register_while_locked(zone, false);
+		MALLOC_UNLOCK();
+		return pgm_zone;
+	}
+
+	malloc_zone_register(zone);
 	return zone;
 }
 
@@ -2146,6 +2259,10 @@ _malloc_zone_malloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 		return NULL;
 	}
 
+	if (zone->version >= 16) {
+		return zone->malloc_type_malloc(zone, size,
+				malloc_callsite_fallback_type_id());
+	}
 
 	// zone versions >= 13 set errno on failure so we can tail-call
 	return zone->malloc(zone, size);
@@ -2225,6 +2342,10 @@ _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 		return _malloc_zone_calloc_instrumented_or_legacy(zone, num_items, size, mzo);
 	}
 
+	if (zone->version >= 16) {
+		return zone->malloc_type_calloc(zone, num_items, size,
+				malloc_callsite_fallback_type_id());
+	}
 
 	// zone versions >= 13 set errno on failure so we can tail-call
 	return zone->calloc(zone, num_items, size);
@@ -2300,8 +2421,8 @@ malloc_zone_valloc(malloc_zone_t *zone, size_t size)
 // We have this function so code within libmalloc can call it without going
 // through the (potentially interposed) dyld symbol stub
 void *
-_malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
-		size_t size, malloc_type_descriptor_t type_desc)
+_malloc_zone_realloc(malloc_zone_t *zone, void *ptr, size_t size,
+		malloc_type_descriptor_t type_desc)
 {
 	uint64_t type_id = malloc_get_tsd_type_id();
 #if MALLOC_TARGET_64BIT
@@ -2355,8 +2476,7 @@ out:
 
 MALLOC_NOINLINE
 void *
-malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
-		size_t size)
+malloc_zone_realloc(malloc_zone_t *zone, void *ptr, size_t size)
 {
 	return _malloc_zone_realloc(zone, ptr, size,
 			malloc_callsite_fallback_type_descriptor());
@@ -2406,7 +2526,7 @@ malloc_zone_from_ptr(const void *ptr)
 	if (!ptr) {
 		return NULL;
 	} else {
-		return find_registered_zone(ptr, NULL, false);
+		return _find_registered_zone(ptr, NULL, false);
 	}
 }
 
@@ -2585,11 +2705,12 @@ void
 malloc_set_zone_name(malloc_zone_t *z, const char *name)
 {
 	// TODO: save and restore permissions generally
-	if (z != initial_xzone_zone) {
+	bool mprotect_zone = true;
+	if (mprotect_zone) {
 		mprotect(z, sizeof(malloc_zone_t), PROT_READ | PROT_WRITE);
 	}
 	if (z->zone_name) {
-		malloc_zone_t *old_zone = find_registered_zone(z->zone_name, NULL, false);
+		malloc_zone_t *old_zone = _find_registered_zone(z->zone_name, NULL, false);
 		if (old_zone) {
 			malloc_zone_free(old_zone, (char *)z->zone_name);
 		}
@@ -2629,7 +2750,7 @@ malloc_set_zone_name(malloc_zone_t *z, const char *name)
 			}
 		}
 	}
-	if (z != initial_xzone_zone) {
+	if (mprotect_zone) {
 		mprotect(z, sizeof(malloc_zone_t), PROT_READ);
 	}
 }
@@ -2649,7 +2770,7 @@ find_zone_and_free(void *ptr, bool known_non_default)
 		return;
 	}
 
-	zone = find_registered_zone(ptr, &size, known_non_default);
+	zone = _find_registered_zone(ptr, &size, known_non_default);
 	if (!zone) {
 		int flags = MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
 		if ((malloc_debug_flags & (MALLOC_ABORT_ON_CORRUPTION | MALLOC_ABORT_ON_ERROR))) {
@@ -2706,7 +2827,6 @@ _free(void *ptr)
 		return;
 	}
 
-
 	if (zone0->try_free_default) {
 		zone0->try_free_default(zone0, ptr);
 	} else {
@@ -2745,12 +2865,16 @@ _realloc(void *in_ptr, size_t new_size)
 	// We don't really care about the quality of the type descriptor
 	// for the new_size == 0 allocation, so it's fine for it to always be based
 	// on the callsite in this function.
+	//
+	// Note: the fact that we allocate from the default zone in the
+	// new_size == 0 case regardless of the zone in_ptr belongs to is arguably a
+	// bug.
 	if (!in_ptr) {
 		return _malloc_zone_malloc(default_zone, new_size, MZ_POSIX);
 	} else if (new_size == 0) {
 		retval = _malloc_zone_malloc(default_zone, new_size, MZ_NONE);
 	} else {
-		zone = find_registered_zone(in_ptr, NULL, false);
+		zone = _find_registered_zone(in_ptr, NULL, false);
 		if (!zone) {
 			int flags = MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG;
 			const int abort_flags =
@@ -2816,7 +2940,7 @@ malloc_size(const void *ptr)
 		return size;
 	}
 
-	(void)find_registered_zone(ptr, &size, false);
+	(void)_find_registered_zone(ptr, &size, false);
 	return size;
 }
 
@@ -2948,8 +3072,8 @@ _malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
 		zone = runtime_default_zone();
 	}
 
-	uint64_t type_id = malloc_get_tsd_type_id();
 #if MALLOC_TARGET_64BIT
+	uint64_t type_id = malloc_get_tsd_type_id();
 	bool clear_type = false;
 	if (!type_id) {
 		malloc_type_descriptor_t fallback =
@@ -2960,7 +3084,8 @@ _malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
 	}
 #endif // MALLOC_TARGET_64BIT
 
-	if (malloc_interposition_compat || (zone->version < 15)) {
+	if (malloc_interposition_compat || (zone->version < 15) ||
+			!zone->malloc_with_options) {
 		// There's no reasonable way to have the fallback callsite type
 		// descriptor work here.  That's okay, as it's uncommon and SPI, so its
 		// callers should be built with TMO.
@@ -3023,6 +3148,10 @@ malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		zone = malloc_zones[0];
 	}
 
+	if (zone->version >= 16 && zone->malloc_type_malloc_with_options) {
+		return zone->malloc_type_malloc_with_options(zone, align, size,
+				options, malloc_callsite_fallback_type_id());
+	}
 
 	return _malloc_zone_malloc_with_options_np_outlined(zone, align, size,
 			options);
@@ -3033,6 +3162,7 @@ malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 static void
 _malloc_create_purgeable_zone(void * __unused ctx)
 {
+
 	//
 	// PR_7288598: Must pass a *scalable* zone (szone) as the helper for create_purgeable_zone().
 	// Take care that the zone so obtained is not subject to interposing.
@@ -3077,7 +3207,7 @@ find_registered_purgeable_zone(void *ptr)
 	 * and only search those.
 	 */
 	size_t size = 0;
-	malloc_zone_t *zone = find_registered_zone(ptr, &size, false);
+	malloc_zone_t *zone = _find_registered_zone(ptr, &size, false);
 
 	/* FIXME: would really like a zone->introspect->flags->purgeable check, but haven't determined
 	 * binary compatibility impact of changing the introspect struct yet. */
@@ -3503,6 +3633,14 @@ _malloc_lock_all(void (*callout)(void))
 		malloc_zone_t *zone = malloc_zones[index++];
 		zone->introspect->force_lock(zone);
 	}
+#if CONFIG_XZONE_MALLOC
+	// All of the xzone malloc zones share some global state, and that global
+	// state needs to be locked after all the zone specific state has been
+	// locked, to prevent deadlocks
+	if (initial_xzone_zone) {
+		xzm_force_lock_global_state(initial_xzone_zone);
+	}
+#endif // CONFIG_XZONE_MALLOC
 	if (callout) {
 		callout();
 	}
@@ -3511,6 +3649,11 @@ _malloc_lock_all(void (*callout)(void))
 static void
 _malloc_unlock_all(void (*callout)(void))
 {
+#if CONFIG_XZONE_MALLOC
+	if (initial_xzone_zone) {
+		xzm_force_unlock_global_state(initial_xzone_zone);
+	}
+#endif // CONFIG_XZONE_MALLOC
 	unsigned index = 0;
 	if (callout) {
 		callout();
@@ -3528,6 +3671,11 @@ _malloc_unlock_all(void (*callout)(void))
 static void
 _malloc_reinit_lock_all(void (*callout)(void))
 {
+#if CONFIG_XZONE_MALLOC
+	if (initial_xzone_zone) {
+		xzm_force_reinit_lock_global_state(initial_xzone_zone);
+	}
+#endif // CONFIG_XZONE_MALLOC
 	unsigned index = 0;
 	if (callout) {
 		callout();
@@ -3776,7 +3924,8 @@ stack_logging_early_finished(const struct _malloc_late_init *funcs)
 		if (0==strncmp(*e, "MallocStackLogging", 18)) {
 			_malloc_register_stack_logger(true);
 			if (msl.set_flags_from_environment) {
-				msl.set_flags_from_environment(env);
+				// rdar://125495815 - re-fetch env, as it may have moved
+				msl.set_flags_from_environment((const char **)*_NSGetEnviron());
 			}
 			break;
 		}
@@ -3798,7 +3947,6 @@ register_msl_dylib(void *dylib)
 	if (!dylib) {
 		return;
 	}
-	msld.dylib = dylib;
 	msl.handle_memory_event = _dlsym(dylib, "msl_handle_memory_event");
 	msl.stack_logging_locked = _dlsym(dylib, "msl_stack_logging_locked");
 	msl.fork_prepare = _dlsym(dylib, "msl_fork_prepare");
@@ -3808,13 +3956,6 @@ register_msl_dylib(void *dylib)
 	msl.turn_off_stack_logging = _dlsym(dylib, "msl_turn_off_stack_logging");
 	msl.set_flags_from_environment = _dlsym(dylib, "msl_set_flags_from_environment");
 	msl.initialize = _dlsym(dylib, "msl_initialize");
-
-	
-	// TODO delete these ones
-	msld.get_frames_for_address = _dlsym(dylib, "msl_get_frames_for_address");
-	msld.stackid_for_vm_region = _dlsym(dylib, "msl_stackid_for_vm_region");
-	msld.get_frames_for_stackid = _dlsym(dylib, "msl_get_frames_for_stackid");
-	msld.uniquing_table_read_stack = _dlsym(dylib, "msl_uniquing_table_read_stack");
 
 	void (*msl_copy_msl_lite_hooks) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 	msl_copy_msl_lite_hooks = _dlsym(dylib, "msl_copy_msl_lite_hooks");
@@ -3890,227 +4031,6 @@ void turn_off_stack_logging(void)
 	if (msl.turn_off_stack_logging) {
 		msl.turn_off_stack_logging();
 	}
-}
-
-//deprecated
-kern_return_t
-__mach_stack_logging_start_reading(task_t task, vm_address_t shared_memory_address, boolean_t *uses_lite_mode)
-{
-	malloc_register_stack_logger();
-	if (!msld.dylib) {
-		return KERN_FAILURE;
-	}
-	kern_return_t (*f) (task_t task, vm_address_t shared_memory_address, boolean_t *uses_lite_mode);
-	f = _dlsym(msld.dylib, "msl_start_reading");
-	if (!f) {
-		return KERN_FAILURE;
-	}
-	return f(task, shared_memory_address, uses_lite_mode);
-}
-
-
-//deprecated
-kern_return_t
-__mach_stack_logging_stop_reading(task_t task)
-{
-	malloc_register_stack_logger();
-	if (!msld.dylib) {
-		return KERN_FAILURE;
-	}
-	kern_return_t (*f) (task_t task);
-	f = _dlsym(msld.dylib, "msl_stop_reading");
-	if (!f) {
-		return KERN_FAILURE;
-	}
-	return f(task);
-}
-
-kern_return_t
-__mach_stack_logging_get_frames(task_t task,
-								mach_vm_address_t address,
-								mach_vm_address_t *stack_frames_buffer,
-								uint32_t max_stack_frames,
-								uint32_t *count)
-{
-	malloc_register_stack_logger();
-	if (!msld.get_frames_for_address) {
-		return KERN_FAILURE;
-	}
-	return msld.get_frames_for_address(task, address, stack_frames_buffer, max_stack_frames, count);
-}
-
-uint64_t
-__mach_stack_logging_stackid_for_vm_region(task_t task, mach_vm_address_t address)
-{
-	malloc_register_stack_logger();
-	if (!msld.stackid_for_vm_region) {
-		return -1ull;
-	}
-	return msld.stackid_for_vm_region(task, address);
-}
-
-//deprecated
-kern_return_t
-__mach_stack_logging_frames_for_uniqued_stack(task_t task,
-											  uint64_t stack_identifier,
-											  mach_vm_address_t *stack_frames_buffer,
-											  uint32_t max_stack_frames,
-											  uint32_t *count)
-{
-	malloc_register_stack_logger();
-	if (!msld.get_frames_for_stackid) {
-		return KERN_FAILURE;
-	}
-	return msld.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, NULL);
-}
-
-//deprecated
-kern_return_t
-__mach_stack_logging_get_frames_for_stackid(task_t task,
-											uint64_t stack_identifier,
-											mach_vm_address_t *stack_frames_buffer,
-											uint32_t max_stack_frames,
-											uint32_t *count,
-											bool *last_frame_is_threadid)
-{
-	malloc_register_stack_logger();
-	if (!msld.get_frames_for_stackid) {
-		return KERN_FAILURE;
-	}
-	return msld.get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, last_frame_is_threadid);
-}
-
-//deprecated
-kern_return_t
-__mach_stack_logging_uniquing_table_read_stack(struct backtrace_uniquing_table *uniquing_table,
-											   uint64_t stackid,
-											   mach_vm_address_t *out_frames_buffer,
-											   uint32_t *out_frames_count,
-											   uint32_t max_frames)
-{
-	malloc_register_stack_logger();
-	if (!msld.uniquing_table_read_stack) {
-		return KERN_FAILURE;
-	}
-	return msld.uniquing_table_read_stack(uniquing_table, stackid, out_frames_buffer, out_frames_count, max_frames);
-}
-
-//deprecated
-kern_return_t
-__mach_stack_logging_enumerate_records(task_t task,
-									   mach_vm_address_t address,
-									   void enumerator(mach_stack_logging_record_t, void *),
-									   void *context)
-{
-	malloc_register_stack_logger();
-	kern_return_t (*f) (task_t task,
-						mach_vm_address_t address,
-						void enumerator(mach_stack_logging_record_t, void *),
-						void *context);
-	if (!msld.dylib) {
-		return KERN_FAILURE;
-	}
-	f = _dlsym(msld.dylib, "msl_disk_stack_logs_enumerate_from_task");
-	if (!f) {
-		return KERN_FAILURE;
-	}
-	return f(task, address, enumerator, context);
-}
-
-
-//deprecated
-struct backtrace_uniquing_table *
-__mach_stack_logging_copy_uniquing_table(task_t task)
-{
-	malloc_register_stack_logger();
-	struct backtrace_uniquing_table * (*f) (task_t task);
-	if (!msld.dylib) {
-		return NULL;
-	}
-	f = _dlsym(msld.dylib, "msl_uniquing_table_copy_from_task");
-	if (!f) {
-		return NULL;
-	}
-	return f(task);
-}
-
-//deprecated
-struct backtrace_uniquing_table *
-__mach_stack_logging_uniquing_table_copy_from_serialized(void *buffer, size_t size)
-{
-	malloc_register_stack_logger();
-	struct backtrace_uniquing_table * (*f) (void *buffer, size_t size);
-	if (!msld.dylib) {
-		return NULL;
-	}
-	f = _dlsym(msld.dylib, "msl_uniquing_table_copy_from_serialized");
-	if (!f) {
-		return NULL;
-	}
-	return f(buffer, size);
-}
-
-//deprecated
-void
-__mach_stack_logging_uniquing_table_release(struct backtrace_uniquing_table *table)
-{
-	malloc_register_stack_logger();
-	if (!msld.dylib) {
-		return;
-	}
-	void (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msld.dylib, "msl_uniquing_table_release");
-	if (f) {
-		f(table);
-	}
-}
-
-//deprecated
-void
-__mach_stack_logging_uniquing_table_retain(struct backtrace_uniquing_table *table)
-{
-	malloc_register_stack_logger();
-	if (!msld.dylib) {
-		return;
-	}
-	void (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msld.dylib, "msl_uniquing_table_retain");
-	if (f) {
-		f(table);
-	}
-}
-
-//deprecated
-extern
-size_t
-__mach_stack_logging_uniquing_table_sizeof(struct backtrace_uniquing_table *table)
-{
-	malloc_register_stack_logger();
-	size_t (*f) (struct backtrace_uniquing_table *table);
-	f = _dlsym(msld.dylib, "msl_uniquing_table_retain");
-	return f(table);
-}
-
-//deprecated
-void *
-__mach_stack_logging_uniquing_table_serialize(struct backtrace_uniquing_table *table, mach_vm_size_t *size)
-{
-	malloc_register_stack_logger();
-	if (!msld.dylib) {
-		return NULL;
-	}
-	void * (*f) (struct backtrace_uniquing_table *table, mach_vm_size_t *size);
-	f = _dlsym(msld.dylib, "msl_uniquing_table_serialize");
-	if (!f) {
-		return NULL;
-	}
-	return f(table, size);
-}
-
-kern_return_t
-__mach_stack_logging_set_file_path(task_t task, char* file_path)
-{
-	return KERN_SUCCESS;
 }
 
 /* WeChat references this, only god knows why.  This symbol does nothing. */

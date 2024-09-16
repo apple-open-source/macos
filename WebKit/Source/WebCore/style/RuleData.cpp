@@ -40,11 +40,11 @@
 #include "SecurityOrigin.h"
 #include "SelectorChecker.h"
 #include "SelectorFilter.h"
-#include "ShadowPseudoIds.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
+#include "UserAgentParts.h"
 
 namespace WebCore {
 namespace Style {
@@ -142,7 +142,7 @@ static inline PropertyAllowlist determinePropertyAllowlist(const CSSSelector* se
 {
     for (const CSSSelector* component = selector; component; component = component->tagHistory()) {
 #if ENABLE(VIDEO)
-        if (component->match() == CSSSelector::Match::PseudoElement && (component->pseudoElement() == CSSSelector::PseudoElement::Cue || component->value() == ShadowPseudoIds::cue()))
+        if (component->match() == CSSSelector::Match::PseudoElement && (component->pseudoElement() == CSSSelector::PseudoElement::Cue || component->value() == UserAgentParts::cue()))
             return PropertyAllowlist::Cue;
 #endif
         if (component->match() == CSSSelector::Match::PseudoElement && component->pseudoElement() == CSSSelector::PseudoElement::Marker)

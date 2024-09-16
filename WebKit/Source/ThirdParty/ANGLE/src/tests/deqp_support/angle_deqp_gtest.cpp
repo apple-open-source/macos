@@ -59,9 +59,9 @@ void HandlePlatformError(PlatformMethods *platform, const char *errorMessage)
 constexpr char kCTSRootPath[] = "third_party/VK-GL-CTS/src/";
 constexpr char kSupportPath[] = "src/tests/deqp_support/";
 
-#define GLES_CTS_DIR(PATH) "external/openglcts/data/mustpass/gles/" PATH
-#define GL_CTS_DIR(PATH) "external/openglcts/data/mustpass/gl/" PATH
-#define EGL_CTS_DIR(PATH) "external/openglcts/data/mustpass/egl/" PATH
+#define GLES_CTS_DIR(PATH) "external/openglcts/data/gl_cts/data/mustpass/gles/" PATH
+#define GL_CTS_DIR(PATH) "external/openglcts/data/gl_cts/data/mustpass/gl/" PATH
+#define EGL_CTS_DIR(PATH) "external/openglcts/data/gl_cts/data/mustpass/egl/" PATH
 
 const char *gCaseListFiles[] = {
     EGL_CTS_DIR("aosp_mustpass/main/egl-main.txt"),
@@ -690,7 +690,7 @@ void dEQPTest::SetUpTestSuite()
         argv.push_back("--deqp-log-images=disable");
     }
 
-    // Flushing during multi-process execution punishes HDDs. http://anglebug.com/5157
+    // Flushing during multi-process execution punishes HDDs. http://anglebug.com/42263718
     if (testSuite->getBatchId() != -1)
     {
         argv.push_back("--deqp-log-flush=disable");

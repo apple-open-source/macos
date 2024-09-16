@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,51 +26,59 @@
 #include "config.h"
 #include "XMLDocumentParserScope.h"
 
+#include "CachedResourceLoader.h"
 #include "XMLDocumentParser.h"
 
 namespace WebCore {
 
-CachedResourceLoader* XMLDocumentParserScope::currentCachedResourceLoader = nullptr;
-
-XMLDocumentParserScope::XMLDocumentParserScope(CachedResourceLoader* cachedResourceLoader)
-    : m_oldCachedResourceLoader(currentCachedResourceLoader)
-#if ENABLE(XSLT)
-    , m_oldGenericErrorFunc(xmlGenericError)
-    , m_oldStructuredErrorFunc(xmlStructuredError)
-    , m_oldErrorContext(xmlGenericErrorContext)
-#endif
+WeakPtr<CachedResourceLoader>& XMLDocumentParserScope::currentCachedResourceLoader()
 {
-    initializeXMLParser();
-    m_oldEntityLoader = xmlGetExternalEntityLoader();
-    currentCachedResourceLoader = cachedResourceLoader;
-    xmlSetExternalEntityLoader(WebCore::externalEntityLoader);
+    static NeverDestroyed<WeakPtr<CachedResourceLoader>> currentCachedResourceLoader;
+    return currentCachedResourceLoader;
 }
 
 #if ENABLE(XSLT)
-XMLDocumentParserScope::XMLDocumentParserScope(CachedResourceLoader* cachedResourceLoader, xmlGenericErrorFunc genericErrorFunc, xmlStructuredErrorFunc structuredErrorFunc, void* errorContext)
-    : m_oldCachedResourceLoader(currentCachedResourceLoader)
-    , m_oldGenericErrorFunc(xmlGenericError)
-    , m_oldStructuredErrorFunc(xmlStructuredError)
-    , m_oldErrorContext(xmlGenericErrorContext)
+XMLDocumentParserScope::XMLDocumentParserScope(CachedResourceLoader* cachedResourceLoader)
+    : XMLDocumentParserScope(cachedResourceLoader, xmlGenericError, xmlStructuredError, xmlGenericErrorContext, xmlStructuredErrorContext)
+{
+}
+#else
+XMLDocumentParserScope::XMLDocumentParserScope(CachedResourceLoader* cachedResourceLoader)
+    : m_oldCachedResourceLoader(currentCachedResourceLoader())
 {
     initializeXMLParser();
     m_oldEntityLoader = xmlGetExternalEntityLoader();
-    currentCachedResourceLoader = cachedResourceLoader;
+    currentCachedResourceLoader() = cachedResourceLoader;
+    xmlSetExternalEntityLoader(WebCore::externalEntityLoader);
+}
+#endif // ENABLE(XSLT)
+
+#if ENABLE(XSLT)
+XMLDocumentParserScope::XMLDocumentParserScope(CachedResourceLoader* cachedResourceLoader, xmlGenericErrorFunc genericErrorFunc, xmlStructuredErrorFunc structuredErrorFunc, void* genericErrorContext, void* structuredErrorContext)
+    : m_oldCachedResourceLoader(currentCachedResourceLoader())
+    , m_oldGenericErrorFunc(xmlGenericError)
+    , m_oldStructuredErrorFunc(xmlStructuredError)
+    , m_oldGenericErrorContext(xmlGenericErrorContext)
+    , m_oldStructuredErrorContext(xmlStructuredErrorContext)
+{
+    initializeXMLParser();
+    m_oldEntityLoader = xmlGetExternalEntityLoader();
+    currentCachedResourceLoader() = cachedResourceLoader;
     xmlSetExternalEntityLoader(WebCore::externalEntityLoader);
     if (genericErrorFunc)
-        xmlSetGenericErrorFunc(errorContext, genericErrorFunc);
+        xmlSetGenericErrorFunc(genericErrorContext, genericErrorFunc);
     if (structuredErrorFunc)
-        xmlSetStructuredErrorFunc(errorContext, structuredErrorFunc);
+        xmlSetStructuredErrorFunc(structuredErrorContext ?: genericErrorContext, structuredErrorFunc);
 }
 #endif
 
 XMLDocumentParserScope::~XMLDocumentParserScope()
 {
-    currentCachedResourceLoader = m_oldCachedResourceLoader;
+    currentCachedResourceLoader() = m_oldCachedResourceLoader;
     xmlSetExternalEntityLoader(m_oldEntityLoader);
 #if ENABLE(XSLT)
-    xmlSetGenericErrorFunc(m_oldErrorContext, m_oldGenericErrorFunc);
-    xmlSetStructuredErrorFunc(m_oldErrorContext, m_oldStructuredErrorFunc);
+    xmlSetGenericErrorFunc(m_oldGenericErrorContext, m_oldGenericErrorFunc);
+    xmlSetStructuredErrorFunc(m_oldStructuredErrorContext, m_oldStructuredErrorFunc);
 #endif
 }
 

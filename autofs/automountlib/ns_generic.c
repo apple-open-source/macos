@@ -39,6 +39,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <mntopts.h>
+
+#include <os/activity.h>
+#include <os/log.h>
+
 #include "autofs.h"
 #include "automount.h"
 #include "auto_mntopts.h"
@@ -47,28 +51,27 @@
  * Each name service is represented by a ns_info structure.
  */
 struct ns_info {
-	char	*ns_name;		/* service name */
-	void	(*ns_init)(char **, char ***);
-					/* initialization routine */
-	int	(*ns_getmapent)(const char *, const char *, struct mapline *,
-		char **, char ***, bool_t *, bool_t);
-					/* get map entry given key */
-	int	(*ns_loadmaster)(char *, char *, char **, char ***);
-					/* load master map */
-	int	(*ns_loaddirect)(char *, char *, char *,
-		char **, char ***);	/* load direct map */
-	int	(*ns_getmapkeys)(char *, struct dir_entry **,
-		int *, int *, char **, char ***);
-					/* readdir */
+	char    *ns_name;               /* service name */
+	void    (*ns_init)(char **, char ***);
+	/* initialization routine */
+	int     (*ns_getmapent)(const char *, const char *, struct mapline *,
+	    char **, char ***, bool_t *, bool_t);
+	/* get map entry given key */
+	int     (*ns_loadmaster)(char *, char *, char **, char ***);
+	/* load master map */
+	int     (*ns_loaddirect)(char *, char *, char *,
+	    char **, char ***);         /* load direct map */
+	int     (*ns_getmapkeys)(char *, struct dir_entry **,
+	    int *, int *, char **, char ***);
+	/* readdir */
 };
 
 static struct ns_info ns_info[] = {
-
-	{ "files",   init_files,  getmapent_files,
+	{ "files", init_files, getmapent_files,
 	  loadmaster_files, loaddirect_files,
 	  getmapkeys_files },
 
-	{ "od",   init_od,  getmapent_od,
+	{ "od", init_od, getmapent_od,
 	  loadmaster_od, loaddirect_od,
 	  getmapkeys_od },
 
@@ -86,76 +89,106 @@ ns_setup(char **stack, char ***stkptr)
 }
 
 int
-getmapent(key, mapname, ml, stack, stkptr, iswildcard, isrestricted)
-	const char *key, *mapname;
-	struct mapline *ml;
-	char **stack, ***stkptr;
-	bool_t *iswildcard;
-	bool_t isrestricted;
+getmapent(const char *key, const char *mapname, struct mapline *ml, char **stack, char ***stkptr, bool_t *iswildcard, bool_t isrestricted)
 {
 	int ns_err, err;
 	struct ns_info *nsp;
 
-	if (*mapname == '/') 		/* must be a file */
-		return (getmapent_files(key, mapname, ml, stack, stkptr,
-					iswildcard, isrestricted));
+	if (*mapname == '/') {          /* must be a file */
+		return getmapent_files(key, mapname, ml, stack, stkptr,
+		           iswildcard, isrestricted);
+	}
 
 	ns_err = __NSW_NOTFOUND;
 	for (nsp = ns_info; nsp->ns_name; nsp++) {
 		err = nsp->ns_getmapent(key, mapname, ml, stack, stkptr,
-						iswildcard, isrestricted);
-		if (err == __NSW_SUCCESS)
-			return (__NSW_SUCCESS);
-		if (err != __NSW_NOTFOUND)
+		    iswildcard, isrestricted);
+		if (err == __NSW_SUCCESS) {
+			return __NSW_SUCCESS;
+		}
+		if (err != __NSW_NOTFOUND) {
 			ns_err = err;
+		}
 	}
 
-	return (ns_err);
+	return ns_err;
 }
 
 int
-loadmaster_map(mapname, defopts, stack, stkptr)
-	char *mapname, *defopts;
-	char **stack, ***stkptr;
+loadmaster_map(char *mapname, char *defopts, char **stack, char ***stkptr)
 {
 	int ns_err;
 	struct ns_info *nsp;
+	struct os_activity_scope_state_s state;
 
-	if (*mapname == '/')		/* must be a file */
-		return (loadmaster_files(mapname, defopts, stack, stkptr));
+	os_activity_t activity = os_activity_create("loadmaster_map", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
 
-	for (nsp = ns_info; nsp->ns_name; nsp++) {
-		ns_err = nsp->ns_loadmaster(mapname, defopts, stack, stkptr);
-		if (ns_err == __NSW_SUCCESS)
-			return (__NSW_SUCCESS);
+	os_log_debug(OS_LOG_DEFAULT, "loadmaster_map:%s", mapname);
+
+	if (*mapname == '/') {
+		/* must be a file */
+		ns_err = loadmaster_files(mapname, defopts, stack, stkptr);
+		os_log_debug(OS_LOG_DEFAULT, "loadmaster_map:%s:finish1:%d", mapname, ns_err);
+		os_activity_scope_leave(&state);
+		return ns_err;
 	}
 
-	return (__NSW_UNAVAIL);
+	for (nsp = ns_info; nsp->ns_name; nsp++) {
+		os_log_debug(OS_LOG_DEFAULT, "loadmaster_map:%s:loading:%s", mapname, nsp->ns_name);
+		ns_err = nsp->ns_loadmaster(mapname, defopts, stack, stkptr);
+		if (ns_err == __NSW_SUCCESS) {
+			os_log_debug(OS_LOG_DEFAULT, "loadmaster_map:%s:finish2:%d", mapname, ns_err);
+			os_activity_scope_leave(&state);
+			return ns_err;
+		}
+	}
+
+	os_log_debug(OS_LOG_DEFAULT, "loadmaster_map:%s:finish3:%d", mapname, __NSW_UNAVAIL);
+	os_activity_scope_leave(&state);
+	return __NSW_UNAVAIL;
 }
 
 int
-loaddirect_map(mapname, localmap, defopts, stack, stkptr)
-	char *mapname, *localmap, *defopts;
-	char **stack, ***stkptr;
+loaddirect_map(char *mapname, char *localmap, char *defopts, char **stack, char ***stkptr)
 {
 	int ns_err = __NSW_SUCCESS;
 	struct ns_info *nsp;
 
-	if (*mapname == '/')		/* must be a file */
-		return (loaddirect_files(mapname, localmap, defopts,
-				stack, stkptr));
+	struct os_activity_scope_state_s state;
+
+	os_activity_t activity = os_activity_create("loaddirect_map", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
+
+	os_log_debug(OS_LOG_DEFAULT, "loaddirect_map:%s", mapname);
+
+	if (*mapname == '/') {
+		/* must be a file */
+		ns_err = loaddirect_files(mapname, localmap, defopts, stack, stkptr);
+		os_log_debug(OS_LOG_DEFAULT, "loaddirect_map:%s:finish1:%d", mapname, ns_err);
+		os_activity_scope_leave(&state);
+		return ns_err;
+	}
+
 	if (strcmp(mapname, "-static") == 0) {
-		return (loaddirect_static(localmap, defopts, stack, stkptr));
+		ns_err = loaddirect_static(localmap, defopts, stack, stkptr);
+		os_log_debug(OS_LOG_DEFAULT, "loaddirect_map:%s:finish2:%d", mapname, ns_err);
+		os_activity_scope_leave(&state);
+		return ns_err;
 	}
 
 	for (nsp = ns_info; nsp->ns_name; nsp++) {
-		ns_err = nsp->ns_loaddirect(mapname, localmap, defopts, stack,
-					stkptr);
-		if (ns_err == __NSW_SUCCESS)
-			return (__NSW_SUCCESS);
+		ns_err = nsp->ns_loaddirect(mapname, localmap, defopts, stack, stkptr);
+		if (ns_err == __NSW_SUCCESS) {
+			os_log_debug(OS_LOG_DEFAULT, "loaddirect_map:%s:finish3:%d", mapname, ns_err);
+			os_activity_scope_leave(&state);
+			return __NSW_SUCCESS;
+		}
 	}
 
-	return (__NSW_UNAVAIL);
+	os_log_debug(OS_LOG_DEFAULT, "loaddirect_map:%s:finish4:%d", mapname, __NSW_UNAVAIL);
+	os_activity_scope_leave(&state);
+	return __NSW_UNAVAIL;
 }
 
 /*
@@ -172,8 +205,9 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 
 	*cache_time = RDDIR_CACHE_TIME * 2;
 	*error = 0;
-	if (trace  > 1)
+	if (trace > 1) {
 		trace_prt(1, "gethostkeys called\n");
+	}
 
 	sethostent(1);
 
@@ -184,14 +218,16 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 		 * A return of -1 means the name isn't valid.
 		 */
 		err = add_dir_entry(ent->h_name, NULL, NULL, list, &last);
-		if (err == -1)
+		if (err == -1) {
 			continue;
+		}
 		if (err != 0) {
 			*error = err;
 			goto done;
 		}
-		if (ent->h_aliases == NULL)
-			goto done;	/* no aliases */
+		if (ent->h_aliases == NULL) {
+			goto done;      /* no aliases */
+		}
 		for (p = ent->h_aliases; *p != 0; p++) {
 			if (strcmp(*p, ent->h_name) != 0) {
 				/*
@@ -200,8 +236,9 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 				 */
 				err = add_dir_entry(*p, NULL, NULL, list,
 				    &last);
-				if (err == -1)
+				if (err == -1) {
 					continue;
+				}
 				if (err != 0) {
 					*error = err;
 					goto done;
@@ -210,7 +247,7 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 		}
 		assert(last != NULL);
 	}
-done:	if (*list != NULL) {
+done:   if (*list != NULL) {
 		/*
 		 * list of entries found
 		 */
@@ -218,36 +255,31 @@ done:	if (*list != NULL) {
 	}
 	endhostent();
 
-	return (__NSW_SUCCESS);
+	return __NSW_SUCCESS;
 }
 
 /*
  * enumerate all entries in the map in the various name services.
  */
 int
-getmapkeys(mapname, list, error, cache_time, stack, stkptr)
-	char *mapname;
-	struct dir_entry **list;
-	int *error;
-	int *cache_time;
-	char **stack, ***stkptr;
-
+getmapkeys(char *mapname, struct dir_entry **list, int *error, int *cache_time, char **stack, char ***stkptr)
 {
 	int success = 0;
 	struct ns_info *nsp;
 
-	if (*mapname == '/') 		/* must be a file */
-		return (getmapkeys_files(mapname, list, error, cache_time,
-				stack, stkptr));
+	if (*mapname == '/') {          /* must be a file */
+		return getmapkeys_files(mapname, list, error, cache_time,
+		           stack, stkptr);
+	}
 	if (strcmp(mapname, "-hosts") == 0) {
-		return (gethostkeys(list, error, cache_time));
+		return gethostkeys(list, error, cache_time);
 	}
 	if (strcmp(mapname, "-static") == 0) {
 		pr_msg(LOG_ERR, "-static is a collection of direct maps");
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 	if (strcmp(mapname, "-fstab") == 0) {
-		return (getfstabkeys(list, error, cache_time));
+		return getfstabkeys(list, error, cache_time);
 	}
 
 	for (nsp = ns_info; nsp->ns_name; nsp++) {
@@ -256,7 +288,7 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 		 *        we need to refactor this to be more readable.
 		 */
 		(void)nsp->ns_getmapkeys(mapname, list, error,
-				cache_time, stack, stkptr);
+		    cache_time, stack, stkptr);
 		if (*error == 0) {
 			/*
 			 * return success if listing was successful
@@ -270,7 +302,8 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 		 * if succeeded at least once, return error=0
 		 */
 		*error = 0;
-	};
+	}
+	;
 
-	return (success ? __NSW_SUCCESS : __NSW_NOTFOUND);
+	return success ? __NSW_SUCCESS : __NSW_NOTFOUND;
 }

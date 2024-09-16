@@ -68,6 +68,9 @@ FILE_RCSID("")
 #define CPU_SUBTYPE_APPLEGPU_G14S	((cpu_subtype_t) 434)
 #define CPU_SUBTYPE_APPLEGPU_G14D	((cpu_subtype_t) 498)
 #define CPU_SUBTYPE_APPLEGPU_G15P	((cpu_subtype_t) 610)
+#define CPU_SUBTYPE_APPLEGPU_G15G	((cpu_subtype_t) 275)
+#define CPU_SUBTYPE_APPLEGPU_G15S	((cpu_subtype_t) 419)
+#define CPU_SUBTYPE_APPLEGPU_G16P	((cpu_subtype_t) 435)
 
 /* Known values for AMD cpu_subtype_t */
 #define CPU_SUBTYPE_AMD_GFX600		((cpu_subtype_t) 4000)
@@ -160,6 +163,12 @@ static const NXArchInfo GPUArchInfoTable[] =
 	 "APPLEGPU_G14D"},
 	{"applegpu_g15p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15P,	NX_LittleEndian,
 	 "APPLEGPU_G15P"},
+	{"applegpu_g15g",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15G,	NX_LittleEndian,
+	 "APPLEGPU_G15G"},
+	{"applegpu_g15s",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G15S,	NX_LittleEndian,
+	 "APPLEGPU_G15S"},
+	{"applegpu_g16p",	CPU_TYPE_APPLEGPU,	CPU_SUBTYPE_APPLEGPU_G16P,	NX_LittleEndian,
+	 "APPLEGPU_G16P"},
 	/* AMD GPUs */
 	{"amdgpu_gfx600",	CPU_TYPE_AMDGPU,	CPU_SUBTYPE_AMD_GFX600,	NX_LittleEndian,
 	 "AMDGPU_GFX600"},

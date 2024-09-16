@@ -30,7 +30,7 @@
 
 #import "ColorSpaceCG.h"
 #import "CommonVM.h"
-#import "JSLocalDOMWindow.h"
+#import "JSDOMWindow.h"
 #import "PlatformCALayer.h"
 #import "ResourceUsageThread.h"
 #import <CoreGraphics/CGContext.h>
@@ -41,7 +41,8 @@
 #import <wtf/MathExtras.h>
 #import <wtf/MemoryFootprint.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/text/StringConcatenateNumbers.h>
+#import <wtf/text/MakeString.h>
+#import <wtf/text/StringBuilder.h>
 
 using WebCore::ResourceUsageOverlay;
 
@@ -274,7 +275,8 @@ static void showText(CGContextRef context, float x, float y, CGColorRef color, c
     CFTypeRef values[] = { font.get(), kCFBooleanTrue };
     auto attributes = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, std::size(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     CString cstr = text.ascii();
-    auto string = adoptCF(CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, cstr.dataAsUInt8Ptr(), cstr.length(), kCFStringEncodingASCII, false, kCFAllocatorNull));
+    auto cstrSpan = cstr.span();
+    auto string = adoptCF(CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, cstrSpan.data(), cstrSpan.size(), kCFStringEncodingASCII, false, kCFAllocatorNull));
     auto attributedString = adoptCF(CFAttributedStringCreate(kCFAllocatorDefault, string.get(), attributes.get()));
     auto line = adoptCF(CTLineCreateWithAttributedString(attributedString.get()));
     CGContextSetTextPosition(context, x, y);
@@ -431,11 +433,11 @@ static void drawMemoryPie(CGContextRef context, FloatRect& rect, HistoricResourc
 static String formatByteNumber(size_t number)
 {
     if (number >= 1024 * 1048576)
-        return makeString(FormattedNumber::fixedWidth(number / (1024. * 1048576), 3), " GB");
+        return makeString(FormattedNumber::fixedWidth(number / (1024. * 1048576), 3), " GB"_s);
     if (number >= 1048576)
-        return makeString(FormattedNumber::fixedWidth(number / 1048576., 2), " MB");
+        return makeString(FormattedNumber::fixedWidth(number / 1048576., 2), " MB"_s);
     if (number >= 1024)
-        return makeString(FormattedNumber::fixedWidth(number / 1024, 1), " kB");
+        return makeString(FormattedNumber::fixedWidth(number / 1024, 1), " kB"_s);
     return String::number(number);
 }
 
@@ -462,31 +464,32 @@ void ResourceUsageOverlay::platformDraw(CGContextRef context)
     CGContextClearRect(context, viewBounds);
 
     static NeverDestroyed<RetainPtr<CGColorRef>> colorForLabels = createColor(0.9, 0.9, 0.9, 1);
-    showText(context, 10, 20, colorForLabels.get().get(), makeString("        CPU: ", FormattedNumber::fixedPrecision(data.cpu.last(), 6, TrailingZerosPolicy::Keep)));
-    showText(context, 10, 30, colorForLabels.get().get(), "  Footprint: " + formatByteNumber(memoryFootprint()));
-    showText(context, 10, 40, colorForLabels.get().get(), "   External: " + formatByteNumber(data.totalExternalSize.last()));
+    showText(context, 10, 20, colorForLabels.get().get(), makeString("        CPU: "_s, FormattedNumber::fixedPrecision(data.cpu.last(), 6, TrailingZerosPolicy::Keep)));
+    showText(context, 10, 30, colorForLabels.get().get(), makeString("  Footprint: "_s, formatByteNumber(memoryFootprint())));
+    showText(context, 10, 40, colorForLabels.get().get(), makeString("   External: "_s, formatByteNumber(data.totalExternalSize.last())));
 
     float y = 55;
     for (auto& category : data.categories) {
         size_t dirty = category.dirtySize.last();
         size_t reclaimable = category.reclaimableSize.last();
         size_t external = category.externalSize.last();
-        
-        auto label = makeString(pad(' ', 11, category.name), ": ", formatByteNumber(dirty));
+
+        StringBuilder labelBuilder;
+        labelBuilder.append(pad(' ', 11, category.name), ": "_s, formatByteNumber(dirty));
         if (external)
-            label = label + makeString(" + ", formatByteNumber(external));
+            labelBuilder.append(" + "_s, formatByteNumber(external));
         if (reclaimable)
-            label = label + makeString(" [", formatByteNumber(reclaimable), ']');
+            labelBuilder.append(" ["_s, formatByteNumber(reclaimable), ']');
 
         // FIXME: Show size/capacity of GC heap.
-        showText(context, 10, y, category.color.get(), label);
+        showText(context, 10, y, category.color.get(), labelBuilder.toString());
         y += 10;
     }
     y -= 5;
 
     MonotonicTime now = MonotonicTime::now();
-    showText(context, 10, y + 10, colorForLabels.get().get(), "    Eden GC: " + gcTimerString(data.timeOfNextEdenCollection, now));
-    showText(context, 10, y + 20, colorForLabels.get().get(), "    Full GC: " + gcTimerString(data.timeOfNextFullCollection, now));
+    showText(context, 10, y + 10, colorForLabels.get().get(), makeString("    Eden GC: "_s, gcTimerString(data.timeOfNextEdenCollection, now)));
+    showText(context, 10, y + 20, colorForLabels.get().get(), makeString("    Full GC: "_s, gcTimerString(data.timeOfNextFullCollection, now)));
 
     drawCpuHistory(context, viewBounds.size.width - 70, 0, viewBounds.size.height, data.cpu);
     drawGCHistory(context, viewBounds.size.width - 140, 0, viewBounds.size.height, data.gcHeapSize, data.categories[MemoryCategory::GCHeap].dirtySize);

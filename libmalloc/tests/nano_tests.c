@@ -85,21 +85,26 @@ run_enumerator()
 
 static void *allocations[ALLOCATION_COUNT];
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_VM_NOT_PREFERRED);
 
 T_DECL(nano_active_test, "Test that Nano is activated",
-	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_XZONE)
+		T_META_ENVVAR("MallocNanoZone=1"), T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE, T_META_TAG_NANO_ON_XZONE)
 {
 #if CONFIG_NANOZONE
-	if (malloc_engaged_secure_allocator()) {
-		T_ASSERT_NE(malloc_engaged_nano(), 0,
-				"Secure allocator nano mode engaged");
-	} else {
+	bool nano_on_xzone = getenv("MallocNanoOnXzone");
+	if (nano_on_xzone) {
+		T_ASSERT_NE(malloc_engaged_secure_allocator(), 0,
+				"Secure allocator engaged");
+	}
+
+	T_ASSERT_NE(malloc_engaged_nano(), 0, "Nano mode engaged");
+
+	if (nano_on_xzone || !malloc_engaged_secure_allocator()) {
 		void *ptr = malloc(16);
 		T_LOG("Nano ptr is %p\n", ptr);
 		T_ASSERT_EQ(NANOZONE_SIGNATURE, (uint64_t)((uintptr_t)ptr) >> SHIFT_NANO_SIGNATURE,
 				"Nanozone is active");
-		T_ASSERT_NE(malloc_engaged_nano(), 0, "Nanozone engaged");
 		free(ptr);
 	}
 #else // CONFIG_NANOZONE
@@ -108,7 +113,8 @@ T_DECL(nano_active_test, "Test that Nano is activated",
 }
 
 T_DECL(nano_enumerator_test, "Test the Nanov2 enumerator",
-	   T_META_ENVVAR("MallocNanoZone=V2"), T_META_TAG_XZONE)
+		T_META_ENVVAR("MallocNanoZone=V2"), T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_XZONE)
 {
 #if CONFIG_NANOZONE
 	if (malloc_engaged_secure_allocator()) {
@@ -257,7 +263,7 @@ T_DECL(realloc_nano_ptr_change, "realloc with pointer change",
 }
 
 T_DECL(realloc_nano_to_other, "realloc with allocator change (nano)",
-	   T_META_ENVVAR("MallocNanoZone=1"))
+	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_NANO_ON_XZONE)
 {
 #if CONFIG_NANOZONE
 	void *ptr = malloc(32);					// From Nano
@@ -430,7 +436,9 @@ extern malloc_zone_t **malloc_zones;
 
 T_DECL(overspill_nanozone, "force overspill of nano zone",
 		T_META_ENVVAR("MallocNanoZone=V2"),
-		T_META_ENVVAR("MallocNanoMaxRegion=1"))
+		T_META_ENVVAR("MallocNanoMaxRegion=1"),
+		T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_TAG_NANO_ON_XZONE)
 {
 	int index;
 	bool spilled_to_tiny = false;
@@ -450,17 +458,17 @@ T_DECL(overspill_nanozone, "force overspill of nano zone",
 	T_QUIET; T_ASSERT_TRUE(malloc_zone_claimed_address(nano_zone, ptrs[0]), 
 			"Initial allocation did not come from nano zone");
 	T_QUIET; T_ASSERT_FALSE(malloc_zone_claimed_address(helper_zone, ptrs[0]), 
-			"Initial allocation came from scalable zone");
+			"Initial allocation came from helper zone");
 
 	for (index = 1; index < (nano_max_allocations); index++) {
 		ptrs[index] = malloc(256);
 		if (malloc_zone_claimed_address(helper_zone, ptrs[index])) {
-			T_LOG("Spilled to scalable zone");
+			T_LOG("Spilled to helper zone");
 			spilled_to_tiny = true;
 			break;
 		}
 	}
-	T_EXPECT_TRUE(spilled_to_tiny, "Allocation falls through to scalable zone");
+	T_EXPECT_TRUE(spilled_to_tiny, "Allocation falls through to helper zone");
 
 	T_LOG("Freeing %d pointers", index);
 	for (int i = 0; i < MIN(index + 1, nano_max_allocations); i++) {

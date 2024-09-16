@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,8 @@ typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
     kDHCPv6OPTION_DOMAIN_LIST		= 24,
     kDHCPv6OPTION_IA_PD			= 25,
     kDHCPv6OPTION_IAPREFIX		= 26,
+    kDHCPv6OPTION_POSIX_TIMEZONE	= 41,
+    kDHCPv6OPTION_TZDB_TIMEZONE		= 42,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL	= 103,
 };
 

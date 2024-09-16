@@ -46,6 +46,7 @@
 #include "ScopedEventQueue.h"
 #include "ShadowRoot.h"
 #include "TextIterator.h"
+#include "TrustedType.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "VisibleUnits.h"
 #include "WebCoreOpaqueRootInlines.h"
@@ -54,6 +55,7 @@
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -486,11 +488,12 @@ static ExceptionOr<RefPtr<Node>> processContentsBetweenOffsets(Range::ActionType
     switch (container->nodeType()) {
     case Node::TEXT_NODE:
     case Node::CDATA_SECTION_NODE:
-    case Node::COMMENT_NODE:
-        endOffset = std::min(endOffset, downcast<CharacterData>(*container).length());
+    case Node::COMMENT_NODE: {
+        auto& dataNode = uncheckedDowncast<CharacterData>(*container);
+        endOffset = std::min(endOffset, dataNode.length());
         startOffset = std::min(startOffset, endOffset);
         if (action == Range::Extract || action == Range::Clone) {
-            Ref characters = downcast<CharacterData>(container->cloneNode(true));
+            Ref characters = uncheckedDowncast<CharacterData>(dataNode.cloneNode(true));
             auto deleteResult = deleteCharacterData(characters, startOffset, endOffset);
             if (deleteResult.hasException())
                 return deleteResult.releaseException();
@@ -503,17 +506,18 @@ static ExceptionOr<RefPtr<Node>> processContentsBetweenOffsets(Range::ActionType
                 result = WTFMove(characters);
         }
         if (action == Range::Extract || action == Range::Delete) {
-            auto deleteResult = downcast<CharacterData>(*container).deleteData(startOffset, endOffset - startOffset);
+            auto deleteResult = dataNode.deleteData(startOffset, endOffset - startOffset);
             if (deleteResult.hasException())
                 return deleteResult.releaseException();
         }
         break;
+    }
     case Node::PROCESSING_INSTRUCTION_NODE: {
-        auto& instruction = downcast<ProcessingInstruction>(*container);
+        auto& instruction = uncheckedDowncast<ProcessingInstruction>(*container);
         endOffset = std::min(endOffset, instruction.data().length());
         startOffset = std::min(startOffset, endOffset);
         if (action == Range::Extract || action == Range::Clone) {
-            Ref processingInstruction = downcast<ProcessingInstruction>(container->cloneNode(true));
+            Ref processingInstruction = uncheckedDowncast<ProcessingInstruction>(instruction.cloneNode(true));
             processingInstruction->setData(processingInstruction->data().substring(startOffset, endOffset - startOffset));
             if (fragment) {
                 result = fragment;
@@ -684,13 +688,13 @@ ExceptionOr<void> Range::insertNode(Ref<Node>&& node)
 
     if (startContainerNodeType == Node::COMMENT_NODE || startContainerNodeType == Node::PROCESSING_INSTRUCTION_NODE)
         return Exception { ExceptionCode::HierarchyRequestError };
-    bool startIsText = startContainerNodeType == Node::TEXT_NODE;
-    if (startIsText && !startContainer().parentNode())
+    RefPtr startContainerText = dynamicDowncast<Text>(startContainer());
+    if (startContainerText && !startContainer().parentNode())
         return Exception { ExceptionCode::HierarchyRequestError };
     if (node.ptr() == &startContainer())
         return Exception { ExceptionCode::HierarchyRequestError };
 
-    RefPtr<Node> referenceNode = startIsText ? &startContainer() : startContainer().traverseToChildAt(startOffset());
+    RefPtr referenceNode = startContainerText ? &startContainer() : startContainer().traverseToChildAt(startOffset());
     RefPtr parent = dynamicDowncast<ContainerNode>(referenceNode ? referenceNode->parentNode() : &startContainer());
     if (!parent)
         return Exception { ExceptionCode::HierarchyRequestError };
@@ -700,8 +704,8 @@ ExceptionOr<void> Range::insertNode(Ref<Node>&& node)
         return result.releaseException();
 
     EventQueueScope scope;
-    if (startIsText) {
-        auto result = downcast<Text>(protectedStartContainer().get()).splitText(startOffset());
+    if (startContainerText) {
+        auto result = startContainerText->splitText(startOffset());
         if (result.hasException())
             return result.releaseException();
         referenceNode = result.releaseReturnValue();
@@ -744,9 +748,14 @@ String Range::toString() const
 }
 
 // https://w3c.github.io/DOM-Parsing/#widl-Range-createContextualFragment-DocumentFragment-DOMString-fragment
-ExceptionOr<Ref<DocumentFragment>> Range::createContextualFragment(const String& markup)
+ExceptionOr<Ref<DocumentFragment>> Range::createContextualFragment(std::variant<RefPtr<TrustedHTML>, String>&& markup)
 {
     Node& node = startContainer();
+    auto stringValueHolder = trustedTypeCompliantString(*node.document().scriptExecutionContext(), WTFMove(markup), "Range createContextualFragment"_s);
+
+    if (stringValueHolder.hasException())
+        return stringValueHolder.releaseException();
+
     RefPtr<Element> element;
     if (is<Document>(node) || is<DocumentFragment>(node))
         element = nullptr;
@@ -756,7 +765,7 @@ ExceptionOr<Ref<DocumentFragment>> Range::createContextualFragment(const String&
         element = node.parentElement();
     if (!element || (element->document().isHTMLDocument() && is<HTMLHtmlElement>(*element)))
         element = HTMLBodyElement::create(node.protectedDocument());
-    return WebCore::createContextualFragment(*element, markup, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::DoNotMarkAlreadyStarted });
+    return WebCore::createContextualFragment(*element, stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::DoNotMarkAlreadyStarted });
 }
 
 ExceptionOr<RefPtr<Node>> Range::checkNodeOffsetPair(Node& node, unsigned offset)
@@ -768,7 +777,7 @@ ExceptionOr<RefPtr<Node>> Range::checkNodeOffsetPair(Node& node, unsigned offset
     case Node::COMMENT_NODE:
     case Node::TEXT_NODE:
     case Node::PROCESSING_INSTRUCTION_NODE:
-        if (offset > downcast<CharacterData>(node).length())
+        if (offset > uncheckedDowncast<CharacterData>(node).length())
             return Exception { ExceptionCode::IndexSizeError };
         return nullptr;
     case Node::ATTRIBUTE_NODE:
@@ -848,10 +857,10 @@ ExceptionOr<void> Range::surroundContents(Node& newParent)
 
     // Step 1: If a non-Text node is partially contained in the context object, then throw an InvalidStateError.
     RefPtr startNonTextContainer = &startContainer();
-    if (startNonTextContainer->nodeType() == Node::TEXT_NODE)
+    if (is<Text>(startNonTextContainer))
         startNonTextContainer = startNonTextContainer->parentNode();
     RefPtr endNonTextContainer = &endContainer();
-    if (endNonTextContainer->nodeType() == Node::TEXT_NODE)
+    if (is<Text>(endNonTextContainer))
         endNonTextContainer = endNonTextContainer->parentNode();
     if (startNonTextContainer != endNonTextContainer)
         return Exception { ExceptionCode::InvalidStateError };
@@ -877,8 +886,8 @@ ExceptionOr<void> Range::surroundContents(Node& newParent)
         return fragment.releaseException();
 
     // Step 4: If newParent has children, replace all with null within newParent.
-    if (newParent.hasChildNodes())
-        downcast<ContainerNode>(newParent).replaceAll(nullptr);
+    if (auto* containerNode = dynamicDowncast<ContainerNode>(newParent); containerNode && containerNode->hasChildNodes())
+        containerNode->replaceAll(nullptr);
 
     // Step 5: Insert newParent into context object.
     auto insertResult = insertNode(newParent);
@@ -905,7 +914,7 @@ ExceptionOr<void> Range::setStartBefore(Node& node)
 #if ENABLE(TREE_DEBUGGING)
 String Range::debugDescription() const
 {
-    return makeString("from offset ", m_start.offset(), " of ", startContainer().debugDescription(), " to offset ", m_end.offset(), " of ", endContainer().debugDescription());
+    return makeString("from offset "_s, m_start.offset(), " of "_s, startContainer().debugDescription(), " to offset "_s, m_end.offset(), " of "_s, endContainer().debugDescription());
 }
 #endif
 

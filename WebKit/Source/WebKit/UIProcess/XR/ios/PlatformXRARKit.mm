@@ -63,7 +63,7 @@ ARKitCoordinator::ARKitCoordinator()
     ASSERT(RunLoop::isMain());
 }
 
-void ARKitCoordinator::getPrimaryDeviceInfo(DeviceInfoCallback&& callback)
+void ARKitCoordinator::getPrimaryDeviceInfo(WebPageProxy&, DeviceInfoCallback&& callback)
 {
     RELEASE_LOG(XR, "ARKitCoordinator::getPrimaryDeviceInfo");
     ASSERT(RunLoop::isMain());
@@ -115,6 +115,9 @@ void ARKitCoordinator::startSession(WebPageProxy& page, WeakPtr<SessionEventClie
         [&](Idle&) {
             createSessionIfNeeded();
 
+            // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
+            // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
+            // We should call PageClientImpl::presentingViewController() instead.
             auto* presentingViewController = page.uiClient().presentingViewController();
             if (!presentingViewController) {
                 RELEASE_LOG_ERROR(XR, "ARKitCoordinator: failed to obtain presenting ViewController from page.");
@@ -132,9 +135,9 @@ void ARKitCoordinator::startSession(WebPageProxy& page, WeakPtr<SessionEventClie
 
             m_state = Active {
                 .sessionEventClient = WTFMove(sessionEventClient),
-                .pageIdentifier = page.webPageID(),
+                .pageIdentifier = page.webPageIDInMainFrameProcess(),
                 .renderState = renderState,
-                .renderThread = Thread::create("ARKitCoordinator session renderer", [this, renderState] { renderLoop(renderState); }),
+                .renderThread = Thread::create("ARKitCoordinator session renderer"_s, [this, renderState] { renderLoop(renderState); }),
             };
         },
         [&](Active&) {
@@ -180,7 +183,7 @@ void ARKitCoordinator::endSessionIfExists(std::optional<WebCore::PageIdentifier>
 
 void ARKitCoordinator::endSessionIfExists(WebPageProxy& page)
 {
-    endSessionIfExists(page.webPageID());
+    endSessionIfExists(page.webPageIDInMainFrameProcess());
 }
 
 void ARKitCoordinator::scheduleAnimationFrame(WebPageProxy& page, PlatformXR::Device::RequestFrameCallback&& onFrameUpdateCallback)
@@ -192,7 +195,7 @@ void ARKitCoordinator::scheduleAnimationFrame(WebPageProxy& page, PlatformXR::De
             onFrameUpdateCallback({ });
         },
         [&](Active& active) {
-            if (active.pageIdentifier != page.webPageID()) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
                 RELEASE_LOG(XR, "ARKitCoordinator: trying to schedule frame update for session owned by another page");
                 return;
             }
@@ -215,7 +218,7 @@ void ARKitCoordinator::submitFrame(WebPageProxy& page)
             RELEASE_LOG(XR, "ARKitCoordinator: trying to submit frame update for an inactive session");
         },
         [&](Active& active) {
-            if (active.pageIdentifier != page.webPageID()) {
+            if (active.pageIdentifier != page.webPageIDInMainFrameProcess()) {
                 RELEASE_LOG(XR, "ARKitCoordinator: trying to submit frame update for session owned by another page");
                 return;
             }
@@ -282,7 +285,8 @@ void ARKitCoordinator::renderLoop(Box<RenderState> active)
                     PlatformXRPose(frame.camera.projectionMatrix).toColumnMajorFloatArray()
                 },
             });
-            auto colorTexture = makeMachSendRight(presentationSession.colorTexture);
+            id<MTLTexture> colorTexture = presentationSession.colorTexture;
+            auto colorTextureSendRight = makeMachSendRight(colorTexture);
             auto renderingFrameIndex = presentationSession.renderingFrameIndex;
             // FIXME: Send this event once at setup time, not every frame.
             id<MTLSharedEvent> completionEvent = presentationSession.completionEvent;
@@ -290,10 +294,14 @@ void ARKitCoordinator::renderLoop(Box<RenderState> active)
             auto completionPort = MachSendRight::create([completionHandle.get() eventPort]);
 
             // FIXME: rdar://77858090 (Need to transmit color space information)
-            frameData.layers.set(defaultLayerHandle(), PlatformXR::FrameData::LayerData {
-                .colorTexture = WTFMove(colorTexture),
-                .completionSyncEvent = { MachSendRight(completionPort), renderingFrameIndex }
+            auto layerData = makeUniqueRef<PlatformXR::FrameData::LayerData>(PlatformXR::FrameData::LayerData {
+                .framebufferSize = IntSize(colorTexture.width, colorTexture.height),
+                .textureData = PlatformXR::FrameData::ExternalTextureData {
+                    .colorTexture = WTFMove(colorTextureSendRight),
+                    .completionSyncEvent = { MachSendRight(completionPort), renderingFrameIndex }
+                },
             });
+            frameData.layers.set(defaultLayerHandle(), WTFMove(layerData));
             frameData.shouldRender = true;
 
             callOnMainRunLoop([callback = WTFMove(active->onFrameUpdate), frameData = WTFMove(frameData)]() mutable {

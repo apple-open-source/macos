@@ -29,10 +29,12 @@
 #include "SuspendedPageProxy.h"
 #include "WebBackForwardCache.h"
 #include "WebBackForwardCacheEntry.h"
+#include "WebFrameProxy.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <wtf/DebugUtilities.h>
 #include <wtf/URL.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -185,10 +187,32 @@ SuspendedPageProxy* WebBackForwardListItem::suspendedPage() const
     return m_backForwardCacheEntry ? m_backForwardCacheEntry->suspendedPage() : nullptr;
 }
 
-#if !LOG_DISABLED
-const char* WebBackForwardListItem::loggingString()
+WebBackForwardListItem* WebBackForwardListItem::childItemForFrameID(WebCore::FrameIdentifier frameID) const
 {
-    return debugString("Back/forward item ID ", itemID().toString(), ", original URL ", originalURL(), ", current URL ", url(), m_backForwardCacheEntry ? "(has a back/forward cache entry)" : "");
+    auto* frame = WebFrameProxy::webFrame(frameID);
+    if (!frame)
+        return nullptr;
+    auto rootFrameID = frame->rootFrame().frameID();
+    for (auto& child : m_rootChildFrameItems) {
+        if (child->frameID() == rootFrameID)
+            return child.ptr();
+    }
+    return nullptr;
+}
+
+WebBackForwardListItem* WebBackForwardListItem::childItemForProcessID(WebCore::ProcessIdentifier processID) const
+{
+    for (auto& child : m_rootChildFrameItems) {
+        if (child->lastProcessIdentifier() == processID)
+            return child.ptr();
+    }
+    return nullptr;
+}
+
+#if !LOG_DISABLED
+String WebBackForwardListItem::loggingString()
+{
+    return makeString("Back/forward item ID "_s, itemID().toString(), ", original URL "_s, originalURL(), ", current URL "_s, url(), m_backForwardCacheEntry ? "(has a back/forward cache entry)"_s : ""_s);
 }
 #endif // !LOG_DISABLED
 

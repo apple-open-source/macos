@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wipefs.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOStorageCardCharacteristics.h>

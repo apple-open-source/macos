@@ -56,13 +56,13 @@ static void setup_testvolume()
 	asprintf(&fsctl_srcdir, "%s/fsinfo-test", di->mount_point);
 	assert_no_err(systemx("/bin/rm", "-rf", fsctl_srcdir, NULL));
 	assert_no_err(mkdir(fsctl_srcdir, 0777));
-
+	
 	for (unsigned i = 0; i < MAX_FILES; i++) {
 		asprintf(&path, "%s/fsinfo_test.data.%u", fsctl_srcdir, getpid()+i);
 		unlink(path);
 		assert_with_errno((fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0666)) >= 0);
 		free(path);
-
+		
 		unsigned buf_size = (1 KB) * (i + 1);
 		buf = malloc(buf_size);
 		memset(buf, 0x25, buf_size);

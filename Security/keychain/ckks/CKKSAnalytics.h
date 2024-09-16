@@ -172,6 +172,8 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventJoinInheritanceKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightInheritanceKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveInheritanceKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventCheckInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventRecreateInheritanceKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventCreateInheritanceKeyWithClaimTokenAndWrappingKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventReroll;
 
 /* Inner calls as seen by TPH and securityd */
@@ -299,6 +301,7 @@ extern CKKSAnalyticsActivity* const OctagonActivityJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityPreflightJoinWithInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityRemoveInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityCheckInheritanceKey;
+extern CKKSAnalyticsActivity* const OctagonActivityRecreateInheritanceKey;
 extern CKKSAnalyticsActivity* const OctagonActivityReroll;
 
 /* SOS Deferral */

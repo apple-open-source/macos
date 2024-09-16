@@ -32,6 +32,8 @@
 
 #pragma mark - File-Private
 
+// NOTE: LegacyAPICounts is default enabled!!
+
 static NSString* applicationIdentifierForSelf(void) {
     NSString* identifier = nil;
     SecTaskRef task = SecTaskCreateFromSelf(kCFAllocatorDefault);
@@ -69,13 +71,11 @@ static NSString* applicationIdentifierForSelf(void) {
 }
 
 static NSString* identifier;
-static BOOL shouldCount;
 
 static void setup(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         identifier = applicationIdentifierForSelf() ?: @"unknown";
-        shouldCount = os_feature_enabled(Security, LegacyAPICounts);
     });
 }
 
@@ -103,7 +103,7 @@ void countLegacyAPI(dispatch_once_t* token, const char* api) {
         return;
     }
 
-    if (!shouldCount || !countLegacyAPIEnabledForThread()) {
+    if (!countLegacyAPIEnabledForThread()) {
         return;
     }
 
@@ -125,11 +125,7 @@ void countLegacyAPI(dispatch_once_t* token, const char* api) {
 
 void countLegacyMDSPlugin(const char* path, const char* guid) {
     setup();
-
-    if (!shouldCount) {
-        return;
-    }
-
+    
     NSString* pathString = [NSString stringWithCString:path encoding:NSUTF8StringEncoding];
     if (!pathString) {
         secerror("LegacyAPICounts: Unable to make NSString from path %s", path);

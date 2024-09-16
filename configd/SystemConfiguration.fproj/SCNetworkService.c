@@ -58,7 +58,13 @@ static const CFRuntimeClass __SCNetworkServiceClass = {
 	__SCNetworkServiceEqual,		// equal
 	__SCNetworkServiceHash,			// hash
 	NULL,					// copyFormattingDesc
-	__SCNetworkServiceCopyDescription	// copyDebugDesc
+	__SCNetworkServiceCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 

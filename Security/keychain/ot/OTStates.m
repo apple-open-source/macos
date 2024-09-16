@@ -46,7 +46,6 @@ OctagonState* const OctagonStateInherited = (OctagonState*)@"Inherited";
 OctagonState* const OctagonStateBecomeInherited = (OctagonState*)@"BecomeInherited";
 
 OctagonState* const OctagonStateEnsureConsistency = (OctagonState*)@"EnsureConsistency";
-OctagonState* const OctagonStateEnsureOctagonKeysAreConsistent = (OctagonState*)@"EnsureOctagonKeysAreConsistent";
 OctagonState* const OctagonStateEnsureUpdatePreapprovals = (OctagonState*)@"EnsureUpdatePreapprovals";
 
 OctagonState* const OctagonStateInitializing = (OctagonState*)@"Initializing";
@@ -97,7 +96,6 @@ OctagonState* const OctagonStateUntrustedUpdated = (OctagonState*)@"UntrustedUpd
 OctagonState* const OctagonStateReadyUpdated = (OctagonState*)@"ReadyUpdated";
 
 OctagonState* const OctagonStateError = (OctagonState*)@"Error";
-OctagonState* const OctagonStateDisabled = (OctagonState*)@"Disabled";
 
 OctagonState* const OctagonStateDetermineiCloudAccountState = (OctagonState*)@"DetermineiCloudAccountState";
 
@@ -138,7 +136,6 @@ OctagonState* const OctagonStateHealthCheckReset = (OctagonState*)@"HealthCheckR
 /* signout */
 OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*)@"NoAccountDoReset";
 
-OctagonState* const OctagonStateLostAccountAuth = (OctagonState*)@"LostAccountAuth";
 OctagonState* const OctagonStatePeerMissingFromServer = (OctagonState*)@"PeerMissingFromServer";
 
 OctagonState* const OctagonStateWaitForUnlock = (OctagonState*)@"WaitForUnlock";
@@ -174,11 +171,12 @@ OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList = (OctagonFlag*)@"attemp
 OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
 OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
 OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
-OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry_bottle_tlk_extraction";
-OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
 OctagonFlag* const OctagonFlagSecureElementIdentityChanged  = (OctagonFlag*)@"se_id_changed";
 OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (OctagonFlag*)@"attempt_ucv_upgrade";
 OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_metrics";
+OctagonFlag* const OctagonFlagPendingNetworkAvailablity = (OctagonFlag*)@"pending_network_availablility";
+OctagonFlag* const OctagonFlagCheckTrustState = (OctagonFlag*)@"check_trust_state";
+OctagonFlag* const OctagonFlagAppleAccountSignedOut = (OctagonFlag*)@"apple_account_signed_out";
 
 @implementation OTStates
 
@@ -188,7 +186,7 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
                                      @[OctagonStateError,                                    @1U,],
                                      @[OctagonStateInitializing,                             @2U,],
                                      @[OctagonStateMachineNotStarted,                        @3U,],
-                                     @[OctagonStateDisabled,                                 @4U,],
+                                      // Removed @[OctagonStateDisabled,                                 @4U,],
                                      @[OctagonStateUntrusted,                                @5U,],
 
                                        //Removed: OctagonStateIdentityPrepared: @6U,],
@@ -227,7 +225,7 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
                                      @[OctagonStateCuttlefishTrustCheck,                     @37U,],
                                      @[OctagonStatePostRepairCFU,                            @38U,],
                                      @[OctagonStateSecurityTrustCheck,                       @39U,],
-                                     @[OctagonStateEnsureOctagonKeysAreConsistent,           @40U,],
+                                      //Removed: @[OctagonStateEnsureOctagonKeysAreConsistent,           @40U,],
                                      @[OctagonStateEnsureUpdatePreapprovals,                 @41U,],
                                      @[OctagonStateResetAnyMissingTLKCKKSViews,              @42U,],
                                      @[OctagonStateEstablishCKKSReset,                       @43U,],
@@ -254,7 +252,7 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
                                      @[OctagonStateWaitForClassCUnlock,                      @64U,],
                                      @[OctagonStateBottlePreloadOctagonKeysInSOS,            @65U,],
                                      @[OctagonStateAttemptSOSUpgradeDetermineCDPState,       @66U,],
-                                     @[OctagonStateLostAccountAuth,                          @67U,],
+                                     //Removed: @[OctagonStateLostAccountAuth,                          @67U,],
                                      @[OctagonStateSetAccountSettings,                       @68U,],
                                      @[OctagonStateCreateIdentityForCustodianRecoveryKey,    @69U,],
                                      @[OctagonStateVouchWithCustodianRecoveryKey,            @70U,],
@@ -402,7 +400,11 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
     static NSSet<OctagonState*>* s = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-         s = [NSSet setWithObject:OctagonStateReady];
+        NSMutableSet* readyStates = [NSMutableSet set];
+
+        [readyStates addObject:OctagonStateReady];
+        [readyStates addObject:OctagonStateReadyUpdated];
+        s = readyStates;
     });
     return s;
 }
@@ -437,11 +439,12 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
         [flags addObject:OctagonFlagUnlocked];
         [flags addObject:OctagonFlagAttemptSOSUpdatePreapprovals];
         [flags addObject:OctagonFlagAttemptSOSConsistency];
-        [flags addObject:OctagonFlagAttemptBottleTLKExtraction];
-        [flags addObject:OctagonFlagAttemptRecoveryKeyTLKExtraction];
         [flags addObject:OctagonFlagSecureElementIdentityChanged];
         [flags addObject:OctagonFlagAttemptUserControllableViewStatusUpgrade];
         [flags addObject:OctagonFlagCheckOnRTCMetrics];
+        [flags addObject:OctagonFlagPendingNetworkAvailablity];
+        [flags addObject:OctagonFlagCheckTrustState];
+        [flags addObject:OctagonFlagAppleAccountSignedOut];
 
         f = flags;
     });

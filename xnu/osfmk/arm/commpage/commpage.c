@@ -49,6 +49,7 @@
 #include <vm/vm_protos.h>
 #include <ipc/ipc_port.h>
 #include <arm/cpuid.h>          /* for cpuid_info() & cache_info() */
+#include <arm/cpu_capabilities_public.h>
 #include <arm/misc_protos.h>
 #include <arm/rtclock.h>
 #include <libkern/OSAtomic.h>
@@ -110,6 +111,7 @@ extern int gARM_FEAT_DPB;
 extern int gARM_FEAT_DPB2;
 extern int gARM_FEAT_BF16;
 extern int gARM_FEAT_I8MM;
+extern int gARM_FEAT_WFxT;
 extern int gARM_FEAT_RPRES;
 extern int gARM_FEAT_ECV;
 extern int gARM_FEAT_LSE2;
@@ -122,6 +124,16 @@ extern int gARM_FEAT_FP16;
 extern int gARM_FEAT_SSBS;
 extern int gARM_FEAT_BTI;
 extern int gARM_FP_SyncExceptions;
+extern int gARM_FEAT_SME;
+extern int gARM_FEAT_SME2;
+extern int gARM_SME_F32F32;
+extern int gARM_SME_BI32I32;
+extern int gARM_SME_B16F32;
+extern int gARM_SME_F16F32;
+extern int gARM_SME_I8I32;
+extern int gARM_SME_I16I32;
+extern int gARM_FEAT_SME_F64F64;
+extern int gARM_FEAT_SME_I16I64;
 extern int gARM_FEAT_AFP;
 
 extern int      gUCNormalMem;
@@ -559,6 +571,9 @@ commpage_init_arm_optional_features_isar2(void)
 {
 	uint64_t isar2 = __builtin_arm_rsr64("ID_AA64ISAR2_EL1");
 
+	if ((isar2 & ID_AA64ISAR2_EL1_WFxT_MASK) >= ID_AA64ISAR2_EL1_WFxT_EN) {
+		gARM_FEAT_WFxT = 1;
+	}
 	if ((isar2 & ID_AA64ISAR2_EL1_RPRES_MASK) >= ID_AA64ISAR2_EL1_RPRES_EN) {
 		gARM_FEAT_RPRES = 1;
 	}
@@ -650,9 +665,70 @@ commpage_init_arm_optional_features_pfr1(uint64_t *commpage_bits)
 		gARM_FEAT_BTI = 1;
 	}
 
-#pragma unused(commpage_bits)
+	unsigned int sme_version = arm_sme_version();
+	if (sme_version >= 1) {
+		gARM_FEAT_SME = 1;
+		*commpage_bits |= kHasFeatSME;
+	}
+	if (sme_version >= 2) {
+		gARM_FEAT_SME2 = 1;
+		*commpage_bits |= kHasFeatSME2;
+	}
+
 }
 
+/**
+ * Initializes all commpage entries and sysctls for EL0 visible features in ID_AA64SMFR0_EL1
+ */
+__attribute__((target("sme")))
+static void
+commpage_init_arm_optional_features_smfr0(void)
+{
+	if (arm_sme_version() == 0) {
+		/*
+		 * We can safely read ID_AA64SMFR0_EL1 on SME-less devices.  But
+		 * arm_sme_version() == 0 could also mean that the user
+		 * defeatured SME with a boot-arg.
+		 */
+		return;
+	}
+
+	uint64_t smfr0 = __builtin_arm_rsr64("ID_AA64SMFR0_EL1");
+
+	/*
+	 * ID_AA64SMFR0_EL1 has to be parsed differently from other feature ID
+	 * registers.  See "Alternative ID scheme used for ID_AA64SMFR0_EL1" in
+	 * the ARM ARM.
+	 */
+
+	/* 1-bit fields */
+	if (smfr0 & ID_AA64SMFR0_EL1_F32F32_EN) {
+		gARM_SME_F32F32 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_BI32I32_EN) {
+		gARM_SME_BI32I32 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_B16F32_EN) {
+		gARM_SME_B16F32 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_F16F32_EN) {
+		gARM_SME_F16F32 = 1;
+	}
+	if (smfr0 & ID_AA64SMFR0_EL1_F64F64_EN) {
+		gARM_FEAT_SME_F64F64 = 1;
+	}
+
+	/* 4-bit fields (0 bits are ignored) */
+	if ((smfr0 & ID_AA64SMFR0_EL1_I8I32_EN) == ID_AA64SMFR0_EL1_I8I32_EN) {
+		gARM_SME_I8I32 = 1;
+	}
+	if ((smfr0 & ID_AA64SMFR0_EL1_I16I32_EN) == ID_AA64SMFR0_EL1_I16I32_EN) {
+		gARM_SME_I16I32 = 1;
+	}
+	if ((smfr0 & ID_AA64SMFR0_EL1_I16I64_EN) == ID_AA64SMFR0_EL1_I16I64_EN) {
+		gARM_FEAT_SME_I16I64 = 1;
+	}
+}
 
 static void
 commpage_init_arm_optional_features_mmfr1(uint64_t *commpage_bits)
@@ -726,6 +802,7 @@ commpage_init_arm_optional_features(uint64_t *commpage_bits)
 	commpage_init_arm_optional_features_mmfr2(commpage_bits);
 	commpage_init_arm_optional_features_pfr0(commpage_bits);
 	commpage_init_arm_optional_features_pfr1(commpage_bits);
+	commpage_init_arm_optional_features_smfr0();
 	commpage_init_arm_optional_features_fpcr(commpage_bits);
 }
 #endif /* __arm64__ */

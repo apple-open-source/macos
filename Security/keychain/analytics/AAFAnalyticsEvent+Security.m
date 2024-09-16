@@ -115,6 +115,30 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
     return YES;
 }
 
+#if __has_include(<AAAFoundation/AAAFoundation.h>)
++ (NSString* _Nullable)fetchDeviceSessionIDFromAuthKit:(NSString*)altDSID
+{
+    AKAccountManager *accountManager = [getAKAccountManagerClass() sharedInstance];
+
+    ACAccount* acAccount = nil;
+    if (altDSID == nil) {
+        acAccount = [accountManager primaryAuthKitAccount];
+    } else {
+        NSError* localError = nil;
+        acAccount = [accountManager authKitAccountWithAltDSID:altDSID error:&localError];
+        if (localError) {
+            secerror("authKitAccountWithAltDSID returned error: %@", localError);
+        }
+    }
+    if ([accountManager accountAccessTelemetryOptInForAccount:acAccount]) {
+        NSString* deviceSessionIDFromAuthKit = [accountManager telemetryDeviceSessionIDForAccount:acAccount];
+        return deviceSessionIDFromAuthKit;
+    }
+
+    return nil;
+}
+#endif
+
 - (instancetype)initWithKeychainCircleMetrics:(NSDictionary * _Nullable)metrics
                                       altDSID:(NSString * _Nullable)altDSID
                                        flowID:(NSString * _Nullable)flowID
@@ -159,17 +183,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
         if (deviceSessionID && [deviceSessionID isEqualToString:@""] == NO) {
             analyticsEvent[getkAAFDeviceSessionId()] = deviceSessionID;
         } else {
-            AKAccountManager *accountManager = [getAKAccountManagerClass() sharedInstance];
-            if (altDSID == nil) {
-                ACAccount* primaryAccount = [accountManager primaryAuthKitAccount];
-                altDSID = primaryAccount.aa_altDSID;
-            }
-            ACAccount* acAccount = [accountManager authKitAccountWithAltDSID:altDSID];
-
-            if ([accountManager accountAccessTelemetryOptInForAccount:acAccount]) {
-                NSString* deviceSessionIDFromAuthKit = [accountManager telemetryDeviceSessionIDForAccount:acAccount];
-                analyticsEvent[getkAAFDeviceSessionId()] = deviceSessionIDFromAuthKit;
-            }
+            analyticsEvent[getkAAFDeviceSessionId()] = [AAFAnalyticsEventSecurity fetchDeviceSessionIDFromAuthKit:altDSID];
         }
         
         if (metrics) {

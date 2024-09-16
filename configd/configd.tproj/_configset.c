@@ -50,7 +50,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFStringRef			storeSessionKey;
 
-	SC_trace("%s%s : %5d : %@",
+	SC_trace("%s%s : %5u : %@",
 		 internal ? "*set " : "set  ",
 		 storePrivate->useSessionKeys ? "t " : "  ",
 		 storePrivate->server,
@@ -81,7 +81,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	/*
 	 * Manage per-session keys.
 	 */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
+	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%u"), storePrivate->server);
 	if (storePrivate->useSessionKeys) {
 		if (newEntry) {
 			/*
@@ -239,7 +239,7 @@ _configset(mach_port_t			server,
 #ifdef	DEBUG
 		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-		SC_trace("!set %s : %5d : %@",
+		SC_trace("!set %s : %5u : %@",
 			 storePrivate->useSessionKeys ? "t " : "  ",
 			 storePrivate->server,
 			 key);
@@ -314,7 +314,7 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 	int				sc_status	= kSCStatusOK;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace("set m   : %5d : %ld set, %ld remove, %ld notify",
+	SC_trace("set m   : %5u : %ld set, %ld remove, %ld notify",
 		 storePrivate->server,
 		 keysToSet    ? CFDictionaryGetCount(keysToSet)    : 0,
 		 keysToRemove ? CFArrayGetCount     (keysToRemove) : 0,
@@ -443,7 +443,7 @@ _configset_m(mach_port_t		server,
 #ifdef	DEBUG
 				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-				SC_trace("!set m  : %5d : %@",
+				SC_trace("!set m  : %5u : %@",
 					 storePrivate->server,
 					 key);
 #endif	// DEBUG
@@ -474,7 +474,7 @@ _configset_m(mach_port_t		server,
 #ifdef	DEBUG
 				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-				SC_trace("!remove : %5d : %@",
+				SC_trace("!remove : %5u : %@",
 					 storePrivate->server,
 					 key);
 #endif	// DEBUG
@@ -498,7 +498,7 @@ _configset_m(mach_port_t		server,
 #ifdef	DEBUG
 				SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-				SC_trace("!notify : %5d : %@",
+				SC_trace("!notify : %5u : %@",
 					 storePrivate->server,
 					 key);
 #endif	// DEBUG

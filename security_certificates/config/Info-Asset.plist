@@ -3,25 +3,83 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.MobileAsset.PKITrustServices.PKITrustData</string>
+	<string>com.apple.MobileAsset.PKITrustStore</string>
 	<key>CFBundleName</key>
-	<string>PKI Trust Data</string>
+	<string>PKITrustStore</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>MobileAssetProperties</key>
 	<dict>
+		<key>__ContainsCryptexContents</key>
+		<true/>
+		<key>__RequiresPersonalization</key>
+		<true/>
 		<key>AssetSpecifier</key>
 		<string>PKITrustStore</string>
 		<key>AssetVersion</key>
 		<string>1.0.1.0.0,0</string>
 		<key>ContentVersion</key>
-		<integer>2024040500</integer>
+		<integer>2024051500</integer>
 		<key>__AssetDefaultGarbageCollectionBehavior</key>
 		<string>NeverCollected</string>
+		<key>_IsMAAutoAsset</key>
+		<true/>
+		<key>_OSVersionCompatibilities</key>
+		<dict>
+			<key>Apple TV</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+			<key>Apple Vision</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>2.0</string>
+			</dict>
+			<key>Apple Watch</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>11.0</string>
+			</dict>
+			<key>HomePod</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+			<key>Mac</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>15.0</string>
+			</dict>
+			<key>iPad</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+			<key>iPad Simulator</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+			<key>iPhone</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+			<key>iPhone Simulator</key>
+			<dict>
+				<key>_MinOSVersion</key>
+				<string>18.0</string>
+			</dict>
+		</dict>
+		<key>_PreSoftwareUpdateAssetStaging</key>
+		<true/>
 	</dict>
+	<key>_DisableAFSCCompression</key>
+	<true/>
 </dict>
 </plist>

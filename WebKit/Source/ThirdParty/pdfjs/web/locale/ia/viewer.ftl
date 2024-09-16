@@ -301,8 +301,23 @@ pdfjs-editor-ink-button-label = Designar
 pdfjs-editor-stamp-button =
     .title = Adder o rediger imagines
 pdfjs-editor-stamp-button-label = Adder o rediger imagines
-pdfjs-editor-remove-button =
-    .title = Remover
+pdfjs-editor-highlight-button =
+    .title = Evidentia
+pdfjs-editor-highlight-button-label = Evidentia
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Remover le designo
+pdfjs-editor-remove-freetext-button =
+    .title = Remover texto
+pdfjs-editor-remove-stamp-button =
+    .title = Remover imagine
+pdfjs-editor-remove-highlight-button =
+    .title = Remover evidentia
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Color
 pdfjs-editor-free-text-size-input = Dimension
@@ -312,6 +327,10 @@ pdfjs-editor-ink-opacity-input = Opacitate
 pdfjs-editor-stamp-add-image-button =
     .title = Adder imagine
 pdfjs-editor-stamp-add-image-button-label = Adder imagine
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Spissor
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Cambiar spissor evidentiante elementos differente de texto
 pdfjs-free-text =
     .aria-label = Editor de texto
 pdfjs-free-text-default-content = Comenciar a scriber…
@@ -349,3 +368,22 @@ pdfjs-editor-resizer-label-bottom-right = Angulo inferior dextre — redimension
 pdfjs-editor-resizer-label-bottom-middle = Medio inferior — redimensionar
 pdfjs-editor-resizer-label-bottom-left = Angulo inferior sinistre — redimensionar
 pdfjs-editor-resizer-label-middle-left = Medio sinistre — redimensionar
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Color pro evidentiar
+pdfjs-editor-colorpicker-button =
+    .title = Cambiar color
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Electiones del color
+pdfjs-editor-colorpicker-yellow =
+    .title = Jalne
+pdfjs-editor-colorpicker-green =
+    .title = Verde
+pdfjs-editor-colorpicker-blue =
+    .title = Blau
+pdfjs-editor-colorpicker-pink =
+    .title = Rosate
+pdfjs-editor-colorpicker-red =
+    .title = Rubie

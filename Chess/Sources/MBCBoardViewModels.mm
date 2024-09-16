@@ -1,9 +1,9 @@
 /*
 	File:		MBCBoardViewModels.mm
 	Contains:	Define OpenGL models for chess pieces
-	Copyright:	© 2002 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 	
-	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
+	Derived from glChess, Copyright Â© 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,

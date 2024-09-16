@@ -49,6 +49,8 @@ class ScopedMetalObjectRef : angle::NonCopyable
 
     T get() const { return mObject; }
 
+    operator bool() const { return !!mObject; }
+
     // auto cast to T
     operator T() const { return mObject; }
     ScopedMetalObjectRef(const ScopedMetalObjectRef &other)
@@ -110,6 +112,24 @@ using ScopedMetalCommandQueueRef = ScopedMetalObjectRef<id<MTLCommandQueue>>;
 
 }  // anonymous namespace
 
+bool IsDepthOrStencil(MTLPixelFormat format)
+{
+    switch (format)
+    {
+        case MTLPixelFormatDepth16Unorm:
+        case MTLPixelFormatDepth32Float:
+        case MTLPixelFormatStencil8:
+        case MTLPixelFormatDepth24Unorm_Stencil8:
+        case MTLPixelFormatDepth32Float_Stencil8:
+        case MTLPixelFormatX32_Stencil8:
+        case MTLPixelFormatX24_Stencil8:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 ScopedMetalTextureRef CreateMetalTexture2D(id<MTLDevice> deviceMtl,
                                            int width,
                                            int height,
@@ -123,6 +143,10 @@ ScopedMetalTextureRef CreateMetalTexture2D(id<MTLDevice> deviceMtl,
                                                                                        height:width
                                                                                     mipmapped:NO];
         desc.usage                 = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
+        if (IsDepthOrStencil(format))
+        {
+            desc.storageMode = MTLStorageModePrivate;
+        }
         if (arrayLength)
         {
             desc.arrayLength = arrayLength;
@@ -131,6 +155,40 @@ ScopedMetalTextureRef CreateMetalTexture2D(id<MTLDevice> deviceMtl,
         ScopedMetalTextureRef re([deviceMtl newTextureWithDescriptor:desc]);
         return re;
     }
+}
+
+id<MTLSharedEvent> CreateMetalSharedEvent(id<MTLDevice> deviceMtl)
+{
+    id<MTLSharedEvent> sharedEvent = [deviceMtl newSharedEvent];
+    sharedEvent.label              = @"TestSharedEvent";
+    return sharedEvent;
+}
+
+EGLSync CreateEGLSyncFromMetalSharedEvent(EGLDisplay display,
+                                          id<MTLSharedEvent> sharedEvent,
+                                          uint64_t signalValue,
+                                          bool signaled)
+{
+    EGLAttrib signalValueHi            = signalValue >> 32;
+    EGLAttrib signalValueLo            = signalValue & 0xffffffff;
+    std::vector<EGLAttrib> syncAttribs = {
+        EGL_SYNC_METAL_SHARED_EVENT_OBJECT_ANGLE,          reinterpret_cast<EGLAttrib>(sharedEvent),
+        EGL_SYNC_METAL_SHARED_EVENT_SIGNAL_VALUE_HI_ANGLE, signalValueHi,
+        EGL_SYNC_METAL_SHARED_EVENT_SIGNAL_VALUE_LO_ANGLE, signalValueLo};
+
+    if (signaled)
+    {
+        syncAttribs.push_back(EGL_SYNC_CONDITION);
+        syncAttribs.push_back(EGL_SYNC_METAL_SHARED_EVENT_SIGNALED_ANGLE);
+    }
+
+    syncAttribs.push_back(EGL_NONE);
+
+    EGLSync syncWithSharedEvent =
+        eglCreateSync(display, EGL_SYNC_METAL_SHARED_EVENT_ANGLE, syncAttribs.data());
+    EXPECT_NE(syncWithSharedEvent, EGL_NO_SYNC);
+
+    return syncWithSharedEvent;
 }
 
 class ImageTestMetal : public ANGLETest<>
@@ -211,6 +269,7 @@ class ImageTestMetal : public ANGLETest<>
 
         return CreateMetalTexture2D(device, width, height, format, arrayLength);
     }
+
     void getTextureSliceBytes(id<MTLTexture> texture,
                               unsigned bytesPerRow,
                               MTLRegion region,
@@ -270,15 +329,6 @@ class ImageTestMetal : public ANGLETest<>
                              mTextureUniformLocation);
     }
 
-    template <typename destType, typename sourcetype>
-    destType reinterpretHelper(sourcetype source)
-    {
-        static_assert(sizeof(destType) == sizeof(size_t),
-                      "destType should be the same size as a size_t");
-        size_t sourceSizeT = static_cast<size_t>(source);
-        return reinterpret_cast<destType>(sourceSizeT);
-    }
-
     void drawColorQuad(GLColor color)
     {
         ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::UniformColor());
@@ -289,6 +339,12 @@ class ImageTestMetal : public ANGLETest<>
         glUniform4fv(colorUniformLocation, 1, color.toNormalizedVector().data());
         drawQuad(program, essl1_shaders::PositionAttrib(), 0);
         glUseProgram(0);
+    }
+
+    bool hasDepth24Stencil8PixelFormat()
+    {
+        id<MTLDevice> device = getMtlDevice();
+        return device.depth24Stencil8PixelFormatSupported;
     }
 
     bool hasImageNativeMetalTextureExt() const
@@ -341,12 +397,12 @@ void ImageTestMetal::sourceMetalTarget2D_helper(GLubyte data[4],
     ASSERT_EGL_SUCCESS();
 
     // Write the data to the MTLTexture
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:0
-                          withBytes:data
-                        bytesPerRow:4
-                      bytesPerImage:0];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:0
+                    withBytes:data
+                  bytesPerRow:4
+                bytesPerImage:0];
 
     // Create a texture target to bind the egl image
     GLuint target;
@@ -425,26 +481,26 @@ TEST_P(ImageTestMetal, SourceMetalTarget2DArray)
     ScopedMetalTextureRef textureMtl = createMtlTexture2DArray(1, 1, 3, MTLPixelFormatRGBA8Unorm);
 
     GLubyte data0[4] = {93, 83, 75, 128};
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:0
-                          withBytes:data0
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:0
+                    withBytes:data0
+                  bytesPerRow:4
+                bytesPerImage:4];
     GLubyte data1[4] = {7, 51, 197, 231};
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:1
-                          withBytes:data1
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:1
+                    withBytes:data1
+                  bytesPerRow:4
+                bytesPerImage:4];
     GLubyte data2[4] = {33, 51, 44, 33};
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:2
-                          withBytes:data2
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:2
+                    withBytes:data2
+                  bytesPerRow:4
+                bytesPerImage:4];
 
     EGLDisplay display = getEGLWindow()->getDisplay();
     EGLImageKHR image0 =
@@ -485,12 +541,12 @@ TEST_P(ImageTestMetal, SourceMetalTarget2DArrayReleasedSourceOk)
     ScopedMetalTextureRef textureMtl = createMtlTexture2DArray(1, 1, 3, MTLPixelFormatRGBA8Unorm);
 
     GLubyte data1[4] = {7, 51, 197, 231};
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:1
-                          withBytes:data1
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:1
+                    withBytes:data1
+                  bytesPerRow:4
+                bytesPerImage:4];
 
     EGLDisplay display      = getEGLWindow()->getDisplay();
     const EGLint attribs1[] = {EGL_METAL_TEXTURE_ARRAY_SLICE_ANGLE, 1, EGL_NONE};
@@ -518,12 +574,12 @@ TEST_P(ImageTestMetal, DrawMetalTarget2D)
     EGLDisplay display = getEGLWindow()->getDisplay();
 
     ScopedMetalTextureRef textureMtl = createMtlTexture2D(1, 1, MTLPixelFormatRGBA8Unorm);
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:0
-                          withBytes:GLColor::red.data()
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:0
+                    withBytes:GLColor::red.data()
+                  bytesPerRow:4
+                bytesPerImage:4];
 
     EGLImageKHR image =
         eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
@@ -548,8 +604,7 @@ TEST_P(ImageTestMetal, DrawMetalTarget2D)
     EXPECT_EGL_SUCCESS();
 
     GLColor result;
-    getTextureSliceBytes(textureMtl.get(), 4, MTLRegionMake2D(0, 0, 1, 1), 0, 0,
-                         {result.data(), 4});
+    getTextureSliceBytes(textureMtl, 4, MTLRegionMake2D(0, 0, 1, 1), 0, 0, {result.data(), 4});
     EXPECT_EQ(result, GLColor::magenta);
 }
 
@@ -562,18 +617,18 @@ TEST_P(ImageTestMetal, DrawMetalTarget2DArray)
     EGLDisplay display = getEGLWindow()->getDisplay();
 
     ScopedMetalTextureRef textureMtl = createMtlTexture2DArray(1, 1, 2, MTLPixelFormatRGBA8Unorm);
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:0
-                          withBytes:GLColor::red.data()
-                        bytesPerRow:4
-                      bytesPerImage:4];
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:1
-                          withBytes:GLColor::red.data()
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:0
+                    withBytes:GLColor::red.data()
+                  bytesPerRow:4
+                bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:1
+                    withBytes:GLColor::red.data()
+                  bytesPerRow:4
+                bytesPerImage:4];
 
     const EGLint attribs[] = {EGL_METAL_TEXTURE_ARRAY_SLICE_ANGLE, 1, EGL_NONE};
     EGLImageKHR image =
@@ -599,8 +654,7 @@ TEST_P(ImageTestMetal, DrawMetalTarget2DArray)
     EXPECT_EGL_SUCCESS();
 
     GLColor result;
-    getTextureSliceBytes(textureMtl.get(), 4, MTLRegionMake2D(0, 0, 1, 1), 0, 1,
-                         {result.data(), 4});
+    getTextureSliceBytes(textureMtl, 4, MTLRegionMake2D(0, 0, 1, 1), 0, 1, {result.data(), 4});
     EXPECT_EQ(result, GLColor::magenta);
 }
 
@@ -628,18 +682,18 @@ TEST_P(ImageTestMetal, BlitMetalTarget2DArray)
     EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
 
     ScopedMetalTextureRef textureMtl = createMtlTexture2DArray(1, 1, 2, MTLPixelFormatRGBA8Unorm);
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:0
-                          withBytes:GLColor::red.data()
-                        bytesPerRow:4
-                      bytesPerImage:4];
-    [textureMtl.get() replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                        mipmapLevel:0
-                              slice:1
-                          withBytes:GLColor::red.data()
-                        bytesPerRow:4
-                      bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:0
+                    withBytes:GLColor::red.data()
+                  bytesPerRow:4
+                bytesPerImage:4];
+    [textureMtl replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                  mipmapLevel:0
+                        slice:1
+                    withBytes:GLColor::red.data()
+                  bytesPerRow:4
+                bytesPerImage:4];
 
     for (int slice = 0; slice < 2; ++slice)
     {
@@ -676,16 +730,477 @@ TEST_P(ImageTestMetal, BlitMetalTarget2DArray)
     EXPECT_EGL_SUCCESS();
 
     GLColor result;
-    getTextureSliceBytes(textureMtl.get(), 4, MTLRegionMake2D(0, 0, 1, 1), 0, 0,
-                         {result.data(), 4});
+    getTextureSliceBytes(textureMtl, 4, MTLRegionMake2D(0, 0, 1, 1), 0, 0, {result.data(), 4});
     EXPECT_EQ(result, GLColor::green);
-    getTextureSliceBytes(textureMtl.get(), 4, MTLRegionMake2D(0, 0, 1, 1), 0, 1,
-                         {result.data(), 4});
+    getTextureSliceBytes(textureMtl, 4, MTLRegionMake2D(0, 0, 1, 1), 0, 1, {result.data(), 4});
     EXPECT_EQ(result, GLColor::yellow);
 }
+
+// Tests that OpenGL can override the internal format for a texture bound with
+// Metal texture.
+TEST_P(ImageTestMetal, OverrideMetalTextureInternalFormat)
+{
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+    ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+    ANGLE_SKIP_TEST_IF(hasDepth24Stencil8PixelFormat());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    // On iOS devices, GL_DEPTH24_STENCIL8 is unavailable and is interally converted into
+    // GL_DEPTH32F_STENCIL8. This tests the ability to attach MTLPixelFormatDepth32Float_Stencil8
+    // and have GL treat it as GL_DEPTH24_STENCIL8 instead of GL_DEPTH32F_STENCIL8.
+    ScopedMetalTextureRef textureMtl =
+        createMtlTexture2DArray(1, 1, 1, MTLPixelFormatDepth32Float_Stencil8);
+    const EGLint attribs[] = {EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, GL_DEPTH24_STENCIL8, EGL_NONE};
+    EGLImageKHR image =
+        eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                          reinterpret_cast<EGLClientBuffer>(textureMtl.get()), attribs);
+    EXPECT_EGL_SUCCESS();
+    EXPECT_NE(image, nullptr);
+}
+
+// Tests that OpenGL can override the internal format for a texture bound with
+// Metal texture and that rendering to the texture is successful.
+TEST_P(ImageTestMetal, RenderingTest)
+{
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+    ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+    ANGLE_SKIP_TEST_IF(hasDepth24Stencil8PixelFormat());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    const int bufferSize = 32;
+    ScopedMetalTextureRef textureMtl =
+        createMtlTexture2DArray(bufferSize, bufferSize, 1, MTLPixelFormatDepth32Float_Stencil8);
+    const EGLint attribs[] = {EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, GL_DEPTH24_STENCIL8, EGL_NONE};
+    EGLImageKHR image =
+        eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                          reinterpret_cast<EGLClientBuffer>(textureMtl.get()), attribs);
+    EXPECT_EGL_SUCCESS();
+    EXPECT_NE(image, nullptr);
+
+    GLRenderbuffer colorBuffer;
+    glBindRenderbuffer(GL_RENDERBUFFER, colorBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, bufferSize, bufferSize);
+    EXPECT_GL_NO_ERROR();
+
+    GLRenderbuffer depthStencilBuffer;
+    glBindRenderbuffer(GL_RENDERBUFFER, depthStencilBuffer);
+    glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, image);
+    EXPECT_GL_NO_ERROR();
+
+    GLFramebuffer fb;
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer);
+    if (getClientMajorVersion() >= 3)
+    {
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                                  depthStencilBuffer);
+    }
+    else
+    {
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+                                  depthStencilBuffer);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                                  depthStencilBuffer);
+    }
+
+    EXPECT_GL_NO_ERROR();
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClearColor(1.f, 0.f, 0.f, 1.f);
+    glClearDepthf(1.f);
+    glClearStencil(0x55);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    EXPECT_GL_NO_ERROR();
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 0x55, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0xFF);
+
+    // Draw green.
+    ANGLE_GL_PROGRAM(drawGreen, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+    drawQuad(drawGreen, essl1_shaders::PositionAttrib(), 0.95f);
+
+    // Verify that green was drawn.
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(0, bufferSize - 1, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(bufferSize - 1, 0, GLColor::green);
+    EXPECT_PIXEL_COLOR_EQ(bufferSize - 1, bufferSize - 1, GLColor::green);
+
+    eglDestroyImageKHR(display, image);
+}
+
+// Tests that OpenGL override the with a bad internal format for a texture bound
+// with Metal texture fails.
+TEST_P(ImageTestMetal, OverrideMetalTextureInternalFormatBadFormat)
+{
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+    ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    // On iOS devices, GL_DEPTH24_STENCIL8 is unavailable and is interally converted into
+    // GL_DEPTH32F_STENCIL8. This tests the ability to attach MTLPixelFormatDepth32Float_Stencil8
+    // and have GL treat it as GL_DEPTH24_STENCIL8 instead of GL_DEPTH32F_STENCIL8.
+    ScopedMetalTextureRef textureMtl =
+        createMtlTexture2DArray(1, 1, 1, MTLPixelFormatDepth32Float_Stencil8);
+    const EGLint attribs[] = {EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, GL_TRIANGLES, EGL_NONE};
+    EGLImageKHR image =
+        eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                          reinterpret_cast<EGLClientBuffer>(textureMtl.get()), attribs);
+    EXPECT_EGL_ERROR(EGL_BAD_ATTRIBUTE);
+    EXPECT_EQ(image, nullptr);
+}
+
+// Tests that OpenGL override the with an incompatible internal format for a texture bound
+// with Metal texture fails.
+TEST_P(ImageTestMetal, OverrideMetalTextureInternalFormatIncompatibleFormat)
+{
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+    ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+
+    EGLDisplay display = getEGLWindow()->getDisplay();
+
+    // On iOS devices, GL_DEPTH24_STENCIL8 is unavailable and is interally converted into
+    // GL_DEPTH32F_STENCIL8. This tests the ability to attach MTLPixelFormatDepth32Float_Stencil8
+    // and have GL treat it as GL_DEPTH24_STENCIL8 instead of GL_DEPTH32F_STENCIL8.
+    ScopedMetalTextureRef textureMtl =
+        createMtlTexture2DArray(1, 1, 1, MTLPixelFormatDepth32Float_Stencil8);
+    const EGLint attribs[] = {EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, GL_RGBA8, EGL_NONE};
+    EGLImageKHR image =
+        eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                          reinterpret_cast<EGLClientBuffer>(textureMtl.get()), attribs);
+    EXPECT_EGL_ERROR(EGL_BAD_ATTRIBUTE);
+    EXPECT_EQ(image, nullptr);
+}
+
+// Test this scenario:
+// Metal and GL share the same MTL texture (called texture1).
+// GL Context draws to texture1:
+// - draw.
+// - upload texture2
+// - draw using the texture2 as source.
+// - place a sync object.
+//
+// Metal reads the texture1:
+// - wait for the shared event sync object.
+// - copy the texture1 to a buffer.
+// - The buffer should contain color from texture2 after being uploaded.
+//
+// Previously this would cause a bug in Metal backend because texture upload would
+// create a new blit encoder in a middle of a render pass and the command buffer would mistrack the
+// ongoing render encoder. Thus making the metal sync object being placed incorrectly.
+TEST_P(ImageTestMetal, SharedEventSyncWhenThereIsTextureUploadBetweenDraws)
+{
+    ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+    ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+
+    EGLDisplay display1 = getEGLWindow()->getDisplay();
+
+    ANGLE_SKIP_TEST_IF(getClientMajorVersion() < 3);
+    ANGLE_SKIP_TEST_IF(
+        !IsEGLDisplayExtensionEnabled(display1, "EGL_ANGLE_metal_shared_event_sync"));
+
+    @autoreleasepool
+    {
+        // Create MTLTexture
+        constexpr int kSharedTextureSize = 1024;
+        ScopedMetalTextureRef textureMtl =
+            createMtlTexture2D(kSharedTextureSize, kSharedTextureSize, MTLPixelFormatR32Sint);
+
+        // Create SharedEvent
+        id<MTLDevice> deviceMtl           = getMtlDevice();
+        id<MTLSharedEvent> sharedEventMtl = CreateMetalSharedEvent(deviceMtl);
+
+        // -------------------------- Metal ---------------------------
+        // Create a buffer on Metal to store the final value.
+        ScopedMetalBufferRef dstBuffer(
+            [deviceMtl newBufferWithLength:sizeof(float) options:MTLResourceStorageModeShared]);
+        ScopedMetalCommandQueueRef commandQueue([deviceMtl newCommandQueue]);
+        id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
+
+        // Wait for drawing on GL context to finish on server side.
+        // Note: we issue a wait even before the draw calls are issued on GL context.
+        // GL context will issue a signaling later (see below).
+        constexpr uint64_t kSignalValue = 0xff;
+        [commandBuffer encodeWaitForEvent:sharedEventMtl value:kSignalValue];
+
+        // Copy a pixel from texture1 to dstBuffer
+        id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
+        [blitEncoder copyFromTexture:textureMtl
+                         sourceSlice:0
+                         sourceLevel:0
+                        sourceOrigin:MTLOriginMake(kSharedTextureSize - 1, kSharedTextureSize - 2,
+                                                   0)
+                          sourceSize:MTLSizeMake(1, 1, 1)
+                            toBuffer:dstBuffer
+                   destinationOffset:0
+              destinationBytesPerRow:sizeof(float) * kSharedTextureSize
+            destinationBytesPerImage:0];
+        [blitEncoder endEncoding];
+        [commandBuffer commit];
+
+        // -------------------------- GL context ---------------------------
+        constexpr int kNumValues = 1000;
+        // A deliberately slow shader that reads a texture many times then write
+        // the sum value to an ouput varible.
+        constexpr char kFS[] = R"(#version 300 es
+out highp ivec4 outColor;
+
+uniform highp isampler2D u_valuesTex;
+
+void main()
+{
+    highp int value = 0;
+    for (int i = 0; i < 1000; ++i) {
+        highp float uCoords = (float(i) + 0.5) / float(1000);
+        value += textureLod(u_valuesTex, vec2(uCoords, 0.0), 0.0).r;
+    }
+
+    outColor = ivec4(value);
+})";
+
+        ANGLE_GL_PROGRAM(complexProgram, essl3_shaders::vs::Simple(), kFS);
+        GLint valuesTexLocation = glGetUniformLocation(complexProgram, "u_valuesTex");
+        ASSERT_NE(valuesTexLocation, -1);
+
+        // Create the shared texture from MTLTexture.
+        EGLImageKHR image =
+            eglCreateImageKHR(display1, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                              reinterpret_cast<EGLClientBuffer>(textureMtl.get()), kDefaultAttribs);
+        EXPECT_EGL_SUCCESS();
+        GLTexture texture1;
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+        EXPECT_GL_ERROR(GL_NO_ERROR);
+        glViewport(0, 0, kSharedTextureSize, kSharedTextureSize);
+
+        // Create texture holding multiple values to be accumulated in shader.
+        GLTexture texture2;
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, kNumValues, 1, 0, GL_RED_INTEGER, GL_INT, nullptr);
+        glFlush();
+        EXPECT_GL_ERROR(GL_NO_ERROR);
+
+        // Using GL context to draw to the texture1
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        GLFramebuffer framebuffer1;
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer1);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture1, 0);
+
+        // First draw with initial color
+        {
+            constexpr char kSimpleFS[] = R"(#version 300 es
+out highp ivec4 outColor;
+
+void main()
+{
+    outColor = ivec4(1);
+})";
+            ANGLE_GL_PROGRAM(colorProgram, angle::essl3_shaders::vs::Simple(), kSimpleFS);
+            drawQuad(colorProgram, angle::essl3_shaders::PositionAttrib(), 0.5f);
+        }
+
+        // Upload the texture2
+        std::vector<int32_t> values(kNumValues);
+        for (size_t i = 0; i < values.size(); ++i)
+        {
+            values[i] = i;
+        }
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kNumValues, 1, GL_RED_INTEGER, GL_INT,
+                        values.data());
+
+        // 2nd draw call draw the texture2 to texture1.
+        glUseProgram(complexProgram);
+        drawQuad(complexProgram, angle::essl1_shaders::PositionAttrib(), 0.5f);
+
+        // Place a sync object on GL context's commands stream.
+        EGLSync syncGL = CreateEGLSyncFromMetalSharedEvent(display1, sharedEventMtl, kSignalValue,
+                                                           /*signaled=*/false);
+        glFlush();
+
+        // -------------------------- Metal ---------------------------
+        [commandBuffer waitUntilCompleted];
+
+        // Read dstBuffer
+        const int32_t kExpectedSum = kNumValues * (kNumValues - 1) / 2;
+        int32_t *mappedInts        = static_cast<int32_t *>(dstBuffer.get().contents);
+        EXPECT_EQ(mappedInts[0], kExpectedSum);
+
+        eglDestroySync(display1, syncGL);
+        eglDestroyImage(display1, image);
+
+    }  // @autoreleasepool
+}
+
+class ImageClearTestMetal : public ImageTestMetal
+{
+  protected:
+    ImageClearTestMetal() : ImageTestMetal() {}
+
+    void RunUnsizedClearTest(MTLPixelFormat format)
+    {
+        ANGLE_SKIP_TEST_IF(!hasOESExt() || !hasBaseExt());
+        ANGLE_SKIP_TEST_IF(!hasImageNativeMetalTextureExt());
+
+        EGLWindow *window  = getEGLWindow();
+        EGLDisplay display = window->getDisplay();
+
+        window->makeCurrent();
+
+        const GLint bufferSize = 32;
+        ScopedMetalTextureRef textureMtl =
+            createMtlTexture2DArray(bufferSize, bufferSize, 1, format);
+        EXPECT_TRUE(textureMtl);
+
+        EGLint internalFormat = GL_NONE;
+        switch (format)
+        {
+            case MTLPixelFormatR8Unorm:
+            case MTLPixelFormatR16Unorm:
+                internalFormat = GL_RED_EXT;
+                break;
+            case MTLPixelFormatRG8Unorm:
+            case MTLPixelFormatRG16Unorm:
+                internalFormat = GL_RG_EXT;
+                break;
+            case MTLPixelFormatRGBA8Unorm:
+            case MTLPixelFormatRGBA16Float:
+            case MTLPixelFormatRGB10A2Unorm:
+                internalFormat = GL_RGBA;
+                break;
+            case MTLPixelFormatRGBA8Unorm_sRGB:
+                internalFormat = GL_SRGB_ALPHA_EXT;
+                break;
+            case MTLPixelFormatBGRA8Unorm:
+                internalFormat = GL_BGRA_EXT;
+                break;
+            default:
+                break;
+        }
+
+        const EGLint attribs[] = {EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, internalFormat, EGL_NONE};
+
+        EGLImageKHR image =
+            eglCreateImageKHR(display, EGL_NO_CONTEXT, EGL_METAL_TEXTURE_ANGLE,
+                              reinterpret_cast<EGLClientBuffer>(textureMtl.get()), attribs);
+        ASSERT_EGL_SUCCESS();
+        ASSERT_NE(image, EGL_NO_IMAGE_KHR);
+
+        GLTexture texture;
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        EXPECT_GL_NO_ERROR();
+
+        glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+        EXPECT_GL_NO_ERROR();
+
+        GLFramebuffer fbo;
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+        EXPECT_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER),
+                  static_cast<unsigned>(GL_FRAMEBUFFER_COMPLETE));
+        EXPECT_GL_NO_ERROR();
+
+        glViewport(0, 0, static_cast<GLsizei>(bufferSize), static_cast<GLsizei>(bufferSize));
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ASSERT_GL_NO_ERROR();
+
+        if (format == MTLPixelFormatRGBA16Float)
+        {
+            EXPECT_PIXEL_32F_EQ(bufferSize / 2, bufferSize / 2, 1.0f, 1.0f, 1.0f, 1.0f);
+        }
+        else
+        {
+            GLuint readColor[4] = {0, 0, 0, 255};
+            switch (format)
+            {
+                case MTLPixelFormatR8Unorm:
+                case MTLPixelFormatR16Unorm:
+                    readColor[0] = 255;
+                    break;
+                case MTLPixelFormatRG8Unorm:
+                case MTLPixelFormatRG16Unorm:
+                    readColor[0] = readColor[1] = 255;
+                    break;
+                case MTLPixelFormatRGBA8Unorm:
+                case MTLPixelFormatRGB10A2Unorm:
+                case MTLPixelFormatRGBA16Float:
+                case MTLPixelFormatRGBA8Unorm_sRGB:
+                case MTLPixelFormatBGRA8Unorm:
+                    readColor[0] = readColor[1] = readColor[2] = 255;
+                    break;
+                default:
+                    break;
+            }
+            // Read back as GL_UNSIGNED_BYTE even though the texture might have more than 8bpc.
+            EXPECT_PIXEL_EQ(bufferSize / 2, bufferSize / 2, readColor[0], readColor[1],
+                            readColor[2], readColor[3]);
+        }
+    }
+};
+
+TEST_P(ImageClearTestMetal, ClearUnsizedRGBA8)
+{
+    RunUnsizedClearTest(MTLPixelFormatRGBA8Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedsRGBA8)
+{
+    RunUnsizedClearTest(MTLPixelFormatRGBA8Unorm_sRGB);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedBGRA8)
+{
+    RunUnsizedClearTest(MTLPixelFormatBGRA8Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedR8)
+{
+    RunUnsizedClearTest(MTLPixelFormatR8Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedRG8)
+{
+    RunUnsizedClearTest(MTLPixelFormatRG8Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedRGB10A2)
+{
+    RunUnsizedClearTest(MTLPixelFormatRGB10A2Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedRGBAF16)
+{
+    RunUnsizedClearTest(MTLPixelFormatRGBA16Float);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedR16)
+{
+    RunUnsizedClearTest(MTLPixelFormatR16Unorm);
+}
+
+TEST_P(ImageClearTestMetal, ClearUnsizedRG16)
+{
+    RunUnsizedClearTest(MTLPixelFormatRG16Unorm);
+}
+
 // Use this to select which configurations (e.g. which renderer, which GLES major version) these
 // tests should be run against.
 ANGLE_INSTANTIATE_TEST(ImageTestMetal, ES2_METAL(), ES3_METAL());
-
+ANGLE_INSTANTIATE_TEST(ImageClearTestMetal, ES2_METAL(), ES3_METAL());
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ImageTestMetal);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ImageClearTestMetal);
 }  // namespace angle

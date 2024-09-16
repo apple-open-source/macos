@@ -81,6 +81,10 @@
  * if you don't */
 #define HAVE_DECL_VQ_FREE_SPACE_CHANGE 1
 
+/* Define to 1 if you have the declaration of `VQ_PURGEABLE_SPACE_CHANGE`, and to 0
+ * if you don't */
+#define HAVE_DECL_VQ_PURGEABLE_SPACE_CHANGE 1
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 

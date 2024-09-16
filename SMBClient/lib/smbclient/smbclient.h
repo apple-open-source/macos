@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -311,6 +311,28 @@ typedef struct SMBShareAttributes
     uint32_t    ss_caps;
     uint32_t    ss_attrs;
     uint16_t	ss_fstype;
+    
+    /* Compression */
+    uint32_t    client_compression_algorithms_map;
+    uint32_t    server_compression_algorithms_map;
+    uint32_t    compression_io_threshold;
+    uint32_t    compression_chunk_len;
+    uint32_t    compression_max_fail_cnt;
+
+    uint64_t    write_compress_cnt;
+    uint64_t    write_cnt_LZ77Huff;
+    uint64_t    write_cnt_LZ77;
+    uint64_t    write_cnt_LZNT1;
+    uint64_t    write_cnt_fwd_pattern;
+    uint64_t    write_cnt_bwd_pattern;
+    
+    uint64_t    read_compress_cnt;
+    uint64_t    read_cnt_LZ77Huff;
+    uint64_t    read_cnt_LZ77;
+    uint64_t    read_cnt_LZNT1;
+    uint64_t    read_cnt_fwd_pattern;
+    uint64_t    read_cnt_bwd_pattern;
+
     char		server_name[kMaxSrvNameLen];
     char        snapshot_time[32];
 

@@ -1050,7 +1050,13 @@ static const CFRuntimeClass __SCBondStatusClass = {
 	__SCBondStatusEqual,		// equal
 	NULL,				// hash
 	NULL,				// copyFormattingDesc
-	__SCBondStatusCopyDescription	// copyDebugDesc
+	__SCBondStatusCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 

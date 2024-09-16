@@ -35,12 +35,12 @@
 #include "DOMTimer.h"
 #include "DatabaseContext.h"
 #include "Document.h"
+#include "EmptyScriptExecutionContext.h"
 #include "ErrorEvent.h"
 #include "FontLoadRequest.h"
 #include "FrameDestructionObserverInlines.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMPromiseDeferred.h"
-#include "JSLocalDOMWindow.h"
 #include "JSWorkerGlobalScope.h"
 #include "JSWorkletGlobalScope.h"
 #include "LegacySchemeRegistry.h"
@@ -85,6 +85,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 using namespace Inspector;
@@ -117,8 +118,9 @@ public:
     RefPtr<ScriptCallStack> m_callStack;
 };
 
-ScriptExecutionContext::ScriptExecutionContext(ScriptExecutionContextIdentifier contextIdentifier)
+ScriptExecutionContext::ScriptExecutionContext(Type type, ScriptExecutionContextIdentifier contextIdentifier)
     : m_identifier(contextIdentifier ? contextIdentifier : ScriptExecutionContextIdentifier::generate())
+    , m_type(type)
 {
 }
 
@@ -286,14 +288,14 @@ void ScriptExecutionContext::forEachActiveDOMObject(const Function<ShouldContinu
     SetForScope activeDOMObjectAdditionForbiddenScope(m_activeDOMObjectAdditionForbidden, true);
 
     // Make a frozen copy of the objects so we can iterate while new ones might be destroyed.
-    auto possibleActiveDOMObjects = copyToVector(m_activeDOMObjects);
+    auto possibleActiveDOMObjects = copyToVectorOf<RefPtr<ActiveDOMObject>>(m_activeDOMObjects);
 
-    for (auto* activeDOMObject : possibleActiveDOMObjects) {
+    for (auto& activeDOMObject : possibleActiveDOMObjects) {
         // Check if this object was deleted already. If so, just skip it.
         // Calling contains on a possibly-already-deleted object is OK because we guarantee
         // no new object can be added, so even if a new object ends up allocated with the
         // same address, that will be *after* this function exits.
-        if (!m_activeDOMObjects.contains(activeDOMObject))
+        if (!m_activeDOMObjects.contains(activeDOMObject.get()))
             continue;
 
         if (apply(*activeDOMObject) == ShouldContinue::No)
@@ -395,6 +397,10 @@ void ScriptExecutionContext::stopActiveDOMObjects()
         return ShouldContinue::Yes;
     });
     m_deferredPromises.clear();
+
+    m_nativePromiseRequests.forEach([] (auto& request) {
+        request.disconnect();
+    });
 }
 
 void ScriptExecutionContext::suspendActiveDOMObjectIfNeeded(ActiveDOMObject& activeDOMObject)
@@ -495,7 +501,7 @@ void ScriptExecutionContext::reportUnhandledPromiseRejection(JSC::JSGlobalObject
 
     auto tryMakeErrorString = [&] (unsigned length) -> String {
         bool addEllipsis = length != resultMessage.length();
-        return tryMakeString("Unhandled Promise Rejection: ", StringView(resultMessage).left(length), addEllipsis ? "..." : "");
+        return tryMakeString("Unhandled Promise Rejection: "_s, StringView(resultMessage).left(length), addEllipsis ? "..."_s : ""_s);
     };
 
     if (!!resultMessage && !scope.exception()) {
@@ -791,7 +797,7 @@ void ScriptExecutionContext::postTaskToResponsibleDocument(Function<void(Documen
         return;
     }
 
-    if (auto document = downcast<WorkletGlobalScope>(this)->responsibleDocument())
+    if (auto document = downcast<WorkletGlobalScope>(*this).responsibleDocument())
         callback(*document);
 }
 
@@ -854,6 +860,105 @@ RefPtr<DeferredPromise> ScriptExecutionContext::takeDeferredPromise(DeferredProm
 CheckedRef<EventLoopTaskGroup> ScriptExecutionContext::checkedEventLoop()
 {
     return eventLoop();
+}
+
+void ScriptExecutionContext::ref()
+{
+    switch (m_type) {
+    case Type::Document:
+        uncheckedDowncast<Document>(*this).ref();
+        break;
+    case Type::WorkerOrWorkletGlobalScope:
+        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).ref();
+        break;
+    case Type::EmptyScriptExecutionContext:
+        uncheckedDowncast<EmptyScriptExecutionContext>(*this).ref();
+        break;
+    }
+}
+
+void ScriptExecutionContext::deref()
+{
+    switch (m_type) {
+    case Type::Document:
+        uncheckedDowncast<Document>(*this).deref();
+        break;
+    case Type::WorkerOrWorkletGlobalScope:
+        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).deref();
+        break;
+    case Type::EmptyScriptExecutionContext:
+        uncheckedDowncast<EmptyScriptExecutionContext>(*this).deref();
+        break;
+    }
+}
+
+void ScriptExecutionContext::refAllowingPartiallyDestroyed()
+{
+    switch (m_type) {
+    case Type::Document:
+        uncheckedDowncast<Document>(*this).refAllowingPartiallyDestroyed();
+        break;
+    case Type::WorkerOrWorkletGlobalScope:
+        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).refAllowingPartiallyDestroyed();
+        break;
+    case Type::EmptyScriptExecutionContext:
+        uncheckedDowncast<EmptyScriptExecutionContext>(*this).refAllowingPartiallyDestroyed();
+        break;
+    }
+}
+
+void ScriptExecutionContext::derefAllowingPartiallyDestroyed()
+{
+    switch (m_type) {
+    case Type::Document:
+        uncheckedDowncast<Document>(*this).derefAllowingPartiallyDestroyed();
+        break;
+    case Type::WorkerOrWorkletGlobalScope:
+        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).derefAllowingPartiallyDestroyed();
+        break;
+    case Type::EmptyScriptExecutionContext:
+        uncheckedDowncast<EmptyScriptExecutionContext>(*this).derefAllowingPartiallyDestroyed();
+        break;
+    }
+}
+
+class ScriptExecutionContextDispatcher final
+    : public ThreadSafeRefCounted<ScriptExecutionContextDispatcher>
+    , public RefCountedSerialFunctionDispatcher {
+public:
+    static Ref<ScriptExecutionContextDispatcher> create(ScriptExecutionContext& context) { return adoptRef(*new ScriptExecutionContextDispatcher(context)); }
+
+    // RefCountedSerialFunctionDispatcher
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
+
+private:
+    explicit ScriptExecutionContextDispatcher(ScriptExecutionContext& context)
+        : m_identifier(context.identifier())
+        , m_threadId(context.isWorkerGlobalScope() ? Thread::current().uid() : 1)
+    {
+    }
+
+    // RefCountedSerialFunctionDispatcher
+    void dispatch(Function<void()>&& callback) final
+    {
+        if (m_threadId == 1) {
+            callOnMainThread(WTFMove(callback));
+            return;
+        }
+        ScriptExecutionContext::postTaskTo(m_identifier, WTFMove(callback));
+    }
+    bool isCurrent() const final { return m_threadId == Thread::current().uid(); }
+
+    ScriptExecutionContextIdentifier m_identifier;
+    const uint32_t m_threadId { 1 };
+};
+
+RefCountedSerialFunctionDispatcher& ScriptExecutionContext::nativePromiseDispatcher()
+{
+    if (!m_nativePromiseDispatcher)
+        m_nativePromiseDispatcher = ScriptExecutionContextDispatcher::create(*this);
+    return *m_nativePromiseDispatcher;
 }
 
 WebCoreOpaqueRoot root(ScriptExecutionContext* context)

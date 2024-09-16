@@ -37,47 +37,9 @@ install-plist:
 	chmod -R ug-s $(DSTROOT)/usr/*bin
 
 
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 1.07
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = PR-3996371-conf.diff \
-	         PR-4883535.patch \
-		 PR-4383204.patch \
-		 PR-4905054.manpages.patch \
-		 rdar-25537031-fix-uuconv.c.diff \
-		 PR-59291737.patch \
-		 PR-95279817.patch \
-		 PR-103584104.patch
-
-AEP_SubDir     = uucp
-AEP_TarDir     := $(shell pwd)
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
-
-
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(AEP_TarDir)/$(AEP_Filename)
-	-$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	ls $(SRCROOT)/$(Project)
-	for patchfile in $(AEP_Patches); do \
-	    cd $(SRCROOT)/$(Project) && patch -p0 < $(AEP_TarDir)/patches/$$patchfile; \
-	done
-	for newfile in $(shell find $(AEP_TarDir)/new -maxdepth 1 -type f); do \
-	    echo copying $$newfile; \
-	    cp -v $$newfile $(SRCROOT)/$(Project)/; \
-	done
-endif
+
 
 install::
 	chgrp -R wheel $(DSTROOT)

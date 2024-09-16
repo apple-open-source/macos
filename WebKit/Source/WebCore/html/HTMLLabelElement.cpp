@@ -123,14 +123,14 @@ void HTMLLabelElement::setHovered(bool over, Style::InvalidationScope invalidati
 
 bool HTMLLabelElement::isEventTargetedAtInteractiveDescendants(Event& event) const
 {
-    auto* node = dynamicDowncast<Node>(*event.target());
+    RefPtr node = dynamicDowncast<Node>(*event.target());
     if (!node)
         return false;
 
-    if (!containsIncludingShadowDOM(node))
+    if (!containsIncludingShadowDOM(node.get()))
         return false;
 
-    for (const auto* it = node; it && it != this; it = it->parentElementInComposedTree()) {
+    for (const auto* it = node.get(); it && it != this; it = it->parentElementInComposedTree()) {
         auto* element = dynamicDowncast<HTMLElement>(*it);
         if (element && element->isInteractiveContent())
             return true;
@@ -183,8 +183,9 @@ bool HTMLLabelElement::willRespondToMouseClickEventsWithEditability(Editability 
 void HTMLLabelElement::focus(const FocusOptions& options)
 {
     Ref<HTMLLabelElement> protectedThis(*this);
-    if (document().haveStylesheetsLoaded()) {
-        document().updateLayout();
+    auto document = protectedDocument();
+    if (document->haveStylesheetsLoaded()) {
+        document->updateLayout();
         if (isFocusable()) {
             // The value of restorationMode is not used for label elements as it doesn't override updateFocusAppearance.
             Element::focus(options);
@@ -216,6 +217,20 @@ auto HTMLLabelElement::insertedIntoAncestor(InsertionType insertionType, Contain
     }
 
     return result;
+}
+
+void HTMLLabelElement::updateLabel(TreeScope& scope, const AtomString& oldForAttributeValue, const AtomString& newForAttributeValue)
+{
+    if (!isConnected())
+        return;
+
+    if (oldForAttributeValue == newForAttributeValue)
+        return;
+
+    if (!oldForAttributeValue.isEmpty())
+        scope.removeLabel(oldForAttributeValue, *this);
+    if (!newForAttributeValue.isEmpty())
+        scope.addLabel(newForAttributeValue, *this);
 }
 
 void HTMLLabelElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)

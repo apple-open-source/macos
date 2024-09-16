@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,7 +48,7 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/inet.h> /* has inet_ntoa, etc. */
+#include <arpa/inet.h> /* has inet_ntop, etc. */
 
 #include "inetroute.h"
 #include "cfutil.h"
@@ -209,7 +209,8 @@ inetroute_default(inetroute_list_t * list_p)
 void
 inetroute_list_print_cfstr(CFMutableStringRef str, inetroute_list_t * list_p)
 {
-    int i;
+    int 	i;
+    char	ntopbuf[INET_ADDRSTRLEN];
 
     for (i = 0; i < list_p->count; i++) {
 	inetroute_t * entry = list_p->list + i;
@@ -222,7 +223,8 @@ inetroute_list_print_cfstr(CFMutableStringRef str, inetroute_list_t * list_p)
 	else {
 	    STRING_APPEND(str, "%s ==> %s\n", 
 			  inet_nettoa(entry->dest, entry->mask),
-			  inet_ntoa(entry->gateway.inet.sin_addr));
+			  inet_ntop(AF_INET, &entry->gateway.inet.sin_addr,
+				    ntopbuf, sizeof(ntopbuf)));
 	}
     }
 }
@@ -244,6 +246,7 @@ main()
 {
     inetroute_list_t *	list_p;
     struct in_addr *	def;
+    char		ntopbuf[INET_ADDRSTRLEN];
 
     list_p = inetroute_list_init();
     if (list_p == NULL)
@@ -251,7 +254,8 @@ main()
     inetroute_list_print(list_p);
     def = inetroute_default(list_p);
     if (def) {
-	printf("default route: %s\n", inet_ntoa(*def));
+	printf("default route: %s\n",
+	       inet_ntop(AF_INET, def, ntopbuf, sizeof(ntopbuf)));
     }
     inetroute_list_free(&list_p);
     exit(0);

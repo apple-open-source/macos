@@ -26,8 +26,6 @@
 #include "config.h"
 #include "DOMCSSPaintWorklet.h"
 
-#if ENABLE(CSS_PAINTING_API)
-
 #include "DOMCSSNamespace.h"
 #include "Document.h"
 #include "JSDOMPromiseDeferred.h"
@@ -54,9 +52,9 @@ DOMCSSPaintWorklet* DOMCSSPaintWorklet::from(DOMCSSNamespace& css)
     return supplement;
 }
 
-const char* DOMCSSPaintWorklet::supplementName()
+ASCIILiteral DOMCSSPaintWorklet::supplementName()
 {
-    return "DOMCSSPaintWorklet";
+    return "DOMCSSPaintWorklet"_s;
 }
 
 // FIXME: Get rid of this override and rely on the standard-compliant Worklet::addModule() instead.
@@ -91,5 +89,4 @@ Vector<Ref<WorkletGlobalScopeProxy>> PaintWorklet::createGlobalScopes()
     return { };
 }
 
-}
-#endif
+} // namespace WebCore

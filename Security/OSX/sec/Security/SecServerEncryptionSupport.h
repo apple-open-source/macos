@@ -22,7 +22,7 @@ CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef data
 //
 // For testing
 //
-/* Caution: These functions take an iOS SecKeyRef. Careful use is required on OS X. */
+/* Caution: These functions take an iOS SecKeyRef. Careful use is required on macOS. */
 CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef encryptedData, CFErrorRef* error)
     API_DEPRECATED("Migrate to SecKeyCreateEncryptedData with kSecKeyAlgorithmECIESEncryptionStandardVariableIV* or Security Foundation SFIESOperation for improved security (encryption is not compatible)", macos(10.12,10.13), ios(8.0,11.0));
 // SFIESCiphertext

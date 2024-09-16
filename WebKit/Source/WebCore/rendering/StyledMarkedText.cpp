@@ -73,6 +73,9 @@ static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, 
     // FIXME: See <rdar://problem/8933352>. Also, remove the PLATFORM(IOS_FAMILY)-guard.
     case MarkedText::Type::DictationPhraseWithAlternatives:
 #endif
+#if ENABLE(WRITING_TOOLS)
+    case MarkedText::Type::WritingToolsTextSuggestion:
+#endif
     case MarkedText::Type::Unmarked:
         break;
     case MarkedText::Type::GrammarError: {
@@ -104,6 +107,9 @@ static StyledMarkedText resolveStyleForMarkedText(const MarkedText& markedText, 
 #endif
     case MarkedText::Type::DraggedContent:
         style.alpha = 0.25;
+        break;
+    case MarkedText::Type::TransparentContent:
+        style.alpha = 0.0;
         break;
     case MarkedText::Type::Selection: {
         style.textStyles = computeTextSelectionPaintStyle(style.textStyles, renderer, lineStyle, paintInfo, style.textShadow);

@@ -30,6 +30,7 @@
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"
 #import <OctagonTrust/OTEscrowRecordMetadata.h>
 #import <OctagonTrust/OTEscrowRecordMetadataClientMetadata.h>
+#import <OctagonTrust/OTEscrowRecordMetadataPasscodeGeneration.h>
 #import <Security/OTConstants.h>
 #import "keychain/ot/OTClique+Private.h"
 #import <utilities/debugging.h>
@@ -63,6 +64,8 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordLabelKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowedSPKIKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBottleIDKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSerialNumberKey, NSString*);
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPasscodeGenerationKey, NSString*);
+SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBuildVersionKey, NSString*);
 
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesComplexPassphraseKey, NSString*);
 SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesNumericPassphraseKey, NSString*);
@@ -231,6 +234,12 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     metadata.escrowedSpki = dictionary[getkSecureBackupEscrowedSPKIKey()];
     metadata.peerInfo = dictionary[getkSecureBackupPeerInfoDataKey()];
     metadata.serial = dictionary[getkSecureBackupSerialNumberKey()];
+    metadata.build = dictionary[getkSecureBackupBuildVersionKey()];
+    if (dictionary[getkSecureBackupPasscodeGenerationKey()]) {
+        metadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
+        NSNumber* passcodeGeneration = dictionary[getkSecureBackupPasscodeGenerationKey()];
+        metadata.passcodeGeneration.value = [passcodeGeneration longLongValue];
+    }
 
     NSDictionary* escrowInformationMetadataClientMetadata = dictionary[getkSecureBackupClientMetadataKey()];
     metadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
@@ -302,6 +311,10 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     dictionary[getkSecureBackupEscrowedSPKIKey()] = metadata.escrowedSpki;
     dictionary[getkSecureBackupPeerInfoDataKey()] = metadata.peerInfo;
     dictionary[getkSecureBackupSerialNumberKey()] = metadata.serial;
+    dictionary[getkSecureBackupBuildVersionKey()] = metadata.build;
+    if (metadata.passcodeGeneration.hasValue) {
+        dictionary[getkSecureBackupPasscodeGenerationKey()] = @(metadata.passcodeGeneration.value);
+    }
     dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDevicePlatform] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.devicePlatform];
     dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupMetadataTimestampKey] = [OTEscrowTranslation _stringWithSecureBackupDate: [NSDate dateWithTimeIntervalSince1970: metadata.clientMetadata.secureBackupMetadataTimestamp]];
     dictionary[getkSecureBackupClientMetadataKey()][getkSecureBackupNumericPassphraseLengthKey()] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupNumericPassphraseLength];

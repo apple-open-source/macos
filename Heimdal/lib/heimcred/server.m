@@ -264,7 +264,7 @@ static void debugTrace(os_log_t logger, xpc_object_t event, uid_t sessionID, NSS
 	}
     }
 
-    os_log_debug(logger, "%@: %d, %@, %@", message, sessionID, source, objectDictionary);
+    os_log_debug(logger, "%@: %u, %@, %@", message, sessionID, source, objectDictionary);
 }
 
 static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)

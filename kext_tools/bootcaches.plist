@@ -84,10 +84,8 @@
         <integer>1</integer>
         <key>SupportsPairedRecovery</key>
         <true/>
-        <key>RestoreBundlePath</key>
-        <string>./Restore</string>
-        <key>BuildManifestPath</key>
-        <string>./Restore/BuildManifest.plist</string>
+        <key>SupportsExternalPrebootObjects</key>
+        <true/>
         <key>OtherRequiredPaths</key>
         <array>
             <dict>
@@ -185,6 +183,13 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/GFX.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,GFX1Firmware</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,GFX1Firmware.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
@@ -346,6 +351,13 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/Ap,ExclaveOSVolume.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,SCodec</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,SCodec.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>

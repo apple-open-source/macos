@@ -40,6 +40,7 @@ class MathMLPresentationElement;
 
 class RenderMathMLBlock : public RenderBlock {
     WTF_MAKE_ISO_ALLOCATED(RenderMathMLBlock);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderMathMLBlock);
 public:
     RenderMathMLBlock(Type, MathMLPresentationElement&, RenderStyle&&);
     RenderMathMLBlock(Type, Document&, RenderStyle&&);
@@ -77,6 +78,7 @@ protected:
 
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
     void layoutInvalidMarkup(bool relayoutChildren);
+    void computeAndSetBlockDirectionMarginsOfChildren();
 
 private:
     bool isRenderMathMLBlock() const final { return true; }
@@ -90,8 +92,10 @@ private:
 
 class RenderMathMLTable final : public RenderTable {
     WTF_MAKE_ISO_ALLOCATED(RenderMathMLTable);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderMathMLTable);
 public:
     inline RenderMathMLTable(MathMLElement&, RenderStyle&&);
+    virtual ~RenderMathMLTable();
 
     MathMLStyle& mathMLStyle() const { return m_mathMLStyle; }
 

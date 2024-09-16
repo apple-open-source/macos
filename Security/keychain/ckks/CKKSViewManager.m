@@ -45,6 +45,7 @@
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTPersonaAdapter.h"
@@ -229,13 +230,7 @@
             if(!self) {
                 return nil;
             }
-
-            NSError* sosCircleError = nil;
-            SOSCCStatus sosStatus = [self.sosPeerAdapter circleStatus:&sosCircleError];
-            if(sosCircleError) {
-                ckkserror_global("manager", " couldn't fetch sos status for SF report: %@", sosCircleError);
-            }
-            BOOL inCircle = (sosStatus == kSOSCCInCircle);
+            
             NSMutableDictionary* values = [NSMutableDictionary dictionary];
             CKKSKeychainViewState* view = [ckks viewStateForName:viewName];
             if(!view) {
@@ -304,7 +299,7 @@
             values[incomingQueueIsErrorFreeKey] = @(incomingQueueIsErrorFree);
             values[outgoingQueueIsErrorFreeKey] = @(outgoingQueueIsErrorFree);
 
-            BOOL weThinkWeAreInSync = inCircle && hasTLKs && syncedClassARecently && syncedClassCRecently && incomingQueueIsErrorFree && outgoingQueueIsErrorFree;
+            BOOL weThinkWeAreInSync = hasTLKs && syncedClassARecently && syncedClassCRecently && incomingQueueIsErrorFree && outgoingQueueIsErrorFree;
             NSString* inSyncKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsInSync];
             values[inSyncKey] = @(weThinkWeAreInSync);
 
@@ -639,6 +634,57 @@ dispatch_once_t globalZoneStateQueueOnce;
                        fetchCloudValue:fetchCloudValue
                               complete:complete];
 }
+
+- (void)getCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*) currentItemRequests
+                     forceFetch:(bool)forceFetch
+                       complete:(void(^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* error))complete
+{
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            complete(nil, findViewError);
+        } else {
+            complete(nil, [self defaultViewError]);
+        }
+        return;
+    }
+
+    [view getCurrentItemOutOfBand:currentItemRequests
+                       forceFetch:forceFetch
+                         complete:complete];
+}
+
+- (void)fetchPCSIdentityOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*) pcsServices
+                       forceFetch:(bool)forceFetch
+                         complete:(void(^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* error))complete
+{
+    NSError* findViewError = nil;
+    CKKSKeychainView* view = [[OTManager manager] ckksForClientRPC:[[OTControlArguments alloc] init]
+                                                   createIfMissing:YES
+                                           allowNonPrimaryAccounts:YES
+                                                             error:&findViewError];
+
+    if (!view || findViewError) {
+        ckksnotice_global("ckks", "No CKKS view for %@, %@, error: %@", SecCKKSContainerName, OTDefaultContext, findViewError);
+        if (findViewError) {
+            complete(nil, findViewError);
+        } else {
+            complete(nil, [self defaultViewError]);
+        }
+        return;
+    }
+
+    [view fetchPCSIdentityOutOfBand:pcsServices
+                         forceFetch:forceFetch
+                           complete:complete];
+}
+
 
 + (instancetype)manager
 {

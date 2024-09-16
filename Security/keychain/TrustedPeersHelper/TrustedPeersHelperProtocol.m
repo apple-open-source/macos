@@ -31,6 +31,11 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfTrustedPeersHelperPeer = [NSSet setWithArray:@[[NSArray class], [TrustedPeersHelperPeer class]]];
         NSSet* arrayOfSettings = [NSSet setWithArray:@[[NSArray class], [NSDictionary class], [NSString class], [TPPBPeerStableInfoSetting class]]];
 
+        NSSet* arrayOfCuttlefishPCSServices = [NSSet setWithArray:@[[NSArray class], [CuttlefishPCSServiceIdentifier class]]];
+        NSSet* arrayOfCuttlefishPCSIdentities = [NSSet setWithArray:@[[NSArray class], [CuttlefishPCSIdentity class]]];
+        NSSet* arrayOfCuttlefishCurrentItemSpecifiers = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItemSpecifier class]]];
+        NSSet* arrayOfCuttlefishCurrentItems = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItem class]]];
+
         [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(departByDistrustingSelfWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(distrustPeerIDsWithSpecificUser:peerIDs:reply:) argumentIndex:0 ofReply:YES];
@@ -39,6 +44,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(resetWithSpecificUser:resetReason:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:internalAccount:demoAccount:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(localResetWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setAllowedMachineIDsWithSpecificUser:allowedMachineIDs:userInitiatedRemovals:evictedRemovals:unknownReasonRemovals:honorIDMSListChanges:version:flowID:deviceSessionID:canSendMetrics:altDSID:trustedDeviceHash:deletedDeviceHash:trustedDevicesUpdateTimestamp:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(markTrustedDeviceListFetchFailed:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchAllowedMachineIDsWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEgoEpochWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(prepareWithSpecificUser:epoch:machineID:bottleSalt:bottleID:modelID:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:setting:signingPrivKeyPersistentRef:encPrivKeyPersistentRef:reply:) argumentIndex:6 ofReply:YES];
@@ -60,7 +66,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(updateWithSpecificUser:forceRefetch:deviceName:serialNumber:osVersion:policyVersion:policySecrets:syncUserControllableViews:secureElementIdentity:walrusSetting:webAccess:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(setPreapprovedKeysWithSpecificUser:preapprovedKeys:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(updateTLKsWithSpecificUser:ckksKeys:tlkShares:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithSpecificUser:source:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithSpecificUser:source:flowID:deviceSessionID:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchViableEscrowRecordsWithSpecificUser:source:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEscrowContentsWithSpecificUser:reply:) argumentIndex:3 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPolicyDocumentsWithSpecificUser:versions:reply:) argumentIndex:1 ofReply:YES];
@@ -71,7 +77,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(createCustodianRecoveryKeyWithSpecificUser:recoveryKey:salt:ckksKeys:uuid:kind:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetAccountCDPContentsWithSpecificUser:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:internalAccount:demoAccount:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
@@ -212,7 +218,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                                            tlkShares:
                                                                                            reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:trustedPeersHelperHealthCheckResult forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:trustedPeersHelperHealthCheckResult forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:knownFederations:flowID:deviceSessionID:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithSpecificUser:
                                                                                 forceRefetch:
                                                                                 deviceName:
@@ -243,6 +249,15 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                      ckksKeys:
                                                                      tlkShares:
                                                                      reply:) argumentIndex:0 ofReply:YES];
+
+        [interface setClasses:arrayOfCuttlefishCurrentItemSpecifiers forSelector:@selector(fetchCurrentItemWithSpecificUser:items:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:arrayOfCuttlefishCurrentItems forSelector:@selector(fetchCurrentItemWithSpecificUser:items:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(fetchCurrentItemWithSpecificUser:items:reply:) argumentIndex:1 ofReply:YES];
+
+        [interface setClasses:arrayOfCuttlefishPCSServices forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:arrayOfCuttlefishPCSIdentities forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:arrayOfCKRecords forSelector:@selector(fetchPCSIdentityByPublicKeyWithSpecificUser:pcsservices:reply:) argumentIndex:1 ofReply:YES];
+
     }
     @catch(NSException* e) {
         secerror("TrustedPeersHelperSetupProtocol failed, continuing, but you might crash later: %@", e);
@@ -537,4 +552,137 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeInt64:self.totalTLKSharesRecovered forKey:@"totalShares"];
     [coder encodeObject:self.tlkRecoveryErrors forKey:@"errors"];
 }
+@end
+
+@implementation CuttlefishPCSServiceIdentifier
+
+- (instancetype)init:(NSNumber*)PCSServiceID
+        PCSPublicKey:(NSData*)PCSPublicKey
+              zoneID:(NSString*)zoneID
+{
+    if (self = [super init]) {
+        _PCSServiceID = PCSServiceID;
+        _PCSPublicKey = PCSPublicKey;
+        _zoneID = zoneID;
+    }
+    return self;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.PCSPublicKey forKey:@"pcsPublicKey"];
+    [coder encodeObject:self.PCSServiceID forKey:@"pcsServiceID"];
+    [coder encodeObject:self.zoneID forKey:@"zoneID"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
+
+    if ((self = [super init])) {
+        _zoneID = [coder decodeObjectOfClass:[NSString class] forKey:@"zoneID"];
+        _PCSServiceID = [coder decodeObjectOfClass:[NSNumber class] forKey:@"pcsServiceID"];
+        _PCSPublicKey = [coder decodeObjectOfClass:[NSData class] forKey:@"pcsPublicKey"];
+    }
+    return self;
+}
+
+@end
+
+@implementation CuttlefishPCSIdentity
+
+- (instancetype)init:(CuttlefishPCSServiceIdentifier*)service
+                item:(CKRecord*)item
+{
+    if (self = [super init]) {
+        _service = service;
+        _item = item;
+    }
+    return self;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.service forKey:@"service"];
+    [coder encodeObject:self.item forKey:@"item"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
+
+    if ((self = [super init])) {
+        _service = [coder decodeObjectOfClass:[CuttlefishPCSServiceIdentifier class] forKey:@"service"];
+        _item = [coder decodeObjectOfClass:[CKRecord class] forKey:@"item"];
+    }
+    return self;
+}
+
+@end
+
+@implementation CuttlefishCurrentItemSpecifier
+
+- (instancetype)init:(NSString*)itemPtrName
+              zoneID:(NSString*)zoneID
+{
+    if (self = [super init]) {
+        _itemPtrName = itemPtrName;
+        _zoneID = zoneID;
+    }
+    return self;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.itemPtrName forKey:@"itemPtrName"];
+    [coder encodeObject:self.zoneID forKey:@"zoneID"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder { 
+
+    if ((self = [super init])) {
+        _zoneID = [coder decodeObjectOfClass:[NSString class] forKey:@"zoneID"];
+        _itemPtrName = [coder decodeObjectOfClass:[NSString class] forKey:@"itemPtrName"];
+    }
+    return self;
+}
+
+@end
+
+
+@implementation CuttlefishCurrentItem
+
+- (instancetype)init:(CuttlefishCurrentItemSpecifier*)itemPtr
+                item:(CKRecord*)item
+{
+    if (self = [super init]) {
+        _itemPtr = itemPtr;
+        _item = item;
+    }
+    return self;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.itemPtr forKey:@"itemPtr"];
+    [coder encodeObject:self.item forKey:@"item"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
+
+    if ((self = [super init])) {
+        _item = [coder decodeObjectOfClass:[CKRecord class] forKey:@"item"];
+        _itemPtr = [coder decodeObjectOfClass:[CuttlefishCurrentItemSpecifier class] forKey:@"itemPtr"];
+    }
+    return self;
+}
+
 @end

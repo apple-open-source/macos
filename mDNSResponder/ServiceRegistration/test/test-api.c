@@ -1,6 +1,6 @@
 /* test-api.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@
 #include "test-api.h"
 #include "srp-proxy.h"
 #include "srp-mdns-proxy.h"
+#include "dnssd-proxy.h"
+#include "route.h"
 
 #define SRP_IO_CONTEXT_MAGIC 0xFEEDFACEFADEBEEFULL  // BEES!   Everybody gets BEES!
 typedef struct io_context {
@@ -56,6 +58,39 @@ typedef struct io_context {
 static bool test_bad_sig_time;
 // For testing a signature that doesn't validate
 static bool invalidate_signature;
+
+bool
+configure_dnssd_proxy(void)
+{
+    extern srp_server_t *srp_servers;
+    if (srp_servers->test_state != NULL && srp_servers->test_state->dnssd_proxy_configurer != NULL) {
+        return srp_servers->test_state->dnssd_proxy_configurer();
+    } else {
+        dnssd_proxy_udp_port= 53;
+        dnssd_proxy_tcp_port = 53;
+        dnssd_proxy_tls_port = 853;
+        return true;
+    }
+}
+
+int
+srp_test_getifaddrs(srp_server_t *server_state, struct ifaddrs **ifaddrs, void *context)
+{
+    if (server_state->test_state != NULL && server_state->test_state->getifaddrs != NULL) {
+        return server_state->test_state->getifaddrs(server_state, ifaddrs, context);
+    }
+    return getifaddrs(ifaddrs);
+}
+
+void
+srp_test_freeifaddrs(srp_server_t *server_state, struct ifaddrs *ifaddrs, void *context)
+{
+    if (server_state->test_state != NULL && server_state->test_state->freeifaddrs != NULL) {
+        server_state->test_state->freeifaddrs(server_state, ifaddrs, context);
+        return;
+    }
+    freeifaddrs(ifaddrs);
+}
 
 void
 srp_test_state_add_timeout(test_state_t *state, int timeout)
@@ -205,6 +240,9 @@ srp_disconnect_udp(void *context)
 
     err = validate_io_context(&io_context, context);
     if (err == kDNSServiceErr_NoError) {
+        if (io_context->wakeup != NULL) {
+            ioloop_cancel_wake_event(io_context->wakeup);
+        }
         if (io_context->connection) {
             io_context->connection = NULL;
         }
@@ -227,7 +265,13 @@ srp_test_send_intercept(comm_t *connection, message_t *UNUSED responding_to,
 
     // Don't copy if we don't have to.
     if (!send_length && iov_len == 1) {
-        current_io_context->datagram_callback(current_io_context, iov[0].iov_base, iov[0].iov_len);
+        size_t len = iov[0].iov_len;
+        uint8_t *data = calloc(1, len);
+        memcpy(data, iov[0].iov_base, len);
+        dispatch_async(dispatch_get_main_queue(), ^{
+                current_io_context->datagram_callback(current_io_context, data, len);
+                free(data);
+            });
         return true;
     }
 
@@ -257,7 +301,9 @@ srp_test_send_intercept(comm_t *connection, message_t *UNUSED responding_to,
         mp += iov[i].iov_len;
     }
 
-    current_io_context->datagram_callback(current_io_context->srp_context, message, length);
+    dispatch_async(dispatch_get_main_queue(), ^{
+            current_io_context->datagram_callback(current_io_context->srp_context, message, length);
+        });
     return true;
 }
 
@@ -316,6 +362,7 @@ wakeup_callback(void *context)
     io_context_t *io_context;
     if (validate_io_context(&io_context, context) == kDNSServiceErr_NoError) {
         INFO("wakeup on context %p srp_context %p", io_context, io_context->srp_context);
+        INFO("setting wakeup callback %p wakeup %p", io_context->wakeup_callback, io_context->wakeup);
         if (!io_context->deactivated) {
             io_context->wakeup_callback(io_context->srp_context);
         }
@@ -333,6 +380,7 @@ srp_set_wakeup(void *host_context, void *context, int milliseconds, srp_wakeup_c
 
     err = validate_io_context(&io_context, context);
     if (err == kDNSServiceErr_NoError) {
+        INFO("setting wakeup callback %p wakeup %p", callback, io_context->wakeup);
         io_context->wakeup_callback = callback;
         ioloop_add_wake_event(io_context->wakeup, io_context, wakeup_callback, NULL, milliseconds);
     }
@@ -388,6 +436,14 @@ srp_timenow(void)
         return (uint32_t)(now - 10000);
     }
     return (uint32_t)now;
+}
+
+void
+srp_test_enable_stub_router(test_state_t *state, srp_server_t *NONNULL server_state)
+{
+    server_state->route_state = route_state_create(server_state, "srp-mdns-proxy");
+    TEST_FAIL_CHECK(state, server_state->route_state != NULL, "no memory for route state");
+    server_state->stub_router_enabled = true;
 }
 
 // Local Variables:

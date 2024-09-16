@@ -30,7 +30,9 @@
 #include <windows.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -113,7 +115,7 @@ LanguageManager::LanguageManager()
             info.m_aliases.append(name);
             info.m_aliases.append(String(cpInfo.wszHeaderCharset).latin1());
             info.m_aliases.append(String(cpInfo.wszBodyCharset).latin1());
-            String cpName = "cp" + String::number(cpInfo.uiCodePage);
+            auto cpName = makeString("cp"_s, cpInfo.uiCodePage);
             info.m_aliases.append(cpName.latin1());
             supportedCharsets().add(i->value.data());
         }
@@ -231,18 +233,17 @@ static void decodeInternal(Vector<UChar, 8192>& result, UINT codePage, const cha
     }
 }
 
-String TextCodecWin::decode(const char* bytes, size_t length, bool flush, bool stopOnError, bool& sawError)
+String TextCodecWin::decode(std::span<const uint8_t> bytes, bool flush, bool stopOnError, bool& sawError)
 {
     if (!m_decodeBuffer.isEmpty()) {
-        m_decodeBuffer.append(bytes, length);
-        bytes = m_decodeBuffer.data();
-        length = m_decodeBuffer.size();
+        m_decodeBuffer.append(bytes);
+        bytes = asBytes(m_decodeBuffer.span());
     }
 
     size_t left;
     Vector<UChar, 8192> result;
     for (;;) {
-        decodeInternal(result, m_codePage, bytes, length, &left);
+        decodeInternal(result, m_codePage, bytes, &left);
         if (!left)
             break;
 
@@ -257,14 +258,13 @@ String TextCodecWin::decode(const char* bytes, size_t length, bool flush, bool s
         if (left == 1)
             break;
 
-        bytes += length - left + 1;
-        length = left - 1;
+        bytes = std::span { bytes.data() + bytes.size() - left + 1, left - 1 };
     }
     if (left && !flush) {
         if (m_decodeBuffer.isEmpty())
-            m_decodeBuffer.append(bytes + length - left, left);
+            m_decodeBuffer.append(bytes.subspan(length - left, left));
         else {
-            memmove(m_decodeBuffer.data(), bytes + length - left, left);
+            memmove(m_decodeBuffer.data(), bytes.data() + bytes.size() - left, left);
             m_decodeBuffer.resize(left);
         }
     } else

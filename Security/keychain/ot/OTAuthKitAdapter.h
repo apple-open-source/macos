@@ -24,6 +24,8 @@ NS_ASSUME_NONNULL_BEGIN
                            error:(NSError**)error;
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString*)altDSID 
+                                 flowID:(NSString*)flowID
+                        deviceSessionID:(NSString*)deviceSessionID
                                   reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs,
                                                   NSSet<NSString*>* _Nullable userInitiatedRemovals,
                                                   NSSet<NSString*>* _Nullable evictedRemovals,

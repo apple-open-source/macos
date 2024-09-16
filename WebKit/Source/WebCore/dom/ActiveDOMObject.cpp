@@ -79,8 +79,7 @@ ActiveDOMObject::~ActiveDOMObject()
     // inherit). Hence, we should ensure that this is not 0 before use it
     // here.
 
-    // Unable to ref the context as it may have started destruction.
-    auto* context = scriptExecutionContext();
+    RefPtrAllowingPartiallyDestroyed<ScriptExecutionContext> context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -95,8 +94,7 @@ void ActiveDOMObject::suspendIfNeeded()
     ASSERT(!m_suspendIfNeededWasCalled);
     m_suspendIfNeededWasCalled = true;
 #endif
-    // Unable to ref the context as it may have started destruction.
-    if (auto* context = scriptExecutionContext())
+    if (RefPtrAllowingPartiallyDestroyed<ScriptExecutionContext> context = scriptExecutionContext())
         context->suspendActiveDOMObjectIfNeeded(*this);
 }
 
@@ -104,8 +102,6 @@ void ActiveDOMObject::suspendIfNeeded()
 
 void ActiveDOMObject::assertSuspendIfNeededWasCalled() const
 {
-    if (!m_suspendIfNeededWasCalled)
-        WTFLogAlways("Failed to call suspendIfNeeded() for %s", activeDOMObjectName());
     ASSERT(m_suspendIfNeededWasCalled);
 }
 

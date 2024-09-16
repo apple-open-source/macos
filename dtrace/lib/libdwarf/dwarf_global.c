@@ -550,7 +550,8 @@ dwarf_global_name_offsets(Dwarf_Global global,
 	    _dwarf_error(NULL, error, DW_DLE_OFFSET_BAD);
 	    return (DW_DLV_ERROR);
 	}
-	*cu_die_offset = off + _dwarf_length_of_cu_header(dbg, off);
+	*cu_die_offset = off + _dwarf_length_of_cu_header(dbg, off,
+													  dbg->de_cu_context->cc_version_stamp);
     }
 
 
@@ -577,7 +578,8 @@ dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug dbg,
 {
 #pragma unused(err)
     Dwarf_Off len =
-	_dwarf_length_of_cu_header(dbg, in_cu_header_offset);
+	_dwarf_length_of_cu_header(dbg, in_cu_header_offset,
+                               dbg->de_cu_context->cc_version_stamp);
 
     Dwarf_Off newoff = in_cu_header_offset + len;
 

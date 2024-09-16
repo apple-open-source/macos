@@ -50,7 +50,7 @@ typedef struct {
 } _GB2312State;
 
 int
-_GB2312_init(struct __xlocale_st_runelocale *xrl)
+_GB2312_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _GB2312_mbrtowc;

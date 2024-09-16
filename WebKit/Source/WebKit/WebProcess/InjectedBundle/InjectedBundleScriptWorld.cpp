@@ -31,7 +31,7 @@
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/StringConcatenate.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -48,7 +48,7 @@ static WorldMap& allWorlds()
 static String uniqueWorldName()
 {
     static uint64_t uniqueWorldNameNumber = 0;
-    return makeString("UniqueWorld_", uniqueWorldNameNumber++);
+    return makeString("UniqueWorld_"_s, uniqueWorldNameNumber++);
 }
 
 Ref<InjectedBundleScriptWorld> InjectedBundleScriptWorld::create(Type type)

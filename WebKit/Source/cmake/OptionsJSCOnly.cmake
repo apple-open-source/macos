@@ -17,13 +17,12 @@ set(PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 
 WEBKIT_OPTION_BEGIN()
 WEBKIT_OPTION_DEFINE(ENABLE_STATIC_JSC "Whether to build JavaScriptCore as a static library." PUBLIC OFF)
+WEBKIT_OPTION_DEFINE(USE_LIBBACKTRACE "Whether to enable usage of libbacktrace." PUBLIC OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_REMOTE_INSPECTOR PRIVATE OFF)
 if (WIN32)
-    # FIXME: Enable FTL on Windows. https://bugs.webkit.org/show_bug.cgi?id=145366
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTL_JIT PRIVATE OFF)
+    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTL_JIT PRIVATE ON)
     # FIXME: Port bmalloc to Windows. https://bugs.webkit.org/show_bug.cgi?id=143310
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_SYSTEM_MALLOC PRIVATE ON)
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBASSEMBLY PRIVATE ON)
 endif ()
 
 WEBKIT_OPTION_END()
@@ -53,9 +52,7 @@ if (WTF_CPU_ARM OR WTF_CPU_MIPS)
     SET_AND_EXPOSE_TO_BUILD(USE_CAPSTONE TRUE)
 endif ()
 
-# FIXME: JSCOnly on WIN32 seems to only work with fully static build
-# https://bugs.webkit.org/show_bug.cgi?id=172862
-if (NOT ENABLE_STATIC_JSC AND NOT WIN32)
+if (NOT ENABLE_STATIC_JSC)
     set(JavaScriptCore_LIBRARY_TYPE SHARED)
     set(bmalloc_LIBRARY_TYPE OBJECT)
     set(WTF_LIBRARY_TYPE OBJECT)
@@ -107,4 +104,11 @@ endif ()
 find_package(ICU 61.2 REQUIRED COMPONENTS data i18n uc)
 if (APPLE)
     add_definitions(-DU_DISABLE_RENAMING=1)
+endif ()
+
+if (USE_LIBBACKTRACE)
+    find_package(LibBacktrace)
+    if (NOT LIBBACKTRACE_FOUND)
+        message(FATAL_ERROR "libbacktrace is required for USE_LIBBACKTRACE")
+    endif ()
 endif ()

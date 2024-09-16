@@ -37,6 +37,9 @@
 #include <syslog.h>
 #include <string.h>
 
+#include <os/activity.h>
+#include <os/log.h>
+
 #include <OpenDirectory/OpenDirectory.h>
 
 #include "automount.h"
@@ -46,10 +49,10 @@
  * Callback routines for od_process_record_attributes() and od_search().
  */
 typedef enum {
-	OD_CB_KEEPGOING,		/* continue the search */
-	OD_CB_DONE,			/* we're done with the search */
-	OD_CB_REJECTED,			/* this record had a problem - keep going */
-	OD_CB_ERROR			/* error - quit and return __NSW_UNAVAIL */
+	OD_CB_KEEPGOING,                /* continue the search */
+	OD_CB_DONE,                     /* we're done with the search */
+	OD_CB_REJECTED,                 /* this record had a problem - keep going */
+	OD_CB_ERROR                     /* error - quit and return __NSW_UNAVAIL */
 } callback_ret_t;
 typedef callback_ret_t (*callback_fn)(CFStringRef key, CFStringRef value,
     void *udata);
@@ -100,8 +103,8 @@ static int od_search(CFStringRef attr_to_match, char *value_to_match,
 static inline CFIndex
 od_cfstrlen(CFStringRef cfstr)
 {
-	return (CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
-	    kCFStringEncodingUTF8));
+	return CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
+	           kCFStringEncodingUTF8);
 }
 
 /*
@@ -110,8 +113,8 @@ od_cfstrlen(CFStringRef cfstr)
 static inline Boolean
 od_cfstrlcpy(char *string, CFStringRef cfstr, size_t size)
 {
-	return (CFStringGetCString(cfstr, string, (CFIndex)size,
-	    kCFStringEncodingUTF8));
+	return CFStringGetCString(cfstr, string, (CFIndex)size,
+	           kCFStringEncodingUTF8);
 }
 
 /*
@@ -127,13 +130,14 @@ od_CFStringtoCString(CFStringRef cfstr)
 
 	length = od_cfstrlen(cfstr);
 	string = malloc(length + 1);
-	if (string == NULL)
-		return (NULL);
+	if (string == NULL) {
+		return NULL;
+	}
 	if (!od_cfstrlcpy(string, cfstr, length + 1)) {
 		free(string);
-		return (NULL);
+		return NULL;
 	}
-	return (string);
+	return string;
 }
 
 
@@ -147,9 +151,10 @@ od_get_error_string(CFErrorRef err)
 		errstringref = CFErrorCopyDescription(err);
 		errstring = od_CFStringtoCString(errstringref);
 		CFRelease(errstringref);
-	} else
+	} else {
 		errstring = strdup("Unknown error");
-	return (errstring);
+	}
+	return errstring;
 }
 
 /*ARGSUSED*/
@@ -170,28 +175,32 @@ getmapent_od(const char *key, const char *map, struct mapline *ml,
 	size_t len;
 	int nserr;
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "getmapent_od called\n");
+	}
 
 	if (trace > 1) {
 		trace_prt(1, "getmapent_od: key=[ %s ]\n", key);
 	}
 
-	if (iswildcard)
+	if (iswildcard) {
 		*iswildcard = FALSE;
+	}
 	nserr = od_match(map, key, &od_line, &od_len);
 	if (nserr) {
 		if (nserr == __NSW_NOTFOUND) {
 			/* Try the default entry "*" */
 			if ((nserr = od_match(map, "*", &od_line,
-			    &od_len)))
+			    &od_len))) {
 				goto done;
-			else {
-				if (iswildcard)
+			} else {
+				if (iswildcard) {
 					*iswildcard = TRUE;
+				}
 			}
-		} else
+		} else {
 			goto done;
+		}
 	}
 
 	/*
@@ -200,16 +209,18 @@ getmapent_od(const char *key, const char *map, struct mapline *ml,
 	 * 1. ignoring # and beyond
 	 * 2. trim the trailing whitespace
 	 */
-	if ((lp = strchr(od_line, '#')) != NULL)
+	if ((lp = strchr(od_line, '#')) != NULL) {
 		*lp = '\0';
+	}
 	len = strlen(od_line);
 	if (len == 0) {
 		nserr = __NSW_NOTFOUND;
 		goto done;
 	}
 	lp = &od_line[len - 1];
-	while (lp > od_line && isspace(*lp))
+	while (lp > od_line && isspace(*lp)) {
 		*lp-- = '\0';
+	}
 	if (lp == od_line) {
 		nserr = __NSW_NOTFOUND;
 		goto done;
@@ -225,13 +236,15 @@ getmapent_od(const char *key, const char *map, struct mapline *ml,
 	unquote(ml->linebuf, ml->lineqbuf);
 	nserr = __NSW_SUCCESS;
 done:
-	if (od_line)
+	if (od_line) {
 		free((char *)od_line);
+	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "getmapent_od: exiting ...\n");
+	}
 
-	return (nserr);
+	return nserr;
 }
 
 static callback_ret_t
@@ -283,12 +296,12 @@ match_callback(CFStringRef key, CFStringRef value, void *udata)
 		    " is too long %d chars (max %d)",
 		    temp->map, key_str, *od_len, LINESZ);
 		free(key_str);
-		return (OD_CB_REJECTED);
+		return OD_CB_REJECTED;
 	}
 	*od_line = (char *)malloc(*od_len);
 	if (*od_line == NULL) {
 		pr_msg(LOG_ERR, "match_callback: malloc failed");
-		return (OD_CB_ERROR);
+		return OD_CB_ERROR;
 	}
 
 	if (!od_cfstrlcpy(*od_line, value, *od_len)) {
@@ -296,13 +309,14 @@ match_callback(CFStringRef key, CFStringRef value, void *udata)
 		pr_msg(LOG_ERR, "match_callback: can't get line for %s", key_str);
 		free(key_str);
 		free(*od_line);
-		return (OD_CB_ERROR);
+		return OD_CB_ERROR;
 	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "  match_callback: found: %s\n", *od_line);
+	}
 
-	return (OD_CB_DONE);
+	return OD_CB_DONE;
 }
 
 static int
@@ -324,8 +338,9 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 		goto done;
 	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "  od_match: Searching for %s\n", pattern);
+	}
 
 	cbdata.map = map;
 	cbdata.key = key;
@@ -334,52 +349,64 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 	ret = od_search(kODAttributeTypeRecordName, pattern, match_callback,
 	    (void *) &cbdata);
 	free(pattern);
-			
+
 	if (trace > 1) {
-		if (ret == __NSW_NOTFOUND)
+		if (ret == __NSW_NOTFOUND) {
 			trace_prt(1, "  od_match: no entries found\n");
-		else if (ret != __NSW_UNAVAIL)
+		} else if (ret != __NSW_UNAVAIL) {
 			trace_prt(1,
 			    "  od_match: od_search FAILED: %d\n", ret);
-		else
+		} else {
 			trace_prt(1, "  od_match: od_search OK\n");
+		}
 	}
 
 	if (verbose) {
-		if (ret == __NSW_NOTFOUND)
+		if (ret == __NSW_NOTFOUND) {
 			pr_msg(LOG_ERR, "od_search for %s in %s failed", key, map);
+		}
 	}
 
 done:
-	return (ret);
+	return ret;
 }
 
 int
 loadmaster_od(char *mapname, char *defopts, char **stack, char ***stkptr)
 {
-	int res;
 	struct loadmaster_cbdata master_cbdata;
+	int res;
+	struct os_activity_scope_state_s state;
 
-	if (trace > 1)
+	os_activity_t activity = os_activity_create("loadmaster_od", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
+	os_log_debug(OS_LOG_DEFAULT, "loadmaster_od:start:%s", mapname);
+
+	if (trace > 1) {
 		trace_prt(1, "loadmaster_od called\n");
+	}
 
 	master_cbdata.defopts = defopts;
 	master_cbdata.stack = stack;
 	master_cbdata.stkptr = stkptr;
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "loadmaster_od: Requesting list in %s\n",
 		    mapname);
+	}
 
 	res = od_search(kODAttributeTypeMetaAutomountMap, mapname,
 	    mastermap_callback, (void *) &master_cbdata);
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1,
-			"loadmaster_od: od_search just returned: %d\n",
-			res);
+		    "loadmaster_od: od_search just returned: %d\n",
+		    res);
+	}
 
-	return (res);
+	os_log_debug(OS_LOG_DEFAULT, "loadmaster_od:finish:%s:%d", mapname, res);
+	os_activity_scope_leave(&state);
+	return res;
 }
 
 int
@@ -392,16 +419,17 @@ loaddirect_od(char *nsmap, char *localmap, char *opts,
 		trace_prt(1, "loaddirect_od called\n");
 	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "loaddirect_od: Requesting list for %s in %s\n",
 		    localmap, nsmap);
+	}
 
 	direct_cbdata.opts = opts;
 	direct_cbdata.localmap = localmap;
 	direct_cbdata.stack = stack;
 	direct_cbdata.stkptr = stkptr;
-	return (od_search(kODAttributeTypeMetaAutomountMap, nsmap,
-	    directmap_callback, (void *) &direct_cbdata));
+	return od_search(kODAttributeTypeMetaAutomountMap, nsmap,
+	           directmap_callback, (void *) &direct_cbdata);
 }
 
 static callback_ret_t
@@ -417,6 +445,11 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 	char ***stkptr = temp->stkptr;
 	CFIndex i;
 
+	struct os_activity_scope_state_s state;
+
+	os_activity_t activity = os_activity_create("mastermap_callback", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
+
 	if (trace > 1) {
 		key_str = od_CFStringtoCString(key);
 		value_str = od_CFStringtoCString(invalue);
@@ -430,10 +463,16 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 
 	key_len = od_cfstrlen(key);
 	value_len = od_cfstrlen(invalue);
-	if (key_len >= LINESZ || value_len >= LINESZ)
-		return (OD_CB_KEEPGOING);
-	if (key_len < 2 || value_len < 2)
-		return (OD_CB_KEEPGOING);
+	if (key_len >= LINESZ || value_len >= LINESZ) {
+		os_log_error(OS_LOG_DEFAULT, "key:%ld:value:%ld:too:long:skipping", (long)key_len, (long)value_len);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
+	}
+	if (key_len < 2 || value_len < 2) {
+		os_log_error(OS_LOG_DEFAULT, "key:%ld:value:%ld:too:short:skipping", (long)key_len, (long)value_len);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
+	}
 
 	value_str = od_CFStringtoCString(invalue);
 	value = value_str;
@@ -444,94 +483,110 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 	}
 	if (*value == '\0') {
 		free(value_str);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 	}
 	if (!od_cfstrlcpy(dir, key, key_len)) {
 		free(value_str);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 	}
 	if (isspace((unsigned char)dir[0]) || dir[0] == '#') {
 		free(value_str);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 	}
+	os_log_debug(OS_LOG_DEFAULT, "mastermap_callback: dir=[ %s ]", dir);
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "mastermap_callback: dir= [ %s ]\n", dir);
-	for (i = 0; i < LINESZ; i++)
+	}
+	for (i = 0; i < LINESZ; i++) {
 		qbuff[i] = ' ';
-	switch (macro_expand("", dir, qbuff, sizeof (dir))) {
-
+	}
+	switch (macro_expand("", dir, qbuff, sizeof(dir))) {
 	case MEXPAND_OK:
 		break;
 
 	case MEXPAND_LINE_TOO_LONG:
 		pr_msg( LOG_WARNING,
 		    "%s in Open Directory map: entry too long (max %zu chars)",
-		    dir, sizeof (dir) - 1);
+		    dir, sizeof(dir) - 1);
 		free(value_str);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 
 	case MEXPAND_VARNAME_TOO_LONG:
 		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: variable name too long",
 		    dir);
 		free(value_str);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 	}
-	strlcpy(map, value, sizeof (map));	/* we know this will not truncate */
+	strlcpy(map, value, sizeof(map));       /* we know this will not truncate */
 	free(value_str);
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "mastermap_callback: map= [ %s ]\n", map);
-	switch (macro_expand("", map, qbuff, sizeof (map))) {
-
+	}
+	switch (macro_expand("", map, qbuff, sizeof(map))) {
 	case MEXPAND_OK:
 		break;
 
 	case MEXPAND_LINE_TOO_LONG:
 		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: entry too long (max %zu chars)",
-		    map, sizeof (map) - 1);
-		return (OD_CB_KEEPGOING);
+		    map, sizeof(map) - 1);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 
 	case MEXPAND_VARNAME_TOO_LONG:
 		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: variable name too long",
 		    map);
-		return (OD_CB_KEEPGOING);
+		os_activity_scope_leave(&state);
+		return OD_CB_KEEPGOING;
 	}
 	pmap = map;
-	while (*pmap && isspace(*pmap))
-		pmap++;		/* skip blanks in front of map */
+	while (*pmap && isspace(*pmap)) {
+		pmap++;         /* skip blanks in front of map */
+	}
 	opts = pmap;
-	while (*opts && !isspace(*opts))
+	while (*opts && !isspace(*opts)) {
 		opts++;
+	}
 	if (*opts) {
 		*opts++ = '\0';
-		while (*opts && isspace(*opts))
+		while (*opts && isspace(*opts)) {
 			opts++;
-		if (*opts == '-')
+		}
+		if (*opts == '-') {
 			opts++;
-			else
+		} else {
 			opts = defopts;
+		}
 	}
 	/*
 	 * Check for no embedded blanks.
 	 */
 	if (strcspn(opts, " \t") == strlen(opts)) {
-		if (trace > 1)
+		if (trace > 1) {
 			trace_prt(1,
-			"mastermap_callback: dir=[ %s ], pmap=[ %s ]\n",
+			    "mastermap_callback: dir=[ %s ], pmap=[ %s ]\n",
 			    dir, pmap);
+		}
 		dirinit(dir, pmap, opts, 0, stack, stkptr);
 	} else {
 		/* XXX - this was "dn=" for LDAP; is that the server name? */
 		pr_msg(LOG_WARNING,
-	"Warning: invalid entry for %s in Open Directory ignored.\n",
+		    "Warning: invalid entry for %s in Open Directory ignored.\n",
 		    dir);
 	}
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "mastermap_callback exiting...\n");
-	return (OD_CB_KEEPGOING);
+	}
+	os_activity_scope_leave(&state);
+	return OD_CB_KEEPGOING;
 }
 
 static callback_ret_t
@@ -539,7 +594,7 @@ directmap_callback(CFStringRef key, __unused CFStringRef value, void *udata)
 {
 	char *str;
 	CFIndex key_len;
-	char dir[MAXFILENAMELEN+1];
+	char dir[MAXFILENAMELEN + 1];
 	struct loaddirect_cbdata *temp = (struct loaddirect_cbdata *)udata;
 	char *opts = temp->opts;
 	char *localmap = temp->localmap;
@@ -556,17 +611,19 @@ directmap_callback(CFStringRef key, __unused CFStringRef value, void *udata)
 	}
 
 	key_len = od_cfstrlen(key);
-	if (key_len > (CFIndex)MAXFILENAMELEN || key_len < 2)
-		return (OD_CB_KEEPGOING);
+	if (key_len > (CFIndex)MAXFILENAMELEN || key_len < 2) {
+		return OD_CB_KEEPGOING;
+	}
 
-	if (!od_cfstrlcpy(dir, key, key_len))
-		return (OD_CB_KEEPGOING);
-	if (isspace((unsigned char)dir[0]) || dir[0] == '#')
-		return (OD_CB_KEEPGOING);	/* ignore blank lines and comments */
-
+	if (!od_cfstrlcpy(dir, key, key_len)) {
+		return OD_CB_KEEPGOING;
+	}
+	if (isspace((unsigned char)dir[0]) || dir[0] == '#') {
+		return OD_CB_KEEPGOING;       /* ignore blank lines and comments */
+	}
 	dirinit(dir, localmap, opts, 1, stack, stkptr);
 
-	return (OD_CB_KEEPGOING);
+	return OD_CB_KEEPGOING;
 }
 
 int
@@ -576,15 +633,17 @@ getmapkeys_od(char *nsmap, struct dir_entry **list, int *error,
 	int res;
 	struct dir_cbdata readdir_cbdata;
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "getmapkeys_od called\n");
+	}
 
 	*cache_time = RDDIR_CACHE_TIME;
 	*error = 0;
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "getmapkeys_od: Requesting list in %s\n",
 		    nsmap);
+	}
 
 	readdir_cbdata.list = list;
 	readdir_cbdata.last = NULL;
@@ -592,19 +651,22 @@ getmapkeys_od(char *nsmap, struct dir_entry **list, int *error,
 	res = od_search(kODAttributeTypeMetaAutomountMap, nsmap,
 	    readdir_callback, (void *) &readdir_cbdata);
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "  getmapkeys_od: od_search returned %d\n",
-			res);
-
-	if (readdir_cbdata.error)
-		*error = readdir_cbdata.error;
-
-	if (res != __NSW_SUCCESS) {
-		if (*error == 0)
-			*error = EIO;
+		    res);
 	}
 
-	return (res);
+	if (readdir_cbdata.error) {
+		*error = readdir_cbdata.error;
+	}
+
+	if (res != __NSW_SUCCESS) {
+		if (*error == 0) {
+			*error = EIO;
+		}
+	}
+
+	return res;
 }
 
 static callback_ret_t
@@ -615,7 +677,7 @@ readdir_callback(CFStringRef inkey, CFStringRef value, void *udata)
 	struct dir_cbdata *temp = (struct dir_cbdata *)udata;
 	struct dir_entry **list = temp->list;
 	struct dir_entry *last = temp->last;
-	char key[MAXFILENAMELEN+1];
+	char key[MAXFILENAMELEN + 1];
 	char linebuf[LINESZ], lineqbuf[LINESZ];
 	int error;
 
@@ -629,47 +691,55 @@ readdir_callback(CFStringRef inkey, CFStringRef value, void *udata)
 	}
 
 	inkeylen = od_cfstrlen(inkey);
-	if (inkeylen > (CFIndex)MAXFILENAMELEN)
-		return (OD_CB_KEEPGOING);
+	if (inkeylen > (CFIndex)MAXFILENAMELEN) {
+		return OD_CB_KEEPGOING;
+	}
 
-	if (inkeylen == 0)
-		return (OD_CB_KEEPGOING);	/* ignore empty lines */
-	if (!od_cfstrlcpy(key, inkey, inkeylen))
-		return (OD_CB_KEEPGOING);
-	if (isspace((unsigned char)key[0]) || key[0] == '#')
-		return (OD_CB_KEEPGOING);	/* ignore blank lines and comments */
-
+	if (inkeylen == 0) {
+		return OD_CB_KEEPGOING;       /* ignore empty lines */
+	}
+	if (!od_cfstrlcpy(key, inkey, inkeylen)) {
+		return OD_CB_KEEPGOING;
+	}
+	if (isspace((unsigned char)key[0]) || key[0] == '#') {
+		return OD_CB_KEEPGOING;       /* ignore blank lines and comments */
+	}
 	/*
 	 * Wildcard entry should be ignored - following entries should continue
 	 * to be read to corroborate with the way we search for entries in
 	 * LDAP, i.e., first for an exact key match and then a wildcard
 	 * if there's no exact key match.
 	 */
-	if (key[0] == '*' && key[1] == '\0')
-		return (OD_CB_KEEPGOING);
+	if (key[0] == '*' && key[1] == '\0') {
+		return OD_CB_KEEPGOING;
+	}
 
 	value_len = od_cfstrlen(value);
-	if (value_len >= LINESZ)
-		return (OD_CB_KEEPGOING);
-	if (value_len < 2)
-		return (OD_CB_KEEPGOING);
+	if (value_len >= LINESZ) {
+		return OD_CB_KEEPGOING;
+	}
+	if (value_len < 2) {
+		return OD_CB_KEEPGOING;
+	}
 
-	if (!od_cfstrlcpy(linebuf, value, value_len))
-		return (OD_CB_KEEPGOING);
+	if (!od_cfstrlcpy(linebuf, value, value_len)) {
+		return OD_CB_KEEPGOING;
+	}
 	unquote(linebuf, lineqbuf);
 	error = add_dir_entry(key, linebuf, lineqbuf, list, &last);
 	if (error != -1) {
 		if (error != 0) {
 			temp->error = error;
-			return (OD_CB_ERROR);
+			return OD_CB_ERROR;
 		}
 		temp->last = last;
 	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "readdir_callback returning OD_CB_KEEPGOING...\n");
+	}
 
-	return (OD_CB_KEEPGOING);
+	return OD_CB_KEEPGOING;
 }
 
 /*
@@ -691,7 +761,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 
 	if (trace > 1) {
 		trace_prt(1,
-		"od_process_record_attributes entered\n");
+		    "od_process_record_attributes entered\n");
 	}
 
 	/*
@@ -710,14 +780,14 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 			pr_msg(LOG_ERR, "od_process_record_attributes: can't get kODAttributeTypeRecordName attribute for record: %s",
 			    errstring);
 			free(errstring);
-			return (OD_CB_ERROR);
+			return OD_CB_ERROR;
 		} else {
 			/*
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
 			pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
-			return (OD_CB_REJECTED);
+			return OD_CB_REJECTED;
 		}
 	}
 	if (CFArrayGetCount(keys) == 0) {
@@ -727,7 +797,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 		 */
 		CFRelease(keys);
 		pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
-		return (OD_CB_REJECTED);
+		return OD_CB_REJECTED;
 	}
 	key = CFArrayGetValueAtIndex(keys, 0);
 	error = NULL;
@@ -740,14 +810,14 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 			pr_msg(LOG_ERR, "od_process_record_attributes: can't get kODAttributeTypeAutomountInformation attribute for record: %s",
 			    errstring);
 			free(errstring);
-			return (OD_CB_ERROR);
+			return OD_CB_ERROR;
 		} else {
 			/*
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
 			pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeAutomountInformation attribute");
-			return (OD_CB_REJECTED);
+			return OD_CB_REJECTED;
 		}
 	}
 	if (CFArrayGetCount(values) == 0) {
@@ -758,7 +828,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 		CFRelease(values);
 		CFRelease(keys);
 		pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
-		return (OD_CB_REJECTED);
+		return OD_CB_REJECTED;
 	}
 	value = CFArrayGetValueAtIndex(values, 0);
 
@@ -768,7 +838,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 	ret = (*callback)(key, value, udata);
 	CFRelease(values);
 	CFRelease(keys);
-	return (ret);
+	return ret;
 }
 
 /*
@@ -796,14 +866,14 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	 * Create the search node.
 	 */
 	error = NULL;
-	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, 
-	     kODNodeTypeAuthentication, &error);
+	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault,
+	    kODNodeTypeAuthentication, &error);
 	if (node_ref == NULL) {
 		errstring = od_get_error_string(error);
 		pr_msg(LOG_ERR, "od_search: can't create search node for /Search: %s",
 		    errstring);
 		free(errstring);
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 
 	/*
@@ -815,7 +885,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 		CFRelease(node_ref);
 		pr_msg(LOG_ERR, "od_search: can't make CFString from %s",
 		    value_to_match);
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 	attrs = CFArrayCreate(kCFAllocatorDefault,
 	    (const void *[2]){kODAttributeTypeRecordName,
@@ -825,7 +895,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 		CFRelease(value_to_match_cfstr);
 		CFRelease(node_ref);
 		pr_msg(LOG_ERR, "od_search: can't make array of attribute types");
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 	error = NULL;
 	query_ref = ODQueryCreateWithNode(kCFAllocatorDefault, node_ref,
@@ -839,7 +909,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 		pr_msg(LOG_ERR, "od_search: can't create query: %s",
 		    errstring);
 		free(errstring);
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 
 	/*
@@ -853,10 +923,10 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 		errstring = od_get_error_string(error);
 		pr_msg(LOG_ERR, "od_search: query failed: %s", errstring);
 		free(errstring);
-		return (__NSW_UNAVAIL);
+		return __NSW_UNAVAIL;
 	}
 
-	ret = __NSW_NOTFOUND;	/* we haven't found any records yet */
+	ret = __NSW_NOTFOUND;   /* we haven't found any records yet */
 	num_results = CFArrayGetCount(results);
 	for (i = 0; i < num_results; i++) {
 		/*
@@ -896,5 +966,5 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	CFRelease(results);
 	CFRelease(query_ref);
 	CFRelease(node_ref);
-	return (ret);
+	return ret;
 }

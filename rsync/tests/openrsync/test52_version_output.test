@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test that --version only writes to stdout, not to stderr, to avoid breaking
+# fish tab completion.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -f version.out version.err
+
+rsync --version >version.out 2>version.err
+
+if [ -s "version.err" ]; then
+	1>&2 echo "stderr of rsync --version not empty.  CONTENTS:"
+	1>&2 cat version.err
+	exit 1
+fi

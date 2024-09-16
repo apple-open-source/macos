@@ -59,42 +59,43 @@ typedef struct _key {
 
 /* NB: the following table must be sorted lexically. */
 static KEY keylist[] = {
-	{"acldigest",		F_ACL,		NEEDVALUE},
-	{"atime",		F_ATIME,	NEEDVALUE},
-	{"btime",		F_BTIME,	NEEDVALUE},
-	{"cksum",		F_CKSUM,	NEEDVALUE},
-	{"ctime",		F_CTIME,	NEEDVALUE},
-	{"dataless",		F_DATALESS,	NEEDVALUE},
-	{"flags",		F_FLAGS,	NEEDVALUE},
-	{"gid",			F_GID,		NEEDVALUE},
-	{"gname",		F_GNAME,	NEEDVALUE},
-	{"ignore",		F_IGN,		0},
-	{"inode",		F_INODE,	NEEDVALUE},
-	{"link",		F_SLINK,	NEEDVALUE},
+	{"acldigest",			F_ACL,			NEEDVALUE},
+	{"atime",			F_ATIME,		NEEDVALUE},
+	{"btime",			F_BTIME,		NEEDVALUE},
+	{"cksum",			F_CKSUM,		NEEDVALUE},
+	{"ctime",			F_CTIME,		NEEDVALUE},
+	{"dataless",			F_DATALESS,		NEEDVALUE},
+	{"flags",			F_FLAGS,		NEEDVALUE},
+	{"gid",				F_GID,			NEEDVALUE},
+	{"gname",			F_GNAME,		NEEDVALUE},
+	{"ignore",			F_IGN,			0},
+	{"inode",			F_INODE,		NEEDVALUE},
+	{"link",			F_SLINK,		NEEDVALUE},
 #ifdef ENABLE_MD5
-	{"md5digest",		F_MD5,		NEEDVALUE},
+	{"md5digest",			F_MD5,			NEEDVALUE},
 #endif
-	{"mode",		F_MODE,		NEEDVALUE},
-	{"nlink",		F_NLINK,	NEEDVALUE},
-	{"nochange",		F_NOCHANGE,	0},
-	{"nxattr",		F_NXATTR,	NEEDVALUE},
-	{"ptime",		F_PTIME,	NEEDVALUE},
+	{"mode",			F_MODE,			NEEDVALUE},
+	{"nlink",			F_NLINK,		NEEDVALUE},
+	{"nochange",			F_NOCHANGE,		0},
+	{"nxattr",			F_NXATTR,		NEEDVALUE},
+	{"protectionclass",		F_PROTECTION_CLASS,	NEEDVALUE},
+	{"ptime",			F_PTIME,		NEEDVALUE},
 #ifdef ENABLE_RMD160
-	{"ripemd160digest",	F_RMD160,	NEEDVALUE},
+	{"ripemd160digest",		F_RMD160,		NEEDVALUE},
 #endif
 #ifdef ENABLE_SHA1
-	{"sha1digest",		F_SHA1,		NEEDVALUE},
+	{"sha1digest",			F_SHA1,			NEEDVALUE},
 #endif
 #ifdef ENABLE_SHA256
-	{"sha256digest",	F_SHA256,	NEEDVALUE},
+	{"sha256digest",		F_SHA256,		NEEDVALUE},
 #endif
-	{"siblingid",		F_SIBLINGID,	NEEDVALUE},
-	{"size",		F_SIZE,		NEEDVALUE},
-	{"time",		F_TIME,		NEEDVALUE},
-	{"type",		F_TYPE,		NEEDVALUE},
-	{"uid",			F_UID,		NEEDVALUE},
-	{"uname",		F_UNAME,	NEEDVALUE},
-	{"xattrsdigest",	F_XATTRS,	NEEDVALUE},
+	{"siblingid",			F_SIBLINGID,		NEEDVALUE},
+	{"size",			F_SIZE,			NEEDVALUE},
+	{"time",			F_TIME,			NEEDVALUE},
+	{"type",			F_TYPE,			NEEDVALUE},
+	{"uid",				F_UID,			NEEDVALUE},
+	{"uname",			F_UNAME,		NEEDVALUE},
+	{"xattrsdigest",		F_XATTRS,		NEEDVALUE},
 };
 
 int keycompare(const void *, const void *);

@@ -37,6 +37,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTPersonaAdapter.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/SecItemDb.h"

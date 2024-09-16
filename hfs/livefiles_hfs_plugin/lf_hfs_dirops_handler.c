@@ -24,31 +24,35 @@ static int
 DIROPS_VerifyCookieAndVerifier(uint64_t uCookie, vnode_t psParentVnode, uint64_t uVerifier)
 {
     int iError = 0;
+    bool isDirVersionChanged = false;
     struct cnode* dcp = VTOC(psParentVnode);
 
-    if ( uCookie == 0 )
-    {
-        if ( uVerifier != UVFS_DIRCOOKIE_VERIFIER_INITIAL )
-        {
-            iError =  UVFS_READDIR_VERIFIER_MISMATCHED;
-            goto exit;
-        }
-    }
-    else if (uCookie == UVFS_DIRCOOKIE_EOF)
-    {
+    if (uCookie == 0) {
+        // Nothing to check.
+        goto exit;
+    } else if (uCookie == UVFS_DIRCOOKIE_EOF) {
         iError =  UVFS_READDIR_EOF_REACHED;
         goto exit;
     }
-    else if ( uVerifier != psParentVnode->sExtraData.sDirData.uDirVersion )
-    {
-        iError = UVFS_READDIR_VERIFIER_MISMATCHED;
-        goto exit;
+
+    if (uVerifier != psParentVnode->sExtraData.sDirData.uDirVersion) {
+        LFHFS_LOG(LEVEL_DEBUG, "%s: The dir version has been changed. Continue enumeration.", __FUNCTION__);
+        isDirVersionChanged = true;
     }
 
     cnid_t uChildIndex = (cnid_t)(uCookie & HFS_INDEX_MASK);
-    if (uChildIndex > (dcp->c_entries + 2))
-    { /* searching pass the last item */
-        iError = UVFS_READDIR_BAD_COOKIE;
+    if (uChildIndex > (dcp->c_entries + 2)) {
+        /*
+         * Searching past the last item.
+         * In case the dir version has been changed, we return EOF,
+         * as some dir-entries were probably removed during the enumeration.
+         * Otherwise, we return a bad-cookie error, as this is unexpected.
+         */
+        if (isDirVersionChanged) {
+            iError = UVFS_READDIR_EOF_REACHED;
+        } else {
+            iError = UVFS_READDIR_BAD_COOKIE;
+        }
     }
 
 exit:

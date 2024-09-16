@@ -28,8 +28,8 @@
 
 #if CONFIG_EXCLAVES
 
-#include <vm/vm_page.h>
-#include <vm/vm_pageout.h>
+#include <vm/vm_page_internal.h>
+#include <vm/vm_pageout_internal.h>
 #include <libkern/coreanalytics/coreanalytics.h>
 #include <kern/ledger.h>
 

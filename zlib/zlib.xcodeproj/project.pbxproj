@@ -44,6 +44,7 @@
 		4CE5F22F107AB6D200DCB1EB /* zlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F21A107AB6D200DCB1EB /* zlib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4CE5F230107AB6D200DCB1EB /* zutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F21B107AB6D200DCB1EB /* zutil.c */; };
 		4CE5F231107AB6D200DCB1EB /* zutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F21C107AB6D200DCB1EB /* zutil.h */; };
+		847C35972A57D0EA00D003D4 /* zlib.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 847C35962A57D0C600D003D4 /* zlib.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		B1EA68D31318904800CB9362 /* gzclose.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68CD1318904800CB9362 /* gzclose.c */; };
 		B1EA68D41318904800CB9362 /* gzguts.h in Headers */ = {isa = PBXBuildFile; fileRef = B1EA68CE1318904800CB9362 /* gzguts.h */; };
 		B1EA68D51318904800CB9362 /* gzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68CF1318904800CB9362 /* gzlib.c */; };
@@ -211,6 +212,7 @@
 		4CE5F21B107AB6D200DCB1EB /* zutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = zutil.c; path = zlib/zutil.c; sourceTree = "<group>"; };
 		4CE5F21C107AB6D200DCB1EB /* zutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zutil.h; path = zlib/zutil.h; sourceTree = "<group>"; };
 		814E93D1185D7A3A009656FB /* zlib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = zlib.xcconfig; sourceTree = "<group>"; };
+		847C35962A57D0C600D003D4 /* zlib.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = zlib.modulemap; sourceTree = "<group>"; };
 		B1EA68CD1318904800CB9362 /* gzclose.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzclose.c; path = zlib/gzclose.c; sourceTree = "<group>"; };
 		B1EA68CE1318904800CB9362 /* gzguts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gzguts.h; path = zlib/gzguts.h; sourceTree = "<group>"; };
 		B1EA68CF1318904800CB9362 /* gzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzlib.c; path = zlib/gzlib.c; sourceTree = "<group>"; };
@@ -330,6 +332,7 @@
 				4CE5F218107AB6D200DCB1EB /* uncompr.c */,
 				4CE5F219107AB6D200DCB1EB /* zconf.h */,
 				4CE5F21A107AB6D200DCB1EB /* zlib.h */,
+				847C35962A57D0C600D003D4 /* zlib.modulemap */,
 				4CE5F21B107AB6D200DCB1EB /* zutil.c */,
 				4CE5F21C107AB6D200DCB1EB /* zutil.h */,
 			);
@@ -400,6 +403,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				847C35972A57D0EA00D003D4 /* zlib.modulemap in Headers */,
 				4CE5F220107AB6D200DCB1EB /* crc32.h in Headers */,
 				4CE5F222107AB6D200DCB1EB /* deflate.h in Headers */,
 				4CE5F225107AB6D200DCB1EB /* inffast.h in Headers */,

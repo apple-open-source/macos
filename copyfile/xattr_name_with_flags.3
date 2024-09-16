@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2013 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd February 8, 2022
+.Dd December 19, 2023
 .Dt XATTR_NAME_WITH_FLAGS 3
 .Os
 .Sh NAME
@@ -115,6 +115,8 @@ this may generate conflicts when the file is synced.)
 .It Dv XATTR_FLAG_ONLY_BACKUP
 This indicates that the extended attribute should only be copied during backup
 on services like Time Machine.
+.It Dv XATTR_FLAG_ONLY_SAVING
+This indicates that the extended attribute should only be copied during save/backup.
 .El
 .Sh EXAMPLE
 The following example is a simple function that, given an extended attribute

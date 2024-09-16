@@ -31,15 +31,21 @@
 #import "SharedBufferReference.h"
 #import "WKCrashReporter.h"
 #import "WKProcessExtension.h"
+#import "WKWebView.h"
 #import "XPCServiceEntryPoint.h"
 #import <WebCore/FloatingPointEnvironment.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <mach/task.h>
+#import <objc/runtime.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/NSKeyedUnarchiverSPI.h>
+#import <pal/spi/cocoa/NotifySPI.h>
+#import <wtf/FileSystem.h>
+#import <wtf/RetainPtr.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SoftLinking.h>
+#import <wtf/text/MakeString.h>
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
 #import "AccessibilitySupportSPI.h"
@@ -70,6 +76,16 @@ static void initializeTimerCoalescingPolicy()
 }
 #endif
 
+#if PLATFORM(MAC)
+static void disableDowngradeToLayoutManager()
+{
+    NSDictionary *existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
+    auto newArguments = adoptNS([existingArguments mutableCopy]);
+    [newArguments setValue:@NO forKey:@"NSTextViewAllowsDowngradeToLayoutManager"];
+    [[NSUserDefaults standardUserDefaults] setVolatileDomain:newArguments.get() forName:NSArgumentDomain];
+}
+#endif
+
 void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationParameters& parameters)
 {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
@@ -87,6 +103,10 @@ void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationPa
     WebCore::setApplicationBundleIdentifier(parameters.clientBundleIdentifier);
     setSDKAlignedBehaviors(parameters.clientSDKAlignedBehaviors);
 
+#if PLATFORM(MAC)
+    disableDowngradeToLayoutManager();
+#endif
+
 #if USE(EXTENSIONKIT)
     setProcessIsExtension(!!WKProcessExtension.sharedInstance);
 #endif
@@ -94,7 +114,7 @@ void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationPa
 
 void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName)
 {
-    auto errorMessage = makeString("Received invalid message: '", description(messageName), "' (", messageName, ')');
+    auto errorMessage = makeString("Received invalid message: '"_s, description(messageName), "' ("_s, messageName, ')');
     logAndSetCrashLogMessage(errorMessage.utf8().data());
     CRASH_WITH_INFO(WTF::enumToUnderlyingType(messageName));
 }
@@ -298,5 +318,32 @@ void AuxiliaryProcess::consumeAudioComponentRegistrations(const IPC::SharedBuffe
         RELEASE_LOG_ERROR(Process, "Could not apply AudioComponent registrations, err(%ld)", static_cast<long>(err));
 }
 #endif
+
+bool AuxiliaryProcess::isSystemWebKit()
+{
+    static bool isSystemWebKit = []() -> bool {
+        auto imagePath = class_getImageName([WKWebView class]);
+        if (!imagePath)
+            return false;
+
+        RetainPtr path = adoptNS([[NSString alloc] initWithUTF8String:imagePath]);
+#if HAVE(READ_ONLY_SYSTEM_VOLUME)
+        if ([path hasPrefix:@"/Library/Apple/System/"])
+            return true;
+#endif
+        return [path hasPrefix:FileSystem::systemDirectoryPath()];
+    }();
+
+    return isSystemWebKit;
+}
+
+void AuxiliaryProcess::setNotifyOptions()
+{
+#if ENABLE(NOTIFY_BLOCKING)
+    notify_set_options(NOTIFY_OPT_DISPATCH);
+#elif ENABLE(NOTIFY_FILTERING)
+    notify_set_options(NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN | NOTIFY_OPT_FILTERED);
+#endif
+}
 
 } // namespace WebKit

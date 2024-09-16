@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,10 +77,11 @@ struct bootp_session {
     uint16_t			client_port;
     timer_callout_t *		timer_callout;
     bool			verbose;
+    bool			cancel_pending;
 };
+typedef struct bootp_session * bootp_session_t;
 
 struct bootp_client {
-    bootp_session_t *		session; /* pointer to parent */
     interface_t *		if_p;
     boolean_t			fd_open;
     bootp_receive_func_t *	receive;
@@ -88,6 +89,8 @@ struct bootp_client {
     void *			receive_arg2;
 };
 
+static bootp_session_t
+bootp_session_get(void);
 
 static void
 bootp_session_read(void * arg1, void * arg2);
@@ -173,20 +176,18 @@ S_open_bootp_socket(uint16_t client_port)
     return (-1);
 }
 
-bootp_client_t *
-bootp_client_init(bootp_session_t * session, interface_t * if_p)
+bootp_client_t
+bootp_client_init(interface_t * if_p)
 {
-    bootp_client_t *	client;
+    bootp_client_t	client;
+    bootp_session_t 	session = bootp_session_get();
 
     client = malloc(sizeof(*client));
-    if (client == NULL)
-	return (NULL);
     bzero(client, sizeof(*client));
     if (dynarray_add(&session->clients, client) == FALSE) {
 	free(client);
 	return (NULL);
     }
-    client->session = session;
     client->if_p = if_p;
     return (client);
 }
@@ -194,7 +195,7 @@ bootp_client_init(bootp_session_t * session, interface_t * if_p)
 static void
 bootp_client_free_element(void * arg)
 {
-    bootp_client_t * 	client = (bootp_client_t *)arg;
+    bootp_client_t 	client = (bootp_client_t)arg;
 
     bootp_client_disable_receive(client);
     free(client);
@@ -202,16 +203,16 @@ bootp_client_free_element(void * arg)
 }
 
 void
-bootp_client_free(bootp_client_t * * client_p)
+bootp_client_free(bootp_client_t * client_p)
 {
-    bootp_client_t * 	client = *client_p;
+    bootp_client_t 	client = *client_p;
     int 		i;
-    bootp_session_t * 	session;
+    bootp_session_t 	session;
 
     if (client == NULL) {
 	return;
     }
-    session = client->session;
+    session = bootp_session_get();
     i = dynarray_index(&session->clients, client);
     if (i != -1) {
 	dynarray_remove(&session->clients, i, NULL);
@@ -226,9 +227,21 @@ bootp_client_free(bootp_client_t * * client_p)
 }
 
 static void
+bootp_session_schedule_close(bootp_session_t session)
+{
+    if (session->cancel_pending) {
+	my_log(LOG_ERR, "%s: cancel is already pending?",
+	       __func__);
+	return;
+    }
+    session->cancel_pending = true;
+    FDCalloutRelease(&session->read_fd);
+}
+
+static void
 bootp_session_delayed_close(void * arg1, void * arg2, void * arg3)
 {
-    bootp_session_t * 	session = (bootp_session_t *)arg1;
+    bootp_session_t 	session = (bootp_session_t)arg1;
 
     if (session->read_fd == NULL) {
 	my_log(LOG_ERR, 
@@ -241,20 +254,60 @@ bootp_session_delayed_close(void * arg1, void * arg2, void * arg3)
 	return;
     }
     my_log(LOG_DEBUG,
-	   "bootp_session_delayed_close(): closing bootp socket %d",
+	   "bootp_session_delayed_close(): closing socket %d",
 	   FDCalloutGetFD(session->read_fd));
-
-    /* this closes the file descriptor */
-    FDCalloutRelease(&session->read_fd);
+    bootp_session_schedule_close(session);
     return;
 }
 
-static boolean_t
-bootp_session_open_socket(bootp_session_t * session)
-{
-    int	sockfd;
+static void
+bootp_session_fd_complete(bootp_session_t session, int sockfd);
 
-    sockfd =  S_open_bootp_socket(session->client_port);
+static void
+bootp_session_enable_receive(bootp_session_t session, int sockfd)
+{
+    dispatch_block_t	cancel_handler;
+
+    my_log(LOG_DEBUG, "%s: enabling receive on socket %d",
+	   __func__, sockfd);
+    cancel_handler = ^{
+	bootp_session_fd_complete(session, sockfd);
+    };
+    session->read_fd = FDCalloutCreate(sockfd,
+				       bootp_session_read,
+				       session, NULL,
+				       cancel_handler);
+}
+
+static void
+bootp_session_fd_complete(bootp_session_t session, int sockfd)
+{
+    my_log(LOG_DEBUG, "%s: socket %d complete", __func__, sockfd);
+    session->cancel_pending = false;
+    if (session->read_fd_refcount > 0) {
+	my_log(LOG_DEBUG, "%s: re-enabling socket %d",
+	       __func__, sockfd);
+	bootp_session_enable_receive(session, sockfd);
+    }
+    else {
+	my_log(LOG_DEBUG, "%s: closing socket %d",
+	       __func__, sockfd);
+	close(sockfd);
+    }
+}
+
+static boolean_t
+bootp_session_open_socket(bootp_session_t session)
+{
+    int			sockfd;
+
+    if (session->cancel_pending) {
+	my_log(LOG_DEBUG,
+	       "%s: waiting for cancel to complete",
+	       __func__);
+	return (TRUE);
+    }
+    sockfd = S_open_bootp_socket(session->client_port);
     if (sockfd < 0) {
 	my_log(LOG_ERR,
 	       "bootp_session_open_socket: S_open_bootp_socket() failed, %s",
@@ -262,19 +315,16 @@ bootp_session_open_socket(bootp_session_t * session)
 	return (FALSE);
     }
     my_log(LOG_DEBUG,
-	   "bootp_session_open_socket(): opened bootp socket %d",
+	   "bootp_session_open_socket(): opened socket %d",
 	   sockfd);
-    /* register as a reader */
-    session->read_fd = FDCalloutCreate(sockfd,
-				       bootp_session_read,
-				       session, NULL);
+    bootp_session_enable_receive(session, sockfd);
     return (TRUE);
 }
 
 static void
-bootp_client_close_socket(bootp_client_t * client)
+bootp_client_close_socket(bootp_client_t client)
 {
-    bootp_session_t * 	session = client->session;
+    bootp_session_t 	session = bootp_session_get();
 
     if (client->fd_open == FALSE) {
 	return;
@@ -304,9 +354,9 @@ bootp_client_close_socket(bootp_client_t * client)
 }
 
 static boolean_t
-bootp_client_open_socket(bootp_client_t * client)
+bootp_client_open_socket(bootp_client_t client)
 {
-    bootp_session_t *	session = client->session;
+    bootp_session_t	session = bootp_session_get();
 
     if (client->fd_open) {
 	return (TRUE);
@@ -335,7 +385,7 @@ bootp_client_open_socket(bootp_client_t * client)
 }
 
 void
-bootp_client_enable_receive(bootp_client_t * client,
+bootp_client_enable_receive(bootp_client_t client,
 			    bootp_receive_func_t * func, 
 			    void * arg1, void * arg2)
 {
@@ -350,7 +400,7 @@ bootp_client_enable_receive(bootp_client_t * client,
 }
 
 void
-bootp_client_disable_receive(bootp_client_t * client)
+bootp_client_disable_receive(bootp_client_t client)
 {
     client->receive = NULL;
     client->receive_arg1 = NULL;
@@ -360,9 +410,9 @@ bootp_client_disable_receive(bootp_client_t * client)
 }
 
 static void
-bootp_client_bind_socket_to_if(bootp_client_t * client, int opt)
+bootp_client_bind_socket_to_if(bootp_client_t client, int opt)
 {
-    bootp_session_t *	session = client->session;
+    bootp_session_t	session = bootp_session_get();
     int			fd = -1;
 
     if (session->read_fd != NULL) {
@@ -383,7 +433,7 @@ bootp_client_bind_socket_to_if(bootp_client_t * client, int opt)
 }
 
 int
-bootp_client_transmit(bootp_client_t * client,
+bootp_client_transmit(bootp_client_t client,
 		      struct in_addr dest_ip,
 		      struct in_addr src_ip,
 		      uint16_t dest_port,
@@ -399,7 +449,7 @@ bootp_client_transmit(bootp_client_t * client,
      */
     int 		send_buf_aligned[512];
     char * 		send_buf = (char *)send_buf_aligned;
-    bootp_session_t *	session = client->session;
+    bootp_session_t	session = bootp_session_get();
     int			sockfd = -1;
 
     /* if we're not broadcasting, bind the socket to the interface */
@@ -459,37 +509,42 @@ bootp_client_transmit(bootp_client_t * client,
 }
 		       
 
-
-bootp_session_t *
-bootp_session_init(uint16_t client_port)
+/*
+ * Function: bootp_session_get
+ * Purpose:
+ *   Get the global bootp session.
+ */
+static bootp_session_t
+bootp_session_get(void)
 {
-    bootp_session_t * session = malloc(sizeof(*session));
-    if (session == NULL)
-	return (NULL);
-    bzero(session, sizeof(*session));
-    dynarray_init(&session->clients, bootp_client_free_element, NULL);
-    session->client_port = client_port;
-    session->timer_callout = timer_callout_init("bootp_session");
+    static bootp_session_t session;
 
+    if (session == NULL) {
+	session = malloc(sizeof(*session));
+	bzero(session, sizeof(*session));
+	dynarray_init(&session->clients, bootp_client_free_element, NULL);
+	session->timer_callout = timer_callout_init("bootp_session");
+    }
     return (session);
 }
 
 void
-bootp_session_free(bootp_session_t * * session_p)
+bootp_session_init(uint16_t client_port)
 {
-    bootp_session_t * session = *session_p;
+    bootp_session_t session;
 
-    dynarray_free(&session->clients);
-    FDCalloutRelease(&session->read_fd);
-    timer_callout_free(&session->timer_callout);
-    bzero(session, sizeof(*session));
-    free(session);
-    *session_p = NULL;
+    session = bootp_session_get();
+    if (session->client_port != 0) {
+	my_log(LOG_ERR,
+	       "%s: called again with %d", __func__, client_port);
+	return;
+    }
+    session->client_port = client_port;
     return;
 }
 
 static void
-bootp_session_deliver(bootp_session_t * session, const char * ifname,
+bootp_session_deliver(bootp_session_t session, const char * ifname,
 		      const struct in_addr * from_ip,
 		      void * data, int size)
 {
@@ -524,7 +579,7 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
     }
 
     for (i = 0; i < dynarray_count(&session->clients); i++) {
-	bootp_client_t *	client;
+	bootp_client_t	client;
 
 	client = dynarray_element(&session->clients, i);
 	if (strcmp(if_name(client->if_p), ifname) != 0) {
@@ -584,7 +639,7 @@ bootp_session_read(void * arg1, void * arg2)
     struct msghdr 		msg;
     ssize_t 			n;
     uint32_t 			receive_buf[1500/(sizeof(uint32_t))];
-    bootp_session_t * 		session = (bootp_session_t *)arg1;
+    bootp_session_t 		session = (bootp_session_t)arg1;
 
     msg.msg_name = (caddr_t)&from;
     msg.msg_namelen = sizeof(from);
@@ -610,9 +665,8 @@ bootp_session_read(void * arg1, void * arg2)
 	    my_log(LOG_ERR, "bootp_session_read(%d): recvmsg failed, %s",
 		   FDCalloutGetFD(session->read_fd), strerror(error));
 	    if (error == ENOTCONN) {
-		/* close and re-open */
-		FDCalloutRelease(&session->read_fd);
-		bootp_session_open_socket(session);
+		/* close and re-open (rdar://39423537) */
+		bootp_session_schedule_close(session);
 	    }
 	}
     }
@@ -625,3 +679,121 @@ bootp_session_set_verbose(bool verbose)
     S_verbose = verbose;
     return;
 }
+
+#if TEST_BOOTP_SESSION
+
+interface_list_t *
+get_interface_list(void)
+{
+    static interface_list_t *	S_interfaces;
+
+    if (S_interfaces == NULL) {
+	S_interfaces = ifl_init();
+    }
+    return (S_interfaces);
+}
+
+static void
+client_receive(void * arg1, void * arg2, void * arg3);
+
+static void
+client_enable_receive(void * arg1, void * arg2, void * arg3)
+{
+    bootp_client_t 		client = (bootp_client_t)arg1;
+    timer_callout_t *		timer_callout = (timer_callout_t *)arg2;
+
+    bootp_client_enable_receive(client, client_receive, client, timer_callout);
+}
+
+static int S_timeout;
+
+static void
+client_receive(void * arg1, void * arg2, void * arg3)
+{
+    bootp_client_t 		client = (bootp_client_t)arg1;
+    bootp_receive_data_t * 	data = (bootp_receive_data_t *)arg3;
+    timer_callout_t *		timer_callout = (timer_callout_t *)arg2;
+
+    printf("Got %d bytes disabling receive\n", data->size);
+    bootp_client_disable_receive(client);
+    timer_callout_set(timer_callout, S_timeout,
+		      client_enable_receive,
+		      client, timer_callout,
+		      NULL);
+}
+
+static void
+usage(const char * progname)
+{
+    fprintf(stderr,
+	    "usage: %s -i <ifname> [ -v ] [ -p <port> ] [ -t <secs> ]\n",
+	    progname);
+    exit(1);
+}
+
+int
+main(int argc, char * argv[])
+{
+    int 			ch;
+    bootp_client_t		client;
+    interface_t *		if_p;
+    const char *		ifname = NULL;
+    interface_list_t *		interfaces = NULL;
+    uint16_t			port = 12345;
+    const char *		progname = argv[0];
+    timer_callout_t *		timer_callout;
+
+    S_timeout = 1;
+    while ((ch = getopt(argc, argv, "i:p:t:v")) != -1) {
+	switch (ch) {
+	case 'i':
+	    ifname = optarg;
+	    break;
+	case 'p':
+	    port = strtoul(optarg, NULL, 0);
+	    break;
+	case 'v':
+	    bootp_session_set_verbose(true);
+	    break;
+	case 't':
+	    S_timeout = strtoul(optarg, NULL, 0);
+	    break;
+	default:
+	    usage(progname);
+	    break;
+	}
+    }
+    if (ifname == NULL) {
+	usage(progname);
+    }
+    argc -= optind;
+    argv += optind;
+
+    if (argc > 0) {
+	fprintf(stderr, "Extra arguments provided\n");
+	usage(progname);
+    }
+    interfaces = get_interface_list();
+    if (interfaces == NULL) {
+	fprintf(stderr, "failed to get interface list\n");
+	exit(2);
+    }
+    if_p = ifl_find_name(interfaces, ifname);
+    if (if_p == NULL) {
+	fprintf(stderr, "No such interface '%s'\n", ifname);
+	exit(2);
+    }
+    printf("Using port %d\n", port);
+    bootp_session_init(port);
+    client = bootp_client_init(if_p);
+    if (client == NULL) {
+	fprintf(stderr, "bootp_client_init() failed\n");
+	exit(2);
+    }
+    timer_callout = timer_callout_init("test client");
+    bootp_client_enable_receive(client, client_receive, client, timer_callout);
+    dispatch_main();
+    exit(0);
+    return (0);
+}
+#endif /* TEST_BOOTP_SESSION */

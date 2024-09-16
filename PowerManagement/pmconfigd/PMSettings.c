@@ -669,9 +669,8 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
                     prealloc.fst_posmode = F_PEOFPOSMODE;
                     prealloc.fst_offset = 0;
                     prealloc.fst_length = filesize;
-                    if (((-1 == fcntl(fd, F_PREALLOCATE, &prealloc))
+                    if ((-1 == fcntl(fd, F_PREALLOCATE, &prealloc))
                          || (-1 == fcntl(fd, F_SETSIZE, &prealloc.fst_length)))
-                        && (-1 == ftruncate(fd, prealloc.fst_length)))
                         break;
 
                     haveFile = true;

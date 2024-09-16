@@ -26,8 +26,8 @@
  *	All Rights Reserved.
  */
 
-#ifndef	_NFS_SUBR_H
-#define	_NFS_SUBR_H
+#ifndef _NFS_SUBR_H
+#define _NFS_SUBR_H
 
 #pragma ident	"@(#)nfs_subr.h	1.3	05/06/08 SMI"
 
@@ -47,4 +47,4 @@ extern int convert_special(char **, char *, char *, char *, char *);
 }
 #endif
 
-#endif	/* _NFS_SUBR_H */
+#endif  /* _NFS_SUBR_H */

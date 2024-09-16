@@ -45,7 +45,7 @@ mbstowcs_l(wchar_t * __restrict pwcs, const char * __restrict s, size_t n,
 	NORMALIZE_LOCALE(loc);
 	mbs = initial;
 	sp = s;
-	return (loc->__lc_ctype->__mbsnrtowcs(pwcs, &sp, SIZE_T_MAX, n, &mbs, loc));
+	return (XLOCALE_CTYPE(loc)->__mbsnrtowcs(pwcs, &sp, SIZE_T_MAX, n, &mbs, loc));
 }
 
 size_t

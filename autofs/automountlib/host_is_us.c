@@ -99,8 +99,9 @@ host_is_us(const char *host, size_t hostlen)
 	 * This is, by definition, us.
 	 */
 	if (hostlen == sizeof localhost - 1 &&
-	    strncasecmp(host, localhost, sizeof localhost - 1) == 0)
-		return (1);
+	    strncasecmp(host, localhost, sizeof localhost - 1) == 0) {
+		return 1;
+	}
 
 	/*
 	 * Get our hostname, and compare the counted string we were
@@ -112,8 +113,9 @@ host_is_us(const char *host, size_t hostlen)
 	 * to catch notifications for the host name changing.
 	 */
 	if (gethostname(ourhostname, sizeof ourhostname) == 0) {
-		if (hosts_match(host, hostlen, ourhostname))
-			return (1);
+		if (hosts_match(host, hostlen, ourhostname)) {
+			return 1;
+		}
 	}
 
 	/*
@@ -131,8 +133,9 @@ host_is_us(const char *host, size_t hostlen)
 		ourlocalhostnamelen = strlen(ourlocalhostname);
 		if (hostlen == ourlocalhostnamelen &&
 		    strncasecmp(host, ourlocalhostname, ourlocalhostnamelen)
-		       == 0)
-			return (1);
+		    == 0) {
+			return 1;
+		}
 	}
 
 	/*
@@ -153,7 +156,7 @@ host_is_us(const char *host, size_t hostlen)
 	if (err != 0) {
 		pr_msg(LOG_ERR, "Can't get read lock on host name cache: %s",
 		    strerror(err));
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -166,7 +169,7 @@ host_is_us(const char *host, size_t hostlen)
 		 */
 		if (!convert_to_write_lock()) {
 			/* convert_to_write_lock() released the read lock */
-			return (0);
+			return 0;
 		}
 		get_my_host_names();
 	}
@@ -178,14 +181,14 @@ host_is_us(const char *host, size_t hostlen)
 		for (i = 0; i < num_host_names; i++) {
 			if (hosts_match(host, hostlen, my_host_names[i])) {
 				pthread_rwlock_unlock(&host_name_cache_lock);
-				return (1);
+				return 1;
 			}
 		}
 	}
 
 	/* Not us. */
 	pthread_rwlock_unlock(&host_name_cache_lock);
-	return (0);
+	return 0;
 }
 
 static int
@@ -196,8 +199,9 @@ hosts_match(const char *host, size_t hostlen, const char *matchhost)
 
 	matchhost_len = strlen(matchhost);
 	if (hostlen == matchhost_len &&
-	    strncasecmp(host, matchhost, matchhost_len) == 0)
-		return (1);
+	    strncasecmp(host, matchhost, matchhost_len) == 0) {
+		return 1;
+	}
 
 	/*
 	 * Compare the counted string we were handed with the first
@@ -207,11 +211,12 @@ hosts_match(const char *host, size_t hostlen, const char *matchhost)
 	if (p != NULL) {
 		matchhost_len = p - matchhost;
 		if (hostlen == matchhost_len &&
-		    strncasecmp(host, matchhost, matchhost_len) == 0)
-			return(1);
+		    strncasecmp(host, matchhost, matchhost_len) == 0) {
+			return 1;
+		}
 	}
 
-	return (0);
+	return 0;
 }
 
 static int
@@ -223,27 +228,31 @@ get_local_host_name(char *ourlocalhostname, size_t ourlocalhostnamelen)
 
 	store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("automountd"),
 	    NULL, NULL);
-	if (store == NULL)
-		return (-1);
+	if (store == NULL) {
+		return -1;
+	}
 
 	ourlocalhostname_CFString = SCDynamicStoreCopyLocalHostName(store);
 	CFRelease(store);
-	if (ourlocalhostname_CFString == NULL)
-		return (-1);
+	if (ourlocalhostname_CFString == NULL) {
+		return -1;
+	}
 
 	ret = CFStringGetCString(ourlocalhostname_CFString, ourlocalhostname,
 	    ourlocalhostnamelen, kCFStringEncodingUTF8);
 	CFRelease(ourlocalhostname_CFString);
-	if (!ret)
-		return (-1);
+	if (!ret) {
+		return -1;
+	}
 
 	/*
 	 * That won't have ".local" at the end; add it.
 	 */
 	if (strlcat(ourlocalhostname, ".local", ourlocalhostnamelen)
-	    >= ourlocalhostnamelen)
-		return (-1);	/* didn't fit in the buffer */
-	return (0);
+	    >= ourlocalhostnamelen) {
+		return -1;    /* didn't fit in the buffer */
+	}
+	return 0;
 }
 
 static int
@@ -256,9 +265,9 @@ convert_to_write_lock(void)
 	if (err != 0) {
 		pr_msg(LOG_ERR, "Error attempting to get write lock on host name cache: %s",
 		    strerror(err));
-		return (0);
+		return 0;
 	}
-	return (1);
+	return 1;
 }
 
 static void
@@ -284,8 +293,9 @@ get_my_host_names(void)
 	 * just return.  (have_my_host_names is modified only
 	 * when the write lock is held.)
 	 */
-	if (have_my_host_names)
+	if (have_my_host_names) {
 		return;
+	}
 
 	if (getifaddrs(&ifaddrs) == -1) {
 		pr_msg(LOG_ERR, "getifaddrs failed: %s\n", strerror(errno));
@@ -302,7 +312,6 @@ get_my_host_names(void)
 	for (ifaddr = ifaddrs; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
 		addr = ifaddr->ifa_addr;
 		switch (addr->sa_family) {
-
 		case AF_INET:
 		case AF_INET6:
 			num_hostinfo++;
@@ -326,7 +335,7 @@ get_my_host_names(void)
 		pr_msg(LOG_ERR, "Couldn't allocate array of hostinfo pointers\n");
 		return;
 	}
-	
+
 	/*
 	 * Fill in the array of hostinfo pointers, and count how many
 	 * hostinfo pointers and host names we have.
@@ -337,7 +346,6 @@ get_my_host_names(void)
 	for (ifaddr = ifaddrs; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
 		addr = ifaddr->ifa_addr;
 		switch (addr->sa_family) {
-
 		case AF_INET:
 			addr_in = (struct sockaddr_in *)addr;
 			hostinfo = getipnodebyaddr(&addr_in->sin_addr,
@@ -345,7 +353,7 @@ get_my_host_names(void)
 			    &error_num);
 			break;
 
-#if 0	// until IPv6 reverse-DNS lookups are fixed - 8650817
+#if 0   // until IPv6 reverse-DNS lookups are fixed - 8650817
 		case AF_INET6:
 			addr_in6 = (struct sockaddr_in6 *)addr;
 			hostinfo = getipnodebyaddr(&addr_in6->sin6_addr,
@@ -361,10 +369,11 @@ get_my_host_names(void)
 		if (hostinfo != NULL) {
 			*hostinfop++ = hostinfo;
 			num_hostinfo++;
-			num_host_names++;		/* main name */
+			num_host_names++;               /* main name */
 			for (aliasp = hostinfo->h_aliases; *aliasp != NULL;
-			    aliasp++)
-				num_host_names++;	/* alias */
+			    aliasp++) {
+				num_host_names++;       /* alias */
+			}
 		}
 	}
 	freeifaddrs(ifaddrs);
@@ -390,8 +399,9 @@ get_my_host_names(void)
 	for (i = 0; i < num_hostinfo; i++) {
 		hostinfo = hostinfo_list[i];
 		*host_namep++ = hostinfo->h_name;
-		for (aliasp = hostinfo->h_aliases; *aliasp != NULL; aliasp++)
+		for (aliasp = hostinfo->h_aliases; *aliasp != NULL; aliasp++) {
 			*host_namep++ = *aliasp;
+		}
 	}
 
 	have_my_host_names = 1;
@@ -402,8 +412,9 @@ free_hostinfo_list(void)
 {
 	u_int i;
 
-	for (i = 0; i < num_hostinfo; i++)
+	for (i = 0; i < num_hostinfo; i++) {
 		freehostent(hostinfo_list[i]);
+	}
 	free(hostinfo_list);
 	hostinfo_list = NULL;
 	num_hostinfo = 0;

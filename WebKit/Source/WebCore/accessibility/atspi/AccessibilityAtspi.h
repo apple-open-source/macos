@@ -38,7 +38,7 @@ typedef struct _GVariant GVariant;
 namespace WebCore {
 class AccessibilityObjectAtspi;
 class AccessibilityRootAtspi;
-enum class AccessibilityRole;
+enum class AccessibilityRole : uint8_t;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AccessibilityAtspi);
 class AccessibilityAtspi {
@@ -75,6 +75,8 @@ public:
     void textSelectionChanged(AccessibilityObjectAtspi&);
 
     void valueChanged(AccessibilityObjectAtspi&, double);
+
+    void activeDescendantChanged(AccessibilityObjectAtspi&);
 
     void selectionChanged(AccessibilityObjectAtspi&);
 
@@ -114,6 +116,7 @@ private:
 
 #if ENABLE(DEVELOPER_MODE)
     void notify(AccessibilityObjectAtspi&, const char*, NotificationObserverParameter) const;
+    void notifyActiveDescendantChanged(AccessibilityObjectAtspi&) const;
     void notifyStateChanged(AccessibilityObjectAtspi&, const char*, bool) const;
     void notifySelectionChanged(AccessibilityObjectAtspi&) const;
     void notifyMenuSelectionChanged(AccessibilityObjectAtspi&) const;

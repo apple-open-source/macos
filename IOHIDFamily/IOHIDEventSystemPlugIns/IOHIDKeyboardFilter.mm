@@ -37,6 +37,7 @@
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <mach/message.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
 #include "CF.h"
 #include <sstream>
@@ -824,27 +825,15 @@ CFTypeRef IOHIDKeyboardFilter::copyPropertyForClient(CFStringRef key, CFTypeRef 
 }
 
 //------------------------------------------------------------------------------
-// IOHIDKeyboardFilter::canRemapKey
+// IOHIDKeyboardFilter::hasTCCPermissions
 //------------------------------------------------------------------------------
-bool IOHIDKeyboardFilter::canRemapKey(Key srcKey, CFTypeRef client)
+bool IOHIDKeyboardFilter::hasTCCPermissions(IOHIDEventSystemConnectionRef client)
 {
-    if (kHIDPage_KeyboardOrKeypad == srcKey.usagePage()) {
-        uint32_t usage = srcKey.usage();
-        // Check for presence of alphanumeric/special characters in mapping
-        if((kHIDUsage_KeyboardA <= usage && kHIDUsage_Keyboard0 >= usage) ||
-           (kHIDUsage_Keypad1 <= usage && kHIDUsage_KeyboardNonUSBackslash >= usage) ||
-           (kHIDUsage_KeyboardHyphen <= usage && kHIDUsage_KeyboardSlash >= usage) ||
-           (kHIDUsage_KeypadSlash <= usage && kHIDUsage_KeypadPlus >= usage) ||
-           (kHIDUsage_KeypadEqualSign == usage)) {
-            // Check for entitlement on connection
-            if(!IOHIDEventSystemConnectionHasEntitlement((IOHIDEventSystemConnectionRef)client, CFSTR(kIOHIDEventSystemClientAlphaNumericRemappingEntitlement))) {
-                HIDLogError("Insufficient permissions to remap alphanumeric keys or special characters for UUID: %@", IOHIDEventSystemConnectionGetUUID((IOHIDEventSystemConnectionRef)client));
-                return false;
-            }
-        }
-    }
-    return true;
-    
+    bool status = 0;
+    audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+    IOHIDEventSystemConnectionGetAuditToken(client, &token);
+    status = IOHIDAccessCheckAuditToken(kIOHIDRequestTypeListenEvent, token);
+    return status;
 }
 
 //------------------------------------------------------------------------------
@@ -855,46 +844,12 @@ bool IOHIDKeyboardFilter::allowRemapping(CFTypeRef property, CFTypeRef client)
     if(!client) {
         return true;
     }
-    if(CFGetTypeID(property) == CFArrayGetTypeID()) {
-        CFArrayRef mappings = (CFArrayRef)property;
-        for ( CFIndex i = 0; i < CFArrayGetCount(mappings); i++ ){
-            CFDictionaryRef    pair    = NULL;
-            CFNumberRef     num     = NULL;
-            uint64_t        src     = 0;
-            uint32_t        usage   = 0;
-            pair = (CFDictionaryRef)CFArrayGetValueAtIndex(mappings, i);
-            if ( pair == NULL || CFGetTypeID(pair) != CFDictionaryGetTypeID()) {
-                continue;
-            }
-            num = (CFNumberRef)CFDictionaryGetValue(pair, CFSTR(kIOHIDServiceModifierMappingSrcKey));
-            if ( !num || CFGetTypeID(num) != CFNumberGetTypeID()) {
-                continue;
-            }
-            CFNumberGetValue(num, kCFNumberSInt64Type, &src);
-            Key srcKey = Key(src);
-            if(!canRemapKey(srcKey, client)) {
-                return false;
-            }
-        }
-    } else if (CFGetTypeID(property) == CFStringGetTypeID()) {
-        CFStringRef mappings = (CFStringRef)property;
-        const char *stringMap;
-        if ( mappings == NULL || (stringMap = (CFStringGetCStringPtr(mappings, kCFStringEncodingMacRoman))) == NULL) {
-            return true;
-        }
-        std::istringstream ss (stringMap);
-        std::string srcS, dstS;
-        while(std::getline(ss, srcS, ',') && std::getline(ss, dstS, ',')) {
-            uint64_t usageAndPage;
-            usageAndPage = std::stoul(dstS, nullptr, 16);
-            if (usageAndPage == 0) {
-                continue;
-            }
-            usageAndPage = std::stoul(srcS, nullptr, 16);
-            Key srcKey ((uint32_t)(usageAndPage >> 16), usageAndPage & 0xffff);
-            if(!canRemapKey(srcKey, client)) {
-                return false;
-            }
+    if(_IOHIDIsRestrictedRemappingProperty(property)){
+        // Check for entitlement on connection
+        if(!IOHIDEventSystemConnectionHasEntitlement((IOHIDEventSystemConnectionRef)client, CFSTR(kIOHIDEventSystemClientAlphaNumericRemappingEntitlement))
+           && !hasTCCPermissions((IOHIDEventSystemConnectionRef)client)) {
+            HIDLogError("Insufficient permissions to remap alphanumeric keys or special characters for UUID: %@", IOHIDEventSystemConnectionGetUUID((IOHIDEventSystemConnectionRef)client));
+            return false;
         }
     }
     return true;
@@ -1504,12 +1459,12 @@ KeyMap IOHIDKeyboardFilter::createMapFromStringMap(CFStringRef mappings) {
     std::string srcS, dstS;
     while(std::getline(ss, srcS, ',') && std::getline(ss, dstS, ',')) {
         uint64_t usageAndPage;
-        usageAndPage = std::stoul(dstS, nullptr, 16);
+        usageAndPage = std::stoul(dstS, nullptr, 0);
         if (usageAndPage == 0) {
             continue;
         }
         Key dstKey ((uint32_t)(usageAndPage >> 16), usageAndPage & 0xffff);
-        usageAndPage = std::stoul(srcS, nullptr, 16);
+        usageAndPage = std::stoul(srcS, nullptr, 0);
         Key srcKey ((uint32_t)(usageAndPage >> 16), usageAndPage & 0xffff);
         map.insert(std::make_pair(srcKey, dstKey));
     }

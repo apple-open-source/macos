@@ -43,13 +43,7 @@ class NativeImage;
 class TextureMapper;
 enum class TextureMapperFlags : uint16_t;
 
-#if OS(WINDOWS)
-#define USE_TEXMAP_DEPTH_STENCIL_BUFFER 1
-#else
-#define USE_TEXMAP_DEPTH_STENCIL_BUFFER 0
-#endif
-
-class BitmapTexture final : public RefCounted<BitmapTexture> {
+class BitmapTexture final : public ThreadSafeRefCounted<BitmapTexture> {
 public:
     enum class Flags : uint8_t {
         SupportsAlpha = 1 << 0,
@@ -87,6 +81,8 @@ public:
     ClipStack& clipStack() { return m_clipStack; }
 
     void copyFromExternalTexture(GLuint textureID);
+    void copyFromExternalTexture(BitmapTexture& sourceTexture, const IntRect& sourceRect, const IntSize& destinationOffset);
+    void copyFromExternalTexture(GLuint sourceTextureID, const IntRect& targetRect, const IntSize& sourceOffset);
 
     OptionSet<TextureMapperFlags> colorConvertFlags() const { return m_colorConvertFlags; }
 
@@ -100,10 +96,9 @@ private:
     IntSize m_size;
     GLuint m_id { 0 };
     GLuint m_fbo { 0 };
-#if !USE(TEXMAP_DEPTH_STENCIL_BUFFER)
-    GLuint m_rbo { 0 };
-#endif
     GLuint m_depthBufferObject { 0 };
+    GLuint m_stencilBufferObject { 0 };
+    bool m_stencilBound { false };
     bool m_shouldClear { true };
     ClipStack m_clipStack;
     OptionSet<TextureMapperFlags> m_colorConvertFlags;

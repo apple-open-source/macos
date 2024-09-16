@@ -1317,7 +1317,7 @@ tre_parse(tre_parse_ctx_t *ctx)
      an explicit stack instead of recursive functions mostly because of
      two reasons: compatibility with systems which have an overflowable
      call stack, and efficiency (both in lines of code and speed).  */
-  while (tre_stack_num_objects(stack) > bottom)
+  while (tre_stack_num_objects(stack) > bottom && status == REG_OK)
     {
       symbol = tre_stack_pop_int(stack);
       switch (symbol)
@@ -1667,6 +1667,7 @@ tre_parse(tre_parse_ctx_t *ctx)
 		   is to be treated as a literal. */
 		if (status == REG_NOMATCH)
 		  {
+		    status = REG_OK;
 		    ctx->re--;
 		    break;
 		  }
@@ -2207,6 +2208,7 @@ tre_parse(tre_parse_ctx_t *ctx)
 				   treat the lbrace as a literal. */
 				if (status == REG_NOMATCH)
 				  {
+				    status = REG_OK;
 				    ctx->re--;
 				    /* Drop down to literal-handling code */
 				  }
@@ -2323,6 +2325,9 @@ tre_parse(tre_parse_ctx_t *ctx)
 	  break;
 	}
     }
+
+  if (status != REG_OK)
+    return status;
 
   /* Check for missing closing parentheses. */
   if (depth > 0)

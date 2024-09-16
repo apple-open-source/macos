@@ -42,6 +42,7 @@
 #include "SecECKey.h"
 #include "SecRSAKey.h"
 #include "SecCTKKeyPriv.h"
+#include "SecKeyInternal.h"
 #include "SecKeyCurve25519Priv.h"
 
 #include "SecSoftLink.h"
@@ -134,6 +135,11 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
                     sac = CFBridgingRelease(SecAccessControlCopyData((__bridge SecAccessControlRef)sac));
                     attrs[(id)kSecAttrAccessControl] = sac;
                 }
+
+#if TARGET_CPU_X86_64
+                // Remove os-bound key from attributes, it is not supported on Intel-based machines.
+                [attrs removeObjectForKey:(__bridge id)kSecKeyOSBound];
+#endif
                 attributes = attrs.copy;
                 _tokenObject = [session createObjectWithAttributes:attributes error:error];
             }
@@ -248,6 +254,10 @@ static CFIndex SecCTKGetAlgorithmID(SecKeyRef keyRef) {
     return [SecCTKKey fromKeyRef:keyRef].algorithmID;
 }
 
+#if 1  // TODO: When SDK contains new TKTokenOperation symbols from CryptoTokenKit, get rid of this section completely.
+#define TKTokenOperationDecapsulate ((TKTokenOperation)1003)
+#endif
+
 static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                               CFArrayRef algorithms, SecKeyOperationMode mode,
                                               CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
@@ -261,6 +271,9 @@ static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationT
             break;
         case kSecKeyOperationTypeKeyExchange:
             tokenOperation = TKTokenOperationPerformKeyExchange;
+            break;
+        case kSecKeyOperationTypeDecapsulate:
+            tokenOperation = TKTokenOperationDecapsulate;
             break;
         default:
             SecError(errSecParam, error, CFSTR("Invalid key operation %d"), (int)operation);
@@ -479,11 +492,7 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
     return keyRef;
 }
 
-OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
-    if (publicKey == NULL || privateKey == NULL) {
-        return errSecParam;
-    }
-
+SecKeyRef SecCTKKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
     // Generate new key from given parameters.
     NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
     NSDictionary *privateAttrs = params[(id)kSecPrivateKeyAttrs] ?: @{};
@@ -491,27 +500,19 @@ OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey,
     [params removeObjectForKey:(id)kSecPublicKeyAttrs];
     NSMutableDictionary *attrs = privateAttrs.mutableCopy;
     [attrs addEntriesFromDictionary:params];
-    NSError *error;
-    SecCTKKey *key = [[SecCTKKey alloc] initWithAttributes:attrs error:&error];
+    NSError *localError;
+    SecCTKKey *key = [[SecCTKKey alloc] initWithAttributes:attrs error:&localError];
     if (key == nil) {
-        return SecErrorGetOSStatus((__bridge CFErrorRef)error);
+        if (error != nil) {
+            *error = (CFErrorRef)CFBridgingRetain(localError);
+        }
+        return NULL;
     }
 
-    // Create non-token public key.
-    NSDictionary *publicKeyAttrs = @{
-        (id)kSecAttrKeyType: attrs[(id)kSecAttrKeyType],
-        (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic
-    };
     error = nil;
-    *publicKey = SecKeyCreateWithData((CFDataRef)key.tokenObject.publicKey, (CFDictionaryRef)publicKeyAttrs, (void *)&error);
-    if (*publicKey == NULL) {
-        os_log_error(SECKEY_LOG, "Failed to create token public key: %@", error);
-        return errSecInvalidKey;
-    }
-
-    *privateKey = SecKeyCreate(kCFAllocatorDefault, &kSecCTKKeyDescriptor, 0, 0, 0);
-    (*privateKey)->key = (void *)CFBridgingRetain(key);
-    return errSecSuccess;
+    SecKeyRef privateKey = SecKeyCreate(kCFAllocatorDefault, &kSecCTKKeyDescriptor, 0, 0, 0);
+    privateKey->key = (void *)CFBridgingRetain(key);
+    return privateKey;
 }
 
 const CFStringRef kSecKeyParameterSETokenAttestationNonce = CFSTR("com.apple.security.seckey.setoken.attestation-nonce");
@@ -555,6 +556,8 @@ SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error) {
     static const uint8_t sdakCommittedObjectIDBytes[] = { 0x04, 23, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 's', 'd', 'a', 'k', 'c' };
     // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.sdakp" dataUsingEncoding:NSUTF8StringEncoding]].data
     static const uint8_t sdakProposedObjectIDBytes[] = { 0x04, 23, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 's', 'd', 'a', 'k', 'p' };
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.dcik" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t dcikObjectIDBytes[] = { 0x04, 22, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'd', 'c', 'i', 'k' };
 
     CFStringRef token = kSecAttrTokenIDAppleKeyStore;
     
@@ -599,8 +602,11 @@ SecKeyRef SecKeyCopySystemKey(SecKeySystemKeyType keyType, CFErrorRef *error) {
         case kSecKeySystemKeyTypeSDAKProposed:
             object_id = CFDataCreate(kCFAllocatorDefault, sdakProposedObjectIDBytes, sizeof(sdakProposedObjectIDBytes));
             break;
+        case kSecKeySystemKeyTypeDCIK:
+            object_id = CFDataCreate(kCFAllocatorDefault, dcikObjectIDBytes, sizeof(dcikObjectIDBytes));
+            break;
         default:
-            SecError(errSecParam, error, CFSTR("unexpected attestation key type %d"), (int)keyType);
+            SecError(errSecParam, error, CFSTR("unexpected system key type %d"), (int)keyType);
             goto out;
     }
 
@@ -617,66 +623,54 @@ out:
 }
 
 CFDataRef SecKeyCreateAttestation(SecKeyRef keyRef, SecKeyRef toAttestKeyRef, CFErrorRef *error) {
-    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
-    SecCTKKey *keyToAttest = [SecCTKKey fromKeyRef:toAttestKeyRef];
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateAttestation", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(keyRef);
 
-    if (keyRef->key_class != &kSecCTKKeyDescriptor) {
-        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), keyRef);
-        return NULL;
-    }
-    if (toAttestKeyRef->key_class != &kSecCTKKeyDescriptor) {
-        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), toAttestKeyRef);
-        return NULL;
-    }
+        SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+        SecCTKKey *keyToAttest = [SecCTKKey fromKeyRef:toAttestKeyRef];
 
-    NSError *err;
-#if 0 // Once CTK change with this method arrives in SDK, we should switch to this more concise code.
-    NSData *attestation = [key.tokenObject attestKeyObject:keyToAttest.tokenObject nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
-#else
-    NSMutableDictionary *parameters = @{
-        @"attesteeSystemSession": @([keyToAttest.tokenObject.session.parameters[@"forceSystemSession"] boolValue]),
-    }.mutableCopy;
-    NSData *nonce = key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce];
-    if (nonce != nil) {
-        parameters[@"nonce"] = nonce;
-    }
-    NSData *attestation = [key.tokenObject operation:TKTokenOperationAttestKey data:keyToAttest.tokenObject.objectID algorithms:@[] parameters:parameters error:&err];
-#endif
-    if (attestation == nil) {
-        if (error != NULL) {
-            *error = (CFErrorRef)CFBridgingRetain(err);
+        if (keyRef->key_class != &kSecCTKKeyDescriptor) {
+            SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), keyRef);
+            return NULL;
         }
-        return NULL;
-    }
+        if (toAttestKeyRef->key_class != &kSecCTKKeyDescriptor) {
+            SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), toAttestKeyRef);
+            return NULL;
+        }
 
-    return CFBridgingRetain(attestation);
+        NSError *err;
+        NSData *attestation = [key.tokenObject attestKeyObject:keyToAttest.tokenObject nonce:key.sessionParameters[(__bridge id)kSecKeyParameterSETokenAttestationNonce] error:&err];
+        SecKeyErrorPropagate(attestation != NULL, (CFErrorRef)CFBridgingRetain(err), error);
+        return CFBridgingRetain(attestation);
+    }
 }
 
 Boolean SecKeyControlLifetime(SecKeyRef keyRef, SecKeyControlLifetimeType type, CFErrorRef *error) {
-    if (keyRef->key_class != &kSecCTKKeyDescriptor) {
-        return SecError(errSecUnsupportedOperation, error, CFSTR("lifetimecontrol not supported for key %@"), keyRef);
-    }
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyControlLifetime", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(keyRef);
 
-    BOOL result;
-    NSError *err;
-    SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
-    switch (type) {
-        case kSecKeyControlLifetimeTypeBump:
-            result = [key.tokenObject bumpKeyWithError:&err];
-            break;
-        case kSecKeyControlLifetimeTypeCommit:
-            result = [key.tokenObject commitKeyWithError:&err];
-            break;
-        default:
-            return SecError(errSecParam, error, CFSTR("Unsupported lifetime operation %d requested"), (int)type);
-    }
-
-    if (!result) {
-        if (error != NULL) {
-            *error = (CFErrorRef)CFBridgingRetain(err);
+        if (keyRef->key_class != &kSecCTKKeyDescriptor) {
+            return SecError(errSecUnsupportedOperation, error, CFSTR("lifetimecontrol not supported for key %@"), keyRef);
         }
-        return false;
-    }
 
-    return true;
+        BOOL result;
+        NSError *err;
+        SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
+        switch (type) {
+            case kSecKeyControlLifetimeTypeBump:
+                result = [key.tokenObject bumpKeyWithError:&err];
+                break;
+            case kSecKeyControlLifetimeTypeCommit:
+                result = [key.tokenObject commitKeyWithError:&err];
+                break;
+            default:
+                return SecError(errSecParam, error, CFSTR("Unsupported lifetime operation %d requested"), (int)type);
+        }
+
+        return SecKeyErrorPropagate(result, (CFErrorRef)CFBridgingRetain(err), error);
+    }
 }

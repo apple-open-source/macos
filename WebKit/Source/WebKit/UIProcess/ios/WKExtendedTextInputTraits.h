@@ -28,15 +28,12 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "UIKitSPI.h"
-#import "WKSEDefinitions.h"
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/ServiceExtensionsAdditions.h>
-#endif
+#import "WKBrowserEngineDefinitions.h"
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 
 @interface WKExtendedTextInputTraits : NSObject
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
-    <WKSEExtendedTextInputTraits>
+#if USE(BROWSERENGINEKIT)
+    <BEExtendedTextInputTraits>
 #endif
 
 @property (nonatomic) UITextAutocapitalizationType autocapitalizationType;
@@ -52,25 +49,18 @@
 @property (nonatomic) UIReturnKeyType returnKeyType;
 @property (nonatomic, getter=isSecureTextEntry) BOOL secureTextEntry;
 @property (nonatomic, getter=isSingleLineDocument) BOOL singleLineDocument;
-#if SERVICE_EXTENSIONS_TEXT_INPUT_IS_AVAILABLE
 @property (nonatomic, getter=isTypingAdaptationEnabled) BOOL typingAdaptationEnabled;
-#else
-@property (nonatomic) BOOL typingAdaptationDisabled;
-#endif
 @property (nonatomic, copy) UITextContentType textContentType;
 @property (nonatomic, copy) UITextInputPasswordRules *passwordRules;
 @property (nonatomic) UITextSmartInsertDeleteType smartInsertDeleteType;
 @property (nonatomic) BOOL enablesReturnKeyAutomatically;
 
 @property (nonatomic, strong) UIColor *insertionPointColor;
-#if SERVICE_EXTENSIONS_TEXT_INPUT_IS_AVAILABLE
 @property (nonatomic, strong) UIColor *selectionHandleColor;
-#else
-@property (nonatomic, strong) UIColor *selectionBarColor;
-#endif
 @property (nonatomic, strong) UIColor *selectionHighlightColor;
 
 - (void)setSelectionColorsToMatchTintColor:(UIColor *)tintColor;
+- (void)restoreDefaultValues;
 
 @end
 

@@ -24,7 +24,6 @@
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
-#import "keychain/ckks/CKKSManifest.h"
 
 #import "keychain/ckks/tests/CKKSTests+MultiZone.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
@@ -108,9 +107,6 @@
 }
 
 - (void)setUp {
-    SecCKKSSetSyncManifests(false);
-    SecCKKSSetEnforceManifests(false);
-
     [super setUp];
     SecCKKSTestSetDisableSOS(false);
 
@@ -922,6 +918,7 @@
 }
 
 - (void)testRecoverFromCloudKitOldChangeTokenInKeyHierarchyFetch {
+    WEAKIFY(self);
     [self putFakeKeyHierachiesInCloudKit];
     [self saveTLKsToKeychain];
 
@@ -944,8 +941,25 @@
 
     // We expect a total local flush and refetch
     self.silentFetchesAllowed = false;
-    [self expectCKFetch]; // one to fail with a CKErrorChangeTokenExpired error
-    [self expectCKFetch]; // and one to succeed
+
+    [self expectCKFetchAndRunBeforeFinished:^{  // this should fail with a CKErrorChangeTokenExpired error
+        STRONGIFY(self);
+        [self holdCloudKitFetches];
+
+        CKKSResultOperation* waitForKeyState = [CKKSResultOperation operationWithBlock:^{
+            for(CKKSKeychainViewState* viewState in self.defaultCKKS.operationDependencies.allCKKSManagedViews) {
+                XCTAssertEqual(0, [viewState.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:3*NSEC_PER_SEC], "Key state should be re-initialized");
+            }
+        }];
+        [self.defaultCKKS.zoneChangeFetcher holdFetchesUntil:waitForKeyState];
+
+        [self expectCKFetchAndRunBeforeFinished:^{  // fetch retry should succeed
+            STRONGIFY(self);
+            self.silentFetchesAllowed = true;
+        }];
+        [self.defaultCKKS scheduleOperation:waitForKeyState];
+        [self releaseCloudKitFetchHold];
+    }];
 
     [self.defaultCKKS.stateMachine handleFlag:CKKSFlagFetchRequested];
 
@@ -1170,13 +1184,13 @@
     self.ptaZone.flag = true;
 
     self.nextModifyRecordZonesError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                       code:CKErrorZoneBusy
-                                                                   userInfo:@{
-                                                                              CKErrorRetryAfterKey: @(0.2),
-                                                                              NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                                                                                     code:2029
-                                                                                                                                 userInfo:nil],
-                                                                              }];
+                                                                 code:CKErrorZoneBusy
+                                                             userInfo:@{
+        CKErrorRetryAfterKey: @(0.2),
+        NSUnderlyingErrorKey: [[NSError alloc] initWithDomain:CKErrorDomain
+                                                         code:2029
+                                                     userInfo:nil],
+    }];
     self.silentZoneDeletesAllowed = true;
 
     // During the reset, Octagon will upload the key hierarchy, and then CKKS will upload the class C item
@@ -1234,7 +1248,7 @@
     // Put sample data in zones, and save off a change token for later fetch shenanigans
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"manatee0"]];
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"manatee1"]];
-    CKServerChangeToken* manateeChangeToken1 = self.manateeZone.currentChangeToken;
+    FakeCKServerChangeToken* manateeChangeToken1 = self.manateeZone.currentChangeToken;
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"manatee2"]];
     [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"manatee3"]];
 
@@ -1271,8 +1285,8 @@
     } runBeforeFinished:^{}];
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
         // Assert that the fetch is happening with the change token we paused at before
-        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.manateeZoneID].previousServerChangeToken;
-        if(changeToken && [changeToken isEqual:manateeChangeToken1]) {
+        FakeCKServerChangeToken* changeToken = [FakeCKServerChangeToken decodeCKServerChangeToken:frzco.configurationsByRecordZoneID[self.manateeZoneID].previousServerChangeToken];
+        if(changeToken && [changeToken.token isEqual:manateeChangeToken1.token]) {
             return YES;
         } else {
             return NO;

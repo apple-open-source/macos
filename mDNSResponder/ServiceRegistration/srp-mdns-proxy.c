@@ -54,11 +54,13 @@
 #include "thread-device.h"
 #include "nat64-macos.h"
 #include "srp-dnssd.h"
+#include "ifpermit.h"
+#include "state-machine.h"
+#include "thread-service.h"
+#include "omr-watcher.h"
+#include "omr-publisher.h"
+#include "service-publisher.h"
 
-
-#if SRP_FEATURE_NAT64 || STUB_ROUTER
-#include <mdns/managed_defaults.h>
-#endif
 
 #if SRP_FEATURE_NAT64
 #include "nat64.h"
@@ -72,6 +74,8 @@
 #define ADDRESS_RECORD_TTL  4500
 #define OTHER_RECORD_TTL    4500
 
+#define _DNSSD_API_AVAILABLE_FALL_2024 (1)
+
 static const char local_suffix_ld[] = ".local";
 static const char *local_suffix = &local_suffix_ld[1];
 
@@ -80,6 +84,11 @@ void *dns_service_op_not_to_be_freed;
 srp_server_t *srp_servers;
 const uint8_t thread_anycast_preamble[7] = { 0, 0, 0, 0xff, 0xfe, 0, 0xfc };
 const uint8_t thread_rloc_preamble[6] = { 0, 0, 0, 0xff, 0xfe, 0 };
+
+extern int num_push_sessions;
+extern int dp_num_outstanding_queries;
+extern int num_push_sessions_dropped_for_load;
+extern int num_queries_dropped_for_load;
 
 //======================================================================================================================
 // MARK: - Forward references
@@ -102,29 +111,33 @@ static void adv_update_finalize(adv_update_t *update);
 //======================================================================================================================
 // MARK: - Functions
 
-static void
-remove_shared_record(srp_server_t *server_state, adv_record_t *record)
+void
+srp_mdns_shared_record_remove(srp_server_t *server_state, adv_record_t *record)
 {
     RETAIN_HERE(record, adv_record);
-    if (record->rref != NULL && record->shared_txn != 0 &&
-        record->shared_txn == (intptr_t)server_state->shared_registration_txn)
-    {
-        int err = dns_service_remove_record(server_state,
-                                            server_state->shared_registration_txn->sdref, record->rref, 0);
-        // We can't release the record here if we got an error removing it, because if we get an error removing it,
-        // it doesn't get removed from the list. This should never happen, but if it does, the record will leak.
-        if (err == kDNSServiceErr_NoError) {
-            RELEASE_HERE(record, adv_record); // Release the DNSService callback's reference
-        } else {
-            // At this point we should never see an error calling DNSServiceRemoveRecord, so if we do, call
-            // attention to it.
-            if (!record->update_pending) {
-                FAULT("DNSServiceRemoveRecord(%p, %p, %p, 0) returned %d",
-                      server_state->shared_registration_txn->sdref, record, record->rref, err);
+    if (record->rref != NULL) {
+        if (record->shared_txn != 0 && record->shared_txn == (intptr_t)server_state->shared_registration_txn) {
+            INFO("removing rref %p", record->rref);
+            int err = dns_service_remove_record(server_state,
+                                                server_state->shared_registration_txn->sdref, record->rref, 0);
+            // We can't release the record here if we got an error removing it, because if we get an error removing it,
+            // it doesn't get removed from the list. This should never happen, but if it does, the record will leak.
+            if (err == kDNSServiceErr_NoError) {
+                RELEASE_HERE(record, adv_record); // Release the DNSService callback's reference
+            } else {
+                // At this point we should never see an error calling DNSServiceRemoveRecord, so if we do, call
+                // attention to it.
+                if (!record->update_pending) {
+                    FAULT("DNSServiceRemoveRecord(%p, %p, %p, 0) returned %d",
+                          server_state->shared_registration_txn->sdref, record, record->rref, err);
+                }
             }
+        } else {
+            INFO("didn't remove stale rref %p because %lx != %p",
+                 record->rref, record->shared_txn, server_state->shared_registration_txn);
         }
+        record->rref = NULL;
     }
-    record->rref = NULL;
     record->shared_txn = 0;
     RELEASE_HERE(record, adv_record);
 }
@@ -181,11 +194,35 @@ adv_instance_finalize(adv_instance_t *instance)
     free(instance);
 }
 
-static void
+void
 adv_instance_context_release(void *NONNULL context)
 {
     adv_instance_t *instance = context;
     RELEASE_HERE(instance, adv_instance);
+}
+
+void
+adv_instance_retain_(adv_instance_t *instance, const char *file, int line)
+{
+    RETAIN(instance, adv_instance);
+}
+
+void
+adv_instance_release_(adv_instance_t *instance, const char *file, int line)
+{
+    RELEASE(instance, adv_instance);
+}
+
+void
+adv_record_retain_(adv_record_t *record, const char *file, int line)
+{
+    RETAIN(record, adv_record);
+}
+
+void
+adv_record_release_(adv_record_t *record, const char *file, int line)
+{
+    RELEASE(record, adv_record);
 }
 
 #define DECLARE_VEC_CREATE(type)                        \
@@ -265,6 +302,11 @@ srp_dump_server_stats(srp_server_t *server_state, bool full, bool periodic)
     int matter_host_count = 0;
     int hap_host_count = 0;
     int64_t now = ioloop_timenow();
+    static int last_num_push_sessions;
+    static int last_dp_num_outstanding_queries;
+    static int last_num_push_sessions_dropped_for_load;
+    static int last_num_queries_dropped_for_load;
+
     for (adv_host_t *hp = server_state->hosts; hp != NULL; hp = hp->next) {
         if (hp->removed) {
             continue;
@@ -352,6 +394,92 @@ srp_dump_server_stats(srp_server_t *server_state, bool full, bool periodic)
     INFO(PUB_S_SRP "%d hosts (%d matter, %d hap), %d instances, %d a records, %d aaaa records at %.6lf",
          periodic ? "" : "after update, ", host_count, matter_host_count, hap_host_count, instance_count, a_record_count,
          aaaa_record_count, srp_fractional_time());
+
+#if STUB_ROUTER
+    route_state_t *route_state = server_state->route_state;
+    if (route_state) {
+        SEGMENTED_IPv6_ADDR_GEN_SRP(&route_state->srp_listener_ip_address, addr_buf);
+        // do we have an SRP listener?
+        if (route_state->srp_listener != NULL) {
+            INFO("have SRP listener on " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(&route_state->srp_listener_ip_address, addr_buf),
+                 route_state->srp_service_listen_port);
+        } else {
+            INFO("no SRP listener");
+        }
+
+        // are we publishing anycast services?
+        INFO(PUB_S_SRP "advertising anycast service", route_state->advertising_srp_anycast_service ? "" : "not ");
+
+        // are we publishing unicast service?
+        if (route_state->advertising_srp_unicast_service) {
+            INFO("advertising unicast service on " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(&route_state->srp_listener_ip_address, addr_buf),
+                 route_state->srp_service_listen_port);
+        } else {
+            INFO("not advertising unicast service");
+        }
+
+        // what SRP replication peers do we see? and how many are we actively connected to?
+        srpl_dump_connection_states(server_state);
+
+        // are we publishing OMR prefix?
+        if (route_state->omr_publisher != NULL &&
+            omr_publisher_publishing_prefix(route_state->omr_publisher))
+        {
+            omr_prefix_t *prefix = omr_publisher_published_prefix_get(route_state->omr_publisher);
+            SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
+            INFO("publishing " PUB_S_SRP " OMR prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
+                 omr_publisher_publishing_dhcp(route_state->omr_publisher) ? "dhcp" : "ula",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf),
+                 prefix->prefix_length);
+        } else {
+            INFO("not publishing OMR prefix");
+        }
+
+        // what prefixes do we see on Thread?
+        if (route_state->omr_watcher != NULL) {
+            omr_prefix_t *thread_prefixes = omr_watcher_prefixes_get(route_state->omr_watcher);
+            for (struct omr_prefix *prefix = thread_prefixes; prefix != NULL; prefix = prefix->next) {
+                SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
+                INFO("OMR prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d seen on thread" PUB_S_SRP PUB_S_SRP
+                     PUB_S_SRP, SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf),
+                     prefix->prefix_length, prefix->user ? " (user)" : "", prefix->ncp ? " (ncp)": "",
+                     prefix->stable ? " (stable)" : "");
+            }
+        }
+
+        // are we publishing infrastructure prefix?
+        interface_t *interface;
+        bool is_advertising = false;
+        for (interface = route_state->interfaces; interface; interface = interface->next) {
+            if (interface->our_prefix_advertised) {
+               SEGMENTED_IPv6_ADDR_GEN_SRP(interface->ipv6_prefix.s6_addr, ipv6_prefix_buf);
+               INFO("advertising infrastructure prefix " PRI_SEGMENTED_IPv6_ADDR_SRP " on " PUB_S_SRP,
+                    SEGMENTED_IPv6_ADDR_PARAM_SRP(interface->ipv6_prefix.s6_addr, ipv6_prefix_buf),
+                    interface->name);
+               is_advertising = true;
+            }
+        }
+        if (!is_advertising) {
+            INFO("not advertising infrastructure prefix");
+        }
+    }
+#endif // STUB_ROUTER
+
+    // how many DNS push queries added since last state dump?
+    // how many DNS queries seen since last state dump?
+    // how many DNS queries dropped for load?
+    // how many DNS Push connections dropped for load?
+    INFO("%d push sessions and %d queries added, %d push sessions and %d queries dropped for load",
+         num_push_sessions - last_num_push_sessions,
+         dp_num_outstanding_queries - last_dp_num_outstanding_queries,
+         num_push_sessions_dropped_for_load - last_num_push_sessions_dropped_for_load,
+         num_queries_dropped_for_load - last_num_queries_dropped_for_load);
+    last_num_push_sessions = num_push_sessions;
+    last_dp_num_outstanding_queries = dp_num_outstanding_queries;
+    last_num_push_sessions_dropped_for_load = num_push_sessions_dropped_for_load;
+    last_num_queries_dropped_for_load = num_queries_dropped_for_load;
 }
 
 // We call advertise_finished when a client request has finished, successfully or otherwise.
@@ -373,8 +501,7 @@ srp_replication_advertise_finished(adv_host_t *host, char *hostname, srp_server_
                     srpl_advertise_finished_event_send(hostname, rcode, server_state);
 #ifdef SRP_TEST_SERVER
                     if (srpl_connection->srpl_advertise_finished_callback != NULL) {
-                        srpl_connection->srpl_advertise_finished_callback(srpl_connection->test_state,
-                                                                          srpl_connection->instance->domain->server_state);
+                        srpl_connection->srpl_advertise_finished_callback(srpl_connection);
                     }
 #endif
                 }
@@ -422,6 +549,32 @@ srp_replication_advertise_finished(adv_host_t *host, char *hostname, srp_server_
     return false;
 }
 #endif // SRP_FEATURE_REPLICATION
+
+static void
+srp_ml_eid_mapping_callback(void *context, cti_status_t status)
+{
+    adv_record_t *arec = context;
+    adv_host_t *host = arec->host;
+    SEGMENTED_IPv6_ADDR_GEN_SRP(arec->rdata, omr_buf);
+    if (status == kCTIStatus_NoError) {
+        if (host == NULL) {
+            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " was orphaned.",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf));
+        } else {
+            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " to host " PRI_S_SRP " succeeded",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), host->name);
+        }
+    } else {
+        if (host == NULL) {
+            INFO("orphaned mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " failed: %d",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), status);
+        } else {
+            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " to host " PRI_S_SRP " failed: %d",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), host->name, status);
+        }
+    }
+    RELEASE_HERE(arec, adv_record);
+}
 
 // We call advertise_finished when a client request has finished, successfully or otherwise.
 static void
@@ -537,8 +690,22 @@ wait_retry(adv_host_t *host)
     RETAIN_HERE(host, adv_host);
 }
 
-static bool
-setup_shared_registration_txn(srp_server_t *server_state)
+static void
+shared_registration_fail(void *context, int UNUSED status)
+{
+    srp_server_t *server_state = context;
+    dnssd_txn_t *txn = server_state->shared_registration_txn;
+    DNSServiceRef sdref = txn == NULL ? NULL : txn->sdref;
+    INFO("shared registration failed: txn %p sdref %p", server_state->shared_registration_txn, sdref);
+    if (txn != NULL) {
+        ioloop_dnssd_txn_cancel(txn);
+        ioloop_dnssd_txn_release(txn);
+        server_state->shared_registration_txn = NULL;
+    }
+}
+
+bool
+srp_mdns_shared_registration_txn_setup(srp_server_t *server_state)
 {
     if (server_state->shared_registration_txn == NULL) {
         DNSServiceRef sdref;
@@ -546,7 +713,7 @@ setup_shared_registration_txn(srp_server_t *server_state)
         if (err != kDNSServiceErr_NoError) {
             return false;
         }
-        server_state->shared_registration_txn = ioloop_dnssd_txn_add(sdref, NULL, NULL, NULL);
+        server_state->shared_registration_txn = ioloop_dnssd_txn_add(sdref, server_state, NULL, shared_registration_fail);
         if (server_state->shared_registration_txn == NULL) {
             ERROR("unable to create shared connection for registration.");
             dns_service_op_not_to_be_freed = NULL;
@@ -686,6 +853,7 @@ adv_instances_cancel(adv_instance_vec_t *instances)
             }
             if (instance->retry_wakeup != NULL) {
                 ioloop_cancel_wake_event(instance->retry_wakeup);
+                ioloop_wakeup_release(instance->retry_wakeup);
                 instance->retry_wakeup = NULL;
             }
         }
@@ -796,7 +964,7 @@ adv_update_cancel(adv_update_t *NONNULL update)
                     }
                 } else {
                     if (record->rref != NULL) {
-                        remove_shared_record(host->server_state, record);
+                        srp_mdns_shared_record_remove(host->server_state, record);
                     }
                 }
             }
@@ -825,7 +993,7 @@ adv_update_cancel(adv_update_t *NONNULL update)
                     faulted = true;
                 }
             } else {
-                remove_shared_record(host->server_state, update->key);
+                srp_mdns_shared_record_remove(host->server_state, update->key);
             }
         }
         RELEASE_HERE(update->key, adv_record);
@@ -878,7 +1046,7 @@ host_addr_free(adv_host_t *host)
         for (i = 0; i < host->addresses->num; i++) {
             if (host->addresses->vec[i] != NULL) {
                 INFO("Removing AAAA record for " PRI_S_SRP, host->registered_name);
-                remove_shared_record(host->server_state, host->addresses->vec[i]);
+                srp_mdns_shared_record_remove(host->server_state, host->addresses->vec[i]);
                 RELEASE_HERE(host->addresses->vec[i], adv_record);
                 host->addresses->vec[i] = NULL;
             }
@@ -914,7 +1082,7 @@ host_invalidate(adv_host_t *host)
         host->update = NULL;
     }
     if (host->key_record != NULL) {
-        remove_shared_record(host->server_state, host->key_record);
+        srp_mdns_shared_record_remove(host->server_state, host->key_record);
         RELEASE_HERE(host->key_record, adv_record);
         host->key_record = NULL;
     }
@@ -953,14 +1121,17 @@ adv_host_finalize(adv_host_t *host)
     if (host->lease_wakeup != NULL) {
         ioloop_cancel_wake_event(host->lease_wakeup);
         ioloop_wakeup_release(host->lease_wakeup);
+        host->lease_wakeup = NULL; // this will make us crash if we use it after free
     }
     // Get rid of the retry wake event.
     if (host->retry_wakeup != NULL) {
         ioloop_cancel_wake_event(host->retry_wakeup);
         ioloop_wakeup_release(host->retry_wakeup);
+        host->retry_wakeup = NULL;
     }
 
     if (host->re_register_wakeup != NULL) {
+        ioloop_cancel_wake_event(host->re_register_wakeup);
         ioloop_wakeup_release(host->re_register_wakeup);
         host->re_register_wakeup = NULL;
     }
@@ -1172,6 +1343,7 @@ delete_host(void *context)
 {
     adv_host_t **p_hosts, *host = context;
 
+
     p_hosts = host_ready(host);
     if (p_hosts == NULL) {
         return;
@@ -1190,7 +1362,7 @@ delete_host(void *context)
 // we know which instances /were/ updated by this particular message. instance->recent_message is a copy of the pointer
 // to the message that most recently updated this instance. When we set instance->recent_message, we don't yet know
 // if the update is going to succeed; if it fails, we can't have changed update->message. If it succeeds, then when we
-// get down to update_finished, we can compare the message that did the update to instance->recent_message; if they
+// get down to srp_mdns_update_finished, we can compare the message that did the update to instance->recent_message; if they
 // are the same, then we set the message on the instance.
 // Note that we only set instance->recent_message during register_instance_completion, so there's no timing race that
 // could happen as a result of receiving a second update to the same instance before the first has been processed.
@@ -1207,8 +1379,8 @@ set_instance_message(adv_instance_t *instance, message_t *message)
     }
 }
 
-static void
-update_finished(adv_update_t *update)
+void
+srp_mdns_update_finished(adv_update_t *update)
 {
     adv_host_t *host = update->host;
     client_update_t *client = update->client;
@@ -1479,7 +1651,7 @@ update_finished(adv_update_t *update)
     host->instances = instances;
 
     if (host->key_record != NULL && update->key != NULL && host->key_record != update->key) {
-        remove_shared_record(host->server_state, host->key_record);
+        srp_mdns_shared_record_remove(host->server_state, host->key_record);
         RELEASE_HERE(host->key_record, adv_record);
         host->key_record = NULL;
     }
@@ -1497,7 +1669,7 @@ update_finished(adv_update_t *update)
         for (i = 0; i < update->remove_addresses->num; i++) {
             adv_record_t *record = update->remove_addresses->vec[i];
             if (record != NULL) {
-                remove_shared_record(host->server_state, record);
+                srp_mdns_shared_record_remove(host->server_state, record);
             }
         }
     }
@@ -1546,8 +1718,20 @@ update_finished(adv_update_t *update)
     // Set the lease time based on this update. Even if we scheduled an update for the next time we
     // enter the dispatch loop, we still want to schedule a lease expiry here, because it's possible
     // that in the process of returning to the dispatch loop, the scheduled update will be removed.
-    host->lease_interval = update->host_lease;
-    host->key_lease = update->key_lease;
+    if (0) {
+#if STUB_ROUTER
+    } else if (server_state->stub_router_enabled) {
+        host->lease_interval = update->host_lease;
+        host->key_lease = update->key_lease;
+#endif
+    } else {
+        // For the Thread in Mobile use case, use the duration of the key lease to determine when to expire host
+        // entries, rather than expiring them when the host lease expires. This is technically out of spec, but
+        // accomplishes part of the stated goal of keeping usable cached data around for use immediately after
+        // connecting to a Thread mesh.
+        host->lease_interval = update->key_lease;
+        host->key_lease = update->key_lease;
+    }
 
     // It would probably be harmless to set this for replications, since the value currently wouldn't change,
     // but to avoid future issues we only set this if it's a direct SRP update and not a replicated update.
@@ -1854,13 +2038,13 @@ register_instance_completion(DNSServiceRef sdref, DNSServiceFlags flags, DNSServ
         if (update != NULL) {
             if (instance->update_pending) {
                 if (update->client != NULL) {
-                    instance->recent_message = (ptrdiff_t)update->client->message; // for comparison later in update_finished
+                    instance->recent_message = (ptrdiff_t)update->client->message; // for comparison later in srp_mdns_update_finished
                 }
                 update->num_instances_completed++;
                 if (update->num_records_completed == update->num_records_started &&
                     update->num_instances_completed == update->num_instances_started)
                 {
-                    update_finished(update);
+                    srp_mdns_update_finished(update);
                 }
                 RELEASE_HERE(update, adv_update);
                 instance->update_pending = false;
@@ -1891,6 +2075,7 @@ register_instance_completion(DNSServiceRef sdref, DNSServiceFlags flags, DNSServ
                     instance->update = NULL;
                 }
                 RELEASE_HERE(update, adv_update);
+            } else {
             }
         }
 
@@ -1952,6 +2137,47 @@ srp_format_time_offset(char *buf, size_t buf_len, time_t offset)
     strftime(buf, buf_len, "%F %T", &tm_now);
 }
 
+DNSServiceAttributeRef
+srp_message_tsr_attribute_generate(message_t *message, uint32_t key_id, char *time_buf, size_t time_buf_size)
+{
+    DNSServiceAttributeRef attribute = DNSServiceAttributeCreate();
+    if (attribute == NULL) {
+        ERROR("Failed to create new DNSServiceAttributeRef");
+    } else {
+        uint32_t offset = 0;
+
+        if (message != NULL && message->received_time != 0) {
+            offset = (uint32_t)(srp_time() - message->received_time);
+            srp_format_time_offset(time_buf, time_buf_size, offset);
+        } else {
+            static char msg[] = "now";
+            if (time_buf_size < sizeof(msg)) {
+                FAULT("bogus time buf size %zd", time_buf_size);
+                time_buf[0] = 0;
+            } else {
+                memcpy(time_buf, msg, sizeof(msg));
+            }
+        }
+        if (_DNSSD_API_AVAILABLE_FALL_2024) {
+            DNSServiceAttributeSetHostKeyHash(attribute, key_id);
+        }
+        DNSServiceAttributeSetTimestamp(attribute, offset);
+    }
+    return attribute;
+}
+
+DNSServiceAttributeRef
+srp_adv_instance_tsr_attribute_generate(adv_instance_t *instance, char *time_buf, size_t time_buf_size)
+{
+    message_t *message = NULL;
+    if (instance->update != NULL && instance->update->client != NULL && instance->update->client->message != NULL) {
+        message = instance->update->client->message;
+    } else if (instance->update == NULL && instance->message != NULL) {
+        message = instance->message;
+    }
+    return srp_message_tsr_attribute_generate(message, instance->host->key_id, time_buf, time_buf_size);
+}
+
 static bool
 register_instance(adv_instance_t *instance)
 {
@@ -1960,7 +2186,7 @@ register_instance(adv_instance_t *instance)
     srp_server_t *server_state = instance->host->server_state;
 
     // If we don't yet have a shared connection, create one.
-    if (!setup_shared_registration_txn(server_state)) {
+    if (!srp_mdns_shared_registration_txn_setup(server_state)) {
         goto exit;
     }
     DNSServiceRef service_ref = server_state->shared_registration_txn->sdref;
@@ -1971,56 +2197,33 @@ register_instance(adv_instance_t *instance)
 
     if (instance->skip_update) {
         if (instance->update->client != NULL) {
-            instance->recent_message = (ptrdiff_t)instance->update->client->message; // for comparison later in update_finished
+            instance->recent_message = (ptrdiff_t)instance->update->client->message; // for comparison later in srp_mdns_update_finished
         }
         exit_status = true;
         goto exit;
     }
 
-    if (0) {
-#ifdef STUB_ROUTER
-    } else if (server_state->stub_router_enabled) {
-        DNSServiceAttributeRef attr = DNSServiceAttributeCreate();
-        if (attr == NULL) {
-            ERROR("Failed to create new DNSServiceAttributeRef");
-            err = kDNSServiceErr_NoMemory;
-        } else {
-            uint32_t offset = 0;
-            char time_buf[28];
-
-            message_t *message = NULL;
-            if (instance->update != NULL && instance->update->client != NULL && instance->update->client->message != NULL) {
-                message = instance->update->client->message;
-            } else if (instance->update == NULL && instance->message != NULL) {
-                message = instance->message;
-            }
-            if (message != NULL && message->received_time != 0) {
-                offset = (uint32_t)(srp_time() - message->received_time);
-                srp_format_time_offset(time_buf, sizeof(time_buf), offset);
-            } else {
-                static char msg[] = "now";
-                memcpy(time_buf, msg, sizeof(msg));
-            }
-            DNSServiceAttributeSetTimestamp(attr, offset);
-            err = dns_service_register_wa(server_state, &service_ref, (kDNSServiceFlagsShareConnection | kDNSServiceFlagsNoAutoRename),
-                                          server_state->advertise_interface,
-                                          instance->instance_name, instance->service_type, local_suffix,
-                                          instance->host->registered_name, htons(instance->port), instance->txt_length,
-                                          instance->txt_data, attr, register_instance_completion, instance);
-            DNSServiceAttributeDeallocate(attr);
-            if (err == kDNSServiceErr_NoError) {
-                INFO("DNSServiceRegister service_ref %p, TSR for instance " PRI_S_SRP " host " PRI_S_SRP " set to " PUB_S_SRP,
-                     service_ref, instance->instance_name, instance->host->name == NULL ? "<null>" : instance->host->name, time_buf);
-            }
-        }
-#endif // STUB_ROUTER
+    char time_buf[TSR_TIMESTAMP_STRING_LEN];
+    DNSServiceAttributeRef tsr_attribute =
+        srp_adv_instance_tsr_attribute_generate(instance, time_buf, sizeof(time_buf));
+    if (tsr_attribute == NULL) {
+        err = kDNSServiceErr_NoMemory;
     } else {
-        err = dns_service_register(server_state, &service_ref,
-                                   (kDNSServiceFlagsShareConnection | kDNSServiceFlagsNoAutoRename |
-                                    kDNSServiceFlagsKnownUnique), server_state->advertise_interface,
-                                   instance->instance_name, instance->service_type, local_suffix,
-                                   instance->host->registered_name, htons(instance->port), instance->txt_length,
-                                   instance->txt_data, register_instance_completion, instance);
+        uint32_t flags = kDNSServiceFlagsShareConnection | kDNSServiceFlagsNoAutoRename;
+        if (_DNSSD_API_AVAILABLE_FALL_2024) {
+            flags |= kDNSServiceFlagsKnownUnique;
+        }
+        err = dns_service_register_wa(server_state, &service_ref, flags,
+                                      server_state->advertise_interface,
+                                      instance->instance_name, instance->service_type, local_suffix,
+                                      instance->host->registered_name, htons(instance->port), instance->txt_length,
+                                      instance->txt_data, tsr_attribute, register_instance_completion, instance);
+        DNSServiceAttributeDeallocate(tsr_attribute);
+        if (err == kDNSServiceErr_NoError) {
+            INFO("DNSServiceRegister, TSR for instance " PRI_S_SRP " host " PRI_S_SRP " set to " PUB_S_SRP
+                 "(instance %p sdref %p)", instance->instance_name,
+                 instance->host->name == NULL ? "<null>" : instance->host->name, time_buf, instance, service_ref);
+        }
     }
 
     // This would happen if we pass NULL for regtype, which we don't, or if we run out of memory, or if
@@ -2032,11 +2235,11 @@ register_instance(adv_instance_t *instance)
             if (err == 1) {
                 FAULT("bogus error code 1");
             }
-            INFO("DNSServiceRegister failed: " PUB_S_SRP ,
-                 err == kDNSServiceErr_ServiceNotRunning ? "not running" : "defunct");
+            INFO("DNSServiceRegister failed: " PUB_S_SRP " (instance %p)",
+                 err == kDNSServiceErr_ServiceNotRunning ? "not running" : "defunct", instance);
             service_disconnected(server_state, (intptr_t)server_state->shared_registration_txn);
         } else {
-            INFO("DNSServiceRegister failed: %d", err);
+            INFO("DNSServiceRegister failed: %d (instance %p)", err, instance);
         }
         goto exit;
     }
@@ -2190,7 +2393,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
         adv_update_cancel(record->update);
         RELEASE_HERE(record->update, adv_update);
         record->update = NULL;
-        remove_shared_record(host->server_state, record); // This will prevent further callbacks and release the reference held by the transaction.
+        srp_mdns_shared_record_remove(host->server_state, record); // This will prevent further callbacks and release the reference held by the transaction.
         RELEASE_HERE(record, adv_record); // The callback has a reference to the record.
         RELEASE_HERE(record, adv_record); // Release the reference to the record that we retained at the beginning
         return;
@@ -2204,7 +2407,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
     if (error_code == kDNSServiceErr_NoError || error_code == kDNSServiceErr_NameConflict) {
         // If the update is pending, it means that we just finished registering this record for the first time,
         // so we can count it as complete and check to see if there is any work left to do; if not, we call
-        // update_finished to apply the update to the host object.
+        // srp_mdns_update_finished to apply the update to the host object.
         const char *note = " has completed.";
         if (record->update_pending) {
             record->update_pending = false;
@@ -2213,7 +2416,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
                 if (update->num_records_completed == update->num_records_started &&
                     update->num_instances_completed == update->num_instances_started)
                 {
-                    update_finished(update);
+                    srp_mdns_update_finished(update);
                 }
             }
         } else {
@@ -2222,7 +2425,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
 
         if (error_code != kDNSServiceErr_NoError) {
             // Shared record is no longer good.
-            remove_shared_record(host->server_state, record);
+            srp_mdns_shared_record_remove(host->server_state, record);
             note = " completed with conflict.";
             srp_schedule_host_record_retry(record);
         }
@@ -2273,10 +2476,11 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
                 update_failed(update, (error_code == kDNSServiceErr_NameConflict
                                        ? dns_rcode_yxdomain
                                        : dns_rcode_servfail), true, true);
+            } else {
             }
         }
         // Regardless of what else happens, this transaction is dead, so get rid of our references to it.
-        remove_shared_record(host->server_state, record);
+        srp_mdns_shared_record_remove(host->server_state, record);
     }
     if (update != NULL) {
         RELEASE_HERE(update, adv_update);
@@ -2402,6 +2606,18 @@ service_types_equal(const char *type1, const char *type2)
     return true;
 }
 
+DNSServiceAttributeRef
+srp_adv_host_tsr_attribute_generate(adv_host_t *host, char *time_buf, size_t time_buf_size)
+{
+    message_t *message = NULL;
+    if (host->update != NULL && host->update->client != NULL && host->update->client->message != NULL) {
+        message = host->update->client->message;
+    } else if (host->update == NULL && host->message != NULL) {
+        message = host->message;
+    }
+    return srp_message_tsr_attribute_generate(message, host->key_id, time_buf, time_buf_size);
+}
+
 static bool
 register_host_record(adv_host_t *host, adv_record_t *record, bool skipping)
 {
@@ -2409,11 +2625,11 @@ register_host_record(adv_host_t *host, adv_record_t *record, bool skipping)
 
     // If this record is already registered, get rid of the old transaction.
     if (record->rref != NULL && !skipping) {
-        remove_shared_record(host->server_state, record);
+        srp_mdns_shared_record_remove(host->server_state, record);
     }
 
     // If we don't yet have a shared connection, create one.
-    if (!setup_shared_registration_txn(host->server_state)) {
+    if (!srp_mdns_shared_registration_txn_setup(host->server_state)) {
         return false;
     }
 
@@ -2446,49 +2662,26 @@ register_host_record(adv_host_t *host, adv_record_t *record, bool skipping)
         return true;
     }
 
-    if (0) {
-#if STUB_ROUTER
-    } else if (host->server_state->stub_router_enabled) {
-        DNSServiceAttributeRef attr = DNSServiceAttributeCreate();
-        if (attr == NULL) {
-            ERROR("Failed to create new DNSServiceAttributeRef");
-            return false;
-        } else {
-            uint32_t offset = 0;
-            char time_buf[28];
-            message_t *message = NULL;
-            if (host->update != NULL && host->update->client != NULL && host->update->client->message != NULL) {
-                message = host->update->client->message;
-            } else if (host->update == NULL && host->message != NULL) {
-                message = host->message;
-            }
-            if (message != NULL && message->received_time != 0)
-            {
-                offset = (uint32_t)(srp_time() - message->received_time);
-                srp_format_time_offset(time_buf, sizeof(time_buf), offset);
-            } else {
-                static char msg[] = "now";
-                memcpy(time_buf, msg, sizeof(msg));
-            }
-            DNSServiceAttributeSetTimestamp(attr, offset);
-            err = dns_service_register_record_wa(host->server_state, service_ref, &record->rref,
-                                                 kDNSServiceFlagsUnique,
-                                                 host->server_state->advertise_interface, host->registered_name,
-                                                 record->rrtype, dns_qclass_in, record->rdlen, record->rdata,
-                                                 ADDRESS_RECORD_TTL, attr, register_host_record_completion,
-                                                 record);
-            DNSServiceAttributeDeallocate(attr);
-            if (err == kDNSServiceErr_NoError) {
-                INFO("DNSServiceRegisterRecord rref = %p, TSR for " PRI_S_SRP " set to " PUB_S_SRP, record->rref, host->name, time_buf);
-            }
-        }
-#endif
+    char time_buf[TSR_TIMESTAMP_STRING_LEN];
+    DNSServiceAttributeRef tsr_attribute =
+        srp_adv_host_tsr_attribute_generate(host, time_buf, sizeof(time_buf));
+    if (tsr_attribute == NULL) {
+        ERROR("Failed to create new DNSServiceAttributeRef");
+        return false;
     } else {
-        err = dns_service_register_record(host->server_state, service_ref, &record->rref, kDNSServiceFlagsKnownUnique,
-                                          host->server_state->advertise_interface, host->registered_name,
-                                          record->rrtype, dns_qclass_in, record->rdlen, record->rdata, ADDRESS_RECORD_TTL,
-                                          register_host_record_completion, record);
+        err = dns_service_register_record_wa(host->server_state, service_ref, &record->rref,
+                                             kDNSServiceFlagsKnownUnique,
+                                             host->server_state->advertise_interface, host->registered_name,
+                                             record->rrtype, dns_qclass_in, record->rdlen, record->rdata,
+                                             ADDRESS_RECORD_TTL, tsr_attribute, register_host_record_completion,
+                                             record);
+        DNSServiceAttributeDeallocate(tsr_attribute);
+        if (err == kDNSServiceErr_NoError) {
+            INFO("DNSServiceRegisterRecord for " PRI_S_SRP ", TSR set to " PUB_S_SRP " (record %p rref %p)",
+                 host->name, time_buf, record, record->rref);
+        }
     }
+
     if (err != kDNSServiceErr_NoError) {
         if (err == kDNSServiceErr_ServiceNotRunning || err == kDNSServiceErr_DefunctConnection ||
             err == kDNSServiceErr_BadParam || err == kDNSServiceErr_BadReference || err == 1)
@@ -2496,11 +2689,11 @@ register_host_record(adv_host_t *host, adv_record_t *record, bool skipping)
             if (err == 1) { // This is for an old bug that probably doesn't happen anymore.
                 FAULT("bogus error code 1");
             }
-            INFO("DNSServiceRegisterRecord failed on host " PUB_S_SRP ": " PUB_S_SRP, host->name,
-                 err == kDNSServiceErr_ServiceNotRunning ? "not running" : "defunct");
+            INFO("DNSServiceRegisterRecord failed on host " PUB_S_SRP ": " PUB_S_SRP " (record %p)", host->name,
+                 err == kDNSServiceErr_ServiceNotRunning ? "not running" : "defunct", record);
             service_disconnected(host->server_state, (intptr_t)host->server_state->shared_registration_txn);
         } else {
-            INFO("DNSServiceRegisterRecord failed: %d", err);
+            INFO("DNSServiceRegisterRecord failed: %d (record %p)", err, record);
         }
         return false;
     }
@@ -2535,29 +2728,29 @@ update_instance_tsr(adv_instance_t *instance, adv_instance_t *new_instance)
                                             NULL, 0, new_instance->txt_length, new_instance->txt_data, 0);
         }
         if (err != kDNSServiceErr_NoError) {
-            INFO("DNSServiceUpdateRecord for instance " PRI_S_SRP " TXT record failed: %d",
-                 instance->instance_name, err);
+            INFO("DNSServiceUpdateRecord for instance " PRI_S_SRP " TXT record failed: %d (instance %p)",
+                 instance->instance_name, err, instance);
             goto out;
         } else {
-            INFO("updated TXT record for " PRI_S_SRP " . " PRI_S_SRP ".",
-                 instance->instance_name, instance->service_type);
+            INFO("updated TXT record for " PRI_S_SRP " . " PRI_S_SRP " (instance %p sdref %p).",
+                 instance->instance_name, instance->service_type, instance, instance->txn->sdref);
             success = true;
         }
     }
 
-#if STUB_ROUTER
     DNSServiceAttributeRef attr;
 
     if (instance->skip_update) {
-        INFO("skipping DNSServiceUpdateRecord for instance " PRI_S_SRP " TSR", instance->instance_name);
-    } else if (instance->host->server_state->stub_router_enabled) {
+        INFO("skipping DNSServiceUpdateRecord for instance " PRI_S_SRP " TSR (instance %p)",
+             instance->instance_name, instance);
+    } else {
         success = false;
         attr = DNSServiceAttributeCreate();
         if (attr == NULL) {
             ERROR("failed to create new DNSServiceAttributeRef");
         } else {
             uint32_t offset = 0;
-            char time_buf[28];
+            char time_buf[TSR_TIMESTAMP_STRING_LEN];
             if (instance->update != NULL && instance->update->client != NULL && instance->update->client->message != NULL &&
                 instance->update->client->message->received_time != 0)
             {
@@ -2567,20 +2760,23 @@ update_instance_tsr(adv_instance_t *instance, adv_instance_t *new_instance)
                 static char msg[] = "now";
                 memcpy(time_buf, msg, sizeof(msg));
             }
+            if (_DNSSD_API_AVAILABLE_FALL_2024) {
+                DNSServiceAttributeSetHostKeyHash(attr, instance->host->key_id);
+            }
             DNSServiceAttributeSetTimestamp(attr, offset);
             err = dns_service_update_record_wa(instance->host->server_state,
                                                instance->txn->sdref, NULL, 0, 0, NULL, 0, attr);
             DNSServiceAttributeDeallocate(attr);
             if (err == kDNSServiceErr_NoError) {
-                INFO("DNSServiceUpdateRecord TSR for " PRI_S_SRP " set to " PUB_S_SRP,
-                     instance->host == NULL ? "<null>" : instance->host->name, time_buf);
+                INFO("DNSServiceUpdateRecord for " PRI_S_SRP ", TSR set to " PUB_S_SRP " (instance %p sdref %p)",
+                     instance->host == NULL ? "<null>" : instance->host->name, time_buf, instance, instance->txn->sdref);
                 success = true;
             } else {
-                INFO("DNSServiceUpdateRecord for instance " PRI_S_SRP " TSR failed: %d", instance->instance_name, err);
+                INFO("DNSServiceUpdateRecord for instance " PRI_S_SRP ", TSR failed: %d (instance %p sdref %p)",
+                     instance->instance_name, err, instance, instance->txn->sdref);
             }
         }
     }
-#endif // STUB_ROUTER
 
 out:
     if (success == false) {
@@ -2609,7 +2805,6 @@ out:
 static void
 update_host_tsr(adv_record_t *record, adv_update_t *update)
 {
-#if STUB_ROUTER
     DNSServiceAttributeRef attr;
     int err;
     dnssd_txn_t *shared_txn;
@@ -2629,35 +2824,34 @@ update_host_tsr(adv_record_t *record, adv_update_t *update)
         return;
     }
 
-    if (record->host->server_state->stub_router_enabled) {
-        attr = DNSServiceAttributeCreate();
-        if (attr == NULL) {
-            ERROR("failed to create new DNSServiceAttributeRef");
+    attr = DNSServiceAttributeCreate();
+    if (attr == NULL) {
+        ERROR("failed to create new DNSServiceAttributeRef");
+    } else {
+        uint32_t offset = 0;
+        char time_buf[TSR_TIMESTAMP_STRING_LEN];
+        if (update->client != NULL && update->client->message != NULL && update->client->message->received_time != 0) {
+            offset = (uint32_t)(srp_time() - update->client->message->received_time);
+            srp_format_time_offset(time_buf, sizeof(time_buf), offset);
         } else {
-            uint32_t offset = 0;
-            char time_buf[28];
-            if (update->client != NULL && update->client->message != NULL && update->client->message->received_time != 0) {
-                offset = (uint32_t)(srp_time() - update->client->message->received_time);
-                srp_format_time_offset(time_buf, sizeof(time_buf), offset);
-            } else {
-                static char msg[] = "now";
-                memcpy(time_buf, msg, sizeof(msg));
-            }
-            DNSServiceAttributeSetTimestamp(attr, offset);
-            err = dns_service_update_record_wa(record->host->server_state,
-                                               shared_txn->sdref, record->rref, 0, 0, NULL, 0, attr);
-            DNSServiceAttributeDeallocate(attr);
-            if (err == kDNSServiceErr_NoError) {
-                INFO("DNSServiceUpdateRecord TSR for " PRI_S_SRP " set to " PUB_S_SRP,
-                     record->host == NULL ? "<null>" : record->host->name, time_buf);
-            } else {
-                INFO("DNSServiceUpdateRecordWithAttribute for host tsr failed: %d", err);
-            }
+            static char msg[] = "now";
+            memcpy(time_buf, msg, sizeof(msg));
+        }
+        if (_DNSSD_API_AVAILABLE_FALL_2024) {
+            DNSServiceAttributeSetHostKeyHash(attr, record->host->key_id);
+        }
+        DNSServiceAttributeSetTimestamp(attr, offset);
+        err = dns_service_update_record_wa(record->host->server_state,
+                                           shared_txn->sdref, record->rref, 0, 0, NULL, 0, attr);
+        DNSServiceAttributeDeallocate(attr);
+        if (err == kDNSServiceErr_NoError) {
+            INFO("DNSServiceUpdateRecord TSR for " PRI_S_SRP " set to " PUB_S_SRP " (record %p rref %p)",
+                 record->host == NULL ? "<null>" : record->host->name, time_buf, record, record->rref);
+        } else {
+            INFO("DNSServiceUpdateRecordWithAttribute for host tsr failed: %d (record %p rref %p)",
+                 err, record, record->rref);
         }
     }
-#else
-    (void)record; (void)update;
-#endif
 }
 
 // When we need to register a host with mDNSResponder, start_host_update is called.   This can be either because
@@ -2703,7 +2897,11 @@ start_host_update(adv_host_t *host)
     if (host->addresses != NULL) {
         for (i = 0; i < host->addresses->num; i++) {
             adv_record_t *record = host->addresses->vec[i];
-            if (update->remove_addresses->vec[i] == NULL && record != NULL && record->rref == NULL) {
+            adv_record_t *remove_address = NULL;
+            if (update->remove_addresses != NULL) {
+                remove_address = update->remove_addresses->vec[i];
+            }
+            if (remove_address == NULL && record != NULL && record->rref == NULL) {
                 host->addresses->vec[i]->update = update;
                 RETAIN_HERE(host->addresses->vec[i]->update, adv_update);
                 if (!register_host_record(host, record, skip_host_updates)) {
@@ -2788,13 +2986,7 @@ start_host_update(adv_host_t *host)
                         // Make sure the instance is still registered and is registered on the current shared connection.
                         if (instance->txn->sdref != NULL) {
                             if (((intptr_t)host->server_state->shared_registration_txn == instance->shared_txn)) {
-#if STUB_ROUTER
-                                if (!host->server_state->stub_router_enabled) {
-#endif
-                                    must_remove = false;
-                                    must_update = false;
-#if STUB_ROUTER
-                                } else if (update_instance_tsr(instance, NULL)) {
+                                if (update_instance_tsr(instance, NULL)) {
                                     must_remove = false;
                                     must_update = false;
                                     instance->recent_message = (ptrdiff_t)update->client->message;
@@ -2803,7 +2995,6 @@ start_host_update(adv_host_t *host)
                                          instance->instance_name, instance);
                                     must_remove = true;
                                 }
-#endif
                             } else {
                                 // If the shared transaction has changed, then the registration no longer exists, and
                                 // the sdref is no longer valid.
@@ -2896,7 +3087,7 @@ start_host_update(adv_host_t *host)
 
     if (update->num_instances_started == 0 && update->num_records_started == 0) {
         INFO("no service or record updates, so we're finished.");
-        update_finished(update);
+        srp_mdns_update_finished(update);
         return;
     }
 
@@ -3257,10 +3448,14 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
     update->host_lease = client_update->host_lease;
     update->key_lease = client_update->key_lease;
 
+    // Register any added addresses with threadradiod before we actually advertise them, to avoid a spurious
+    // address query.
+
     host->update = update;
     RETAIN_HERE(host->update, adv_update);
     RELEASE_HERE(update, adv_update);
     update = NULL;
+
 
     start_host_update(host);
     return;
@@ -3643,7 +3838,6 @@ found_something:
                                connection, raw_message, dns_rcode_noerror, NULL, true, true);
             goto cleanup;
         }
-
         host = calloc(1, sizeof *host);
         if (host == NULL) {
             ERROR("no memory for host data structure.");
@@ -3880,6 +4074,10 @@ server_state_create(const char *name, int max_lease_time, int min_lease_time,
     server_state->min_lease_time = min_lease_time;
     server_state->key_max_lease_time = key_max_lease_time;
     server_state->key_min_lease_time = key_min_lease_time;
+    server_state->priority = PRIORITY_DEFAULT;
+#if TARGET_OS_TV
+#endif
+    INFO("priority set to %d", server_state->priority);
     return server_state;
 }
 
@@ -3936,6 +4134,7 @@ main(int argc, char **argv)
 #  endif
     }
 
+
     // Set the advertise interface
     if (0) {
 #if STUB_ROUTER
@@ -3966,6 +4165,10 @@ main(int argc, char **argv)
             i++;
         } else if (!strcmp(argv[i], "--log-stderr")) {
             log_stderr = true;
+#ifdef LOG_FPRINTF_STDERR
+        } else if (!strcmp(argv[i], "--log-relative-timestamp")) {
+            srp_log_timestamp_relative = true;
+#endif
         } else if (!strcmp(argv[i], "--enable-replication")) {
             srp_servers->srp_replication_enabled = true;
         } else if (!strcmp(argv[i], "--disable-replication")) {
@@ -4000,29 +4203,35 @@ main(int argc, char **argv)
     // Setup log category for srp-mdns-prox and dnssd-proxy.
     OPENLOG("srp-mdns-proxy", log_stderr);
 
+#ifdef SRP_TEST_SERVER
+    INFO("srp-test-server starting, compiled on " PUB_S_SRP ", " PUB_S_SRP, __DATE__, __TIME__);
+#else
     INFO("--------------------------------"
          "srp-mdns-proxy starting, compiled on " PUB_S_SRP ", " PUB_S_SRP
          "--------------------------------", __DATE__, __TIME__);
+#endif
 
     if (!ioloop_init()) {
         return 1;
     }
 
     if (normal_srp_startup) {
+#if THREAD_DEVICE
+        if (0) {
 #if STUB_ROUTER
-        if (stub_router_enabled) {
+        } else if (stub_router_enabled) {
             srp_servers->route_state = route_state_create(srp_servers, "srp-mdns-proxy");
             if (srp_servers->route_state == NULL) {
                 return 1;
             }
-        }
 #endif // STUB_ROUTER
+        }
 
-        srp_servers->shared_registration_txn = dnssd_txn_create_shared();
-        if (srp_servers->shared_registration_txn == NULL) {
+        if (!srp_mdns_shared_registration_txn_setup(srp_servers)) {
             return 1;
         }
         dns_service_op_not_to_be_freed = srp_servers->shared_registration_txn->sdref;
+#endif // THREAD_DEVICE
 
 #if STUB_ROUTER
         if (stub_router_enabled) {
@@ -4034,15 +4243,14 @@ main(int argc, char **argv)
 
 #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
         if (!init_dnssd_proxy(srp_servers)) {
-            ERROR("main: failed to setup dnssd-proxy");
-            return 1;
+            ERROR("failed to setup dnssd-proxy");
         }
 #endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
 
 #if STUB_ROUTER
         if (stub_router_enabled) {
             if (!start_icmp_listener()) {
-                return 1;
+                ERROR("failed to start icmp listener");
             }
         }
 #endif
@@ -4052,14 +4260,12 @@ main(int argc, char **argv)
 
         if (adv_ctl_init(srp_servers) != kDNSServiceErr_NoError) {
             ERROR("Can't start advertising proxy control server.");
-            return 1;
         }
 
         // We require one open file per service and one per instance.
         struct rlimit limits;
         if (getrlimit(RLIMIT_NOFILE, &limits) < 0) {
             ERROR("getrlimit failed: " PUB_S_SRP, strerror(errno));
-            return 1;
         }
 
         if (limits.rlim_cur < 1024) {

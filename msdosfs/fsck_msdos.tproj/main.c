@@ -54,6 +54,7 @@
 
 
 #include <sys/cdefs.h>
+#include <sys/stat.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,32 @@ usage(void)
 	exit(8);
 }
 
+static size_t
+fsckReadHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    int *fd = (int*)resource;
+    ssize_t readBytes = pread(*fd, buffer, nbytes, offset);
+
+    return readBytes == nbytes ? readBytes : 0;
+}
+
+static size_t
+fsckWriteHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    int *fd = (int*)resource;
+    ssize_t written = pwrite(*fd, buffer, nbytes, offset);
+
+    return written == nbytes ? written : 0;
+}
+
+static int
+fsckFstatHelper(void *resource, struct stat *buffer)
+{
+    int *fd = (int*)resource;
+
+    return fstat(*fd, buffer);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -88,6 +115,7 @@ main(int argc, char **argv)
 	int ch;
 	int offset;
 	size_t maxmem = 0;
+    check_context context = {0};
 
 	fsck_set_context_properties(vprint, vask, NULL);
 
@@ -164,12 +192,16 @@ bad_multiplier:
 	if (!argc)
 		usage();
 
+    context.readHelper = fsckReadHelper;
+    context.writeHelper = fsckWriteHelper;
+    context.fstatHelper = fsckFstatHelper;
+
 	/*
 	 * Realistically, this does not work well with multiple filesystems.
 	 */
 	while (--argc >= 0) {
 		fsck_set_dev(*argv);
-		erg = checkfilesys(*argv++, NULL);
+		erg = checkfilesys(*argv++, &context);
 		if (erg > ret)
 			ret = erg;
 	}

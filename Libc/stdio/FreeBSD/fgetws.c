@@ -46,11 +46,11 @@ fgetws_l(wchar_t * __restrict ws, int n, FILE * __restrict fp, locale_t loc)
 	size_t nconv;
 	const char *src;
 	unsigned char *nl;
-	struct __xlocale_st_runelocale *rl;
+	struct xlocale_ctype *rl;
 	size_t (*__mbsnrtowcs)(wchar_t * __restrict, const char ** __restrict, size_t, size_t, __darwin_mbstate_t * __restrict, locale_t);
 
 	NORMALIZE_LOCALE(loc);
-	rl = loc->__lc_ctype;
+	rl = XLOCALE_CTYPE(loc);
 	__mbsnrtowcs = rl->__mbsnrtowcs;
 	FLOCKFILE(fp);
 	ORIENT(fp, 1);

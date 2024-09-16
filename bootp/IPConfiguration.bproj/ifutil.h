@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -181,5 +181,8 @@ inet6_addrlist_in6_addr_is_ready(const inet6_addrlist_t * addr_list_p,
 
 inet6_addrinfo_t *
 inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p);
+
+void
+set_verbose_sysctls(bool verbose);
 
 #endif /* _S_IFUTIL_H */

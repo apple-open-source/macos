@@ -61,7 +61,7 @@ static size_t	_ascii_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
 		    size_t, size_t, mbstate_t * __restrict, locale_t);
 
 int
-_ascii_init(struct __xlocale_st_runelocale *xrl)
+_ascii_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _ascii_mbrtowc;

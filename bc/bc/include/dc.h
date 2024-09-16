@@ -45,8 +45,9 @@
 /**
  * The main function for dc. It just sets variables and passes its arguments
  * through to @a bc_vm_boot().
+ * @return  A status.
  */
-void
+BcStatus
 dc_main(int argc, char* argv[]);
 
 // A reference to the dc help text.

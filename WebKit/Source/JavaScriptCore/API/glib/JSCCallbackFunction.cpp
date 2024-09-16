@@ -37,6 +37,7 @@
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
+#include <wtf/text/MakeString.h>
 
 namespace JSC {
 
@@ -226,7 +227,7 @@ JSObjectRef JSCCallbackFunction::construct(JSContextRef callerContext, size_t ar
         *exception = toRef(JSC::createTypeError(toJS(jsContext), "constructor returned null"_s));
         break;
     default:
-        *exception = toRef(JSC::createTypeError(toJS(jsContext), makeString("invalid type "_s, g_type_name(G_VALUE_TYPE(&returnValue)), " returned by constructor"_s)));
+        *exception = toRef(JSC::createTypeError(toJS(jsContext), makeString("invalid type "_s, span(g_type_name(G_VALUE_TYPE(&returnValue))), " returned by constructor"_s)));
         break;
     }
     g_value_unset(&returnValue);

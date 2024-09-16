@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(WEBASSEMBLY_OMGJIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT) || ENABLE(WEBASSEMBLY_BBQJIT)
 
 #include "AirCode.h"
 #include "B3StackmapGenerationParams.h"
@@ -40,7 +40,13 @@
 
 namespace JSC { namespace Wasm {
 
-struct PatchpointExceptionHandle {
+struct PatchpointExceptionHandleBase {
+    static constexpr unsigned s_invalidCallSiteIndex = std::numeric_limits<unsigned>::max();
+};
+
+#if ENABLE(WEBASSEMBLY_OMGJIT)
+
+struct PatchpointExceptionHandle : public PatchpointExceptionHandleBase {
     PatchpointExceptionHandle(std::optional<bool> hasExceptionHandlers, unsigned callSiteIndex)
         : m_hasExceptionHandlers(hasExceptionHandlers)
         , m_callSiteIndex(callSiteIndex)
@@ -72,12 +78,16 @@ struct PatchpointExceptionHandle {
         generator->addStackMap(m_callSiteIndex, WTFMove(values));
     }
 
-    static constexpr unsigned s_invalidCallSiteIndex = std::numeric_limits<unsigned>::max();
-
     std::optional<bool> m_hasExceptionHandlers;
     unsigned m_callSiteIndex { s_invalidCallSiteIndex };
     std::optional<unsigned> m_numLiveValues { };
 };
+
+#else
+
+using PatchpointExceptionHandle = PatchpointExceptionHandleBase;
+
+#endif
 
 
 static inline void computeExceptionHandlerAndLoopEntrypointLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, Vector<CodeLocationLabel<WasmEntryPtrTag>>& loopEntrypoints, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)
@@ -99,6 +109,8 @@ static inline void computeExceptionHandlerAndLoopEntrypointLocations(Vector<Code
         return;
     }
 
+#if ENABLE(WEBASSEMBLY_OMGJIT)
+
     unsigned entrypointIndex = 1;
     unsigned numEntrypoints = context.procedure->numEntrypoints();
     for (const UnlinkedHandlerInfo& handlerInfo : function->exceptionHandlers) {
@@ -114,6 +126,10 @@ static inline void computeExceptionHandlerAndLoopEntrypointLocations(Vector<Code
 
     for (; entrypointIndex < numEntrypoints; ++entrypointIndex)
         loopEntrypoints.append(linkBuffer.locationOf<WasmEntryPtrTag>(context.procedure->code().entrypointLabel(entrypointIndex)));
+#else
+    RELEASE_ASSERT_NOT_REACHED();
+#endif
+
 }
 
 static inline void computeExceptionHandlerLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)
@@ -153,6 +169,7 @@ static inline void emitThrowImpl(CCallHelpers& jit, unsigned exceptionIndex)
     jit.farJump(GPRInfo::returnValueGPR, ExceptionHandlerPtrTag);
 }
 
+#if ENABLE(WEBASSEMBLY_OMGJIT)
 template<SavedFPWidth savedFPWidth>
 static inline void buildEntryBufferForCatch(Probe::Context& context)
 {
@@ -169,15 +186,16 @@ static inline void buildEntryBufferForCatch(Probe::Context& context)
     JSValue thrownValue = JSValue::decode(exception);
     void* payload = nullptr;
     if (JSWebAssemblyException* wasmException = jsDynamicCast<JSWebAssemblyException*>(thrownValue))
-        payload = bitwise_cast<void*>(wasmException->payload().data());
+        payload = bitwise_cast<void*>(wasmException->payload().span().data());
 
     context.gpr(GPRInfo::argumentGPR0) = bitwise_cast<uintptr_t>(buffer);
     context.gpr(GPRInfo::argumentGPR1) = exception;
     context.gpr(GPRInfo::argumentGPR2) = bitwise_cast<uintptr_t>(payload);
 }
 
-static inline void buildEntryBufferForCatchSIMD(Probe::Context& context) { buildEntryBufferForCatch<SavedFPWidth::SaveVectors>(context); }
-static inline void buildEntryBufferForCatchNoSIMD(Probe::Context& context) { buildEntryBufferForCatch<SavedFPWidth::DontSaveVectors>(context); }
+static inline void SYSV_ABI buildEntryBufferForCatchSIMD(Probe::Context& context) { buildEntryBufferForCatch<SavedFPWidth::SaveVectors>(context); }
+static inline void SYSV_ABI buildEntryBufferForCatchNoSIMD(Probe::Context& context) { buildEntryBufferForCatch<SavedFPWidth::DontSaveVectors>(context); }
+
 
 static inline void prepareForTailCall(CCallHelpers& jit, const B3::StackmapGenerationParams& params, const Checked<int32_t>& tailCallStackOffsetFromFP)
 {
@@ -208,6 +226,7 @@ static inline void prepareForTailCall(CCallHelpers& jit, const B3::StackmapGener
     jit.addPtr(MacroAssembler::TrustedImm32(newStackOffset), MacroAssembler::stackPointerRegister);
 }
 
+#endif // ENABLE(WEBASSEMBLY_OMGJIT)
 } } // namespace JSC::Wasm
 
 #endif // ENABLE(WEBASSEMBLY_OMGJIT)

@@ -578,17 +578,13 @@ send_kkdcp(krb5_context context, struct host *host)
  
  	    krb5_data_zero(&retdata);
  
-	    ret = _krb5_kkdcp_request(context, host->ctx->realm, url, 
+	    ret = _krb5_kkdcp_request(context, host->ctx->realm, url,
 				      &data, &retdata);
 	    krb5_data_free(&data);
  	    free(url);
  	    if (ret == 0) {
-		uint8_t length[4];
-
 		debug_host(context, 5, host, "kkdcp: got %d bytes, feeding them back", (int)retdata.length);
-
-		_krb5_put_int(length, retdata.length, 4);
-		krb5_net_write_block(context, &host->fd2, length, sizeof(length), 2);
+		
 		krb5_net_write_block(context, &host->fd2, retdata.data, retdata.length, 2);
 		krb5_data_free(&retdata);
 	    }
@@ -861,6 +857,80 @@ recv_udp(krb5_context context, struct host *host, krb5_data *data)
     return 0;
 }
 
+/*
+ * kkdcp transport
+ */
+
+static krb5_error_code
+prepare_kkdcp(krb5_context context, struct host *host, const krb5_data *data)
+{
+    krb5_error_code ret;
+    krb5_storage *sp;
+    krb5_boolean use_kkdcp_rfc_format;
+    
+    
+    heim_assert(host->data.length == 0, "prepare_kkdcp called twice");
+
+    use_kkdcp_rfc_format =
+    krb5_config_get_bool_default(context, NULL,
+				 TRUE,
+				 "libdefaults",
+				 "use_kkdcp_rfc_format", NULL);
+
+    if (use_kkdcp_rfc_format) {
+	sp = krb5_storage_emem();
+	if (sp == NULL)
+	    return ENOMEM;
+	
+	ret = krb5_store_data(sp, *data);
+	if (ret) {
+	    krb5_storage_free(sp);
+	    return ret;
+	}
+	ret = krb5_storage_to_data(sp, &host->data);
+	krb5_storage_free(sp);
+    } else {
+	ret = krb5_data_copy(&host->data, data->data, data->length);
+    }
+
+    return ret;
+}
+
+static krb5_error_code
+recv_kkdcp(krb5_context context, struct host *host, krb5_data *data)
+{
+    krb5_error_code ret;
+    unsigned long pktlen;
+    krb5_boolean use_kkdcp_rfc_format;
+    
+    use_kkdcp_rfc_format =
+	krb5_config_get_bool_default(context, NULL,
+				     TRUE,
+				     "libdefaults",
+				     "use_kkdcp_rfc_format", NULL);
+    ret = recv_stream(context, host);
+    if (ret)
+	return ret;
+    
+    if (host->data.length < 4)
+	return -1;
+	
+    if (use_kkdcp_rfc_format) {
+	_krb5_get_int(host->data.data, &pktlen, 4);
+	
+	if (pktlen > host->data.length - 4)
+	    return -1;
+	
+	memmove(host->data.data, ((uint8_t *)host->data.data) + 4, host->data.length - 4);
+	host->data.length -= 4;
+    }
+    
+    *data = host->data;
+    krb5_data_zero(&host->data);
+    
+    return 0;
+}
+
 static struct host_fun http_fun = {
     prepare_http,
     send_stream,
@@ -868,9 +938,9 @@ static struct host_fun http_fun = {
     1
 };
 static struct host_fun kkdcp_fun = {
-    prepare_udp,
+    prepare_kkdcp,
     send_kkdcp,
-    recv_tcp,
+    recv_kkdcp,
     1
 };
 static struct host_fun tcp_fun = {

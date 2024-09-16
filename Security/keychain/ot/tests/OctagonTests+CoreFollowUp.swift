@@ -1,13 +1,6 @@
 #if OCTAGON
 
 class OctagonCoreFollowUpTests: OctagonTestsBase {
-    override func setUp() {
-        super.setUp()
-    }
-
-    override func tearDown() {
-        super.tearDown()
-    }
 
     func testAttemptedJoinStateAttempted() throws {
         self.startCKAccountStatusMock()

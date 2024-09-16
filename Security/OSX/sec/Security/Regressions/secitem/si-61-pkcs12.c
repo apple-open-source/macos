@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2010,2012-2014,2023 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,17 +74,21 @@ static void tests(void)
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
 
+#ifndef __clang_analyzer__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
     // Disable compile-time nullability checks, otherwise the code below won't compile.
-#if TARGET_OS_IPHONE
-    is_status(SecPKCS12Import(message, NULL, NULL), errSecAuthFailed,
-        "try null password on a known good p12");
+#if LEGACY_OSX_PKCS12
+    // legacy code returned errSecPassphraseRequired instead of errSecAuthFailed; rdar://87484096
+    is_status(SecPKCS12Import(message, NULL, &items), errSecPassphraseRequired,
+              "try null password on a known good p12");
 #else
-    is_status(SecPKCS12Import(message, NULL, NULL), errSecPassphraseRequired,
+    is_status(SecPKCS12Import(message, NULL, &items), errSecAuthFailed,
               "try null password on a known good p12");
 #endif
 #pragma clang diagnostic pop
+#endif // __clang_analyzer__
+    CFReleaseNull(items);
 
     CFStringRef password = CFSTR("user-one");
     CFDictionaryRef options = CFDictionaryCreate(NULL,
@@ -160,11 +164,7 @@ static void tests(void)
                                  &kCFTypeDictionaryValueCallBacks);
 
     ok_status(SecPKCS12Import(message, options, &items), "import ECDSA_fails_import_p12");
-#if TARGET_OS_OSX
-    is(CFArrayGetCount(items), 2, "two identities"); //macOS implementation doesn't dedup
-#else
     is(CFArrayGetCount(items), 1, "one identity");
-#endif
     item = CFArrayGetValueAtIndex(items, 0);
     ok(identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity), "pull identity from imported data");
 
@@ -173,7 +173,7 @@ static void tests(void)
     ok_status(SecIdentityCopyCertificate(identity, &cert), "get certificate");
 
     SecKeyRef pubkey = NULL;
-#if TARGET_OS_OSX
+#if LEGACY_OSX_PKCS12
     ok(pubkey = SecCertificateCopyKey(cert), "get public key from cert");
 #else
     ok(pubkey = SecKeyCopyPublicKey(pkey), "get public key from private key");
@@ -256,10 +256,11 @@ static void test_cert_decode_error(void) {
                                                  (const void **)&password, 1,
                                                  &kCFTypeDictionaryKeyCallBacks,
                                                  &kCFTypeDictionaryValueCallBacks);
-#if TARGET_OS_IPHONE
-    is(SecPKCS12Import(message, options, &items), errSecDecode, "import cert decode failure p12");
-#else
+#if LEGACY_OSX_PKCS12
+    // legacy code returned errSecUnknownFormat instead of errSecDecode; rdar://87484096
     is(SecPKCS12Import(message, options, &items), errSecUnknownFormat, "import cert decode failure p12");
+#else
+    is(SecPKCS12Import(message, options, &items), errSecDecode, "import cert decode failure p12");
 #endif
     CFReleaseNull(message);
     CFReleaseNull(items);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -117,7 +117,7 @@ static 	UInt32 	CreateDirByName(SGlob *GPtr , const u_char *dirName, const UInt3
 
 static 	int		BuildFolderRec( SGlob*, u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, CatalogRecord * theRecPtr );
 static 	int		BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, Boolean isHFSPlus, Boolean isDirectory );
-static 	int 	BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean isHFSPlus, CatalogRecord *catRecord);
+static 	int 	BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean isHFSPlus, CatalogRecord *catRecord, bool expanded_times);
 static 	void 	BuildAttributeKey(u_int32_t fileID, u_int32_t startBlock, unsigned char *attrName, u_int16_t attrNameLen, HFSPlusAttrKey *key);
 
 
@@ -5696,6 +5696,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 	UInt32 blockCount = 0;
 	UInt32 nextCNID;
 
+	bool expanded_times = false;
 	isHFSPlus = VolumeObjectIsHFSPlus();
 
 	/* Construct unicode name for file name to construct catalog key */
@@ -5810,8 +5811,9 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 		goto out;
 	}
 
+	expanded_times = (GPtr->calculatedVCB->vcbAttributes & kHFSExpandedTimesMask);
 	/* Build file record */
-	recordSize = BuildFileRec(fileType, 0666, nextCNID, isHFSPlus, &catRecord);
+	recordSize = BuildFileRec(fileType, 0666, nextCNID, isHFSPlus, &catRecord, expanded_times);
 	if (recordSize == 0) {
 #if DEBUG_OVERLAP
 		fsck_print(ctx, LOG_TYPE_INFO, "%s: Incorrect fileType\n", __FUNCTION__);
@@ -6072,7 +6074,13 @@ BuildFolderRec( SGlob *GPtr, u_int16_t theMode, UInt32 theObjID, Boolean isHFSPl
 	
 	CountFolderItems(GPtr, theObjID, isHFSPlus, &vCount, &fCount);
 	if ( isHFSPlus ) {
-		createTime = GetTimeUTC();
+		bool expanded = false;
+		if (GPtr->calculatedVCB) {
+			if (GPtr->calculatedVCB->vcbAttributes & kHFSExpandedTimesMask) {
+				expanded = true;
+			}
+		}
+		createTime = GetTimeUTC(expanded);
 		theRecPtr->hfsPlusFolder.recordType = kHFSPlusFolderRecord;
 		theRecPtr->hfsPlusFolder.folderID = theObjID;
 		theRecPtr->hfsPlusFolder.createDate = createTime;
@@ -6167,7 +6175,8 @@ BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr,
  *	returns size of the catalog record.
  *	on success, non-zero value; on failure, zero.
  */
-static int BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean isHFSPlus, CatalogRecord *catRecord)
+static int BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, 
+		Boolean isHFSPlus, CatalogRecord *catRecord, bool expanded_times)
 {
 	UInt16 recordSize = 0;
 	UInt32 createTime;
@@ -6183,7 +6192,7 @@ static int BuildFileRec(UInt16 fileType, UInt16 fileMode, UInt32 fileID, Boolean
 	ClearMemory((Ptr)catRecord, sizeof(*catRecord));
 	
 	if ( isHFSPlus ) {
-		createTime = GetTimeUTC();
+		createTime = GetTimeUTC(expanded_times);
 		catRecord->hfsPlusFile.recordType = kHFSPlusFileRecord;
 		catRecord->hfsPlusFile.fileID = fileID;
 		catRecord->hfsPlusFile.createDate = createTime;

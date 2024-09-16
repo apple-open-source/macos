@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved
+ * Copyright (c) 2021 - 2023 Apple Inc. All rights reserved
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -245,6 +245,10 @@ do_smbstat(char *path, enum OutputFormat output_format)
         else {
             json_add_num(smbStats, "flags",
                          &pb.file.flags, sizeof(pb.file.flags));
+            
+            json_add_bool(smbStats, "UBC_CACHING", (pb.file.flags & SMB_FILE_UBC_CACHING));
+            json_add_bool(smbStats, "DONT_COMPRESS", (pb.file.flags & SMB_FILE_DONT_COMPRESS));
+
             json_add_num(smbStats, "sharedFID_refcnt",
                          &pb.file.sharedFID_refcnt, sizeof(pb.file.sharedFID_refcnt));
             json_add_num(smbStats, "sharedFID_mmapped",
@@ -485,6 +489,21 @@ do_smbstat(char *path, enum OutputFormat output_format)
         }
         else {
             printf("   flags: 0x%llx (%s)\n", pb.file.flags, fileFlags[pb.file.flags]);
+            
+            if (pb.file.flags & SMB_FILE_UBC_CACHING) {
+                printf("   UBC Caching: Cached \n");
+            }
+            else {
+                printf("   UBC Caching: Not Cached \n");
+            }
+            
+            if (pb.file.flags & SMB_FILE_DONT_COMPRESS) {
+                printf("   SMB Compression: Not allowed \n");
+            }
+            else {
+                printf("   SMB Compression: Allowed \n");
+            }
+            
             printf("   sharedFID_refcnt: %d \n", pb.file.sharedFID_refcnt);
             printf("   sharedFID_mmapped: %d \n", pb.file.sharedFID_mmapped);
             printf("   sharedFID_fid: 0x%llx-0x%llx \n",

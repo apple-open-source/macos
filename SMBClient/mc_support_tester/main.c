@@ -510,7 +510,8 @@ int mc_tester_iod_establish_alt_ch(struct session_network_interface_info *psSess
 
     // Soft and remove excessive connections
     do {
-        num_of_cons_to_try = smb2_mc_return_excess_connections(psSessionTable, con_entry, con_entry_len);
+        num_of_cons_to_try = smb2_mc_return_excess_connections(psSessionTable, con_entry, con_entry_len
+                                                               NULL, NULL);
 
         for(uint32_t u=0; u<num_of_cons_to_try; u++) {
 
@@ -584,7 +585,8 @@ int BasicTest(enum mc_support_tests eTestNum) {
     struct session_network_interface_info sSessionTable = {0};
     smb2_mc_init(&sSessionTable,
             32,    //  max_channels,
-            2,     //  max_rss_channels,
+            4,     //  srvr_rss_channels,
+            4,     //  clnt_rss_channels,
             NULL,  // *ignored_client_nic,
             0,     //  ignored_client_nic_len
             0)     //  prefer_wired

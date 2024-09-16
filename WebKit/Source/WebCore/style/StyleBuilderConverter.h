@@ -27,7 +27,9 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "BasicShapeFunctions.h"
+#include "CSSBasicShapes.h"
 #include "CSSCalcValue.h"
 #include "CSSContentDistributionValue.h"
 #include "CSSCounterStyleRegistry.h"
@@ -77,6 +79,7 @@
 #include "TransformFunctions.h"
 #include "ViewTimeline.h"
 #include "WillChangeData.h"
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 namespace Style {
@@ -122,6 +125,7 @@ public:
     static OptionSet<TextEmphasisPosition> convertTextEmphasisPosition(BuilderState&, const CSSValue&);
     static TextAlignMode convertTextAlign(BuilderState&, const CSSValue&);
     static TextAlignLast convertTextAlignLast(BuilderState&, const CSSValue&);
+    static RefPtr<BasicShapePath> convertSVGPath(BuilderState&, const CSSValue&);
     static RefPtr<PathOperation> convertPathOperation(BuilderState&, const CSSValue&);
     static RefPtr<PathOperation> convertRayPathOperation(BuilderState&, const CSSValue&);
     static Resize convertResize(BuilderState&, const CSSValue&);
@@ -219,6 +223,8 @@ public:
     static Vector<ScrollAxis> convertScrollTimelineAxis(BuilderState&, const CSSValue&);
     static Vector<ViewTimelineInsets> convertViewTimelineInset(BuilderState&, const CSSValue&);
 
+    static Vector<AtomString> convertAnchorName(BuilderState&, const CSSValue&);
+
 private:
     friend class BuilderCustom;
 
@@ -260,6 +266,9 @@ inline Length BuilderConverter::convertLength(const BuilderState& builderState, 
     if (primitiveValue.isCalculatedPercentageWithLength())
         return Length(primitiveValue.cssCalcValue()->createCalculationValue(conversionData));
 
+    if (primitiveValue.isAnchor())
+        return AnchorPositionEvaluator::resolveAnchorValue(primitiveValue.cssAnchorValue(), builderState);
+
     ASSERT_NOT_REACHED();
     return Length(0, LengthType::Fixed);
 }
@@ -281,7 +290,7 @@ inline Length BuilderConverter::convertLengthOrAuto(const BuilderState& builderS
 
 inline Length BuilderConverter::convertLengthSizing(const BuilderState& builderState, const CSSValue& value)
 {
-    auto& primitiveValue = checkedDowncast<CSSPrimitiveValue>(value);
+    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
     switch (primitiveValue.valueID()) {
     case CSSValueInvalid:
         return convertLength(builderState, value);
@@ -364,7 +373,7 @@ inline T BuilderConverter::convertLineWidth(BuilderState& builderState, const CS
         // Any original result that was >= 1 should not be allowed to fall below 1.
         // This keeps border lines from vanishing.
         T result = convertComputedLength<T>(builderState, value);
-        if (builderState.style().effectiveZoom() < 1.0f && result < 1.0) {
+        if (builderState.style().usedZoom() < 1.0f && result < 1.0) {
             T originalLength = primitiveValue.computeLength<T>(builderState.cssToLengthConversionData().copyWithAdjustedZoom(1.0));
             if (originalLength >= 1.0)
                 return 1;
@@ -746,6 +755,16 @@ inline RefPtr<PathOperation> BuilderConverter::convertRayPathOperation(BuilderSt
     return RayPathOperation::create(rayValue.angle()->computeDegrees(), size, rayValue.isContaining());
 }
 
+inline RefPtr<BasicShapePath> BuilderConverter::convertSVGPath(BuilderState&, const CSSValue& value)
+{
+    if (auto* pathValue = dynamicDowncast<CSSPathValue>(value))
+        return basicShapePathForValue(*pathValue);
+
+    ASSERT(is<CSSPrimitiveValue>(value));
+    ASSERT(downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNone);
+    return nullptr;
+}
+
 inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState& builderState, const CSSValue& value)
 {
     if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
@@ -775,7 +794,7 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
         if (is<CSSRayValue>(singleValue))
             operation = convertRayPathOperation(builderState, singleValue);
         else if (!singleValue.isValueID())
-            operation = ShapePathOperation::create(basicShapeForValue(builderState.cssToLengthConversionData(), singleValue, builderState.style().effectiveZoom()));
+            operation = ShapePathOperation::create(basicShapeForValue(builderState.cssToLengthConversionData(), singleValue, builderState.style().usedZoom()));
         else
             referenceBox = fromCSSValue<CSSBoxType>(singleValue);
     };
@@ -800,8 +819,8 @@ inline Resize BuilderConverter::convertResize(BuilderState& builderState, const 
 {
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
 
-    Resize resize = Resize::None;
-    if (primitiveValue.valueID() == CSSValueAuto)
+    auto resize = Resize::None;
+    if (primitiveValue.valueID() == CSSValueInternalTextareaAuto)
         resize = builderState.document().settings().textAreasAreResizable() ? Resize::Both : Resize::None;
     else
         resize = fromCSSValue<Resize>(value);
@@ -1292,12 +1311,12 @@ inline void BuilderConverter::createImplicitNamedGridLinesFromGridArea(const Nam
     for (auto& area : namedGridAreas.map) {
         GridSpan areaSpan = direction == GridTrackSizingDirection::ForRows ? area.value.rows : area.value.columns;
         {
-            auto& startVector = namedGridLines.map.add(area.key + "-start"_s, Vector<unsigned>()).iterator->value;
+            auto& startVector = namedGridLines.map.add(makeString(area.key, "-start"_s), Vector<unsigned>()).iterator->value;
             startVector.append(areaSpan.startLine());
             std::sort(startVector.begin(), startVector.end());
         }
         {
-            auto& endVector = namedGridLines.map.add(area.key + "-end"_s, Vector<unsigned>()).iterator->value;
+            auto& endVector = namedGridLines.map.add(makeString(area.key, "-end"_s), Vector<unsigned>()).iterator->value;
             endVector.append(areaSpan.endLine());
             std::sort(endVector.begin(), endVector.end());
         }
@@ -1434,7 +1453,7 @@ inline float zoomWithTextZoomFactor(BuilderState& builderState)
 {
     if (auto* frame = builderState.document().frame()) {
         float textZoomFactor = builderState.style().textZoom() != TextZoom::Reset ? frame->textZoomFactor() : 1.0f;
-        return builderState.style().effectiveZoom() * textZoomFactor;
+        return builderState.style().usedZoom() * textZoomFactor;
     }
     return builderState.cssToLengthConversionData().zoom();
 }
@@ -2110,6 +2129,23 @@ inline Vector<ViewTimelineInsets> BuilderConverter::convertViewTimelineInset(Bui
         if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(item))
             return { convertLengthOrAuto(state, *primitiveValue), std::nullopt };
         return { };
+    });
+}
+
+inline Vector<AtomString> BuilderConverter::convertAnchorName(BuilderState&, const CSSValue& value)
+{
+    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
+        if (value.valueID() == CSSValueNone)
+            return { };
+        return { AtomString { primitiveValue->stringValue() } };
+    }
+
+    auto* list = dynamicDowncast<CSSValueList>(value);
+    if (!list)
+        return { };
+
+    return WTF::map(*list, [&](auto& item) {
+        return AtomString { downcast<CSSPrimitiveValue>(item).stringValue() };
     });
 }
 

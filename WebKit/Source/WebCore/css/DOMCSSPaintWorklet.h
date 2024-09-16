@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(CSS_PAINTING_API)
-
 #include "Supplementable.h"
 #include "Worklet.h"
 
@@ -68,8 +66,7 @@ public:
 
 private:
     static DOMCSSPaintWorklet* from(DOMCSSNamespace&);
-    static const char* supplementName();
+    static ASCIILiteral supplementName();
 };
 
 } // namespace WebCore
-#endif

@@ -34,12 +34,15 @@
 
 static dispatch_queue_t ppsQueue; /// shared dispatch queue for servicing calls to PPS
 
-static PPSTelemetryIdentifier * streamId; /// PPS telemetry stream identifier
+static PPSTelemetryIdentifier * streamId = nil; /// PPS telemetry stream identifier
 
 @implementation IOHIDSensorPowerLoggingFilter {
     HIDBlock _cancelHandler;
     bool _activated;
     
+    uint64_t _ppsCount;     ///< debug value: number of calls to log PPS telemetry
+    uint64_t _lastInterval; ///< debug value: last interval value logged as PPS telemetry
+
     NSNumber * _usagePage; /// cache the primary usage page property for the matched service
     NSNumber * _usage;     /// cache the primary usage property for the matched service
     
@@ -82,6 +85,7 @@ static PPSTelemetryIdentifier * streamId; /// PPS telemetry stream identifier
     
     _usagePage = [_service propertyForKey:@(kIOHIDPrimaryUsagePageKey)];
     _usage     = [_service propertyForKey:@(kIOHIDPrimaryUsageKey)];
+    _ppsCount  = 0;
 
     static dispatch_once_t dqOnceToken; // once token for initializing the shared dispatch queue used for PPS calls
     dispatch_once(&dqOnceToken, ^{
@@ -103,15 +107,20 @@ static PPSTelemetryIdentifier * streamId; /// PPS telemetry stream identifier
 {
     id result = nil;
     
-    if ([key isEqualToString:@(kIOHIDServiceFilterDebugKey)] ||
-        [key isEqualToString:@"TestHIDSensorPowerLoggingFilterKey"]) {
+    if ([key isEqualToString:@(kIOHIDServiceFilterDebugKey)]) {
         // debug dictionary that gets captured by hidutil
         NSMutableDictionary * debug = [NSMutableDictionary new];
-        
         debug[@"Class"]         = @"IOHIDSensorPowerLoggingFilter";
         debug[@"cancelHandler"] = _cancelHandler ? @YES : @NO;
-        debug[@"clients"]       = _clients;
-        
+        result = debug;
+    }
+    else if ([key isEqualToString:@"TestHIDSensorPowerLoggingFilterKey"]) {
+        // property queried by unit test
+        NSMutableDictionary * debug = [NSMutableDictionary new];
+        debug[@"clients"]      = _clients;
+        debug[@"logCount"]     = [NSNumber numberWithUnsignedLongLong:_ppsCount];
+        debug[@"lastInterval"] = [NSNumber numberWithUnsignedLongLong:_lastInterval];
+        debug[@"PPSInitDone"]  = streamId ? @YES : @NO;
         result = debug;
     }
     
@@ -136,19 +145,34 @@ static PPSTelemetryIdentifier * streamId; /// PPS telemetry stream identifier
         
         HIDLogDebug("IOHIDSensorPowerLoggingFilter: set report interval:%@ client:%@", interval, client);
         
+        // update client->interval mapping
+        if (client.uuid) {
+
+            NSMutableDictionary* clientInfo = _clients[client.uuid];
+
+            if (clientInfo) {
+                NSNumber* oldInterval = clientInfo[@(kIOHIDReportIntervalKey)];
+                if ([oldInterval isEqualToNumber:interval]) {
+                    // skip without logging telemetry
+                    return true;
+                }
+                clientInfo[@(kIOHIDReportIntervalKey)] = interval;
+            }
+            else {
+                clientInfo = [[NSMutableDictionary alloc] initWithDictionary:@{
+                    @(kIOHIDReportIntervalKey) : interval,
+                    @"ProcessName"             : procName
+                }];
+            }
+
+            [_clients setObject:clientInfo forKey:client.uuid];
+        }
+
         // send telemetry to PerfPowerServices
         [self sendPPSTelemetry:interval
                  withUsagePage:_usagePage
                       andUsage:_usage
                      forClient:procName];
-        
-        if (client.uuid) {
-            NSDictionary * clientInfo = @{
-                @(kIOHIDReportIntervalKey) : interval,
-                @"ProcessName"             : procName
-            };
-            [_clients setObject:clientInfo forKey:client.uuid];
-        }
         
         result = true;
     }
@@ -233,6 +257,8 @@ exit:
     };
     HIDLogDebug("IOHIDSensorPowerLoggingFilter: sending telemetry: %@", telemetry);
 
+    ++_ppsCount; // for use in tests
+    _lastInterval = interval.unsignedLongLongValue; // for use in tests
     dispatch_async(ppsQueue, ^{
         PPSSendTelemetry(streamId, telemetry);
     });

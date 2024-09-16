@@ -303,6 +303,29 @@ pdfjs-editor-ink-button-label = Маляваць
 pdfjs-editor-stamp-button =
     .title = Дадаць або змяніць выявы
 pdfjs-editor-stamp-button-label = Дадаць або змяніць выявы
+pdfjs-editor-highlight-button =
+    .title = Вылучэнне
+pdfjs-editor-highlight-button-label = Вылучэнне
+pdfjs-highlight-floating-button =
+    .title = Вылучэнне
+pdfjs-highlight-floating-button1 =
+    .title = Падфарбаваць
+    .aria-label = Падфарбаваць
+pdfjs-highlight-floating-button-label = Падфарбаваць
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Выдаліць малюнак
+pdfjs-editor-remove-freetext-button =
+    .title = Выдаліць тэкст
+pdfjs-editor-remove-stamp-button =
+    .title = Выдаліць выяву
+pdfjs-editor-remove-highlight-button =
+    .title = Выдаліць падфарбоўку
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Колер
 pdfjs-editor-free-text-size-input = Памер
@@ -312,6 +335,10 @@ pdfjs-editor-ink-opacity-input = Непразрыстасць
 pdfjs-editor-stamp-add-image-button =
     .title = Дадаць выяву
 pdfjs-editor-stamp-add-image-button-label = Дадаць выяву
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Таўшчыня
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Змяняць таўшчыню пры вылучэнні іншых элементаў, акрамя тэксту
 pdfjs-free-text =
     .aria-label = Тэкставы рэдактар
 pdfjs-free-text-default-content = Пачніце набор тэксту…
@@ -349,3 +376,29 @@ pdfjs-editor-resizer-label-bottom-right = Правы ніжні кут — зм�
 pdfjs-editor-resizer-label-bottom-middle = Пасярэдзіне ўнізе — змяніць памер
 pdfjs-editor-resizer-label-bottom-left = Левы ніжні кут — змяніць памер
 pdfjs-editor-resizer-label-middle-left = Пасярэдзіне злева — змяніць памер
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Колер падфарбоўкі
+pdfjs-editor-colorpicker-button =
+    .title = Змяніць колер
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Выбар колеру
+pdfjs-editor-colorpicker-yellow =
+    .title = Жоўты
+pdfjs-editor-colorpicker-green =
+    .title = Зялёны
+pdfjs-editor-colorpicker-blue =
+    .title = Блакітны
+pdfjs-editor-colorpicker-pink =
+    .title = Ружовы
+pdfjs-editor-colorpicker-red =
+    .title = Чырвоны
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Паказаць усе
+pdfjs-editor-highlight-show-all-button =
+    .title = Паказаць усе

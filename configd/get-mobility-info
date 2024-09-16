@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2018, 2020, 2021 Apple Inc.
+# Copyright (c) 2004-2018, 2020, 2021, 2024 Apple Inc.
 #
 # get-mobility-info
 #
@@ -158,22 +158,6 @@ fi
 if [ -x /System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport ]; then
 	/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport --getinfo	\
 							> airport		2>&1
-fi
-
-#
-# collect wifi dump
-#
-if [ -x /usr/bin/wdutil -a -x /bin/ls ]; then
-	${PRIV} /usr/bin/wdutil dump
-	mkdir -p "wifi_dump"
-	/bin/ls -1 /private/tmp/wifi-*						2>/dev/null	\
-	| while read log
-	do
-		if [ -f "${log}" ]; then
-			b="`basename ${log}`"
-			${PRIV} cat "${log}"		> "wifi_dump/${b}"	2>&1
-		fi
-	done
 fi
 
 #

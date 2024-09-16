@@ -339,38 +339,3 @@ version     watchos             10.3
 version     bridgeos            8.3
 version     driverkit           23.3
 set         2023_SU_D           2023.14.1    23.3.0
-#ifndef __OPENSOURCE__
-platform    exclavekit          exclavekit  EXCLAVEKIT -unversioned
-version     visionos            1.1
-version     macos               14.4
-version     ios                 17.4
-version     tvos                17.4
-version     watchos             10.4
-version     bridgeos            8.4
-version     driverkit           23.4
-set         2023_SU_E           2023.15.1    23.4.0
-version     visionos            1.2
-version     macos               14.5
-version     ios                 17.5
-version     tvos                17.5
-version     watchos             10.5
-version     bridgeos            8.5
-version     driverkit           23.5
-set         2023_SU_F           2023.16.1    23.5.0
-version     visionos            1.3
-version     macos               14.6
-version     ios                 17.6
-version     tvos                17.6
-version     watchos             10.6
-version     bridgeos            8.6
-version     driverkit           23.6
-set         2023_SU_G           2023.17.1    23.6.0
-version     visionos            2.0
-version     macos               15.0
-version     ios                 18.0
-version     tvos                18.0
-version     watchos             11.0
-version     bridgeos            9.0
-version     driverkit           24.0
-set         fall_2024           2024.0.0    24.0
-#endif

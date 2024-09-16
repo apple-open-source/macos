@@ -1,0 +1,341 @@
+diff --git a/configure configure
+index 44f914b..0443d50 100755
+--- a/configure
++++ configure
+@@ -12056,6 +12056,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ #include <time.h>
++#include <stdlib.h>
+ int
+ main ()
+ {
+@@ -12122,6 +12123,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ #include <time.h>
++#include <stdlib.h>
+ int
+ main ()
+ {
+@@ -14203,6 +14206,7 @@ _ACEOF
+ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
++#include <string.h>
+ 
+ int
+ main ()
+@@ -14275,7 +14279,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ 
+ #include <sys/wait.h>
+-main() {
++int main() {
+ #ifndef WNOHANG
+ 	return 0;
+ #else
+@@ -14332,7 +14336,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ 
+ #include <stdio.h>
+ #include <sys/wait.h>
+-main() {
++int main() {
+ #ifdef WNOHANG
+ 	FILE *fp = fopen("wnohang","w");
+ 	fprintf(fp,"%d",WNOHANG);
+@@ -14440,7 +14444,7 @@ int n;
+ signal_rearms++;
+ }
+ 
+-main()
++int main()
+ {
+ 	signal(SIGINT,parent_sigint_handler);
+ 
+@@ -15060,7 +15064,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ 
+ #include <sgtty.h>
+-main()
++int main()
+ {
+   struct sgttyb tmp;
+   exit(0);
+@@ -15121,7 +15125,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ #include <termio.h>
+-  main()
++  int main()
+   {
+     struct termio tmp;
+     exit(0);
+@@ -15180,7 +15184,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ #  include <inttypes.h>
+ #  endif
+ #  include <termios.h>
+-  main()
++  int main()
+   {
+     struct termios tmp;
+     exit(0);
+@@ -15239,7 +15243,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ #include <inttypes.h>
+ #endif
+ #include <termios.h>
+-main() {
++int main() {
+ #if defined(TCGETS) || defined(TCGETA)
+ 	return 0;
+ #else
+@@ -15298,7 +15302,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ #include <inttypes.h>
+ #endif
+ #include <termios.h>
+-main() {
++int main() {
+ #ifdef TIOCGWINSZ
+ 	return 0;
+ #else
+@@ -15354,7 +15358,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ 
+-main(){
++int main(){
+ #ifdef CRAY
+ 	return 0;
+ #else
+@@ -15901,7 +15905,7 @@ cat >>conftest.$ac_ext <<_ACEOF
+ 
+ extern char *tzname[2];
+ extern int daylight;
+-main()
++int main()
+ {
+   int *x = &daylight;
+   char **y = tzname;
+diff --git a/configure.in configure.in
+index fcb6c06..a70d00e 100644
+--- a/configure.in
++++ configure.in
+@@ -452,7 +452,7 @@ AC_CHECK_FUNC(siglongjmp, AC_DEFINE(HAVE_SIGLONGJMP))
+ # because Unixware 2.0 handles it specially and refuses to compile
+ # autoconf's automatic test that is a call with no arguments
+ AC_MSG_CHECKING([for memcpy])
+-AC_TRY_LINK(,[
++AC_TRY_LINK([#include <string.h>],[
+ char *s1, *s2;
+ memcpy(s1,s2,0);
+ ],
+@@ -469,7 +469,7 @@ memcpy(s1,s2,0);
+ AC_MSG_CHECKING([if WNOHANG requires _POSIX_SOURCE])
+ AC_TRY_RUN([
+ #include <sys/wait.h>
+-main() {
++int main() {
+ #ifndef WNOHANG
+ 	return 0;
+ #else
+@@ -489,7 +489,7 @@ rm -rf wnohang
+ AC_TRY_RUN([
+ #include <stdio.h>
+ #include <sys/wait.h>
+-main() {
++int main() {
+ #ifdef WNOHANG
+ 	FILE *fp = fopen("wnohang","w");
+ 	fprintf(fp,"%d",WNOHANG);
+@@ -536,7 +536,7 @@ dnl AC_HEADER_EGREP([(void|sighandler_t).*signal], signal.h, retsigtype=void,AC_
+ AC_MSG_CHECKING([if signals need to be re-armed])
+ AC_TRY_RUN([
+ #include <signal.h>
+-#define RETSIGTYPE $retsigtype
++#include <stdlib.h>
+ 
+ int signal_rearms = 0;
+ 
+@@ -553,7 +553,7 @@ int n;
+ signal_rearms++;
+ }
+ 
+-main()
++int main()
+ {
+ 	signal(SIGINT,parent_sigint_handler);
+ 
+@@ -714,7 +714,8 @@ fi
+ AC_MSG_CHECKING([for struct sgttyb])
+ AC_TRY_RUN([
+ #include <sgtty.h>
+-main()
++#include <stdlib.h>
++int main()
+ {
+   struct sgttyb tmp;
+   exit(0);
+@@ -738,7 +739,7 @@ if test $mach -eq 0 ; then
+   # pty_termios.c is set up to handle pty_termio.
+   AC_MSG_CHECKING([for struct termio])
+   AC_TRY_RUN([#include <termio.h>
+-  main()
++  int main()
+   {
+     struct termio tmp;
+     exit(0);
+@@ -760,7 +761,8 @@ if test $mach -eq 0 ; then
+ #  include <inttypes.h>
+ #  endif
+ #  include <termios.h>
+-  main()
++#  include <stdlib.h>
++  int main()
+   {
+     struct termios tmp;
+     exit(0);
+@@ -782,7 +784,7 @@ AC_TRY_RUN([
+ #include <inttypes.h>
+ #endif
+ #include <termios.h>
+-main() {
++int main() {
+ #if defined(TCGETS) || defined(TCGETA)
+ 	return 0;
+ #else
+@@ -804,7 +806,7 @@ AC_TRY_RUN([
+ #include <inttypes.h>
+ #endif
+ #include <termios.h>
+-main() {
++int main() {
+ #ifdef TIOCGWINSZ
+ 	return 0;
+ #else
+@@ -823,7 +825,7 @@ main() {
+ AC_MSG_CHECKING([for Cray-style ptys])
+ SETUID=":"
+ AC_TRY_RUN([
+-main(){
++int main(){
+ #ifdef CRAY
+ 	return 0;
+ #else
+@@ -876,9 +878,10 @@ AC_FUNC_SETPGRP
+ #
+ AC_MSG_CHECKING([for SV-style timezone])
+ AC_TRY_RUN([
++#include <stdlib.h>
+ extern char *tzname[2];
+ extern int daylight;
+-main()
++int main()
+ {
+   int *x = &daylight;
+   char **y = tzname;
+diff --git a/exp_chan.c exp_chan.c
+index 963337d..c68b172 100644
+--- a/exp_chan.c
++++ exp_chan.c
+@@ -51,6 +51,8 @@ static void		ExpWatchProc _ANSI_ARGS_((ClientData instanceData,
+ 		            int mask));
+ static int		ExpGetHandleProc _ANSI_ARGS_((ClientData instanceData,
+ 		            int direction, ClientData *handlePtr));
++void exp_background_channelhandlers_run_all();
++void exp_background_channelhandler(ClientData clientData, int mask);
+ 
+ /*
+  * This structure describes the channel type structure for Expect-based IO:
+diff --git a/exp_clib.c exp_clib.c
+index 172c05e..cacd1ce 100644
+--- a/exp_clib.c
++++ exp_clib.c
+@@ -9,6 +9,7 @@ would appreciate credit if this program or parts of it are used.
+ 
+ #include "expect_cf.h"
+ #include <stdio.h>
++#include <unistd.h>
+ #include <setjmp.h>
+ #ifdef HAVE_INTTYPES_H
+ #  include <inttypes.h>
+@@ -1733,7 +1734,8 @@ int exp_getptyslave();
+ 
+ #define sysreturn(x)	return(errno = x, -1)
+ 
+-void exp_init_pty();
++void exp_init_pty(void);
++void exp_init_tty(void);
+ 
+ /*
+    The following functions are linked from the Tcl library.  They
+diff --git a/exp_int.h exp_int.h
+index a7cd496..ca5f852 100644
+--- a/exp_int.h
++++ exp_int.h
+@@ -19,6 +19,7 @@ would appreciate credit if this program or parts of it are used.
+ #define memcpy(x,y,len) bcopy(y,x,len)
+ #endif
+ 
++#include <tcl.h>
+ #include <errno.h>
+ 
+ void	exp_console_set     _ANSI_ARGS_((void));
+diff --git a/exp_main_sub.c exp_main_sub.c
+index a3f186d..5a4ea22 100644
+--- a/exp_main_sub.c
++++ exp_main_sub.c
+@@ -66,6 +66,8 @@ int exp_getpid;
+ 
+ int exp_strict_write = 0;
+ 
++int exp_tty_cooked_echo(Tcl_Interp *interp, exp_tty *tty_old, int *was_raw, int *was_echo);
++
+ 
+ static void
+ usage(interp)
+diff --git a/exp_tty.c exp_tty.c
+index 3f22c90..20f54df 100644
+--- a/exp_tty.c
++++ exp_tty.c
+@@ -49,6 +49,8 @@ int exp_stdout_is_tty;
+ #define tty_current exp_tty_current
+ #define tty_cooked exp_tty_cooked
+ 
++int exp_tty_cooked_echo(Tcl_Interp *interp, exp_tty *tty_old, int *was_raw, int *was_echo);
++
+ int
+ exp_israw(void)
+ {
+diff --git a/expect.c expect.c
+index 4a2f8c1..01a8540 100644
+--- a/expect.c
++++ expect.c
+@@ -59,6 +59,8 @@ extern int Exp_StringCaseMatch _ANSI_ARGS_((Tcl_UniChar *string, int strlen,
+ 					    Tcl_UniChar *pattern,int plen,
+ 					    int nocase,int *offset));
+ 
++void exp_background_channelhandler(ClientData clientData, int mask);
++
+ typedef struct ThreadSpecificData {
+     int timeout;
+ } ThreadSpecificData;
+diff --git a/pty_termios.c pty_termios.c
+index c605b23..bb996f4 100644
+--- a/pty_termios.c
++++ pty_termios.c
+@@ -9,12 +9,15 @@ would appreciate credit if you use this file or parts of it.
+ 
+ #include <stdio.h>
+ #include <signal.h>
++#include <util.h>
++
+ 
+ #if defined(SIGCLD) && !defined(SIGCHLD)
+ #define SIGCHLD SIGCLD
+ #endif
+ 
+ #include "expect_cf.h"
++#include "exp_int.h"
+ 
+ /*
+    The following functions are linked from the Tcl library.  They

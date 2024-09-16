@@ -239,7 +239,11 @@ __bsd_iconvlist(int (*do_one) (unsigned int, const char * const *,
 		if (curkey == NULL)
 			goto out;
 		names[j++] = curkey;
+#ifdef __APPLE__
+		for (; (i < sz) && (strncmp(curkey, list[i], strlen(curkey)) == 0); i++) {
+#else
 		for (; (i < sz) && (memcmp(curkey, list[i], strlen(curkey)) == 0); i++) {
+#endif
 			slashpos = strchr(list[i], '/');
 			if (strcmp(curkey, &slashpos[1]) == 0)
 				continue;
@@ -316,8 +320,22 @@ __bsd_iconvctl(iconv_t cd, int request, void *argument)
 		cv->cv_shared->ci_hooks = hooks;
 		return (0);
 	case ICONV_SET_FALLBACKS:
+#ifdef __APPLE__
+		if (cv->cv_fallbacks == NULL) {
+			/* Not often used; just allocate on first use */
+			cv->cv_fallbacks =
+			    malloc(sizeof(*cv->cv_fallbacks));
+			if (cv->cv_fallbacks == NULL)
+				return (-1);
+		}
+
+		memcpy(cv->cv_fallbacks, argument,
+		    sizeof(*cv->cv_fallbacks));
+		return (0);
+#else
 		errno = EOPNOTSUPP;
 		return (-1);
+#endif
 	case ICONV_GET_ILSEQ_INVALID:
 		*i = cv->cv_shared->ci_ilseq_invalid ? 1 : 0;
 		return (0);

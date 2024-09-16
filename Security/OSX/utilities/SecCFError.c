@@ -173,7 +173,7 @@ static bool SecCFErrorShouldCapNestedError(CFErrorRef previousError, long *newCo
             if (previousCount) {
                 long previousLong = 0;
                 CFNumberGetValue(previousCount, kCFNumberLongType, &previousLong);
-                if (SecErrorIsNestedErrorCappingEnabled() && previousLong >= CAP_LIMIT) {
+                if (previousLong >= CAP_LIMIT) {
                     shouldCap = true;
                 } else {
                     *newCount = previousLong+1;

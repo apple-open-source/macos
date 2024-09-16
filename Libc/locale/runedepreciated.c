@@ -23,6 +23,7 @@
 
 #include "xlocale_private.h"
 
+#include <ctype.h>
 #include <string.h>
 #include <rune.h>
 #include <stdlib.h>
@@ -40,7 +41,8 @@ __sgetrune(const char *string, size_t n, char const **result)
 {
 	wchar_t wc;
 	size_t converted = mbrtowc(&wc, string, n, NULL);
-	__darwin_rune_t invalid_rune = __current_locale()->__lc_ctype->_CurrentRuneLocale.__invalid_rune;
+	__darwin_rune_t invalid_rune =
+	    __current_lc_ctype->_CurrentRuneLocale->__invalid_rune;
 
 	switch (converted) {
 	case (size_t)-2:	/* incomplete */

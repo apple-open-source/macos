@@ -50,17 +50,80 @@ static uint8_t *concatenate_to_blocksize(const uint8_t *data, size_t data_length
     return block;
 }
 
-int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length, 
-    unsigned iter_count, P12_PBE_ID pbe_id, uint8_t *data, size_t length)
-{
-    unsigned int hash_blocksize = CC_SHA1_BLOCK_BYTES;
-    unsigned int hash_outputsize = CC_SHA1_DIGEST_LENGTH;
+static void digest_block(uint8_t *cursor, size_t I_length, uint8_t *I_data, unsigned iter_count,
+    unsigned char *diversifier, size_t diversifier_length,
+    unsigned int hash_blocksize, unsigned int hash_outputsize) {
+    CCDigestAlgorithm digestAlg = 0;
+    switch (hash_outputsize) {
+        case CC_SHA1_DIGEST_LENGTH: {
+            digestAlg = kCCDigestSHA1;
+            CC_SHA1_CTX ctx;
+            CC_SHA1_Init(&ctx);
+            CC_SHA1_Update(&ctx, diversifier, (CC_LONG)diversifier_length);
+            assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
+            CC_SHA1_Update(&ctx, I_data, (CC_LONG)I_length);
+            CC_SHA1_Final(cursor, &ctx);
+            break;
+        }
+        case CC_SHA256_DIGEST_LENGTH: {
+            digestAlg = kCCDigestSHA256;
+            CC_SHA256_CTX ctx;
+            CC_SHA256_Init(&ctx);
+            CC_SHA256_Update(&ctx, diversifier, (CC_LONG)diversifier_length);
+            assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
+            CC_SHA256_Update(&ctx, I_data, (CC_LONG)I_length);
+            CC_SHA256_Final(cursor, &ctx);
+            break;
+        }
+        case CC_SHA384_DIGEST_LENGTH: {
+            digestAlg = kCCDigestSHA384;
+            CC_SHA512_CTX ctx; /* note: SHA512 context is used for SHA384 */
+            CC_SHA384_Init(&ctx);
+            CC_SHA384_Update(&ctx, diversifier, (CC_LONG)diversifier_length);
+            assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
+            CC_SHA384_Update(&ctx, I_data, (CC_LONG)I_length);
+            CC_SHA384_Final(cursor, &ctx);
+            break;
+        }
+        case CC_SHA512_DIGEST_LENGTH: {
+            digestAlg = kCCDigestSHA512;
+            CC_SHA512_CTX ctx;
+            CC_SHA512_Init(&ctx);
+            CC_SHA512_Update(&ctx, diversifier, (CC_LONG)diversifier_length);
+            assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
+            CC_SHA512_Update(&ctx, I_data, (CC_LONG)I_length);
+            CC_SHA512_Final(cursor, &ctx);
+            break;
+        }
+        case CC_SHA224_DIGEST_LENGTH: {
+            digestAlg = kCCDigestSHA224;
+            CC_SHA256_CTX ctx; /* note: SHA256 context is used for SHA224 */
+            CC_SHA224_Init(&ctx);
+            CC_SHA224_Update(&ctx, diversifier, (CC_LONG)diversifier_length);
+            assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
+            CC_SHA224_Update(&ctx, I_data, (CC_LONG)I_length);
+            CC_SHA224_Final(cursor, &ctx);
+            break;
+        }
+        default:
+            break;
+    }
+    /* run block through digest function for iteration count */
+    unsigned int i;
+    for (i = 1; /*first round done above*/ i < iter_count; i++) {
+        CCDigest(digestAlg, cursor, hash_outputsize, cursor);
+    }
+}
 
+int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length, 
+    unsigned iter_count, P12_PBE_ID pbe_id, uint8_t *data, size_t length,
+    unsigned int hash_blocksize, unsigned int hash_outputsize)
+{
     if (!passphrase)
         return -1;
 
     /* generate diversifier block */
-    unsigned char diversifier[hash_blocksize];    
+    unsigned char diversifier[hash_blocksize];
     memset(diversifier, pbe_id, sizeof(diversifier));
 
     /* convert passphrase to BE UTF16 and append double null */
@@ -115,30 +178,22 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
         free(I_data);
         return -1;
     }
-    /* 64 bits cast(s): worst case here is we dont hash all the data and incorectly derive the wrong key,
-       when the passphrase + salt are over 2^32 bytes long */
-    /* loop over output in hash_output_size increments */
+    /* 64 bits cast(s): worst case here is we don't hash all the data and incorrectly
+       derive the wrong key, when the passphrase + salt are over 2^32 bytes long */
+    /* loop over output in hash_outputsize increments */
     while (cursor < temp_buf + temp_buf_size) {
-        CC_SHA1_CTX ctx;
-        CC_SHA1_Init(&ctx);
-        CC_SHA1_Update(&ctx, diversifier, (CC_LONG)sizeof(diversifier));
-        assert(I_length<=UINT32_MAX); /* debug check. Correct as long as CC_LONG is uint32_t */
-        CC_SHA1_Update(&ctx, I_data, (CC_LONG)I_length);
-        CC_SHA1_Final(cursor, &ctx);
-
-        /* run block through SHA-1 for iteration count */
-        unsigned int i;
-        for (i = 1; /*first round done above*/ i < iter_count; i++)
-            CCDigest(kCCDigestSHA1, cursor, hash_outputsize, cursor);
-
+        /* perform digest function for iter_count iterations.
+         */
+        digest_block(cursor, I_length, I_data, iter_count,
+                     diversifier, (CC_LONG)sizeof(diversifier),
+                     hash_blocksize, hash_outputsize);
         /*
-         * b) Concatenate copies of A[i] to create a string B of 
+         * b) Concatenate copies of A[i] to create a string B of
          *    length v bits (the final copy of A[i]i may be truncated 
          *    to create B).
          */
         size_t A_i_len = 0;
-        uint8_t *A_i = concatenate_to_blocksize(cursor, 
-            hash_outputsize, hash_blocksize, &A_i_len);
+        uint8_t *A_i = concatenate_to_blocksize(cursor, hash_outputsize, hash_blocksize, &A_i_len);
         if (!A_i){
             free(I_data);
             free(temp_buf);

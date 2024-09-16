@@ -275,7 +275,12 @@ safe_print(const char *str, FILE *fp)
 		 * The size of visbuf must be four times the number
 		 * of bytes encoded from str (plus one for the NUL).
 		 */
+#ifdef __APPLE__
+		size_t visbufsz = 4 * strlen(str) + 1;
+		char *visbuf = malloc(visbufsz);
+#else
 		char *visbuf = malloc(4 * strlen(str) + 1);
+#endif
 		if (visbuf == NULL) {
 			paxwarn(1, "Out of memory");
 			return;
@@ -284,7 +289,15 @@ safe_print(const char *str, FILE *fp)
 		 * using strvis(3) instead of vis(3) to account for multibyte
 		 * characters
 		 */
+#ifdef __APPLE__
+		if (strnvis(visbuf, visbufsz, str, VIS_CSTYLE) == -1) {
+			paxwarn(1, "Visual encoding failed");
+			free(visbuf);
+			return;
+		}
+#else
 		(void)strvis(visbuf, str, VIS_CSTYLE);
+#endif
 		(void)fputs(visbuf, fp);
 		free(visbuf);
 	} else {

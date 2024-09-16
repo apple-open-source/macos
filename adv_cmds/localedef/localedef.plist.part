@@ -1,0 +1,31 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>localedef</string>
+		<key>OpenSourceVersion</key>
+		<string>2023-09-05</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/localedef?id=3141e51d2e38fa7b9e6d81477dfa860d087c514d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2023-09-05</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>ctype.c: use Apple-appropriate magic for this format (84626030)</string>
+			<string>messages.c: don't warn on missing yesstr/nostr (84626030)</string>
+			<string>monetary.c: provide appropriate default values for missing fields (84626030)</string>
+			<string>time.c: use Libc-recognized format (84626030)</string>
+			<string>localedef.c: use appropriate headers/byteswapping macros (84626030)</string>
+			<string>localedef.h: annotate werr() as printflike to squash some warnings (84626030)</string>
+			<string>scanner.c: support \constants (octal, decimal, hex) (84626030)</string>
+			<string>charmap.c: provide Apple-legacy spellings for some symbols in the default map (84626030)</string>
+			<string>localedef.c: make locales public by default (write to /usr/share/locale) (84626030)</string>
+			<string>localedef.c, localedef.h, parser.y, scanner.c: shell out to locale(1) for some copy statements (84626030)</string>
+			<string>monetary.c, parser.y: accept empty-quotes for "no value" (84626030)</string>
+			<string>parser.y: accept "copy C" as valid (84626030)</string>
+			<string>localedef.c: avoid mkdir(dirname(category_file())) before the category is set (84626030)</string>
+			<string>ctype.c, localedef.c, localedef.h, scanner.c: emit LC_CTYPE if none was defined (84626030)</string>
+			<string>ctype.c: include POSIX-specified class definitions (84626030)</string>
+			<string>localedef.c: save errno before it can be clobbered (84626030)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

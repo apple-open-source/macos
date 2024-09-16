@@ -43,6 +43,7 @@
 #include <wtf/EnumTraits.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
@@ -134,20 +135,20 @@ bool flushFile(PlatformFileHandle handle)
     return !fsync(handle);
 }
 
-int writeToFile(PlatformFileHandle handle, const void* data, int length)
+int64_t writeToFile(PlatformFileHandle handle, std::span<const uint8_t> data)
 {
     do {
-        int bytesWritten = write(handle, data, static_cast<size_t>(length));
+        auto bytesWritten = write(handle, data.data(), data.size());
         if (bytesWritten >= 0)
             return bytesWritten;
     } while (errno == EINTR);
     return -1;
 }
 
-int readFromFile(PlatformFileHandle handle, void* data, int length)
+int64_t readFromFile(PlatformFileHandle handle, std::span<uint8_t> data)
 {
     do {
-        int bytesRead = read(handle, data, static_cast<size_t>(length));
+        auto bytesRead = read(handle, data.data(), data.size());
         if (bytesRead >= 0)
             return bytesRead;
     } while (errno == EINTR);
@@ -259,8 +260,9 @@ static const char* temporaryFileDirectory()
 #endif
 }
 
-String openTemporaryFile(StringView prefix, PlatformFileHandle& handle, StringView suffix)
+std::pair<String, PlatformFileHandle> openTemporaryFile(StringView prefix, StringView suffix)
 {
+    PlatformFileHandle handle = invalidPlatformFileHandle;
     // Suffix is not supported because that's incompatible with mkstemp.
     // This is OK for now since the code using it is built on macOS only.
     ASSERT_UNUSED(suffix, suffix.isEmpty());
@@ -273,11 +275,11 @@ String openTemporaryFile(StringView prefix, PlatformFileHandle& handle, StringVi
     if (handle < 0)
         goto end;
 
-    return String::fromUTF8(buffer);
+    return { String::fromUTF8(buffer), handle };
 
 end:
     handle = invalidPlatformFileHandle;
-    return String();
+    return { String(), handle };
 }
 #endif // !PLATFORM(COCOA)
 

@@ -32,7 +32,7 @@
 
 #import "UIKitSPI.h"
 
-@class WKSEScrollViewScrollUpdate;
+@class WKBEScrollViewScrollUpdate;
 
 namespace WebKit {
 enum class TapHandlingResult : uint8_t;
@@ -179,7 +179,7 @@ enum class TapHandlingResult : uint8_t;
 #endif
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-- (void)scrollView:(WKBaseScrollView *)scrollView handleScrollUpdate:(WKSEScrollViewScrollUpdate *)update completion:(void (^)(BOOL handled))completion;
+- (void)scrollView:(WKBaseScrollView *)scrollView handleScrollUpdate:(WKBEScrollViewScrollUpdate *)update completion:(void (^)(BOOL handled))completion;
 #endif
 
 - (UIColor *)_insertionPointColor;

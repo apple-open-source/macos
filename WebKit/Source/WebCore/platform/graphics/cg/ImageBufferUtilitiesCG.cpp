@@ -36,17 +36,18 @@
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/ScopedLambda.h>
 #include <wtf/text/Base64.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-using PutBytesCallback = size_t(const void*, size_t);
+using PutBytesCallback = size_t(std::span<const uint8_t>);
 
-uint8_t verifyImageBufferIsBigEnough(const void* buffer, size_t bufferSize)
+uint8_t verifyImageBufferIsBigEnough(std::span<const uint8_t> buffer)
 {
-    RELEASE_ASSERT(bufferSize);
+    RELEASE_ASSERT(!buffer.empty());
 
     uintptr_t lastByte;
-    bool isSafe = WTF::safeAdd((uintptr_t)buffer, bufferSize - 1, lastByte);
+    bool isSafe = WTF::safeAdd((uintptr_t)buffer.data(), buffer.size() - 1, lastByte);
     RELEASE_ASSERT(isSafe);
 
     return *(uint8_t*)lastByte;
@@ -93,6 +94,22 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
+static RetainPtr<CFDictionaryRef> imagePropertiesForDestinationUTIAndQuality(CFStringRef destinationUTI, std::optional<double> quality)
+{
+    if (CFEqual(destinationUTI, jpegUTI()) && quality && *quality >= 0.0 && *quality <= 1.0) {
+        // Apply the compression quality to the JPEG image destination.
+        quality = std::max(*quality, 0.0001); // FIXME: Remove once BigSur is unsupported (rdar://80446736)
+        auto compressionQuality = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &*quality));
+        const void* key = kCGImageDestinationLossyCompressionQuality;
+        const void* value = compressionQuality.get();
+        return adoptCF(CFDictionaryCreate(0, &key, &value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    }
+    return nullptr;
+
+    // FIXME: Setting kCGImageDestinationBackgroundColor to black for JPEG images in imageProperties would save some math
+    // in the calling functions, but it doesn't seem to work.
+}
+
 static bool encode(CGImageRef image, const String& mimeType, std::optional<double> quality, const ScopedLambda<PutBytesCallback>& function)
 {
     if (!image)
@@ -105,7 +122,7 @@ static bool encode(CGImageRef image, const String& mimeType, std::optional<doubl
     CGDataConsumerCallbacks callbacks {
         [](void* context, const void* buffer, size_t count) -> size_t {
             auto functor = *static_cast<const ScopedLambda<PutBytesCallback>*>(context);
-            return functor(buffer, count);
+            return functor(std::span { static_cast<const uint8_t*>(buffer), count });
         },
         nullptr
     };
@@ -113,21 +130,7 @@ static bool encode(CGImageRef image, const String& mimeType, std::optional<doubl
     auto consumer = adoptCF(CGDataConsumerCreate(const_cast<ScopedLambda<PutBytesCallback>*>(&function), &callbacks));
     auto destination = adoptCF(CGImageDestinationCreateWithDataConsumer(consumer.get(), destinationUTI.get(), 1, nullptr));
     
-    auto imageProperties = [&] () -> RetainPtr<CFDictionaryRef> {
-        if (CFEqual(destinationUTI.get(), jpegUTI()) && quality && *quality >= 0.0 && *quality <= 1.0) {
-            // Apply the compression quality to the JPEG image destination.
-            quality = std::max(*quality, 0.0001); // FIXME: Remove once BigSur is unsupported (rdar://80446736)
-            auto compressionQuality = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &*quality));
-            const void* key = kCGImageDestinationLossyCompressionQuality;
-            const void* value = compressionQuality.get();
-            return adoptCF(CFDictionaryCreate(0, &key, &value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-        }
-        return nullptr;
-    }();
-
-    // FIXME: Setting kCGImageDestinationBackgroundColor to black for JPEG images in imageProperties would save some math
-    // in the calling functions, but it doesn't seem to work.
-
+    auto imageProperties = imagePropertiesForDestinationUTIAndQuality(destinationUTI.get(), quality);
     CGImageDestinationAddImage(destination.get(), image, imageProperties.get());
 
     return CGImageDestinationFinalize(destination.get());
@@ -142,7 +145,7 @@ static bool encode(const PixelBuffer& source, const String& mimeType, std::optio
     CGImageAlphaInfo dataAlphaInfo = kCGImageAlphaLast;
     
     auto data = source.bytes();
-    auto dataSize = source.sizeInBytes();
+    auto dataSize = data.size();
 
     Vector<uint8_t> premultipliedData;
 
@@ -169,12 +172,12 @@ static bool encode(const PixelBuffer& source, const String& mimeType, std::optio
         }
 
         dataAlphaInfo = kCGImageAlphaNoneSkipLast; // Ignore the alpha channel.
-        data = premultipliedData.data();
+        data = premultipliedData.mutableSpan();
     }
 
-    verifyImageBufferIsBigEnough(data, dataSize);
+    verifyImageBufferIsBigEnough(data);
 
-    auto dataProvider = adoptCF(CGDataProviderCreateWithData(nullptr, data, dataSize, nullptr));
+    auto dataProvider = adoptCF(CGDataProviderCreateWithData(nullptr, data.data(), dataSize, nullptr));
     if (!dataProvider)
         return false;
 
@@ -184,13 +187,47 @@ static bool encode(const PixelBuffer& source, const String& mimeType, std::optio
     return encode(image.get(), mimeType, quality, function);
 }
 
+static bool encode(std::span<const uint8_t> data, const String& mimeType, std::optional<double> quality, const ScopedLambda<PutBytesCallback>& function)
+{
+    if (data.empty())
+        return false;
+
+    auto destinationUTI = utiFromImageBufferMIMEType(mimeType);
+    if (!destinationUTI)
+        return false;
+
+    auto cfData = adoptCF(CFDataCreateWithBytesNoCopy(nullptr, data.data(), data.size(), kCFAllocatorNull));
+    if (!cfData)
+        return false;
+
+    auto source = adoptCF(CGImageSourceCreateWithData(cfData.get(), nullptr));
+    if (!source)
+        return false;
+
+    CGDataConsumerCallbacks callbacks {
+        [](void* context, const void* buffer, size_t count) -> size_t {
+            auto functor = *static_cast<const ScopedLambda<PutBytesCallback>*>(context);
+            return functor(std::span { static_cast<const uint8_t*>(buffer), count });
+        },
+        nullptr
+    };
+
+    auto consumer = adoptCF(CGDataConsumerCreate(const_cast<ScopedLambda<PutBytesCallback>*>(&function), &callbacks));
+    auto destination = adoptCF(CGImageDestinationCreateWithDataConsumer(consumer.get(), destinationUTI.get(), 1, nullptr));
+
+    auto imageProperties = imagePropertiesForDestinationUTIAndQuality(destinationUTI.get(), quality);
+    CGImageDestinationAddImageFromSource(destination.get(), source.get(), 0, nullptr);
+
+    return CGImageDestinationFinalize(destination.get());
+}
+
 template<typename Source> static Vector<uint8_t> encodeToVector(Source&& source, const String& mimeType, std::optional<double> quality)
 {
     Vector<uint8_t> result;
 
-    bool success = encode(std::forward<Source>(source), mimeType, quality, scopedLambdaRef<PutBytesCallback>([&] (const void* data, size_t length) {
-        result.append(static_cast<const uint8_t*>(data), length);
-        return length;
+    bool success = encode(std::forward<Source>(source), mimeType, quality, scopedLambdaRef<PutBytesCallback>([&] (std::span<const uint8_t> data) {
+        result.append(data);
+        return data.size();
     }));
     if (!success)
         return { };
@@ -206,7 +243,7 @@ template<typename Source> static String encodeToDataURL(Source&& source, const S
     if (encodedData.isEmpty())
         return "data:,"_s;
 
-    return makeString("data:", mimeType, ";base64,", base64Encoded(encodedData));
+    return makeString("data:"_s, mimeType, ";base64,"_s, base64Encoded(encodedData));
 }
 
 Vector<uint8_t> encodeData(CGImageRef image, const String& mimeType, std::optional<double> quality)
@@ -217,6 +254,11 @@ Vector<uint8_t> encodeData(CGImageRef image, const String& mimeType, std::option
 Vector<uint8_t> encodeData(const PixelBuffer& pixelBuffer, const String& mimeType, std::optional<double> quality)
 {
     return encodeToVector(pixelBuffer, mimeType, quality);
+}
+
+Vector<uint8_t> encodeData(std::span<const uint8_t> data, const String& mimeType, std::optional<double> quality)
+{
+    return encodeToVector(data, mimeType, quality);
 }
 
 String dataURL(CGImageRef image, const String& mimeType, std::optional<double> quality)

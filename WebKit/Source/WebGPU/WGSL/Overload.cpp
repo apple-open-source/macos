@@ -209,7 +209,7 @@ const Type* OverloadResolver::materialize(const AbstractType& abstractType) cons
         },
         [&](const AbstractArray& array) -> const Type* {
             if (auto* element = materialize(array.element))
-                return m_types.arrayType(element, std::nullopt);
+                return m_types.arrayType(element, std::monostate { });
             return nullptr;
         },
         [&](const AbstractAtomic& atomic) -> const Type* {
@@ -308,6 +308,10 @@ ConversionRank OverloadResolver::calculateRank(const AbstractType& parameter, co
     if (auto* variable = std::get_if<TypeVariable>(parameter.get())) {
         auto* resolvedType = resolve(*variable);
         ASSERT(resolvedType);
+        if (variable->constraints) {
+            resolvedType = satisfyOrPromote(resolvedType, variable->constraints, m_types);
+            RELEASE_ASSERT(resolvedType);
+        }
         return conversionRank(argumentType, resolvedType);
     }
 
@@ -490,7 +494,7 @@ bool OverloadResolver::unify(const AbstractType& parameter, const Type* argument
         if (!arrayArgument)
             return false;
         // For now, we only support dynamic arrays
-        if (arrayArgument->size.has_value())
+        if (!arrayArgument->isRuntimeSized())
             return false;
         return unify(arrayParameter->element, arrayArgument->element);
     }

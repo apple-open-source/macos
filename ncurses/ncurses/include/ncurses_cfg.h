@@ -49,7 +49,7 @@
 #define PACKAGE "ncurses"
 #define NCURSES_VERSION "6.0"
 #define NCURSES_PATCHDATE 20150808
-#define SYSTEM_NAME "darwin22.0.0"
+#define SYSTEM_NAME "darwin23.0.0"
 #define HAVE_LONG_FILE_NAMES 1
 #define TERMINFO_DIRS "/usr/share/terminfo"
 #define TERMINFO "/usr/share/terminfo"
@@ -87,6 +87,7 @@
 #define HAVE_USE_WINDOW 1
 #define HAVE_WRESIZE 1
 #define NCURSES_EXT_FUNCS 1
+#define NCURSES_EXT_COLORS 1
 #define NCURSES_NO_PADDING 1
 #define STDC_HEADERS 1
 #define HAVE_SYS_TYPES_H 1

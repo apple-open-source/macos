@@ -56,7 +56,7 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(PlatformCALayer::LayerT
 {
     RefPtr<PlatformCALayerRemote> layer;
 
-    if (layerType == WebCore::PlatformCALayer::LayerType::LayerTypeTiledBackingLayer ||  layerType == WebCore::PlatformCALayer::LayerType::LayerTypePageTiledBackingLayer)
+    if (layerType == WebCore::PlatformCALayer::LayerType::LayerTypeTiledBackingLayer || layerType == WebCore::PlatformCALayer::LayerType::LayerTypePageTiledBackingLayer)
         layer = adoptRef(new PlatformCALayerRemoteTiledBacking(layerType, owner, context));
     else
         layer = adoptRef(new PlatformCALayerRemote(layerType, owner, context));
@@ -69,6 +69,11 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(PlatformCALayer::LayerT
 Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(PlatformLayer *platformLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {
     return PlatformCALayerRemoteCustom::create(platformLayer, owner, context);
+}
+
+Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(LayerHostingContextID contextID, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
+{
+    return PlatformCALayerRemoteCustom::create(contextID, owner, context);
 }
 
 #if ENABLE(MODEL_ELEMENT)
@@ -113,6 +118,7 @@ PlatformCALayerRemote::PlatformCALayerRemote(const PlatformCALayerRemote& other,
 
 Ref<PlatformCALayer> PlatformCALayerRemote::clone(PlatformCALayerClient* owner) const
 {
+    RELEASE_ASSERT(m_context.get());
     auto clone = PlatformCALayerRemote::create(*this, owner, *m_context);
 
     updateClonedLayerProperties(clone);
@@ -126,14 +132,14 @@ PlatformCALayerRemote::~PlatformCALayerRemote()
     for (const auto& layer : m_children)
         downcast<PlatformCALayerRemote>(*layer).m_superlayer = nullptr;
 
-    if (m_context)
-        m_context->layerWillLeaveContext(*this);
+    if (RefPtrAllowingPartiallyDestroyed<RemoteLayerTreeContext> protectedContext = m_context.get())
+        protectedContext->layerWillLeaveContext(*this);
 }
 
 void PlatformCALayerRemote::moveToContext(RemoteLayerTreeContext& context)
 {
-    if (m_context)
-        m_context->layerWillLeaveContext(*this);
+    if (RefPtr protectedContext = m_context.get())
+        protectedContext->layerWillLeaveContext(*this);
 
     m_context = &context;
 
@@ -170,6 +176,7 @@ void PlatformCALayerRemote::updateClonedLayerProperties(PlatformCALayerRemote& c
     clone.setContentsScale(contentsScale());
     clone.setCornerRadius(cornerRadius());
     clone.setVideoGravity(videoGravity());
+    clone.setBackdropRootIsOpaque(backdropRootIsOpaque());
 
     if (!m_properties.shapePath.isEmpty())
         clone.setShapePath(m_properties.shapePath);
@@ -183,11 +190,31 @@ void PlatformCALayerRemote::updateClonedLayerProperties(PlatformCALayerRemote& c
     clone.updateCustomAppearance(customAppearance());
 }
 
+void PlatformCALayerRemote::recursiveMarkWillBeDisplayedWithRenderingSuppresion()
+{
+    if (m_properties.backingStoreOrProperties.store && m_properties.backingStoreAttached)
+        m_properties.backingStoreOrProperties.store->layerWillBeDisplayedWithRenderingSuppression();
+
+    for (size_t i = 0; i < m_children.size(); ++i) {
+        PlatformCALayerRemote& child = downcast<PlatformCALayerRemote>(*m_children[i]);
+        ASSERT(child.superlayer() == this);
+        child.recursiveMarkWillBeDisplayedWithRenderingSuppresion();
+    }
+}
+
 void PlatformCALayerRemote::recursiveBuildTransaction(RemoteLayerTreeContext& context, RemoteLayerTreeTransaction& transaction)
 {
     ASSERT(!m_properties.backingStoreOrProperties.store || owner());
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&context == m_context);
-    
+
+    if (owner() && owner()->platformCALayerRenderingIsSuppressedIncludingDescendants()) {
+        // Rendering is suppressed, so don't include any mutations from this subtree
+        // in the transaction. We do still mark all existing layers as will be displayed though,
+        // to prevent the previous contents from being discarded.
+        recursiveMarkWillBeDisplayedWithRenderingSuppresion();
+        return;
+    }
+
     bool usesBackingStore = owner() && (owner()->platformCALayerDrawsContent() || owner()->platformCALayerDelegatesDisplay(this));
     if (m_properties.backingStoreOrProperties.store && !usesBackingStore) {
         m_properties.backingStoreOrProperties.store = nullptr;
@@ -208,7 +235,7 @@ void PlatformCALayerRemote::recursiveBuildTransaction(RemoteLayerTreeContext& co
         // Once that setting is made unnecessary, remove this entire conditional as well.
         if (type() == PlatformCALayer::Type::RemoteCustom
             && !downcast<PlatformCALayerRemoteCustom>(*this).hasVideo()) {
-            RemoteLayerTreePropertyApplier::applyPropertiesToLayer(platformLayer(), nullptr, nullptr, m_properties, RemoteLayerBackingStoreProperties::LayerContentsType::CAMachPort);
+            RemoteLayerTreePropertyApplier::applyPropertiesToLayer(platformLayer(), nullptr, nullptr, m_properties, LayerContentsType::CAMachPort);
             didCommit();
             return;
         }
@@ -236,11 +263,24 @@ void PlatformCALayerRemote::didCommit()
 void PlatformCALayerRemote::ensureBackingStore()
 {
     ASSERT(owner());
-
     ASSERT(m_properties.backingStoreAttached);
 
-    if (!m_properties.backingStoreOrProperties.store && m_context)
-        m_properties.backingStoreOrProperties.store = m_context->backingStoreCollection().createRemoteLayerBackingStore(this);
+    bool needsNewBackingStore = [&] {
+        if (!m_context)
+            return false;
+
+        if (!m_properties.backingStoreOrProperties.store)
+            return true;
+
+        // A layer pulled out of a pool may have existing backing store which we mustn't reuse if it lives in the wrong process.
+        if (m_properties.backingStoreOrProperties.store->processModel() != RemoteLayerBackingStore::processModelForLayer(this))
+            return true;
+
+        return false;
+    }();
+
+    if (needsNewBackingStore)
+        m_properties.backingStoreOrProperties.store = RemoteLayerBackingStore::createForLayer(this);
 
     updateBackingStore();
 }
@@ -253,7 +293,7 @@ bool PlatformCALayerRemote::containsBitmapOnly() const
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
 RemoteLayerBackingStore::IncludeDisplayList PlatformCALayerRemote::shouldIncludeDisplayListInBackingStore() const
 {
-    if (!m_context->useDynamicContentScalingDisplayListsForDOMRendering())
+    if (m_context && !m_context->useDynamicContentScalingDisplayListsForDOMRendering())
         return RemoteLayerBackingStore::IncludeDisplayList::No;
     if (containsBitmapOnly())
         return RemoteLayerBackingStore::IncludeDisplayList::No;
@@ -275,7 +315,7 @@ void PlatformCALayerRemote::updateBackingStore()
 #if PLATFORM(IOS_FAMILY)
     parameters.colorSpace = m_wantsDeepColorBackingStore ? DestinationColorSpace { extendedSRGBColorSpaceRef() } : DestinationColorSpace::SRGB();
 #else
-    if (auto displayColorSpace = m_context->displayColorSpace())
+    if (auto displayColorSpace = m_context ? m_context->displayColorSpace() : std::nullopt)
         parameters.colorSpace = displayColorSpace.value();
 #endif
 
@@ -311,12 +351,20 @@ void PlatformCALayerRemote::setNeedsDisplay()
     m_properties.backingStoreOrProperties.store->setNeedsDisplay();
 }
 
+bool PlatformCALayerRemote::needsDisplay() const
+{
+    if (!m_properties.backingStoreOrProperties.store)
+        return false;
+
+    return m_properties.backingStoreOrProperties.store->needsDisplay();
+}
+
 void PlatformCALayerRemote::copyContentsFromLayer(PlatformCALayer* layer)
 {
     ASSERT(m_properties.clonedLayerID == layer->layerID());
     
-    if (!m_properties.changedProperties)
-        m_context->layerPropertyChangedWhileBuildingTransaction(*this);
+    if (RefPtr protectedContext = m_context.get(); protectedContext && !m_properties.changedProperties)
+        protectedContext->layerPropertyChangedWhileBuildingTransaction(*this);
 
     m_properties.notePropertiesChanged(LayerChange::ClonedContentsChanged);
 }
@@ -438,8 +486,8 @@ void PlatformCALayerRemote::addAnimationForKey(const String& key, PlatformCAAnim
     
     m_properties.notePropertiesChanged(LayerChange::AnimationsChanged);
 
-    if (m_context)
-        m_context->willStartAnimationOnLayer(*this);
+    if (RefPtr protectedContext = m_context.get())
+        protectedContext->willStartAnimationOnLayer(*this);
 }
 
 void PlatformCALayerRemote::removeAnimationForKey(const String& key)
@@ -594,6 +642,17 @@ void PlatformCALayerRemote::setIsBackdropRoot(bool isBackdropRoot)
 {
     m_properties.backdropRoot = isBackdropRoot;
     m_properties.notePropertiesChanged(LayerChange::BackdropRootChanged);
+}
+
+bool PlatformCALayerRemote::backdropRootIsOpaque() const
+{
+    return m_properties.backdropRootIsOpaque;
+}
+
+void PlatformCALayerRemote::setBackdropRootIsOpaque(bool backdropRootIsOpaque)
+{
+    m_properties.backdropRootIsOpaque = backdropRootIsOpaque;
+    m_properties.notePropertiesChanged(LayerChange::BackdropRootIsOpaqueChanged);
 }
 
 bool PlatformCALayerRemote::isHidden() const
@@ -830,13 +889,11 @@ void PlatformCALayerRemote::copyFiltersFrom(const PlatformCALayer& sourceLayer)
     m_properties.notePropertiesChanged(LayerChange::FiltersChanged);
 }
 
-#if ENABLE(CSS_COMPOSITING)
 void PlatformCALayerRemote::setBlendMode(BlendMode blendMode)
 {
     m_properties.blendMode = blendMode;
     m_properties.notePropertiesChanged(LayerChange::BlendModeChanged);
 }
-#endif
 
 bool PlatformCALayerRemote::filtersCanBeComposited(const FilterOperations& filters)
 {
@@ -985,7 +1042,7 @@ void PlatformCALayerRemote::setEventRegion(const EventRegion& eventRegion)
 #if ENABLE(SCROLLING_THREAD)
 ScrollingNodeID PlatformCALayerRemote::scrollingNodeID() const
 {
-    return m_properties.scrollingNodeID;
+    return m_properties.scrollingNodeID.value_or(ScrollingNodeID { });
 }
 
 void PlatformCALayerRemote::setScrollingNodeID(ScrollingNodeID nodeID)
@@ -1046,6 +1103,7 @@ void PlatformCALayerRemote::setIsDescendentOfSeparatedPortal(bool value)
 
 Ref<PlatformCALayer> PlatformCALayerRemote::createCompatibleLayer(PlatformCALayer::LayerType layerType, PlatformCALayerClient* client) const
 {
+    RELEASE_ASSERT(m_context.get());
     return PlatformCALayerRemote::create(layerType, client, *m_context);
 }
 
@@ -1068,9 +1126,9 @@ unsigned PlatformCALayerRemote::backingStoreBytesPerPixel() const
     return m_properties.backingStoreOrProperties.store->bytesPerPixel();
 }
 
-LayerPool& PlatformCALayerRemote::layerPool()
+LayerPool* PlatformCALayerRemote::layerPool()
 {
-    return m_context->layerPool();
+    return m_context ? &m_context->layerPool() : nullptr;
 }
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
@@ -1082,7 +1140,7 @@ void PlatformCALayerRemote::clearAcceleratedEffectsAndBaseValues()
     m_properties.notePropertiesChanged(LayerChange::AnimationsChanged);
 }
 
-void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const AcceleratedEffects& effects, AcceleratedEffectValues& baseValues)
+void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const AcceleratedEffects& effects, const AcceleratedEffectValues& baseValues)
 {
     m_properties.animationChanges.effects = effects;
     m_properties.animationChanges.baseValues = baseValues;
@@ -1091,4 +1149,23 @@ void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const Accelerated
 }
 #endif
 
+void PlatformCALayerRemote::purgeFrontBufferForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        return m_properties.backingStoreOrProperties.store->purgeFrontBufferForTesting();
+}
+
+void PlatformCALayerRemote::purgeBackBufferForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        return m_properties.backingStoreOrProperties.store->purgeBackBufferForTesting();
+}
+
+void PlatformCALayerRemote::markFrontBufferVolatileForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        m_properties.backingStoreOrProperties.store->markFrontBufferVolatileForTesting();
+}
+
 } // namespace WebKit
+

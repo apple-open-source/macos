@@ -1,3 +1,5 @@
+/*     $OpenBSD: opendev.c,v 1.7 2002/06/09 22:18:43 fgsch Exp $       */
+
 /*
  * Copyright (c) 2000, Todd C. Miller.  All rights reserved.
  * Copyright (c) 1996, Jason Downs.  All rights reserved.

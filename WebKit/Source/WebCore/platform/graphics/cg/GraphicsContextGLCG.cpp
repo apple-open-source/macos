@@ -329,14 +329,11 @@ bool GraphicsContextGLImageExtractor::extractImage(bool premultiplyAlpha, bool i
     bool hasAlpha = !m_image->currentFrameKnownToBeOpaque();
 
     if ((ignoreGammaAndColorProfile || (hasAlpha && !premultiplyAlpha)) && m_image->data()) {
-        auto source = ImageSource::create(nullptr, AlphaOption::NotPremultiplied, ignoreGammaAndColorProfile ? GammaAndColorProfileOption::Ignored : GammaAndColorProfileOption::Applied);
-        source->setData(m_image->data(), true);
-        if (!source->frameCount())
-            return false;
-
-        decodedImage = source->createFrameImageAtIndex(0);
+        auto image = BitmapImage::create(nullptr, AlphaOption::NotPremultiplied, ignoreGammaAndColorProfile ? GammaAndColorProfileOption::Ignored : GammaAndColorProfileOption::Applied);
+        image->setData(m_image->data(), true);
+        decodedImage = image->primaryNativeImage();
     } else
-        decodedImage = m_image->nativeImageForCurrentFrame();
+        decodedImage = m_image->currentNativeImage();
 
     if (!decodedImage)
         return false;
@@ -519,12 +516,11 @@ RefPtr<NativeImage> GraphicsContextGL::createNativeImageFromPixelBuffer(const Gr
         bitmapInfo |= kCGImageAlphaLast;
 
     Ref protectedPixelBuffer = pixelBuffer;
-    auto dataSize = pixelBuffer->sizeInBytes();
     auto data = pixelBuffer->bytes();
 
-    verifyImageBufferIsBigEnough(data, dataSize);
+    verifyImageBufferIsBigEnough(data);
 
-    auto dataProvider = adoptCF(CGDataProviderCreateWithData(&protectedPixelBuffer.leakRef(), data, dataSize, [] (void* context, const void*, size_t) {
+    auto dataProvider = adoptCF(CGDataProviderCreateWithData(&protectedPixelBuffer.leakRef(), data.data(), data.size(), [] (void* context, const void*, size_t) {
         static_cast<PixelBuffer*>(context)->deref();
     }));
 

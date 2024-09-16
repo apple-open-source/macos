@@ -1,0 +1,91 @@
+#! /bin/sh
+
+# Test that the --executability option works as expected.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst ref
+
+# Create the source tree:
+mkdir src
+date > src/file
+mkdir src/dir
+chmod 744 src/dir
+
+# Create the reference tree identical to the source tree,
+#
+cp -a src ref
+
+# Ensure both src and ref's mtime and access times
+# match so that compare_trees doesn't miscompare them.
+#
+touch -t 202308252015.01 src ref
+compare_trees -t src ref
+
+# Check that the ref and dst trees are identical
+# after running a simple rsync:
+#
+rsync -a -- src/ dst/
+compare_trees -t ref dst
+
+#       src dst ref
+MODES="	444 444 444
+	440 750 440
+	500 644 500
+	540 406 540
+	454 400 454
+	555 664 555
+	640 440 640"
+
+# Check that --executability has no effect if --perms is enabled:
+#
+echo ${MODES} | xargs -n3 echo | while read line ; do
+    set -- ${line}
+    sudo chmod $1 src/file
+    sudo chmod $2 dst/file
+    sudo chmod $3 ref/file
+    rsync -a --executability -- src/ dst/
+    compare_trees -t ref dst
+done
+
+#       src dst ref
+MODES="	444 444 444
+	440 755 644
+	400 644 644
+	640 540 440
+	641 541 541
+	500 444 555
+	505 666 777
+	506 404 505
+	640 440 440
+	650 440 550
+	500 404 505
+	500 405 405
+	700 402 502
+	741 642 752
+	741 641 641
+	2770 444 555
+	2770 404 505
+	4770 444 555
+	4770 660 770
+	4770 664 775"
+
+# Check that --executability takes effect if --perms is disabled:
+#
+# If src/file has a least one x bit set and dst file has no
+# x bits set then -E should enable the x bit on the dest file
+# for each r bit set on the dest file.
+#
+echo ${MODES} | xargs -n3 echo | while read line ; do
+    set -- ${line}
+    sudo chmod $1 src/file
+    sudo chmod $2 dst/file
+    sudo chmod $3 ref/file
+    rsync -a --no-perms --executability -- src/ dst/
+    compare_trees -t ref dst
+done
+

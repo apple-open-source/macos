@@ -1,55 +1,36 @@
 #include <cstdint>
+#include <cstdlib>
 
-#define _CALL_10(expr) \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr); \
-		(expr)
-
-#define CALL_100(expr) \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr); \
-		_CALL_10(expr)
-
-#define N_UNIQUE_CALLSITES 200
-
-// must match constant above
-#define CALL_N_CALLSITES(expr) \
-		CALL_100(expr); \
-		CALL_100(expr)
+#include "tmo_test_defs.h"
 
 extern "C" {
 
 struct test_struct {
-	uint64_t a[8];
+	uint64_t a[64];
 };
 
-void
-call_n_cpp_new(void **ptrs)
+void **
+cpp_new_fallback(void)
 {
+	void **ptrs = (void **)calloc(N_UNIQUE_CALLSITES, sizeof(void *));
+	if (!ptrs) {
+		return NULL;
+	}
+
 	int i = 0;
 	CALL_N_CALLSITES(({ ptrs[i] = (void *)(new test_struct()); i++; }));
+
+	return ptrs;
 }
 
 void
-delete_n_cpp(void **ptrs)
+cpp_delete_fallback(void **ptrs)
 {
 	for (int i = 0; i < N_UNIQUE_CALLSITES; i++) {
 		delete (test_struct *)ptrs[i];
 	}
+
+	free(ptrs);
 }
 
 }

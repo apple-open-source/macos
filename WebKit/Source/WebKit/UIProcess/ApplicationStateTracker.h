@@ -33,9 +33,27 @@
 
 OBJC_CLASS BKSApplicationStateMonitor;
 OBJC_CLASS UIView;
+OBJC_CLASS UIViewController;
 OBJC_CLASS UIWindow;
+OBJC_CLASS UIScene;
+OBJC_CLASS WKUIWindowSceneObserver;
 
 namespace WebKit {
+class ApplicationStateTracker;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::ApplicationStateTracker> : std::true_type { };
+}
+
+namespace WebKit {
+
+enum class ApplicationType : uint8_t {
+    Application,
+    ViewService,
+    Extension,
+};
 
 class ApplicationStateTracker : public CanMakeWeakPtr<ApplicationStateTracker> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -45,14 +63,28 @@ public:
 
     bool isInBackground() const { return m_isInBackground; }
 
+    void setWindow(UIWindow *);
+    void setScene(UIScene *);
+
 private:
+    void setViewController(UIViewController *);
+
     void applicationDidEnterBackground();
     void applicationDidFinishSnapshottingAfterEnteringBackground();
     void applicationWillEnterForeground();
     void willBeginSnapshotSequence();
     void didCompleteSnapshotSequence();
+    void removeAllObservers();
 
     WeakObjCPtr<UIView> m_view;
+    WeakObjCPtr<UIWindow> m_window;
+    WeakObjCPtr<UIScene> m_scene;
+    WeakObjCPtr<UIViewController> m_viewController;
+
+    RetainPtr<WKUIWindowSceneObserver> m_observer;
+
+    ApplicationType m_applicationType { ApplicationType::Application };
+
     SEL m_didEnterBackgroundSelector;
     SEL m_willEnterForegroundSelector;
     SEL m_willBeginSnapshotSequenceSelector;
@@ -60,16 +92,10 @@ private:
 
     bool m_isInBackground;
 
-    id m_didEnterBackgroundObserver;
-    id m_willEnterForegroundObserver;
-    id m_willBeginSnapshotSequenceObserver;
-    id m_didCompleteSnapshotSequenceObserver;
-};
-
-enum class ApplicationType {
-    Application,
-    ViewService,
-    Extension,
+    WeakObjCPtr<NSObject> m_didEnterBackgroundObserver;
+    WeakObjCPtr<NSObject> m_willEnterForegroundObserver;
+    WeakObjCPtr<NSObject> m_willBeginSnapshotSequenceObserver;
+    WeakObjCPtr<NSObject> m_didCompleteSnapshotSequenceObserver;
 };
 
 ApplicationType applicationType(UIWindow *);

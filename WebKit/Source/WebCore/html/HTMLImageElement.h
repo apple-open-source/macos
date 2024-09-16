@@ -24,6 +24,7 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "AttachmentAssociatedElement.h"
 #include "DecodingOptions.h"
 #include "FormAssociatedElement.h"
 #include "GraphicsTypes.h"
@@ -47,7 +48,13 @@ enum class ReferrerPolicy : uint8_t;
 enum class RelevantMutation : bool;
 enum class RequestPriority : uint8_t;
 
-class HTMLImageElement : public HTMLElement, public FormAssociatedElement, public ActiveDOMObject {
+class HTMLImageElement
+    : public HTMLElement
+#if ENABLE(ATTACHMENT_ELEMENT)
+    , public AttachmentAssociatedElement
+#endif
+    , public FormAssociatedElement
+    , public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED(HTMLImageElement);
 public:
     static Ref<HTMLImageElement> create(Document&);
@@ -56,8 +63,9 @@ public:
 
     virtual ~HTMLImageElement();
 
-    using HTMLElement::ref;
-    using HTMLElement::deref;
+    // ActiveDOMObject.
+    void ref() const final { HTMLElement::ref(); }
+    void deref() const final { HTMLElement::deref(); }
 
     void formOwnerRemovedFromTree(const Node& formRoot);
 
@@ -114,10 +122,7 @@ public:
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    void setAttachmentElement(Ref<HTMLAttachmentElement>&&);
-    RefPtr<HTMLAttachmentElement> attachmentElement() const;
-    const String& attachmentIdentifier() const;
-    void didUpdateAttachmentIdentifier();
+    void setAttachmentElement(Ref<HTMLAttachmentElement>&&) final;
 #endif
 
     WEBCORE_EXPORT size_t pendingDecodePromisesCountForTesting() const;
@@ -136,6 +141,10 @@ public:
 
 #if USE(SYSTEM_PREVIEW)
     WEBCORE_EXPORT bool isSystemPreviewImage() const;
+#endif
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    bool isMultiRepresentationHEIC() const;
 #endif
 
     void loadDeferredImage();
@@ -177,6 +186,8 @@ public:
 
     void collectExtraStyleForPresentationalHints(MutableStyleProperties&);
 
+    Image* image() const;
+
 protected:
     HTMLImageElement(const QualifiedName&, Document&, HTMLFormElement* = nullptr);
 
@@ -196,7 +207,6 @@ private:
     Ref<Element> cloneElementWithoutAttributesAndChildren(Document& targetDocument) final;
 
     // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
     bool virtualHasPendingActivity() const final;
 
     void didAttachRenderers() override;
@@ -222,6 +232,15 @@ private:
     FormAssociatedElement* asFormAssociatedElement() final { return this; }
     HTMLImageElement& asHTMLElement() final { return *this; }
     const HTMLImageElement& asHTMLElement() const final { return *this; }
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    void refAttachmentAssociatedElement() const final { HTMLElement::ref(); }
+    void derefAttachmentAssociatedElement() const final { HTMLElement::deref(); }
+
+    AttachmentAssociatedElement* asAttachmentAssociatedElement() final { return this; }
+
+    AttachmentAssociatedElementType attachmentAssociatedElementType() const final { return AttachmentAssociatedElementType::Image; };
+#endif
 
     bool isInteractiveContent() const final;
 
@@ -263,12 +282,6 @@ private:
     WeakPtr<HTMLSourceElement, WeakPtrImplWithEventTargetData> m_sourceElement;
 
     Vector<MQ::MediaQueryResult> m_dynamicMediaQueryResults;
-
-#if ENABLE(ATTACHMENT_ELEMENT)
-    String m_pendingClonedAttachmentID;
-#endif
-
-    Image* image() const;
 
     friend class HTMLPictureElement;
 };

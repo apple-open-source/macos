@@ -27,6 +27,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "GPUProcessConnection.h"
 #include "RenderingBackendIdentifier.h"
 #include "StreamClientConnection.h"
 #include "WebGPUIdentifier.h"
@@ -42,16 +43,19 @@ class NativeImage;
 }
 
 namespace WebKit {
+class RemoteRenderingBackendProxy;
+class WebPage;
 
 namespace WebGPU {
 class ConvertToBackingContext;
 class DowncastConvertToBackingContext;
 }
 
-class RemoteGPUProxy final : public WebCore::WebGPU::GPU, private IPC::Connection::Client, public ThreadSafeRefCounted<RemoteGPUProxy> {
+class RemoteGPUProxy final : public WebCore::WebGPU::GPU, private IPC::Connection::Client, public ThreadSafeRefCounted<RemoteGPUProxy>, SerialFunctionDispatcher {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static RefPtr<RemoteGPUProxy> create(IPC::Connection&, WebGPU::ConvertToBackingContext&, WebGPUIdentifier, RenderingBackendIdentifier);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, WebPage&);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, SerialFunctionDispatcher&);
 
     virtual ~RemoteGPUProxy();
 
@@ -63,12 +67,13 @@ public:
     void deref() const final { return ThreadSafeRefCounted<RemoteGPUProxy>::deref(); }
 
     void paintToCanvas(WebCore::NativeImage&, const WebCore::IntSize&, WebCore::GraphicsContext&) final;
+    WebGPUIdentifier backing() const { return m_backing; }
 
 private:
     friend class WebGPU::DowncastConvertToBackingContext;
 
-    RemoteGPUProxy(IPC::Connection&, Ref<IPC::StreamClientConnection>, WebGPU::ConvertToBackingContext&, WebGPUIdentifier);
-    void initializeIPC(IPC::StreamServerConnection::Handle&&, RenderingBackendIdentifier);
+    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, SerialFunctionDispatcher&);
+    void initializeIPC(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, IPC::StreamServerConnection::Handle&&);
 
     RemoteGPUProxy(const RemoteGPUProxy&) = delete;
     RemoteGPUProxy(RemoteGPUProxy&&) = delete;
@@ -85,8 +90,6 @@ private:
 
     void waitUntilInitialized();
 
-    WebGPUIdentifier backing() const { return m_backing; }
-    
     static inline constexpr Seconds defaultSendTimeout = 30_s;
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
@@ -101,21 +104,48 @@ private:
 
     void requestAdapter(const WebCore::WebGPU::RequestAdapterOptions&, CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>&&) final;
 
-    Ref<WebCore::WebGPU::PresentationContext> createPresentationContext(const WebCore::WebGPU::PresentationContextDescriptor&) final;
+    RefPtr<WebCore::WebGPU::PresentationContext> createPresentationContext(const WebCore::WebGPU::PresentationContextDescriptor&) final;
 
-    Ref<WebCore::WebGPU::CompositorIntegration> createCompositorIntegration() final;
+    RefPtr<WebCore::WebGPU::CompositorIntegration> createCompositorIntegration() final;
+    bool isValid(const WebCore::WebGPU::CompositorIntegration&) const final;
+    bool isValid(const WebCore::WebGPU::Buffer&) const final;
+    bool isValid(const WebCore::WebGPU::Adapter&) const final;
+    bool isValid(const WebCore::WebGPU::BindGroup&) const final;
+    bool isValid(const WebCore::WebGPU::BindGroupLayout&) const final;
+    bool isValid(const WebCore::WebGPU::CommandBuffer&) const final;
+    bool isValid(const WebCore::WebGPU::CommandEncoder&) const final;
+    bool isValid(const WebCore::WebGPU::ComputePassEncoder&) const final;
+    bool isValid(const WebCore::WebGPU::ComputePipeline&) const final;
+    bool isValid(const WebCore::WebGPU::Device&) const final;
+    bool isValid(const WebCore::WebGPU::ExternalTexture&) const final;
+    bool isValid(const WebCore::WebGPU::PipelineLayout&) const final;
+    bool isValid(const WebCore::WebGPU::PresentationContext&) const final;
+    bool isValid(const WebCore::WebGPU::QuerySet&) const final;
+    bool isValid(const WebCore::WebGPU::Queue&) const final;
+    bool isValid(const WebCore::WebGPU::RenderBundleEncoder&) const final;
+    bool isValid(const WebCore::WebGPU::RenderBundle&) const final;
+    bool isValid(const WebCore::WebGPU::RenderPassEncoder&) const final;
+    bool isValid(const WebCore::WebGPU::RenderPipeline&) const final;
+    bool isValid(const WebCore::WebGPU::Sampler&) const final;
+    bool isValid(const WebCore::WebGPU::ShaderModule&) const final;
+    bool isValid(const WebCore::WebGPU::Texture&) const final;
+    bool isValid(const WebCore::WebGPU::TextureView&) const final;
 
     void abandonGPUProcess();
     void disconnectGpuProcessIfNeeded();
 
-    Deque<CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>> m_callbacks;
+    // SerialFunctionDispatcher
+    void dispatch(Function<void()>&& function) final { m_dispatcher.dispatch(WTFMove(function)); }
+    bool isCurrent() const final { return m_dispatcher.isCurrent(); }
 
-    WebGPUIdentifier m_backing;
     Ref<WebGPU::ConvertToBackingContext> m_convertToBackingContext;
-    RefPtr<IPC::Connection> m_connection;
+    Deque<CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>> m_callbacks;
+    SerialFunctionDispatcher& m_dispatcher;
+    WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
+    RefPtr<IPC::StreamClientConnection> m_streamConnection;
+    WebGPUIdentifier m_backing { WebGPUIdentifier::generate() };
     bool m_didInitialize { false };
     bool m_lost { false };
-    RefPtr<IPC::StreamClientConnection> m_streamConnection;
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -136,11 +136,6 @@ install_device_name_read_restrictions(void)
 	_SET_KEY_VALUE_ELEMENT(keys, values, count,
 			       kSCDAccessControls_readAllow,
 			       read_allow);
-
-	/* allow Platform Binaries */
-	_SET_KEY_VALUE_ELEMENT(keys, values, count,
-			       kSCDAccessControls_readAllowPlatform,
-			       kCFBooleanTrue);
 
 	/* allow System processes */
 	_SET_KEY_VALUE_ELEMENT(keys, values, count,
@@ -539,7 +534,7 @@ pushNotifications(void)
 			/*
 			 * Post notification as mach message
 			 */
-			SC_trace("-->port : %5d : port = %d",
+			SC_trace("-->port : %5u : port = %u",
 				 storePrivate->server,
 				 storePrivate->notifyPort);
 
@@ -555,7 +550,7 @@ pushNotifications(void)
 		    (storePrivate->notifyFile >= 0)) {
 			ssize_t		written;
 
-			SC_trace("-->fd   : %5d : fd = %d, msgid = %d",
+			SC_trace("-->fd   : %5u : fd = %d, msgid = %d",
 				 storePrivate->server,
 				 storePrivate->notifyFile,
 				 storePrivate->notifyFileIdentifier);

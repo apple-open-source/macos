@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -104,6 +104,27 @@
 #define PREF64_PREFIX_LEN_64		64
 #define PREF64_PREFIX_LEN_96		96
 
+#ifndef ND_OPT_PVD_MIN_LENGTH
+struct nd_opt_pvd {
+	u_int8_t        nd_opt_pvd_type;
+	u_int8_t        nd_opt_pvd_len;
+	/* http:		1 bit */
+	/* legacy:		1 bit */
+	/* ra:			1 bit */
+	/* reserved:	9 bits */
+	/* delay:		4 bits */
+	u_int8_t        nd_opt_flags_delay[2];
+	u_int16_t       nd_opt_pvd_seq;
+	u_int8_t        nd_opt_pvd_id[1];
+} __attribute__((__packed__));
+
+#define ND_OPT_PVD_MIN_LENGTH  offsetof(struct nd_opt_pvd, nd_opt_pvd_id)
+#define ND_OPT_PVD_FLAGS_HTTP          0x80
+#define ND_OPT_PVD_FLAGS_LEGACY        0x40
+#define ND_OPT_PVD_FLAGS_RA            0x20
+#define ND_OPT_PVD_DELAY_MASK          0x0f
+#endif /* ND_OPT_PVD_MIN_LENGTH */
+
 static time_t prefix_timo = (60 * 120);	/* 2 hours.
 					 * XXX: should be configurable. */
 extern struct rainfo *ralist;
@@ -164,6 +185,7 @@ getconfig(intface)
 	char *addr, *flagstr;
 	char *capport;
 	char *pref64;
+	bool pvd;
 	static int forwarding = -1;
 
 #define MUSTHAVE(var, cap)	\
@@ -270,10 +292,6 @@ getconfig(intface)
 	}
 	rai->managedflg = val & ND_RA_FLAG_MANAGED;
 	rai->otherflg = val & ND_RA_FLAG_OTHER;
-#ifndef ND_RA_FLAG_RTPREF_MASK
-#define ND_RA_FLAG_RTPREF_MASK	0x18 /* 00011000 */
-#define ND_RA_FLAG_RTPREF_RSV	0x10 /* 00010000 */
-#endif
 	rai->rtpref = val & ND_RA_FLAG_RTPREF_MASK;
 	if (rai->rtpref == ND_RA_FLAG_RTPREF_RSV) {
 		errorlog("<%s> invalid router preference (%02x) on %s",
@@ -522,27 +540,6 @@ getconfig(intface)
 			       __func__, addr);
 			exit(1);
 		}
-#if 0
-		/*
-		 * XXX: currently there's no restriction in route information
-		 * prefix according to
-		 * draft-ietf-ipngwg-router-selection-00.txt.
-		 * However, I think the similar restriction be necessary.
-		 */
-		MAYHAVE(val64, entbuf, DEF_ADVVALIDLIFETIME);
-		if (IN6_IS_ADDR_MULTICAST(&rti->prefix)) {
-			errorlog("<%s> multicast route (%s) must "
-			       "not be advertised on %s",
-			       __func__, addr, intface);
-			exit(1);
-		}
-		if (IN6_IS_ADDR_LINKLOCAL(&rti->prefix)) {
-			noticelog("<%s> link-local route (%s) will "
-			       "be advertised on %s",
-			       __func__, addr, intface);
-			exit(1);
-		}
-#endif
 
 		makeentry(entbuf, sizeof(entbuf), i, "rtplen");
 		/* XXX: 256 is a magic number for compatibility check. */
@@ -811,6 +808,74 @@ getconfig(intface)
 		rai->pref64_lifetime_plc = val | plc;
 	}
 
+	/* Provisioning Domain RFC 8801 */
+	pvd = agetflag("pvd");
+	if (pvd) {
+		char *pvdid = NULL;
+
+		if (agetflag("http")) {
+			rai->pvd_flags_and_delay[1] |= ND_OPT_PVD_FLAGS_HTTP;
+		}
+		if (agetflag("legacy")) {
+			rai->pvd_flags_and_delay[1] |= ND_OPT_PVD_FLAGS_LEGACY;
+		}
+		if (agetflag("ra")) {
+			rai->pvd_flags_and_delay[1] |= ND_OPT_PVD_FLAGS_RA;
+		}
+		if (rai->pvd_flags_and_delay[1] & ND_OPT_PVD_FLAGS_HTTP) {
+			MAYHAVE(val, "delay", 0);
+			if (val > UINT8_MAX) {
+				/* delay too big */
+				errorlog("<%s> invalid pvd option: max 'delay' is %u",
+						 __func__, UINT8_MAX);
+				exit(1);
+			}
+			rai->pvd_flags_and_delay[0] = (u_int8_t)val & ND_OPT_PVD_DELAY_MASK;
+			MAYHAVE(val, "seqnr", 0);
+			if (val > UINT16_MAX) {
+				/* seqnr too big */
+				errorlog("<%s> invalid pvd option: max 'seqnr' is %u",
+						 __func__, UINT16_MAX);
+				exit(1);
+			}
+			rai->pvd_seqnr = (u_int16_t)val;
+		}
+		pvdid = agetstr("pvdid", &bp);
+		if (pvdid == NULL) {
+			errorlog("<%s> invalid pvd option: missing 'pvdid'", __func__);
+			exit(1);
+		}
+		rai->pvd_id = strdup(pvdid);
+		rai->pvd_id_length = strlen(pvdid);
+		rai->pvd_option_length = ND_OPT_PVD_MIN_LENGTH + rai->pvd_id_length;
+		rai->pvd_option_length += (8 - (rai->pvd_option_length & 0x7));
+		/* 
+		 * currently ignoring the possibility to include
+		 * another RA + options within the PvD option;
+		 * support only up to PvD ID FQDN + Padding
+		 */
+		/*
+		 *	0                   1                   2                   3
+		 *	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		 *	|     Type      |    Length     |H|L|R|     Reserved    | Delay |
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		 *	|       Sequence Number         |                             ...
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                             ...
+		 *	...                         PvD ID FQDN                       ...
+		 *	...             +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		 *	...             |                  Padding                      |
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		 *	|                                                             ...
+		 *	...            Router Advertisement message header            ...
+		 *	...             (Only present when R-flag is set)             ...
+		 *	...                                                             |
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		 *	|   Options ...
+		 *	+-+-+-+-+-+-+-+-+-+-+-+-
+		 */
+	}
+
 	/* okey */
 	rai->next = ralist;
 	ralist = rai;
@@ -1049,46 +1114,11 @@ update_prefix(struct prefix * prefix)
 static int
 init_prefix(struct in6_prefixreq *ipr)
 {
-#if 0
-	int s;
-
-	if ((s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
-		errorlog("<%s> socket: %s", __func__,
-		       strerror(errno));
-		exit(1);
-	}
-
-	if (ioctl(s, SIOCGIFPREFIX_IN6, (caddr_t)ipr) < 0) {
-		infolog("<%s> ioctl:SIOCGIFPREFIX %s", __func__,
-		       strerror(errno));
-
-		ipr->ipr_vltime = DEF_ADVVALIDLIFETIME;
-		ipr->ipr_pltime = DEF_ADVPREFERREDLIFETIME;
-		ipr->ipr_raf_onlink = 1;
-		ipr->ipr_raf_auto = 1;
-		/* omit other field initialization */
-	}
-	else if (ipr->ipr_origin < PR_ORIG_RR) {
-		char ntopbuf[INET6_ADDRSTRLEN];
-
-		noticelog("<%s> Added prefix(%s)'s origin %d is"
-		       "lower than PR_ORIG_RR(router renumbering)."
-		       "This should not happen if I am router", __func__,
-		       inet_ntop(AF_INET6, &ipr->ipr_prefix.sin6_addr, ntopbuf,
-				 sizeof(ntopbuf)), ipr->ipr_origin);
-		close(s);
-		return 1;
-	}
-
-	close(s);
-	return 0;
-#else
 	ipr->ipr_vltime = DEF_ADVVALIDLIFETIME;
 	ipr->ipr_pltime = DEF_ADVPREFERREDLIFETIME;
 	ipr->ipr_raf_onlink = 1;
 	ipr->ipr_raf_auto = 1;
 	return 0;
-#endif
 }
 
 void
@@ -1158,6 +1188,9 @@ make_packet(struct rainfo *rainfo)
 	}
 	if (rainfo->pref64_specified) {
 		packlen += sizeof(struct nd_opt_pref64);
+	}
+	if (rainfo->pvd_option_length > 0) {
+		packlen += rainfo->pvd_option_length;
 	}
 
 	/* allocate memory for the packet */
@@ -1369,6 +1402,23 @@ make_packet(struct rainfo *rainfo)
 			      + prefix_length_bytes,
 			      zero_bytes);
 		}
+	}
+	if (rainfo->pvd_option_length > 0) {
+		struct nd_opt_pvd *pvd_opt = { 0 };
+		int pvd_id_bytes;
+		uint8_t zero_bytes;
+
+		pvd_opt = (struct nd_opt_pvd *)buf;
+		pvd_opt->nd_opt_pvd_type = ND_OPT_PVD;
+		pvd_opt->nd_opt_pvd_len = rainfo->pvd_option_length >> 3;
+		pvd_opt->nd_opt_flags_delay[0] = rainfo->pvd_flags_and_delay[1];
+		pvd_opt->nd_opt_flags_delay[1] = rainfo->pvd_flags_and_delay[0];
+		pvd_opt->nd_opt_pvd_seq = htons(rainfo->pvd_seqnr);
+		pvd_id_bytes = encode_domain(rainfo->pvd_id, pvd_opt->nd_opt_pvd_id);
+		zero_bytes = rainfo->pvd_option_length
+			- ND_OPT_PVD_MIN_LENGTH - pvd_id_bytes;
+		bzero(pvd_opt->nd_opt_pvd_id + pvd_id_bytes, zero_bytes);
+		buf += rainfo->pvd_option_length;
 	}
 	/* verify that we populated the packet to the expected size */
 	if (rainfo->ra_datalen != (buf - rainfo->ra_data)) {

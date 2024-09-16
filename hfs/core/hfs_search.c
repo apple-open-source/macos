@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1997-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -445,9 +445,12 @@ ResolveHardlink(struct hfsmount *hfsmp, HFSPlusCatalogFile *recp)
 	if (recp->recordType != kHFSPlusFileRecord) {
 		return;
 	}
+
+	bool hfs_extime = (recp->flags & kHFSCatExpandedTimesMask);
+
 	type = SWAP_BE32(recp->userInfo.fdType);
 	creator = SWAP_BE32(recp->userInfo.fdCreator);
-	filecreatedate = to_bsd_time(recp->createDate);
+	filecreatedate = to_bsd_time(recp->createDate, hfs_extime);
 
 	if ((type == kHardLinkFileType && creator == kHFSPlusCreator) &&
 	    (filecreatedate == (time_t)hfsmp->hfs_itime ||

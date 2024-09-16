@@ -28,11 +28,13 @@
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(FULLSCREEN_API)
 
+#import "APIFullscreenClient.h"
 #import "UIKitSPI.h"
 #import "VideoPresentationManagerProxy.h"
 #import "WKFullScreenViewController.h"
 #import "WKFullscreenStackView.h"
 #import "WKScrollView.h"
+#import "WKUIDelegatePrivate.h"
 #import "WKWebView.h"
 #import "WKWebViewIOS.h"
 #import "WKWebViewInternal.h"
@@ -47,7 +49,7 @@
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/VideoFullscreenInterfaceAVKit.h>
+#import <WebCore/VideoPresentationInterfaceAVKit.h>
 #import <WebCore/VideoPresentationModel.h>
 #import <WebCore/ViewportArguments.h>
 #import <objc/runtime.h>
@@ -56,11 +58,16 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/cocoa/URLFormattingSPI.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 
 #if PLATFORM(VISION)
 #import "MRUIKitSPI.h"
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+#import "WKSPreviewWindowController.h"
+#import "WebKitSwiftSoftLink.h"
+#endif // QUICKLOOK_FULLSCREEN
 #endif
 
 #if !HAVE(URL_FORMATTING)
@@ -137,11 +144,18 @@ enum FullScreenState : NSInteger {
     ExitingFullScreen,
 };
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKFullScreenWindowControllerIOSAdditions.mm>)
+#import <WebKitAdditions/WKFullScreenWindowControllerIOSAdditions.mm>
+#else
+static constexpr auto baseScale = 1;
+static constexpr auto baseMinimumEffectiveDeviceWidth = 0;
+#endif
+
 struct WKWebViewState {
     float _savedTopContentInset = 0.0;
-    CGFloat _savedPageScale = 1;
+    CGFloat _savedPageScale = baseScale;
     CGFloat _savedViewScale = 1.0;
-    CGFloat _savedZoomScale = 1;
+    CGFloat _savedZoomScale = baseScale;
     CGFloat _savedContentZoomScale = 1;
     BOOL _savedContentInsetWasExternallyOverridden = NO;
     UIEdgeInsets _savedEdgeInset = UIEdgeInsetsZero;
@@ -156,7 +170,7 @@ struct WKWebViewState {
     CGPoint _savedContentOffset = CGPointZero;
     BOOL _savedBouncesZoom = NO;
     BOOL _savedForceAlwaysUserScalable = NO;
-    CGFloat _savedMinimumEffectiveDeviceWidth = 0;
+    CGFloat _savedMinimumEffectiveDeviceWidth = baseMinimumEffectiveDeviceWidth;
     BOOL _savedHaveSetUnobscuredSafeAreaInsets = NO;
     UIEdgeInsets _savedUnobscuredSafeAreaInsets = UIEdgeInsetsZero;
     BOOL _savedHasOverriddenLayoutParameters = NO;
@@ -695,6 +709,12 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 - (void)placeholderWillMoveToSuperview:(UIView *)superview;
 @end
 
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+@interface WKFullScreenWindowController (WKSPreviewWindowControllerDelegate) <WKSPreviewWindowControllerDelegate>
+- (void)previewWindowControllerDidClose:(id)previewWindowController;
+@end
+#endif
+
 #pragma mark -
 
 @interface WKFullScreenPlaceholderView : UIView
@@ -745,6 +765,11 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 #if PLATFORM(VISION)
     RetainPtr<UIWindow> _lastKnownParentWindow;
     RetainPtr<WKFullScreenParentWindowState> _parentWindowState;
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    RetainPtr<WKSPreviewWindowController> _previewWindowController;
+    bool _isUsingQuickLook;
+    CGSize _imageDimensions;
+#endif // QUICKLOOK_FULLSCREEN
 #endif
 
     std::unique_ptr<WebKit::VideoPresentationManagerProxy::VideoInPictureInPictureDidChangeObserver> _pipObserver;
@@ -816,6 +841,23 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     return _webViewPlaceholder.get();
 }
 
+- (WKFullScreenViewController *)fullScreenViewController
+{
+    return _fullscreenViewController.get();
+}
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+- (BOOL)isUsingQuickLook
+{
+    return _isUsingQuickLook;
+}
+
+- (CGSize)imageDimensions
+{
+    return _imageDimensions;
+}
+#endif
+
 #pragma mark -
 #pragma mark External Interface
 
@@ -829,10 +871,59 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     [_fullscreenViewController resetSupportedOrientations];
 }
 
-- (void)enterFullScreen:(CGSize)videoDimensions
+- (void)enterFullScreen:(CGSize)mediaDimensions
 {
-    if ([self isFullScreen])
+    if (self.isFullScreen)
         return;
+
+    RefPtr page = self._webView._page.get();
+    if (!page)
+        return;
+
+    _fullScreenState = WebKit::WaitingToEnterFullScreen;
+
+    WeakObjCPtr<WKFullScreenWindowController> weakSelf { self };
+    page->fullscreenClient().requestPresentingViewController([logIdentifier = OBJC_LOGIDENTIFIER, self, weakSelf = WTFMove(weakSelf), mediaDimensions](UIViewController *viewController, NSError *error) {
+        RetainPtr strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return;
+
+        if (error) {
+            OBJC_ERROR_LOG(logIdentifier, "request for window scene failed with error: ", error);
+            [self _exitFullscreenImmediately];
+            return;
+        }
+
+        if (_exitRequested) {
+            OBJC_ALWAYS_LOG(logIdentifier, "received window scene but exit requested");
+            [self _exitFullscreenImmediately];
+            return;
+        }
+
+        UIWindowScene *windowScene;
+        if (UIWindowScene *presentingWindowScene = viewController.view.window.windowScene) {
+            OBJC_ALWAYS_LOG(logIdentifier, "using window scene from presenting view controller");
+            windowScene = presentingWindowScene;
+        } else {
+            OBJC_ALWAYS_LOG(logIdentifier, "using window scene from web view");
+            windowScene = self._webView.window.windowScene;
+        }
+
+        if (!windowScene) {
+            OBJC_ERROR_LOG(logIdentifier, "failed to find a window scene");
+            [self _exitFullscreenImmediately];
+            return;
+        }
+
+        [self _enterFullScreen:mediaDimensions windowScene:windowScene];
+    });
+}
+
+- (void)_enterFullScreen:(CGSize)mediaDimensions windowScene:(UIWindowScene *)windowScene
+{
+    ASSERT(_fullScreenState == WebKit::WaitingToEnterFullScreen);
+    ASSERT(!_exitRequested);
+    ASSERT(windowScene);
 
     RetainPtr<WKWebView> webView = self._webView;
     auto page = [webView _page];
@@ -840,7 +931,38 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     if (!page || !manager)
         return;
 
-    OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, WebCore::FloatSize { videoDimensions });
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    _isUsingQuickLook = manager->isImageElement() && WTF::processHasEntitlement("com.apple.surfboard.chrome-customization"_s);
+
+    if (_isUsingQuickLook) {
+        _imageDimensions = mediaDimensions;
+        _fullScreenState = WebKit::WaitingToEnterFullScreen;
+
+        OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, "(QL) presentation updated");
+        manager->willEnterFullScreen();
+
+        manager->prepareQuickLookImageURL([strongSelf = retainPtr(self), self, window = retainPtr([webView window]), logIdentifier = OBJC_LOGIDENTIFIER] (URL&& url) mutable {
+            UIWindowScene *scene = [window windowScene];
+            _previewWindowController = adoptNS([WebKit::allocWKSPreviewWindowControllerInstance() initWithURL:url sceneID:scene._sceneIdentifier]);
+            [_previewWindowController setDelegate:self];
+            [_previewWindowController presentWindow];
+            _fullScreenState = WebKit::InFullScreen;
+
+            if (auto* manager = [strongSelf _manager]) {
+                OBJC_ALWAYS_LOG(logIdentifier, "(QL) presentation completed");
+                manager->didEnterFullScreen();
+                return;
+            }
+
+            OBJC_ERROR_LOG(logIdentifier, "(QL) presentation completed, but manager missing");
+            [strongSelf _exitFullscreenImmediately];
+            ASSERT_NOT_REACHED();
+        });
+        return;
+    }
+#endif // ENABLE(QUICKLOOK_FULLSCREEN)
+
+    OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, WebCore::FloatSize { mediaDimensions });
 
     [self _invalidateEVOrganizationName];
 
@@ -848,11 +970,10 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     _lastKnownParentWindow = [webView window];
     _parentWindowState = adoptNS([[WKFullScreenParentWindowState alloc] initWithWindow:_lastKnownParentWindow.get()]);
 #endif
-    _fullScreenState = WebKit::WaitingToEnterFullScreen;
     _blocksReturnToFullscreenFromPictureInPicture = manager->blocksReturnToFullscreenFromPictureInPicture();
     _originalWindowSize = [webView window].frame.size;
 
-    _window = adoptNS([[UIWindow alloc] initWithWindowScene:[[webView window] windowScene]]);
+    _window = adoptNS([[UIWindow alloc] initWithWindowScene:windowScene]);
     [_window setBackgroundColor:[UIColor clearColor]];
     [_window setWindowLevel:UIWindowLevelNormal - 1];
     [_window setHidden:NO];
@@ -864,13 +985,13 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
         CGFloat targetWidth = preferredWidth;
         CGFloat targetHeight = preferredHeight;
-        if (videoDimensions.height && videoDimensions.width) {
+        if (mediaDimensions.height && mediaDimensions.width) {
             CGFloat preferredAspectRatio = preferredWidth / preferredHeight;
-            CGFloat videoAspectRatio = videoDimensions.height ? (videoDimensions.width / videoDimensions.height) : preferredAspectRatio;
+            CGFloat videoAspectRatio = mediaDimensions.height ? (mediaDimensions.width / mediaDimensions.height) : preferredAspectRatio;
             if (videoAspectRatio > preferredAspectRatio)
-                targetHeight = videoDimensions.height * preferredWidth / videoDimensions.width;
+                targetHeight = mediaDimensions.height * preferredWidth / mediaDimensions.width;
             else
-                targetWidth = videoDimensions.width * preferredHeight / videoDimensions.height;
+                targetWidth = mediaDimensions.width * preferredHeight / mediaDimensions.height;
         }
 
         [_window setFrame:CGRectMake(0, 0, floorf(targetWidth), floorf(targetHeight))];
@@ -898,7 +1019,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     [_fullscreenViewController setModalPresentationCapturesStatusBarAppearance:YES];
     [_fullscreenViewController setDelegate:self];
     _fullscreenViewController.get().view.frame = _rootViewController.get().view.bounds;
-#if PLATFORM(VISION)
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
     [_fullscreenViewController hideCustomControls:manager->isVideoElement()];
 #endif
     [self _updateLocationInfo];
@@ -947,10 +1068,12 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         // However, this adjustment is currently necessary to ensure that the layout parameters exposed to the web
         // during the "fullscreenchange" event reflect the fullscreen size.
         [webView setFrame:[_window bounds]];
+        // FIXME: Is it necessary to set minimum effective device width and view scale here, given that we immediately
+        // apply the default web view state (which sets both parameters anyways)?
         [webView _setMinimumEffectiveDeviceWidth:0];
         [webView _setViewScale:1.f];
         WebKit::WKWebViewState().applyTo(webView.get());
-        [webView _overrideZoomScaleParametersWithMinimumZoomScale:1 maximumZoomScale:1 allowUserScaling:NO];
+        [webView _overrideZoomScaleParametersWithMinimumZoomScale:WebKit::baseScale maximumZoomScale:WebKit::baseScale allowUserScaling:NO];
         [webView _resetContentOffset];
         [_window insertSubview:webView.get() atIndex:0];
         [webView setNeedsLayout];
@@ -959,7 +1082,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         if (auto* manager = self._manager)
             manager->setAnimatingFullScreen(true);
 
-        page->forceRepaint([protectedSelf = retainPtr(self), self, logIdentifier = logIdentifier] {
+        page->updateRenderingWithForcedRepaint([protectedSelf = retainPtr(self), self, logIdentifier = logIdentifier] {
             if (_exitRequested) {
                 _exitRequested = NO;
                 OBJC_ERROR_LOG(logIdentifier, "repaint completed, but exit requested");
@@ -1072,11 +1195,11 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
                     });
                     videoPresentationManager->addVideoInPictureInPictureDidChangeObserver(*_pipObserver);
                 }
-                if (auto* videoFullscreenInterface = videoPresentationManager ? videoPresentationManager->returningToStandbyInterface() : nullptr) {
+                if (RefPtr videoPresentationInterface = videoPresentationManager ? videoPresentationManager->returningToStandbyInterface() : nullptr) {
                     if (_returnToFullscreenFromPictureInPicture)
-                        videoFullscreenInterface->preparedToReturnToStandby();
-                    else if (videoFullscreenInterface->inPictureInPicture()) {
-                        if (auto model = videoFullscreenInterface->videoPresentationModel()) {
+                        videoPresentationInterface->preparedToReturnToStandby();
+                    else if (videoPresentationInterface->inPictureInPicture()) {
+                        if (RefPtr model = videoPresentationInterface->videoPresentationModel()) {
                             _enterFullscreenNeedsExitPictureInPicture = YES;
                             model->requestFullscreenMode(WebCore::HTMLMediaElementEnums::VideoFullscreenModeNone);
                         }
@@ -1095,7 +1218,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     }];
 }
 
-- (void)requestRestoreFullScreen
+- (void)requestRestoreFullScreen:(CompletionHandler<void(bool)>&&)completionHandler
 {
     if (_fullScreenState != WebKit::NotInFullScreen) {
         OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, _fullScreenState, " != NotInFullScreen, dropping");
@@ -1108,7 +1231,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
     if (auto* manager = self._manager) {
         OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER);
-        manager->requestRestoreFullScreen();
+        manager->requestRestoreFullScreen(WTFMove(completionHandler));
         return;
     }
 
@@ -1148,6 +1271,30 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         _exitRequested = YES;
         return;
     }
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    if (_isUsingQuickLook) {
+        _fullScreenState = WebKit::NotInFullScreen;
+
+        if (_previewWindowController) {
+            [_previewWindowController dismissWindow];
+            [_previewWindowController setDelegate:nil];
+            _previewWindowController = nil;
+        }
+
+        if (auto* manager = self._manager) {
+            OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER);
+            manager->willExitFullScreen();
+            manager->didExitFullScreen();
+            return;
+        }
+
+        OBJC_ERROR_LOG(OBJC_LOGIDENTIFIER, "manager missing");
+        ASSERT_NOT_REACHED();
+        [self _exitFullscreenImmediately];
+        return;
+    }
+#endif
 
     [self._webView _beginAnimatedFullScreenExit];
 
@@ -1250,8 +1397,8 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         manager->didExitFullScreen();
     }
 
-    auto* videoFullscreenInterface = self._videoPresentationManager ? self._videoPresentationManager->controlsManagerInterface() : nullptr;
-    _shouldReturnToFullscreenFromPictureInPicture = videoFullscreenInterface && videoFullscreenInterface->inPictureInPicture();
+    RefPtr videoPresentationInterface = self._videoPresentationManager ? self._videoPresentationManager->controlsManagerInterface() : nullptr;
+    _shouldReturnToFullscreenFromPictureInPicture = videoPresentationInterface && videoPresentationInterface->inPictureInPicture();
 
     [_window setHidden:YES];
     _window = nil;
@@ -1275,7 +1422,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         if (_enterRequested) {
             _enterRequested = NO;
             OBJC_ALWAYS_LOG(logIdentifier, "repaint completed, enter requested");
-            [self requestRestoreFullScreen];
+            [self requestRestoreFullScreen:nil];
         } else
             OBJC_ALWAYS_LOG(logIdentifier, "repaint completed");
 
@@ -1286,7 +1433,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
     auto* page = [self._webView _page].get();
     if (page && page->isViewFocused())
-        page->forceRepaint(WTFMove(completionHandler));
+        page->updateRenderingWithForcedRepaint(WTFMove(completionHandler));
     else
         completionHandler();
 
@@ -1338,14 +1485,20 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 - (void)didExitPictureInPicture
 {
     if (!_enterFullscreenNeedsExitPictureInPicture && _shouldReturnToFullscreenFromPictureInPicture) {
-        auto* videoFullscreenInterface = self._videoPresentationManager ? self._videoPresentationManager->returningToStandbyInterface() : nullptr;
-        if (videoFullscreenInterface && videoFullscreenInterface->returningToStandby()) {
+        RefPtr videoPresentationInterface = self._videoPresentationManager ? self._videoPresentationManager->returningToStandbyInterface() : nullptr;
+        if (videoPresentationInterface && videoPresentationInterface->returningToStandby()) {
             OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, "returning to standby");
             if (!_exitingFullScreen) {
                 if (_fullScreenState == WebKit::InFullScreen)
-                    videoFullscreenInterface->preparedToReturnToStandby();
-                else
-                    [self requestRestoreFullScreen];
+                    videoPresentationInterface->preparedToReturnToStandby();
+                else {
+                    auto completion = [videoPresentationInterface = Ref { *videoPresentationInterface }] (bool succeeded) {
+                        if (!succeeded)
+                            videoPresentationInterface->failedToRestoreFullscreen();
+                    };
+
+                    [self requestRestoreFullScreen:WTFMove(completion)];
+                }
             } else
                 _enterRequested = YES;
 
@@ -1857,6 +2010,12 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 - (void)showUI
 {
 #if PLATFORM(VISION)
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    if (_isUsingQuickLook)
+        return;
+#endif // QUICKLOOK_FULLSCREEN
+
     UIWindowScene *scene = [_window windowScene];
     scene.mrui_placement.preferredChromeOptions = [_parentWindowState sceneChromeOptions];
 #endif
@@ -1865,12 +2024,40 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 - (void)hideUI
 {
 #if PLATFORM(VISION)
+
+#if ENABLE(QUICKLOOK_FULLSCREEN)
+    if (_isUsingQuickLook)
+        return;
+#endif // QUICKLOOK_FULLSCREEN
+
     UIWindowScene *scene = [_window windowScene];
     scene.mrui_placement.preferredChromeOptions = RSSSceneChromeOptionsNone;
 #endif
 }
 
+- (void)didCleanupFullscreen
+{
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    if (self.isFullScreen)
+        [_fullscreenViewController configureEnvironmentPickerButtonView];
+#endif
+}
+
 @end
+
+#if PLATFORM(VISION) && ENABLE(QUICKLOOK_FULLSCREEN)
+
+@implementation WKFullScreenWindowController (WKSPreviewWindowControllerDelegate)
+- (void)previewWindowControllerDidClose:(id)previewWindowController
+{
+    if (previewWindowController != _previewWindowController)
+        return;
+
+    [self requestExitFullScreen];
+}
+@end
+
+#endif
 
 #if !RELEASE_LOG_DISABLED
 @implementation WKFullScreenWindowController (Logging)

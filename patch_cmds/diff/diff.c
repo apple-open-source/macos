@@ -681,6 +681,7 @@ print_status(int val, char *path1, char *path2, const char *entry)
 		printf("File %s%s is a regular file while file %s%s is a directory\n",
 		    path1, entry, path2, entry);
 		break;
+#endif
 	case D_SKIPPED1:
 		printf("File %s%s is not a regular file or directory and was skipped\n",
 		    path1, entry);
@@ -689,7 +690,6 @@ print_status(int val, char *path1, char *path2, const char *entry)
 		printf("File %s%s is not a regular file or directory and was skipped\n",
 		    path2, entry);
 		break;
-#endif
 	case D_ERROR:
 		break;
 	}

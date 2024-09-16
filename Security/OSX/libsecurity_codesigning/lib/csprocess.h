@@ -30,6 +30,7 @@
 #include "Code.h"
 #include "StaticCode.h"
 #include "piddiskrep.h"
+#include <TargetConditionals.h>
 #include <security_utilities/utilities.h>
 
 namespace Security {
@@ -51,6 +52,7 @@ public:
 	PidDiskRep *pidBased() const { return mPidBased; }
 	
 	int csops(unsigned int ops, void *addr, size_t size);
+	void codeMatchesLightweightCodeRequirementData(CFDataRef lwcrData);
 
 private:
 	pid_t mPid;

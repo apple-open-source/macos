@@ -33,9 +33,7 @@
 #include <fsproperties.h>
 #include <paths.h>
 #include <unistd.h>
-#if TARGET_OS_OSX
 #include <FSPrivate.h>
-#endif
 #include <sys/attr.h>
 #include <sys/loadable_fs.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -123,16 +121,14 @@ const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"    );
 const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update"   );
 const CFStringRef kDAFileSystemMountArgumentNoBrowse    = CFSTR( "nobrowse" );
 const CFStringRef kDAFileSystemMountArgumentSnapshot    = CFSTR( "-s=" );
+const CFStringRef kDAFileSystemMountArgumentNoFollow    = CFSTR( "nofollow"   );
+
 
 const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 
 static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, void * context );
-
-#ifdef DA_FSKIT
-static CFStringRef __DAGetFSKitBundleID( CFStringRef filesystemName );
-#endif
 
 static void __DAFileSystemCallback( int status, CFDataRef output, void * parameter )
 {
@@ -413,9 +409,7 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
     context->cleanStatus = status;
     DALogInfo( " fsck status %d %@", status, context->devicePath );
 
-#if TARGET_OS_OSX
     context->volumeType = _FSCopyNameForVolumeFormatAtNode( context->devicePath );
-#endif
 
     __DAFileSystemProbeCallback( 0, context, NULL );
 }
@@ -773,13 +767,12 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
             {
                 context->volumeName = CFSTR( "Untitled" );
             }
-            if ( CFStringGetLength( options ))
-            {
-                context->mountOptions = CFRetain( options );
-            } else
-            {
-                context->mountOptions = NULL;
-            }
+            
+            CFStringAppend( options, CFSTR( "," ) );
+            CFStringAppend( options, kDAFileSystemMountArgumentNoFollow );
+            CFStringTrim( options, CFSTR( "," ) );
+            context->mountOptions = CFRetain( options );
+         
             DAThreadExecute(__DAMountUserFSVolume, context, __DAMountUserFSVolumeCallback, context);
             CFRelease( argumentList );
         }
@@ -847,39 +840,10 @@ DAFileSystemMountErr:
     }
 }
 
-#ifdef DA_FSKIT
-/*
- * Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname'.
- */
-static CFStringRef __DAGetFSKitBundleID( CFStringRef filesystemName )
-{
-    CFStringRef                  fsname            = NULL;
-    CFStringRef                  bundleID          = NULL;
-    CFCharacterSetRef            cset;
-    CFRange                      range;
-    
-    /* Remove the '_fskit' from the fs name */
-    cset = CFCharacterSetCreateWithCharactersInString( kCFAllocatorDefault , CFSTR("_") );
-    
-    CFStringFindCharacterFromSet( filesystemName , cset , CFRangeMake( 0 , CFStringGetLength( filesystemName ) ),
-                                  0 , &range );
-    
-    fsname = CFStringCreateWithSubstring( kCFAllocatorDefault , filesystemName ,
-                                          CFRangeMake( 0 , range.location ) );
-    
-    bundleID = CFStringCreateWithFormat( kCFAllocatorDefault ,
-                                         NULL , CFSTR("com.apple.fskit.%@") , fsname );
-    CFRelease( fsname );
-    CFRelease( cset );
-    
-    return bundleID;
-}
-#endif
-
 void DAFileSystemProbe( DAFileSystemRef           filesystem,
                         CFURLRef                  device,
-                        char *                    deviceBSDPath,
-                        char *                    containerBSDPath,
+                        const char *              deviceBSDPath,
+                        const char *              containerBSDPath,
                         DAFileSystemProbeCallback callback,
                         void *                    callbackContext,
                         bool                      doFsck )
@@ -916,7 +880,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
     if ( DAFileSystemIsFSModule( filesystem ) )
     {
         /* Given a bundle name in the form 'fsname_fskit', convert it to a bundle ID in the form 'com.apple.fskit.fsname' */
-        bundleID = __DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        bundleID = DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
         DAProbeWithFSKit( deviceName , bundleID , doFsck , callback , callbackContext );
         return;
     }
@@ -1112,7 +1076,7 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
     if ( DAFileSystemIsFSModule( filesystem ) )
     {
         deviceName = CFURLCopyLastPathComponent(device);
-        bundleID = __DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
+        bundleID = DAGetFSKitBundleID( DAFileSystemGetKind( filesystem ) );
         DARepairWithFSKit( deviceName , bundleID , callback , callbackContext );
         return;
     }

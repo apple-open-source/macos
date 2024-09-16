@@ -50,8 +50,6 @@ public:
     RefPtr<MediaStreamTrack> clone() final;
 
 private:
-    const char* activeDOMObjectName() const override;
-
     class Source final : public RealtimeMediaSource, private CanvasObserver, private CanvasDisplayBufferObserver, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Source, WTF::DestructionThread::MainRunLoop> {
     public:
         static Ref<Source> create(HTMLCanvasElement&, std::optional<double>&& frameRequestRate);
@@ -91,6 +89,9 @@ private:
         std::optional<RealtimeMediaSourceSettings> m_currentSettings;
         HTMLCanvasElement* m_canvas;
         RefPtr<Image> m_currentImage;
+#if USE(GSTREAMER)
+        MediaTime m_presentationTimeStamp { MediaTime::zeroTime() };
+#endif
     };
 
     CanvasCaptureMediaStreamTrack(Document&, Ref<HTMLCanvasElement>&&, Ref<Source>&&);

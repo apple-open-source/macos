@@ -358,7 +358,7 @@
         reply(NO, error);
     }] toggleHavoc:^(BOOL havoc,
                      NSError* _Nullable error){
-        reply(NO, error);
+        reply(havoc, error);
         (void)self;
     }];
     

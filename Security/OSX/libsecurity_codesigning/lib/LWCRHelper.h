@@ -29,6 +29,7 @@ CFDictionaryRef copyDefaultDesignatedLWCRMaker(unsigned int validationCategory, 
 #if !TARGET_OS_SIMULATOR
 OSStatus validateLightweightCodeRequirementData(CFDataRef lwcrData);
 bool evaluateLightweightCodeRequirement(const Security::CodeSigning::Requirement::Context &ctx, CFDataRef lwcrData);
+void evaluateLightweightCodeRequirementInKernel(audit_token_t token, CFDataRef lwcrData);
 #endif
 
 __END_DECLS

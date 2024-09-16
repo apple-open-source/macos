@@ -25,27 +25,32 @@
 
 #pragma once
 
-#if (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))) && USE(EGL)
+#if (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM)))
 
 #include "AcceleratedSurface.h"
 
+#include "DMABufRendererBufferFormat.h"
 #include "MessageReceiver.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/RunLoop.h>
 #include <wtf/unix/UnixFileDescriptor.h>
 
 #if USE(GBM)
-#include "DMABufRendererBufferFormat.h"
+#include <WebCore/DRMDeviceNode.h>
 #include <atomic>
 #include <wtf/Lock.h>
 typedef void *EGLImage;
 struct gbm_bo;
 #endif
 
-namespace WebKit {
-
+namespace WebCore {
+class Region;
 class ShareableBitmap;
 class ShareableBitmapHandle;
+}
+
+namespace WebKit {
+
 class WebPage;
 
 class AcceleratedSurfaceDMABuf final : public AcceleratedSurface, public IPC::MessageReceiver {
@@ -68,7 +73,7 @@ private:
     void didCreateGLContext() override;
     void willDestroyGLContext() override;
     void willRenderFrame() override;
-    void didRenderFrame() override;
+    void didRenderFrame(const std::optional<WebCore::Region>&) override;
 
     void didCreateCompositingRunLoop(WTF::RunLoop&) override;
     void willDestroyCompositingRunLoop() override;
@@ -78,6 +83,7 @@ private:
 #endif
 
     void visibilityDidChange(bool) override;
+    bool backgroundColorDidChange() override;
 
     AcceleratedSurfaceDMABuf(WebPage&, Client&);
 
@@ -96,7 +102,7 @@ private:
         uint64_t id() const { return m_id; }
 
         virtual void willRenderFrame() const;
-        virtual void didRenderFrame() { };
+        virtual void didRenderFrame() { }
 
     protected:
         RenderTarget(uint64_t, const WebCore::IntSize&);
@@ -117,10 +123,41 @@ private:
     };
 
 #if USE(GBM)
+    struct BufferFormat {
+        BufferFormat() = default;
+        ~BufferFormat() = default;
+        BufferFormat(const BufferFormat&) = delete;
+        BufferFormat& operator=(const BufferFormat&) = delete;
+        BufferFormat(BufferFormat&& other)
+        {
+            *this = WTFMove(other);
+        }
+        BufferFormat& operator=(BufferFormat&& other)
+        {
+            usage = std::exchange(other.usage, DMABufRendererBufferFormat::Usage::Rendering);
+            drmDevice = WTFMove(other.drmDevice);
+            fourcc = std::exchange(other.fourcc, 0);
+            modifiers = WTFMove(other.modifiers);
+            drmDeviceNode = WTFMove(other.drmDeviceNode);
+            return *this;
+        }
+
+        bool operator==(const BufferFormat& other) const
+        {
+            return usage == other.usage && drmDevice == other.drmDevice && fourcc == other.fourcc && modifiers == other.modifiers;
+        }
+
+        DMABufRendererBufferFormat::Usage usage { DMABufRendererBufferFormat::Usage::Rendering };
+        CString drmDevice;
+        uint32_t fourcc { 0 };
+        Vector<uint64_t, 1> modifiers;
+        RefPtr<WebCore::DRMDeviceNode> drmDeviceNode;
+    };
+
     class RenderTargetEGLImage final : public RenderTargetColorBuffer {
     public:
-        static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&, const DMABufRendererBufferFormat&);
-        RenderTargetEGLImage(uint64_t, const WebCore::IntSize&, EGLImage, uint32_t format, Vector<WTF::UnixFileDescriptor>&&, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier);
+        static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&, const BufferFormat&);
+        RenderTargetEGLImage(uint64_t, const WebCore::IntSize&, EGLImage, uint32_t format, Vector<WTF::UnixFileDescriptor>&&, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, DMABufRendererBufferFormat::Usage);
         ~RenderTargetEGLImage();
 
     private:
@@ -131,13 +168,13 @@ private:
     class RenderTargetSHMImage final : public RenderTargetColorBuffer {
     public:
         static std::unique_ptr<RenderTarget> create(uint64_t, const WebCore::IntSize&);
-        RenderTargetSHMImage(uint64_t, const WebCore::IntSize&, Ref<ShareableBitmap>&&, ShareableBitmapHandle&&);
+        RenderTargetSHMImage(uint64_t, const WebCore::IntSize&, Ref<WebCore::ShareableBitmap>&&, WebCore::ShareableBitmapHandle&&);
         ~RenderTargetSHMImage() = default;
 
     private:
         void didRenderFrame() override;
 
-        Ref<ShareableBitmap> m_bitmap;
+        Ref<WebCore::ShareableBitmap> m_bitmap;
     };
 
     class RenderTargetTexture final : public RenderTarget {
@@ -158,7 +195,14 @@ private:
         explicit SwapChain(uint64_t);
         ~SwapChain() = default;
 
-        enum class Type { Invalid, EGLImage, SharedMemory, Texture };
+        enum class Type {
+            Invalid,
+#if USE(GBM)
+            EGLImage,
+#endif
+            SharedMemory,
+            Texture
+        };
 
         Type type() const { return m_type; }
         void resize(const WebCore::IntSize&);
@@ -170,7 +214,7 @@ private:
         unsigned size() const { return m_freeTargets.size() + m_lockedTargets.size(); }
 
 #if USE(GBM)
-        void setupBufferFormat(const Vector<DMABufRendererBufferFormat>&);
+        void setupBufferFormat(const Vector<DMABufRendererBufferFormat>&, bool);
 #endif
 
     private:
@@ -185,7 +229,7 @@ private:
         Vector<std::unique_ptr<RenderTarget>, s_maximumBuffers> m_lockedTargets;
 #if USE(GBM)
         Lock m_dmabufFormatLock;
-        DMABufRendererBufferFormat m_dmabufFormat WTF_GUARDED_BY_LOCK(m_dmabufFormatLock);
+        BufferFormat m_dmabufFormat WTF_GUARDED_BY_LOCK(m_dmabufFormatLock);
         bool m_dmabufFormatChanged WTF_GUARDED_BY_LOCK(m_dmabufFormatLock) { false };
 #endif
     };
@@ -200,4 +244,4 @@ private:
 
 } // namespace WebKit
 
-#endif // (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))) && USE(EGL)
+#endif // (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM)))

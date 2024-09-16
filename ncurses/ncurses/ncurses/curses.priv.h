@@ -130,6 +130,47 @@ extern int errno;
 # endif
 #endif
 
+#ifdef __APPLE__
+/*
+ * ABI version 32-bit int, top 16 bits for the major version, bottom 16 bits for
+ * the minor version.
+ */
+#define NCURSES_MAKE_ABI(major, minor) (((major) << 16) | ((minor) & 0xffff))
+
+#define NCURSES_DEFAULT_ABI NCURSES_MAKE_ABI(5, 4)
+/*
+ * NCURSES_MAX_ABI is mostly just for diagnostics.
+ */
+#define NCURSES_MAX_ABI NCURSES_MAKE_ABI(6, 0)
+
+#define NCURSES_ABI_MAJOR(abiver) ((abiver) >> 16)
+#define NCURSES_ABI_MINOR(abiver) ((abiver) & 0xffff)
+
+#define NCURSES_ABI_PREREQ(major, minor) \
+    (_nc_abiver >= NCURSES_MAKE_ABI(major, minor))
+
+#define	NCURSES_ABI_PUSH(major, minor) \
+	int prev_abiver = _nc_abi_push(major, minor)
+#define NCURSES_ABI_POP() _nc_abi_pop(prev_abiver)
+
+extern unsigned int __thread _nc_abiver;
+
+static inline int
+_nc_abi_push(int major, int minor)
+{
+	int prev_abiver = _nc_abiver;
+
+	_nc_abiver = NCURSES_MAKE_ABI(major, minor);
+	return (prev_abiver);
+}
+
+static inline void
+_nc_abi_pop(int prev_abiver)
+{
+	_nc_abiver = prev_abiver;
+}
+#endif
+
 /* include signal.h before curses.h to work-around defect in glibc 2.1.3 */
 #include <signal.h>
 
@@ -427,11 +468,32 @@ color_t;
  * checking for a color pair in both places.
  */
 #if NCURSES_EXT_COLORS
+#ifdef __APPLE__
+#define if_EXT_COLORS(stmt)		\
+	if (NCURSES_ABI_PREREQ(6, 0))	\
+		stmt
+#define SetPair(value,p)	do {				\
+	if (NCURSES_ABI_PREREQ(6, 0)) {				\
+		SetPair2((value).ext_color, AttrOf(value), p);	\
+	} else {						\
+		RemAttr(value, A_COLOR);			\
+		SetAttr(value, AttrOf(value) | (A_COLOR & (attr_t) ColorPair(p)));	\
+	}							\
+} while(0)
+#else
 #define if_EXT_COLORS(stmt)	stmt
 #define SetPair(value,p)	SetPair2((value).ext_color, AttrOf(value), p)
+#endif
 #define SetPair2(c,a,p)		c = (p), \
 				a = (unColor2(a) | (A_COLOR & (unsigned) ColorPair(oldColor(c))))
+#ifdef __APPLE__
+#define GetPair_new(value)		GetPair2((value).ext_color, AttrOf(value))
+#define GetPair_compat(value)		PairNumber(AttrOf(value))
+#define GetPair(value)	\
+	(NCURSES_ABI_PREREQ(6, 0) ? GetPair_new(value) : GetPair_compat(value))
+#else
 #define GetPair(value)		GetPair2((value).ext_color, AttrOf(value))
+#endif
 #define GetPair2(c,a)		((c) ? (c) : PairNumber(a))
 #define oldColor(p)		(((p) > 255) ? 255 : (p))
 #define GET_WINDOW_PAIR(w)	GetPair2((w)->_color, (w)->_attrs)
@@ -1404,6 +1466,20 @@ extern NCURSES_EXPORT_VAR(SIG_ATOMIC_T) _nc_have_sigwinch;
 #define NewChar(ch)	NewChar2(ChCharOf(ch), ChAttrOf(ch))
 
 #if CCHARW_MAX == 5
+#ifdef __APPLE__
+/*
+ * EXT_COLORS is always defined in Apple builds, so we inline if_EXT_COLORS()
+ * in the name of a less complicated expression.
+ */
+#define CharEq(a,b)	(((a).attr == (b).attr) \
+		       && (a).chars[0] == (b).chars[0] \
+		       && (a).chars[1] == (b).chars[1] \
+		       && (a).chars[2] == (b).chars[2] \
+		       && (a).chars[3] == (b).chars[3] \
+		       && (a).chars[4] == (b).chars[4] \
+		       && (!NCURSES_ABI_PREREQ(6, 0) || \
+		          (a).ext_color == (b).ext_color))
+#else /* !__APPLE__ */
 #define CharEq(a,b)	(((a).attr == (b).attr) \
 		       && (a).chars[0] == (b).chars[0] \
 		       && (a).chars[1] == (b).chars[1] \
@@ -1411,6 +1487,7 @@ extern NCURSES_EXPORT_VAR(SIG_ATOMIC_T) _nc_have_sigwinch;
 		       && (a).chars[3] == (b).chars[3] \
 		       && (a).chars[4] == (b).chars[4] \
 			if_EXT_COLORS(&& (a).ext_color == (b).ext_color))
+#endif /* __APPLE__ */
 #else
 #define CharEq(a,b)	(!memcmp(&(a), &(b), sizeof(a)))
 #endif

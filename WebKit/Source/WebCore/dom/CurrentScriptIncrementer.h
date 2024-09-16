@@ -28,9 +28,9 @@
 
 #pragma once
 
-#include <wtf/CheckedRef.h>
 #include "Document.h"
 #include "ScriptElement.h"
+#include <wtf/WeakRef.h>
 
 namespace WebCore {
 

@@ -50,8 +50,7 @@ struct u_m_hdr {
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.net"),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
-	T_META_RADAR_COMPONENT_VERSION("networking"),
-	T_META_ENABLED(false)   /* rdar://124146340 */
+	T_META_RADAR_COMPONENT_VERSION("networking")
 	);
 
 T_DECL(sbconcat_mbufs_123249093, "test sbconcat_mbufs() overflow radar://123249093")
@@ -64,8 +63,7 @@ T_DECL(sbconcat_mbufs_123249093, "test sbconcat_mbufs() overflow radar://1232490
 	struct sockaddr_un *sun = &sun_._sun;
 	struct u_m_hdr *mhdr;
 	ssize_t retval;
-
-	T_ASSERT_POSIX_SUCCESS(socketpair(PF_LOCAL, SOCK_DGRAM, 0, pair), "socketpair");
+	socklen_t address_len = SOCK_MAXADDRLEN;
 
 	snprintf(sun->sun_path, MAX_SUN_PATH, "/tmp/%s.%d", getprogname(), getpid());
 
@@ -89,7 +87,18 @@ T_DECL(sbconcat_mbufs_123249093, "test sbconcat_mbufs() overflow radar://1232490
 
 	(void)unlink(sun->sun_path);
 
+	T_ASSERT_POSIX_SUCCESS(socketpair(PF_LOCAL, SOCK_DGRAM, 0, pair), "socketpair");
+	T_LOG("pair[0]: %d pair[1]: %d", pair[0], pair[1]);
+
 	T_ASSERT_POSIX_SUCCESS(bind(pair[0], (struct sockaddr *)sun, sun->sun_len), "bind()");
+
+	if (getsockname(pair[0], (struct sockaddr *)sun, &address_len) == 0) {
+		T_LOG("getsockname(%d) OK, sun_len: %u sun_path: %s",
+		    pair[0], sun->sun_len, sun->sun_path);
+	} else {
+		T_LOG("getsockname(%d) error %s (%d)",
+		    pair[0], strerror(errno), errno);
+	}
 
 	/* The call may succeed or fail with ENOBUFS for CONFIG_MBUF_MCACHE */
 	retval = write(pair[0], NULL, 0);

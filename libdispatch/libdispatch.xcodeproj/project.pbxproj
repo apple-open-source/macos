@@ -774,6 +774,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		010189B82B1BF45E007E4242 /* dispatch_workloop_with_bound_thread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dispatch_workloop_with_bound_thread.c; sourceTree = "<group>"; };
 		01176208299D5059007B4D84 /* dispatch_swift_shims.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dispatch_swift_shims.h; sourceTree = "<group>"; };
 		01A5F2202950587900AFDFF4 /* Dispatch.apinotes */ = {isa = PBXFileReference; lastKnownFileType = text.apinotes; path = Dispatch.apinotes; sourceTree = "<group>"; };
 		01FE68822ACD2E47004A2C3C /* dispatch_workqueue_signals.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dispatch_workqueue_signals.c; sourceTree = "<group>"; };
@@ -1314,6 +1315,7 @@
 				6E8E4E6E1C1A35EE0004F5CC /* test_lib.c */,
 				6E8E4E6F1C1A35EE0004F5CC /* test_lib.h */,
 				01FE68822ACD2E47004A2C3C /* dispatch_workqueue_signals.c */,
+				010189B82B1BF45E007E4242 /* dispatch_workloop_with_bound_thread.c */,
 			);
 			name = "Darwin Tests";
 			path = tests;

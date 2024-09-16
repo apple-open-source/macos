@@ -329,7 +329,9 @@
 }
 
 - (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
-                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, 
+                                 flowID:(NSString *)flowID
+                        deviceSessionID:(NSString *)deviceSessionID
+                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs,
                                                   NSSet<NSString*>* _Nullable userInitiatedRemovals,
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,
@@ -360,7 +362,7 @@
         [self.fetchCondition fulfill];
     }
     NSSet<NSString*>* deviceList = [self currentDeviceList];
-    NSString* version = [NSString stringWithFormat:@"%lu", [deviceList hash]];
+    NSString* version = [NSString stringWithFormat:@"%lu", (unsigned long)[deviceList hash]];
 
     if (demo) {
         complete([self currentDeviceList], nil, nil, nil, version, nil, nil, nil, nil);
@@ -579,7 +581,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     SecCKKSEnable();
     SecCKKSTestsEnable();
     SecCKKSSetReduceRateLimiting(true);
-    SecCKKSSetHighPriorityOperations(true);
 
     self.testFailureLogger = [[CKKSTestFailureLogger alloc] init];
 
@@ -625,9 +626,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
         return;
     }
 
-    self.testName = [self.name componentsSeparatedByString:@" "][1];
-    self.testName = [self.testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
-
     // Create a temporary directory for keychains, analytics, and whatever else.
     self.testDir = [NSString stringWithFormat: @"/tmp/%@.%X", self.testName, arc4random()];
     [[NSFileManager defaultManager] createDirectoryAtPath:[NSString stringWithFormat: @"%@/Library/Keychains", self.testDir] withIntermediateDirectories:YES attributes:nil error:NULL];
@@ -656,6 +654,9 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
 - (void)setUp {
     [super setUp];
+
+    self.testName = [self.name componentsSeparatedByString:@" "][1];
+    self.testName = [self.testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
 
     secnotice("ckkstest", "Beginning test %@", self.testName);
 
@@ -1256,11 +1257,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
                                               SecCKRecordDeviceStateType: [NSNumber numberWithUnsignedInt: 1],
                                               } mutableCopy];
 
-    if(SecCKKSSyncManifests()) {
-        expectedRecords[SecCKRecordManifestType] = [NSNumber numberWithInt: 1];
-        expectedRecords[SecCKRecordManifestLeafType] = [NSNumber numberWithInt: 72];
-    }
-
     NSDictionary* deletedRecords = nil;
     if(expectedNumberOfDeletedRecords != 0) {
         deletedRecords = @{SecCKRecordItemType: [NSNumber numberWithUnsignedInteger: expectedNumberOfDeletedRecords]};
@@ -1527,10 +1523,10 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     XCTAssertNil(self.zones[zoneID], "Zone does not exist yet");
     self.zones[zoneID] = [[FakeCKZone alloc] initZone: zoneID];
     self.zones[zoneID].creationError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                        code:CKErrorNetworkUnavailable
-                                                                    userInfo:@{
-                                                                               CKErrorRetryAfterKey: @(0.5),
-                                                                               }];
+                                                                  code:CKErrorNetworkUnavailable
+                                                              userInfo:@{
+        CKErrorRetryAfterKey: @(0.5),
+    }];
 }
 
 // Report success, but don't actually create the zone.
@@ -1712,11 +1708,6 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     NSMutableDictionary* expectedRecords = [@{
                                               SecCKRecordDeviceStateType: [NSNumber numberWithUnsignedInteger:expectedNumberOfRecords],
                                               } mutableCopy];
-    if(SecCKKSSyncManifests()) {
-        // TODO: this really shouldn't be 2.
-        expectedRecords[SecCKRecordManifestType] = [NSNumber numberWithInt: 2];
-        expectedRecords[SecCKRecordManifestLeafType] = [NSNumber numberWithInt: 72];
-    }
 
     [self expectCKModifyRecords:expectedRecords
         deletedRecordTypeCounts:@{SecCKRecordItemType: [NSNumber numberWithUnsignedInteger: expectedNumberOfRecords]}

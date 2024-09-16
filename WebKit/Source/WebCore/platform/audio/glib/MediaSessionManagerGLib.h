@@ -32,7 +32,7 @@ class MediaSessionGLib;
 
 class MediaSessionManagerGLib
     : public PlatformMediaSessionManager
-    , private NowPlayingManager::Client {
+    , private NowPlayingManagerClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     MediaSessionManagerGLib(GRefPtr<GDBusNodeInfo>&&);
@@ -51,7 +51,9 @@ public:
     void dispatch(PlatformMediaSession::RemoteControlCommandType, PlatformMediaSession::RemoteCommandArgument);
 
     const GRefPtr<GDBusNodeInfo>& mprisInterface() const { return m_mprisInterface; }
-    PlatformMediaSession* nowPlayingEligibleSession();
+    void setPrimarySessionIfNeeded(PlatformMediaSession&);
+    void unregisterAllOtherSessions(PlatformMediaSession&);
+    WeakPtr<PlatformMediaSession> nowPlayingEligibleSession();
 
     void setDBusNotificationsEnabled(bool dbusNotificationsEnabled) { m_dbusNotificationsEnabled = dbusNotificationsEnabled; }
     bool areDBusNotificationsEnabled() const { return m_dbusNotificationsEnabled; }
@@ -81,10 +83,10 @@ protected:
 
 private:
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "MediaSessionManagerGLib"; }
+    ASCIILiteral logClassName() const override { return "MediaSessionManagerGLib"_s; }
 #endif
 
-    // NowPlayingManager::Client
+    // NowPlayingManagerClient
     void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType type, const PlatformMediaSession::RemoteCommandArgument& argument) final { processDidReceiveRemoteControlCommand(type, argument); }
 
     bool m_isSeeking { false };

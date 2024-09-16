@@ -156,6 +156,7 @@ bool IOFWCompareAndSwapCommand::initAll(	IOFireWireController *	control,
 bool IOFWCompareAndSwapCommand::createMemberVariables( void )
 {
 	bool success = true;
+	fInputVals = NULL;
 	
 	if( fMembers == NULL )
 	{
@@ -168,6 +169,15 @@ bool IOFWCompareAndSwapCommand::createMemberVariables( void )
 				success = false;
 		}
 		
+		if( success )
+		{
+			// Using malloc here and not an IOBufferMemoryDescriptor as fMembers->fMemory
+			// is used elsewhere and I don't want to mess with it
+			fInputVals = (UInt32 *)IOMallocData( 4 * sizeof(UInt32) );
+			if( NULL == fInputVals )	
+				success = false;
+		}
+	
 		// clean up on failure
 		
 		if( !success )
@@ -189,6 +199,13 @@ void IOFWCompareAndSwapCommand::destroyMemberVariables( void )
 	{
 		IOFreeType( fMembers, MemberVariables );
 	}
+	
+	if( fInputVals != NULL )
+	{
+		IOFreeData( (void *)fInputVals, 4 * sizeof(UInt32) );
+	}
+
+
 }
 
 // createMemoryDescriptor

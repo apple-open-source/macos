@@ -69,7 +69,7 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 	CFNumberRef			sessionNum;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace("%s : %5d : %s : %@",
+	SC_trace("%s : %5u : %s : %@",
 		 internal ? "*watch-" : "watch- ",
 		 storePrivate->server,
 		 isRegex  ? "pattern" : "key",

@@ -301,6 +301,29 @@ pdfjs-editor-ink-button-label = Tekenen
 pdfjs-editor-stamp-button =
     .title = Afbeeldingen toevoegen of bewerken
 pdfjs-editor-stamp-button-label = Afbeeldingen toevoegen of bewerken
+pdfjs-editor-highlight-button =
+    .title = Markeren
+pdfjs-editor-highlight-button-label = Markeren
+pdfjs-highlight-floating-button =
+    .title = Markeren
+pdfjs-highlight-floating-button1 =
+    .title = Markeren
+    .aria-label = Markeren
+pdfjs-highlight-floating-button-label = Markeren
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Tekening verwijderen
+pdfjs-editor-remove-freetext-button =
+    .title = Tekst verwijderen
+pdfjs-editor-remove-stamp-button =
+    .title = Afbeelding verwijderen
+pdfjs-editor-remove-highlight-button =
+    .title = Markering verwijderen
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Kleur
 pdfjs-editor-free-text-size-input = Grootte
@@ -310,6 +333,10 @@ pdfjs-editor-ink-opacity-input = Opaciteit
 pdfjs-editor-stamp-add-image-button =
     .title = Afbeelding toevoegen
 pdfjs-editor-stamp-add-image-button-label = Afbeelding toevoegen
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Dikte
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Dikte wijzigen bij accentuering van andere items dan tekst
 pdfjs-free-text =
     .aria-label = Tekstbewerker
 pdfjs-free-text-default-content = Begin met typen…
@@ -347,3 +374,29 @@ pdfjs-editor-resizer-label-bottom-right = Rechterbenedenhoek – formaat wijzige
 pdfjs-editor-resizer-label-bottom-middle = Midden onder – formaat wijzigen
 pdfjs-editor-resizer-label-bottom-left = Linkerbenedenhoek – formaat wijzigen
 pdfjs-editor-resizer-label-middle-left = Links midden – formaat wijzigen
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Markeringskleur
+pdfjs-editor-colorpicker-button =
+    .title = Kleur wijzigen
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Kleurkeuzes
+pdfjs-editor-colorpicker-yellow =
+    .title = Geel
+pdfjs-editor-colorpicker-green =
+    .title = Groen
+pdfjs-editor-colorpicker-blue =
+    .title = Blauw
+pdfjs-editor-colorpicker-pink =
+    .title = Roze
+pdfjs-editor-colorpicker-red =
+    .title = Rood
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Alles tonen
+pdfjs-editor-highlight-show-all-button =
+    .title = Alles tonen

@@ -192,6 +192,12 @@ _citrus_mapper_646_mapper_init(struct _citrus_mapper_area *__restrict ma __unuse
 		return (ret);
 	}
 
+#ifdef __APPLE__
+	if (m6->m6_forward)
+		cm->cm_dir = MDIR_UCS_DST;
+	else
+		cm->cm_dir = MDIR_UCS_SRC;
+#endif
 	cm->cm_closure = m6;
 	mt->mt_src_max = mt->mt_dst_max = 1;	/* 1:1 converter */
 	mt->mt_state_size = 0;			/* stateless */
@@ -212,14 +218,17 @@ static int
 /*ARGSUSED*/
 #ifdef __APPLE__
 _citrus_mapper_646_mapper_convert(struct _citrus_mapper * __restrict cm,
-    _index_t * __restrict dst, _index_t * __restrict src, int *cnt,
-     void * __restrict ps __unused)
+    struct _citrus_mapper_convert_ctx * __restrict ctx)
 #else
 _citrus_mapper_646_mapper_convert(struct _citrus_mapper * __restrict cm,
     _index_t * __restrict dst, _index_t src, void * __restrict ps __unused)
 #endif
 {
 	struct _citrus_mapper_646 *m6;
+#ifdef __APPLE__
+	_index_t *dst = ctx->dst, *src = ctx->src;
+	int *cnt = ctx->cnt;
+#endif
 
 	m6 = cm->cm_closure;
 #ifdef __APPLE__
@@ -228,13 +237,15 @@ _citrus_mapper_646_mapper_convert(struct _citrus_mapper * __restrict cm,
 		for (int i = 0; i < *cnt; i++) {
 			if (src[i] >= 0x80) {
 				*cnt = i;
-				return (_MAPPER_CONVERT_ILSEQ);
+				return (_MAPPER_CONVERT_COMBINE(cm->cm_dir,
+				    _MAPPER_CONVERT_ILSEQ));
 			}
 #define FORWARD(x)					\
 if (src[i] == (x))	{				\
 	if (m6->m6_map[INDEX_##x]==INVALID) {		\
 		*cnt = i;				\
-		return (_MAPPER_CONVERT_NONIDENTICAL);	\
+		return (_MAPPER_CONVERT_COMBINE(cm->cm_dir,	\
+		    _MAPPER_CONVERT_NONIDENTICAL));	\
 	}						\
 	dst[i] = m6->m6_map[INDEX_##x];			\
 	continue;					\
@@ -251,13 +262,14 @@ if (m6->m6_map[INDEX_##x] != INVALID && src[i] == m6->m6_map[INDEX_##x]) {	\
 	continue;							\
 } else if (src[i] == (x)) {						\
 	*cnt = i;							\
-	return (_MAPPER_CONVERT_ILSEQ);					\
+	return (_MAPPER_CONVERT_COMBINE(cm->cm_dir, _MAPPER_CONVERT_ILSEQ));	\
 }									\
 else
 			SPECIALS(BACKWARD);
 			if (src[i] >= 0x80) {
 				*cnt = i;
-				return (_MAPPER_CONVERT_NONIDENTICAL);
+				return (_MAPPER_CONVERT_COMBINE(cm->cm_dir,
+				    _MAPPER_CONVERT_NONIDENTICAL));
 			}
 			dst[i] = src[i];
 		}

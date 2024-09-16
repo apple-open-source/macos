@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,6 +80,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#define __SC_CFRELEASE_NEEDED	1
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -87,9 +88,7 @@
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
 #include "plugin_shared.h"
-#if TARGET_OS_OSX
 #include "InterfaceNamerControlPrefs.h"
-#endif	// TARGET_OS_OSX
 
 #ifdef	TEST_INTERFACE_ASSIGNMENT
 #undef	INTERFACES_DEFAULT_CONFIG
@@ -105,10 +104,9 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IONetworkStack.h>
 #include <IOKit/usb/USB.h>
-#if TARGET_OS_OSX
 #define IFNAMER_SUBSYSTEM	"com.apple.SystemConfiguration.InterfaceNamer"
 #include <os/variant_private.h>
-#endif /* TARGET_OS_OSX */
+#include "NetworkInterfaceUtil.h"
 
 #define MY_PLUGIN_NAME			"InterfaceNamer"
 #define	MY_PLUGIN_ID			CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
@@ -123,14 +121,14 @@
  * S_connect
  *   "IONetworkStack" connect object used to "name" an interface.
  */
-static io_connect_t		S_connect		= MACH_PORT_NULL;
+static io_connect_t		S_connect;
 
 /*
  * S_dblist
  *   An array of CFDictionary's representing the interfaces
  *   that have been identified and [need to be] named.
  */
-static CFMutableArrayRef	S_dblist		= NULL;
+static CFMutableArrayRef	S_dblist;
 
 /*
  * S_iflist
@@ -138,14 +136,14 @@ static CFMutableArrayRef	S_dblist		= NULL;
  *   interfaces that have been identified and likely require
  *   naming.
  */
-static CFMutableArrayRef	S_iflist		= NULL;
+static CFMutableArrayRef	S_iflist;
 
 /*
  * S_iter
  *   IOServiceAddMatchingNotification object used to watch for
  *   new network interfaces.
  */
-static io_iterator_t		S_iter			= MACH_PORT_NULL;
+static io_iterator_t		S_iter;
 
 #if TARGET_OS_OSX
 /*
@@ -154,7 +152,7 @@ static io_iterator_t		S_iter			= MACH_PORT_NULL;
  *   interfaces that have been connected to the system while
  *   locked.
  */
-static CFMutableArrayRef	S_locked		= NULL;
+static CFMutableArrayRef	S_locked;
 #endif	// TARGET_OS_OSX
 
 /*
@@ -162,7 +160,7 @@ static CFMutableArrayRef	S_locked		= NULL;
  *   notification object for receiving IOKit notifications of
  *   new devices or state changes.
  */
-static IONotificationPortRef	S_notify		= NULL;
+static IONotificationPortRef	S_notify;
 
 /*
  * S_preconfigured
@@ -170,27 +168,27 @@ static IONotificationPortRef	S_notify		= NULL;
  *   pre-configured interfaces that have been connected to the
  *   system.
  */
-static CFMutableArrayRef	S_preconfigured		= NULL;
+static CFMutableArrayRef	S_preconfigured;
 
 /* S_prev_active_list
  *   An array of CFDictionary's representing the previously
  *   named interfaces.
  */
-static CFMutableArrayRef	S_prev_active_list	= NULL;
+static CFMutableArrayRef	S_prev_active_list;
 
 /*
  * S_quiet
  *   IOServiceAddInterestNotification object used to watch for
  *   IOKit matching to quiesce.
  */
-static io_object_t		S_quiet			= MACH_PORT_NULL;
+static io_object_t		S_quiet;
 
 /*
  * S_stack
  *   IOServiceAddMatchingNotification object used to watch for
  *   the availability of the "IONetworkStack" object.
  */
-static io_iterator_t		S_stack			= MACH_PORT_NULL;
+static io_iterator_t		S_stack;
 
 /*
  * S_state
@@ -199,7 +197,7 @@ static io_iterator_t		S_stack			= MACH_PORT_NULL;
  *   value is a CFNumber noting how long (in milliseconds)
  *   it took for the interface to be recognized/named.
  */
-static CFMutableDictionaryRef	S_state			= NULL;
+static CFMutableDictionaryRef	S_state;
 
 #if	TARGET_OS_IPHONE
 /*
@@ -207,21 +205,35 @@ static CFMutableDictionaryRef	S_state			= NULL;
  *
  * Note: this global must only be updated on trustRequired_queue()
  */
-static Boolean			S_trustedHostAttached	= FALSE;
+static Boolean			S_trustedHostAttached;
 
 /*
  *
  * Note: this global must only be updated on trustRequired_queue()
  */
-static CFIndex			S_trustedHostCount	= 0;
+static CFIndex			S_trustedHostCount;
 
 /*
  * S_trustRequired
  *   An array of CFData(WatchedInfo) objects representing those
  *   interfaces that require [lockdownd] trust.
  */
-static CFMutableArrayRef	S_trustRequired		= NULL;
+static CFMutableArrayRef	S_trustRequired;
 #endif	// TARGET_OS_IPHONE
+
+/*
+ * S_allow_new_interfaces
+ * - override default behavior to allow new interfaces to be named even
+ *   when the console is locked
+ */
+static Boolean			S_allow_new_interfaces;
+
+/*
+ * S_configure_new_interfaces
+ * - override default behavior to configure interfaces regardless of
+ *   OS variant to enable testing
+ */
+static Boolean			S_configure_new_interfaces;
 
 /*
  * S_timer
@@ -235,7 +247,7 @@ static CFMutableArrayRef	S_trustRequired		= NULL;
  *   time to wait for the IOKit to quiesce (after the IONetworkStack is
  *   has appeared.
  */
-static CFRunLoopTimerRef	S_timer			= NULL;
+static CFRunLoopTimerRef	S_timer;
 static double			S_stack_timeout		= WAIT_STACK_TIMEOUT_DEFAULT;
 static double			S_quiet_timeout		= WAIT_QUIET_TIMEOUT_DEFAULT;
 
@@ -246,10 +258,10 @@ static double			S_quiet_timeout		= WAIT_QUIET_TIMEOUT_DEFAULT;
  *   S_bridges : most recently actived Bridge configuration
  *   S_vlans   : most recently actived VLAN configuration
  */
-static SCPreferencesRef		S_prefs			= NULL;
-static CFArrayRef		S_bonds			= NULL;
-static CFArrayRef		S_bridges		= NULL;
-static CFArrayRef		S_vlans			= NULL;
+static SCPreferencesRef		S_prefs;
+static CFArrayRef		S_bonds;
+static CFArrayRef		S_bridges;
+static CFArrayRef		S_vlans;
 
 static inline void
 my_IOObjectRelease(io_object_t *obj_p)
@@ -264,18 +276,6 @@ my_IOObjectRelease(io_object_t *obj_p)
 	IOObjectRelease(obj);
 	*obj_p = IO_OBJECT_NULL;
     }
-}
-
-static inline void
-my_CFRelease(void * t)
-{
-    void * * obj = (void * *)t;
-
-    if (obj && *obj) {
-	CFRelease(*obj);
-	*obj = NULL;
-    }
-    return;
 }
 
 /*
@@ -304,8 +304,24 @@ addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
     now = CFAbsoluteTimeGetCurrent();
     val = CFNumberCreate(NULL, kCFNumberDoubleType, &now);
     CFDictionaryAddValue(dict, key, val);
+    SC_log(LOG_NOTICE, "%s: %@: %@", __func__, key, val);
     CFRelease(val);
     return;
+}
+
+static inline dispatch_queue_t
+configure_new_interfaces_queue(void)
+{
+    static dispatch_once_t	once;
+    static dispatch_queue_t	q;
+
+    dispatch_once(&once, ^{
+	q = dispatch_queue_create(MY_PLUGIN_NAME
+				  "Configure New Interfaces queue",
+				  NULL);
+    });
+
+    return q;
 }
 
 static CFComparisonResult
@@ -1011,19 +1027,9 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
     CFStringRef		match_keys[2];
     CFTypeRef		match_vals[2];
     CFDictionaryRef	matching;
-
-
-
     io_registry_entry_t	entry		= MACH_PORT_NULL;
     io_iterator_t	iterator	= MACH_PORT_NULL;
     kern_return_t	kr;
-    mach_port_t		masterPort	= MACH_PORT_NULL;
-
-    kr = IOMainPort(bootstrap_port, &masterPort);
-    if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
-	goto error;
-    }
 
     // look for kIONetworkInterface with matching prefix and unit
     match_keys[0] = CFSTR(kIOInterfaceNamePrefix);
@@ -1050,7 +1056,7 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
     CFRelease(match_dict);
 
     // note: the "matching" dictionary will be consumed by the following
-    kr = IOServiceGetMatchingServices(masterPort, matching, &iterator);
+    kr = IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator);
     if ((kr != kIOReturnSuccess) || (iterator == MACH_PORT_NULL)) {
 	// if no interface
 	goto error;
@@ -1065,9 +1071,6 @@ interfaceExists(CFStringRef prefix, CFNumberRef unit)
     found = TRUE;
 
 error:
-    if (masterPort != MACH_PORT_NULL) {
-	mach_port_deallocate(mach_task_self(), masterPort);
-    }
     if (entry != MACH_PORT_NULL) {
 	IOObjectRelease(entry);
     }
@@ -1442,19 +1445,12 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
     SCNetworkInterfaceRef	interface	= NULL;
     io_iterator_t		iterator	= MACH_PORT_NULL;
     kern_return_t		kr;
-    mach_port_t			masterPort	= MACH_PORT_NULL;
 
-    kr = IOMainPort(bootstrap_port, &masterPort);
-    if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
-	goto error;
-    }
-
-    kr = IOServiceGetMatchingServices(masterPort,
+    kr = IOServiceGetMatchingServices(kIOMainPortDefault,
 				      IORegistryEntryIDMatching(entryID),
 				      &iterator);
     if ((kr != KERN_SUCCESS) || (iterator == MACH_PORT_NULL)) {
-	SC_log(LOG_NOTICE, "IOServiceGetMatchingServices(0x%llx) returned 0x%x/%d",
+	SC_log(LOG_NOTICE, "IOServiceGetMatchingServices(0x%llx) returned %d/%u",
 	       entryID,
 	       kr,
 	       iterator);
@@ -1470,9 +1466,6 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
     interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(entry);
 
  error:
-    if (masterPort != MACH_PORT_NULL) {
-	mach_port_deallocate(mach_task_self(), masterPort);
-    }
     if (entry != MACH_PORT_NULL) {
 	IOObjectRelease(entry);
     }
@@ -1557,11 +1550,12 @@ builtinAvailable(SCNetworkInterfaceRef	interface,	// new interface
     return TRUE;
 }
 
-static int
+static IFUnit
 builtinCount(CFArrayRef if_list, CFIndex last, CFStringRef if_prefix)
 {
     CFIndex	i;
-    int		n	= 0;
+    IFUnit	n	= 0;
+    IFUnit	reserved;
 
     for (i = 0; i < last; i++) {
 	SCNetworkInterfaceRef	builtin_if;
@@ -1575,7 +1569,11 @@ builtinCount(CFArrayRef if_list, CFIndex last, CFStringRef if_prefix)
 	    }
 	}
     }
-
+    reserved = NetworkInterfacePrefixGetReservedUnits(if_prefix);
+    SC_log(LOG_NOTICE, "%@: has %u reserved units", if_prefix, reserved);
+    if (n < reserved) {
+	n = reserved;
+    }
     return n;
 }
 
@@ -1824,7 +1822,7 @@ watcherCreate(SCNetworkInterfaceRef interface, InterfaceUpdateCallBack callback)
 					  &watchedInfo->notification);	// notification
     if (kr != KERN_SUCCESS) {
 	SC_log(LOG_ERR,
-	       "IOServiceAddInterestNotification() failed, kr =  0x%x",
+	       "IOServiceAddInterestNotification() failed, kr =  %d",
 	       kr);
 	watcherRelease(watched);
 	CFRelease(watched);
@@ -1840,7 +1838,7 @@ watcherRelease(CFDataRef watched)
     WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
     my_IOObjectRelease(&watchedInfo->notification);
     my_IOObjectRelease(&watchedInfo->interface_node);
-    my_CFRelease(&watchedInfo->interface);
+    __SC_CFRELEASE(watchedInfo->interface);
 
     return;
 }
@@ -1910,20 +1908,10 @@ shareLocked(void)
     return;
 }
 
-static boolean_t
-blockNewInterfaces(void)
+static Boolean
+allowNewInterfaces(void)
 {
-    static boolean_t	    allow	= TRUE;
-    static dispatch_once_t  once;
-
-    dispatch_once(&once, ^{
-	if (os_variant_is_darwinos(IFNAMER_SUBSYSTEM)) {
-	    return;
-	}
-	allow = InterfaceNamerControlPrefsAllowNewInterfaces();
-    });
-
-    return !allow;
+    return (S_allow_new_interfaces || os_variant_is_darwinos(IFNAMER_SUBSYSTEM));
 }
 
 static boolean_t
@@ -2757,7 +2745,7 @@ nameAndCopyInterfaceOnce(SCNetworkInterfaceRef interface,
     new_interface = copyNamedInterfaceForIORegistryEntryID(entryID);
     if (new_interface != NULL) {
 	// interface named successfully
-	SC_log(LOG_INFO, "%s interface named\n"
+	SC_log(LOG_NOTICE, "%s interface named\n"
 	       "  path = %@\n"
 	       "  unit = %@",
 	       is_known ? "Known" : "New",
@@ -2765,7 +2753,7 @@ nameAndCopyInterfaceOnce(SCNetworkInterfaceRef interface,
 	       unit);
     } else {
 	SC_log(LOG_NOTICE,
-	       "failed to name %s interface, kr=0x%x\n"
+	       "failed to name %s interface, kr=%d\n"
 	       "  path = %@\n"
 	       "  id   = 0x%llx\n"
 	       "  unit = %@",
@@ -2888,8 +2876,8 @@ typedef struct {
 static void
 invalidateNamingRequest(NamingRequestRef request)
 {
-    my_CFRelease(&request->interface);
-    my_CFRelease(&request->unit);
+    __SC_CFRELEASE(request->interface);
+    __SC_CFRELEASE(request->unit);
     my_IOObjectRelease(&request->notification);
     my_IOObjectRelease(&request->node);
 }
@@ -2937,7 +2925,7 @@ disableNamingRequestCallBacks(void)
 	return;
     }
     CFRunLoopTimerInvalidate(S_deferred_timer);
-    my_CFRelease(&S_deferred_timer);
+    __SC_CFRELEASE(S_deferred_timer);
     SC_log(LOG_NOTICE, "%s: timer cancelled", __func__);
 }
 
@@ -2948,7 +2936,7 @@ removeNamingRequestAtIndex(CFIndex where)
     assert(where < CFArrayGetCount(S_deferred_list));
     CFArrayRemoveValueAtIndex(S_deferred_list, where);
     if (CFArrayGetCount(S_deferred_list) == 0) {
-	my_CFRelease(&S_deferred_list);
+	__SC_CFRELEASE(S_deferred_list);
 	disableNamingRequestCallBacks();
     }
 }
@@ -3065,7 +3053,7 @@ addNamingRequest(SCNetworkInterfaceRef interface, CFNumberRef unit)
 					  &notification);
     if (kr != KERN_SUCCESS) {
 	SC_log(LOG_ERR,
-	       "%s: IOServiceAddInterestNotification() failed, kr =  0x%x",
+	       "%s: IOServiceAddInterestNotification() failed, kr =  %d",
 	       __func__, kr);
 	CFRelease(data);
 	my_IOObjectRelease(&node);
@@ -3128,6 +3116,8 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
     CFStringRef			path;
     CFStringRef			prefix;
     CFNumberRef			unit = NULL;
+    IFUnitRange			unit_range;
+    Boolean			unit_range_valid = FALSE;
     CFIndex			where;
 
     path = _SCNetworkInterfaceGetIOPath(interface);
@@ -3143,7 +3133,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	int		zero_val = 0;
 
 #if TARGET_OS_OSX
-	if (blockNewInterfaces() &&
+	if (!allowNewInterfaces() &&
 	    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
 	    !_SCNetworkInterfaceIsUserEthernet(interface) &&
 	    isConsoleLocked()) {
@@ -3163,10 +3153,22 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	    SC_log(LOG_INFO, "Interface assigned unit %@ (from database)", unit);
 	}
 
-	if ((dbdict == NULL) && !isQuiet()) {
-	    // if new interface, wait until quiet before naming
-	    addTimestamp(S_state, path);
-	    goto done;
+	if (dbdict == NULL) {
+	    /* check whether the interface has a reserved unit */
+	    if (NetworkInterfaceGetReservedRange(interface, &unit_range)) {
+		/* interface has reserved unit */
+		unit_range_valid = TRUE;
+		is_builtin = TRUE;
+		SC_log(LOG_NOTICE, "%s: %@ has reserved unit %u",
+		       __func__, interface, unit_range.start);
+	    }
+	    else if (!isQuiet()) {
+		SC_log(LOG_NOTICE, "%s: waiting for quiet %@",
+		       __func__, interface);
+		// if new interface, wait until quiet before naming
+		addTimestamp(S_state, path);
+		goto done;
+	    }
 	}
 
 	if (dbdict == NULL
@@ -3187,7 +3189,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	if ((unit == NULL) &&
 	    !is_builtin &&
 	    (dbdict != NULL) &&
-	    blockNewInterfaces() &&
+	    !allowNewInterfaces() &&
 	    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
 	    isConsoleLocked()) {
 	    // if new (but matching) interface and console locked, ignore
@@ -3212,11 +3214,16 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	    }
 	}
 	if (dbdict == NULL) {
-	    int 		next_unit	= 0;
+	    IFUnit 		next_unit	= 0;
 
 	    if (is_builtin) {
 		// built-in interface, try to use the reserved slots
-		next_unit = builtinCount(if_list, i, prefix);
+		if (unit_range_valid) {
+		    next_unit = unit_range.start;
+		}
+		else {
+		    next_unit = builtinCount(if_list, i, prefix);
+		}
 
 		// But, before claiming a reserved slot we check to see if the
 		// slot had previously been used.  If so, and if the slot had been
@@ -3229,13 +3236,13 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 		if (!builtinAvailable(interface, unit)) {
 		    // if [built-in] unit not available
 		    SC_log(LOG_INFO, "Interface not assigned [built-in] unit %@", unit);
-		    my_CFRelease(&unit);
+		    __SC_CFRELEASE(unit);
 		}
 	    }
 #if TARGET_OS_OSX
 	    if (!is_builtin &&
 		(unit == NULL) &&
-		blockNewInterfaces() &&
+		!allowNewInterfaces() &&
 		!_SCNetworkInterfaceIsApplePreconfigured(interface) &&
 		isConsoleLocked()) {
 		// if new interface and console locked, ignore
@@ -3281,7 +3288,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
     }
 
  done:
-    my_CFRelease(&unit);
+    __SC_CFRELEASE(unit);
     return (new_interface);
 }
 
@@ -3353,84 +3360,138 @@ nameInterfaces(CFMutableArrayRef if_list)
 }
 
 
-#if TARGET_OS_OSX
-
 static void
-updateNetworkConfiguration(CFArrayRef if_list)
+updateNetworkConfigurationAsync(CFArrayRef if_list)
 {
     Boolean		do_commit	= FALSE;
     CFIndex		i;
+    Boolean		lock_acquired	= FALSE;
     CFIndex		n;
     SCPreferencesRef	prefs		= NULL;
     SCNetworkSetRef	set		= NULL;
 
-    prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":updateNetworkConfiguration"), NULL);
+#define UPDATE_NAME		MY_PLUGIN_NAME ":updateNetworkConfiguration"
+    prefs = SCPreferencesCreate(NULL, CFSTR(UPDATE_NAME), NULL);
     if (prefs == NULL) {
-	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
+	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s",
+	       SCErrorString(SCError()));
 	return;
     }
-
+    SC_log(LOG_NOTICE, "%s: evaluating %@", __func__, if_list);
+#define __LOCK_RETRY	10
+    for (int i = 0; i < __LOCK_RETRY; i++) {
+	if (SCPreferencesLock(prefs, TRUE)) {
+	    lock_acquired = TRUE;
+	    break;
+	}
+	if (SCError() == kSCStatusStale) {
+	    /* synchronize and try again */
+	    SC_log(LOG_NOTICE,
+		   "%s: kSCStatusStale, calling Synchronize (try %d of %d)",
+		   __func__, i + 1, __LOCK_RETRY);
+	    SCPreferencesSynchronize(prefs);
+	}
+	else {
+	    SC_log(LOG_NOTICE, "%s: failed to get lock, %s",
+		   __func__, SCErrorString(SCError()));
+	    break;
+	}
+    }
+    if (!lock_acquired) {
+	SC_log(LOG_NOTICE,
+	       "%s: can't acquire lock, giving up", __func__);
+	goto done;
+    }
     set = SCNetworkSetCopyCurrent(prefs);
     if (set == NULL) {
-	SC_log(LOG_INFO, "No current set, adding default");
+	SC_log(LOG_NOTICE, "No current set, adding default");
 	set = _SCNetworkSetCreateDefault(prefs);
 	if (set == NULL) {
-	    SC_log(LOG_NOTICE, "_SCNetworkSetCreateDefault() failed: %s", SCErrorString(SCError()));
+	    SC_log(LOG_NOTICE,
+		   "_SCNetworkSetCreateDefault() failed: %s",
+		   SCErrorString(SCError()));
 	    goto done;
 	}
     }
-
     n = (if_list != NULL) ? CFArrayGetCount(if_list) : 0;
     for (i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
 	if (_SCNetworkInterfaceIsHiddenInterface(interface)) {
-	    SC_log(LOG_NOTICE, "InterfaceNamer %@: not configuring hidden interface",
+	    SC_log(LOG_NOTICE,
+		   "%@: not configuring hidden interface",
 		   SCNetworkInterfaceGetBSDName(interface));
 	}
 	else if (!SCNetworkInterfaceGetAutoConfigure(interface)) {
-	    SC_log(LOG_NOTICE, "InterfaceNamer %@: auto-configure disabled on interface",
+	    SC_log(LOG_NOTICE,
+		   "%@: auto-configure disabled on interface",
 		   SCNetworkInterfaceGetBSDName(interface));
 	}
-	else if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
-	    SC_log(LOG_INFO, "added default configuration for %@",
+	else if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set,
+								    interface)) {
+	    SC_log(LOG_NOTICE, "added default configuration for %@",
 		   SCNetworkInterfaceGetBSDName(interface));
 	    do_commit = TRUE;
 	}
+	else {
+	    SC_log(LOG_NOTICE,
+		   "did not configure %@ (it's likely already configured)",
+		   SCNetworkInterfaceGetBSDName(interface));
+	}
     }
-
     if (do_commit) {
 	Boolean	ok;
 
 	ok = SCPreferencesCommitChanges(prefs);
 	if (!ok) {
-	    SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s", SCErrorString(SCError()));
+	    SC_log(LOG_NOTICE,
+		   "SCPreferencesCommitChanges() failed: %s",
+		   SCErrorString(SCError()));
 	    goto done;
 	}
-
 	ok = SCPreferencesApplyChanges(prefs);
 	if (!ok) {
-	    SC_log(LOG_NOTICE, "SCPreferencesApplyChanges() failed: %s", SCErrorString(SCError()));
+	    SC_log(LOG_NOTICE,
+		   "SCPreferencesApplyChanges() failed: %s",
+		   SCErrorString(SCError()));
 	    goto done;
 	}
+	SC_log(LOG_NOTICE, "%s: configuration saved", __func__);
     }
 
-  done :
-
+  done:
+    if (lock_acquired) {
+	SCPreferencesUnlock(prefs);
+    }
     if (set != NULL) {
 	CFRelease(set);
 	set = NULL;
     }
-
     if (prefs != NULL) {
 	CFRelease(prefs);
 	prefs = NULL;
     }
+    return;
+}
+
+static void
+updateNetworkConfiguration(CFArrayRef if_list)
+{
+    dispatch_block_t	b;
+    dispatch_queue_t	queue = configure_new_interfaces_queue();
+
+    if (if_list != NULL) {
+	CFRetain(if_list);
+	b = ^{
+	    updateNetworkConfigurationAsync(if_list);
+	    CFRelease(if_list);
+	};
+	dispatch_async(queue, b);
+    }
 
     return;
 }
-#endif	// TARGET_OS_OSX
 
 static void
 upgradeNetworkConfigurationOnce(void)
@@ -3635,6 +3696,8 @@ reportInactiveInterfaces(void)
 static void
 updateInterfaces(void)
 {
+    bool	update_configuration;
+
     if (S_connect == MACH_PORT_NULL) {
 	// if we don't have the "IONetworkStack" connect object
 	return;
@@ -3678,20 +3741,28 @@ updateInterfaces(void)
 	// update the VLAN/BOND configuration
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
 
-#if TARGET_OS_OSX
+	// unblock threads blocked in `__wait_for_IOKit_to_quiesce()`
+	updateStore();
+
 	/*
-	 * On a basesystem or darwinos variant of the OS, the per-user session
-	 * UserEventAgent daemon that would normally load "SCMonitor" is not
-	 * running. Configure new interfaces as soon as they appear here.
+	 * Configure new interfaces as soon as they appear if:
+	 * 1) on macOS, we're running a basesystem or darwinOS variant.
+	 *    In those cases, SCMonitor (UserEventAgent plug-in) does not run
+	 *    to configure interfaces post "first boot".
+	 * 2) on non-macOS, we're running a darwinOS variant. On non-macOS,
+	 *    we normally don't configure interfaces post "first boot".
+	 * 3) `scutil --configure-new-interfaces 1` has been enabled
 	 */
-	if (os_variant_is_basesystem(IFNAMER_SUBSYSTEM)
-	    || os_variant_is_darwinos(IFNAMER_SUBSYSTEM)) {
-	    updateNetworkConfiguration(S_iflist);
-	}
+#if TARGET_OS_OSX
+	update_configuration = os_variant_is_basesystem(IFNAMER_SUBSYSTEM)
+	    || os_variant_is_darwinos(IFNAMER_SUBSYSTEM);
+#else /* TARGET_OS_OSX */
+	update_configuration = os_variant_is_darwinos(IFNAMER_SUBSYSTEM);
 #endif /* TARGET_OS_OSX */
 
-	// tell everyone that we've finished (at least for now)
-	updateStore();
+	if (update_configuration || S_configure_new_interfaces) {
+	    updateNetworkConfiguration(S_iflist);
+	}
 
 	// log those interfaces which are no longer present in
 	// the HW config (or have yet to show up).
@@ -3771,7 +3842,7 @@ stackCallback(void *refcon, io_iterator_t iter)
 
     kr = IOServiceOpen(stack, mach_task_self(), 0, &S_connect);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOServiceOpen returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOServiceOpen returned %d", kr);
 	goto error;
     }
 
@@ -3873,7 +3944,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 
 	kr = IORegistryEntryGetName(obj, name);
 	if (kr != kIOReturnSuccess) {
-	    SC_log(LOG_NOTICE, "IORegistryEntryGetName() returned 0x%x", kr);
+	    SC_log(LOG_NOTICE, "IORegistryEntryGetName() returned %d", kr);
 	    goto next;
 	}
 
@@ -3889,7 +3960,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 	    case kIOReturnNotFound :
 		break;
 	    default :
-		SC_log(LOG_NOTICE, "IORegistryEntryGetLocationInPlane() returned 0x%x", kr);
+		SC_log(LOG_NOTICE, "IORegistryEntryGetLocationInPlane() returned %d", kr);
 		CFRelease(str);
 		goto next;
 	}
@@ -3899,7 +3970,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 
 	kr = IOServiceGetBusyStateAndTime(obj, &state, &busy_state, &accumulated_busy_time);
 	if (kr != kIOReturnSuccess) {
-	    SC_log(LOG_NOTICE, "IOServiceGetBusyStateAndTime() returned 0x%x", kr);
+	    SC_log(LOG_NOTICE, "IOServiceGetBusyStateAndTime() returned %d", kr);
 	    goto next;
 	}
 
@@ -3916,7 +3987,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 	    }
 
 	    path = CFStringCreateByCombiningStrings(NULL, newNodes, CFSTR("/"));
-	    SC_log(LOG_ERR, "  %@ [%s%s%s%d, %lld ms]",
+	    SC_log(LOG_ERR, "  %@ [%s%s%s%u, %llu ms]",
 		   path,
 		   (state & kIOServiceRegisteredState) ? "" : "!registered, ",
 		   (state & kIOServiceMatchedState)    ? "" : "!matched, ",
@@ -3928,7 +3999,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 
 	kr = IORegistryIteratorEnterEntry(iterator);
 	if (kr != kIOReturnSuccess) {
-	    SC_log(LOG_NOTICE, "IORegistryIteratorEnterEntry() returned 0x%x", kr);
+	    SC_log(LOG_NOTICE, "IORegistryIteratorEnterEntry() returned %d", kr);
 	    goto next;
 	}
 
@@ -3936,7 +4007,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 
 	kr = IORegistryIteratorExitEntry(iterator);
 	if (kr != kIOReturnSuccess) {
-	    SC_log(LOG_NOTICE, "IORegistryIteratorExitEntry() returned 0x%x", kr);
+	    SC_log(LOG_NOTICE, "IORegistryIteratorExitEntry() returned %d", kr);
 	}
 
       next :
@@ -3960,7 +4031,7 @@ captureBusy(void)
 				  0,
 				  &iterator);
     if (kr != kIOReturnSuccess) {
-	SC_log(LOG_NOTICE, "IORegistryCreateIterator() returned 0x%x", kr);
+	SC_log(LOG_NOTICE, "IORegistryCreateIterator() returned %d", kr);
 	return;
     }
 
@@ -4000,7 +4071,6 @@ setup_IOKit(CFBundleRef bundle)
 #pragma unused(bundle)
     uint32_t		busy;
     kern_return_t	kr;
-    mach_port_t		masterPort	= MACH_PORT_NULL;
     Boolean		ok		= FALSE;
     io_object_t		root		= MACH_PORT_NULL;
 
@@ -4019,20 +4089,14 @@ setup_IOKit(CFBundleRef bundle)
 
     // Creates and returns a notification object for receiving IOKit
     // notifications of new devices or state changes.
-    kr = IOMainPort(bootstrap_port, &masterPort);
-    if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOMainPort returned 0x%x", kr);
-	goto done;
-    }
-
-    S_notify = IONotificationPortCreate(masterPort);
+    S_notify = IONotificationPortCreate(kIOMainPortDefault);
     if (S_notify == NULL) {
 	SC_log(LOG_ERR, "IONotificationPortCreate failed");
 	goto done;
     }
 
     // watch IOKit matching activity
-    root = IORegistryEntryFromPath(masterPort, kIOServicePlane ":/");
+    root = IORegistryEntryFromPath(kIOMainPortDefault, kIOServicePlane ":/");
     if (root == MACH_PORT_NULL) {
 	SC_log(LOG_ERR, "IORegistryEntryFromPath failed");
 	goto done;
@@ -4045,13 +4109,13 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_quiet);		// notification
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOServiceAddInterestNotification returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOServiceAddInterestNotification returned %d", kr);
 	goto done;
     }
 
     kr = IOServiceGetBusyState(root, &busy);
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOServiceGetBusyState returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOServiceGetBusyState returned %d", kr);
 	goto done;
     }
 
@@ -4078,7 +4142,7 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_stack);		// notification
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned %d", kr);
 	goto done;
     }
 
@@ -4094,7 +4158,7 @@ setup_IOKit(CFBundleRef bundle)
 					  (void *)S_notify,	// refCon
 					  &S_iter);		// notification
     if (kr != KERN_SUCCESS) {
-	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned 0x%x", kr);
+	SC_log(LOG_ERR, "IOServiceAddMatchingNotification returned %d", kr);
 	goto done;
     }
 
@@ -4146,10 +4210,6 @@ setup_IOKit(CFBundleRef bundle)
     if (root != MACH_PORT_NULL) {
 	IOObjectRelease(root);
     }
-    if (masterPort != MACH_PORT_NULL) {
-	mach_port_deallocate(mach_task_self(), masterPort);
-    }
-
     return ok;
 }
 
@@ -4184,14 +4244,38 @@ setup_Virtual(CFBundleRef bundle)
     return TRUE;
 }
 
+static void
+controlPrefsChanged(_SCControlPrefsRef control)
+{
+#pragma unused(control)
+    Boolean	allow;
+    Boolean	configure;
+
+    allow = InterfaceNamerControlPrefsAllowNewInterfaces(control);
+    if (allow != S_allow_new_interfaces) {
+	S_allow_new_interfaces = allow;
+	SC_log(LOG_NOTICE, "Allow New Interfaces is %s",
+	       allow ? "enabled" : "disabled");
+    }
+    configure = InterfaceNamerControlPrefsConfigureNewInterfaces(control);
+    if (configure !=  S_configure_new_interfaces) {
+	S_configure_new_interfaces = configure;
+	SC_log(LOG_NOTICE, "Configure New Interfaces is %s",
+	       configure ? "enabled" : "disabled");
+    }
+}
+
 static void *
 exec_InterfaceNamer(void *arg)
 {
     CFBundleRef		bundle  = (CFBundleRef)arg;
     CFDictionaryRef	dict;
+    _SCControlPrefsRef	control;
 
     pthread_setname_np(MY_PLUGIN_NAME " thread");
-
+    control = InterfaceNamerControlPrefsInit(CFRunLoopGetCurrent(),
+					     controlPrefsChanged);
+    controlPrefsChanged(control);
     dict = CFBundleGetInfoDictionary(bundle);
     if (isA_CFDictionary(dict)) {
 	CFNumberRef	num;
@@ -4279,7 +4363,6 @@ load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
     pthread_t	    tid;
 
     CFRetain(bundle);	// released in exec_InterfaceNamer
-
     pthread_attr_init(&tattr);
     pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
     pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);

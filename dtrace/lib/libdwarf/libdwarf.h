@@ -685,6 +685,7 @@ typedef void  (*Dwarf_Handler)(Dwarf_Error /*error*/, Dwarf_Ptr /*errarg*/);
 #define DW_DLE_FRAME_REGISTER_UNREPRESENTABLE   201
 #define DW_DLE_NOT_REF_FORM                     202
 #define DW_DLE_FORM_SEC_OFFSET_LENGTH_BAD       203
+#define DW_DLE_DEBUG_STR_OFFSET_DUPLICATE       204
 
 
 
@@ -770,6 +771,8 @@ int dwarf_next_cu_header(Dwarf_Debug /*dbg*/,
     Dwarf_Half* 	/*address_size*/, 
     Dwarf_Unsigned*     /*next_cu_header_offset*/,
     Dwarf_Error* 	/*error*/);
+
+int dwarf_check_str_offset(Dwarf_Debug /*dbg*/);
 
 int dwarf_siblingof(Dwarf_Debug /*dbg*/, 
     Dwarf_Die 		/*die*/, 

@@ -112,6 +112,7 @@
 
 #ifdef  KERNEL
 
+#include <mach/vm_types_unsafe.h>
 #include <mach/vm_param.h>
 
 /*

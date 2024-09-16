@@ -113,17 +113,18 @@ bool Plan::tryRemoveContextAndCancelIfLast(VM& vm)
     return false;
 }
 
-void Plan::fail(String&& errorMessage)
+void Plan::fail(String&& errorMessage, Error error)
 {
     if (failed())
         return;
     ASSERT(errorMessage);
     dataLogLnIf(WasmPlanInternal::verbose, "failing with message: ", errorMessage);
     m_errorMessage = WTFMove(errorMessage);
+    m_error = error;
     complete();
 }
 
-Plan::~Plan() { }
+Plan::~Plan() = default;
 
 } } // namespace JSC::Wasm
 

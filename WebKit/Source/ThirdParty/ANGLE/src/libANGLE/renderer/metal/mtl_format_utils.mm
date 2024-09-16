@@ -161,6 +161,26 @@ bool Format::needConversion(angle::FormatID srcFormatId) const
     return srcFormatId != actualFormatId;
 }
 
+bool Format::isViewCompatible(const Format &srcFormat) const
+{
+    if (srcFormat.metalFormat == metalFormat)
+        return true;
+
+    // The pixel layout is considered different if the number of components differs,
+    if (srcFormat.caps.channels != caps.channels)
+        return false;
+
+    // ... or if their size or order is different from the components in the original pixel format.
+    if (srcFormat.caps.pixelBytes != caps.pixelBytes)
+        return false;
+
+    // This is overly conservative but reject compressed formats
+    if (srcFormat.caps.compressed || caps.compressed)
+        return false;
+
+    return true;
+}
+
 bool Format::isPVRTC() const
 {
     switch (metalFormat)
@@ -195,7 +215,7 @@ angle::Result FormatTable::initialize(const DisplayMtl *display)
         const auto formatId = static_cast<angle::FormatID>(i);
 
         mPixelFormatTable[i].init(display, formatId);
-        mPixelFormatTable[i].caps = &mNativePixelFormatCapsTable[mPixelFormatTable[i].metalFormat];
+        mPixelFormatTable[i].caps = mNativePixelFormatCapsTable[mPixelFormatTable[i].metalFormat];
 
         if (mPixelFormatTable[i].actualFormatId != mPixelFormatTable[i].intendedFormatId)
         {
@@ -208,7 +228,7 @@ angle::Result FormatTable::initialize(const DisplayMtl *display)
         mVertexFormatTables[1][i].init(formatId, true);
     }
 
-    // TODO(anglebug.com/5505): unmerged change from WebKit was here -
+    // TODO(anglebug.com/40096755): unmerged change from WebKit was here -
     // D24S8 fallback to D32_FLOAT_S8X24_UINT, since removed.
 
     return angle::Result::Continue;

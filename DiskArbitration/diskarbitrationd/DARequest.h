@@ -77,6 +77,7 @@ extern void           DARequestSetCallback( DARequestRef request, DACallbackRef 
 extern void           DARequestSetDissenter( DARequestRef request, DADissenterRef dissenter );
 extern void           DARequestSetLink( DARequestRef request, CFArrayRef link );
 extern void           DARequestSetState( DARequestRef request, DARequestState state, Boolean value );
+extern void           DARequestSetArgument2( DARequestRef request, CFTypeRef argument2);
 
 #ifdef __cplusplus
 }

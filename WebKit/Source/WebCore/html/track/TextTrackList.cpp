@@ -43,9 +43,7 @@ TextTrackList::TextTrackList(ScriptExecutionContext* context)
 {
 }
 
-TextTrackList::~TextTrackList()
-{
-}
+TextTrackList::~TextTrackList() = default;
 
 unsigned TextTrackList::length() const
 {
@@ -258,14 +256,9 @@ bool TextTrackList::contains(TrackBase& track) const
     return tracks->find(&track) != notFound;
 }
 
-EventTargetInterface TextTrackList::eventTargetInterface() const
+enum EventTargetInterfaceType TextTrackList::eventTargetInterface() const
 {
-    return TextTrackListEventTargetInterfaceType;
-}
-
-const char* TextTrackList::activeDOMObjectName() const
-{
-    return "TextTrackList";
+    return EventTargetInterfaceType::TextTrackList;
 }
 
 } // namespace WebCore

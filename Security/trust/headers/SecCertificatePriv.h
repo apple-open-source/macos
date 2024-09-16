@@ -159,7 +159,7 @@ OSStatus SecCertificateSetKeychainItem(SecCertificateRef certificate, CFTypeRef 
     __SEC_MAC_AND_IOS_UNKNOWN;
 
 /* Return a keychain item reference, given a unified SecCertificateRef.
- Note: On OSX, for this function to succeed, the provided certificate must have been
+ Note: On macOS, for this function to succeed, the provided certificate must have been
  created by SecCertificateCreateWithKeychainItem, otherwise NULL is returned.
  */
 CFTypeRef SecCertificateCopyKeychainItem(SecCertificateRef certificate)
@@ -506,7 +506,7 @@ CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certificate);
 
 /*
- * Legacy functions (OS X only)
+ * Legacy functions (macOS only)
  */
 #if SEC_OS_OSX
 

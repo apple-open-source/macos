@@ -1,10 +1,6 @@
 #include <TargetConditionals.h>
 
-#if __OBJC2__
-#define SEC_EXP_CLASS(_name) _OBJC_CLASS_$_##_name
-#else
-#define SEC_EXP_CLASS(_name) .objc_class_name_##_name
-#endif
+#define SEC_EXP_CLASS(_name) _OBJC_*CLASS_$_##_name
 
 _kSecFrameworkBundleID
 
@@ -342,7 +338,6 @@ SEC_EXP_CLASS(SecTapToRadar)
 _SecABCTrigger
 SEC_EXP_CLASS(SecABC)
 
-#if __OBJC2__
 SEC_EXP_CLASS(SecXPCHelper)
 SEC_EXP_CLASS(OTClique)
 SEC_EXP_CLASS(OTConfigurationContext)
@@ -352,7 +347,6 @@ SEC_EXP_CLASS(OTOperationConfiguration)
 _kSecEntitlementPrivateOctagonEscrow
 _kSecEntitlementPrivateOctagonSecureElement
 _kSecEntitlementPrivateOctagonWalrus
-#endif /* __OBJC2__ */
 
 __OctagonSignpostCreate
 __OctagonSignpostGetNanoseconds
@@ -388,12 +382,12 @@ _SecEscrowRequestOptionFederationMove
 
 _CuttlefishErrorDomain
 _CuttlefishErrorRetryAfterKey
+_TrustedPeersHelperRecoveryKeySetErrorDomain
+_TrustedPeersHelperErrorDomain
 
 _OctagonIsSOSFeatureEnabled
 _OctagonSetSOSFeatureEnabled
 _OctagonPlatformSupportsSOS
-_SecErrorIsNestedErrorCappingEnabled
-_SecErrorSetOverrideNestedErrorCappingIsEnabled
 _SecKeychainIsStaticPersistentRefsEnabled
 _SecKeychainSetOverrideStaticPersistentRefsIsEnabled
 
@@ -404,6 +398,10 @@ _ClearSOSCompatibilityModeOverride
 _OctagonSupportsPersonaMultiuser
 _OctagonSetSupportsPersonaMultiuser
 _OctagonClearSupportsPersonaMultiuserOverride
+
+_IsRollOctagonIdentityEnabled
+_SetRollOctagonIdentityEnabled
+_ClearRollOctagonIdentityEnabledOverride
 
 SEC_EXP_CLASS(OTJoiningConfiguration)
 SEC_EXP_CLASS(OTControl)
@@ -467,6 +465,7 @@ _kSecRandomDefault
 _SecSMIMEFindBulkAlgForRecipients
 
 //Localization
+_SecFrameworkGetBundle
 _SecFrameworkCopyLocalizedString
 
 #if TARGET_OS_OSX
@@ -959,6 +958,8 @@ _SecItemDelete_ios
 _SecItemExport
 _SecItemImport
 _SecItemUpdate_ios
+_SecItemFetchCurrentItemOutOfBand
+_SecItemFetchPCSIdentityOutOfBand
 _SecKeychainAddCallback
 _SecKeychainAddDBToKeychainList
 _SecKeychainAddGenericPassword
@@ -1665,6 +1666,7 @@ _kSecCodeSignerEditCMS
 _kSecCodeSignerEditCpuSubtype
 _kSecCodeSignerEditCpuType
 _kSecCodeSignerEntitlements
+_kSecCodeSignerForceLibraryEntitlements
 _kSecCodeSignerLaunchConstraintSelf
 _kSecCodeSignerLaunchConstraintParent
 _kSecCodeSignerLaunchConstraintResponsible
@@ -2107,16 +2109,13 @@ _SecRKCreateRecoveryKeyString
 // Analytics
 //
 
-#if __OBJC2__
-
-_OBJC_CLASS_$_SFSQLite
-_OBJC_METACLASS_$_SFAnalytics
-_OBJC_CLASS_$_SFAnalytics
-_OBJC_CLASS_$_SFAnalyticsActivityTracker
-_OBJC_CLASS_$_SFAnalyticsMultiSampler
-_OBJC_CLASS_$_SFAnalyticsSampler
-_OBJC_CLASS_$_SFAnalyticsSQLiteStore
-_OBJC_CLASS_$_SecCoreAnalytics
+SEC_EXP_CLASS(SFSQLite)
+SEC_EXP_CLASS(SFAnalytics)
+SEC_EXP_CLASS(SFAnalyticsActivityTracker)
+SEC_EXP_CLASS(SFAnalyticsMultiSampler)
+SEC_EXP_CLASS(SFAnalyticsSampler)
+SEC_EXP_CLASS(SFAnalyticsSQLiteStore)
+SEC_EXP_CLASS(SecCoreAnalytics)
 _SecCoreAnalyticsValue
 _SecCoreAnalyticsSendValue
 _SecCoreAnalyticsSendKernEntropyAnalytics
@@ -2152,10 +2151,11 @@ _SFAnalyticsTopicCloudServices
 _SFAnalyticsTopicKeySync
 _SFAnalyticsTopicNetworking
 _SFAnalyticsTopicTransparency
+_SFAnalyticsTopicSWTransparency
 _SFAnalyticsTopicTrust
 _SFAnalyticsErrorDomain
 
-_OBJC_CLASS_$_SOSAnalytics
+SEC_EXP_CLASS(SOSAnalytics)
 _CKDKVSPerformanceCountersSampler
 _CKDKVSPerfCounterSynchronize
 _CKDKVSPerfCounterSynchronizeWithCompletionHandler
@@ -2165,11 +2165,10 @@ _CKDKVSPerfCounterTotalWaitTimeSynchronize
 _CKDKVSPerfCounterLongestWaitTimeSynchronize
 _CKDKVSPerfCounterSynchronizeFailures
 
-_OBJC_CLASS_$_LocalKeychainAnalytics
+SEC_EXP_CLASS(LocalKeychainAnalytics)
 _LKAEventUpgrade
 _LKAEventStash
 _LKAEventStashLoad
-#endif // __OBJC2__
 
 _LKAReportKeychainUpgradeOutcome
 _LKAReportKeychainUpgradeOutcomeWithError
@@ -2185,11 +2184,7 @@ _SecPaddingCompute
 //
 // Escrow Request Support
 //
-#if __OBJC2__
-
-_OBJC_CLASS_$_SecEscrowRequest
-
-#endif // __OBJC2__
+SEC_EXP_CLASS(SecEscrowRequest)
 
 _SecEscrowRequestSetupControlProtocol
 
@@ -2225,6 +2220,7 @@ SEC_EXP_CLASS(SecLaunchSequence)
 SEC_EXP_CLASS(KCSharingGroupManager)
 SEC_EXP_CLASS(KCSharingDaemonConnection)
 SEC_EXP_CLASS(KCSharingMessagingdConnection)
+_KCSharingGroupsUpdatedNotification
 _KCSharingLogObject
 _KCSharingSetupServerProtocol
 _KCSharingSetupInvitationNotificationProtocol
@@ -2238,4 +2234,12 @@ SEC_EXP_CLASS(KCSharingGroupLeaveRequest)
 SEC_EXP_CLASS(KCSharingGroupDeleteRequest)
 SEC_EXP_CLASS(KCSharingGroupFetchRequest)
 SEC_EXP_CLASS(KCSharingGroupUpdateInfo)
+
+//
+// CKKS Out-of-band Manatee Fetch
+//
+SEC_EXP_CLASS(CKKSCurrentItemQuery)
+SEC_EXP_CLASS(CKKSCurrentItemQueryResult)
+SEC_EXP_CLASS(CKKSPCSIdentityQuery)
+SEC_EXP_CLASS(CKKSPCSIdentityQueryResult)
 

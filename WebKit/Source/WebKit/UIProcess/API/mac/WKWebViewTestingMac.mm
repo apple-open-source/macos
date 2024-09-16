@@ -75,6 +75,15 @@
     return _impl->shouldRequestCandidates();
 }
 
+- (BOOL)_allowsInlinePredictions
+{
+#if HAVE(INLINE_PREDICTIONS)
+    return _impl->allowsInlinePredictions();
+#else
+    return NO;
+#endif
+}
+
 - (void)_insertText:(id)string replacementRange:(NSRange)replacementRange
 {
     [self insertText:string replacementRange:replacementRange];
@@ -126,6 +135,16 @@
 - (void)_setSelectedColorForColorPicker:(NSColor *)color
 {
     _page->colorPickerClient().didChooseColor(WebCore::colorFromCocoaColor(color));
+}
+
+- (void)_createFlagsChangedEventMonitorForTesting
+{
+    _impl->createFlagsChangedEventMonitor();
+}
+
+- (void)_removeFlagsChangedEventMonitorForTesting
+{
+    _impl->removeFlagsChangedEventMonitor();
 }
 
 @end

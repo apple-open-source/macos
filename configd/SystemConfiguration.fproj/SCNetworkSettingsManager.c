@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,7 +80,13 @@ static const CFRuntimeClass SCNSManagerClass = {
 	.equal = NULL,
 	.hash = NULL,
 	.copyFormattingDesc = NULL,
-	.copyDebugDesc = __SCNSManagerCopyDescription
+	.copyDebugDesc = __SCNSManagerCopyDescription,
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 static CFStringRef
@@ -200,7 +206,13 @@ static const CFRuntimeClass SCNSServiceClass = {
 	.equal = NULL,
 	.hash = NULL,
 	.copyFormattingDesc = NULL,
-	.copyDebugDesc = __SCNSServiceCopyDescription
+	.copyDebugDesc = __SCNSServiceCopyDescription,
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 static CFStringRef
@@ -1465,12 +1477,12 @@ SCNSManagerApplyChanges(SCNSManagerRef manager)
 
 	/* remove services */
 	if (!__SCNSManagerProcessRemovals(manager)) {
-		goto unlock_done;
+		goto done;
 	}
 
 	/* add/change services */
 	if (!__SCNSManagerProcessChanges(manager)) {
-		goto unlock_done;
+		goto done;
 	}
 
 	/* commit/apply */
@@ -1478,19 +1490,20 @@ SCNSManagerApplyChanges(SCNSManagerRef manager)
 		SC_log(LOG_NOTICE,
 		       "%s: SCPreferencesCommitChanges failed, %s",
 		       __func__, SCErrorString(SCError()));
-		goto unlock_done;
+		goto done;
 	}
 	if (!SCPreferencesApplyChanges(manager->prefs)) {
 		SC_log(LOG_NOTICE,
 		       "%s: SCPreferencesApplyChanges failed, %s",
 		       __func__, SCErrorString(SCError()));
-		goto unlock_done;
+		goto done;
 	}
 	ok = TRUE;
 	
- unlock_done:
-	SCPreferencesUnlock(manager->prefs);
  done:
+	if (lock_acquired) {
+		SCPreferencesUnlock(manager->prefs);
+	}
 	__SC_CFRELEASE(manager->changes);
 	__SC_CFRELEASE(manager->removals);
 	return (ok);

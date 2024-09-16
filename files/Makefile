@@ -55,7 +55,7 @@ DATA_SYMLINK_PREFIX=/DataVolumeSymlinks
 DATA_SYMLINK_DEST=System/Volumes/Data
 endif
 
-ifeq "$(RC_PROJECT_COMPILATION_PLATFORM)" "ios"
+ifneq "$(filter ios osx,$(RC_PROJECT_COMPILATION_PLATFORM))" ""
 DDTOOL_PATH=$(shell xcrun -sdk $(SDKROOT) -find ddtool)
 ifeq "$(DDTOOL_PATH)" ""
 $(error ddtool not found)
@@ -76,12 +76,20 @@ install::
 		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" CONTENT_PLATFORM=\"$(CONTENT_PLATFORM)\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
 	}' | sh -x -e
 
-ifeq "$(RC_PROJECT_COMPILATION_PLATFORM)" "ios"
+ifneq "$(filter ios osx,$(RC_PROJECT_COMPILATION_PLATFORM))" ""
 	# Generate DarwinDirectory files.
-	$(_v) ./DarwinDirectory.py -g private/etc/group.iPhone -p private/etc/master.passwd.iPhone .
+ifeq "$(CONTENT_PLATFORM)" "osx"
+	$(_v) ./DarwinDirectory.py --os macos -g System/Library/DirectoryServices/DefaultLocalDB/Default/groups -p System/Library/DirectoryServices/DefaultLocalDB/Default/users .
+else
+	$(_v) ./DarwinDirectory.py --os embedded -g private/etc/group.iPhone -p private/etc/master.passwd.iPhone .
+endif
 	# Writing ddtool output into an intermediate directory first to avoid removing or overwriting existing files and directories in the destination.
 	$(_v) $(INSTALL_DIRECTORY) ./DarwinDirectory/ddtool_out
-	$(_v) $(DDTOOL_PATH) root create --dst-dir ./DarwinDirectory/ddtool_out --target-os embedded ./DarwinDirectory/plists
+ifeq "$(CONTENT_PLATFORM)" "osx"
+	$(_v) $(DDTOOL_PATH) root create --dst-dir ./DarwinDirectory/ddtool_out --config ./DarwinDirectory.configuration.macos.plist --target-os macos ./DarwinDirectory/plists
+else
+	$(_v) $(DDTOOL_PATH) root create --dst-dir ./DarwinDirectory/ddtool_out --config ./DarwinDirectory.configuration.embedded.plist --target-os embedded ./DarwinDirectory/plists
+endif
 	# Create the required directories separately (do nothing if it already exists) to avoid overwriting directory ownership with ownership from the source (straight copy).
 	$(_v) ( cd ./DarwinDirectory/ddtool_out && $(FIND) . \( -type d -exec $(MKDIR) -v "$(Destination)/{}" \; \) -or -exec /bin/cp -vnPp '{}' "$(Destination)/{}" \; -or -exec $(FALSE) '{}' + )
 endif

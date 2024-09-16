@@ -172,7 +172,7 @@ tre_tnfa_run_parallel(const tre_tnfa_t *tnfa, const void *string, int len,
       (sizeof(long) - 1) * 4 /* for alignment paddings */
       + (rbytes + tbytes * tnfa->num_states) * 2 + tbytes + pbytes;
 
-    DPRINT(("tre_tnfa_run_parallel, allocate %d bytes\n", total_bytes));
+    DPRINT(("tre_tnfa_run_parallel, allocate %zu bytes\n", total_bytes));
     /* Allocate the memory. */
 #ifdef TRE_USE_ALLOCA
     buf = alloca(total_bytes);

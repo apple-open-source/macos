@@ -60,13 +60,13 @@
 
     SOSCCValidateUserPublic(NULL); // requires the account queue - makes the rest of this wait for fresh info.  This used to happen in SOSCCThisDeviceIsInCircle(below) before we made it use cached info.
 	SOSCCStatus newRawStatus = SOSCCThisDeviceIsInCircle(&err);
-    NSArray *peerInfos = (__bridge NSArray *) SOSCCCopyApplicantPeerInfo(&err);
+    NSArray *peerInfos = (__bridge_transfer NSArray *) SOSCCCopyApplicantPeerInfo(&err);
     NSMutableArray *newApplicants = [[NSMutableArray alloc] initWithCapacity:peerInfos.count];
 	[peerInfos enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
         [newApplicants addObject:[[KDCirclePeer alloc] initWithPeerObject:obj]];
     }];
 	
-	peerInfos = (__bridge NSArray *) SOSCCCopyPeerPeerInfo(&err);
+	peerInfos = (__bridge_transfer NSArray *) SOSCCCopyPeerPeerInfo(&err);
     NSMutableArray *newPeers = [[NSMutableArray alloc] initWithCapacity:peerInfos.count];
 	[peerInfos enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
         [newPeers addObject:[[KDCirclePeer alloc] initWithPeerObject:obj]];

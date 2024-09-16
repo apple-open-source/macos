@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,8 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <IOKit/network/IONetworkInterface.h>
+#include <IOKit/IOBSD.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -1260,9 +1262,9 @@ _SC_logMachPortStatus(void)
 				*rp++ = ')';
 			}
 			*rp = '\0';
-			CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
+			CFStringAppendFormat(str, NULL, CFSTR(" %u%s"), ports[pi], rights);
 		}
-		SC_log(LOG_DEBUG, "Task ports (n=%d):%@", pn, str);
+		SC_log(LOG_DEBUG, "Task ports (n=%u):%@", pn, str);
 		CFRelease(str);
 	}
 
@@ -1467,7 +1469,7 @@ _SC_logMachPortReferences(const char *log_prefix, mach_port_t port)
 		return;
 	}
 
-	SC_log(LOG_DEBUG, "%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s",
+	SC_log(LOG_DEBUG, "%smach port 0x%x (%u): send=%u, receive=%u, send once=%u, port set=%u, dead name=%u%s%s",
 	       buf,
 	       port,
 	       port,
@@ -1645,4 +1647,30 @@ _SC_copyInterfaceUUID(CFStringRef bsdName)
 	CFRelease(uuid);
 
 	return uuid_str;
+}
+
+CF_RETURNS_RETAINED
+CFDictionaryRef
+_SC_IONetworkInterfaceBSDNameMatching(const char * bsdName)
+{
+#define N_MATCH		2
+	const void *		keys[N_MATCH] = {
+		CFSTR(kIOBSDNameKey),
+		CFSTR(kIOProviderClassKey)
+	};
+	CFDictionaryRef		matching;
+	CFStringRef		str;
+	const void *		values[N_MATCH];
+
+	str = CFStringCreateWithCString(NULL, bsdName, kCFStringEncodingUTF8);
+	values[0] = str;
+	values[1] = CFSTR(kIONetworkInterfaceClass);
+	matching = CFDictionaryCreate(NULL,
+				      (const void * *)keys,
+				      (const void * *)values,
+				      N_MATCH,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	CFRelease(str);
+	return matching;
 }

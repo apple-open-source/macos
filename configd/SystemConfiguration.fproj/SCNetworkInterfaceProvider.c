@@ -171,7 +171,13 @@ static const CFRuntimeClass __SCNetworkInterfaceProviderClass = {
     NULL,					/* equal */
     NULL,					/* hash */
     NULL,					/* copyFormattingDesc */
-    __SCNetworkInterfaceProviderCopyDebugDesc	/* copyDebugDesc */
+    __SCNetworkInterfaceProviderCopyDebugDesc,	/* copyDebugDesc */
+#ifdef CF_RECLAIM_AVAILABLE
+    NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+    NULL
+#endif
 };
 
 struct __SCNetworkInterfaceProvider {

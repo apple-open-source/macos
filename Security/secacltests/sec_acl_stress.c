@@ -268,6 +268,9 @@ static void tests(bool isPasscodeSet)
             SecAccessControlRef aclWithUIRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlUserPresence, NULL);
             ok(aclWithUIRef, "Create SecAccessControlRef which require UI interaction");
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            // Test deprecated API constants
             CFDictionarySetValue(item, kSecAttrAccessControl, aclWithUIRef);
             ok_status(SecItemAdd(item, NULL), "add local - acl with authentication UI");
             CFDictionarySetValue(item, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail);
@@ -285,6 +288,7 @@ static void tests(bool isPasscodeSet)
             is_status(SecItemCopyMatching(item, NULL), errSecItemNotFound, "do not find after delete local  - acl with authentication UI");
             CFDictionarySetValue(item, kSecUseAuthenticationUI, kSecUseAuthenticationUIAllow);
             CFReleaseSafe(aclWithUIRef);
+#pragma clang diagnostic pop
 
             aclWithUIRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlUserPresence, NULL);
             ok(aclWithUIRef, "Create SecAccessControlRef which require UI interaction");

@@ -26,13 +26,12 @@
 #include "config.h"
 #include "NetworkStorageSession.h"
 
-#include "PublicSuffix.h"
+#include "PublicSuffixStore.h"
 #include "ResourceRequest.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessID.h>
 #include <wtf/ProcessPrivilege.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 

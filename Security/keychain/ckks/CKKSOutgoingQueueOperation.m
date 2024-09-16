@@ -31,7 +31,6 @@
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 #import "keychain/ckks/CKKSKeychainView.h"
-#import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSOutgoingQueueOperation.h"
 #import "keychain/ckks/CKKSStates.h"
@@ -210,76 +209,41 @@
             }
 
             for(CKKSOutgoingQueueEntry* oqe in queueEntries) {
-                CKKSOutgoingQueueEntry* inflight = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid
-                                                                                     state:SecCKKSStateInFlight
-                                                                                 contextID:self.deps.contextID
-                                                                                    zoneID:viewState.zoneID
-                                                                                     error:&error];
-                if(!error && inflight) {
-                    // There is an inflight request with this UUID. Leave this request in-queue until CloudKit returns and we resolve the inflight request.
-                    continue;
-                }
-
-                // If this item is not a delete, check the encryption status of this item.
-                if(![oqe.action isEqualToString: SecCKKSActionDelete]) {
-                    // Check if this item is encrypted under a current key
-                    if([oqe.item.parentKeyUUID isEqualToString: currentClassAKeyPointer.currentKeyUUID]) {
-                        // Excellent.
-                        currentKeysToSave[SecCKKSKeyClassA] = currentClassAKeyPointer;
-
-                    } else if([oqe.item.parentKeyUUID isEqualToString: currentClassCKeyPointer.currentKeyUUID]) {
-                        // Works for us!
-                        currentKeysToSave[SecCKKSKeyClassC] = currentClassCKeyPointer;
-
-                    } else {
-                        // This item is encrypted under an old key. Set it up for reencryption and move on.
-                        ckksnotice("ckksoutgoing", viewState.zoneID, "Item's encryption key (%@ %@) is neither %@ or %@", oqe, oqe.item.parentKeyUUID, currentClassAKeyPointer, currentClassCKeyPointer);
-                        [oqe intransactionMoveToState:SecCKKSStateReencrypt viewState:viewState error:&error];
-                        if(error) {
-                            ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save oqe to database: %@", error);
-                            self.error = error;
-                            error = nil;
-                        }
-                        needsReencrypt = true;
+                @autoreleasepool {
+                    CKKSOutgoingQueueEntry* inflight = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid
+                                                                                         state:SecCKKSStateInFlight
+                                                                                     contextID:self.deps.contextID
+                                                                                        zoneID:viewState.zoneID
+                                                                                         error:&error];
+                    if(!error && inflight) {
+                        // There is an inflight request with this UUID. Leave this request in-queue until CloudKit returns and we resolve the inflight request.
                         continue;
                     }
-                }
 
-                if([oqe.action isEqualToString: SecCKKSActionAdd]) {
-                    CKRecord* record = [oqe.item CKRecordWithZoneID:viewState.zoneID];
-                    recordsToSave[record.recordID] = record;
-                    [recordIDsModified addObject: record.recordID];
-                    [oqesModified addObject:oqe];
-
-                    [oqe intransactionMoveToState:SecCKKSStateInFlight viewState:viewState error:&error];
-                    if(error) {
-                        ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
-                        self.error = error;
+                    // If this item is not a delete, check the encryption status of this item.
+                    if(![oqe.action isEqualToString: SecCKKSActionDelete]) {
+                        // Check if this item is encrypted under a current key
+                        if([oqe.item.parentKeyUUID isEqualToString: currentClassAKeyPointer.currentKeyUUID]) {
+                            // Excellent.
+                            currentKeysToSave[SecCKKSKeyClassA] = currentClassAKeyPointer;
+                        } else if([oqe.item.parentKeyUUID isEqualToString: currentClassCKeyPointer.currentKeyUUID]) {
+                            // Works for us!
+                            currentKeysToSave[SecCKKSKeyClassC] = currentClassCKeyPointer;
+                        } else {
+                            // This item is encrypted under an old key. Set it up for reencryption and move on.
+                            ckksnotice("ckksoutgoing", viewState.zoneID, "Item's encryption key (%@ %@) is neither %@ or %@", oqe, oqe.item.parentKeyUUID, currentClassAKeyPointer, currentClassCKeyPointer);
+                            [oqe intransactionMoveToState:SecCKKSStateReencrypt viewState:viewState error:&error];
+                            if(error) {
+                                ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save oqe to database: %@", error);
+                                self.error = error;
+                                error = nil;
+                            }
+                            needsReencrypt = true;
+                            continue;
+                        }
                     }
 
-                } else if ([oqe.action isEqualToString: SecCKKSActionDelete]) {
-                    CKRecordID* recordIDToDelete = [[CKRecordID alloc] initWithRecordName:oqe.item.uuid zoneID:viewState.zoneID];
-                    [recordIDsToDelete addObject: recordIDToDelete];
-                    [recordIDsModified addObject: recordIDToDelete];
-                    [oqesModified addObject:oqe];
-
-                    [oqe intransactionMoveToState:SecCKKSStateInFlight viewState:viewState error:&error];
-                    if(error) {
-                        ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
-                    }
-
-                } else if ([oqe.action isEqualToString: SecCKKSActionModify]) {
-                    // Load the existing item from the ckmirror.
-                    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid
-                                                                   contextID:self.deps.contextID
-                                                                      zoneID:viewState.zoneID
-                                                                       error:&error];
-                    if(!ckme) {
-                        // This is a problem: we have an update to an item that doesn't exist.
-                        // Either: an Add operation we launched failed due to a CloudKit error (conflict?) and this is a follow-on update
-                        //     Or: ?
-                        ckkserror("ckksoutgoing", viewState.zoneID, "update to a record that doesn't exist? %@", oqe.item.uuid);
-                        // treat as an add.
+                    if([oqe.action isEqualToString: SecCKKSActionAdd]) {
                         CKRecord* record = [oqe.item CKRecordWithZoneID:viewState.zoneID];
                         recordsToSave[record.recordID] = record;
                         [recordIDsModified addObject: record.recordID];
@@ -290,29 +254,64 @@
                             ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
                             self.error = error;
                         }
-                    } else {
-                        if(![oqe.item.storedCKRecord.recordChangeTag isEqual: ckme.item.storedCKRecord.recordChangeTag]) {
-                            // The mirror entry has updated since this item was created. If we proceed, we might end up with
-                            // a badly-authenticated record.
-                            ckksnotice("ckksoutgoing", viewState.zoneID, "Record (%@)'s change tag doesn't match ckmirror's change tag, reencrypting", oqe);
-                            [oqe intransactionMoveToState:SecCKKSStateReencrypt viewState:viewState error:&error];
-                            if(error) {
-                                ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save oqe to database: %@", error);
-                                self.error = error;
-                                error = nil;
-                            }
-                            needsReencrypt = true;
-                            continue;
-                        }
-                        // Grab the old ckrecord and update it
-                        CKRecord* record = [oqe.item updateCKRecord: ckme.item.storedCKRecord zoneID: viewState.zoneID];
-                        recordsToSave[record.recordID] = record;
-                        [recordIDsModified addObject: record.recordID];
+
+                    } else if ([oqe.action isEqualToString: SecCKKSActionDelete]) {
+                        CKRecordID* recordIDToDelete = [[CKRecordID alloc] initWithRecordName:oqe.item.uuid zoneID:viewState.zoneID];
+                        [recordIDsToDelete addObject: recordIDToDelete];
+                        [recordIDsModified addObject: recordIDToDelete];
                         [oqesModified addObject:oqe];
 
                         [oqe intransactionMoveToState:SecCKKSStateInFlight viewState:viewState error:&error];
                         if(error) {
                             ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
+                        }
+
+                    } else if ([oqe.action isEqualToString: SecCKKSActionModify]) {
+                        // Load the existing item from the ckmirror.
+                        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid
+                                                                       contextID:self.deps.contextID
+                                                                          zoneID:viewState.zoneID
+                                                                           error:&error];
+                        if(!ckme) {
+                            // This is a problem: we have an update to an item that doesn't exist.
+                            // Either: an Add operation we launched failed due to a CloudKit error (conflict?) and this is a follow-on update
+                            //     Or: ?
+                            ckkserror("ckksoutgoing", viewState.zoneID, "update to a record that doesn't exist? %@", oqe.item.uuid);
+                            // treat as an add.
+                            CKRecord* record = [oqe.item CKRecordWithZoneID:viewState.zoneID];
+                            recordsToSave[record.recordID] = record;
+                            [recordIDsModified addObject: record.recordID];
+                            [oqesModified addObject:oqe];
+
+                            [oqe intransactionMoveToState:SecCKKSStateInFlight viewState:viewState error:&error];
+                            if(error) {
+                                ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
+                                self.error = error;
+                            }
+                        } else {
+                            if(![oqe.item.storedCKRecord.recordChangeTag isEqual: ckme.item.storedCKRecord.recordChangeTag]) {
+                                // The mirror entry has updated since this item was created. If we proceed, we might end up with
+                                // a badly-authenticated record.
+                                ckksnotice("ckksoutgoing", viewState.zoneID, "Record (%@)'s change tag doesn't match ckmirror's change tag, reencrypting", oqe);
+                                [oqe intransactionMoveToState:SecCKKSStateReencrypt viewState:viewState error:&error];
+                                if(error) {
+                                    ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save oqe to database: %@", error);
+                                    self.error = error;
+                                    error = nil;
+                                }
+                                needsReencrypt = true;
+                                continue;
+                            }
+                            // Grab the old ckrecord and update it
+                            CKRecord* record = [oqe.item updateCKRecord: ckme.item.storedCKRecord zoneID: viewState.zoneID];
+                            recordsToSave[record.recordID] = record;
+                            [recordIDsModified addObject: record.recordID];
+                            [oqesModified addObject:oqe];
+
+                            [oqe intransactionMoveToState:SecCKKSStateInFlight viewState:viewState error:&error];
+                            if(error) {
+                                ckkserror("ckksoutgoing", viewState.zoneID, "couldn't save state for CKKSOutgoingQueueEntry: %@", error);
+                            }
                         }
                     }
                 }
@@ -609,9 +608,7 @@
                     self.error = viewError = localError;
                 }
 
-            } else if ([record.recordType isEqualToString:SecCKRecordManifestType]) {
-
-            } else if (![record.recordType isEqualToString:SecCKRecordManifestLeafType]) {
+            } else {
                 ckkserror("ckksoutgoing", viewState.zoneID, "unknown record type in results: %@", record);
             }
         }

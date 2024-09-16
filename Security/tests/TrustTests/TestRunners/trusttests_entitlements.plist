@@ -10,8 +10,11 @@
 	<true/>
 	<key>modify-anchor-certificates</key>
 	<true/>
+	<key>com.apple.private.assets.bypass-asset-types-check</key>
+	<true/>
 	<key>com.apple.private.assets.accessible-asset-types</key>
 	<array>
+		<string>com.apple.MobileAsset.PKITrustStore</string>
 		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
 	</array>
 	<key>com.apple.security.exception.files.absolute-path.read-only</key>

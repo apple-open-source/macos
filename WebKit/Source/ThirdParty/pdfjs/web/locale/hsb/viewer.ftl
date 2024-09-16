@@ -305,8 +305,29 @@ pdfjs-editor-ink-button-label = Rysować
 pdfjs-editor-stamp-button =
     .title = Wobrazy přidać abo wobdźěłać
 pdfjs-editor-stamp-button-label = Wobrazy přidać abo wobdźěłać
-pdfjs-editor-remove-button =
-    .title = Wotstronić
+pdfjs-editor-highlight-button =
+    .title = Wuzběhnyć
+pdfjs-editor-highlight-button-label = Wuzběhnyć
+pdfjs-highlight-floating-button =
+    .title = Wuzběhnyć
+pdfjs-highlight-floating-button1 =
+    .title = Wuzběhnjenje
+    .aria-label = Wuzběhnjenje
+pdfjs-highlight-floating-button-label = Wuzběhnjenje
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Rysowanku wotstronić
+pdfjs-editor-remove-freetext-button =
+    .title = Tekst wotstronić
+pdfjs-editor-remove-stamp-button =
+    .title = Wobraz wotstronić
+pdfjs-editor-remove-highlight-button =
+    .title = Wuzběhnjenje wotstronić
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Barba
 pdfjs-editor-free-text-size-input = Wulkosć
@@ -316,6 +337,10 @@ pdfjs-editor-ink-opacity-input = Opacita
 pdfjs-editor-stamp-add-image-button =
     .title = Wobraz přidać
 pdfjs-editor-stamp-add-image-button-label = Wobraz přidać
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Tołstosć
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Tołstosć změnić, hdyž so zapiski wuzběhuja, kotrež tekst njejsu
 pdfjs-free-text =
     .aria-label = Tekstowy editor
 pdfjs-free-text-default-content = Započńće pisać…
@@ -353,3 +378,29 @@ pdfjs-editor-resizer-label-bottom-right = Deleka naprawo – wulkosć změnić
 pdfjs-editor-resizer-label-bottom-middle = Deleka wosrjedź – wulkosć změnić
 pdfjs-editor-resizer-label-bottom-left = Deleka nalěwo – wulkosć změnić
 pdfjs-editor-resizer-label-middle-left = Wosrjedź nalěwo – wulkosć změnić
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Barba wuzběhnjenja
+pdfjs-editor-colorpicker-button =
+    .title = Barbu změnić
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Wuběr barbow
+pdfjs-editor-colorpicker-yellow =
+    .title = Žołty
+pdfjs-editor-colorpicker-green =
+    .title = Zeleny
+pdfjs-editor-colorpicker-blue =
+    .title = Módry
+pdfjs-editor-colorpicker-pink =
+    .title = Pink
+pdfjs-editor-colorpicker-red =
+    .title = Čerwjeny
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Wšě pokazać
+pdfjs-editor-highlight-show-all-button =
+    .title = Wšě pokazać

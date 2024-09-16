@@ -26,12 +26,12 @@
 #include "config.h"
 #include "SpeechSynthesisUtterance.h"
 
+#if ENABLE(SPEECH_SYNTHESIS)
+
+#include "ContextDestructionObserverInlines.h"
 #include "EventNames.h"
 #include "SpeechSynthesisErrorEvent.h"
 #include "SpeechSynthesisEvent.h"
-
-#if ENABLE(SPEECH_SYNTHESIS)
-
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -113,11 +113,6 @@ void SpeechSynthesisUtterance::incrementActivityCountForEventDispatch()
 void SpeechSynthesisUtterance::decrementActivityCountForEventDispatch()
 {
     --m_activityCountForEventDispatch;
-}
-
-const char* SpeechSynthesisUtterance::activeDOMObjectName() const
-{
-    return "SpeechSynthesisUtterance";
 }
 
 bool SpeechSynthesisUtterance::virtualHasPendingActivity() const

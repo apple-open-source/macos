@@ -1,5 +1,11 @@
 // RUN: %wgslc
 
+fn testU32ConstantsThatOverflowI32()
+{
+    let x1 = u32(4294967295);
+    let x2 = u32(3735928559);
+}
+
 fn testLiteralConstants()
 {
     {
@@ -59,7 +65,6 @@ fn testConstantAddition()
 }
 
 
-@compute @workgroup_size(1)
 fn testVectorConstants() -> i32
 {
     if (false) {
@@ -90,7 +95,7 @@ fn testPrimitiveStructAccess()
 // Attribute constants
 const group = 0;
 const binding = 1;
-@group(group) @binding(binding) var w: i32;
+@group(group) @binding(binding) var<storage> w: i32;
 
 const x = 8;
 const y = 4;

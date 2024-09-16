@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebPreferences.h"
 
+#include "APIPageConfiguration.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
 #include "WebPreferencesKeys.h"
@@ -51,7 +52,6 @@ Ref<WebPreferences> WebPreferences::createWithLegacyDefaults(const String& ident
     auto preferences = WebPreferences::create(identifier, keyPrefix, globalDebugKeyPrefix);
     // FIXME: The registerDefault...ValueForKey machinery is unnecessarily heavyweight and complicated.
     // We can just compute different defaults for modern and legacy APIs in WebPreferencesDefinitions.h macros.
-    preferences->registerDefaultBoolValueForKey(WebPreferencesKey::pluginsEnabledKey(), true);
     preferences->registerDefaultUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey(), static_cast<uint32_t>(WebCore::StorageBlockingPolicy::AllowAll));
     return preferences;
 }
@@ -191,7 +191,7 @@ void WebPreferences::updateBoolValueForKey(const String& key, bool value, bool e
     
     if (key == WebPreferencesKey::processSwapOnCrossSiteNavigationEnabledKey()) {
         for (auto& page : m_pages)
-            page.process().processPool().configuration().setProcessSwapsOnNavigation(value);
+            page.configuration().processPool().configuration().setProcessSwapsOnNavigation(value);
 
         return;
     }
@@ -240,7 +240,7 @@ void WebPreferences::registerDefaultUInt32ValueForKey(const String& key, uint32_
         m_store.setUInt32ValueForKey(key, userValue);
 }
 
-#if !PLATFORM(COCOA) && !PLATFORM(GTK)
+#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WPE)
 void WebPreferences::platformInitializeStore()
 {
     notImplemented();

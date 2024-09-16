@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardView.mm
 	Contains:	General view handling infrastructure
-	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -59,22 +59,16 @@
 #import "MBCUserDefaults.h"
 
 #include <algorithm>
-
-NSColor * MBCColor::GetColor() const
-{
-	return [NSColor 
-			   colorWithCalibratedRed:color[0] green:color[1] blue:color[2] 
-			   alpha:color[3]];
-}
-
-void MBCColor::SetColor(NSColor * newColor)
-{
-	color[0] = [newColor redComponent];
-	color[1] = [newColor greenComponent];
-	color[2] = [newColor blueComponent];
-}
+#import <simd/simd.h>
 
 @implementation MBCBoardView
+
+@synthesize azimuth = fAzimuth;
+@synthesize elevation = fElevation;
+@synthesize boardReflectivity = fBoardReflectivity;
+@synthesize labelIntensity = fLabelIntensity;
+@synthesize ambient = fAmbient;
+
 
 - (NSOpenGLPixelFormat *)pixelFormatWithFSAA:(int)fsaaSamples
 {
@@ -598,6 +592,41 @@ void MBCColor::SetColor(NSColor * newColor)
     fMaxFSAA = fMaxFSAA > 2 ? fMaxFSAA / 2 : 0;
     [self pickPixelFormat:NO];
 	[self needsUpdate];
+}
+
+- (MBCDrawStyle *)boardDrawStyleAtIndex:(NSUInteger)index {
+    NSAssert(index < 2, @"index should be 0 or 1");
+    
+    return fBoardDrawStyle[index];
+}
+- (MBCDrawStyle *)pieceDrawStyleAtIndex:(NSUInteger)index {
+    NSAssert(index < 2, @"index should be 0 or 1");
+    
+    return fPieceDrawStyle[index];
+}
+
+- (MBCDrawStyle *)borderDrawStyle {
+    return fBorderDrawStyle;
+}
+
+- (MBCDrawStyle *)selectedPieceDrawStyle {
+    return fSelectedPieceDrawStyle;
+}
+
+- (void)setLightPositionX:(float)x y:(float)y z:(float)z {
+    fLightPos[0] = x;
+    fLightPos[1] = y;
+    fLightPos[2] = z;
+}
+
+- (void)setLightPosition:(vector_float3)lightPosition {
+    fLightPos[0] = lightPosition.x;
+    fLightPos[1] = lightPosition.y;
+    fLightPos[2] = lightPosition.z;
+}
+
+- (vector_float3)lightPosition {
+    return { fLightPos[0], fLightPos[1], fLightPos[2] };
 }
 
 @end

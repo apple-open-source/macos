@@ -21,7 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _IOKIT_IOKITLIBPRIVATE_H
+#define _IOKIT_IOKITLIBPRIVATE_H
+
+#include <sys/cdefs.h>
 #include <CoreFoundation/CFMachPort.h>
+
+__BEGIN_DECLS
 
 #if !__has_feature(objc_arc)
 struct IONotificationPort
@@ -133,3 +139,6 @@ IOServiceStateNotificationItemSet(io_service_t service, CFStringRef itemName, CF
 kern_return_t
 IOServiceStateNotificationItemCopy(io_service_t service, CFStringRef itemName, CFDictionaryRef * value);
 
+__END_DECLS
+
+#endif /* ! _IOKIT_IOKITLIBPRIVATE_H */

@@ -35,6 +35,7 @@
 #include "WebProcess.h"
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/SpeechRecognitionCaptureSource.h>
+#include <wtf/CheckedRef.h>
 
 #if PLATFORM(COCOA)
 #include "SharedCARingBuffer.h"
@@ -53,11 +54,13 @@ namespace WebKit {
 
 using namespace WebCore;
 
-class SpeechRecognitionRealtimeMediaSourceManager::Source
-    : private RealtimeMediaSource::Observer
+class SpeechRecognitionRealtimeMediaSourceManager::Source final
+    : private RealtimeMediaSourceObserver
     , private RealtimeMediaSource::AudioSampleObserver
+    , public CanMakeCheckedPtr<SpeechRecognitionRealtimeMediaSourceManager::Source>
 {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Source);
 public:
     Source(RealtimeMediaSourceIdentifier identifier, Ref<RealtimeMediaSource>&& source, Ref<IPC::Connection>&& connection)
         : m_identifier(identifier)
@@ -85,6 +88,12 @@ public:
     }
 
 private:
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+
     void sourceStopped() final
     {
         if (m_source->captureDidFail()) {
@@ -110,7 +119,6 @@ private:
             m_connection->send(Messages::SpeechRecognitionRemoteRealtimeMediaSourceManager::SetStorage(m_identifier, WTFMove(handle), format), 0);
         }
 
-        ASSERT(is<WebAudioBufferList>(audioData));
         m_ringBuffer->store(downcast<WebAudioBufferList>(audioData).list(), numberOfFrames, time.timeValue());
         m_connection->send(Messages::SpeechRecognitionRemoteRealtimeMediaSourceManager::RemoteAudioSamplesAvailable(m_identifier, time, numberOfFrames), 0);
 #else

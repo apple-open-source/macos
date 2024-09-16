@@ -67,7 +67,12 @@ typedef enum ffi_abi
 
 #ifdef __MACH__
 #define FFI_TRAMPOLINE_SIZE 16
+#ifdef __ILP32__
+#define FFI_TRAMPOLINE_CLOSURE_OFFSET 8
+#else
 #define FFI_TRAMPOLINE_CLOSURE_OFFSET 16
+#endif
+
 #else
 #error "No trampoline table implementation"
 #endif

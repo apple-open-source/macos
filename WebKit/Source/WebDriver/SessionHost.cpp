@@ -41,13 +41,18 @@ void SessionHost::inspectorDisconnected()
 
 long SessionHost::sendCommandToBackend(const String& command, RefPtr<JSON::Object>&& parameters, Function<void (CommandResponse&&)>&& responseHandler)
 {
+    if (!isConnected()) {
+        responseHandler({ nullptr, true });
+        return 0;
+    }
+
     static long lastSequenceID = 0;
     long sequenceID = ++lastSequenceID;
     m_commandRequests.add(sequenceID, WTFMove(responseHandler));
     StringBuilder messageBuilder;
-    messageBuilder.append("{\"id\":", sequenceID, ",\"method\":\"Automation.", command, '"');
+    messageBuilder.append("{\"id\":"_s, sequenceID, ",\"method\":\"Automation."_s, command, '"');
     if (parameters)
-        messageBuilder.append(",\"params\":", parameters->toJSONString());
+        messageBuilder.append(",\"params\":"_s, parameters->toJSONString());
     messageBuilder.append('}');
     sendMessageToBackend(messageBuilder.toString());
 

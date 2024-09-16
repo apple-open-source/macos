@@ -55,7 +55,7 @@ typedef struct {
 } _GBKState;
 
 int
-_GBK_init(struct __xlocale_st_runelocale *xrl)
+_GBK_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _GBK_mbrtowc;

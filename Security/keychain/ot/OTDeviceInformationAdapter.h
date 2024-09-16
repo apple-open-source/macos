@@ -9,7 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol OTDeviceInformationAdapter
 
-- (void)setOverriddenMachineID:(NSString*)machineID;
+- (void)setOverriddenMachineID:(NSString* _Nullable)machineID;
 - (NSString* _Nullable)getOverriddenMachineID;
 - (BOOL)isMachineIDOverridden;
 - (void)clearOverride;

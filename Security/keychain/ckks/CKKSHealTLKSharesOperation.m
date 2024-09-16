@@ -43,6 +43,8 @@
 
 #import "CKKSPowerCollection.h"
 
+#define BATCH_SIZE (SecCKKSTestsEnabled() ? 10 : 1000)
+
 @interface CKKSHealTLKSharesOperation ()
 @property NSHashTable* ckOperations;
 @property CKKSResultOperation* setResultStateOperation;
@@ -73,6 +75,7 @@
         _cloudkitWriteFailures = NO;
         _failedDueToLockState = NO;
         _failedDueToEssentialTrustState = NO;
+        _ckOperations = [NSHashTable weakObjectsHashTable];
     }
     return self;
 }
@@ -257,116 +260,115 @@
         return;
     }
 
-    // Fire up our CloudKit operation!
+    // Fire up our CloudKit operations!
+    __block int numSavedRecords = 0;
+    __block BOOL didSucceed = YES;
+
     AAFAnalyticsEventSecurity *uploadMissingTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsPrioritized:@(NO)}
                                                                                                              altDSID:self.deps.activeAccount.altDSID
                                                                                                            eventName:kSecurityRTCEventNameUploadMissingTLKShares
                                                                                                      testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                                           sendMetric:self.deps.sendMetric];
-    __block BOOL didSucceed = NO;
-
-    NSMutableArray<CKRecord *>* recordsToSave = [[NSMutableArray alloc] init];
-    NSMutableArray<CKRecordID *>* recordIDsToDelete = [[NSMutableArray alloc] init];
-    NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
-
-    ckksnotice("ckksshare", viewState.zoneID, "Uploading %d new TLKShares", (unsigned int)newShares.count);
-    for(CKKSTLKShareRecord* share in newShares) {
-        ckksnotice("ckksshare", viewState.zoneID, "Uploading TLKShare to %@ (as %@)", share.share.receiverPeerID, share.senderPeerID);
-
-        CKRecord* record = [share CKRecordWithZoneID:viewState.zoneID];
-        [recordsToSave addObject: record];
-        attemptedRecords[record.recordID] = record;
+    
+    // Batch our TLKShare uploads.
+    NSMutableArray<CKRecord*>* newTLKShareRecords = [[NSMutableArray alloc] init];
+    for (CKKSTLKShareRecord* share in newShares) {
+        [newTLKShareRecords addObject:[share CKRecordWithZoneID:viewState.zoneID]];
     }
+    
+    for (NSUInteger batchNumber = 0; batchNumber*BATCH_SIZE < newShares.count; batchNumber++) {
+        NSUInteger startIndx = batchNumber*BATCH_SIZE;
+        
+        // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
+        CKKSResultOperation* cloudkitModifyOperationFinished = [CKKSResultOperation named:[NSString stringWithFormat:@"heal-tlkshares-%@", viewState.zoneID.zoneName] withBlock:^{
+            // If this is the last batch of uploads, send our event for TLK Shares upload.
+            if ((newShares.count - startIndx) <= BATCH_SIZE) {
+                [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadMissingTLKSharesEventS success:didSucceed error:nil];
+            }
+        }];
+        [self dependOnBeforeGroupFinished: cloudkitModifyOperationFinished];
 
-    // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
-    CKKSResultOperation* cloudkitModifyOperationFinished = [CKKSResultOperation named:[NSString stringWithFormat:@"heal-tlkshares-%@", viewState.zoneID.zoneName] withBlock:^{}];
-    [self dependOnBeforeGroupFinished: cloudkitModifyOperationFinished];
+        // Gather this operation's TLK Shares to upload
+        NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
+        NSArray<CKRecord*>* recordsToSave = [newTLKShareRecords subarrayWithRange:NSMakeRange(startIndx, MIN(BATCH_SIZE, newShares.count - startIndx))];
+        
+        for (CKRecord* attemptedRecord in recordsToSave) {
+            attemptedRecords[attemptedRecord.recordID] = attemptedRecord;
+        }
 
-    // Get the CloudKit operation ready...
-    CKModifyRecordsOperation* modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave
-                                                                                      recordIDsToDelete:recordIDsToDelete];
-    modifyRecordsOp.atomic = YES;
-    modifyRecordsOp.longLived = NO;
+        // Get the CloudKit operation ready...
+        CKModifyRecordsOperation* modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave
+                                                                                          recordIDsToDelete:nil];
+        modifyRecordsOp.atomic = YES;
+        modifyRecordsOp.longLived = NO;
 
-    // very important: get the TLKShares off-device ASAP
-    modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
+        // very important: get the TLKShares off-device ASAP
+        modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
-    if(SecCKKSHighPriorityOperations()) {
+        // CKKSSetHighPriorityOperations is default enabled
         // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
         modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
-        [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldIsPrioritized : @(YES)}];
+
+        modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
+            // These should all fail or succeed as one. Do the hard work in the records completion block.
+            if(!error) {
+                ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for record %@", recordID.recordName);
+            } else {
+                ckkserror("ckksshare",  viewState.zoneID, "error on row: %@ %@", recordID, error);
+            }
+        };
+
+        WEAKIFY(self);
+
+        modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
+            STRONGIFY(self);
+
+            [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                if(error == nil) {
+                    // Success. Persist the records to the CKKS database
+                    ckksnotice("ckksshare",  viewState.zoneID, "Completed TLK Share heal operation with success");
+                    NSError* localerror = nil;
+
+                    numSavedRecords += savedRecords.count;
+
+                    // Save the new CKRecords to the database
+                    for(CKRecord* record in savedRecords) {
+                        CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
+                        bool saved = [savedShare saveToDatabase:&localerror];
+
+                        if(!saved || localerror != nil) {
+                            // erroring means we were unable to save the new TLKShare records to the database. This will cause us to try to reupload them. Fail.
+                            // No recovery from this, really...
+                            ckkserror("ckksshare", viewState.zoneID, "Couldn't save new TLKShare record to database: %@", localerror);
+                            viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                            didSucceed = NO;
+                            [uploadMissingTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:localerror];
+                            return CKKSDatabaseTransactionCommit;
+
+                        } else {
+                            ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for %@", savedShare);
+                        }
+                    }
+
+                } else {
+                    ckkserror("ckksshare", viewState.zoneID, "Completed TLK Share heal operation with error: %@", error);
+                    [uploadMissingTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:error];
+                    [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
+                    self.cloudkitWriteFailures = true;
+                }
+                return CKKSDatabaseTransactionCommit;
+            }];
+
+            // Notify that this operation is done
+            [self.operationQueue addOperation:cloudkitModifyOperationFinished];
+        };
+
+        [modifyRecordsOp linearDependencies:self.ckOperations];
+        [self.setResultStateOperation addDependency:cloudkitModifyOperationFinished];
+        [self.deps.ckdatabase addOperation:modifyRecordsOp];
     }
 
-    modifyRecordsOp.group = self.deps.ckoperationGroup;
-    ckksnotice("ckksshare", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
-
-    modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
-        // These should all fail or succeed as one. Do the hard work in the records completion block.
-        if(!error) {
-            ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for record %@", recordID.recordName);
-        } else {
-            ckkserror("ckksshare",  viewState.zoneID, "error on row: %@ %@", recordID, error);
-        }
-    };
-
-    WEAKIFY(self);
-
-    modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
-        STRONGIFY(self);
-
-        [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-            if(error == nil) {
-                // Success. Persist the records to the CKKS database
-                ckksnotice("ckksshare",  viewState.zoneID, "Completed TLK Share heal operation with success");
-                NSError* localerror = nil;
-
-                // Save the new CKRecords to the database
-                [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldTotalCKRecords:@(savedRecords.count)}];
-
-                for(CKRecord* record in savedRecords) {
-                    CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:self.deps.contextID];
-                    bool saved = [savedShare saveToDatabase:&localerror];
-
-                    if(!saved || localerror != nil) {
-                        // erroring means we were unable to save the new TLKShare records to the database. This will cause us to try to reupload them. Fail.
-                        // No recovery from this, really...
-                        ckkserror("ckksshare", viewState.zoneID, "Couldn't save new TLKShare record to database: %@", localerror);
-                        viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
-                        
-                        [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
-                        [uploadMissingTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:localerror];
-
-                        return CKKSDatabaseTransactionCommit;
-
-                    } else {
-                        ckksnotice("ckksshare", viewState.zoneID, "Successfully completed upload for %@", savedShare);
-                    }
-                }
-                [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(YES)}];
-                didSucceed = YES;
-
-            } else {
-                ckkserror("ckksshare", viewState.zoneID, "Completed TLK Share heal operation with error: %@", error);
-                [uploadMissingTLKSharesEventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
-                [uploadMissingTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:error];
-
-                [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
-                self.cloudkitWriteFailures = true;
-            }
-            return CKKSDatabaseTransactionCommit;
-        }];
-
-        // passing a nil to error: will not impact any previously set errors.
-        // AAAFoundation ignores incoming errors that are nil when populating error chains
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadMissingTLKSharesEventS success:didSucceed error:nil];
-
-        // Notify that we're done
-        [self.operationQueue addOperation:cloudkitModifyOperationFinished];
-    };
-
-    [self.setResultStateOperation addDependency:cloudkitModifyOperationFinished];
-    [self.deps.ckdatabase addOperation:modifyRecordsOp];
 }
 
 - (BOOL)areNewSharesSufficient:(CKKSCurrentKeySet*)keyset

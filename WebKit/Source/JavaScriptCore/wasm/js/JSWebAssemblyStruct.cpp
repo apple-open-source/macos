@@ -50,20 +50,23 @@ JSWebAssemblyStruct::JSWebAssemblyStruct(VM& vm, Structure* structure, Ref<const
 {
 }
 
-JSWebAssemblyStruct* JSWebAssemblyStruct::create(JSGlobalObject* globalObject, Structure* structure, JSWebAssemblyInstance* instance, uint32_t typeIndex, RefPtr<const Wasm::RTT> rtt)
+JSWebAssemblyStruct* JSWebAssemblyStruct::tryCreate(JSGlobalObject* globalObject, Structure* structure, JSWebAssemblyInstance* instance, uint32_t typeIndex, RefPtr<const Wasm::RTT> rtt)
 {
     VM& vm = globalObject->vm();
 
     Ref<const Wasm::TypeDefinition> type = instance->instance().module().moduleInformation().typeSignatures[typeIndex]->expand();
 
-    auto* structValue = new (NotNull, allocateCell<JSWebAssemblyStruct>(vm)) JSWebAssemblyStruct(vm, structure, Ref { type }, rtt);
+    void* buffer = tryAllocateCell<JSWebAssemblyStruct>(vm);
+    if (UNLIKELY(!buffer))
+        return nullptr;
+    auto* structValue = new (NotNull, buffer) JSWebAssemblyStruct(vm, structure, Ref { type }, rtt);
     structValue->finishCreation(vm);
     return structValue;
 }
 
 const uint8_t* JSWebAssemblyStruct::fieldPointer(uint32_t fieldIndex) const
 {
-    return m_payload.data() + structType()->offsetOfFieldInternal(fieldIndex);
+    return m_payload.span().data() + structType()->offsetOfFieldInternal(fieldIndex);
 }
 
 uint8_t* JSWebAssemblyStruct::fieldPointer(uint32_t fieldIndex)
@@ -99,13 +102,15 @@ uint64_t JSWebAssemblyStruct::get(uint32_t fieldIndex) const
     case TypeKind::Ref:
     case TypeKind::RefNull:
         return JSValue::encode(bitwise_cast<WriteBarrierBase<Unknown>*>(targetPointer)->get());
+    case TypeKind::V128:
+        // V128 is not supported in LLInt.
     default:
         ASSERT_NOT_REACHED();
         return 0;
     }
 }
 
-void JSWebAssemblyStruct::set(uint32_t fieldIndex, EncodedJSValue argument)
+void JSWebAssemblyStruct::set(uint32_t fieldIndex, uint64_t argument)
 {
     using Wasm::TypeKind;
 
@@ -140,7 +145,7 @@ void JSWebAssemblyStruct::set(uint32_t fieldIndex, EncodedJSValue argument)
     case TypeKind::Funcref:
     case TypeKind::Ref:
     case TypeKind::RefNull: {
-        bitwise_cast<WriteBarrierBase<Unknown>*>(targetPointer)->set(vm(), this, JSValue::decode(argument));
+        bitwise_cast<WriteBarrierBase<Unknown>*>(targetPointer)->set(vm(), this, JSValue::decode(static_cast<EncodedJSValue>(argument)));
         return;
     }
     case TypeKind::V128:
@@ -162,6 +167,14 @@ void JSWebAssemblyStruct::set(uint32_t fieldIndex, EncodedJSValue argument)
     }
 
     ASSERT_NOT_REACHED();
+}
+
+void JSWebAssemblyStruct::set(uint32_t fieldIndex, v128_t argument)
+{
+    uint8_t* targetPointer = fieldPointer(fieldIndex);
+    ASSERT(fieldType(fieldIndex).type.is<Wasm::Type>());
+    ASSERT(fieldType(fieldIndex).type.as<Wasm::Type>().kind == Wasm::TypeKind::V128);
+    *bitwise_cast<v128_t*>(targetPointer) = argument;
 }
 
 template<typename Visitor>

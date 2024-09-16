@@ -31,11 +31,13 @@
 #include "EditorState.h"
 #include "ImageAnalysisUtilities.h"
 #include "PDFPluginIdentifier.h"
-#include "ShareableBitmap.h"
 #include "WKLayoutMode.h"
+#include "WKTextAnimationType.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/FocusDirection.h>
+#include <WebCore/PlatformPlaybackSessionInterface.h>
 #include <WebCore/ScrollTypes.h>
+#include <WebCore/ShareableBitmap.h>
 #include <WebCore/TextIndicatorWindow.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebKit/WKDragDestinationAction.h>
@@ -57,6 +59,7 @@ OBJC_CLASS NSImmediateActionGestureRecognizer;
 OBJC_CLASS NSMenu;
 OBJC_CLASS NSPopover;
 OBJC_CLASS NSTextInputContext;
+OBJC_CLASS NSTextPlaceholder;
 OBJC_CLASS NSView;
 OBJC_CLASS QLPreviewPanel;
 OBJC_CLASS WKAccessibilitySettingsObserver;
@@ -70,6 +73,7 @@ OBJC_CLASS WKMouseTrackingObserver;
 OBJC_CLASS WKRevealItemPresenter;
 OBJC_CLASS WKSafeBrowsingWarning;
 OBJC_CLASS WKShareSheet;
+OBJC_CLASS WKTextAnimationManager;
 OBJC_CLASS WKViewLayoutStrategy;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWindowVisibilityObserver;
@@ -101,6 +105,11 @@ class Object;
 class PageConfiguration;
 }
 
+namespace PAL {
+class HysteresisActivity;
+enum class HysteresisState : bool;
+}
+
 namespace WebCore {
 class DestinationColorSpace;
 class IntPoint;
@@ -111,7 +120,12 @@ struct TextRecognitionResult;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+namespace WritingTools {
+enum class ReplacementBehavior : uint8_t;
 }
+
+} // namespace WebCore
 
 @protocol WebViewImplDelegate
 
@@ -182,9 +196,10 @@ typedef id <NSValidatedUserInterfaceItem> ValidationItem;
 typedef Vector<RetainPtr<ValidationItem>> ValidationVector;
 typedef HashMap<String, ValidationVector> ValidationMap;
 
-class WebViewImpl : public CanMakeWeakPtr<WebViewImpl>, public CanMakeCheckedPtr {
-    WTF_MAKE_FAST_ALLOCATED;
+class WebViewImpl final : public CanMakeWeakPtr<WebViewImpl>, public CanMakeCheckedPtr<WebViewImpl> {
     WTF_MAKE_NONCOPYABLE(WebViewImpl);
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebViewImpl);
 public:
     WebViewImpl(NSView <WebViewImplDelegate> *, WKWebView *outerWebView, WebProcessPool&, Ref<API::PageConfiguration>&&);
 
@@ -379,6 +394,9 @@ public:
     bool validateUserInterfaceItem(id <NSValidatedUserInterfaceItem>);
     void setEditableElementIsFocused(bool);
 
+    enum class ContentRelativeChildViewsSuppressionType : uint8_t { Remove, Restore, TemporarilyRemove };
+    void suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType);
+
 #if HAVE(REDESIGNED_TEXT_CURSOR)
     void updateCursorAccessoryPlacement();
 #endif
@@ -449,7 +467,7 @@ public:
     void setIgnoresMouseDraggedEvents(bool);
     bool ignoresMouseDraggedEvents() const { return m_ignoresMouseDraggedEvents; }
 
-    void setAccessibilityWebProcessToken(NSData *);
+    void setAccessibilityWebProcessToken(NSData *, WebCore::FrameIdentifier, pid_t);
     void accessibilityRegisterUIProcessTokens();
     void updateRemoteAccessibilityRegistration(bool registerProcess);
     id accessibilityFocusedUIElement();
@@ -458,7 +476,6 @@ public:
     void enableAccessibilityIfNecessary();
     id accessibilityAttributeValue(NSString *, id parameter = nil);
 
-    NSTrackingArea *primaryTrackingArea() const { return m_primaryTrackingArea.get(); }
     void updatePrimaryTrackingAreaOptions(NSTrackingAreaOptions);
 
     NSTrackingRectTag addTrackingRect(CGRect, id owner, void* userData, bool assumeInside);
@@ -489,10 +506,6 @@ public:
 
     _WKRemoteObjectRegistry *remoteObjectRegistry();
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WKBrowsingContextController *browsingContextController();
-ALLOW_DEPRECATED_DECLARATIONS_END
-
 #if ENABLE(DRAG_SUPPORT)
     void draggedImage(NSImage *, CGPoint endPoint, NSDragOperation);
     NSDragOperation draggingEntered(id <NSDraggingInfo>);
@@ -514,7 +527,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     void startWindowDrag();
 
-    void startDrag(const WebCore::DragItem&, ShareableBitmap::Handle&& image);
+    void startDrag(const WebCore::DragItem&, WebCore::ShareableBitmap::Handle&& image);
     void setFileAndURLTypes(NSString *filename, NSString *extension, NSString *uti, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *);
     void setPromisedDataForImage(WebCore::Image&, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::FragmentedSharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *pasteboardOrigin);
     void pasteboardChangedOwner(NSPasteboard *);
@@ -524,6 +537,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RefPtr<ViewSnapshot> takeViewSnapshot();
     void saveBackForwardSnapshotForCurrentItem();
     void saveBackForwardSnapshotForItem(WebBackForwardListItem&);
+
+    void insertTextPlaceholderWithSize(CGSize, void(^completionHandler)(NSTextPlaceholder *));
+    void removeTextPlaceholder(NSTextPlaceholder *, bool willInsertText, void(^completionHandler)());
 
     WKSafeBrowsingWarning *safeBrowsingWarning() { return m_safeBrowsingWarning.get(); }
 
@@ -591,6 +607,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     void characterIndexForPoint(NSPoint, void(^)(NSUInteger));
     void typingAttributesWithCompletionHandler(void(^)(NSDictionary<NSString *, id> *));
 
+    bool isContentRichlyEditable() const;
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    void insertMultiRepresentationHEIC(NSData *, NSString *);
+#endif
+
+    void createFlagsChangedEventMonitor();
+    void removeFlagsChangedEventMonitor();
+
     void mouseMoved(NSEvent *);
     void mouseDown(NSEvent *);
     void mouseUp(NSEvent *);
@@ -608,8 +633,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     bool shouldRequestCandidates() const;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
-    void computeHasVisualSearchResults(const URL& imageURL, ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&&);
+    void requestTextRecognition(const URL& imageURL, WebCore::ShareableBitmap::Handle&& imageData, const String& sourceLanguageIdentifier, const String& targetLanguageIdentifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
+    void computeHasVisualSearchResults(const URL& imageURL, WebCore::ShareableBitmap& imageBitmap, CompletionHandler<void(bool)>&&);
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
@@ -638,12 +663,18 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSTouchBar *currentTouchBar() const { return m_currentTouchBar.get(); }
     NSCandidateListTouchBarItem *candidateListTouchBarItem() const;
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    RefPtr<WebCore::PlatformPlaybackSessionInterface> protectedPlaybackSessionInterface() const;
     bool isPictureInPictureActive();
     void togglePictureInPicture();
+    bool isInWindowFullscreenActive() const;
+    void enterInWindowFullscreen();
+    void exitInWindowFullscreen();
     void updateMediaPlaybackControlsManager();
 
     AVTouchBarScrubber *mediaPlaybackControlsView() const;
 #endif
+    void nowPlayingMediaTitleAndArtist(void(^completionHandler)(NSString *, NSString *));
+
     NSTouchBar *textTouchBar() const;
     void dismissTextTouchBarPopoverItemWithIdentifier(NSString *);
 
@@ -682,6 +713,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&);
 #endif
 
+#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
+    bool canHandleContextMenuWritingTools() const;
+#endif
+
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
     MediaSessionCoordinatorProxyPrivate* mediaSessionCoordinatorForTesting() { return m_coordinatorForTesting.get(); }
     void setMediaSessionCoordinatorForTesting(MediaSessionCoordinatorProxyPrivate*);
@@ -695,12 +730,21 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     void didFinishPresentation(WKRevealItemPresenter *);
 #endif
 
-    void beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&&, WebCore::FloatRect);
+    void beginTextRecognitionForVideoInElementFullscreen(WebCore::ShareableBitmap::Handle&&, WebCore::FloatRect);
     void cancelTextRecognitionForVideoInElementFullscreen();
 
 #if HAVE(INLINE_PREDICTIONS)
     void setInlinePredictionsEnabled(bool enabled) { m_inlinePredictionsEnabled = enabled; }
     bool inlinePredictionsEnabled() const { return m_inlinePredictionsEnabled; }
+#endif
+
+#if ENABLE(WRITING_TOOLS_UI)
+    void addTextAnimationForAnimationID(WTF::UUID, const WebKit::TextAnimationData&);
+    void removeTextAnimationForAnimationID(WTF::UUID);
+#endif
+
+#if HAVE(INLINE_PREDICTIONS)
+    bool allowsInlinePredictions() const;
 #endif
 
 private:
@@ -716,6 +760,11 @@ private:
     void installImageAnalysisOverlayView(VKCImageAnalysis *);
     void uninstallImageAnalysisOverlayView();
 #endif
+
+    bool hasContentRelativeChildViews() const;
+
+    void suppressContentRelativeChildViews();
+    void restoreContentRelativeChildViews();
 
     bool m_clientWantsMediaPlaybackControlsView { false };
     bool m_canCreateTouchBars { false };
@@ -775,12 +824,13 @@ private:
     void handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates);
 
 #if HAVE(INLINE_PREDICTIONS)
-    bool allowsInlinePredictions() const;
     void showInlinePredictionsForCandidates(NSArray<NSTextCheckingResult *> *);
     void showInlinePredictionsForCandidate(NSTextCheckingResult *, NSRange, NSRange);
 #endif
 
     NSTextCheckingTypes getTextCheckingTypes() const;
+
+    void contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState);
 
     void flushPendingMouseEventCallbacks();
 
@@ -798,6 +848,8 @@ private:
 #endif
 
     std::optional<EditorState::PostLayoutData> postLayoutDataForContentEditable();
+
+    Ref<WebPageProxy> protectedPage() const;
 
     WeakObjCPtr<NSView<WebViewImplDelegate>> m_view;
     std::unique_ptr<PageClient> m_pageClient;
@@ -854,6 +906,8 @@ private:
 
     std::unique_ptr<WebCore::TextIndicatorWindow> m_textIndicatorWindow;
 
+    std::unique_ptr<PAL::HysteresisActivity> m_contentRelativeViewsHysteresis;
+
     RetainPtr<NSColorSpace> m_colorSpace;
 
     RetainPtr<NSColor> m_backgroundColor;
@@ -873,6 +927,7 @@ private:
 
     RetainPtr<WKMouseTrackingObserver> m_mouseTrackingObserver;
     RetainPtr<NSTrackingArea> m_primaryTrackingArea;
+    RetainPtr<NSTrackingArea> m_flagsChangedEventMonitorTrackingArea;
 
     NSToolTipTag m_lastToolTipTag { 0 };
     WeakObjCPtr<id> m_trackingRectOwner;
@@ -897,6 +952,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     bool m_allowsMagnification { false };
 
     RetainPtr<NSAccessibilityRemoteUIElement> m_remoteAccessibilityChild;
+    RetainPtr<NSMutableDictionary> m_remoteAccessibilityFrameCache;
 
     RefPtr<WebCore::Image> m_promisedImage;
     String m_promisedFilename;
@@ -922,6 +978,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     
 #if ENABLE(DRAG_SUPPORT)
     NSInteger m_initialNumberOfValidItemsForDrop { 0 };
+#endif
+
+#if ENABLE(WRITING_TOOLS)
+    RetainPtr<WKTextAnimationManager> m_TextAnimationTypeManager;
 #endif
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)

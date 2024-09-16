@@ -12,6 +12,11 @@ Extra_CPP_Flags	      = -DUSE_GETCWD
 Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte \
                         --enable-unicode9 \
                         --enable-max-function-depth=700
+
+ifeq ($(RC_DEPLOYMENT_TARGET_SETTING_NAME),MACOSX_DEPLOYMENT_TARGET)
+Extra_Configure_Flags += --enable-pcre
+endif
+
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 

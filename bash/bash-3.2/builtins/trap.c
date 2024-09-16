@@ -141,13 +141,23 @@ trap_builtin (list)
 		      case SIGINT:
 			if (interactive)
 			  set_signal_handler (SIGINT, sigint_sighandler);
+#ifdef __APPLE__
+			else if (!signal_is_hard_ignored (SIGINT))
+#else
 			else
+#endif
 			  set_signal_handler (SIGINT, termsig_sighandler);
 			break;
 
 		      case SIGQUIT:
+#ifdef __APPLE__
+			/* Always ignore SIGQUIT for interactive usage. */
+			if (interactive)
+			  set_signal_handler (SIGQUIT, SIG_IGN);
+#else
 			/* Always ignore SIGQUIT. */
 			set_signal_handler (SIGQUIT, SIG_IGN);
+#endif
 			break;
 		      case SIGTERM:
 #if defined (JOB_CONTROL)

@@ -26,7 +26,6 @@
 #import <utilities/debugging.h>
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTRemoveCustodianRecoveryKeyOperation.h"
 #import "keychain/ot/ObjCImprovements.h"
 

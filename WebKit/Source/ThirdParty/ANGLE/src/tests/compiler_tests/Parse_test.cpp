@@ -178,3 +178,233 @@ void main() {
     EXPECT_TRUE(
         foundInIntermediateTree("Size of declared variable exceeds implementation-defined limit"));
 }
+
+// Tests that separating variable declaration of multiple instances of a anonymous structure
+// rewrites the expression types for expressions that use the variables. At the time of writing
+// the expression types were left referencing the original anonymous function.
+TEST_F(ParseTest, SeparateAnonymousFunctionsRewritesExpressions)
+{
+    const char kShader[] = R"(
+struct {
+    mediump vec2 d;
+} s0, s1;
+void main() {
+    s0 = s0;
+    s1 = s1;
+})";
+    EXPECT_TRUE(compile(kShader));
+    EXPECT_FALSE(foundInIntermediateTree("anonymous"));
+}
+
+// Tests that constant folding a division of a void variable does not crash during parsing.
+TEST_F(ParseTest, ConstStructWithVoidAndDivNoCrash)
+{
+    const char kShader[] = R"(
+const struct s { void i; } ss = s();
+void main() {
+    highp vec3 q = ss.i / ss.i;
+})";
+    EXPECT_FALSE(compile(kShader));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("illegal use of type 'void'"));
+    EXPECT_TRUE(foundInIntermediateTree("constructor does not have any arguments"));
+    EXPECT_TRUE(foundInIntermediateTree("operation with void operands"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "wrong operand types - no operation '/' exists that takes a left-hand operand of type "
+        "'const void' and a right operand of type 'const void'"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "cannot convert from 'const void' to 'highp 3-component vector of float'"));
+}
+
+// Tests that division of void variable returns the same errors as division of constant
+// void variable (see above).
+TEST_F(ParseTest, StructWithVoidAndDivErrorCheck)
+{
+    const char kShader[] = R"(
+struct s { void i; } ss = s();
+void main() {
+    highp vec3 q = ss.i / ss.i;
+})";
+    EXPECT_FALSE(compile(kShader));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("illegal use of type 'void'"));
+    EXPECT_TRUE(foundInIntermediateTree("constructor does not have any arguments"));
+    EXPECT_TRUE(foundInIntermediateTree("operation with void operands"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "wrong operand types - no operation '/' exists that takes a left-hand operand of type "
+        "'void' and a right operand of type 'void'"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "cannot convert from 'void' to 'highp 3-component vector of float'"));
+}
+
+// Tests that imod of const void variable does not crash during parsing.
+TEST_F(ParseTest, ConstStructVoidAndImodAndNoCrash)
+{
+    const char kShader[] = R"(#version 310 es
+const struct s { void i; } ss = s();
+void main() {
+    highp vec3 q = ss.i % ss.i;
+})";
+    EXPECT_FALSE(compile(kShader));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("illegal use of type 'void'"));
+    EXPECT_TRUE(foundInIntermediateTree("constructor does not have any arguments"));
+    EXPECT_TRUE(foundInIntermediateTree("operation with void operands"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "wrong operand types - no operation '%' exists that takes a left-hand operand of type "
+        "'const void' and a right operand of type 'const void'"));
+    EXPECT_TRUE(foundInIntermediateTree(
+        "cannot convert from 'const void' to 'highp 3-component vector of float'"));
+}
+
+TEST_F(ParseTest, HugeUnsizedMultidimensionalArrayConstructorNoCrash)
+{
+    mCompileOptions.limitExpressionComplexity = true;
+    std::ostringstream shader;
+    shader << R"(#version 310 es
+int E=int)";
+    for (int i = 0; i < 10000; ++i)
+    {
+        shader << "[]";
+    }
+    shader << "()";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("array has too many dimensions"));
+}
+
+TEST_F(ParseTest, HugeMultidimensionalArrayConstructorNoCrash)
+{
+    mCompileOptions.limitExpressionComplexity = true;
+    std::ostringstream shader;
+    shader << R"(#version 310 es
+int E=int)";
+    for (int i = 0; i < 10000; ++i)
+    {
+        shader << "[1]";
+    }
+
+    for (int i = 0; i < 10000; ++i)
+    {
+        shader << "(2)";
+    }
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("array has too many dimensions"));
+}
+
+TEST_F(ParseTest, DeeplyNestedWhileStatementsNoCrash)
+{
+    mShaderSpec = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+void main() {
+)";
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << " while(true)";
+    }
+    shader << "; }";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("statement is too deeply nested"));
+}
+
+TEST_F(ParseTest, DeeplyNestedForStatementsNoCrash)
+{
+    mShaderSpec = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+void main() {
+)";
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << " for(int i = 0; i < 10; i++)";
+    }
+    shader << "; }";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("statement is too deeply nested"));
+}
+
+TEST_F(ParseTest, DeeplyNestedDoWhileStatementsNoCrash)
+{
+    mShaderSpec = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+void main() {
+)";
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << " do {";
+    }
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << "} while(true);";
+    }
+    shader << "}";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("statement is too deeply nested"));
+}
+
+TEST_F(ParseTest, DeeplyNestedSwitchStatementsNoCrash)
+{
+    mShaderSpec = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+void main() {
+)";
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << " switch(1) { default: int i=0;";
+    }
+    for (int i = 0; i < 1700; ++i)
+    {
+        shader << "}";
+    }
+    shader << "}";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("statement is too deeply nested"));
+}
+
+TEST_F(ParseTest, ManyChainedUnaryExpressionsNoCrash)
+{
+    mCompileOptions.limitExpressionComplexity = true;
+    mShaderSpec                               = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+precision mediump float;
+void main() {
+  int iterations=0;)";
+    for (int i = 0; i < 6000; ++i)
+    {
+        shader << "~";
+    }
+    shader << R"(++iterations;
+}
+)";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("Expression too complex"));
+}
+
+TEST_F(ParseTest, ManyChainedAssignmentsNoCrash)
+{
+    mCompileOptions.limitExpressionComplexity = true;
+    mShaderSpec                               = SH_WEBGL2_SPEC;
+    std::ostringstream shader;
+    shader << R"(#version 300 es
+void main() {
+    int c = 0;
+)";
+    for (int i = 0; i < 3750; ++i)
+    {
+        shader << "c=\n";
+    }
+    shader << "c+1; }";
+    EXPECT_FALSE(compile(shader.str()));
+    EXPECT_TRUE(foundErrorInIntermediateTree());
+    EXPECT_TRUE(foundInIntermediateTree("Expression too complex"));
+}

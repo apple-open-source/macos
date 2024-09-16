@@ -8,18 +8,31 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_CLEVENTVK_H_
 #define LIBANGLE_RENDERER_VULKAN_CLEVENTVK_H_
 
+#include <condition_variable>
+#include <mutex>
+
+#include "libANGLE/renderer/vulkan/CLContextVk.h"
 #include "libANGLE/renderer/vulkan/cl_types.h"
+#include "libANGLE/renderer/vulkan/vk_resource.h"
 
 #include "libANGLE/renderer/CLEventImpl.h"
+
+#include "libANGLE/CLCommandQueue.h"
+#include "libANGLE/CLContext.h"
+#include "libANGLE/CLEvent.h"
 
 namespace rx
 {
 
-class CLEventVk : public CLEventImpl
+class CLEventVk : public CLEventImpl, public vk::Resource
 {
   public:
     CLEventVk(const cl::Event &event);
     ~CLEventVk() override;
+
+    cl_int getCommandType() const { return mEvent.getCommandType(); }
+    bool isUserEvent() const { return getCommandType() == CL_COMMAND_USER; }
+    cl::Event &getFrontendObject() { return const_cast<cl::Event &>(mEvent); }
 
     angle::Result getCommandExecutionStatus(cl_int &executionStatus) override;
 
@@ -31,6 +44,15 @@ class CLEventVk : public CLEventImpl
                                    size_t valueSize,
                                    void *value,
                                    size_t *valueSizeRet) override;
+
+    angle::Result waitForUserEventStatus();
+    angle::Result setStatusAndExecuteCallback(cl_int status);
+
+  private:
+    std::mutex mUserEventMutex;
+    angle::SynchronizedValue<cl_int> mStatus;
+    std::condition_variable mUserEventCondition;
+    angle::SynchronizedValue<cl::EventStatusMap<bool>> mHaveCallbacks;
 };
 
 }  // namespace rx

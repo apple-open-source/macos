@@ -52,9 +52,9 @@
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
-#import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#include "keychain/ckks/tests/CKKSMockCuttlefishAdapter.h"
 
 #import "keychain/ot/OTDefines.h"
 
@@ -108,18 +108,11 @@
 @implementation CloudKitKeychainSyncingMockXCTest
 
 - (void)setUp {
-    // Need to convince your tests to set these, no matter what the on-disk plist says? Uncomment.
-    (void)[CKKSManifest shouldSyncManifests]; // perfrom initialization
-    SecCKKSSetSyncManifests(false);
-    SecCKKSSetEnforceManifests(false);
+    // Set any feature flags that must be true for the tests, regardless of the base OS.
 
 #if TARGET_OS_IOS || TARGET_OS_TV
     SecSecuritySetPersonaMusr(NULL);
 #endif
-
-    // Check that your environment is set up correctly
-    XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
-    XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
 
     // Use our superclass to create a fake keychain
     [super setUp];
@@ -136,6 +129,8 @@
     self.ckksViews = self.ckksViews ?: [NSMutableSet set];
     self.keys = self.keys ?: [[NSMutableDictionary alloc] init];
 
+    self.defaultCKKS.cuttlefishAdapter = [[CKKSMockCuttlefishAdapter alloc] init:self.zones zoneKeys:self.keys];
+    
     [SecMockAKS reset];
 
     // Set up a remote peer with no keys
@@ -1128,6 +1123,61 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return item;
 }
 
+- (NSDictionary*)fakeINetRecordDictionary:(NSString*)server
+                                  account:(NSString*)account
+                                   zoneID:(CKRecordZoneID*)zoneID
+{
+    /*
+     {
+     acct = "account-delete-me-local-addition";
+     agrp = "com.apple.security.ckks";
+     atyp = "";
+     bin0 = {length = 10, bytes = 0x62696e30206669656c64};
+     bin1 = {length = 10, bytes = 0x62696e31206669656c64};
+     bin2 = {length = 10, bytes = 0x62696e32206669656c64};
+     bin3 = {length = 10, bytes = 0x62696e33206669656c64};
+     bini = {length = 10, bytes = 0x62696e68206669656c64};
+     binn = {length = 10, bytes = 0x62696e6e206669656c64};
+     cdat = "2022-04-11 23:45:47 +0000";
+     class = inet;
+     mdat = "2022-04-11 23:45:47 +0000";
+     musr = {length = 0, bytes = 0x};
+     path = "";
+     pdmn = ck;
+     port = 0;
+     ptcl = 0;
+     sdmn = "";
+     sha1 = {length = 20, bytes = 0xee2534a55516ca83ba860f49e181975c09497a7c};
+     srvr = "server-delete-me-local-addition";
+     tomb = 0;
+     vwht = keychain;
+     }
+    */
+    NSData* itemdata = [[NSData alloc] initWithBase64EncodedString:@"YnBsaXN0MDDfEBYBAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhsXHB0eFx8gISIjJCUgIiYiJ1RzZG1uVGJpbjNVY2xhc3NUc3J2clRiaW4xVHBhdGhUYWdycFRwZG1uVGJpbmlUYXR5cFRiaW5uVG1kYXRUdndodFRwb3J0VGJpbjJUc2hhMVRtdXNyVGNkYXRUcHRjbFRiaW4wVHRvbWJUYWNjdFBKYmluMyBmaWVsZFRpbmV0XxAfc2VydmVyLWRlbGV0ZS1tZS1sb2NhbC1hZGRpdGlvbkpiaW4xIGZpZWxkXxAXY29tLmFwcGxlLnNlY3VyaXR5LmNra3NSY2tKYmluaCBmaWVsZEpiaW5uIGZpZWxkM0HEAnqVrGxdWGtleWNoYWluEABKYmluMiBmaWVsZE8QFO4lNKVVFsqDuoYPSeGBl1wJSXp8QEpiaW4wIGZpZWxkXxAgYWNjb3VudC1kZWxldGUtbWUtbG9jYWwtYWRkaXRpb24ACAA3ADwAQQBHAEwAUQBWAFsAYABlAGoAbwB0AHkAfgCDAIgAjQCSAJcAnAChAKYApwCyALcA2QDkAP4BAQEMARcBIAEpASsBNgFNAU4BWQAAAAAAAAIBAAAAAAAAACgAAAAAAAAAAAAAAAAAAAF8"
+options:0];
+
+    NSError* error = nil;
+    NSMutableDictionary * item = [[NSPropertyListSerialization propertyListWithData:itemdata
+                                                                            options:0
+                                                                             format:nil
+                                                                              error:&error] mutableCopy];
+    XCTAssertNil(error, "no error interpreting data as item");
+    XCTAssertNotNil(item, "interpreted data as item");
+
+    if(zoneID && ![zoneID.zoneName isEqualToString:@"keychain"]) {
+        [item setObject:zoneID.zoneName forKey:(__bridge id)kSecAttrSyncViewHint];
+    }
+
+    if(server) {
+        item[(id)kSecAttrServer] = server;
+    }
+    if(account) {
+        item[(id)kSecAttrAccount] = account;
+    }
+
+    return item;
+}
+
 - (NSDictionary*)fakeKeyRecordDictionary:(NSString*)label zoneID:(CKRecordZoneID*)zoneID
 {
     /*
@@ -1226,13 +1276,29 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 - (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account key:(CKKSKey*)key {
     NSMutableDictionary* item = [[self fakeRecordDictionary: account zoneID:zoneID] mutableCopy];
 
-    return [self createFakeRecord:zoneID recordName:recordName itemDictionary:item key:key];
+    return [self createFakeRecord:zoneID recordName:recordName itemDictionary:item key:key plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
+}
+
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
+                   recordName:(NSString*)recordName
+                  withAccount:(NSString* _Nullable)account
+                          key:(CKKSKey* _Nullable)key
+plaintextPCSServiceIdentifier:(NSNumber*)pcsServiceIdentifier
+        plaintextPCSPublicKey:(NSData*)pcsPublicKey
+   plaintextPCSPublicIdentity:(NSData*)pcsPublicIdentity
+{
+    NSMutableDictionary* item = [[self fakeRecordDictionary: account password:nil zoneID:zoneID] mutableCopy];
+    
+    return [self createFakeRecord:zoneID recordName:recordName itemDictionary:item key:key plaintextPCSServiceIdentifier:pcsServiceIdentifier plaintextPCSPublicKey:pcsPublicKey plaintextPCSPublicIdentity:pcsPublicIdentity];
 }
 
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
                    recordName:(NSString*)recordName
                itemDictionary:(NSDictionary*)itemDictionary
                           key:(CKKSKey* _Nullable)key
+plaintextPCSServiceIdentifier:(NSNumber* _Nullable)pcsServiceIdentifier
+        plaintextPCSPublicKey:(NSData* _Nullable)pcsPublicKey
+   plaintextPCSPublicIdentity:(NSData* _Nullable)pcsPublicIdentity
 {
     NSMutableDictionary* item = [itemDictionary mutableCopy];
 
@@ -1242,10 +1308,13 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     }
 
     CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
-    if(key) {
-        return [self newRecord:ckrid withNewItemData:item key:key];
+    if (key) {
+        return [self newRecord:ckrid withNewItemData:item key:key plaintextPCSServiceIdentifier:pcsServiceIdentifier plaintextPCSPublicKey:pcsPublicKey plaintextPCSPublicIdentity:pcsPublicIdentity];
     } else {
-        return [self newRecord:ckrid withNewItemData:item];
+        ZoneKeys* zonekeys = self.keys[ckrid.zoneID];
+        XCTAssertNotNil(zonekeys, "Have zone keys for zone");
+        XCTAssertNotNil(zonekeys.classC, "Have class C key for zone");
+        return [self newRecord:ckrid withNewItemData:item key:zonekeys.classC plaintextPCSServiceIdentifier:pcsServiceIdentifier plaintextPCSPublicKey:pcsPublicKey plaintextPCSPublicIdentity:pcsPublicIdentity];
     }
 }
 
@@ -1254,28 +1323,37 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     XCTAssertNotNil(zonekeys, "Have zone keys for zone");
     XCTAssertNotNil(zonekeys.classC, "Have class C key for zone");
 
-    return [self newRecord:recordID withNewItemData:dictionary key:zonekeys.classC];
+    return [self newRecord:recordID withNewItemData:dictionary key:zonekeys.classC plaintextPCSServiceIdentifier:nil plaintextPCSPublicKey:nil plaintextPCSPublicIdentity:nil];
 }
 
-- (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary key:(CKKSKey*)key {
+- (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary key:(CKKSKey*)key 
+plaintextPCSServiceIdentifier:(NSNumber* _Nullable)plaintextPCSServiceIdentifier plaintextPCSPublicKey:(NSData* _Nullable)plaintextPCSPublicKey plaintextPCSPublicIdentity:(NSData* _Nullable)plaintextPCSPublicIdentity
+{
     NSError* error = nil;
     CKKSItem* cipheritem = [CKKSItemEncrypter encryptCKKSItem:[[CKKSItem alloc] initWithUUID:recordID.recordName
                                                                                parentKeyUUID:key.uuid
                                                                                    contextID:self.defaultCKKS.operationDependencies.contextID
-                                                                                      zoneID:recordID.zoneID]
+                                                                                      zoneID:recordID.zoneID
+                                                                             encodedCKRecord:nil encItem:nil wrappedkey:nil generationCount:0 encver:CKKSItemEncryptionVersion2 plaintextPCSServiceIdentifier:plaintextPCSServiceIdentifier plaintextPCSPublicKey:plaintextPCSPublicKey plaintextPCSPublicIdentity:plaintextPCSPublicIdentity]
                                                dataDictionary:dictionary
                                              updatingCKKSItem:nil
                                                     parentkey:key
                                                      keyCache:nil
                                                         error:&error];
+
     XCTAssertNil(error, "encrypted item with class c key");
     XCTAssertNotNil(cipheritem, "Have an encrypted item");
 
     return cipheritem;
 }
 
-- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key {
-    CKKSItem* item = [self newItem:recordID withNewItemData:dictionary key:key];
+- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key
+plaintextPCSServiceIdentifier:(NSNumber*)plaintextPCSServiceIdentifier plaintextPCSPublicKey:(NSData*)plaintextPCSPublicKey plaintextPCSPublicIdentity:(NSData*)plaintextPCSPublicIdentity
+{
+
+    CKKSItem* item = [self newItem:recordID withNewItemData:dictionary key:key
+     plaintextPCSServiceIdentifier:plaintextPCSServiceIdentifier plaintextPCSPublicKey:plaintextPCSPublicKey plaintextPCSPublicIdentity:plaintextPCSPublicIdentity
+    ];
 
     CKRecord* ckr = [item CKRecordWithZoneID: recordID.zoneID];
     XCTAssertNotNil(ckr, "Created a CKRecord");

@@ -241,6 +241,11 @@ void SecCode::checkValidity(SecCSFlags flags)
 	}
 }
 
+void SecCode::guestMatchesLightweightCodeRequirement(SecCode *guest, const Requirement* lwcr)
+{
+	MacOSError::throwMe(errSecCSNoSuchCode);
+}
+
 
 //
 // By default, we track no validity for guests (we don't have any)

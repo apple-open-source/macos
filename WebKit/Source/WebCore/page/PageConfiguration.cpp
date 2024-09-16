@@ -36,6 +36,7 @@
 #include "ChromeClient.h"
 #include "ContextMenuClient.h"
 #include "CookieJar.h"
+#include "CryptoClient.h"
 #include "DatabaseProvider.h"
 #include "DiagnosticLoggingClient.h"
 #include "DragClient.h"
@@ -80,8 +81,9 @@ PageConfiguration::PageConfiguration(
     Ref<BackForwardClient>&& backForwardClient,
     Ref<CookieJar>&& cookieJar,
     UniqueRef<ProgressTrackerClient>&& progressTrackerClient,
-    std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>>&& clientForMainFrame,
+    ClientCreatorForMainFrame&& clientCreatorForMainFrame,
     FrameIdentifier mainFrameIdentifier,
+    RefPtr<Frame>&& mainFrameOpener,
     UniqueRef<SpeechRecognitionProvider>&& speechRecognitionProvider,
     UniqueRef<MediaRecorderProvider>&& mediaRecorderProvider,
     Ref<BroadcastChannelRegistry>&& broadcastChannelRegistry,
@@ -95,7 +97,9 @@ PageConfiguration::PageConfiguration(
 #if ENABLE(APPLE_PAY)
     UniqueRef<PaymentCoordinatorClient>&& paymentCoordinatorClient,
 #endif
-    UniqueRef<ChromeClient>&& chromeClient)
+    UniqueRef<ChromeClient>&& chromeClient,
+    UniqueRef<CryptoClient>&& cryptoClient
+)
     : identifier(identifier)
     , sessionID(sessionID)
     , chromeClient(WTFMove(chromeClient))
@@ -111,8 +115,9 @@ PageConfiguration::PageConfiguration(
     , progressTrackerClient(WTFMove(progressTrackerClient))
     , backForwardClient(WTFMove(backForwardClient))
     , cookieJar(WTFMove(cookieJar))
-    , clientForMainFrame(WTFMove(clientForMainFrame))
+    , clientCreatorForMainFrame(WTFMove(clientCreatorForMainFrame))
     , mainFrameIdentifier(WTFMove(mainFrameIdentifier))
+    , mainFrameOpener(WTFMove(mainFrameOpener))
     , cacheStorageProvider(WTFMove(cacheStorageProvider))
     , userContentProvider(WTFMove(userContentProvider))
     , broadcastChannelRegistry(WTFMove(broadcastChannelRegistry))
@@ -122,6 +127,7 @@ PageConfiguration::PageConfiguration(
     , modelPlayerProvider(WTFMove(modelPlayerProvider))
     , badgeClient(WTFMove(badgeClient))
     , historyItemClient(WTFMove(historyItemClient))
+    , cryptoClient(WTFMove(cryptoClient))
 {
 }
 

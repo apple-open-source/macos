@@ -41,7 +41,7 @@ static constexpr bool verboseFixPointLoops = false;
 class PredictionPropagationPhase : public Phase {
 public:
     PredictionPropagationPhase(Graph& graph)
-        : Phase(graph, "prediction propagation")
+        : Phase(graph, "prediction propagation"_s)
         , m_tupleSpeculations(graph.m_tupleData.size())
     {
         m_tupleSpeculations.fill(SpecNone);
@@ -733,6 +733,13 @@ private:
             break;
         }
 
+        case ToPropertyKeyOrNumber: {
+            SpeculatedType child = node->child1()->prediction();
+            if (child)
+                changed |= mergePrediction(resultOfToPropertyKeyOrNumber(child));
+            break;
+        }
+
         case NormalizeMapKey: {
             SpeculatedType prediction = node->child1()->prediction();
             if (prediction)
@@ -1040,8 +1047,11 @@ private:
         case GetClosureVar:
         case GetInternalField:
         case GetFromArguments:
-        case LoadKeyFromMapBucket:
-        case LoadValueFromMapBucket:
+        case MapValue:
+        case MapIteratorKey:
+        case MapIteratorValue:
+        case MapIterationEntryKey:
+        case MapIterationEntryValue:
         case ToObject:
         case CallNumberConstructor:
         case CallObjectConstructor:
@@ -1107,14 +1117,17 @@ private:
             break;
 
         case MapHash:
+        case MapIterationEntry:
+        case MapKeyIndex:
             setPrediction(SpecInt32Only);
             break;
 
-        case GetMapBucket:
-        case GetMapBucketHead:
-        case GetMapBucketNext:
-        case SetAdd:
-        case MapSet:
+        case MapIteratorNext:
+            setPrediction(SpecBoolean);
+            break;
+
+        case MapStorage:
+        case MapIterationNext:
             setPrediction(SpecCellOther);
             break;
 
@@ -1126,6 +1139,7 @@ private:
 
         case GetTypedArrayByteOffset:
         case GetArrayLength:
+        case GetUndetachedTypeArrayLength:
         case GetVectorLength: {
             setPrediction(SpecInt32Only);
             break;
@@ -1435,6 +1449,16 @@ private:
             break;
         }
 
+        case ToIntegerOrInfinity:
+        case ToLength: {
+            // We expect this node to almost always produce an int32. However,
+            // it's possible it produces Infinity or integers out of int32 range. We
+            // rely on the heap prediction since the @toIntegerOrInfinity() call profiled
+            // its result.
+            setPrediction(m_currentNode->getHeapPrediction());
+            break;
+        }
+
         case IdentityWithProfile: {
             setPrediction(m_currentNode->getForcedPrediction());
             break;
@@ -1478,6 +1502,7 @@ private:
         case ToThis:
         case ToPrimitive: 
         case ToPropertyKey:
+        case ToPropertyKeyOrNumber:
         case NormalizeMapKey:
         case AtomicsAdd:
         case AtomicsAnd:
@@ -1646,6 +1671,8 @@ private:
         case PutDynamicVar:
         case NukeStructureAndSetButterfly:
         case InitializeEntrypointArguments:
+        case SetAdd:
+        case MapSet:
         case WeakSetAdd:
         case WeakMapSet:
         case FilterCallLinkStatus:
@@ -1711,6 +1738,18 @@ private:
             return mergeSpeculations(type & SpecSymbol, SpecString);
 
         return SpecString | SpecSymbol;
+    }
+
+    SpeculatedType resultOfToPropertyKeyOrNumber(SpeculatedType type)
+    {
+        // Propagate the prediction of the source directly if already proven to be a property key or number.
+        if (type && !(type & ~(SpecFullNumber | SpecString | SpecSymbol)))
+            return type;
+
+        if (type & SpecStringObject && m_graph.canOptimizeStringObjectAccess(m_currentNode->origin.semantic))
+            return mergeSpeculations(type & SpecSymbol, SpecString);
+
+        return SpecFullNumber | SpecString | SpecSymbol;
     }
 
     Vector<Node*> m_dependentNodes;

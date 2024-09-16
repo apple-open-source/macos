@@ -32,6 +32,7 @@
 #import <wtf/ASCIICType.h>
 #import <wtf/HexNumber.h>
 #import <wtf/MainThread.h>
+#import <wtf/text/MakeString.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "KeyEventCodesIOS.h"
@@ -190,7 +191,7 @@ String keyForCharCode(unichar charCode)
     case NSNextFunctionKey:
         return "Unidentified"_s;
     default:
-        return String(reinterpret_cast<UChar*>(&charCode), 1);
+        return span(*reinterpret_cast<const UChar*>(&charCode));
     }
 }
 
@@ -480,7 +481,7 @@ String keyIdentifierForCharCode(unichar charCode)
             // FIXME: We should use something other than the vendor-area Unicode values for the above keys.
             // For now, just fall through to the default.
         default:
-            return makeString("U+", hex(toASCIIUpper(charCode), 4));
+            return makeString("U+"_s, hex(toASCIIUpper(charCode), 4));
     }
 }
 

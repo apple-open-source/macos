@@ -26,18 +26,20 @@
 
 #pragma once
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "RenderSVGShape.h"
 
 namespace WebCore {
 
 class RenderSVGPath final : public RenderSVGShape {
     WTF_MAKE_ISO_ALLOCATED(RenderSVGPath);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderSVGPath);
 public:
     RenderSVGPath(SVGGraphicsElement&, RenderStyle&&);
     virtual ~RenderSVGPath();
 
     FloatRect computeMarkerBoundingBox(const SVGBoundingBoxComputation::DecorationOptions&) const;
+
+    void updateMarkerPositions();
 
 private:
     ASCIILiteral renderName() const override { return "RenderSVGPath"_s; }
@@ -48,13 +50,14 @@ private:
     void strokeShape(GraphicsContext&) const override;
     bool shapeDependentStrokeContains(const FloatPoint&, PointCoordinateSpace = GlobalCoordinateSpace) override;
 
+    void styleDidChange(StyleDifference, const RenderStyle*) final;
+
     bool shouldStrokeZeroLengthSubpath() const;
     Path* zeroLengthLinecapPath(const FloatPoint&) const;
     FloatRect zeroLengthSubpathRect(const FloatPoint&, float) const;
     void updateZeroLengthSubpaths();
     void strokeZeroLengthSubpaths(GraphicsContext&) const;
 
-    void processMarkerPositions();
     bool shouldGenerateMarkerPositions() const;
     void drawMarkers(PaintInfo&) override;
 
@@ -67,5 +70,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGPath, isRenderSVGPath())
-
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

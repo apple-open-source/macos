@@ -36,11 +36,13 @@
 
 namespace WebKit {
 
+class ProcessThrottlerActivity;
 class WebProcessPool;
 class WebsiteDataStore;
 
-class WebProcessCache : public CanMakeCheckedPtr {
+class WebProcessCache final : public CanMakeCheckedPtr<WebProcessCache> {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebProcessCache);
 public:
     explicit WebProcessCache(WebProcessPool&);
 
@@ -89,6 +91,7 @@ private:
         RunLoop::Timer m_evictionTimer;
 #if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)
         RunLoop::Timer m_suspensionTimer;
+        std::unique_ptr<ProcessThrottlerActivity> m_backgroundActivity;
 #endif
     };
 

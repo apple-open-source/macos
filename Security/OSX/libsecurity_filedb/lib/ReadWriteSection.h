@@ -80,8 +80,9 @@ public:
 		{
             CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 		}
-		
-        return ntohl(*reinterpret_cast<const uint32 *>(mAddress + inOffset));
+        uint32 ret;
+        memcpy(&ret, mAddress + inOffset, sizeof(uint32));
+        return ntohl(ret);
     }
 
     uint32 operator[](uint32 inOffset) const

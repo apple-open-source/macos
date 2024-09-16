@@ -798,7 +798,12 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
         /*
          * A console user is logged in.
          */
-
+        DALogInfo( "console user is logged in" );
+        if ( previousUserList == NULL )
+        {
+            DALogInfo( " console user change: start mounting disks.. " );
+        }
+       
         count = CFArrayGetCount( gDADiskList );
 
         for ( index = 0; index < count; index++ )
@@ -850,6 +855,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                     {
                         if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                         {
+                            DALogInfo( " console user change: mounting deferred disk %@ ", disk);
                             DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
                         }
                     }
@@ -970,6 +976,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                 if ( unmount )
                 {
+                    DALogInfo( "console user is not logged in. unmounting disk %@", disk );
                     DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
 
 ///w:start
@@ -2090,6 +2097,33 @@ kern_return_t _DAServerSessionCopyCallbackQueue( mach_port_t _session, vm_addres
     return status;
 }
 
+#define ENTITLEMENT_TARGETS   TARGET_FSKIT
+
+#if ENTITLEMENT_TARGETS
+bool _DAServerCheckEntitlement( audit_token_t _token,
+                                CFStringRef entitlement_name )
+{
+    bool    rv = false;
+
+    SecTaskRef secTask = NULL;
+    CFTypeRef val = NULL;
+
+    secTask = SecTaskCreateWithAuditToken( kCFAllocatorDefault, _token );
+    if (secTask)
+    {
+        val = SecTaskCopyValueForEntitlement( secTask, entitlement_name, NULL );
+        if ( val )
+        {
+            rv = CFEqual( val, kCFBooleanTrue );
+            CFRelease ( val );
+        }
+        CFRelease( secTask);
+    }
+
+    return rv;
+}
+#endif /* ENTITLEMENT_TARGETS */
+
 kern_return_t _DAServerSessionCreate( mach_port_t   _session,
                                       caddr_t       _name,
                                       audit_token_t _token,
@@ -2104,7 +2138,15 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
     if ( _session )
     {
         DASessionRef session;
+#ifdef DA_FSKIT
+        bool is_fskitd;
+#endif /* DA_FSKIT */
       
+
+#ifdef DA_FSKIT
+        is_fskitd = _DAServerCheckEntitlement(_token, CFSTR("com.apple.private.diskarbitrationd.is_fskitd"));
+#endif /* DA_FSKIT */
+
         /*
          * Create the session.
          */
@@ -2132,6 +2174,10 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
              */
 
             DASessionScheduleWithDispatch( session ); 
+
+#ifdef DA_FSKIT
+            DASessionSetIsFSKitd( session, is_fskitd );
+#endif
 
             CFRelease( session );
 
@@ -2248,16 +2294,46 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                 if ( mountpoint )
                                 {
-                                    char * path;
+                                    char * mntpath;
                                     struct stat path_info = {0};
 
-                                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-#if TARGET_OS_OSX
-
-                                    if ( path )
+                                    
+                                    mntpath = ___CFURLCopyFileSystemRepresentation( mountpoint );
+                                    
+                                    char path[MAXPATHLEN];
+                                    if ( mntpath )
                                     {
-                                        status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH | SANDBOX_CHECK_ALLOW_APPROVAL, path);
+                                        if ( ( _argument1 & kDADiskMountOptionNoFollow ) == 0 )
+                                        {
+                                            if ( realpath( mntpath, path ) )
+                                            {
 
+                                                CFTypeRef mountpath = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
+                                                if ( mountpath )
+                                                {
+                                                    DARequestSetArgument2( request, CFURLGetString( mountpath ) );
+                                                    CFRelease ( mountpath );
+                                                }
+                                            }
+                                            else
+                                            {
+                                                status = kDAReturnBadArgument;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            strlcpy( path, mntpath, MAXPATHLEN);
+                                        }
+                      
+                                    }
+                                    else
+                                    {
+                                        status = kDAReturnBadArgument;
+                                    }
+#if TARGET_OS_OSX
+                                    if ( status == 0 )
+                                    {
+                                        status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH | SANDBOX_CHECK_ALLOW_APPROVAL | SANDBOX_CHECK_CANONICAL, path);
                                         if ( status )
                                         {
                                             status = kDAReturnNotPrivileged;
@@ -2274,9 +2350,11 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                                 status = kDAReturnNotPrivileged;
                                             }
                                         }
-
-                                        free( path );
+                                        
+                                        free( mntpath );
+                                        
                                     }
+                                    
 #endif
                                     if ( audit_token_to_euid( _token ) )
                                     {
@@ -2314,6 +2392,21 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                             break;
                         }
+                        case _kDADiskProbe:
+                        {
+                            if (audit_token_to_pid(_token) == getpid()) {
+                                // We sent ourselves a request. That's fine
+                                status = kDAReturnSuccess;
+                                DALog("_kDADiskProbe authorized ourself");
+                            } else {
+                                // Entitlement check
+                                status = DASessionGetIsFSKitd( session ) ? kDAReturnSuccess : kDAReturnNotPrivileged;
+                                DALog("_kDADiskProbe checking request from pid %u, replying %d",
+                                      audit_token_to_pid(_token), status);
+                                break;
+                            }
+                            break;
+                        }
                         case _kDADiskRename:
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightRename );
@@ -2324,6 +2417,12 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ),  _kDAAuthorizeRightUnmount );
 
+                            break;
+                        }
+                        case _kDADiskSetFSKitAdditions:
+                        {
+                            // Entitlement check
+                            status = DASessionGetIsFSKitd( session ) ? kDAReturnSuccess : kDAReturnNotPrivileged;
                             break;
                         }
                         default:
@@ -2867,6 +2966,40 @@ void _DAVolumeUpdatedMachHandler( void *context, dispatch_mach_reason_t reason,
 }
 #endif
 
+void _DADiskCreateFromFSStat(struct statfs *fs)
+{
+    DADiskRef disk;
+    disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, fs );
+
+    if ( disk )
+    {
+        
+        DALogInfo( "created disk, id = %@.", disk );
+        
+        /*
+         * If this is a snapshot mount, set the NoDefer flag based on its live volume.
+         */
+        if ( ( fs->f_flags & MNT_SNAPSHOT ) )
+        {
+            char *endStr = strrchr( fs->f_mntfromname, '@' ) + 1;
+            if ( endStr && ( strncmp( endStr, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 ) )
+            {
+                DADiskRef liveDisk = DADiskListGetDisk( endStr );
+                
+                if ( liveDisk && ( DADiskGetState( liveDisk, _kDADiskStateMountAutomaticNoDefer ) == FALSE ) )
+                {
+                    DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
+                }
+            }
+        }
+        
+        CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
+        CFRelease( disk );
+
+    }
+
+}
+    
 void _DAVolumeMountedCallback(  )
 {
   
@@ -2904,36 +3037,8 @@ void _DAVolumeMountedCallback(  )
                     {
                         if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )
                         {
-                            disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
-
-                            if ( disk )
-                            {
-
-                                DALogInfo( "created disk, id = %@.", disk );
-
-                                /*
-                                 * If this is a snapshot mount, set the NoDefer flag based on its live volume.
-                                 */
-                                if ( ( mountList[mountListIndex].f_flags & MNT_SNAPSHOT ) )
-                                {
-                                    char *endStr = strrchr( mountList[mountListIndex].f_mntfromname, '@' ) + 1;
-                                    if ( endStr && ( strncmp( endStr, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 ) )
-                                    {
-                                        DADiskRef liveDisk = DADiskListGetDisk( endStr );
-                                        
-                                        if ( liveDisk && ( DADiskGetState( liveDisk, _kDADiskStateMountAutomaticNoDefer ) == FALSE ) )
-                                        {
-                                            DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
-                                        }
-                                    }
-                                }
-
-                                CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
-
-                                DAStageSignal( );
-
-                                CFRelease( disk );
-                            }
+                            _DADiskCreateFromFSStat( &mountList[mountListIndex] );
+                            DAStageSignal( );
                         }
                     }
             }

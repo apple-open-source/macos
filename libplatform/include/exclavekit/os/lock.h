@@ -38,6 +38,9 @@ OS_ASSUME_NONNULL_BEGIN
 
 __BEGIN_DECLS
 
+#define OS_UNFAIR_LOCK_AVAILABILITY \
+		__API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
+
 /*!
  * @typedef os_unfair_lock
  *

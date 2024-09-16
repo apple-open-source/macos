@@ -50,6 +50,7 @@
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/cf/TypeCastsCF.h>
+#import <wtf/text/MakeString.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -166,39 +167,31 @@ public:
     static Ref<MediaDescriptionAVFObjC> create(AVAssetTrack* track) { return adoptRef(*new MediaDescriptionAVFObjC(track)); }
     virtual ~MediaDescriptionAVFObjC() { }
 
-    bool isVideo() const override { return m_isVideo; }
-    bool isAudio() const override { return m_isAudio; }
-    bool isText() const override { return m_isText; }
-    AtomString codec() const override
-    {
-        // AtomStrings can only be destroyed from the same thread they're
-        // created in. Since this structure is created in a parser thread
-        // only create the AtomString the first time this function is accessed
-        // which is presumably on the main thread.
-        ASSERT(isMainThread());
-        if (!m_codec)
-            m_codec = AtomString::fromLatin1(m_originalCodec.string().data());
-        return *m_codec;
-    }
+    bool isVideo() const final { return m_isVideo; }
+    bool isAudio() const final { return m_isAudio; }
+    bool isText() const final { return m_isText; }
 
 private:
     MediaDescriptionAVFObjC(AVAssetTrack* track)
-        : m_isVideo([track hasMediaCharacteristic:AVMediaCharacteristicVisual])
+        : MediaDescription(extractCodecName(track))
+        , m_isVideo([track hasMediaCharacteristic:AVMediaCharacteristicVisual])
         , m_isAudio([track hasMediaCharacteristic:AVMediaCharacteristicAudible])
         , m_isText([track hasMediaCharacteristic:AVMediaCharacteristicLegible])
     {
-        NSArray* formatDescriptions = [track formatDescriptions];
-        CMFormatDescriptionRef description = [formatDescriptions count] ? (__bridge CMFormatDescriptionRef)[formatDescriptions objectAtIndex:0] : 0;
-        if (description) {
-            m_originalCodec = PAL::softLink_CoreMedia_CMFormatDescriptionGetMediaSubType(description);
-            CFStringRef originalFormatKey = PAL::canLoad_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() ? PAL::get_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() : CFSTR("CommonEncryptionOriginalFormat");
-            if (auto originalFormat = dynamic_cf_cast<CFNumberRef>(PAL::CMFormatDescriptionGetExtension(description, originalFormatKey)))
-                CFNumberGetValue(originalFormat, kCFNumberSInt32Type, &m_originalCodec.value);
-        }
     }
 
-    FourCC m_originalCodec;
-    mutable std::optional<AtomString> m_codec;
+    String extractCodecName(AVAssetTrack* track)
+    {
+        NSArray* formatDescriptions = [track formatDescriptions];
+        CMFormatDescriptionRef description = [formatDescriptions count] ? (__bridge CMFormatDescriptionRef)[formatDescriptions objectAtIndex:0] : 0;
+        if (!description)
+            return emptyString();
+        FourCC originalCodec = PAL::softLink_CoreMedia_CMFormatDescriptionGetMediaSubType(description);
+        CFStringRef originalFormatKey = PAL::canLoad_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() ? PAL::get_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() : CFSTR("CommonEncryptionOriginalFormat");
+        if (auto originalFormat = dynamic_cf_cast<CFNumberRef>(PAL::CMFormatDescriptionGetExtension(description, originalFormatKey)))
+            CFNumberGetValue(originalFormat, kCFNumberSInt32Type, &originalCodec.value);
+        return String::fromLatin1(originalCodec.string().data());
+    }
     bool m_isVideo;
     bool m_isAudio;
     bool m_isText;
@@ -217,7 +210,7 @@ MediaPlayerEnums::SupportsType SourceBufferParserAVFObjC::isContentTypeSupported
     String outputCodecs = type.parameter(ContentType::codecsParameter());
     if (!outputCodecs.isEmpty() && [PAL::getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)]) {
         outputCodecs = [PAL::getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs];
-        extendedType = makeString(type.containerType(), "; codecs=\"", outputCodecs, "\"");
+        extendedType = makeString(type.containerType(), "; codecs=\""_s, outputCodecs, "\""_s);
     }
 
     return AVStreamDataParserMIMETypeCache::singleton().canDecodeType(extendedType);

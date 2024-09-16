@@ -9,6 +9,7 @@
 #ifndef LIBANGLE_RENDERER_VULKAN_VK_FORMAT_UTILS_H_
 #define LIBANGLE_RENDERER_VULKAN_VK_FORMAT_UTILS_H_
 
+#include "common/SimpleMutex.h"
 #include "common/vulkan/vk_headers.h"
 #include "libANGLE/formatutils.h"
 #include "libANGLE/renderer/Format.h"
@@ -26,11 +27,12 @@ class TextureCapsMap;
 
 namespace rx
 {
-class RendererVk;
 class ContextVk;
 
 namespace vk
 {
+class Renderer;
+
 // VkFormat values in range [0, kNumVkFormats) are used as indices in various tables.
 constexpr uint32_t kNumVkFormats = 185;
 
@@ -170,11 +172,11 @@ class Format final : private angle::NonCopyable
     friend class FormatTable;
 
     // This is an auto-generated method in vk_format_table_autogen.cpp.
-    void initialize(RendererVk *renderer, const angle::Format &intendedAngleFormat);
+    void initialize(Renderer *renderer, const angle::Format &intendedAngleFormat);
 
     // These are used in the format table init.
-    void initImageFallback(RendererVk *renderer, const ImageFormatInitInfo *info, int numInfo);
-    void initBufferFallback(RendererVk *renderer,
+    void initImageFallback(Renderer *renderer, const ImageFormatInitInfo *info, int numInfo);
+    void initBufferFallback(Renderer *renderer,
                             const BufferFormatInitInfo *fallbackInfo,
                             int numInfo,
                             int compressedStartIndex);
@@ -210,7 +212,7 @@ class FormatTable final : angle::NonCopyable
     ~FormatTable();
 
     // Also initializes the TextureCapsMap and the compressedTextureCaps in the Caps instance.
-    void initialize(RendererVk *renderer, gl::TextureCapsMap *outTextureCapsMap);
+    void initialize(Renderer *renderer, gl::TextureCapsMap *outTextureCapsMap);
 
     ANGLE_INLINE const Format &operator[](GLenum internalFormat) const
     {
@@ -256,7 +258,7 @@ class ExternalFormatTable final : angle::NonCopyable
         ToUnderlying(angle::FormatID::EXTERNAL7) - ToUnderlying(angle::FormatID::EXTERNAL0) + 1;
     // YUV rendering format cache. We build this table at run time when external formats are used.
     angle::FixedVector<ExternalYuvFormatInfo, kMaxExternalFormatCountSupported> mExternalYuvFormats;
-    mutable std::mutex mExternalYuvFormatMutex;
+    mutable angle::SimpleMutex mExternalYuvFormatMutex;
 };
 
 bool IsYUVExternalFormat(angle::FormatID formatID);
@@ -267,17 +269,17 @@ bool IsYUVExternalFormat(angle::FormatID formatID);
 // initialized to 0.
 const VkFormatProperties &GetMandatoryFormatSupport(angle::FormatID formatID);
 
-VkImageUsageFlags GetMaximalImageUsageFlags(RendererVk *renderer, angle::FormatID formatID);
-VkImageCreateFlags GetMinimalImageCreateFlags(RendererVk *renderer,
+VkImageUsageFlags GetMaximalImageUsageFlags(Renderer *renderer, angle::FormatID formatID);
+VkImageCreateFlags GetMinimalImageCreateFlags(Renderer *renderer,
                                               gl::TextureType textureType,
                                               VkImageUsageFlags usage);
 
 }  // namespace vk
 
 // Checks if a Vulkan format supports all the features needed to use it as a GL texture format.
-bool HasFullTextureFormatSupport(RendererVk *renderer, angle::FormatID formatID);
+bool HasFullTextureFormatSupport(vk::Renderer *renderer, angle::FormatID formatID);
 // Checks if a Vulkan format supports all the features except rendering.
-bool HasNonRenderableTextureFormatSupport(RendererVk *renderer, angle::FormatID formatID);
+bool HasNonRenderableTextureFormatSupport(vk::Renderer *renderer, angle::FormatID formatID);
 // Checks if it is a ETC texture format
 bool IsETCFormat(angle::FormatID formatID);
 // Checks if it is a BC texture format

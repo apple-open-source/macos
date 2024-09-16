@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include <JavaScriptCore/Uint8Array.h>
 #include <wtf/SoftLinking.h>
 #include <wtf/UUID.h>
+#include <wtf/cf/CFURLExtras.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -66,9 +67,7 @@ RefPtr<Uint8Array> CDMSessionAVFoundationCF::generateKeyRequest(const String&, U
     auto certificateData = adoptCF(CFDataCreateMutable(kCFAllocatorDefault, certificate->byteLength()));
     CFDataAppendBytes(certificateData.get(), certificate->data(), certificate->byteLength());
 
-    auto assetStr = keyID.utf8();
-    auto assetID = adoptCF(CFDataCreateMutable(kCFAllocatorDefault, assetStr.length()));
-    CFDataAppendBytes(assetID.get(), assetStr.dataAsUInt8Ptr(), assetStr.length());
+    RetainPtr assetID = bytesAsCFData(keyID.utf8().span());
 
     CFErrorRef cfError = nullptr;
     auto keyRequest = adoptCF(AVCFAssetResourceLoadingRequestCreateStreamingContentKeyRequestDataForApp(m_request.get(), certificateData.get(), assetID.get(), nullptr, &cfError));
@@ -88,8 +87,7 @@ RefPtr<Uint8Array> CDMSessionAVFoundationCF::generateKeyRequest(const String&, U
     systemCode = 0;
     destinationURL = String();
 
-    auto keyRequestBuffer = ArrayBuffer::create(CFDataGetBytePtr(keyRequest.get()), CFDataGetLength(keyRequest.get()));
-    return Uint8Array::tryCreate(WTFMove(keyRequestBuffer), 0, keyRequestBuffer->byteLength());
+    return Uint8Array::tryCreate(CFDataGetBytePtr(keyRequest.get()), CFDataGetLength(keyRequest.get()));
 }
 
 void CDMSessionAVFoundationCF::releaseKeys()

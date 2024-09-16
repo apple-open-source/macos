@@ -1389,7 +1389,7 @@ IOCFUnserializeBinary(const char	* buffer,
 			}
 			else
 			{
-				assert(CFStringGetTypeID() == CFGetTypeID(o));
+				ok = (CFStringGetTypeID() == CFGetTypeID(o));
 				sym = o;
 			}
 		}

@@ -26,6 +26,10 @@ PRODUCT_NAME = yasm;
 // Needs to be ad-hoc signed by the linker due to rdar://107696259.
 CODE_SIGN_IDENTITY = ;
 
+// Support building WebKit for an OS that is newer than the machine doing the
+// building. This is the oldest version of macOS the project should be buildable on.
+MACOSX_DEPLOYMENT_TARGET = 13.0;
+
 HEADER_SEARCH_PATHS = Source/third_party/yasm;
 
 SKIP_INSTALL = YES;
@@ -42,11 +46,14 @@ CLANG_WARN_UNREACHABLE_CODE = YES;
 CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 
+// FIXME: should set SUPPORTED_PLATFORMS = macosx instead of reducing its builds to nothing on non-Mac platforms
 EXCLUDED_SOURCE_FILE_NAMES[sdk=appletv*] = *;
 EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*] = *;
+EXCLUDED_SOURCE_FILE_NAMES[sdk=xr*] = *;
 EXCLUDED_SOURCE_FILE_NAMES[sdk=macos*] = main_noop.c;
 INCLUDED_SOURCE_FILE_NAMES[sdk=appletv*] = main_noop.c;
 INCLUDED_SOURCE_FILE_NAMES[sdk=iphone*] = main_noop.c;
+INCLUDED_SOURCE_FILE_NAMES[sdk=xr*] = main_noop.c;
 
 WK_SANITIZER_DISALLOWED = YES;
 

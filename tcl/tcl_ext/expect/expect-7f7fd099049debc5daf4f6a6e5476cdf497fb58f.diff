@@ -1,0 +1,13 @@
+diff --git a/pty_termios.c b/pty_termios.c
+index 6778579..1e6c23b 100644
+--- a/pty_termios.c
++++ b/pty_termios.c
+@@ -490,8 +490,6 @@ exp_getptymaster()
+ 	slave_name[0] = 0;
+ 	exp_pty_slave_name = slave_name;
+ 	if (openpty(&master, &slave, slave_name, NULL, NULL) != 0) {
+-		close(master);
+-		close(slave);
+ 		return -1;
+ 	}
+ 	if (slave_name[0] == 0) {

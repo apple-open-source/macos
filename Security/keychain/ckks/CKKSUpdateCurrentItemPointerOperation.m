@@ -30,7 +30,6 @@
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ckks/CKKSUpdateCurrentItemPointerOperation.h"
-#import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -298,10 +297,10 @@
         // We're likely rolling a PCS identity, or creating a new one. User cares.
         self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
-        if(SecCKKSHighPriorityOperations()) {
-            // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
-            self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-        }
+        // CKKSSetHighPriorityOperations is default enabled
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+        
 
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
@@ -348,14 +347,6 @@
                             ckkserror("ckkscurrent",  self.viewState.zoneID, "CloudKit record does not match saved record, ignoring: %@ %@", record, cip);
                         }
                     }
-                    else if ([CKKSManifest shouldSyncManifests] && [record.recordType isEqualToString:SecCKRecordManifestType]) {
-                        CKKSManifest* manifest = [[CKKSManifest alloc] initWithCKRecord:record contextID:self.deps.contextID];
-                        [manifest saveToDatabase:&error];
-                        if (error) {
-                            ckkserror("ckkscurrent", self.viewState.zoneID, "Couldn't save %@ to manifest: %@", record.recordID.recordName, error);
-                            self.error = error;
-                        }
-                    }
 
                     // Schedule a 'view changed' notification
                     [self.viewState.notifyViewChangedScheduler trigger];
@@ -392,10 +383,10 @@
     // We're likely rolling a PCS identity, or creating a new one. User cares.
     self.fetchRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
-    if(SecCKKSHighPriorityOperations()) {
-        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
-        self.fetchRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-    }
+    // CKKSSetHighPriorityOperations is default enabled
+    // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+    self.fetchRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+    
 
     self.fetchRecordsOperation.group = self.ckoperationGroup;
 

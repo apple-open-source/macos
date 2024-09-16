@@ -35,12 +35,11 @@
 
 #include <Security/SecItemPriv.h>
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSKeychainViewState.h"
-#import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSViewManager.h"
 
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"

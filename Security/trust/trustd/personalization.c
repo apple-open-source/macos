@@ -26,4 +26,5 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/sec_action.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include "trustdVariants.h"
 

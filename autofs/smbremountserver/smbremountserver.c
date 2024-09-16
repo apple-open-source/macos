@@ -45,7 +45,7 @@
  * into that.
  */
 int
-main()
+main(void)
 {
 	ssize_t bytes_read;
 	uint32_t byte_count;
@@ -99,7 +99,6 @@ main()
 	 * SMBRemountServer() to finish.
 	 */
 	switch ((child_pid = fork())) {
-
 	case -1:
 		/*
 		 * Fork failure.  Report an error and quit.

@@ -205,11 +205,13 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 #include <sys/mman.h>
 #include <sys/queue.h>
 #if !MALLOC_TARGET_EXCLAVES
+# include <sys/codesign.h>
 # include <sys/event.h>
 # include <sys/param.h>
 # include <sys/stat.h>
 # include <sys/sysctl.h>
 # include <sys/random.h>
+# include <sys/csr.h>
 #else
 # include <vas/vas.h>
 # define howmany(x, y)   ((((x) % (y)) == 0) ? ((x) / (y)) : (((x) / (y)) + 1))
@@ -383,31 +385,31 @@ extern malloc_process_identity_t malloc_process_identity;
 #endif
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_malloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo) __alloc_size(2);
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(num_items * size)
 _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size, malloc_zone_options_t mzo) __alloc_size(2,3);
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_valloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo) __alloc_size(2);
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 		size_t size, malloc_type_descriptor_t type_desc) __alloc_size(3);
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 		malloc_zone_options_t mzo, malloc_type_descriptor_t type_desc)
 		 __alloc_align(2) __alloc_size(3);
 
 #if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_options_np_t options)
 		__alloc_align(2) __alloc_size(3);
@@ -425,8 +427,13 @@ _free(void * __unsafe_indexable);
 #endif // DARWINTEST || MALLOC_BUILDING_XCTESTS
 
 MALLOC_NOEXPORT
-void *
+void * __sized_by_or_null(new_size)
 _realloc(void * __unsafe_indexable in_ptr, size_t new_size) __alloc_size(2);
+
+MALLOC_NOEXPORT
+malloc_zone_t *
+find_registered_zone(const void * __unsafe_indexable ptr, size_t *returned_size,
+		bool known_non_default);
 
 MALLOC_NOEXPORT
 int
@@ -548,7 +555,6 @@ struct _malloc_msl_lite_hooks_s;
 typedef void (*set_msl_lite_hooks_callout_t) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 void set_msl_lite_hooks(set_msl_lite_hooks_callout_t callout);
 
-
 static MALLOC_INLINE void
 yield(void)
 {
@@ -559,5 +565,20 @@ yield(void)
 	// pthread_yield_np();
 #endif // !MALLOC_TARGET_EXCLAVES
 }
+
+#if CONFIG_FEATUREFLAGS_SIMPLE
+#if TARGET_OS_SIMULATOR
+#define malloc_secure_feature_enabled(name, fallback, simulator_default) \
+	(simulator_default)
+#elif CONFIG_CHECK_SECURITY_POLICY
+// TODO: Do we want the secure fallback to be the same as the no-ff fallback?
+#define malloc_secure_feature_enabled(name, fallback, simulator_default) \
+	(malloc_internal_security_policy ? \
+			os_feature_enabled_simple(libmalloc, name, fallback) : (fallback))
+#else
+#define malloc_secure_feature_enabled(name, fallback, simulator_default) \
+	os_feature_enabled_simple(libmalloc, name, fallback)
+#endif // TARGET_OS_SIMULATOR
+#endif // CONFIG_FEATUREFLAGS_SIMPLE
 
 #endif // __INTERNAL_H

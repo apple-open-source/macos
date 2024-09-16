@@ -26,7 +26,7 @@
 #import "config.h"
 #import "AccessibilityObject.h"
 
-#if ENABLE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY)
 
 #import "AccessibilityRenderObject.h"
 #import "EventNames.h"
@@ -38,6 +38,7 @@
 #import "WebAccessibilityObjectWrapperIOS.h"
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
+#import <wtf/text/MakeString.h>
 
 SOFT_LINK_CONSTANT(AXRuntime, UIAccessibilityTokenBlockquoteLevel, NSString *);
 #define AccessibilityTokenBlockquoteLevel getUIAccessibilityTokenBlockquoteLevel()
@@ -132,13 +133,6 @@ bool AccessibilityObject::hasTouchEventListener() const
     return false;
 }
 
-bool AccessibilityObject::isInputTypePopupButton() const
-{
-    if (is<HTMLInputElement>(node()))
-        return roleValue() == AccessibilityRole::PopUpButton;
-    return false;
-}
-
 void AccessibilityObject::setLastPresentedTextPrediction(Node& previousCompositionNode, CompositionState state, const String& text, size_t location, bool handlingAcceptedCandidate)
 {
 #if HAVE(INLINE_PREDICTIONS)
@@ -146,7 +140,8 @@ void AccessibilityObject::setLastPresentedTextPrediction(Node& previousCompositi
         m_lastPresentedTextPrediction = { text, location };
 
     if (state == CompositionState::Ended && !lastPresentedTextPrediction().text.isEmpty()) {
-        String previousCompositionNodeText = previousCompositionNode.isTextNode() ? dynamicDowncast<Text>(previousCompositionNode)->wholeText() : String();
+        auto* nodeText = dynamicDowncast<Text>(previousCompositionNode);
+        String previousCompositionNodeText = nodeText ? nodeText->wholeText() : String();
         size_t wordStart = 0;
 
         // Find the location of the complete word being predicted by iterating backwards through the text to find whitespace.
@@ -161,7 +156,7 @@ void AccessibilityObject::setLastPresentedTextPrediction(Node& previousCompositi
         if (wordStart)
             previousCompositionNodeText = previousCompositionNodeText.substring(wordStart);
 
-        m_lastPresentedTextPredictionComplete = { previousCompositionNodeText + m_lastPresentedTextPrediction.text, wordStart };
+        m_lastPresentedTextPredictionComplete = { makeString(previousCompositionNodeText, m_lastPresentedTextPrediction.text), wordStart };
 
         // Reset last presented prediction since a candidate was accepted.
         m_lastPresentedTextPrediction.reset();
@@ -183,7 +178,7 @@ static void attributeStringSetLanguage(NSMutableAttributedString *attrString, Re
     if (!renderer)
         return;
 
-    RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
+    RefPtr object = renderer->document().axObjectCache()->getOrCreate(*renderer);
     NSString *language = object->language();
     if (language.length)
         [attrString addAttribute:AccessibilityTokenLanguage value:language range:range];
@@ -230,7 +225,7 @@ static void attributeStringSetStyle(NSMutableAttributedString *attrString, Rende
         attributedStringSetNumber(attrString, AccessibilityTokenUnderline, @YES, range);
 
     // Add code context if this node is within a <code> block.
-    RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
+    RefPtr object = renderer->document().axObjectCache()->getOrCreate(*renderer);
     auto matchFunc = [] (const auto& axObject) {
         return axObject.isCode();
     };
@@ -245,7 +240,7 @@ static void attributedStringSetCompositionAttributes(NSMutableAttributedString *
     if (!renderer)
         return;
 
-    RefPtr object = renderer->document().axObjectCache()->getOrCreate(renderer);
+    RefPtr object = renderer->document().axObjectCache()->getOrCreate(*renderer);
 
     if (!object)
         return;
@@ -298,4 +293,4 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
 
 } // WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS_FAMILY)

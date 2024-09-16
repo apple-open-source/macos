@@ -30,12 +30,17 @@
 #include "test-dnssd.h"
 #include "test.h"
 
+ready_callback_t srp_test_dnssd_tls_listener_ready;
+void *srp_test_tls_listener_context;
+void (*srp_test_dso_message_finished)(void *context, message_t *message, dso_state_t *dso);
+
 void
 srp_test_server_run_test(void *context)
 {
     char *test_to_run = context;
 
     if (test_to_run != NULL) {
+#if TARGET_OS_IOS || TARGET_OS_OSX || TARGET_OS_TV
         if (!strcmp(test_to_run, "change-text-record")) {
             test_change_text_record_start(NULL);
         } else if (!strcmp(test_to_run, "multi-host-record")) {
@@ -66,10 +71,38 @@ srp_test_server_run_test(void *context)
             test_srpl_host_0i2s(NULL);
         } else if (!strcmp(test_to_run, "srpl-lease-time")) {
             test_srpl_lease_time(NULL);
+        } else if (!strcmp(test_to_run, "dns-dangling-query")) {
+            test_dns_dangling_query(NULL);
+        } else if (!strcmp(test_to_run, "srpl-cycle-through-peers")) {
+            test_srpl_cycle_through_peers(NULL);
+        } else if (!strcmp(test_to_run, "srpl-update-after-remove")) {
+            test_srpl_update_after_remove(NULL);
+        } else if (!strcmp(test_to_run, "dns-push-hardwired")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_HARDWIRED);
+        } else if (!strcmp(test_to_run, "dns-push-mdns")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_MDNS);
+        } else if (!strcmp(test_to_run, "dns-hardwired")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_DNS_HARDWIRED);
+        } else if (!strcmp(test_to_run, "dns-mdns")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_DNS_MDNS);
+        } else if (!strcmp(test_to_run, "dns-push-crash")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_DAEMON_CRASH);
+        } else if (!strcmp(test_to_run, "dns-crash")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_DNS_CRASH);
+        } else if (!strcmp(test_to_run, "dns-two")) {
+            test_dns_push(NULL, PUSH_TEST_VARIANT_TWO_QUESTIONS);
+        } else if (!strcmp(test_to_run, "listener-longevity")) {
+            test_listen_longevity_start(NULL);
+        } else if (!strcmp(test_to_run, "ifaddrs")) {
+            test_ifaddrs_start(NULL);
         } else {
             INFO("test to run: %s", test_to_run);
             exit(1);
         }
+#else
+        INFO("skipping test %s on limited device.");
+        exit(0);
+#endif
     } else {
         INFO("no test to run");
         exit(1);

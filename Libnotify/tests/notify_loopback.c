@@ -8,76 +8,45 @@
 #include <sandbox.h>
 #include <TargetConditionals.h>
 #include <stdio.h>
+#include <mach/mach_init.h>
+#include <mach/task_special_ports.h>
+#include <spawn.h>
+#include "../libnotify.h"
+#include <signal.h>
 
 #define KEY "com.apple.notify.test-loopback"
 
-T_HELPER_DECL(notify_loopback_helper,
-	   "notify loopback helper",
-	   T_META("as_root", "true"),
-	   T_META_TIMEOUT(50))
+extern char **environ;
+
+static void
+kill_notifyd()
 {
 	uint32_t rc;
-    int c_token, d_token, check;
-    uint64_t state = 0;
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-	dispatch_queue_t dq = dispatch_queue_create_with_target("q", NULL, NULL);
-    
-    // Simulate WebContent notify options but we enter a
-    // sandbox here since that would only work on macOS
-	notify_set_options(NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN | NOTIFY_OPT_FILTERED | NOTIFY_OPT_LOOPBACK);
+	uint64_t state;
+	pid_t pid;
+	int v_token;
 
-	rc = notify_register_check(KEY, &c_token);
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_register_check successful");
+	rc = notify_register_check(NOTIFY_IPC_VERSION_NAME, &v_token);
+	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "register_check(NOTIFY_IPC_VERSION_NAME)");
 
-    rc = notify_check(c_token, &check);
-    T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_check successful");
-    T_ASSERT_EQ(check, 1, "notify_check successful");
+	state = ~0ull;
+	rc = notify_get_state(v_token, &state);
+	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_get_state(NOTIFY_IPC_VERSION_NAME)");
 
-    rc = notify_check(c_token, &check);
-    T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_check successful");
-    T_ASSERT_EQ(check, 0, "notify_check successful");
-
-    rc = notify_get_state(c_token, &state);
-    T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_get_state successful");
-    T_ASSERT_TRUE(state != 0xAAAAAAAA, "matches expected state 0x%x", state);
-
-	rc = notify_register_dispatch(KEY, &d_token, dq, ^(int token){
-		uint64_t state;
-		uint32_t status;
-
-		status = notify_get_state(token, &state);
-		T_ASSERT_EQ(status, NOTIFY_STATUS_OK, "notify_get_state successful");
-		T_ASSERT_TRUE(state == 0xDEADBEEF, "matches expected state 0x%x", state);
-
-        dispatch_semaphore_signal(sema);
-	});
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_register_dispatch successful");
-
-	sleep(1);
-
-	rc = notify_set_state(d_token, 0xDEADBEEF);
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_set_state successful");
-
-	rc = notify_post(KEY);
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_post successful");
-
-    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-
-	rc = notify_cancel(c_token);
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_cancel successful");
-
-	rc = notify_cancel(d_token);
-	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_cancel successful");
+	pid = (pid_t)(state >> 32);
+	rc = kill(pid, SIGKILL);
+	T_ASSERT_POSIX_SUCCESS(rc, "Killing notifyd");
 }
 
 T_DECL(notify_loopback,
        "notify loopback",
-       T_META("as_root", "true"),
+	   T_META_ASROOT(true),
        T_META_TIMEOUT(50))
 {
-    int token = NOTIFY_TOKEN_INVALID;
+    int token = NOTIFY_TOKEN_INVALID, ret, sig;
     uint32_t rc;
     uint64_t state = 0;
+	posix_spawn_file_actions_t file_actions;
 
     rc = notify_register_check(KEY, &token);
     T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_register_check successful");
@@ -85,11 +54,36 @@ T_DECL(notify_loopback,
     rc = notify_set_state(token, 0xAAAAAAAA);
     T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_set_state successful");
 
-    dt_helper_t helpers[1];
-    helpers[0] = dt_child_helper("notify_loopback_helper");
-    dt_run_helpers(helpers, 1, 60);
+	ret = posix_spawn_file_actions_init(&file_actions);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "posix_spawn_file_actions_init");
 
-    rc = notify_get_state(token, &state);
-    T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_get_state successful");
-    T_ASSERT_TRUE(state == 0xAAAAAAAA, "matches expected state 0x%x", state);
+	ret = posix_spawn_file_actions_adddup2(&file_actions, STDOUT_FILENO, STDOUT_FILENO);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "posix_spawn_file_actions_adddup2");
+
+	char self_pid[16];
+	snprintf(self_pid, 16, "%d", getpid());
+	char *child_args[] = { "/AppleInternal/Tests/Libnotify/notify_loopback_test_helper", self_pid, NULL };
+	pid_t pid = -1;
+	ret = posix_spawn(&pid, child_args[0], &file_actions, NULL, &child_args[0], environ);
+	T_ASSERT_POSIX_SUCCESS(ret, "notify loopback test spawned successfully");
+
+	ret = posix_spawn_file_actions_destroy(&file_actions);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "posix_spawn_file_actions_destroy");
+
+	sleep(5);
+
+	rc = notify_get_state(token, &state);
+	T_ASSERT_EQ(rc, NOTIFY_STATUS_OK, "notify_get_state successful");
+	T_ASSERT_TRUE(state == 0xAAAAAAAA, "matches expected state 0x%x", state);
+
+	kill_notifyd();
+	sleep(5);
+	ret = kill(pid, SIGUSR1);
+	T_ASSERT_EQ(ret, 0, "signalled pid %d with SIGUSR1 successfully", pid);
+
+	int status;
+	pid = waitpid(pid, &status, 0);
+	T_ASSERT_NE(pid, -1, "wait succeeded");
+	T_ASSERT_FALSE(!WIFEXITED(status), "helper was not signalled");
+	T_ASSERT_EQ(WEXITSTATUS(status), 0, "helper exited cleanly");
 }

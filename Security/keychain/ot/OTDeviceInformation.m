@@ -63,13 +63,17 @@
     return self;
 }
 
+/// Returns True if the modelID is considered to be a Full Peer, False otherwise.
+/// Defaults to false/limitedPeer if the modelID is unknown
 + (bool)isFullPeer:(NSString*)modelID {
-    
-#if TARGET_OS_XR
-    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch", @"RealityDevice"]) {
-#else
-    for (NSString* p in @[@"Mac", @"iPhone", @"iPad", @"iPod", @"Watch"]) {
-#endif
+    for (NSString* p in @[
+        @"Mac",
+        @"iPhone",
+        @"iPad",
+        @"iPod",
+        @"Watch",
+        @"RealityDevice",
+    ]) {
         if ([modelID containsString:p]) {
             return true;
         }

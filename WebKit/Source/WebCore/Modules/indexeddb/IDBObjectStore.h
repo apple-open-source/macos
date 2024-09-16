@@ -108,8 +108,9 @@ public:
 
     void rollbackForVersionChangeAbort();
 
-    void ref();
-    void deref();
+    // ActiveDOMObject.
+    void ref() const final;
+    void deref() const final;
 
     template<typename Visitor> void visitReferencedIndexes(Visitor&) const;
     void renameReferencedIndex(IDBIndex&, const String& newName);
@@ -127,7 +128,6 @@ private:
     ExceptionOr<Ref<IDBRequest>> doGetAllKeys(std::optional<uint32_t> count, Function<ExceptionOr<RefPtr<IDBKeyRange>>()> &&);
 
     // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
     bool virtualHasPendingActivity() const final;
 
     IDBObjectStoreInfo m_info;

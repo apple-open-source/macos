@@ -9,6 +9,11 @@
         Includes data used to auto-generate ANGLE classes.
     </comment>
 
+    <!-- SECTION: GL type definitions. -->
+    <types>
+        <type>typedef void *<name>GLMTLRasterizationRateMapANGLE</name>;</type>
+    </types>
+
     <!-- SECTION: GL parameter class type definitions. -->
     <groups>
         <group name="CreateFlagMask">
@@ -1048,6 +1053,18 @@
             <param group="LogicOp"><ptype>GLenum</ptype> <name>opcode</name></param>
             <alias name="glLogicOp"/>
         </command>
+        <command>
+            <proto>void <name>glBindMetalRasterizationRateMapANGLE</name></proto>
+            <param><ptype>GLuint</ptype> <name>framebuffer</name></param>
+            <param><ptype>GLMTLRasterizationRateMapANGLE</ptype> <name>map</name></param>
+        </command>
+        <command>
+            <proto>void <name>glFramebufferResolveRenderbufferWEBKIT</name></proto>
+            <param><ptype>GLenum</ptype> <name>target</name></param>
+            <param><ptype>GLenum</ptype> <name>attachment</name></param>
+            <param><ptype>GLenum</ptype> <name>renderbuffertarget</name></param>
+            <param><ptype>GLuint</ptype> <name>renderbuffer</name></param>
+        </command>
     </commands>
 
     <!-- SECTION: ANGLE extension interface definitions -->
@@ -1416,6 +1433,11 @@
                 <enum name="GL_PROGRAM_CACHE_ENABLED_ANGLE"/>
             </require>
         </extension>
+        <extension name="GL_ANGLE_program_binary_readiness_query" supported='gles2'>
+            <require>
+                <enum name="GL_PROGRAM_BINARY_READY_ANGLE"/>
+            </require>
+        </extension>
         <extension name="GL_ANGLE_memory_size" supported='gles2'>
             <require>
                 <enum name="GL_MEMORY_SIZE_ANGLE"/>
@@ -1444,6 +1466,16 @@
         <extension name="GL_ANGLE_shader_binary" supported='gles2'>
             <require>
                 <enum name="GL_SHADER_BINARY_ANGLE"/>
+        <extension name="GL_ANGLE_variable_rasterization_rate_metal" supported="gles2">
+            <require>
+                <enum name="GL_VARIABLE_RASTERIZATION_RATE_ANGLE"/>
+                <enum name="GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE"/>
+                <command name="glBindMetalRasterizationRateMapANGLE"/>
+            </require>
+        </extension>
+        <extension name="GL_WEBKIT_explicit_resolve_target" supported='gles2'>
+            <require>
+                <command name="glFramebufferResolveRenderbufferWEBKIT"/>
             </require>
         </extension>
     </extensions>
@@ -1485,6 +1517,7 @@
         <enum value="0x96B0" name="GL_SERIALIZED_CONTEXT_STRING_ANGLE"/>
         <enum value="0x96B9" name="GL_ROBUST_FRAGMENT_SHADER_OUTPUT_ANGLE"/>
         <enum value="0x96BB" name="GL_SHADER_BINARY_ANGLE"/>
+        <enum value="0x96BE" name="GL_PROGRAM_BINARY_READY_ANGLE"/>
     </enums>
 
     <enums namespace="GL" vendor="ANGLE">
@@ -1623,5 +1656,10 @@
     </enums>
     <enums namespace="GL" start="0x0BF2" end="0x0BF2" vendor="ANGLE">
         <enum value="0x0BF2" name="GL_COLOR_LOGIC_OP_ANGLE"/>
+    </enums>
+
+    <enums namespace="GL" start="0x96BC" end="0x96BD" vendor="ANGLE">
+        <enum value="0x96BC" name="GL_VARIABLE_RASTERIZATION_RATE_ANGLE"/>
+        <enum value="0x96BD" name="GL_METAL_RASTERIZATION_RATE_MAP_BINDING_ANGLE"/>
     </enums>
 </registry>

@@ -122,7 +122,7 @@ public:
 	// to get to the associated AppleCSPSession if we need to 
 	// store reference keys. We take care of all attribute and 
 	// usage validation and of header formatting. Parameters for
-	// validation typlically specified in constructor via an
+	// validation typically specified in constructor via an
 	// algorithm factory. 
 	//
 	AppleSymmKeyGenContext(

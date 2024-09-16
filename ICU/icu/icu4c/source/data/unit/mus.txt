@@ -1,0 +1,27 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+mus{
+    units{
+        duration{
+            day{
+                other{"{0} Nettv"}
+            }
+            hour{
+                other{"Hvse-vkērkv {0}"}
+            }
+            month{
+                other{"Hvse {0}"}
+            }
+            second{
+                other{"Lvplvpkuce {0}"}
+            }
+            week{
+                other{"Nettv-cako {0}"}
+            }
+            year{
+                other{"Ohrolopē {0}"}
+            }
+        }
+    }
+}

@@ -146,11 +146,88 @@ STAILQ_HEAD(regionhead, region);
  * we go.
  */
 
+static int 
+recursively_walk_regions(task_t task, struct regionhead *rhead, const natural_t current_depth, mach_vm_address_t container_start, mach_vm_size_t container_size, dyld_shared_cache_t sc, dyld_process_snapshot_t snapshot, bool force_all_regions) {
+    mach_vm_address_t vm_addr = container_start;
+
+    while (1) {
+        mach_vm_size_t vm_size = 0;
+        vm_region_submap_info_data_64_t info = {0};
+        natural_t depth = current_depth;
+        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+
+        kern_return_t ret = mach_vm_region_recurse(task, &vm_addr, &vm_size, &depth, (vm_region_recurse_info_t)&info, &count);
+        if (KERN_SUCCESS != ret) {
+            /*
+             * ret is KERN_INVALID_ADDRESS when we finish iterating regions.
+             * Anything else (other than KERN_SUCCESS) is an error.
+             */
+            if (KERN_INVALID_ADDRESS == ret) {
+                return EX_OK;
+            } else {
+                err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
+                return EX_OSERR;
+            }
+        }
+
+        if (!(container_start <= vm_addr && (vm_addr + vm_size) <= (container_start + container_size)) || depth != current_depth) {
+            /* Done recursing for this container. */
+            return EX_OK;
+        }
+
+        if (OPTIONS_DEBUG(opt, 3)) {
+            struct region *d = new_region(vm_addr, vm_size, &info, sc);
+            print_memory_region(d);
+            ROP_DELETE(d);
+        }
+
+        if (info.is_submap) {
+#ifdef CONFIG_SUBMAP
+            /* We also want to see submaps -- for debugging purposes. */
+            struct region *r = new_region(vm_addr, vm_size, &info, sc);
+            r->r_depth = current_depth;
+            STAILQ_INSERT_TAIL(rhead, r, r_linkage);
+#endif
+
+            ret = recursively_walk_regions(task, rhead, current_depth + 1, vm_addr, vm_size, sc, snapshot, force_all_regions);
+            if (EX_OK != ret) {
+                return ret;
+            }
+            vm_addr += vm_size;
+            continue;
+        }
+
+        if (VM_MEMORY_IOKIT == info.user_tag && !force_all_regions) {
+            vm_addr += vm_size;
+            continue; // ignore immediately: IO memory has side-effects
+        }
+
+        struct region *r = new_region(vm_addr, vm_size, &info, sc);
+#ifdef CONFIG_SUBMAP
+        r->r_depth = current_depth;
+#endif
+        /* grab the page info of the first page in the mapping */
+
+        mach_msg_type_number_t pageinfoCount = VM_PAGE_INFO_BASIC_COUNT;
+        ret = mach_vm_page_info(task, R_ADDR(r), VM_PAGE_INFO_BASIC, (vm_page_info_t)&r->r_pageinfo, &pageinfoCount);
+        if (KERN_SUCCESS != ret)
+            err_mach(ret, r, "getting pageinfo at %llx", R_ADDR(r));
+
+        /* record the purgability */
+
+        ret = mach_vm_purgable_control(task, vm_addr, VM_PURGABLE_GET_STATE, &r->r_purgable);
+        if (KERN_SUCCESS != ret)
+            r->r_purgable = VM_PURGABLE_DENY;
+
+        STAILQ_INSERT_TAIL(rhead, r, r_linkage);
+
+        vm_addr += vm_size;
+    }
+}
+
 static int
-walk_regions(task_t task, struct regionhead *rhead)
+walk_regions(task_t task, struct regionhead *rhead, bool force_all_regions)
 {
-    mach_vm_offset_t vm_addr = MACH_VM_MIN_ADDRESS;
-    natural_t depth = 0;
     dyld_shared_cache_t sc = NULL;
     dyld_process_t process = NULL;
     dyld_process_snapshot_t snapshot = NULL;
@@ -174,68 +251,15 @@ walk_regions(task_t task, struct regionhead *rhead)
     }
     sc = dyld_process_snapshot_get_shared_cache(snapshot);
 
-    while (1) {
-        vm_region_submap_info_data_64_t info;
-        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
-        mach_vm_size_t vm_size;
+    /* use phys fooptrint accounting when collecting region info so we find the
+     * "owned unmapped memory"
+     */
+    set_collect_phys_footprint(true);
 
-        ret = mach_vm_region_recurse(task, &vm_addr, &vm_size, &depth, (vm_region_recurse_info_t)&info, &count);
+    retval = recursively_walk_regions(task, rhead, (natural_t)0, 0x0, UINT64_MAX, sc, snapshot, force_all_regions);
 
-        if (KERN_FAILURE == ret) {
-            err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            goto done;
-        } else if (KERN_INVALID_ADDRESS == ret) {
-            break;  /* loop termination */
-        } else if (KERN_SUCCESS != ret) {
-            err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            goto done;
-        }
-
-        if (OPTIONS_DEBUG(opt, 3)) {
-            struct region *d = new_region(vm_addr, vm_size, &info, sc);
-            print_memory_region(d);
-            ROP_DELETE(d);
-        }
-
-        if (info.is_submap) {
-#ifdef CONFIG_SUBMAP
-            /* We also want to see submaps -- for debugging purposes. */
-            struct region *r = new_region(vm_addr, vm_size, &info, sc);
-            r->r_depth = depth;
-            STAILQ_INSERT_TAIL(rhead, r, r_linkage);
-#endif
-            depth++;
-            continue;
-        }
-
-        if (VM_MEMORY_IOKIT == info.user_tag) {
-            vm_addr += vm_size;
-            continue; // ignore immediately: IO memory has side-effects
-        }
-
-        struct region *r = new_region(vm_addr, vm_size, &info, sc);
-#ifdef CONFIG_SUBMAP
-        r->r_depth = depth;
-#endif
-        /* grab the page info of the first page in the mapping */
-
-        mach_msg_type_number_t pageinfoCount = VM_PAGE_INFO_BASIC_COUNT;
-        ret = mach_vm_page_info(task, R_ADDR(r), VM_PAGE_INFO_BASIC, (vm_page_info_t)&r->r_pageinfo, &pageinfoCount);
-        if (KERN_SUCCESS != ret)
-            err_mach(ret, r, "getting pageinfo at %llx", R_ADDR(r));
-
-        /* record the purgability */
-
-        ret = mach_vm_purgable_control(task, vm_addr, VM_PURGABLE_GET_STATE, &r->r_purgable);
-        if (KERN_SUCCESS != ret)
-            r->r_purgable = VM_PURGABLE_DENY;
-
-		STAILQ_INSERT_TAIL(rhead, r, r_linkage);
-
-        vm_addr += vm_size;
-    }
-
-    retval = 0;
+    /* set back to default `false` */
+    set_collect_phys_footprint(false);
 
 done:
     if (snapshot)
@@ -259,11 +283,11 @@ del_region_list(struct regionhead *rhead)
 }
 
 struct regionhead *
-build_region_list(task_t task)
+build_region_list(task_t task, bool force_all_regions)
 {
     struct regionhead *rhead = malloc(sizeof (*rhead));
     STAILQ_INIT(rhead);
-    if (0 != walk_regions(task, rhead)) {
+    if (0 != walk_regions(task, rhead, force_all_regions)) {
         del_region_list(rhead);
         return NULL;
     }

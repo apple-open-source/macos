@@ -768,6 +768,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(SYMROOT)/symbolsets.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -794,7 +795,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ ( \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi || \"${ACTION}\" == install ) ]]; then\n    mkdir -p ${SCRIPT_OUTPUT_FILE_0}\n    \n    # stage .iig and .h files\n    cp ${SCRIPT_INPUT_FILE_0}/*.iig ${SCRIPT_OUTPUT_FILE_0}\n    cp ${SCRIPT_INPUT_FILE_1} ${SCRIPT_OUTPUT_FILE_0}\n\n    # invoke iig to generate .h files (on platforms that need it)\n    if [[ ( \"${PLATFORM_NAME}\" == macosx || \"${PLATFORM_NAME}\" == iphoneos || \"${PLATFORM_NAME}\" == xros ) ]]; then\n        . ${SRCROOT}/PCIDriverKit/iigKernelFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\n        \n        # stage iig-generated .h files\n        cp ${SCRIPT_INPUT_FILE_0}/*.h ${SCRIPT_OUTPUT_FILE_0}\n        \n        # remove known private file(s)\n        rm ${SCRIPT_OUTPUT_FILE_1}\n    fi\nfi\n";
+			shellScript = "if [[ ( \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi || \"${ACTION}\" == install ) ]]; then\n    mkdir -p ${SCRIPT_OUTPUT_FILE_0}\n    \n    # stage .iig and .h files\n    cp ${SCRIPT_INPUT_FILE_0}/*.iig ${SCRIPT_OUTPUT_FILE_0}\n    cp ${SCRIPT_INPUT_FILE_1} ${SCRIPT_OUTPUT_FILE_0}\n\n    # invoke iig to generate .h files (on platforms that need it)\n    if [[ ( \"${PLATFORM_NAME}\" == macosx || \"${PLATFORM_NAME}\" == iphoneos || \"${PLATFORM_NAME}\" == xros || \"${PLATFORM_NAME}\" == appletvos || \"${PLATFORM_NAME}\" == watchos ) ]]; then\n        . ${SRCROOT}/PCIDriverKit/iigKernelFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\n        \n        # stage iig-generated .h files\n        cp ${SCRIPT_INPUT_FILE_0}/*.h ${SCRIPT_OUTPUT_FILE_0}\n        \n        # remove known private file(s)\n        rm ${SCRIPT_OUTPUT_FILE_1}\n    fi\nfi\n";
 		};
 		9876A98523638FBD000531FC /* Install Kernel.framework Headers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2549,6 +2550,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2614,6 +2617,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -2675,6 +2680,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -2774,6 +2781,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2860,6 +2869,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*.internal]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=xros*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=watchos*]" = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=appletvos*]" = "";
 				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;

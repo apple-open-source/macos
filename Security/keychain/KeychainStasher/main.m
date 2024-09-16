@@ -73,7 +73,7 @@ int main(int argc, const char *argv[])
         }
     }
 
-    ServiceDelegate *delegate = [ServiceDelegate new];
+    ServiceDelegate *delegate = [[ServiceDelegate alloc] init];
     NSXPCListener *listener = [[NSXPCListener alloc] initWithMachServiceName:KeychainStasherMachServiceName];
     listener.delegate = delegate;
     [listener resume];

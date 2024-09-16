@@ -56,6 +56,7 @@
 #define EXT_H
 
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include "dosfs.h"
 #include "lib_fsck_msdos.h"
@@ -73,12 +74,16 @@ int vask __P((fsck_client_ctx_t, int, const char *, va_list));
 /*
  * Check filesystem given as arg
  */
-typedef struct check_context_t {
+typedef struct check_context_s {
     void *updater;
     void (*startPhase)(char *description, int64_t pendingUnits, int64_t totalCount, unsigned int *completedCount, void *updater);
     void (*endPhase)(char *description, void *updater);
-} *check_context;
-int checkfilesys(const char *fname, check_context context);
+    void *resource;
+    size_t (*readHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
+    size_t (*writeHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
+    int (*fstatHelper)(void *resource, struct stat *);
+} check_context;
+int checkfilesys(const char *fname, check_context *context);
 
 /*
  * Return values of various functions
@@ -96,19 +101,19 @@ int checkfilesys(const char *fname, check_context context);
  * read a boot block in a machine independend fashion and translate
  * it into our struct bootblock.
  */
-int readboot __P((int, struct bootblock *));
+int readboot __P((struct bootblock *, check_context*));
 
 /*
  * Correct the FSInfo block.
  */
-int writefsinfo __P((int, struct bootblock *));
+int writefsinfo __P((struct bootblock *, check_context*));
 
 /*
  * Read a directory
  */
-int resetDosDirSection(struct bootblock *boot);
+int resetDosDirSection(struct bootblock *boot, check_context *context);
 void finishDosDirSection __P((void));
-int handleDirTree(int, struct bootblock *boot, int);
+int handleDirTree(int, struct bootblock *boot, int, check_context *context);
 
 /*
  * Small helper functions
@@ -121,20 +126,20 @@ char *rsrvdcltype __P((cl_t));
 /*
  * Routines to read/write the FAT
  */
-int fat_init(int fs, struct bootblock *boot);
+int fat_init(struct bootblock *boot, check_context *context);
 void fat_uninit(void);
-extern cl_t (*fat_get)(cl_t cluster);
-extern int (*fat_set)(cl_t cluster, cl_t value);
-int fat_free_unused(void);
-int fat_flush(void);
+extern cl_t (*fat_get)(cl_t cluster, check_context *context);
+extern int (*fat_set)(cl_t cluster, cl_t value, check_context *context);
+int fat_free_unused(check_context *context);
+int fat_flush(check_context *context);
 /*
  * Determine whether a volume is dirty, without reading the entire FAT.
  */
-int isdirty(int fs, struct bootblock *boot, int fat);
+int isdirty(struct bootblock *boot, int fat, check_context *context);
 /*
  * Mark the volume "clean."
  */
-int fat_mark_clean(void);
+int fat_mark_clean(check_context *context);
 
 
 /*

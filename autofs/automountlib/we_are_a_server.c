@@ -45,5 +45,5 @@ we_are_a_server(void)
 		answer = SIIsOSXServerVolumeConfigured(NULL);
 		got_answer = 1;
 	}
-	return (answer);
+	return answer;
 }

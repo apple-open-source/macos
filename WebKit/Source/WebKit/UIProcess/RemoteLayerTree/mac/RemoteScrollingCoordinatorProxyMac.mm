@@ -31,6 +31,7 @@
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeEventDispatcher.h"
 #import "WebPageProxy.h"
+#import <WebCore/PerformanceLoggingClient.h>
 #import <WebCore/ScrollingStateFrameScrollingNode.h>
 #import <WebCore/ScrollingStateOverflowScrollProxyNode.h>
 #import <WebCore/ScrollingStateOverflowScrollingNode.h>
@@ -50,7 +51,7 @@ using namespace WebCore;
 RemoteScrollingCoordinatorProxyMac::RemoteScrollingCoordinatorProxyMac(WebPageProxy& webPageProxy)
     : RemoteScrollingCoordinatorProxy(webPageProxy)
 #if ENABLE(SCROLLING_THREAD)
-    , m_eventDispatcher(RemoteLayerTreeEventDispatcher::create(*this, webPageProxy.webPageID()))
+    , m_eventDispatcher(RemoteLayerTreeEventDispatcher::create(*this, webPageProxy.webPageIDInMainFrameProcess()))
 #endif
 {
     m_eventDispatcher->setScrollingTree(scrollingTree());
@@ -82,7 +83,7 @@ void RemoteScrollingCoordinatorProxyMac::handleWheelEvent(const WebWheelEvent& w
 #endif
 }
 
-void RemoteScrollingCoordinatorProxyMac::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, ScrollingNodeID scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
+void RemoteScrollingCoordinatorProxyMac::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, std::optional<ScrollingNodeID> scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
 {
 #if ENABLE(SCROLLING_THREAD)
     m_eventDispatcher->wheelEventHandlingCompleted(wheelEvent, scrollingNodeID, gestureState, wasHandled);
@@ -121,9 +122,11 @@ void RemoteScrollingCoordinatorProxyMac::hasNodeWithAnimatedScrollChanged(bool h
 
 void RemoteScrollingCoordinatorProxyMac::setRubberBandingInProgressForNode(ScrollingNodeID nodeID, bool isRubberBanding)
 {
-    if (isRubberBanding)
+    if (isRubberBanding) {
+        if (scrollingTree()->scrollingPerformanceTestingEnabled())
+            webPageProxy().logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::StartedRubberbanding), MonotonicTime::now(), 0);
         m_uiState.addNodeWithActiveRubberband(nodeID);
-    else
+    } else
         m_uiState.removeNodeWithActiveRubberband(nodeID);
 
     sendUIStateChangedIfNecessary();
@@ -273,11 +276,17 @@ void RemoteScrollingCoordinatorProxyMac::windowScreenWillChange()
 void RemoteScrollingCoordinatorProxyMac::willCommitLayerAndScrollingTrees()
 {
     scrollingTree()->lockLayersForHitTesting();
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    m_eventDispatcher->lockForAnimationChanges();
+#endif
 }
 
 void RemoteScrollingCoordinatorProxyMac::didCommitLayerAndScrollingTrees()
 {
     scrollingTree()->unlockLayersForHitTesting();
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    m_eventDispatcher->unlockForAnimationChanges();
+#endif
 }
 
 void RemoteScrollingCoordinatorProxyMac::applyScrollingTreeLayerPositionsAfterCommit()

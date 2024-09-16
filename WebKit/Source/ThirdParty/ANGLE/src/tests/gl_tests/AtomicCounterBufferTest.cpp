@@ -34,7 +34,7 @@ TEST_P(AtomicCounterBufferTest, AtomicCounterBufferBindings)
 {
     ASSERT_EQ(3, getClientMajorVersion());
     GLBuffer atomicCounterBuffer;
-    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomicCounterBuffer.get());
+    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomicCounterBuffer);
     if (getClientMinorVersion() < 1)
     {
         EXPECT_GL_ERROR(GL_INVALID_ENUM);
@@ -400,7 +400,7 @@ TEST_P(AtomicCounterBufferTest31, OffsetNotAllSpecifiedWithSameValue)
 TEST_P(AtomicCounterBufferTest31, AtomicCounterReadCompute)
 {
     // Skipping due to a bug on the Adreno OpenGLES Android driver.
-    // http://anglebug.com/2925
+    // http://anglebug.com/42261624
     ANGLE_SKIP_TEST_IF(IsAndroid() && IsAdreno() && IsOpenGLES());
 
     constexpr char kComputeShaderSource[] = R"(#version 310 es
@@ -429,7 +429,7 @@ void main()
 TEST_P(AtomicCounterBufferTest31, AtomicCounterRead)
 {
     // Skipping test while we work on enabling atomic counter buffer support in th D3D renderer.
-    // http://anglebug.com/1729
+    // http://anglebug.com/42260658
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
     constexpr char kFS[] =
@@ -446,7 +446,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterRead)
 
     ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
 
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     // The initial value of counter 'ac' is 3u.
     unsigned int bufferData[3] = {11u, 3u, 1u};
@@ -456,7 +456,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterRead)
 
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomicCounterBuffer);
 
-    drawQuad(program.get(), essl31_shaders::PositionAttrib(), 0.0f);
+    drawQuad(program, essl31_shaders::PositionAttrib(), 0.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
 }
@@ -466,7 +466,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterRead)
 TEST_P(AtomicCounterBufferTest31, DependentAtomicCounterBufferChange)
 {
     // Skipping test while we work on enabling atomic counter buffer support in th D3D renderer.
-    // http://anglebug.com/1729
+    // http://anglebug.com/42260658
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
     constexpr char kFS[] =
@@ -484,7 +484,7 @@ TEST_P(AtomicCounterBufferTest31, DependentAtomicCounterBufferChange)
 
     ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
 
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     // The initial value of counter 'ac' is 3u.
     unsigned int bufferDataLeft[3] = {11u, 3u, 1u};
@@ -495,13 +495,13 @@ TEST_P(AtomicCounterBufferTest31, DependentAtomicCounterBufferChange)
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomicCounterBuffer);
     // Draw left quad
     glViewport(0, 0, getWindowWidth() / 2, getWindowHeight());
-    drawQuad(program.get(), essl31_shaders::PositionAttrib(), 0.0f);
+    drawQuad(program, essl31_shaders::PositionAttrib(), 0.0f);
     // Draw right quad
     unsigned int bufferDataRight[3] = {11u, 19u, 1u};
     glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(bufferDataRight), bufferDataRight,
                  GL_STATIC_DRAW);
     glViewport(getWindowWidth() / 2, 0, getWindowWidth() / 2, getWindowHeight());
-    drawQuad(program.get(), essl31_shaders::PositionAttrib(), 0.0f);
+    drawQuad(program, essl31_shaders::PositionAttrib(), 0.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
     EXPECT_PIXEL_COLOR_EQ(getWindowWidth() / 2, 0, GLColor::red);
@@ -512,11 +512,11 @@ TEST_P(AtomicCounterBufferTest31, DependentAtomicCounterBufferChange)
 TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRangeRead)
 {
     // Skipping due to a bug on the Qualcomm driver.
-    // http://anglebug.com/3726
+    // http://anglebug.com/42262383
     ANGLE_SKIP_TEST_IF(IsNexus5X() && IsOpenGLES());
 
     // Skipping test while we work on enabling atomic counter buffer support in th D3D renderer.
-    // http://anglebug.com/1729
+    // http://anglebug.com/42260658
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
     constexpr char kFS[] =
@@ -533,7 +533,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRangeRead)
 
     ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
 
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     // The initial value of counter 'ac' is 3u.
     unsigned int bufferData[]     = {0u, 0u, 0u, 0u, 0u, 11u, 3u, 1u};
@@ -553,7 +553,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRangeRead)
                           sizeof(bufferData) - kOffset);
     }
 
-    drawQuad(program.get(), essl31_shaders::PositionAttrib(), 0.0f);
+    drawQuad(program, essl31_shaders::PositionAttrib(), 0.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
 }
@@ -564,7 +564,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRangeRead)
 TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRepeatedBindUnbind)
 {
     // Skipping test while we work on enabling atomic counter buffer support in th D3D renderer.
-    // http://anglebug.com/1729
+    // http://anglebug.com/42260658
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
     constexpr char kFS[] =
@@ -581,7 +581,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRepeatedBindUnbind)
 
     ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
 
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     constexpr int32_t kBufferCount = 16;
     // The initial value of counter 'ac' is 3u.
@@ -625,7 +625,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterBufferRepeatedBindUnbind)
 
     // Bind atomicCounterBuffer[0] to slot 0 and verify result
     glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomicCounterBuffer[0]);
-    drawQuad(program.get(), essl31_shaders::PositionAttrib(), 0.0f);
+    drawQuad(program, essl31_shaders::PositionAttrib(), 0.0f);
     ASSERT_GL_NO_ERROR();
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
 }
@@ -645,7 +645,7 @@ TEST_P(AtomicCounterBufferTest31, AtomicCounterIncrementAndDecrement)
 
     ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
 
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     // The initial value of 'ac[0]' is 3u, 'ac[1]' is 1u.
     unsigned int bufferData[3] = {11u, 3u, 1u};
@@ -727,13 +727,13 @@ void main()
 TEST_P(AtomicCounterBufferTest31, AtomicCounterArrayOfArray)
 {
     // Fails on D3D.  Some counters are double-incremented while some are untouched, hinting at a
-    // bug in index translation.  http://anglebug.com/3783
+    // bug in index translation.  http://anglebug.com/42262427
     ANGLE_SKIP_TEST_IF(IsD3D11());
 
-    // Nvidia's OpenGL driver fails to compile the shader.  http://anglebug.com/3791
+    // Nvidia's OpenGL driver fails to compile the shader.  http://anglebug.com/42262434
     ANGLE_SKIP_TEST_IF(IsOpenGL() && IsNVIDIA());
 
-    // Intel's Windows OpenGL driver crashes in this test.  http://anglebug.com/3791
+    // Intel's Windows OpenGL driver crashes in this test.  http://anglebug.com/42262434
     ANGLE_SKIP_TEST_IF(IsOpenGL() && IsIntel() && IsWindows());
 
     constexpr char kCS[] = R"(#version 310 es
@@ -833,7 +833,7 @@ void main()
     ANGLE_SKIP_TEST_IF(static_cast<uint32_t>(maxAtomicCounters) < kAtomicCounterCount);
 
     ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
-    glUseProgram(program.get());
+    glUseProgram(program);
 
     // The initial value of atomic counters is 0, 1, 2, ...
     unsigned int bufferData[kAtomicCounterCount] = {};

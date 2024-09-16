@@ -47,10 +47,10 @@ static int process_opts(char *options, uint32_t *directp);
 
 static const struct mntopt mopts_autofs[] = {
 	MOPT_STDOPTS,
-	{ MNTOPT_RESTRICT,		0, AUTOFS_MNT_RESTRICT, 1 },
-	{ "browse",			1, AUTOFS_MNT_NOBROWSE, 1 },
-	{ MNTOPT_HIDEFROMFINDER,	0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
-	{ NULL,				0, 0, 0 }
+	{ MNTOPT_RESTRICT, 0, AUTOFS_MNT_RESTRICT, 1 },
+	{ "browse", 1, AUTOFS_MNT_NOBROWSE, 1 },
+	{ MNTOPT_HIDEFROMFINDER, 0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
+	{ NULL, 0, 0, 0 }
 };
 
 int
@@ -65,7 +65,7 @@ mount_autofs(
 	const char *key,
 	fsid_t *fsidp,
 	uint32_t *retflags
-)
+	)
 {
 	action_list *alp;
 	char rel_mntpnt[MAXPATHLEN];
@@ -73,47 +73,51 @@ mount_autofs(
 	mntoptparse_t mp;
 	int error;
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "  mount_autofs %s on %s\n",
-		me->map_fs->mfs_dir, mntpnt);
+		    me->map_fs->mfs_dir, mntpnt);
+	}
 
 	if (strcmp(mntpnt, "/-") == 0) {
 		syslog(LOG_ERR, "invalid mountpoint: /-");
 		*alpp = NULL;
-		return (ENOENT);
+		return ENOENT;
 	}
 
 	/*
 	 * get relative mountpoint
 	 */
-	if (snprintf(rel_mntpnt, sizeof (rel_mntpnt), ".%s",
-	    mntpnt+strlen(rootp)) >= (int)sizeof (rel_mntpnt)) {
+	if (snprintf(rel_mntpnt, sizeof(rel_mntpnt), ".%s",
+	    mntpnt + strlen(rootp)) >= (int)sizeof(rel_mntpnt)) {
 		syslog(LOG_ERR, "mountpoint too long: %s", mntpnt);
 		*alpp = NULL;
-		return (ENOENT);
+		return ENOENT;
 	}
 
-	if (trace > 2)
+	if (trace > 2) {
 		trace_prt(1, "  rel_mntpnt = %s\n", rel_mntpnt);
+	}
 
 	/*
 	 * Get the mount point for this autofs mount relative to the
 	 * mount point for the file system atop which we're mounting it.
 	 */
 	trig_mntpnt = me->map_mntpnt;
-	while (*trig_mntpnt == '/')
+	while (*trig_mntpnt == '/') {
 		trig_mntpnt++;
+	}
 
-	alp = (action_list *)malloc(sizeof (action_list));
+	alp = (action_list *)malloc(sizeof(action_list));
 	if (alp == NULL) {
 		syslog(LOG_ERR, "malloc of alp failed");
 		*alpp = NULL;
-		return (ENOMEM);
+		return ENOMEM;
 	}
-	memset(alp, 0, sizeof (action_list));
+	memset(alp, 0, sizeof(action_list));
 
-	if ((alp->mounta.opts = malloc(AUTOFS_MAXOPTSLEN)) == NULL)
+	if ((alp->mounta.opts = malloc(AUTOFS_MAXOPTSLEN)) == NULL) {
 		goto free_mem;
+	}
 	if (strlcpy(alp->mounta.opts, me->map_mntopts, AUTOFS_MAXOPTSLEN)
 	    >= AUTOFS_MAXOPTSLEN) {
 		syslog(LOG_ERR, "options \"%s\" for %s are too long",
@@ -121,31 +125,37 @@ mount_autofs(
 		free(alp->mounta.opts);
 		free(alp);
 		*alpp = NULL;
-		return (ENOENT);
+		return ENOENT;
 	}
 
-	if (process_opts(alp->mounta.opts, &alp->mounta.isdirect) != 0)
+	if (process_opts(alp->mounta.opts, &alp->mounta.isdirect) != 0) {
 		goto free_mem;
+	}
 
 	/*
 	 * get absolute mountpoint
 	 */
-	if ((alp->mounta.path = strdup(mntpnt)) == NULL)
+	if ((alp->mounta.path = strdup(mntpnt)) == NULL) {
 		goto free_mem;
+	}
 
-	if ((alp->mounta.map = strdup(me->map_fs->mfs_dir)) == NULL)
+	if ((alp->mounta.map = strdup(me->map_fs->mfs_dir)) == NULL) {
 		goto free_mem;
-	if ((alp->mounta.subdir = strdup(subdir)) == NULL)
+	}
+	if ((alp->mounta.subdir = strdup(subdir)) == NULL) {
 		goto free_mem;
+	}
 
 	if (alp->mounta.isdirect) {
 		if (me->map_modified == TRUE || me->map_faked == TRUE) {
-			if ((alp->mounta.key = strdup(key)) == NULL)
+			if ((alp->mounta.key = strdup(key)) == NULL) {
 				goto free_mem;
+			}
 		} else {
 			/* wierd case of a direct map pointer in another map */
-			if ((alp->mounta.key = strdup(alp->mounta.path)) == NULL)
+			if ((alp->mounta.key = strdup(alp->mounta.path)) == NULL) {
 				goto free_mem;
+			}
 		}
 	} else {
 		alp->mounta.key = NULL;
@@ -154,10 +164,12 @@ mount_autofs(
 	/*
 	 * Fill out action list.
 	 */
-	if ((alp->mounta.dir = strdup(rel_mntpnt)) == NULL)
+	if ((alp->mounta.dir = strdup(rel_mntpnt)) == NULL) {
 		goto free_mem;
-	if ((alp->mounta.trig_mntpnt = strdup(trig_mntpnt)) == NULL)
+	}
+	if ((alp->mounta.trig_mntpnt = strdup(trig_mntpnt)) == NULL) {
 		goto free_mem;
+	}
 
 	/*
 	 * Parse the mount options and fill in "flags" and "mntflags".
@@ -166,8 +178,9 @@ mount_autofs(
 	getmnt_silent = 1;
 	mp = getmntopts(alp->mounta.opts, mopts_autofs, &alp->mounta.flags,
 	    &alp->mounta.mntflags);
-	if (mp == NULL)
+	if (mp == NULL) {
 		goto free_mem;
+	}
 	freemntopts(mp);
 
 	/*
@@ -190,7 +203,7 @@ mount_autofs(
 			mnt_args.path = alp->mounta.path;
 			mnt_args.opts = alp->mounta.opts;
 			mnt_args.map = alp->mounta.map;
-			mnt_args.subdir = "";	/* this is a top-level (auto)mount of a map - no subdir */
+			mnt_args.subdir = "";   /* this is a top-level (auto)mount of a map - no subdir */
 			mnt_args.key = alp->mounta.key == NULL ? "" : alp->mounta.key;
 			mnt_args.mntflags = alp->mounta.mntflags;
 			mnt_args.direct = alp->mounta.isdirect;
@@ -199,16 +212,16 @@ mount_autofs(
 			 * rather than being mounted by automount.
 			 */
 			mnt_args.mount_type = MOUNT_TYPE_TRIGGERED_MAP;
-			if (alp->mounta.isdirect)
+			if (alp->mounta.isdirect) {
 				mnt_args.node_type = NT_TRIGGER;
-			else
-				mnt_args.node_type = 0;	/* not a trigger */
-
+			} else {
+				mnt_args.node_type = 0; /* not a trigger */
+			}
 			if (mount(MNTTYPE_AUTOFS, mntpnt,
-			    alp->mounta.flags|MNT_AUTOMOUNTED|MNT_DONTBROWSE,
-			    &mnt_args) == -1)
+			    alp->mounta.flags | MNT_AUTOMOUNTED | MNT_DONTBROWSE,
+			    &mnt_args) == -1) {
 				error = errno;
-			else {
+			} else {
 				error = get_triggered_mount_info(mntpnt,
 				    mntpnt_fsid, fsidp, retflags);
 			}
@@ -217,10 +230,10 @@ mount_autofs(
 			 * This has already been processed; it doesn't belong
 			 * on the list of future triggered mounts to be set up.
 			 */
-		    	free_action_list_fields(alp);
-		    	free(alp);
-		    	*alpp = NULL;
-			return (error);
+			free_action_list_fields(alp);
+			free(alp);
+			*alpp = NULL;
+			return error;
 		} else {
 			/*
 			 * No.  We need to request a subtrigger to
@@ -234,15 +247,17 @@ mount_autofs(
 				 * the map that's going to be mounted.
 				 */
 				free(alp->mounta.map);
-				if ((alp->mounta.map = strdup(mapname)) == NULL)
+				if ((alp->mounta.map = strdup(mapname)) == NULL) {
 					goto free_mem;
+				}
 
 				/*
 				 * And the key should be the key used to
 				 * look up this entry.
 				 */
-				if ((alp->mounta.key = strdup(key)) == NULL)
+				if ((alp->mounta.key = strdup(key)) == NULL) {
 					goto free_mem;
+				}
 			}
 		}
 	}
@@ -255,12 +270,13 @@ mount_autofs(
 	 * them.
 	 */
 	if (strcmp(me->map_fstype, MNTTYPE_NFS) == 0 ||
-	    strcmp(me->map_fstype, MNTTYPE_AUTOFS) == 0)
+	    strcmp(me->map_fstype, MNTTYPE_AUTOFS) == 0) {
 		alp->mounta.needs_subtrigger = 0;
-	else
+	} else {
 		alp->mounta.needs_subtrigger = 1;
+	}
 	*alpp = alp;
-	return (0);
+	return 0;
 
 free_mem:
 	/*
@@ -275,7 +291,7 @@ free_mem:
 	 */
 	*alpp = NULL;
 
-	return (ENOMEM);
+	return ENOMEM;
 }
 
 /*
@@ -289,12 +305,12 @@ process_opts(char *options, uint32_t *directp)
 	char *opt, *opts, *lasts;
 	char buf[AUTOFS_MAXOPTSLEN];
 
-        *directp = 0;
-        
+	*directp = 0;
+
 	if (CHECK_STRCPY(buf, options, sizeof buf)) {
-                return -1;
-        }
-        
+		return -1;
+	}
+
 	opts = buf;
 	options[0] = '\0';
 
@@ -310,16 +326,17 @@ process_opts(char *options, uint32_t *directp)
 		} else if (strcmp(opt, "ignore") != 0) {
 			if (options[0] != '\0') {
 				if (CHECK_STRCAT(
-                                        options, ",", AUTOFS_MAXOPTSLEN)) {
-                                        return -1;
-                                }
+					    options, ",", AUTOFS_MAXOPTSLEN)) {
+					return -1;
+				}
 			}
 			if (CHECK_STRCAT(options, opt, AUTOFS_MAXOPTSLEN)) {
-                                return -1;
-                        }
+				return -1;
+			}
 		}
-	};
-	return (0);
+	}
+	;
+	return 0;
 }
 
 /*
@@ -328,20 +345,28 @@ process_opts(char *options, uint32_t *directp)
 void
 free_action_list_fields(action_list *alp)
 {
-	if (alp == NULL)
+	if (alp == NULL) {
 		return;
-	if (alp->mounta.dir)
+	}
+	if (alp->mounta.dir) {
 		free(alp->mounta.dir);
-	if (alp->mounta.opts)
+	}
+	if (alp->mounta.opts) {
 		free(alp->mounta.opts);
-	if (alp->mounta.path)
+	}
+	if (alp->mounta.path) {
 		free(alp->mounta.path);
-	if (alp->mounta.map)
+	}
+	if (alp->mounta.map) {
 		free(alp->mounta.map);
-	if (alp->mounta.subdir)
+	}
+	if (alp->mounta.subdir) {
 		free(alp->mounta.subdir);
-	if (alp->mounta.trig_mntpnt)
+	}
+	if (alp->mounta.trig_mntpnt) {
 		free(alp->mounta.trig_mntpnt);
-	if (alp->mounta.key)
+	}
+	if (alp->mounta.key) {
 		free(alp->mounta.key);
+	}
 }

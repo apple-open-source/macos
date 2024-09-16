@@ -114,9 +114,7 @@ PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*] = xml
 EXCLUDED_SOURCE_FILE_NAMES[sdk=driverkit*] = Info.plist
 EXCLUDED_SOURCE_FILE_NAMES[sdk=exclavekit*] = Info.plist
 
-EXCLUDED_SOURCE_FILE_NAMES = $(inherited) i386.c
-INCLUDED_SOURCE_FILE_NAMES[sdk=macos*][arch=i386] = $(inherited) i386.c
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*][arch=i386] = $(inherited) init.c CompatibilityHacks.c
+EXCLUDED_SOURCE_FILE_NAMES = $(inherited)
 
 EXCLUDED_SOURCE_FILE_NAMES[sdk=exclavekit*] = $(inherited) CompatibilityHacks.c alloc_once_private.h
 

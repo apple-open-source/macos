@@ -38,7 +38,11 @@ namespace WebKit {
 
 LaunchServicesDatabaseManager& LaunchServicesDatabaseManager::singleton()
 {
-    static NeverDestroyed<LaunchServicesDatabaseManager> manager;
+    static LazyNeverDestroyed<LaunchServicesDatabaseManager> manager;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [] {
+        manager.construct();
+    });
     return manager.get();
 }
 
@@ -90,9 +94,8 @@ void LaunchServicesDatabaseManager::waitForDatabaseUpdate()
     auto elapsedTime = MonotonicTime::now() - startTime;
     if (elapsedTime > 0.5_s)
         RELEASE_LOG_ERROR(Loading, "Waiting for Launch Services database update took %f seconds", elapsedTime.value());
-    ASSERT_UNUSED(databaseUpdated, databaseUpdated);
     if (!databaseUpdated)
-        RELEASE_LOG_ERROR(Loading, "Timed out waiting for Launch Services database update.");
+        RELEASE_LOG_FAULT(Loading, "Timed out waiting for Launch Services database update.");
 }
 
 }

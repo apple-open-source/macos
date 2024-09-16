@@ -222,7 +222,7 @@ errOut:
 
 static void sosRecoveryAlertAndNotify(SOSAccount* account, SOSRecoveryKeyBagRef oldRingRKBG, SOSRecoveryKeyBagRef ringRKBG) {
     secnotice("recovery", "Recovery Key changed: old %@ new %@", oldRingRKBG, ringRKBG);
-    notify_post(kSOSCCRecoveryKeyChanged);
+    notify_post(kSOSCCRecoveryKeyChanged); // Does anything consume this notification?
 }
 
 void SOSAccountEnsureRecoveryRing(SOSAccount* account) {

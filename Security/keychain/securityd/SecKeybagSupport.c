@@ -62,9 +62,6 @@ keybag_handle_t g_keychain_keybag = kDefault_keychain_keybag;
 const CFStringRef kSecKSKeyData1 = CFSTR("d1");
 const CFStringRef kSecKSKeyData2 = CFSTR("d2");
 
-static bool KeyDiversificationEnabledOverrideSet = false;
-static bool KeyDiversificationEnabledOverride = false;
-
 void SecItemServerSetKeychainKeybag(int32_t keybag)
 {
     g_keychain_keybag=keybag;
@@ -655,27 +652,4 @@ bool ks_close_keybag(keybag_handle_t keybag, CFErrorRef *error) {
     }
 #endif /* USE_KEYSTORE */
     return true;
-}
-
-bool ks_is_key_diversification_enabled(void)
-{
-    if(KeyDiversificationEnabledOverrideSet) {
-        secinfo("aks", "Key Diversification is %s (overridden)", KeyDiversificationEnabledOverride ? "enabled" : "disabled");
-        return KeyDiversificationEnabledOverride;
-    }
-
-    static bool isKeyDiversificationEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        isKeyDiversificationEnabled = os_feature_enabled(Security, KeychainKeyDiversification);
-        secinfo("aks", "Key Diversification is %s (via feature flags)", isKeyDiversificationEnabled ? "enabled" : "disabled");
-    });
-
-    return isKeyDiversificationEnabled;
-}
-
-void ks_key_diversification_set_is_enabled(bool value)
-{
-    KeyDiversificationEnabledOverrideSet = true;
-    KeyDiversificationEnabledOverride = value;
 }

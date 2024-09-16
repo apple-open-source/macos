@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,134 +27,32 @@
  */
 
 
-#import <WirelessDiagnostics/WirelessDiagnostics.h>
-#import "AWDMetricIds_IPConfiguration.h"
-#import "AWDIPConfigurationIPv6Report.h"
+#import <Foundation/Foundation.h>
 
 #include "IPv6AWDReport.h"
 #include "symbol_scope.h"
 #include "mylog.h"
 
-STATIC AWDServerConnection *
-IPv6AWDServerConnection(void)
-{
-    AWDServerConnection * server;
-
-    if ([AWDServerConnection class] == nil) {
-	return (nil);
-    }
-    server = [[AWDServerConnection alloc]
-		 initWithComponentId:AWDComponentId_IPConfiguration];
-    if (server == NULL) {
-	my_log(LOG_NOTICE, "Failed to create AWD server connection");
-    }
-    return (server);
-}
-
-STATIC IPv6AWDReportRef
-_IPv6AWDReportCreate(InterfaceType type)
-{
-    AWDIPConfigurationIPv6Report *	metric;
-
-    if ([AWDServerConnection class] == nil) {
-	return (NULL);
-    }
-    metric = [[AWDIPConfigurationIPv6Report alloc] init];
-    metric.interfaceType = (AWDIPConfigurationInterfaceType)type;
-
-    /* default bool's to NO */
-    metric.autoconfAddressAcquired = NO;
-    metric.autoconfAddressDeprecated = NO;
-    metric.autoconfAddressDetached = NO;
-    metric.autoconfAddressDuplicated = NO;
-    metric.autoconfDnssl = NO;
-    metric.autoconfRdnss = NO;
-    metric.autoconfRestarted = NO;
-    metric.dhcpv6AddressAcquired = NO;
-    metric.dhcpv6DnsDomainList = NO;
-    metric.dhcpv6DnsServers = NO;
-    metric.linklocalAddressDuplicated = NO;
-    metric.manualAddressConfigured = NO;
-    metric.prefixPreferredLifetimeSeconds = 0;
-    metric.prefixValidLifetimeSeconds = 0;
-    metric.prefixLifetimeNotInfinite = NO;
-    metric.routerLifetimeNotMaximum = NO;
-    metric.routerLifetimeSeconds = 0;
-    metric.routerLifetimeZero = NO;
-    metric.routerSourceAddressCollision = NO;
-    metric.xlat464Enabled = NO;
-    metric.xlat464PlatDiscoveryFailed = NO;
-
-    /* default integers to 0 */
-    metric.autoconfAddressAcquisitionSeconds = 0;
-    metric.controlQueueUnsentCount = 0;
-    metric.defaultRouterCount = 0;
-    metric.dhcpv6AddressAcquisitionSeconds = 0;
-    metric.dnsConfigurationAcquisitionSeconds = 0;
-    metric.expiredDefaultRouterCount = 0;
-    metric.expiredPrefixCount = 0;
-    metric.prefixCount = 0;
-    metric.routerSolicitationCount = 0;
-
-    return ((IPv6AWDReportRef)metric);
-}
 
 PRIVATE_EXTERN IPv6AWDReportRef
 IPv6AWDReportCreate(InterfaceType type)
 {
-    IPv6AWDReportRef	report;
-
-    @autoreleasepool {
-	report = _IPv6AWDReportCreate(type);
-    }
-    return (report);
-}
-
-STATIC void
-_IPv6AWDReportSubmit(IPv6AWDReportRef report)
-{
-    AWDMetricContainer * 	container;
-    AWDServerConnection * 	server;
-
-    server = IPv6AWDServerConnection();
-    if (server == NULL) {
-	return;
-    }
-    container = [server newMetricContainerWithIdentifier:
-			    AWDMetricId_IPConfiguration_IPv6Report];
-    [container setMetric:(AWDIPConfigurationIPv6Report *)report];
-    [server submitMetric:container];
-    [server release];
-    [container release];
-    return;
+    return (NULL);
 }
 
 PRIVATE_EXTERN void
 IPv6AWDReportSubmit(IPv6AWDReportRef report)
 {
-    @autoreleasepool {
-	_IPv6AWDReportSubmit(report);
-    }
+    return;
 }
 
 void
 IPv6AWDReportSetAPNName(IPv6AWDReportRef report, CFStringRef apn_name)
 {
-    @autoreleasepool {
-	AWDIPConfigurationIPv6Report *	metric;
-
-	metric = (AWDIPConfigurationIPv6Report *)report;
-	metric.apnName = (__bridge NSString *)apn_name;
-    }
+    return;
 }
 
-#define IPV6_REPORT_SET_PROP(report, name, value)		\
-    @autoreleasepool {						\
-	AWDIPConfigurationIPv6Report *	metric;			\
-								\
-	metric = (AWDIPConfigurationIPv6Report *)report;	\
-	metric.name = value;					\
-    }
+#define IPV6_REPORT_SET_PROP(report, name, value)
 
 void
 IPv6AWDReportSetLinkLocalAddressDuplicated(IPv6AWDReportRef report)

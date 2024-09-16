@@ -49,6 +49,7 @@
 
 #include "lib_newfs_msdos.h"
 #include "format.h"
+#include <wipefs.h>
 #include <sys/ioctl.h>
 
 /* ioctl selector to get the offset of the current partition
@@ -79,6 +80,20 @@ static void vprint(newfs_client_ctx_t client, int level, const char *fmt, va_lis
         default:
             break;
     }
+}
+
+static size_t newfsReadHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    int *fd = (int*)resource;
+
+    return pread(*fd, buffer, nbytes, offset);
+}
+
+static size_t newfsWriteHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    int *fd = (int*)resource;
+
+    return pwrite(*fd, buffer, nbytes, offset);
 }
 
 /*
@@ -309,7 +324,12 @@ main(int argc, char *argv[])
     newfsProps.bname = bname;
     newfsProps.bootFD = bootFD;
     newfsProps.sb = sb;
-    return format(sopts, newfsProps, NULL);
+
+    struct format_context_s context = {0};
+    context.resource = &fd;
+    context.readHelper = newfsReadHelper;
+    context.writeHelper = newfsWriteHelper;
+    return format(sopts, newfsProps, &context);
 }
 
 /*
@@ -378,4 +398,28 @@ usage(void)
     fprintf(stderr, "\t-u sectors/track\n");
     fprintf(stderr, "\t-v filesystem/volume name\n");
     exit(1);
+}
+
+/** Wipes our device by calling directly to wipefs library */
+int wipefs(newfs_client_ctx_t ctx, WipeFSProperties props)
+{
+    wipefs_ctx wiper;
+    int error = wipefs_alloc(props.fd, props.block_size, &wiper);
+    if (error) {
+        newfs_print(newfs_ctx, LOG_ERR, "wipefs_alloc(): fd(%d) %s", props.fd, strerror(error));
+        return error;
+    }
+    error = wipefs_except_blocks(wiper, props.except_block_start, props.except_block_length);
+    if (error) {
+        newfs_print(newfs_ctx, LOG_ERR, "wipefs_except_blocks(): fd(%d) %s", props.fd, strerror(error));
+        goto exit;
+    }
+    error = wipefs_wipe(wiper);
+    if (error) {
+        newfs_print(newfs_ctx, LOG_ERR, "wipefs_wipe(): fd(%d) %s", props.fd, strerror(error));
+        goto exit;
+    }
+exit:
+    wipefs_free(&wiper);
+    return error;
 }

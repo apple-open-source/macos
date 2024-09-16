@@ -27,9 +27,10 @@
 
 [
     EnabledBySetting=WebGPUEnabled,
-    Exposed=(Window,DedicatedWorker),
+    Exposed=(Window,Worker),
     SecureContext
 ]
 interface GPUOutOfMemoryError {
-    constructor();
+    constructor(DOMString message);
+    readonly attribute DOMString message;
 };

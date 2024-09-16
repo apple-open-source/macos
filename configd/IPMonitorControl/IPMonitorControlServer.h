@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,11 +37,10 @@
  * - initial revision
  */
 
-#include <CoreFoundation/CFRunLoop.h>
+#include <dispatch/dispatch.h>
 
 Boolean
-IPMonitorControlServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls,
-			    Boolean * verbose);
+IPMonitorControlServerStart(dispatch_queue_t queue, dispatch_block_t handler);
 
 CFArrayRef
 IPMonitorControlServerCopyInterfaceRankInformation(CFDictionaryRef * info);

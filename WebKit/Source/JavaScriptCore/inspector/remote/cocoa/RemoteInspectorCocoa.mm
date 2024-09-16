@@ -346,6 +346,13 @@ void RemoteInspector::setupXPCConnectionIfNeeded()
         pushListingsSoon();
 }
 
+void RemoteInspector::connectToWebInspector()
+{
+    dispatch_async(m_xpcQueue, ^{
+        RemoteInspector::singleton().setupXPCConnectionIfNeeded();
+    });
+}
+
 #pragma mark - Proxy Application Information
 
 void RemoteInspector::setParentProcessInformation(pid_t pid, RetainPtr<CFDataRef> auditData)
@@ -473,25 +480,30 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
     switch (target.type()) {
     case RemoteInspectionTarget::Type::ITML:
         [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeITML forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::JavaScript:
         [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeJavaScript forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::Page:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypePage forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::ServiceWorker:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeServiceWorker forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::WebPage:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeWebPage forKey:WIRTypeKey];
         break;
     default:
@@ -720,8 +732,8 @@ void RemoteInspector::receivedIndicateMessage(NSDictionary *userInfo)
 
             target = findResult->value;
         }
-        if (is<RemoteInspectionTarget>(target))
-            downcast<RemoteInspectionTarget>(target)->setIndicating(indicateEnabled);
+        if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(target))
+            inspectionTarget->setIndicating(indicateEnabled);
     });
 }
 

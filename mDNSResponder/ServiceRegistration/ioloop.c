@@ -49,6 +49,7 @@
 #ifndef EXCLUDE_TLS
 #include "srp-tls.h"
 #endif
+#include "ifpermit.h"
 
 #ifndef IOLOOP_MACOS
 
@@ -611,8 +612,8 @@ ioloop_udp_read_callback(io_t *io, void *context)
 
     // For UDP, we use the interface index as part of the validation strategy, so go get
     // the interface index.
+    bool set_local = false;
     for (cmh = CMSG_FIRSTHDR(&msg); cmh; cmh = CMSG_NXTHDR(&msg, cmh)) {
-        bool print_addresses = false;
         addr_t source_address, local_address;
 
         if (cmh->cmsg_level == IPPROTO_IPV6 && cmh->cmsg_type == IPV6_PKTINFO) {
@@ -628,7 +629,7 @@ ioloop_udp_read_callback(io_t *io, void *context)
 #ifndef NOT_HAVE_SA_LEN
             message->local.sin6.sin6_len = sizeof message->local;
 #endif
-            print_addresses = true;
+            set_local = true;
         } else if (cmh->cmsg_level == IPPROTO_IP && cmh->cmsg_type == IP_PKTINFO) {
             struct in_pktinfo pktinfo;
 
@@ -641,9 +642,9 @@ ioloop_udp_read_callback(io_t *io, void *context)
             message->local.sin.sin_len = sizeof message->local;
 #endif
             message->local.sin.sin_port = htons(connection->listen_port);
-            print_addresses = true;
+            set_local = true;
         }
-        if (print_addresses) {
+        if (set_local) {
             ioloop_normalize_address(&source_address, &src);
             ioloop_normalize_address(&local_address, &message->local);
             if (source_address.sa.sa_family == AF_INET6) {
@@ -666,7 +667,14 @@ ioloop_udp_read_callback(io_t *io, void *context)
             }
         }
     }
-    connection->datagram_callback(connection, message, connection->context);
+
+    // The first packet we get via inetd will not have the PKTINFO sockopt set, since we can only set that after we've
+    // started. We can expect a retransmission, so just drop it rather than trying to do something clever.
+    if (set_local) {
+        connection->datagram_callback(connection, message, connection->context);
+    } else {
+        ERROR("dropping incoming packet because we didn't get a destination address.");
+    }
     ioloop_message_release(message);
 }
 
@@ -1160,11 +1168,11 @@ listener_ready_callback(io_t *io, void *context)
 }
 
 comm_t *
-ioloop_listener_create(bool stream, bool tls, uint16_t *UNUSED avoid_ports, int UNUSED num_avoid_ports,
+ioloop_listener_create(bool stream, bool tls, bool inetd, uint16_t *UNUSED avoid_ports, int UNUSED num_avoid_ports,
                        const addr_t *ip_address, const char *multicast, const char *name,
                        datagram_callback_t datagram_callback, connect_callback_t connected,
                        cancel_callback_t UNUSED cancel, ready_callback_t ready, finalize_callback_t finalize,
-                       tls_config_callback_t UNUSED tls_config, void *context)
+                       tls_config_callback_t UNUSED tls_config, unsigned UNUSED ifindex, void *context)
 {
     comm_t *listener;
     socklen_t sl;

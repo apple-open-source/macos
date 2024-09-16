@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -595,6 +595,7 @@ enum privdirtype {FILE_HARDLINKS, DIR_HARDLINKS};
 #define HFS_FEATURE_BARRIER     0x8000000	/* device supports barrier-only flush */
 #define HFS_CS_SWAPFILE_PIN    0x10000000
 #define HFS_RUN_SYNCER		   0x20000000
+#define HFS_EXPANDED_TIMES	   0x40000000	/* volume uses expanded timestamps */
 
 /* Macro to update next allocation block in the HFS mount structure.  If 
  * the HFS_SKIP_UPDATE_NEXT_ALLOCATION is set, do not update 
@@ -795,9 +796,9 @@ extern int hfs_vnop_removenamedstream(struct vnop_removenamedstream_args*);
 /*****************************************************************************
 	Functions from MacOSStubs.c
 ******************************************************************************/
-time_t to_bsd_time(u_int32_t hfs_time);
+time_t to_bsd_time(u_int32_t hfs_time, bool expanded);
 
-u_int32_t to_hfs_time(time_t bsd_time);
+u_int32_t to_hfs_time(time_t bsd_time, bool expanded);
 
 
 /*****************************************************************************

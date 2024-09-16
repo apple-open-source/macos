@@ -493,7 +493,7 @@ void xsltDebugSetDefaultTrace(xsltDebugTraceCodes val) {
  * Returns the current default debug tracing level mask
  */
 xsltDebugTraceCodes xsltDebugGetDefaultTrace() {
-	return xsltDefaultTrace;
+	return (xsltDebugTraceCodes)xsltDefaultTrace;
 }
 
 /************************************************************************
@@ -3671,7 +3671,8 @@ xsltDocumentElem(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	    end = element;
 	    while ((*end != 0) && (!IS_BLANK_CH(*end)))
 		end++;
-	    element = xmlStrndup(element, end - element);
+	    long element_len = end - element;
+	    element = xmlStrndup(element, CLAMP_TO_INT_MAX(element_len));
 	    if (element) {
 		const xmlChar *URI;
 

@@ -100,7 +100,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Captur
     auto source = adoptRef(*new DisplayCaptureSourceCocoa(WTFMove(capturer.value()), device, WTFMove(hashSalts), pageIdentifier));
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
-            return CaptureSourceOrError({ WTFMove(result->badConstraint), MediaAccessDenialReason::InvalidConstraint });
+            return CaptureSourceOrError(CaptureSourceError { result->invalidConstraint });
     }
 
     return CaptureSourceOrError(WTFMove(source));
@@ -125,9 +125,9 @@ const RealtimeMediaSourceCapabilities& DisplayCaptureSourceCocoa::capabilities()
         RealtimeMediaSourceCapabilities capabilities(settings().supportedConstraints());
 
         auto intrinsicSize = m_capturer->intrinsicSize();
-        capabilities.setWidth(CapabilityRange(1, intrinsicSize.width()));
-        capabilities.setHeight(CapabilityRange(1, intrinsicSize.height()));
-        capabilities.setFrameRate(CapabilityRange(.01, 30.0));
+        capabilities.setWidth({ 1, intrinsicSize.width() });
+        capabilities.setHeight({ 1, intrinsicSize.height() });
+        capabilities.setFrameRate({ .01, 30.0 });
 
         m_capabilities = WTFMove(capabilities);
     }
@@ -193,6 +193,11 @@ void DisplayCaptureSourceCocoa::stopProducingData()
     m_capturer->stop();
 }
 
+void DisplayCaptureSourceCocoa::endProducingData()
+{
+    m_capturer->end();
+}
+
 Seconds DisplayCaptureSourceCocoa::elapsedTime()
 {
     if (m_startTime.isNaN())
@@ -227,12 +232,12 @@ IntSize DisplayCaptureSourceCocoa::computeResizedVideoFrameSize(IntSize desiredS
     return intrinsicSize;
 }
 
-void DisplayCaptureSourceCocoa::setSizeFrameRateAndZoom(std::optional<int>, std::optional<int>, std::optional<double> frameRate, std::optional<double>)
+void DisplayCaptureSourceCocoa::setSizeFrameRateAndZoom(const VideoPresetConstraints& constraints)
 {
     // We do not need to handle width, height or zoom here since we capture at full size and let each video frame observer resize as needed.
     // FIXME: We should set frameRate according all video frame observers.
-    if (frameRate && *frameRate > this->frameRate())
-        setFrameRate(*frameRate);
+    if (constraints.frameRate && *constraints.frameRate > this->frameRate())
+        setFrameRate(*constraints.frameRate);
 }
 
 void DisplayCaptureSourceCocoa::emitFrame()

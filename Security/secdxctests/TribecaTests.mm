@@ -94,7 +94,7 @@ struct MockFunction{
 }
 @end
 
-static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
+[[clang::no_destroy]] static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 @interface TestTribecaManager : TribecaManager
 // we should really swap these out these blocks with MockFunctions and use expectations
 @property (nonatomic, copy) double (^currentTimeFn)();
@@ -108,8 +108,20 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 @property (nonatomic, copy) uint64_t (^getMinTTLFn)();
 @property (nonatomic, copy) uint64_t (^getMaxTTLFn)();
 @property (nonatomic, copy) bool (^isOnlineFn)();
+@property MockFunction<Unit,NSTimeInterval> mockGetCreationDate;
+@property MockFunction<Unit,BOOL> mockShouldEnforceEnableDeviceList;
+@property MockFunction<Unit,BOOL> mockIsVirtualMachine;
 @end
 @implementation TestTribecaManager
+
+- (BOOL) shouldEnforceEnableDeviceList {
+    return self.mockShouldEnforceEnableDeviceList(unit);
+}
+
+- (BOOL) isVirtualMachine {
+    return self.mockIsVirtualMachine(unit);
+}
+
 - (NSString*) currentHardwareModel{
     return mockGetCurrentHardwareModel(unit);
 }
@@ -119,6 +131,10 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
         return [super currentTime];
     }
     return self.currentTimeFn();
+}
+
+- (NSTimeInterval) getOSCreationDate {
+    return self.mockGetCreationDate(unit);
 }
 
 - (ValidatedAETokenPolicy* __nullable) checkForBypass{
@@ -1061,12 +1077,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 
 + (void)testInitRestoreTimeWithLastOTA:(double)lastOTA
     lastTetherUpdate:(double)lastTetherUpdate
+    osCreationDate: (double) osCreationDate
     currentTime:(double)now
     previousRestoreTime:(uint64_t*)maybePreviousRestoreTime
     previousBuildVersion:(NSString*)previousBuildVersion
     currentBuildVersion:(NSString*)currentBuildVersion
     expectedLastRestoreTime:(uint64_t)expectedLastRestoreTime
-    
+    isVM:(bool)isVM
 {
     MockMSU* msu = [[MockMSU alloc] init];
     NSDictTribecaPersistentData* datastore = [[NSDictTribecaPersistentData alloc] init];
@@ -1090,6 +1107,10 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
         datastore: datastore
     ];
     
+    manager.mockShouldEnforceEnableDeviceList.expect(^(Unit u){
+        return false;
+    });
+    
     manager.currentBuildFn = ^NSString*{
         return currentBuildVersion;
     };
@@ -1098,32 +1119,255 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
         return now;
     };
     
-    msu.mockGetLastOTAUpdate.expect(^double(Unit) {
-       return lastOTA;
-    });
-    msu.mockGetLastTetheredUpdate.expect(^double(Unit) {
-       return lastTetherUpdate;
+    if (!isVM) {
+        msu.mockGetLastOTAUpdate.expect(^double(Unit) {
+            return lastOTA;
+        });
+        msu.mockGetLastTetheredUpdate.expect(^double(Unit) {
+           return lastTetherUpdate;
+        });
+        
+        manager.mockGetCreationDate.expect(^double(Unit){
+            return osCreationDate;
+        });
+    }
+  
+    manager.mockIsVirtualMachine.expect(^bool(Unit) {
+        return isVM;
     });
     
     [manager registerXPCActivities];
     
     // Should use current timestamp
-    XCTAssertEqual([datastore.datastore[kTribecaLastRestoreTime] unsignedLongLongValue], expectedLastRestoreTime);
+    XCTAssertEqual([datastore.datastore[kTribecaLastRestoreTime] unsignedLongLongValue], expectedLastRestoreTime); // 0
     XCTAssertTrue(msu.mockGetLastOTAUpdate.done());
     XCTAssertTrue(msu.mockGetLastTetheredUpdate.done());
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
-    
+    XCTAssertTrue(manager.mockIsVirtualMachine.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+    XCTAssertTrue(manager.mockGetCreationDate.done());
+}
+
+- (void)testInitRestoreExpirationSituation1 {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 101
+        lastTetherUpdate: 100
+        osCreationDate: 10
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 101 // MSU Both Populated, but OTA larger
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation2 {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 101
+        osCreationDate: 10
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 101 // MSU Both Populated, but Tether larger
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation3 {
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 0
+        lastTetherUpdate: 100
+        osCreationDate: 99
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: previousRestoreDate // Previous Update should take president
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation4 {
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 0
+        osCreationDate: 100
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: previousRestoreDate // Previous Update should take president
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation5 {
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 101
+        lastTetherUpdate: 100
+        osCreationDate: 0
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 101 // MSU is truth since both are populated
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation6 {
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 101
+        osCreationDate: 0
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 101 // MSU is truth since both are populated
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation7 {
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 100
+        osCreationDate: 10
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 100 // MSU is truth since both are populated
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituation8 {
+    //  Wacky situation
+    //  1. The MSU is swearing that the OS is younger than the creation date.
+    //  2. There was a previous successful recording on the same OS version
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 100
+        osCreationDate: 1000
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: previousRestoreDate
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreBuildDiffExtend {
+    //  Wacky situation
+    //  1. The MSU is swearing that the OS is younger than the creation date.
+    //  2. There was a previous successful recording on different OS version
+    uint64_t previousRestoreDate = 3000;
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 100
+        lastTetherUpdate: 100
+        osCreationDate: 1000
+        currentTime: 50000
+        previousRestoreTime: &previousRestoreDate
+        previousBuildVersion: @"A"
+        currentBuildVersion: @"B"
+        expectedLastRestoreTime: 50000
+        isVM: false
+    ];
 }
 
 - (void)testInitRestoreTimeMSUTetherRestore {
     [TribecaTests
         testInitRestoreTimeWithLastOTA:10
         lastTetherUpdate:20
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: NULL
         previousBuildVersion: NULL
         currentBuildVersion: @"A"
         expectedLastRestoreTime:20
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreTimeOSCreationDate {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA:10
+        lastTetherUpdate:20
+        osCreationDate: 50000
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime:50000
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreTimeOSCreationDate2 {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA:20
+        lastTetherUpdate:10
+        osCreationDate: 50000
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime:50000
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreTimeOSCreationDate3 {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA:20
+        lastTetherUpdate:20
+        osCreationDate: 50000
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime:50000
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreTimeOSCreationDate4 {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 101
+        lastTetherUpdate: 100
+        osCreationDate: 102
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 40000 // MSU Both Populated, but OS Build is newer making MSU not trust worthy
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreTimeOSCreationDateCurrentTimeInFuture {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA:10
+        lastTetherUpdate:20
+        osCreationDate: 100
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime:40000
+        isVM: false
     ];
 }
 
@@ -1132,11 +1376,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:0
         lastTetherUpdate:39999
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: &previousRestoreDate
         previousBuildVersion: @"A"
         currentBuildVersion: @"A"
         expectedLastRestoreTime:39999
+        isVM: false
     ];
 }
 
@@ -1144,11 +1390,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:33
         lastTetherUpdate:11
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: NULL
         previousBuildVersion: NULL
         currentBuildVersion: @"A"
-        expectedLastRestoreTime:33
+        expectedLastRestoreTime: 33
+        isVM: false
     ];
 }
 
@@ -1157,11 +1405,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:39999
         lastTetherUpdate:0
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: &previousRestoreDate
         previousBuildVersion: @"A"
         currentBuildVersion: @"A"
-        expectedLastRestoreTime:39999
+        expectedLastRestoreTime: 39999
+        isVM: false
     ];
 }
 
@@ -1170,11 +1420,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:10
         lastTetherUpdate:0
+        osCreationDate: 2
         currentTime:40000
         previousRestoreTime: NULL
         previousBuildVersion: NULL
         currentBuildVersion: @"A"
         expectedLastRestoreTime:40000
+        isVM: false
     ];
 }
 
@@ -1183,11 +1435,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:0
         lastTetherUpdate:10
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: NULL
         previousBuildVersion: NULL
         currentBuildVersion: @"A"
         expectedLastRestoreTime:40000
+        isVM: false
     ];
 }
 
@@ -1196,11 +1450,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:0
         lastTetherUpdate:0
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: NULL
         previousBuildVersion: NULL
         currentBuildVersion: @"A"
         expectedLastRestoreTime:40000
+        isVM: false
     ];
 }
 
@@ -1210,11 +1466,13 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:0
         lastTetherUpdate:0
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: &previousRestoreDate
         previousBuildVersion: @"A"
         currentBuildVersion: @"A"
         expectedLastRestoreTime: previousRestoreDate
+        isVM: false
     ];
 }
 
@@ -1224,11 +1482,27 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     [TribecaTests
         testInitRestoreTimeWithLastOTA:0
         lastTetherUpdate:0
+        osCreationDate: 0
         currentTime:40000
         previousRestoreTime: &previousRestoreDate
         previousBuildVersion: @"OldVersion"
         currentBuildVersion: @"A"
         expectedLastRestoreTime: 40000
+        isVM: false
+    ];
+}
+
+- (void)testInitRestoreExpirationSituationIsVMTrue {
+    [TribecaTests
+        testInitRestoreTimeWithLastOTA: 101
+        lastTetherUpdate: 100
+        osCreationDate: 10
+        currentTime:40000
+        previousRestoreTime: NULL
+        previousBuildVersion: NULL
+        currentBuildVersion: @"A"
+        expectedLastRestoreTime: 0 // Without VM being true, this case would be 101
+        isVM: true
     ];
 }
 
@@ -1250,7 +1524,7 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     XCTAssertEqual(status.usingAEToken, false);
 }
 
-- (void)testRunningOnDisabledHardware{
+- (void)testRunningOnDisabledHardware {
     mockGetCurrentHardwareModel.expect(^(Unit u){
         return @"E89AP";
     });
@@ -1262,6 +1536,7 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 
     XCTAssertFalse([manager shouldRunTribeca], "Should not initialize on tribeca on unsupported hardware");
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
 }
 
 - (void)testRunningOnDisabledHardware2{
@@ -1275,19 +1550,32 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
     ];
     XCTAssertFalse([manager shouldRunTribeca], "Should not initialize on tribeca on unsupported hardware");
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+
 }
 
 - (void)testRunningOnDisabledHardwareReturnsNil{
     mockGetCurrentHardwareModel.expect(^(Unit u){
         return (NSString*)nullptr;
     });
+    
     TestTribecaManager* manager = [[TestTribecaManager alloc]
         initWithSettings: NULL
         mobileSoftwareUpdate: [[MockMSU alloc] init]
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
+    manager.mockShouldEnforceEnableDeviceList.expect(^bool(Unit) {
+        return false;
+    });
+    
+    manager.mockIsVirtualMachine.expect(^bool(Unit) {
+        return false;
+    });
+    
     XCTAssertTrue([manager shouldRunTribeca], "Should initialize tribeca");
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
+    XCTAssertTrue( manager.mockIsVirtualMachine.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
 }
 
 - (void)testRunningOnDisabledHardwareCaseInsensitive{
@@ -1299,8 +1587,10 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
         mobileSoftwareUpdate: [[MockMSU alloc] init]
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
+
     XCTAssertFalse([manager shouldRunTribeca], "Should not initialize on tribeca on unsupported hardware");
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
 }
 
 - (void)testRunningOnEnabledHardware{
@@ -1312,9 +1602,90 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
         mobileSoftwareUpdate: [[MockMSU alloc] init]
         datastore: [[NSDictTribecaPersistentData alloc] init]
     ];
+    manager.mockShouldEnforceEnableDeviceList.expect(^bool(Unit) {
+        return false;
+    });
+    
+    manager.mockIsVirtualMachine.expect(^bool(Unit) {
+        return false;
+    });
+    
     XCTAssertTrue([manager shouldRunTribeca], "Should initialize on tribeca");
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+    XCTAssertTrue(manager.mockIsVirtualMachine.done());
     XCTAssertTrue(mockGetCurrentHardwareModel.done());
 }
+
+- (void)testEnableDeviceListDeny{
+
+    mockGetCurrentHardwareModel.expect(^(Unit u){
+        return @"randomDeviceNotOnDenyDeviceList";
+    });
+
+    TestTribecaManager* manager = [[TestTribecaManager alloc]
+        initWithSettings: NULL
+        mobileSoftwareUpdate: [[MockMSU alloc] init]
+        datastore: [[NSDictTribecaPersistentData alloc] init]
+    ];
+    
+    manager.mockShouldEnforceEnableDeviceList.expect(^bool(Unit) {
+        return true;
+    });
+    
+    XCTAssertFalse([manager shouldRunTribeca], "Should initialize on tribeca");
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+    XCTAssertTrue(mockGetCurrentHardwareModel.done());
+}
+
+- (void)testEnableDeviceListAllow{
+    mockGetCurrentHardwareModel.expect(^(Unit u){
+        return @"J310AP";
+    });
+    TestTribecaManager* manager = [[TestTribecaManager alloc]
+        initWithSettings: NULL
+        mobileSoftwareUpdate: [[MockMSU alloc] init]
+        datastore: [[NSDictTribecaPersistentData alloc] init]
+    ];
+    
+    manager.mockShouldEnforceEnableDeviceList.expect(^bool(Unit) {
+        return true;
+    });
+    
+    manager.mockIsVirtualMachine.expect(^bool(Unit) {
+        return false;
+    });
+    
+    XCTAssertTrue([manager shouldRunTribeca], "Should initialize on tribeca");
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+    XCTAssertTrue(manager.mockIsVirtualMachine.done());
+    XCTAssertTrue(mockGetCurrentHardwareModel.done());
+}
+
+- (void)testEnableDeviceListAllowCaseInsensitive {
+    
+    mockGetCurrentHardwareModel.expect(^(Unit u){
+        return @"J310aP";
+    });
+    TestTribecaManager* manager = [[TestTribecaManager alloc]
+        initWithSettings: NULL
+        mobileSoftwareUpdate: [[MockMSU alloc] init]
+        datastore: [[NSDictTribecaPersistentData alloc] init]
+    ];
+    
+    manager.mockShouldEnforceEnableDeviceList.expect(^bool(Unit) {
+        return true;
+    });
+    
+    manager.mockIsVirtualMachine.expect(^bool(Unit) {
+        return false;
+    });
+    
+    XCTAssertTrue([manager shouldRunTribeca], "Should initialize on tribeca");
+    XCTAssertTrue(manager.mockIsVirtualMachine.done());
+    XCTAssertTrue(manager.mockShouldEnforceEnableDeviceList.done());
+    XCTAssertTrue(mockGetCurrentHardwareModel.done());
+}
+
 
 - (void)testDefaultValues {
     TribecaManager* manager = [[TribecaManager alloc]
@@ -2342,6 +2713,20 @@ static MockFunction<Unit, NSString*> mockGetCurrentHardwareModel;
 
 }
 
+- (void) testShouldEnforceEnableDeviceList {
+    
+    TribecaManager* manager = [[TribecaManager alloc]
+        initWithSettings: NULL
+        mobileSoftwareUpdate: [[MockMSU alloc] init]
+        datastore: [[NSDictTribecaPersistentData alloc] init]
+    ];
+    
+    #if TARGET_OS_TV
+        XCTAssertTrue([manager shouldEnforceEnableDeviceList]);
+    #else
+        XCTAssertFalse([manager shouldEnforceEnableDeviceList]);
+    #endif
+}
 
 - (void) testShouldCheckForInactiveUseOverMaxTTL {
 

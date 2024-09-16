@@ -31,8 +31,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/UUID.h>
 #include <wtf/UniStdExtras.h>
+#include <wtf/glib/Application.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/text/MakeString.h>
 
 #if !defined(MFD_ALLOW_SEALING) && HAVE(LINUX_MEMFD_H)
 #include <linux/memfd.h>
@@ -125,41 +127,38 @@ int argumentsToFileDescriptor(const Vector<CString>& args, const char* name)
     return memfd;
 }
 
-static String effectiveApplicationId()
+static void createBwrapInfo(GSubprocessLauncher* launcher, Vector<CString>& args, const char* instanceID)
 {
-    if (auto* app = g_application_get_default()) {
-        if (const char* appID = g_application_get_application_id(app))
-            return String::fromUTF8(appID);
+    // This is the hardcoded path expected in xdg-desktop-portal's xdp_app_info_load_bwrap_info() used
+    // by xdp_app_info_map_pids() for the Realtime portal.
+    GUniquePtr<char> instancePath(g_build_filename(g_get_user_runtime_dir(), ".flatpak", instanceID, nullptr));
+    GUniquePtr<char> bwrapInfoPath(g_build_filename(instancePath.get(), "bwrapinfo.json", nullptr));
+
+    if (g_mkdir_with_parents(instancePath.get(), 0700) == -1) {
+        g_warning("Failed to create '%s': %s", instancePath.get(), g_strerror(errno));
+        return;
     }
 
-    const char* programName = g_get_prgname();
-    if (programName && g_application_id_is_valid(programName))
-        return String::fromUTF8(programName);
-
-    // There must be some id for xdg-desktop-portal to function.
-    // xdg-desktop-portal uses this id for permissions.
-    // This creates a somewhat reliable id based on the executable path
-    // which will avoid potentially gaining permissions from another app
-    // and won't flood xdg-desktop-portal with new ids.
-    if (auto executablePath = FileSystem::currentExecutablePath(); !executablePath.isNull()) {
-        GUniquePtr<char> digest(g_compute_checksum_for_data(G_CHECKSUM_SHA256, reinterpret_cast<const uint8_t*>(executablePath.data()), executablePath.length()));
-        return makeString("org.webkit.app-", digest.get());
+    int bwrapInfoFD = open(bwrapInfoPath.get(), O_CREAT | O_RDWR | O_TRUNC, 0644);
+    if (bwrapInfoFD == -1) {
+        g_warning("Failed to create '%s': %s", bwrapInfoPath.get(), g_strerror(errno));
+        return;
     }
 
-    // If it is not possible to obtain the executable path, generate
-    // a random identifier as a fallback.
-    auto uuid = WTF::UUID::createVersion4Weak();
-    return makeString("org.webkit.app-", uuid.toString());
+    GUniquePtr<char> bwrapInfoFdStr(g_strdup_printf("%d", bwrapInfoFD));
+    g_subprocess_launcher_take_fd(launcher, bwrapInfoFD, bwrapInfoFD);
+    args.appendVector(Vector<CString>({ "--info-fd", bwrapInfoFdStr.get() }));
 }
 
-static int createFlatpakInfo()
+static int createFlatpakInfo(const char* instanceID)
 {
     static NeverDestroyed<GUniquePtr<char>> data;
     static size_t size;
 
     if (!data.get()) {
         GUniquePtr<GKeyFile> keyFile(g_key_file_new());
-        g_key_file_set_string(keyFile.get(), "Application", "name", effectiveApplicationId().utf8().data());
+        g_key_file_set_string(keyFile.get(), "Application", "name", WTF::applicationID().data());
+        g_key_file_set_string(keyFile.get(), "Instance", "instance-id", instanceID);
         data->reset(g_key_file_to_data(keyFile.get(), &size, nullptr));
     }
 
@@ -356,7 +355,6 @@ static void bindGtkData(Vector<CString>& args)
 }
 #endif
 
-#if ENABLE(ACCESSIBILITY)
 static void bindA11y(Vector<CString>& args, XDGDBusProxy& dbusProxy)
 {
     GUniquePtr<char> sandboxedAccessibilityBusPath(g_build_filename(dbusProxyDirectory(), "at-spi-bus", nullptr));
@@ -370,7 +368,6 @@ static void bindA11y(Vector<CString>& args, XDGDBusProxy& dbusProxy)
         "--setenv", "AT_SPI_BUS_ADDRESS", proxyAddress.get()
     });
 }
-#endif
 
 static bool bindPathVar(Vector<CString>& args, const char* varname)
 {
@@ -401,10 +398,10 @@ static void bindGStreamerData(Vector<CString>& args)
 
     // The plugin scanner needs write permissions in the parent directory of GST_REGISTRY in order to
     // write the registry file.
-    if (const char* registryPath = g_getenv("GST_REGISTRY")) {
-        auto registryDir = FileSystem::parentPath(FileSystem::stringFromFileSystemRepresentation(registryPath));
-        bindIfExists(args, registryDir.utf8().data(), BindFlags::ReadWrite);
-    }
+    GUniquePtr<char> defaultRegistryPath(g_build_filename(g_get_user_cache_dir(), "gstreamer-1.0", nullptr));
+    const char* registryPath = environmentVariableValue("GST_REGISTRY", defaultRegistryPath.get());
+    auto registryDir = FileSystem::parentPath(FileSystem::stringFromFileSystemRepresentation(registryPath));
+    bindIfExists(args, registryDir.utf8().data(), BindFlags::ReadWrite);
 
     bindPathVar(args, "GST_PRESET_PATH");
 
@@ -708,7 +705,7 @@ static std::optional<CString> directoryContainingDBusSocket(const char* dbusAddr
         while (*pathEnd && *pathEnd != ',')
             pathEnd++;
 
-        CString path(pathStart, pathEnd - pathStart);
+        CString path({ pathStart, pathEnd });
         GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(path.data()));
         GRefPtr<GFile> parent = adoptGRef(g_file_get_parent(file.get()));
         if (!parent)
@@ -742,7 +739,6 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
 
     const char* runDir = g_get_user_runtime_dir();
     Vector<CString> sandboxArgs = {
-        "--die-with-parent",
         "--unshare-uts",
 
         // We assume /etc has safe permissions.
@@ -821,13 +817,11 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
             }));
         }
 
-#if ENABLE(ACCESSIBILITY)
         if (auto a11yBusDirectory = directoryContainingDBusSocket(PlatformDisplay::sharedDisplay().accessibilityBusAddress().utf8().data())) {
             sandboxArgs.appendVector(Vector<CString>({
                 "--bind", *a11yBusDirectory, *a11yBusDirectory,
             }));
         }
-#endif
     }
 
     if (shouldUnshareNetwork(launchOptions.processType, argv))
@@ -852,7 +846,8 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
     // full permissions unless it can identify you as a snap or flatpak.
     // The easiest method is for us to pretend to be a flatpak and if that
     // fails just blocking portals entirely as it just becomes a sandbox escape.
-    int flatpakInfoFd = createFlatpakInfo();
+    GUniquePtr<char> instanceID(g_strdup_printf("webkit-%d-%" PRIu64, getpid(), launchOptions.processIdentifier.toUInt64()));
+    int flatpakInfoFd = createFlatpakInfo(instanceID.get());
     if (flatpakInfoFd != -1) {
         g_subprocess_launcher_take_fd(launcher, flatpakInfoFd, flatpakInfoFd);
         GUniquePtr<char> flatpakInfoFdStr(g_strdup_printf("%d", flatpakInfoFd));
@@ -861,6 +856,11 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
             "--ro-bind-data", flatpakInfoFdStr.get(), "/.flatpak-info"
         }));
     }
+
+    bindIfExists(sandboxArgs, "/run/systemd/journal/socket");
+    bindIfExists(sandboxArgs, "/run/systemd/journal/stdout");
+
+    createBwrapInfo(launcher, sandboxArgs, instanceID.get());
 
     if (launchOptions.processType == ProcessLauncher::ProcessType::Web) {
 #if PLATFORM(WAYLAND)
@@ -874,7 +874,7 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
             bindX11(sandboxArgs);
 #endif
 
-        Vector<String> extraPaths = { "applicationCacheDirectory"_s, "mediaKeysDirectory"_s, "waylandSocket"_s };
+        Vector<String> extraPaths = { "mediaKeysDirectory"_s, "waylandSocket"_s };
         for (const auto& path : extraPaths) {
             String extraPath = launchOptions.extraInitializationData.get(path);
             if (!extraPath.isEmpty())
@@ -892,10 +892,8 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         bindOpenGL(sandboxArgs);
         // FIXME: This is also fixed by Pipewire once in use.
         bindV4l(sandboxArgs);
-#if ENABLE(ACCESSIBILITY)
         if (dbusProxy)
             bindA11y(sandboxArgs, *dbusProxy);
-#endif
 #if PLATFORM(GTK)
         bindGtkData(sandboxArgs);
 #endif

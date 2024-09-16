@@ -316,6 +316,12 @@ szone_malloc(szone_t *szone, size_t size)
 	return szone_malloc_should_clear(szone, size, 0);
 }
 
+static void *
+szone_malloc_type_malloc(szone_t *szone, size_t size, malloc_type_id_t type_id)
+{
+	return szone_malloc(szone, size);
+}
+
 void *
 szone_calloc(szone_t *szone, size_t num_items, size_t size)
 {
@@ -324,6 +330,13 @@ szone_calloc(szone_t *szone, size_t num_items, size_t size)
 		return NULL;
 	}
 	return szone_malloc_should_clear(szone, total_bytes, 1);
+}
+
+static void *
+szone_malloc_type_calloc(szone_t *szone, size_t num_items, size_t size,
+		malloc_type_id_t type_id)
+{
+	return szone_calloc(szone, num_items, size);
 }
 
 void *
@@ -592,6 +605,13 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 	return new_ptr;
 }
 
+static void *
+szone_malloc_type_realloc(szone_t *szone, void *ptr, size_t size,
+		malloc_type_id_t type_id)
+{
+	return szone_realloc(szone, ptr, size);
+}
+
 void *
 szone_memalign(szone_t *szone, size_t alignment, size_t size)
 {
@@ -656,6 +676,13 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 	}
 	/* NOTREACHED */
 	__builtin_unreachable();
+}
+
+static void *
+szone_malloc_type_memalign(szone_t *szone, size_t align, size_t size,
+		malloc_type_id_t type_id)
+{
+	return szone_memalign(szone, align, size);
 }
 
 // Given a size, returns the number of pointers allocated capable of holding
@@ -1736,7 +1763,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	// Initialize the security token.
 	szone->cookie = (uintptr_t)malloc_entropy[0];
 
-	szone->basic_zone.version = 13;
+	szone->basic_zone.version = 16;
 	szone->basic_zone.size = (void *)szone_size;
 	szone->basic_zone.malloc = (void *)szone_malloc;
 	szone->basic_zone.calloc = (void *)szone_calloc;
@@ -1752,6 +1779,11 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 	szone->basic_zone.pressure_relief = (void *)szone_pressure_relief;
 	szone->basic_zone.claimed_address = (void *)szone_claimed_address;
 	szone->basic_zone.try_free_default = (void *)szone_try_free_default;
+
+	szone->basic_zone.malloc_type_malloc = (void *)szone_malloc_type_malloc;
+	szone->basic_zone.malloc_type_calloc = (void *)szone_malloc_type_calloc;
+	szone->basic_zone.malloc_type_realloc = (void *)szone_malloc_type_realloc;
+	szone->basic_zone.malloc_type_memalign = (void *)szone_malloc_type_memalign;
 
 	/* Set to zero once and for all as required by CFAllocator. */
 	szone->basic_zone.reserved1 = 0;

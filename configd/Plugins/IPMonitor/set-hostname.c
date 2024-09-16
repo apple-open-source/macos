@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,26 +41,35 @@
 
 #include <notify.h>
 
-#ifdef	MAIN
+#ifdef	TEST_SET_HOSTNAME
 #define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
-#endif	// MAIN
+#endif	/* TEST_SET_HOSTNAME */
 #include "ip_plugin.h"
 
-static SCDynamicStoreRef	store		= NULL;
-static CFRunLoopRef		rl		= NULL;
-static CFRunLoopSourceRef	rls		= NULL;
-static dispatch_queue_t		queue		= NULL;
-
-static int			notify_token	= -1;
-
+static SCDynamicStoreRef	store;
+static dispatch_queue_t		S_queue;
 static struct timeval		ptrQueryStart;
-static SCNetworkReachabilityRef	ptrTarget	= NULL;
+static SCNetworkReachabilityRef	ptrTarget;
 
 
 #define	HOSTNAME_NOTIFY_KEY	"com.apple.system.hostname"
-#define SET_HOSTNAME_QUEUE	"com.apple.config.set-hostname"
+
+#ifdef TEST_SET_HOSTNAME
+static CFStringRef
+copy_dhcp_hostname(CFStringRef serviceID)
+{
+	return (NULL);
+}
+
+boolean_t
+check_if_service_expensive(CFStringRef serviceID)
+{
+	return (FALSE);
+}
+#else /* TEST_SET_HOSTNAME */
 
 CFStringRef copy_dhcp_hostname(CFStringRef serviceID);
+#endif /* TEST_SET_HOSTNAME */
 
 static void
 set_hostname(CFStringRef hostname)
@@ -100,7 +109,7 @@ set_hostname(CFStringRef hostname)
 				}
 			} else {
 				my_log(LOG_ERR,
-				       "sethostname(%s, %ld) failed: %s",
+				       "sethostname(%s, %lu) failed: %s",
 				       new_name,
 				       strlen(new_name),
 				       strerror(errno));
@@ -217,7 +226,7 @@ ptr_query_stop(void)
 	my_log(LOG_INFO, "hostname: ptr query stop");
 
 	SCNetworkReachabilitySetCallback(ptrTarget, NULL, NULL);
-	SCNetworkReachabilityUnscheduleFromRunLoop(ptrTarget, rl, kCFRunLoopDefaultMode);
+	SCNetworkReachabilitySetDispatchQueue(ptrTarget, NULL);
 	CFRelease(ptrTarget);
 	ptrTarget = NULL;
 
@@ -386,9 +395,10 @@ ptr_query_callback(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags f
 
 	ptr_query_stop();
 
-#ifdef	MAIN
-	CFRunLoopStop(rl);
-#endif	// MAIN
+#ifdef	TEST_SET_HOSTNAME
+	printf("Exiting\n");
+	exit(0);
+#endif /* TEST_SET_HOSTNAME */
 
 	return;
 }
@@ -434,7 +444,7 @@ ptr_query_start(CFStringRef address)
 
 	(void) gettimeofday(&ptrQueryStart, NULL);
 	(void) SCNetworkReachabilitySetCallback(ptrTarget, ptr_query_callback, NULL);
-	(void) SCNetworkReachabilityScheduleWithRunLoop(ptrTarget, rl, kCFRunLoopDefaultMode);
+	(void) SCNetworkReachabilitySetDispatchQueue(ptrTarget, S_queue);
 
 	return TRUE;
 }
@@ -449,8 +459,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	CFStringRef	hostname	= NULL;
 	CFStringRef	serviceID	= NULL;
 
-	// if active, cancel any in-progress attempt to resolve the primary IP address
-
+	// cancel any in-progress attempt to resolve the primary IP address
 	if (ptrTarget != NULL) {
 		ptr_query_stop();
 	}
@@ -533,39 +542,32 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 __private_extern__
 void
-load_hostname(Boolean verbose)
+load_hostname(dispatch_queue_t queue)
 {
-#pragma unused(verbose)
 	CFStringRef		key;
 	CFMutableArrayRef	keys		= NULL;
-	dispatch_block_t	notify_block;
 	Boolean			ok;
+	notify_handler_t	notify_handler;
+	int			notify_token;
 	CFMutableArrayRef	patterns	= NULL;
 	uint32_t		status;
 
-	/* initialize a few globals */
+	/* remember this for scheduling reachability callbacks */
+	S_queue = queue;
 
-	store = SCDynamicStoreCreate(NULL, CFSTR("set-hostname"), update_hostname, NULL);
+	/* register for notifications */
+	store = SCDynamicStoreCreate(NULL, CFSTR("set-hostname"),
+				     update_hostname, NULL);
 	if (store == NULL) {
 		my_log(LOG_ERR,
 		       "SCDynamicStoreCreate() failed: %s",
 		       SCErrorString(SCError()));
 		goto error;
 	}
-
-	queue = dispatch_queue_create(SET_HOSTNAME_QUEUE, NULL);
-	if (queue == NULL) {
-		my_log(LOG_ERR,
-		       "dispatch_queue_create() failed");
-		goto error;
-	}
-
-	/* establish notification keys and patterns */
-
 	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-	/* ...watch for (per-service) DHCP option changes */
+	/* per-service DHCP option (may contain hostname option) */
 	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							  kSCDynamicStoreDomainState,
 							  kSCCompAnyRegex,
@@ -573,17 +575,16 @@ load_hostname(Boolean verbose)
 	CFArrayAppendValue(patterns, key);
 	CFRelease(key);
 
-	/* ...watch for (BSD) hostname changes */
+	/* BSD hostname */
 	key = SCDynamicStoreKeyCreateComputerName(NULL);
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
-	/* ...watch for local (multicast DNS) hostname changes */
+	/* multicast DNS hostname */
 	key = SCDynamicStoreKeyCreateHostNames(NULL);
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
-	/* register the keys/patterns */
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, patterns);
 	CFRelease(keys);
 	CFRelease(patterns);
@@ -593,42 +594,22 @@ load_hostname(Boolean verbose)
 		       SCErrorString(SCError()));
 		goto error;
 	}
-
-	rl = CFRunLoopGetCurrent();
-	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (rls == NULL) {
+	if (!SCDynamicStoreSetDispatchQueue(store, queue)) {
 		my_log(LOG_ERR,
-		       "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		       "SCDynamicStoreSetDispatchQueue() failed: %s",
 		       SCErrorString(SCError()));
 		goto error;
 	}
-	CFRunLoopAddSource(rl, rls, kCFRunLoopDefaultMode);
 
-	/* ...watch for primary service/interface and DNS configuration changes */
-	notify_block = ^{
-		CFArrayRef      changes;
-		CFStringRef     key;
-
-		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-								 kSCDynamicStoreDomainState,
-								 kSCEntNetDNS);
-		changes = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
-		(*update_hostname)(store, changes, NULL);
-		CFRelease(changes);
-		CFRelease(key);
-
-		return;
+	/* watch for primary service/interface and DNS configuration changes */
+	notify_handler = ^(int token){
+#pragma unused(token)
+		update_hostname(store, NULL, NULL);
 	};
 	status = notify_register_dispatch(_SC_NOTIFY_NETWORK_CHANGE,
 					  &notify_token,
 					  queue,
-					  ^(int token){
-#pragma unused(token)
-						  CFRunLoopPerformBlock(rl,
-									kCFRunLoopDefaultMode,
-									notify_block);
-						  CFRunLoopWakeUp(rl);
-					  });
+					  notify_handler);
 	if (status != NOTIFY_STATUS_OK) {
 		my_log(LOG_ERR, "notify_register_dispatch() failed: %u", status);
 		goto error;
@@ -638,25 +619,16 @@ load_hostname(Boolean verbose)
 
     error :
 
-	if (rls != NULL) {
-		CFRunLoopRemoveSource(rl, rls, kCFRunLoopDefaultMode);
-		CFRelease(rls);
-		rls = NULL;
-	}
 	if (store != NULL) {
+		SCDynamicStoreSetDispatchQueue(store, NULL);
 		CFRelease(store);
 		store = NULL;
 	}
-	if (queue != NULL) {
-		dispatch_release(queue);
-		queue = NULL;
-	}
-
 	return;
 }
 
 
-#ifdef	MAIN
+#ifdef	TEST_SET_HOSTNAME
 int
 main(int argc, char * const argv[])
 {
@@ -741,20 +713,22 @@ main(int argc, char * const argv[])
 
 	CFRelease(store);
 
-	CFRunLoopRun();
-
 #else	/* DEBUG */
 
 	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
-	load_hostname((argc > 1) ? TRUE : FALSE);
-	CFRunLoopRun();
-	/* not reached */
+	{
+		dispatch_queue_t	queue;
+
+		queue = dispatch_queue_create("test-set-hostname", NULL);
+		load_hostname(queue);
+	}
 
 #endif	/* DEBUG */
+	dispatch_main();
 
 	exit(0);
 	return 0;
 }
-#endif	/* MAIN */
+#endif	/* TEST_SET_HOSTNAME */

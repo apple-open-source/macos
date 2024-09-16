@@ -139,6 +139,7 @@ typedef enum {
 nw_resolver_t nw_resolver_create_with_endpoint(nw_endpoint_t, nw_parameters_t);
 typedef void (^nw_resolver_update_block_t) (nw_resolver_status_t, nw_array_t);
 bool nw_resolver_set_update_handler(nw_resolver_t, dispatch_queue_t, nw_resolver_update_block_t);
+bool nw_resolver_cancel(nw_resolver_t);
 void nw_context_set_privacy_level(nw_context_t, nw_context_privacy_level_t);
 void nw_parameters_set_context(nw_parameters_t, nw_context_t);
 nw_context_t nw_context_create(const char *);
@@ -385,6 +386,7 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (assign, readonly) NSInteger _responseHeaderBytesReceived;
 @property (assign, readonly) int64_t _responseBodyBytesReceived;
 @property (assign, readonly) int64_t _responseBodyBytesDecoded;
+@property (nullable, copy, readonly) NSString* _interfaceName;
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
 @property (assign, readonly) nw_connection_privacy_stance_t _privacyStance;
 #endif

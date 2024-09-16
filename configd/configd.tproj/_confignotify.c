@@ -41,7 +41,7 @@ __SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	int				sc_status	= kSCStatusOK;
 	CFDataRef			value;
 
-	SC_trace("%s : %5d : %@",
+	SC_trace("%s : %5u : %@",
 		 internal ? "*notify" : "notify ",
 		 storePrivate->server,
 		 key);
@@ -108,7 +108,7 @@ _confignotify(mach_port_t 		server,
 #ifdef	DEBUG
 		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-		SC_trace("!notify : %5d : %@",
+		SC_trace("!notify : %5u : %@",
 			 storePrivate->server,
 			 key);
 #endif	// DEBUG

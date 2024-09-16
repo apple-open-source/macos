@@ -188,6 +188,12 @@ class watchos_simulatorarm64_platform(simulatorarm64_platform):
     version_min = '-mwatchos-simulator-version-min=7.0'
 
 
+class watchos_device_platform(device_platform):
+    directory = 'darwin_watchos'
+    sdk = 'watchos'
+    arch = 'arm64_32'
+    version_min = '-mwatchos-version-min=9.0'
+    
 class watchos_device64_platform(device64_platform):
     directory = 'darwin_watchos'
     sdk = 'watchos'
@@ -307,6 +313,7 @@ def generate_source_and_headers(
         copy_src_platform_files(watchos_simulator_platform)
         copy_src_platform_files(watchos_simulator64_platform)
         copy_src_platform_files(watchos_simulatorarm64_platform)
+        copy_src_platform_files(watchos_device_platform)
         copy_src_platform_files(watchos_device64_platform)
         copy_src_platform_files(watchos_device64e_platform)
 
@@ -331,6 +338,7 @@ def generate_source_and_headers(
         build_target(watchos_simulator_platform, platform_headers)
         build_target(watchos_simulator64_platform, platform_headers)
         build_target(watchos_simulatorarm64_platform, platform_headers)
+        build_target(watchos_device_platform, platform_headers)
         build_target(watchos_device64_platform, platform_headers)
         build_target(watchos_device64e_platform, platform_headers)
 

@@ -29,7 +29,7 @@
 #include <wtf/WeakPtr.h>
 
 #if USE(NICOSIA)
-#include "NicosiaContentLayerTextureMapperImpl.h"
+#include "NicosiaContentLayer.h"
 #else
 #include "TextureMapperPlatformLayerProxyProvider.h"
 #endif
@@ -43,7 +43,7 @@ class MediaPlayerPrivateHolePunch
     , public CanMakeWeakPtr<MediaPlayerPrivateHolePunch>
     , public RefCounted<MediaPlayerPrivateHolePunch>
 #if USE(NICOSIA)
-    , public Nicosia::ContentLayerTextureMapperImpl::Client
+    , public Nicosia::ContentLayer::Client
 #else
     , public PlatformLayer
 #endif
@@ -77,7 +77,7 @@ public:
     bool hasVideo() const final { return false; };
     bool hasAudio() const final { return false; };
 
-    void setPageIsVisible(bool, String&&) final { };
+    void setPageIsVisible(bool) final { };
 
     bool seeking() const final { return false; }
     void seekToTarget(const SeekTarget&) final { }
@@ -108,9 +108,10 @@ public:
     RefPtr<TextureMapperPlatformLayerProxy> proxy() const final;
 #endif
 
+    static void getSupportedTypes(HashSet<String>&);
+
 private:
     friend class MediaPlayerFactoryHolePunch;
-    static void getSupportedTypes(HashSet<String>&);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
 
     void notifyReadyState();

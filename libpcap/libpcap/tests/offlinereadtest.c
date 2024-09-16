@@ -27,13 +27,13 @@
  */
 
 
-#include <pcap.h>
 #include <stdio.h>
 #include <err.h>
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
 #include <net/bpf.h>
+#include <pcap.h>
 
 
 #define PAD32(x) (((x) + 3) & ~3)

@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		44424A6C2BFFEBF900554B02 /* Fuzzers */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 44424A702BFFEBF900554B02 /* Build configuration list for PBXAggregateTarget "Fuzzers" */;
+			buildPhases = (
+			);
+			dependencies = (
+				44424A722BFFEC0B00554B02 /* PBXTargetDependency */,
+			);
+			name = Fuzzers;
+			productName = Fuzzers;
+		};
 		448273BE2454CBF500A95493 /* All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 448273BF2454CBF500A95493 /* Build configuration list for PBXAggregateTarget "All" */;
@@ -24,6 +35,8 @@
 /* Begin PBXBuildFile section */
 		44254DF724551CFF0095040E /* tidy.txt in Install License File */ = {isa = PBXBuildFile; fileRef = 448274112454CFEF00A95493 /* tidy.txt */; };
 		44254DF924551D350095040E /* tidy.plist in Install Open Source Property List */ = {isa = PBXBuildFile; fileRef = 448274102454CFEF00A95493 /* tidy.plist */; };
+		44424A582BFF99ED00554B02 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 44424A572BFF99ED00554B02 /* main.c */; };
+		44424A612BFF9B5200554B02 /* libtidy.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 448274172454D04700A95493 /* libtidy.A.dylib */; };
 		448273B32454C6BE00A95493 /* tidy.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273612454C67B00A95493 /* tidy.c */; };
 		448273BD2454C6D300A95493 /* tab2space.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273602454C67B00A95493 /* tab2space.c */; };
 		448273D32454CE0900A95493 /* access.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273712454C69D00A95493 /* access.c */; };
@@ -80,6 +93,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		44424A622BFF9B7500554B02 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4482734A2454C26000A95493 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 448274162454D04700A95493;
+			remoteInfo = libtidy;
+		};
+		44424A712BFFEC0B00554B02 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4482734A2454C26000A95493 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44424A542BFF99ED00554B02;
+			remoteInfo = tidy_html5_fuzzer;
+		};
 		448273C22454CC0200A95493 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4482734A2454C26000A95493 /* Project object */;
@@ -158,6 +185,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		44424A552BFF99ED00554B02 /* tidy_html5_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tidy_html5_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		44424A572BFF99ED00554B02 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		44424A5D2BFF9B1900554B02 /* tidy_html5_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = tidy_html5_fuzzer.xcconfig; sourceTree = "<group>"; };
 		448273522454C26000A95493 /* tidy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tidy; sourceTree = BUILT_PRODUCTS_DIR; };
 		448273602454C67B00A95493 /* tab2space.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tab2space.c; sourceTree = "<group>"; };
 		448273612454C67B00A95493 /* tidy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tidy.c; sourceTree = "<group>"; };
@@ -227,6 +257,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		44424A522BFF99ED00554B02 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44424A612BFF9B5200554B02 /* libtidy.A.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4482734F2454C26000A95493 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -259,6 +297,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		44424A562BFF99ED00554B02 /* tidy_html5_fuzzer */ = {
+			isa = PBXGroup;
+			children = (
+				44424A572BFF99ED00554B02 /* main.c */,
+			);
+			path = tidy_html5_fuzzer;
+			sourceTree = "<group>";
+		};
+		44424A602BFF9B5200554B02 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		448273492454C26000A95493 = {
 			isa = PBXGroup;
 			children = (
@@ -267,11 +320,13 @@
 				44F829BA245533DC002EBA2C /* tab2space.1 */,
 				44F829BB245533DC002EBA2C /* tidy.1 */,
 				448273542454C26000A95493 /* tidy */,
+				44424A562BFF99ED00554B02 /* tidy_html5_fuzzer */,
 				4482740E2454CFEF00A95493 /* libtidy.c */,
 				4482740F2454CFEF00A95493 /* libtidy.exp */,
 				448274122454CFEF00A95493 /* module.modulemap */,
 				448274102454CFEF00A95493 /* tidy.plist */,
 				448274112454CFEF00A95493 /* tidy.txt */,
+				44424A602BFF9B5200554B02 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -282,6 +337,7 @@
 				448273BC2454C6C800A95493 /* tab2space */,
 				448273CF2454CDCB00A95493 /* libtidy.a */,
 				448274172454D04700A95493 /* libtidy.A.dylib */,
+				44424A552BFF99ED00554B02 /* tidy_html5_fuzzer */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -374,6 +430,7 @@
 				448273C82454CCC300A95493 /* Executable.xcconfig */,
 				448273CA2454CCC400A95493 /* libtidy.xcconfig */,
 				448274082454CF3100A95493 /* libtidy-static.xcconfig */,
+				44424A5D2BFF9B1900554B02 /* tidy_html5_fuzzer.xcconfig */,
 			);
 			path = Configurations;
 			sourceTree = "<group>";
@@ -431,6 +488,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		44424A542BFF99ED00554B02 /* tidy_html5_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 44424A592BFF99ED00554B02 /* Build configuration list for PBXNativeTarget "tidy_html5_fuzzer" */;
+			buildPhases = (
+				44424A512BFF99ED00554B02 /* Sources */,
+				44424A522BFF99ED00554B02 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				44424A632BFF9B7500554B02 /* PBXTargetDependency */,
+			);
+			name = tidy_html5_fuzzer;
+			productName = tidy_html5_fuzzer;
+			productReference = 44424A552BFF99ED00554B02 /* tidy_html5_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
 		448273512454C26000A95493 /* tidy */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 448273592454C26000A95493 /* Build configuration list for PBXNativeTarget "tidy" */;
@@ -515,6 +589,12 @@
 				LastUpgradeCheck = 1100;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
+					44424A542BFF99ED00554B02 = {
+						CreatedOnToolsVersion = 15.3;
+					};
+					44424A6C2BFFEBF900554B02 = {
+						CreatedOnToolsVersion = 15.3;
+					};
 					448273512454C26000A95493 = {
 						CreatedOnToolsVersion = 11.0;
 					};
@@ -547,6 +627,8 @@
 				448273CE2454CDCB00A95493 /* libtidy-static */,
 				448273B42454C6C800A95493 /* tab2space */,
 				448273512454C26000A95493 /* tidy */,
+				44424A6C2BFFEBF900554B02 /* Fuzzers */,
+				44424A542BFF99ED00554B02 /* tidy_html5_fuzzer */,
 			);
 		};
 /* End PBXProject section */
@@ -615,6 +697,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		44424A512BFF99ED00554B02 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44424A582BFF99ED00554B02 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4482734E2454C26000A95493 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -672,6 +762,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		44424A632BFF9B7500554B02 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 448274162454D04700A95493 /* libtidy */;
+			targetProxy = 44424A622BFF9B7500554B02 /* PBXContainerItemProxy */;
+		};
+		44424A722BFFEC0B00554B02 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44424A542BFF99ED00554B02 /* tidy_html5_fuzzer */;
+			targetProxy = 44424A712BFFEC0B00554B02 /* PBXContainerItemProxy */;
+		};
 		448273C32454CC0200A95493 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 448273B42454C6C800A95493 /* tab2space */;
@@ -695,6 +795,48 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		44424A5A2BFF99ED00554B02 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44424A5D2BFF9B1900554B02 /* tidy_html5_fuzzer.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		44424A5B2BFF99ED00554B02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44424A5D2BFF9B1900554B02 /* tidy_html5_fuzzer.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		44424A5C2BFF99ED00554B02 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 44424A5D2BFF9B1900554B02 /* tidy_html5_fuzzer.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		44424A6D2BFFEBF900554B02 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+			};
+			name = Debug;
+		};
+		44424A6E2BFFEBF900554B02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+			};
+			name = Release;
+		};
+		44424A6F2BFFEBF900554B02 /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+			};
+			name = Production;
+		};
 		448273572454C26000A95493 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 448273C92454CCC400A95493 /* DebugRelease.xcconfig */;
@@ -836,6 +978,26 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		44424A592BFF99ED00554B02 /* Build configuration list for PBXNativeTarget "tidy_html5_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44424A5A2BFF99ED00554B02 /* Debug */,
+				44424A5B2BFF99ED00554B02 /* Release */,
+				44424A5C2BFF99ED00554B02 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		44424A702BFFEBF900554B02 /* Build configuration list for PBXAggregateTarget "Fuzzers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44424A6D2BFFEBF900554B02 /* Debug */,
+				44424A6E2BFFEBF900554B02 /* Release */,
+				44424A6F2BFFEBF900554B02 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
 		4482734D2454C26000A95493 /* Build configuration list for PBXProject "tidy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

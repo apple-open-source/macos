@@ -59,7 +59,6 @@ int vfs_exclave_fs_unregister(vnode_t vp);
 int vfs_exclave_fs_get_base_dirs(void *buf, uint32_t *count);
 
 int vfs_exclave_fs_register_path(uint32_t fs_tag, const char *base_path);
-int vfs_exclave_fs_unregister_tag(uint32_t fs_tag);
 
 int vfs_exclave_fs_root(const char *exclave_id, uint64_t *root_id);
 int vfs_exclave_fs_open(uint32_t fs_tag, uint64_t root_id, const char *name, uint64_t *file_id);

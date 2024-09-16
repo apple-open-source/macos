@@ -47,6 +47,8 @@ RenderMathMLMath::RenderMathMLMath(MathMLRowElement& element, RenderStyle&& styl
     ASSERT(isRenderMathMLMath());
 }
 
+RenderMathMLMath::~RenderMathMLMath() = default;
+
 void RenderMathMLMath::centerChildren(LayoutUnit contentWidth)
 {
     auto centerBlockOffset = (logicalWidth() - contentWidth) / 2;
@@ -80,6 +82,7 @@ void RenderMathMLMath::layoutBlock(bool relayoutChildren, LayoutUnit pageLogical
         return;
 
     recomputeLogicalWidth();
+    computeAndSetBlockDirectionMarginsOfChildren();
 
     setLogicalHeight(borderAndPaddingLogicalHeight() + scrollbarLogicalHeight());
 
@@ -94,8 +97,9 @@ void RenderMathMLMath::layoutBlock(bool relayoutChildren, LayoutUnit pageLogical
         centerChildren(width);
     else
         setLogicalWidth(width);
+    shiftRowItems(0_lu, borderAndPaddingBefore());
 
-    setLogicalHeight(borderTop() + paddingTop() + ascent + descent + borderBottom() + paddingBottom() + horizontalScrollbarHeight());
+    setLogicalHeight(ascent + descent + borderAndPaddingLogicalHeight() + horizontalScrollbarHeight());
     updateLogicalHeight();
 
     layoutPositionedObjects(relayoutChildren);

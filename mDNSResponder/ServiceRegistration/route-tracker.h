@@ -41,6 +41,7 @@ void route_tracker_set_reconnect_callback(route_tracker_t *NONNULL route_tracker
                                           void (*NULLABLE reconnect_callback)(void *NULLABLE context));
 void route_tracker_start(route_tracker_t *NONNULL tracker);
 void route_tracker_shutdown(route_state_t *NULLABLE route_state);
+bool route_tracker_check_for_gua_prefixes_on_infrastructure(route_tracker_t *NULLABLE tracker);
 #ifndef BUILD_TEST_ENTRY_POINTS
 void route_tracker_route_state_changed(route_tracker_t *NONNULL tracker, interface_t *NULLABLE interface);
 void route_tracker_interface_configuration_changed(route_tracker_t *NONNULL tracker);

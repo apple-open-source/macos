@@ -1,7 +1,7 @@
 /*
 	File:		MBCInteractivePlayer.mm
 	Contains:	An agent representing a local human player
-	Copyright:	© 2002-2014 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -201,7 +201,7 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
     if (wantMouse && [fDocument gameDone])
         wantMouse = NO;
     
-	[[fController gameView] wantMouse:wantMouse];
+	[[fController renderView] wantMouse:wantMouse];
     [[NSApp delegate] updateApplicationBadge];
 
 	if ([fController listenForMoves]) {
@@ -377,7 +377,7 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 - (void) reject:(NSNotification *)n
 {
 	NSBeep();
-	[[fController gameView] unselectPiece];
+	[[fController renderView] unselectPiece];
 }
 
 - (void) takeback:(NSNotification *)n
@@ -534,14 +534,14 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
         if(Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {
             NSLog(@"Sending Valid Move over Shareplay");
             fFromSquare    =  square;
-            [[fController gameView] selectPiece:piece at:square];
+            [[fController renderView] selectPiece:piece at:square];
             StartSelectionMessage *message = [[StartSelectionMessage alloc] init];
             message.square = (unsigned char)square;
             [[MBCSharePlayManager sharedInstance] sendStartSelectionMessageWithMessage:message];
         }
     } else if (Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {    //This prevents the other side from being chosen
         fFromSquare	=  square;
-        [[fController gameView] selectPiece:piece at:square];
+        [[fController renderView] selectPiece:piece at:square];
 	}
 }
 
@@ -562,7 +562,7 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
         return;
 
     fFromSquare    =  square;
-    [[fController gameView] selectPiece:piece at:square];
+    [[fController renderView] selectPiece:piece at:square];
 }
 
 - (void) endSelection:(MBCSquare)square animate:(BOOL)animate
@@ -577,11 +577,11 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
     }
     
 	if (fFromSquare == square) {
-		[[fController gameView] clickPiece];
+		[[fController renderView] clickPiece];
 
 		return;
 	} else if (square > kSyntheticSquare) {
-		[[fController gameView] unselectPiece];
+		[[fController renderView] unselectPiece];
 		
 		return;
 	}
@@ -613,11 +613,11 @@ void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 - (void) endSelectionWithoutShare:(MBCSquare)square animate:(BOOL) animate {
     NSLog(@"MBCInteractivePlayer endSelectionWithoutShare");
     if (fFromSquare == square) {
-        [[fController gameView] clickPiece];
+        [[fController renderView] clickPiece];
 
         return;
     } else if (square > kSyntheticSquare) {
-        [[fController gameView] unselectPiece];
+        [[fController renderView] unselectPiece];
         
         return;
     }

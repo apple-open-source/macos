@@ -47,8 +47,9 @@ are specified with the
 .Fl o 
 option followed by a comma separated string of options. See the 
 .Xr mount 8 
-man page for possible options and their meanings. Additional options supported 
-by the mount_smbfs are as follows:
+man page for possible options and their meanings.
+All listed options are currently supported except for the ``force, update, strictatime, sync and [no]async'' options.
+Additional options supported by the mount_smbfs are as follows:
 .Bl -tag -width indent
 .It nobrowse
 This option indicates that the mount point should not be visible via the GUI (i.e., appear on the Desktop as a separate volume).
@@ -59,7 +60,7 @@ by the automounter.
 Don't use NTFS Streams even if they are supported by the server.
 .It soft
 Make the mount soft. Fail file system calls after a number of seconds.
-.It nonotification
+.It nonotification, noforcenotify
 Turn off using notifications for this volume.
 .It nodatacache
 Turn off using file data caching for this volume.

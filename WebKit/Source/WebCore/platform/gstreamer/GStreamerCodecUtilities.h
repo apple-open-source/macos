@@ -21,6 +21,8 @@
 
 #if USE(GSTREAMER)
 
+#include "GRefPtrGStreamer.h"
+#include "IntSize.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -29,7 +31,7 @@ namespace GStreamerCodecUtilities {
 
 std::pair<const char*, const char*> parseH264ProfileAndLevel(const String& codec);
 const char* parseHEVCProfile(const String& codec);
-uint8_t parseVP9Profile(const String& codec);
+std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> capsFromCodecString(const String&, std::optional<IntSize> = std::nullopt, std::optional<double> frameRate = std::nullopt);
 
 } // namespace GStreamerCodecUtilities
 

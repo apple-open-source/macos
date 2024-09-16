@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fflush.c,v 1.14 2007/01/09 00:28:06 imp E
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 static int	sflush_locked(FILE *);
 
@@ -58,6 +59,8 @@ fflush(FILE *fp)
 	if (fp == NULL) {
 		return (_fwalk(sflush_locked));
 	}
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	FLOCKFILE(fp);
 	retval = __sflush(fp);

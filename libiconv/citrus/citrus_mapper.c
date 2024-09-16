@@ -30,6 +30,9 @@
  */
 
 #include <sys/cdefs.h>
+#ifdef __APPLE__
+#include <sys/param.h>	/* powerof2 */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/queue.h>
@@ -245,6 +248,9 @@ mapper_open(struct _citrus_mapper_area *__restrict ma,
 	cm->cm_traits = NULL;
 	cm->cm_refcount = 0;
 	cm->cm_key = NULL;
+#ifdef __APPLE__
+	cm->cm_dir = 0;
+#endif
 
 	/* load module */
 	ret = _citrus_load_module(&cm->cm_module, module);
@@ -330,6 +336,35 @@ match_func(struct _citrus_mapper *cm, const char *key)
 	return (strcmp(cm->cm_key, key));
 }
 
+#ifdef __APPLE__
+int
+_citrus_mapper_get_mapdir_from_key(const char *mapkey)
+{
+	char *slptr;
+
+	if (strncmp(mapkey, "UCS:", 4) == 0 ||
+	    strncmp(mapkey, "UCS/", 4) == 0)
+		return (MDIR_UCS_SRC);
+
+	/* Probably malformed if it doesn't have a slash... */
+	slptr = strchr(mapkey, '/');
+	if (slptr == NULL)
+		return (0);
+
+	/*
+	 * If we either have UCS\0 or UCS: after the slash, then that's a
+	 * destination encoding.  The length specified for "UCS" is intended.
+	 */
+	slptr++;
+	if (strncmp(slptr, "UCS", 4) == 0 ||
+	    strncmp(slptr, "UCS:", 4) == 0)
+		return (MDIR_UCS_DST);
+
+	/* Other kind of pivot, perhaps. */
+	return (0);
+}
+#endif
+
 /*
  * _citrus_mapper_open:
  *	open a mapper with looking up "mapper.dir".
@@ -381,6 +416,18 @@ _citrus_mapper_open(struct _citrus_mapper_area *__restrict ma,
 
 	/* insert to the cache */
 	cm->cm_refcount = 1;
+#ifdef __APPLE__
+	if (cm->cm_dir == 0) {
+		cm->cm_dir = _citrus_mapper_get_mapdir_from_key(cm->cm_key);
+
+		/*
+		 * Anything that needs more flexibility (e.g., mapper_serial)
+		 * should have figured out the dirs of its encodings itself.
+		 * Most mappers won't be able to cope with bidirectional.
+		 */
+		assert(cm->cm_dir == 0 || powerof2(cm->cm_dir));
+	}
+#endif
 	_CITRUS_HASH_INSERT(&ma->ma_cache, cm, cm_entry, hashval);
 
 	*rcm = cm;

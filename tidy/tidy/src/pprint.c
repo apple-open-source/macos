@@ -12,6 +12,7 @@
 
 */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -400,7 +401,7 @@ static Bool WantIndent( TidyDocImpl* doc )
 
 static uint  WrapOff( TidyDocImpl* doc )
 {
-    uint saveWrap = cfg( doc, TidyWrapLen );
+    uint saveWrap = (uint)cfg( doc, TidyWrapLen );
     TY_(SetOptionInt)( doc, TidyWrapLen, 0xFFFFFFFF );  /* very large number */
     return saveWrap;
 }
@@ -414,7 +415,7 @@ static uint  WrapOffCond( TidyDocImpl* doc, Bool onoff )
 {
     if ( onoff )
         return WrapOff( doc );
-    return cfg( doc, TidyWrapLen );
+    return (uint)cfg( doc, TidyWrapLen );
 }
 
 
@@ -433,13 +434,14 @@ static uint AddChar( TidyPrintImpl* pprint, uint c )
 
 static uint AddAsciiString( TidyPrintImpl* pprint, ctmbstr str, uint string_index )
 {
-    uint ix, len = TY_(tmbstrlen)( str );
+    size_t ix, len = TY_(tmbstrlen)( str );
+    assert( string_index <= UINT_MAX - len );
     if ( string_index + len >= pprint->lbufsize )
-        expand( pprint, string_index + len );
+        expand( pprint, (uint)( string_index + len ) );
 
     for ( ix=0; ix<len; ++ix )
         pprint->linebuf[string_index + ix] = str[ ix ];
-    return string_index + len;
+    return (uint)( string_index + len );
 }
 
 static uint AddString( TidyPrintImpl* pprint, ctmbstr str )
@@ -715,7 +717,7 @@ static void PPrintChar( TidyDocImpl* doc, uint c, uint mode )
     tmbchar entity[128];
     ctmbstr p;
     TidyPrintImpl* pprint  = &doc->pprint;
-    uint outenc = cfg( doc, TidyOutCharEncoding );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
     Bool qmark = cfgBool( doc, TidyQuoteMarks );
 
     if ( c == ' ' && !(mode & (PREFORMATTED | COMMENT | ATTRIBVALUE | CDATA)))
@@ -1045,7 +1047,7 @@ static void PPrintAttrValue( TidyDocImpl* doc, uint indent,
 
     if ( value )
     {
-        uint wraplen = cfg( doc, TidyWrapLen );
+        uint wraplen = (uint)cfg( doc, TidyWrapLen );
         int attrStart = SetInAttrVal( pprint );
         int strStart = ClearInString( pprint );
 
@@ -1117,17 +1119,19 @@ static void PPrintAttrValue( TidyDocImpl* doc, uint indent,
 
 static uint AttrIndent( TidyDocImpl* doc, Node* node, AttVal* ARG_UNUSED(attr) )
 {
-  uint spaces = cfg( doc, TidyIndentSpaces );
+  uint spaces = (uint)cfg( doc, TidyIndentSpaces );
   uint xtra = 2;  /* 1 for the '<', another for the ' ' */
   if ( node->element == NULL )
     return spaces;
 
+  size_t node_element_len = TY_(tmbstrlen)( node->element );
+  assert( xtra <= UINT_MAX - node_element_len );
   if ( !TY_(nodeHasCM)(node, CM_INLINE) ||
        !ShouldIndent(doc, node->parent ? node->parent: node) )
-    return xtra + TY_(tmbstrlen)( node->element );
+    return (uint)( xtra + node_element_len );
 
   if ( NULL != (node = TY_(FindContainer)(node)) )
-    return xtra + TY_(tmbstrlen)( node->element );
+    return (uint)( xtra + node_element_len );
   return spaces;
 }
 
@@ -1364,7 +1368,7 @@ static void PPrintTag( TidyDocImpl* doc,
 
     if ( (node->type != StartEndTag || xhtmlOut) && !(mode & PREFORMATTED) )
     {
-        uint wraplen = cfg( doc, TidyWrapLen );
+        uint wraplen = (uint)cfg( doc, TidyWrapLen );
         CheckWrapIndent( doc, indent );
 
         if ( indent + pprint->linelen < wraplen )
@@ -1457,8 +1461,8 @@ static void PPrintComment( TidyDocImpl* doc, uint indent, Node* node )
 static void PPrintDocType( TidyDocImpl* doc, uint indent, Node *node )
 {
     TidyPrintImpl* pprint = &doc->pprint;
-    uint wraplen = cfg( doc, TidyWrapLen );
-    uint spaces = cfg( doc, TidyIndentSpaces );
+    uint wraplen = (uint)cfg( doc, TidyWrapLen );
+    uint spaces = (uint)cfg( doc, TidyIndentSpaces );
     AttVal* fpi = TY_(GetAttrByName)(node, "PUBLIC");
     AttVal* sys = TY_(GetAttrByName)(node, "SYSTEM");
 
@@ -1484,11 +1488,12 @@ static void PPrintDocType( TidyDocImpl* doc, uint indent, Node *node )
 
     if (fpi && fpi->value && sys && sys->value)
     {
-        uint i = pprint->linelen - (TY_(tmbstrlen)(sys->value) + 2) - 1;
+        size_t i = pprint->linelen - (TY_(tmbstrlen)(sys->value) + 2) - 1;
         if (!(i>0&&TY_(tmbstrlen)(sys->value)+2+i<wraplen&&i<=(spaces?spaces:2)*2))
             i = 0;
 
-        PCondFlushLine(doc, i);
+        assert( i <= UINT_MAX );
+        PCondFlushLine(doc, (uint)i);
         if (pprint->linelen)
             AddChar(pprint, ' ');
     }
@@ -1730,9 +1735,12 @@ static int TextEndsWithNewline(Lexer *lexer, Node *node, uint mode )
     if ( (mode & (CDATA|COMMENT)) && TY_(nodeIsText)(node) && node->end > node->start )
     {
         uint ch, ix = node->end - 1;
-        /* Skip non-newline whitespace. */
-        while ( ix >= node->start && (ch = (lexer->lexbuf[ix] & 0xff))
-                && ( ch == ' ' || ch == '\t' || ch == '\r' ) )
+        /*\
+         *  Skip non-newline whitespace. 
+         *  Issue #379 - Only if ix is GT start can it be decremented!
+        \*/
+        while ( ix > node->start && (ch = (lexer->lexbuf[ix] & 0xff))
+                 && ( ch == ' ' || ch == '\t' || ch == '\r' ) )
             --ix;
 
         if ( lexer->lexbuf[ ix ] == '\n' )
@@ -1940,7 +1948,7 @@ void TY_(PrintBody)( TidyDocImpl* doc )
 void TY_(PPrintTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
 {
     Node *content, *last;
-    uint spaces = cfg( doc, TidyIndentSpaces );
+    uint spaces = (uint)cfg( doc, TidyIndentSpaces );
     Bool xhtml = cfgBool( doc, TidyXhtmlOut );
 
     if ( node == NULL )
@@ -2230,7 +2238,7 @@ void TY_(PPrintXMLTree)( TidyDocImpl* doc, uint mode, uint indent, Node *node )
     }
     else /* some kind of container element */
     {
-        uint spaces = cfg( doc, TidyIndentSpaces );
+        uint spaces = (uint)cfg( doc, TidyIndentSpaces );
         Node *content;
         Bool mixed = no;
         uint cindent;

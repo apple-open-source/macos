@@ -67,6 +67,7 @@
 #include "RenderView.h"
 #include "ScriptController.h"
 #include "ScriptExecutionContext.h"
+#include "ServiceWorkerGlobalScope.h"
 #include "WebConsoleAgent.h"
 #include "WebDebuggerAgent.h"
 #include "WebGLRenderingContextBase.h"
@@ -100,18 +101,16 @@ void InspectorInstrumentation::lastFrontendDeleted()
 
 static LocalFrame* frameForScriptExecutionContext(ScriptExecutionContext* context)
 {
-    LocalFrame* frame = nullptr;
-    if (is<Document>(*context))
-        frame = downcast<Document>(*context).frame();
-    return frame;
+    if (RefPtr document = dynamicDowncast<Document>(*context))
+        return document->frame();
+    return nullptr;
 }
 
 static LocalFrame* frameForScriptExecutionContext(ScriptExecutionContext& context)
 {
-    LocalFrame* frame = nullptr;
-    if (is<Document>(context))
-        frame = downcast<Document>(context).frame();
-    return frame;
+    if (RefPtr document = dynamicDowncast<Document>(context))
+        return document->frame();
+    return nullptr;
 }
 
 void InspectorInstrumentation::didClearWindowObjectInWorldImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame, DOMWrapperWorld& world)
@@ -964,7 +963,7 @@ void InspectorInstrumentation::takeHeapSnapshotImpl(InstrumentingAgents& instrum
         consoleAgent->takeHeapSnapshot(title);
 }
 
-void InspectorInstrumentation::startConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame, JSC::JSGlobalObject* exec, const String& label)
+void InspectorInstrumentation::startConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, Frame& frame, JSC::JSGlobalObject* exec, const String& label)
 {
     if (LIKELY(!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()))
         return;
@@ -993,7 +992,7 @@ void InspectorInstrumentation::logConsoleTimingImpl(InstrumentingAgents& instrum
         consoleAgent->logTiming(exec, label, WTFMove(arguments));
 }
 
-void InspectorInstrumentation::stopConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame, JSC::JSGlobalObject* exec, const String& label)
+void InspectorInstrumentation::stopConsoleTimingImpl(InstrumentingAgents& instrumentingAgents, Frame& frame, JSC::JSGlobalObject* exec, const String& label)
 {
     if (LIKELY(!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled()))
         return;
@@ -1013,7 +1012,7 @@ void InspectorInstrumentation::stopConsoleTimingImpl(InstrumentingAgents& instru
         consoleAgent->stopTiming(exec, label);
 }
 
-void InspectorInstrumentation::consoleTimeStampImpl(InstrumentingAgents& instrumentingAgents, LocalFrame& frame, Ref<ScriptArguments>&& arguments)
+void InspectorInstrumentation::consoleTimeStampImpl(InstrumentingAgents& instrumentingAgents, Frame& frame, Ref<ScriptArguments>&& arguments)
 {
     if (auto* timelineAgent = instrumentingAgents.trackingTimelineAgent()) {
         String message;
@@ -1363,6 +1362,11 @@ InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(WorkerOrWorkl
     return globalScope.inspectorController().m_instrumentingAgents;
 }
 
+InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(ServiceWorkerGlobalScope& globalScope)
+{
+    return globalScope.inspectorController().m_instrumentingAgents;
+}
+
 InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(Page& page)
 {
     ASSERT(isMainThread());
@@ -1371,10 +1375,11 @@ InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(Page& page)
 
 InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(ScriptExecutionContext& context)
 {
-    if (is<Document>(context))
-        return instrumentingAgents(downcast<Document>(context).page());
-    if (is<WorkerOrWorkletGlobalScope>(context))
-        return &instrumentingAgents(downcast<WorkerOrWorkletGlobalScope>(context));
+    // Using RefPtr makes us hit the m_inRemovedLastRefFunction assert.
+    if (WeakPtr document = dynamicDowncast<Document>(context))
+        return instrumentingAgents(document->protectedPage().get());
+    if (RefPtr workerOrWorkletGlobal = dynamicDowncast<WorkerOrWorkletGlobalScope>(context))
+        return &instrumentingAgents(*workerOrWorkletGlobal);
     return nullptr;
 }
 

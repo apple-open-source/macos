@@ -43,8 +43,16 @@
 #include <pthread.h>
 #include "SCControlPrefs.h"
 
-
 typedef struct {
+	union {
+		CFRunLoopRef		runloop;
+		dispatch_queue_t	queue;
+		void *			ptr;
+	};
+	Boolean				use_queue;
+} WorkScheduler, *WorkSchedulerRef;
+
+typedef struct __SCControlPrefs {
 
 	// base CFType information
 	CFRuntimeBase		cfBase;
@@ -56,9 +64,9 @@ typedef struct {
 
 	// callback
 	_SCControlPrefsCallBack	callback;
-	CFRunLoopRef		runloop;
+	WorkScheduler		scheduler;
 
-} _SCControlPrefsPrivate, *_SCControlPrefsPrivateRef;
+} _SCControlPrefs;
 
 static CFStringRef	__SCControlPrefsCopyDescription	(CFTypeRef cf);
 static void		__SCControlPrefsDeallocate	(CFTypeRef cf);
@@ -72,7 +80,13 @@ static const CFRuntimeClass __SCControlPrefsClass = {
 	NULL,				// equal
 	NULL,				// hash
 	NULL,				// copyFormattingDesc
-	__SCControlPrefsCopyDescription	// copyDebugDesc
+	__SCControlPrefsCopyDescription,// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 static CFTypeID		__kSCControlPrefsTypeID;
@@ -83,20 +97,26 @@ __SCControlPrefsCopyDescription(CFTypeRef cf)
 {
 	CFAllocatorRef			allocator	= CFGetAllocator(cf);
 	_SCControlPrefsRef		control		= (_SCControlPrefsRef)cf;
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control	;
 	CFMutableStringRef		result;
 
 	result = CFStringCreateMutable(allocator, 0);
 	CFStringAppendFormat(result, NULL, CFSTR("<SCControlPrefs %p [%p]> {"), control, allocator);
-	CFStringAppendFormat(result, NULL, CFSTR(" prefsPlist = %s"), controlPrivate->prefsPlist);
-	if (controlPrivate->prefs != NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), controlPrivate->prefs);
+	CFStringAppendFormat(result, NULL, CFSTR(" prefsPlist = %s"), control->prefsPlist);
+	if (control->prefs != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), control->prefs);
 	}
-	if (controlPrivate->prefs_managed != NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR(", prefs_managed = %p"), controlPrivate->prefs_managed);
+	if (control->prefs_managed != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", prefs_managed = %p"), control->prefs_managed);
 	}
-	if (controlPrivate->callback != NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR(", callback = %p"), controlPrivate->callback);
+	if (control->callback != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", callback = %p"), control->callback);
+	}
+	if (control->scheduler.ptr != NULL) {
+		CFStringAppendFormat(result, NULL,
+				     CFSTR(", %s = %p"),
+				     control->scheduler.use_queue
+				     ? "queue" : "runloop",
+				     control->scheduler.ptr);
 	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
@@ -107,19 +127,24 @@ __SCControlPrefsCopyDescription(CFTypeRef cf)
 static void
 __SCControlPrefsDeallocate(CFTypeRef cf)
 {
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)cf;
+	_SCControlPrefsRef	control	= (_SCControlPrefsRef)cf;
 
 	/* release resources */
-	if ((controlPrivate->callback != NULL) && (controlPrivate->runloop != NULL)) {
-		(void) SCPreferencesSetCallback(controlPrivate->prefs, NULL, NULL);
-		(void) SCPreferencesUnscheduleFromRunLoop(controlPrivate->prefs,
-							  controlPrivate->runloop,
-							  kCFRunLoopCommonModes);
-		CFRelease(controlPrivate->runloop);
+	if (control->callback != NULL && control->scheduler.ptr != NULL) {
+		if (control->scheduler.use_queue) {
+			(void )SCPreferencesSetDispatchQueue(control->prefs, NULL);
+		}
+		else {
+			(void) SCPreferencesSetCallback(control->prefs, NULL, NULL);
+			(void) SCPreferencesUnscheduleFromRunLoop(control->prefs,
+								  control->scheduler.runloop,
+								  kCFRunLoopCommonModes);
+			CFRelease(control->scheduler.runloop);
+		}
 	}
-	if (controlPrivate->prefsPlist != NULL) free((void *)controlPrivate->prefsPlist);
-	if (controlPrivate->prefs != NULL) CFRelease(controlPrivate->prefs);
-	if (controlPrivate->prefs_managed != NULL) CFRelease(controlPrivate->prefs_managed);
+	if (control->prefsPlist != NULL) free((void *)control->prefsPlist);
+	if (control->prefs != NULL) CFRelease(control->prefs);
+	if (control->prefs_managed != NULL) CFRelease(control->prefs_managed);
 
 	return;
 }
@@ -141,12 +166,11 @@ __SCControlPrefsInitialize(void)
 static void
 prefs_changed(void *info)
 {
-	_SCControlPrefsRef		control		= (_SCControlPrefsRef)info;
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control;
+	_SCControlPrefsRef	control		= (_SCControlPrefsRef)info;
 
 	/* get the current value */
-	if (controlPrivate->callback != NULL) {
-		(*controlPrivate->callback)(control);
+	if (control->callback != NULL) {
+		(*control->callback)(control);
 	}
 
 	return;
@@ -164,35 +188,42 @@ prefs_changed_sc(SCPreferencesRef		prefs,
 	return;
 }
 
-
 #if	TARGET_OS_IPHONE
 static void
-enable_prefs_observer(_SCControlPrefsRef control, CFRunLoopRef runloop)
+enable_prefs_observer(_SCControlPrefsRef control)
 {
-	CFRunLoopSourceContext 		context	= {
-						    .version = 0,
-						    .info    = (void *)control,
-						    .retain  = CFRetain,
-						    .release = CFRelease,
-						    .perform = prefs_changed
-						  };
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control;
-	CFRunLoopSourceRef		source;
+	dispatch_block_t	handler;
+	dispatch_queue_t	queue;
 
-	source = CFRunLoopSourceCreate(NULL, 0, &context);
-	CFRunLoopAddSource(runloop, source, kCFRunLoopCommonModes);
-	_scprefs_observer_watch(scprefs_observer_type_global,
-				controlPrivate->prefsPlist,
-				dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-				^{
-		if (source != NULL) {
-			CFRunLoopSourceSignal(source);
-			if (runloop != NULL) {
-				CFRunLoopWakeUp(runloop);
-			}
+	if (control->scheduler.use_queue) {
+		queue = control->scheduler.queue;
+		handler = ^{
+			prefs_changed(control);
 		};
-	});
+	}
+	else {
+		CFRunLoopSourceContext	context	= {
+			.version = 0,
+			.info    = (void *)control,
+			.retain  = CFRetain,
+			.release = CFRelease,
+			.perform = prefs_changed
+		};
+		CFRunLoopRef		runloop = control->scheduler.runloop;
+		CFRunLoopSourceRef	source;
 
+		source = CFRunLoopSourceCreate(NULL, 0, &context);
+		CFRunLoopAddSource(runloop, source, kCFRunLoopCommonModes);
+		queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+		handler = ^{
+			CFRunLoopSourceSignal(source);
+			CFRunLoopWakeUp(runloop);
+		};
+	}
+	_scprefs_observer_watch(scprefs_observer_type_global,
+				control->prefsPlist,
+				queue,
+				handler);
 	return;
 }
 #endif	/* TARGET_OS_IPHONE */
@@ -224,37 +255,110 @@ make_prefs(CFStringRef prefsID)
 
 #if	TARGET_OS_IPHONE
 static SCPreferencesRef
-get_managed_prefs(_SCControlPrefsPrivateRef controlPrivate)
+get_managed_prefs(_SCControlPrefsRef control)
 {
-	if (controlPrivate->prefs_managed == NULL) {
+	if (control->prefs_managed == NULL) {
 		CFStringRef	prefsID;
 
 		prefsID = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s%s"),
 						   kManagedPrefsDirStr,
-						   controlPrivate->prefsPlist);
-		controlPrivate->prefs_managed = make_prefs(prefsID);
+						   control->prefsPlist);
+		control->prefs_managed = make_prefs(prefsID);
 		CFRelease(prefsID);
 	}
 
-	return controlPrivate->prefs_managed;
+	return control->prefs_managed;
 }
 #endif	// TARGET_OS_IPHONE
 
 
 static SCPreferencesRef
-get_prefs(_SCControlPrefsPrivateRef controlPrivate)
+get_prefs(_SCControlPrefsRef control)
 {
-	if (controlPrivate->prefs == NULL) {
+	if (control->prefs == NULL) {
 		CFStringRef	prefsID;
 
 		prefsID = CFStringCreateWithCString(NULL,
-						    controlPrivate->prefsPlist,
+						    control->prefsPlist,
 						    kCFStringEncodingUTF8);
-		controlPrivate->prefs = make_prefs(prefsID);
+		control->prefs = make_prefs(prefsID);
 		CFRelease(prefsID);
 	}
 
-	return controlPrivate->prefs;
+	return control->prefs;
+}
+
+
+static _SCControlPrefsRef
+_SCControlPrefsCreateCommon(const char		*prefsPlist,
+			    WorkSchedulerRef	scheduler,
+			    _SCControlPrefsCallBack	callback)
+{
+	_SCControlPrefsRef		control;
+	SCPreferencesRef		prefs;
+	uint32_t			size;
+
+	/* initialize runtime */
+	__SCControlPrefsInitialize();
+
+	/* allocate target */
+	size         = sizeof(_SCControlPrefs) - sizeof(CFRuntimeBase);
+	control = (_SCControlPrefsRef)_CFRuntimeCreateInstance(NULL,
+							       __kSCControlPrefsTypeID,
+							       size,
+							       NULL);
+	if (control == NULL) {
+		return NULL;
+	}
+
+	/* initialize non-zero/NULL members */
+	control->prefsPlist = strdup(prefsPlist);
+
+	prefs = get_prefs(control);
+	if (prefs == NULL) {
+		goto done;
+	}
+	if (scheduler->ptr != NULL) {
+		SCPreferencesContext	context	= { .info = control };
+		Boolean			ok;
+
+		control->scheduler = *scheduler;
+		control->callback = callback;
+		ok = SCPreferencesSetCallback(prefs, prefs_changed_sc, &context);
+		if (!ok) {
+			SC_log(LOG_NOTICE,
+			       "SCPreferencesSetCallBack() failed: %s",
+			       SCErrorString(SCError()));
+			goto done;
+		}
+		if (scheduler->use_queue) {
+			ok = SCPreferencesSetDispatchQueue(prefs, scheduler->queue);
+			if (!ok) {
+				SC_log(LOG_NOTICE,
+				       "SCPreferencesSetDisaptchQueue() failed: %s",
+				       SCErrorString(SCError()));
+				(void) SCPreferencesSetCallback(prefs, NULL, NULL);
+			}
+		}
+		else {
+			CFRetain(scheduler->runloop);
+			ok = SCPreferencesScheduleWithRunLoop(prefs, scheduler->runloop,
+							      kCFRunLoopCommonModes);
+			if (!ok) {
+				SC_log(LOG_NOTICE,
+				       "SCPreferencesScheduleWithRunLoop() failed: %s",
+				       SCErrorString(SCError()));
+				(void) SCPreferencesSetCallback(prefs, NULL, NULL);
+			}
+		}
+#if	TARGET_OS_IPHONE
+		enable_prefs_observer((_SCControlPrefsRef)control);
+#endif	// TARGET_OS_IPHONE
+	}
+
+    done :
+
+	return (_SCControlPrefsRef)control;
 }
 
 
@@ -263,69 +367,36 @@ _SCControlPrefsCreate(const char		*prefsPlist,
 		      CFRunLoopRef		runloop,
 		      _SCControlPrefsCallBack	callback)
 {
-	_SCControlPrefsPrivateRef	controlPrivate;
-	SCPreferencesRef		prefs;
-	uint32_t			size;
-
-	/* initialize runtime */
-	__SCControlPrefsInitialize();
-
-	/* allocate target */
-	size         = sizeof(_SCControlPrefsPrivate) - sizeof(CFRuntimeBase);
-	controlPrivate = (_SCControlPrefsPrivateRef)_CFRuntimeCreateInstance(NULL,
-									     __kSCControlPrefsTypeID,
-									     size,
-									     NULL);
-	if (controlPrivate == NULL) {
-		return NULL;
-	}
-
-	/* initialize non-zero/NULL members */
-	controlPrivate->prefsPlist = strdup(prefsPlist);
-
-	prefs = get_prefs(controlPrivate);
-	if ((prefs != NULL) && (runloop != NULL) && (callback != NULL)) {
-		SCPreferencesContext	context	= { .info = controlPrivate };
-		Boolean			ok;
-
-		controlPrivate->callback = callback;
-		controlPrivate->runloop  = runloop;
-		CFRetain(controlPrivate->runloop);
-		ok = SCPreferencesSetCallback(prefs, prefs_changed_sc, &context);
-		if (!ok) {
-			SC_log(LOG_NOTICE, "SCPreferencesSetCallBack() failed: %s", SCErrorString(SCError()));
-			goto done;
-		}
-
-		ok = SCPreferencesScheduleWithRunLoop(prefs, runloop, kCFRunLoopCommonModes);
-		if (!ok) {
-			SC_log(LOG_NOTICE, "SCPreferencesScheduleWithRunLoop() failed: %s", SCErrorString(SCError()));
-			(void) SCPreferencesSetCallback(prefs, NULL, NULL);
-		}
-
-#if	TARGET_OS_IPHONE
-		enable_prefs_observer((_SCControlPrefsRef)controlPrivate, runloop);
-#endif	// TARGET_OS_IPHONE
-	}
-
-    done :
-
-	return (_SCControlPrefsRef)controlPrivate;
+	WorkScheduler	scheduler = {
+		.runloop = runloop,
+		.use_queue = FALSE
+	};
+	return _SCControlPrefsCreateCommon(prefsPlist, &scheduler, callback);
 }
 
+_SCControlPrefsRef
+_SCControlPrefsCreateWithQueue(const char		*prefsPlist,
+			       dispatch_queue_t		queue,
+			       _SCControlPrefsCallBack	callback)
+{
+	WorkScheduler	scheduler = {
+		.queue = queue,
+		.use_queue = TRUE
+	};
+	return _SCControlPrefsCreateCommon(prefsPlist, &scheduler, callback);
+}
 
 Boolean
 _SCControlPrefsGetBoolean(_SCControlPrefsRef	control,
 			  CFStringRef		key)
 {
 	CFBooleanRef			bVal;
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control;
 	Boolean				done = FALSE;
 	Boolean				enabled		= FALSE;
 	SCPreferencesRef		prefs;
 
 #if	TARGET_OS_IPHONE
-	prefs = get_managed_prefs(controlPrivate);
+	prefs = get_managed_prefs(control);
 	if (prefs != NULL) {
 		bVal = SCPreferencesGetValue(prefs, key);
 		if (isA_CFBoolean(bVal) != NULL) {
@@ -337,7 +408,7 @@ _SCControlPrefsGetBoolean(_SCControlPrefsRef	control,
 #endif	/* TARGET_OS_IPHONE */
 
 	if (!done) {
-		prefs = get_prefs(controlPrivate);
+		prefs = get_prefs(control);
 		if (prefs != NULL) {
 			bVal = SCPreferencesGetValue(prefs, key);
 			if (isA_CFBoolean(bVal) != NULL) {
@@ -355,11 +426,10 @@ _SCControlPrefsSetBoolean(_SCControlPrefsRef	control,
 			  CFStringRef		key,
 			  Boolean		enabled)
 {
-	_SCControlPrefsPrivateRef	controlPrivate	= (_SCControlPrefsPrivateRef)control;
-	Boolean				ok		= FALSE;
-	SCPreferencesRef		prefs;
+	Boolean			ok		= FALSE;
+	SCPreferencesRef	prefs;
 
-	prefs = get_prefs(controlPrivate);
+	prefs = get_prefs(control);
 	if (prefs != NULL) {
 		if (enabled) {
 			SCPreferencesSetValue(prefs, key, kCFBooleanTrue);
@@ -372,3 +442,87 @@ _SCControlPrefsSetBoolean(_SCControlPrefsRef	control,
 
 	return ok;
 }
+
+#ifdef TEST_SCCONTROL_PREFS
+
+/*
+ * How to run the test harness
+ * 1) run either dispatch or runloop variant
+ * dispatch:  	./sccontrolprefs com.apple.IPMonitor.control.plist
+ * runloop:	./sccontrolprefs -r com.apple.IPMonitor.control.plist
+ * 2) scutil --log IPMonitor on | off
+ * 3) changed_callback() should output "Changed"
+ */
+
+#include <getopt.h>
+
+static void
+usage(const char * progname)
+{
+	fprintf(stderr,
+		"usage: %s <prefs>", progname);
+	exit(1);
+}
+
+static void
+changed_callback(_SCControlPrefsRef control)
+{
+	printf("Changed\n");
+}
+
+int
+main(int argc, char * argv[])
+{
+	int 			ch;
+	_SCControlPrefsRef	control;
+	const char *		prefs_id;
+	const char *		progname = argv[0];
+	Boolean			use_queue = TRUE;
+
+	while ((ch = getopt(argc, argv, "r")) != -1) {
+		switch (ch) {
+		case 'r':
+			use_queue = FALSE;
+			break;
+		default:
+			usage(progname);
+			break;
+		}
+	}
+	if (optind == argc) {
+		usage(progname);
+	}
+	prefs_id = argv[optind];
+	if (use_queue) {
+		dispatch_queue_t	queue;
+
+		printf("Notifications using dispatch queue\n");
+		queue = dispatch_queue_create("sccontrolprefs", NULL);
+		control = _SCControlPrefsCreateWithQueue(prefs_id, queue,
+							 changed_callback);
+		if (control == NULL) {
+			fprintf(stderr,
+				"_SCControlPrefsCreateWithQueue failed\n");
+			exit(2);
+		}
+		SCPrint(TRUE, stdout, CFSTR("control %@\n"), control);
+		dispatch_main();
+	}
+	else {
+		printf("Notifications using runloop\n");
+		control = _SCControlPrefsCreate(prefs_id,
+						CFRunLoopGetCurrent(),
+						changed_callback);
+		if (control == NULL) {
+			fprintf(stderr,
+				"_SCControlPrefsCreate failed\n");
+			exit(2);
+		}
+		SCPrint(TRUE, stdout, CFSTR("control %@\n"), control);
+		CFRunLoopRun();
+	}
+	exit(0);
+	return (0);
+}
+
+#endif /* TEST_SCCONTROL_PREFS */

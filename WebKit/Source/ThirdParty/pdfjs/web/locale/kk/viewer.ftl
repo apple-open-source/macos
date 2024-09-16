@@ -301,8 +301,29 @@ pdfjs-editor-ink-button-label = Сурет салу
 pdfjs-editor-stamp-button =
     .title = Суреттерді қосу немесе түзету
 pdfjs-editor-stamp-button-label = Суреттерді қосу немесе түзету
-pdfjs-editor-remove-button =
-    .title = Өшіру
+pdfjs-editor-highlight-button =
+    .title = Ерекшелеу
+pdfjs-editor-highlight-button-label = Ерекшелеу
+pdfjs-highlight-floating-button =
+    .title = Ерекшелеу
+pdfjs-highlight-floating-button1 =
+    .title = Ерекшелеу
+    .aria-label = Ерекшелеу
+pdfjs-highlight-floating-button-label = Ерекшелеу
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Сызбаны өшіру
+pdfjs-editor-remove-freetext-button =
+    .title = Мәтінді өшіру
+pdfjs-editor-remove-stamp-button =
+    .title = Суретті өшіру
+pdfjs-editor-remove-highlight-button =
+    .title = Түспен ерекшелеуді өшіру
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Түс
 pdfjs-editor-free-text-size-input = Өлшемі
@@ -312,6 +333,10 @@ pdfjs-editor-ink-opacity-input = Мөлдірсіздігі
 pdfjs-editor-stamp-add-image-button =
     .title = Суретті қосу
 pdfjs-editor-stamp-add-image-button-label = Суретті қосу
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Қалыңдығы
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Мәтіннен басқа элементтерді ерекшелеу кезінде қалыңдықты өзгерту
 pdfjs-free-text =
     .aria-label = Мәтін түзеткіші
 pdfjs-free-text-default-content = Теруді бастау…
@@ -349,3 +374,29 @@ pdfjs-editor-resizer-label-bottom-right = Төменгі оң жақ бұрыш 
 pdfjs-editor-resizer-label-bottom-middle = Төменгі ортасы — өлшемін өзгерту
 pdfjs-editor-resizer-label-bottom-left = Төменгі сол жақ бұрыш — өлшемін өзгерту
 pdfjs-editor-resizer-label-middle-left = Ортаңғы сол жақ — өлшемін өзгерту
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Ерекшелеу түсі
+pdfjs-editor-colorpicker-button =
+    .title = Түсті өзгерту
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Түс таңдаулары
+pdfjs-editor-colorpicker-yellow =
+    .title = Сары
+pdfjs-editor-colorpicker-green =
+    .title = Жасыл
+pdfjs-editor-colorpicker-blue =
+    .title = Көк
+pdfjs-editor-colorpicker-pink =
+    .title = Қызғылт
+pdfjs-editor-colorpicker-red =
+    .title = Қызыл
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Барлығын көрсету
+pdfjs-editor-highlight-show-all-button =
+    .title = Барлығын көрсету

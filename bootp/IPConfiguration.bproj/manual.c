@@ -69,7 +69,7 @@
 #include "symbol_scope.h"
 
 typedef struct {
-    arp_client_t *		arp;
+    arp_client_t		arp;
     timer_callout_t *		timer;
     boolean_t			resolve_router_timed_out;
     boolean_t			ignore_link_status;
@@ -313,7 +313,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  manual->arp = arp_client_init(G_arp_session, if_p);
+	  manual->arp = arp_client_init(if_p);
 	  if (manual->arp == NULL) {
 	      my_log(LOG_NOTICE, "MANUAL %s: arp_client_init failed",
 		     if_name(if_p));
@@ -413,6 +413,19 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  my_log(LOG_NOTICE, "MANUAL %s: %s",
 		 if_name(if_p), msg);
+	  service_remove_address(service_p);
+	  service_publish_failure(service_p,
+				  ipconfig_status_address_in_use_e);
+	  if (G_manual_conflict_retry_interval_secs > 0) {
+	      struct timeval	tv;
+
+	      /* try again in a bit */
+	      tv.tv_sec = G_manual_conflict_retry_interval_secs;
+	      tv.tv_usec = 0;
+	      timer_set_relative(manual->timer, tv,
+				 (timer_func_t *)manual_start,
+				 service_p, IFEventID_start_e, NULL);
+	  }
 	  break;
       }
       case IFEventID_wake_e:

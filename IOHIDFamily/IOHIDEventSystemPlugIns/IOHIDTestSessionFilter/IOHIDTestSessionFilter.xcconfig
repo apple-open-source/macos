@@ -1,5 +1,5 @@
 //
-//  HIDServiceFilterExample.xcconfig
+//  IOHIDTestSessionFilter.xcconfig
 //  IOHIDFamily
 //
 //
@@ -7,5 +7,6 @@
 // Configuration settings file format documentation can be found at:
 // https://help.apple.com/xcode/#/dev745c5c974
 
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDTestSessionFilter/Info.plist
 
-INSTALL_PATH = /AppleInternal/Library/HIDPlugins/ServiceFilters
+INSTALL_PATH = /usr/appleinternal/lib/HIDPlugins/SessionFilters

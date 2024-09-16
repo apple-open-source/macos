@@ -301,6 +301,38 @@ static bool SecXPCTrustResetSettings(SecurityClient * __unused client, xpc_objec
     return result;
 }
 
+static bool SecXPC_OTAPKI_CopyCurrentTrustStoreAssetVersion(SecurityClient * __unused client, xpc_object_t __unused event,
+                                          xpc_object_t reply, CFErrorRef *error) {
+    bool result = false;
+    CFStringRef assetVersion = SecOTAPKICopyCurrentTrustStoreAssetVersion(error);
+    if (assetVersion) {
+        xpc_object_t xpcString = _CFXPCCreateXPCObjectFromCFObject(assetVersion);
+        if (xpcString) {
+            xpc_dictionary_set_value(reply, kSecXPCKeyResult, xpcString);
+            xpc_release(xpcString);
+            result = true;
+        }
+    }
+    CFReleaseNull(assetVersion);
+    return result;
+}
+
+static bool SecXPC_OTAPKI_CopyCurrentTrustStoreContentDigest(SecurityClient * __unused client, xpc_object_t __unused event,
+                                          xpc_object_t reply, CFErrorRef *error) {
+    bool result = false;
+    CFStringRef digest = SecOTAPKICopyCurrentTrustStoreContentDigest(error);
+    if (digest) {
+        xpc_object_t xpcString = _CFXPCCreateXPCObjectFromCFObject(digest);
+        if (xpcString) {
+            xpc_dictionary_set_value(reply, kSecXPCKeyResult, xpcString);
+            xpc_release(xpcString);
+            result = true;
+        }
+    }
+    CFReleaseNull(digest);
+    return result;
+}
+
 static bool SecXPC_OTAPKI_GetCurrentTrustStoreVersion(SecurityClient * __unused client, xpc_object_t __unused event,
                                           xpc_object_t reply, CFErrorRef *error) {
     xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecOTAPKIGetCurrentTrustStoreVersion(error));
@@ -514,6 +546,8 @@ struct trustd_operations {
     SecXPCServerOperation trust_store_copy_usage_constraints;
     SecXPCServerOperation trust_store_remove_certificate;
     SecXPCServerOperation ocsp_cache_flush;
+    SecXPCServerOperation ota_pki_trust_store_asset_version;
+    SecXPCServerOperation ota_pki_trust_store_content_digest;
     SecXPCServerOperation ota_pki_trust_store_version;
     SecXPCServerOperation ota_pki_asset_version;
     SecXPCServerOperation ota_pki_get_new_asset;
@@ -545,6 +579,8 @@ static struct trustd_operations trustd_ops = {
     .trust_store_copy_usage_constraints = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyUsageConstraints },
     .trust_store_remove_certificate = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreRemoveCertificate },
     .ocsp_cache_flush = { NULL, SecXPC_OCSPCacheFlush },
+    .ota_pki_trust_store_asset_version = { NULL, SecXPC_OTAPKI_CopyCurrentTrustStoreAssetVersion },
+    .ota_pki_trust_store_content_digest = { NULL, SecXPC_OTAPKI_CopyCurrentTrustStoreContentDigest },
     .ota_pki_trust_store_version = { NULL, SecXPC_OTAPKI_GetCurrentTrustStoreVersion },
     .ota_pki_asset_version = { NULL, SecXPC_OTAPKI_GetCurrentAssetVersion },
     .ota_pki_get_new_asset = { NULL, SecXPC_OTAPKI_GetNewAsset },
@@ -795,6 +831,12 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     break;
                 case sec_ocsp_cache_flush_id:
                     server_op = &trustd_ops.ocsp_cache_flush;
+                    break;
+                case sec_ota_pki_trust_store_asset_version_id:
+                    server_op = &trustd_ops.ota_pki_trust_store_asset_version;
+                    break;
+                case sec_ota_pki_trust_store_content_digest_id:
+                    server_op = &trustd_ops.ota_pki_trust_store_content_digest;
                     break;
                 case sec_ota_pki_trust_store_version_id:
                     server_op = &trustd_ops.ota_pki_trust_store_version;

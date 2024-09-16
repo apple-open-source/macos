@@ -261,6 +261,9 @@ enum {
  *
  * @constant DISPATCH_VFS_FREE_SPACE_CHANGE
  * Filesystem free space changed.
+ *
+ * @constant DISPATCH_VFS_PURGEABLE_SPACE_CHANGE
+ * Purgeable disk space has significantly changed
  */
 enum {
 	DISPATCH_VFS_NOTRESP = 0x0001,
@@ -278,6 +281,7 @@ enum {
 	DISPATCH_VFS_NEARLOWDISK = 0x2000,
 	DISPATCH_VFS_DESIREDDISK = 0x4000,
 	DISPATCH_VFS_FREE_SPACE_CHANGE = 0x8000,
+	DISPATCH_VFS_PURGEABLE_SPACE_CHANGE = 0x10000,
 };
 
 /*!

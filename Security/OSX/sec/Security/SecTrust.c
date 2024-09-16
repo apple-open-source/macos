@@ -152,6 +152,10 @@ struct __SecTrust {
     CFDataRef               _auditToken;
     uint64_t                _attribution;
 
+    /* Locking for async evaluations to prevent sending multiple in-flight */
+    bool                    _pendingEvaluation;
+    dispatch_group_t        _asyncEvalGroup;
+
     /* === IMPORTANT! ===
      * Any change to this structure definition
      * must also be made in the TSecTrust structure,
@@ -178,6 +182,7 @@ static void SecTrustDestroy(CFTypeRef cf) {
     SecTrustRef trust = (SecTrustRef)cf;
 
     dispatch_release_null(trust->_trustQueue);
+    dispatch_release_null(trust->_asyncEvalGroup);
     CFReleaseNull(trust->_certificates);
     CFReleaseNull(trust->_policies);
     CFReleaseNull(trust->_responses);
@@ -210,6 +215,7 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
     CFArrayRef l_certs = NULL, l_policies = NULL;
     SecTrustRef result = NULL;
     dispatch_queue_t queue = NULL;
+    dispatch_group_t group = NULL;
 
     check(certificates);
     check(trust);
@@ -282,7 +288,8 @@ OSStatus SecTrustCreateWithCertificates(CFTypeRef certificates,
     }
 
     queue = dispatch_queue_create("trust", DISPATCH_QUEUE_SERIAL);
-    if (!queue) {
+    group = dispatch_group_create();
+    if (!queue || !group) {
         status = errSecAllocate;
         goto errOut;
     }
@@ -304,6 +311,7 @@ errOut:
         result->_policies = l_policies;
         result->_keychainsAllowed = true;
         result->_trustQueue = queue;
+        result->_asyncEvalGroup = group;
         if (trust)
             *trust = result;
         else
@@ -1512,6 +1520,9 @@ static SecTrustResultType handle_trust_evaluate_xpc(enum SecXPCOperation op, CFA
         return true;
     }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         secdebug("trust", "response: %@", response);
+        CFReleaseNull(*details);
+        CFReleaseNull(*info);
+        CFReleaseNull(*chain);
         return SecXPCDictionaryCopyArrayOptional(response, kSecTrustDetailsKey, details, blockError) &&
         SecXPCDictionaryCopyDictionaryOptional(response, kSecTrustInfoKey, info, blockError) &&
         SecXPCDictionaryCopyChainOptional(response, kSecTrustChainKey, chain, blockError) &&
@@ -1555,11 +1566,14 @@ static void handle_trust_evaluate_xpc_async(dispatch_queue_t replyq, trust_handl
         xpc_dictionary_set_uint64(message, kSecTrustURLAttribution, attribution);
 		return true;
 	}, ^(xpc_object_t response, CFErrorRef error) {
-		secdebug("trust", "response: %@", response);
+		secdebug("trust", "async response: %p", response);
 		if (response == NULL || error != NULL) {
 			trustHandler(kSecTrustResultInvalid, error);
 			return;
 		}
+		CFReleaseNull(*details);
+		CFReleaseNull(*info);
+		CFReleaseNull(*chain);
 		SecTrustResultType tr = kSecTrustResultInvalid;
 		CFErrorRef error2 = NULL;
 		if (SecXPCDictionaryCopyArrayOptional(response, kSecTrustDetailsKey, details, &error2) &&
@@ -1873,94 +1887,141 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
 // IMPORTANT: this MUST be called on the provided queue as it will call the handler synchronously
 // if no asynchronous work is needed
 static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
-												 dispatch_queue_t queue,
-												 void (^handler)(OSStatus status)) {
-	check(trust);
-	check(queue);
-	check(handler);
-	if (handler == NULL) {
-		return;
-	}
-	if (trust == NULL || queue == NULL) {
-		handler(errSecParam);
-		return;
-	}
+                                                 dispatch_queue_t queue,
+                                                 void (^handler)(OSStatus status)) {
+    check(trust);
+    check(queue);
+    check(handler);
+    if (handler == NULL) {
+        return;
+    }
+    if (trust == NULL || queue == NULL) {
+        handler(errSecParam);
+        return;
+    }
 
-	__block bool shouldReturnSuccess = false;
-	__block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
-	SecTrustAddPolicyAnchors(trust);
-	dispatch_sync(trust->_trustQueue, ^{
-		if (SecTrustIsTrustResultValid(trust, verifyTime)) {
-			shouldReturnSuccess = true;
-			return;
-		}
+    __block CFAbsoluteTime verifyTime = SecTrustGetVerifyTime(trust);
+    SecTrustAddPolicyAnchors(trust);
 
-		trust->_trustResult = kSecTrustResultOtherError; /* to avoid potential recursion */
+    // retain the caller's queue and trust so we have it whenever our evalBlock runs
+    dispatch_retain(queue);
+    CFRetain(trust);
 
-		CFReleaseNull(trust->_chain);
-		CFReleaseNull(trust->_details);
-		CFReleaseNull(trust->_info);
-		if (trust->_legacy_info_array) {
-			free(trust->_legacy_info_array);
-			trust->_legacy_info_array = NULL;
-		}
-		if (trust->_legacy_status_array) {
-			free(trust->_legacy_status_array);
-			trust->_legacy_status_array = NULL;
-		}
+    /* Async work block that we'll call or pend */
+    void (^evalBlock)(void) = ^void() {
+        secinfo("trust", "(Trust %p) Started eval block", trust);
+        if (SecTrustIsTrustResultValid(trust, verifyTime)) {
+            secnotice("trust", "(Trust %p) Prior trust results valid", trust);
+            trust->_pendingEvaluation = false; // switch back sentinel
+            // Call the handler on the client's queue
+            dispatch_async(queue, ^{
+                secinfo("trust", "(Trust %p) Calling completion block", trust);
+                handler(errSecSuccess);
+                CFReleaseSafe(trust);
+            });
+            dispatch_release(queue);
+            return;
+        }
 
-		os_activity_t activity = os_activity_create("SecTrustEvaluateIfNecessaryFastAsync",
-													OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
-		__block struct os_activity_scope_state_s activityState;
-		os_activity_scope_enter(activity, &activityState);
-		os_release(activity);
+        dispatch_group_enter(trust->_asyncEvalGroup); /* enter group again for async trustd work */
+        trust->_trustResult = kSecTrustResultOtherError; /* to avoid potential recursion */
 
-		SecTrustValidateInput(trust);
+        CFReleaseNull(trust->_chain);
+        CFReleaseNull(trust->_details);
+        CFReleaseNull(trust->_info);
+        if (trust->_legacy_info_array) {
+            free(trust->_legacy_info_array);
+            trust->_legacy_info_array = NULL;
+        }
+        if (trust->_legacy_status_array) {
+            free(trust->_legacy_status_array);
+            trust->_legacy_status_array = NULL;
+        }
 
-		CFRetainSafe(trust);
-		TRUSTD_XPC_ASYNC(sec_trust_evaluate,
-						 handle_trust_evaluate_xpc_async,
-						 queue,
-		 ^(SecTrustResultType tr, CFErrorRef error) {
-			 __block OSStatus result = errSecInternalError;
-			 dispatch_sync(trust->_trustQueue, ^{
-				 trust->_trustResult = tr;
-				 if (trust->_trustResult == kSecTrustResultInvalid /* TODO check domain */ &&
-					 SecErrorGetOSStatus(error) == errSecNotAvailable &&
-					 CFArrayGetCount(trust->_certificates)) {
-					 /* We failed to talk to securityd.  The only time this should
-					  happen is when we are running prior to launchd enabling
-					  registration of services.  This currently happens when we
-					  are running from the ramdisk.   To make ASR happy we initialize
-					  _chain and return success with a failure as the trustResult, to
-					  make it seem like we did a cert evaluation, so ASR can extract
-					  the public key from the leaf. */
-					 SecCertificateRef leafCert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_certificates, 0);
-					 CFArrayRef leafCertArray = CFArrayCreate(NULL, (const void**)&leafCert, 1, &kCFTypeArrayCallBacks);
-                     CFReleaseNull(trust->_chain);
-					 trust->_chain = leafCertArray;
-					 result = errSecSuccess;
-					 return;
-				 }
-				 result = SecOSStatusWith(^bool (CFErrorRef *error2) {
-					 if (error2 != NULL) {
-						 *error2 = error;
-					 }
-					 return trust->_trustResult != kSecTrustResultInvalid;
-				 });
-			 });
-			 os_activity_scope_leave(&activityState);
-			 handler(result);
-			 CFReleaseSafe(trust);
-		 },
-						 trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
-						 trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
-						 verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken, trust->_attribution,
-						 &trust->_details, &trust->_info, &trust->_chain);
-	});
-	if (shouldReturnSuccess) {
-		handler(errSecSuccess);
-	}
+        os_activity_t activity = os_activity_create("SecTrustEvaluateIfNecessaryFastAsync",
+                                                    OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        __block struct os_activity_scope_state_s activityState;
+        os_activity_scope_enter(activity, &activityState);
+        os_release(activity);
+
+        SecTrustValidateInput(trust);
+
+        TRUSTD_XPC_ASYNC(sec_trust_evaluate,
+                         handle_trust_evaluate_xpc_async,
+                         queue,
+                         ^(SecTrustResultType tr, CFErrorRef error) {
+            secnotice("trust", "(Trust %p) trustd returned %d", trust, tr);
+            __block OSStatus result = errSecInternalError;
+            dispatch_sync(trust->_trustQueue, ^{
+                trust->_trustResult = tr;
+                if (trust->_trustResult == kSecTrustResultInvalid /* TODO check domain */ &&
+                    SecErrorGetOSStatus(error) == errSecNotAvailable &&
+                    CFArrayGetCount(trust->_certificates)) {
+                    /* We failed to talk to securityd.  The only time this should
+                     happen is when we are running prior to launchd enabling
+                     registration of services.  This currently happens when we
+                     are running from the ramdisk.   To make ASR happy we initialize
+                     _chain and return success with a failure as the trustResult, to
+                     make it seem like we did a cert evaluation, so ASR can extract
+                     the public key from the leaf. */
+                    SecCertificateRef leafCert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_certificates, 0);
+                    CFArrayRef leafCertArray = CFArrayCreate(NULL, (const void**)&leafCert, 1, &kCFTypeArrayCallBacks);
+                    CFReleaseNull(trust->_chain);
+                    trust->_chain = leafCertArray;
+                    result = errSecSuccess;
+                    return;
+                }
+                result = SecOSStatusWith(^bool (CFErrorRef *error2) {
+                    if (error2 != NULL) {
+                        *error2 = error;
+                    }
+                    return trust->_trustResult != kSecTrustResultInvalid;
+                });
+                /* We finished async work -- leave the group and switch sentinel back */
+                secinfo("trust", "(Trust %p) Kick off pending evals", trust);
+                dispatch_group_leave(trust->_asyncEvalGroup);
+                trust->_pendingEvaluation = false;
+            });
+            secinfo("trust", "(Trust %p) Calling completion block after async xpc", trust);
+            os_activity_scope_leave(&activityState);
+            handler(result);
+            CFReleaseSafe(trust);
+        },
+                         trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
+                         trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
+                         verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken, trust->_attribution,
+                         &trust->_details, &trust->_info, &trust->_chain);
+        dispatch_release(queue); // dispatch_async call above retained the queue for the block
+    };
+
+    // TODO: this assumes that result will be valid after call to trustd. If not, can still get paralell trustd calls.
+    /* Marshal calls to eval block */
+    /* If there's a pending evaluation, wait for it to complete.
+     * If there's no pending evaluation, dispatch it immediately. */
+    __block bool pendingEval = false;
+    secinfo("trust", "(Trust %p) waiting for queue", trust);
+    dispatch_sync(trust->_trustQueue, ^{
+        if (trust->_pendingEvaluation == false) {
+            secnotice("trust", "(Trust %p) No pending evals, starting", trust);
+            /* We're going to start a new evaluation, so change state and
+             * enter group so next trust calls wait */
+            trust->_pendingEvaluation = true;
+            dispatch_group_enter(trust->_asyncEvalGroup);
+        } else {
+            pendingEval = true;
+        }
+    });
+
+    if (pendingEval) {
+        /* Wait for the pending eval to finish */
+        secnotice("trust", "(Trust %p) Waiting for pending eval", trust);
+        dispatch_group_notify(trust->_asyncEvalGroup, trust->_trustQueue, evalBlock);
+    } else {
+        /* Do the evaluation */
+        dispatch_sync(trust->_trustQueue, evalBlock);
+        secnotice("trust", "(Trust %p) Completed async eval kickoff", trust);
+        dispatch_group_leave(trust->_asyncEvalGroup); /* synchronous work done */
+    }
 }
 
 /* Helper for the qsort below. */
@@ -2163,10 +2224,14 @@ CFDataRef SecTrustCopyExceptions(SecTrustRef trust) {
         CFIndex detailCount = CFDictionaryGetCount(detail);
         CFMutableDictionaryRef exception;
         if (ix == 0 || detailCount > 0) {
-            exception = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, detailCount + 1, detail);
+            exception = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, detail);
             SecCertificateRef certificate = (SecCertificateRef)CFArrayGetValueAtIndex(path, ix);
             CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
-            CFDictionaryAddValue(exception, kSecCertificateDetailSHA1Digest, digest);
+            if (digest) {
+                CFDictionaryAddValue(exception, kSecCertificateDetailSHA1Digest, digest);
+            } else {
+                secerror("Unable to get digest of certificate at index %lld", (long long)ix);
+            }
             if (exceptionResetCount && !exceptionResetCountError && exceptionResetCountRef) {
                 CFDictionaryAddValue(exception, kSecCertificateExceptionResetCount, exceptionResetCountRef);
             }
@@ -2209,10 +2274,14 @@ CFDataRef SecTrustCopyExceptions(SecTrustRef trust) {
 }
 
 static bool SecTrustExceptionsValidForThisEpoch(CFArrayRef exceptions) {
-    if (!exceptions) {
+    if (!isArray(exceptions) || CFArrayGetCount(exceptions) < 1) {
         return false;
     }
     CFDictionaryRef exception = (CFDictionaryRef)CFArrayGetValueAtIndex(exceptions, 0);
+    if (!isDictionary(exception)) {
+        secerror("Failed to get exception for epoch check.");
+        return false;
+    }
 
     CFErrorRef currentExceptionResetCountError = NULL;
     uint64_t currentExceptionResetCount = SecTrustGetExceptionResetCount(&currentExceptionResetCountError);
@@ -2229,7 +2298,7 @@ static bool SecTrustExceptionsValidForThisEpoch(CFArrayRef exceptions) {
     }
 
     CFNumberRef resetCountRef = CFDictionaryGetValue(exception, kSecCertificateExceptionResetCount);
-    if (!resetCountRef) {
+    if (!isNumber(resetCountRef)) {
         secerror("Failed to get the exception's epoch.");
         return false;
     }
@@ -2267,6 +2336,8 @@ bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef encodedExceptions) {
 
     dispatch_sync(trust->_trustQueue, ^{
         CFReleaseSafe(trust->_exceptions);
+        /* take an extra retain for local use, since another thread could release trust->_exceptions */
+        CFRetainSafe(exceptions);
         trust->_exceptions = exceptions;
     });
 
@@ -2274,7 +2345,10 @@ bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef encodedExceptions) {
     SecTrustSetNeedsEvaluation(trust);
 
 	/* If there is a valid exception entry for our current leaf we're golden. */
-    if (SecTrustGetExceptionForCertificateAtIndex(trust, 0) && SecTrustExceptionsValidForThisEpoch(exceptions)) {
+    bool valid = (SecTrustGetExceptionForCertificateAtIndex(trust, 0) && SecTrustExceptionsValidForThisEpoch(exceptions));
+    /* All done with our local use of the exceptions array, so release the extra retain we took above */
+    CFReleaseSafe(exceptions);
+    if (valid) {
 		return true;
     }
 
@@ -2705,6 +2779,63 @@ static uint64_t do_ota_pki_op (enum SecXPCOperation op, CFErrorRef *error) {
     return num;
 }
 
+CFStringRef SecTrustCopyTrustStoreContentDigest(CFErrorRef *error) {
+    __block CFStringRef result = NULL;
+    do_if_registered(sec_ota_pki_trust_store_content_digest, error);
+
+    os_activity_t activity = os_activity_create("SecTrustCopyTrustStoreContentDigest", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    securityd_send_sync_and_do(sec_ota_pki_trust_store_content_digest_id, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        // input: set message parameters here
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
+        // output: get string from response object
+        xpc_object_t xpc_string = NULL;
+        if (response) {
+            xpc_string = xpc_dictionary_get_value(response, kSecXPCKeyResult);
+        }
+        if (xpc_string && (xpc_get_type(xpc_string) == XPC_TYPE_STRING)) {
+            result = (CFStringRef)_CFXPCCreateCFObjectFromXPCObject(xpc_string);
+        } else {
+            return SecError(errSecInternal, blockError, CFSTR("Unable to get trust store content digest"));
+        }
+        return result != NULL;
+    });
+
+    os_release(activity);
+    return result;
+}
+
+CFStringRef SecTrustCopyTrustStoreAssetVersion(CFErrorRef *error) {
+    // This function returns the version of the current PKITrustStore asset.
+    __block CFStringRef result = NULL;
+    do_if_registered(sec_ota_pki_trust_store_asset_version, error);
+
+    os_activity_t activity = os_activity_create("SecTrustCopyTrustStoreAssetVersion", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    securityd_send_sync_and_do(sec_ota_pki_trust_store_asset_version_id, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        // input: set message parameters here
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
+        // output: get string from response object
+        xpc_object_t xpc_string = NULL;
+        if (response) {
+            xpc_string = xpc_dictionary_get_value(response, kSecXPCKeyResult);
+        }
+        if (xpc_string && (xpc_get_type(xpc_string) == XPC_TYPE_STRING)) {
+            result = (CFStringRef)_CFXPCCreateCFObjectFromXPCObject(xpc_string);
+        } else {
+            return SecError(errSecInternal, blockError, CFSTR("Unable to get trust store asset version"));
+        }
+        return result != NULL;
+    });
+
+    os_release(activity);
+    return result;
+}
+
 // version 0 -> error, so we need to start at version 1 or later.
 uint64_t SecTrustGetTrustStoreVersionNumber(CFErrorRef *error) {
     do_if_registered(sec_ota_pki_trust_store_version, error);
@@ -2905,6 +3036,7 @@ OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType *result)
     /* Set other result context information */
     dispatch_sync(trust->_trustQueue, ^{
         trust->_trustResult = trustResult;
+        CFReleaseNull(trust->_details);
         trust->_details = CFRetainSafe(pvc.details);
         CFMutableArrayRef leafCert = CFArrayCreateMutableCopy(NULL, 1, trust->_certificates);
         CFReleaseNull(trust->_chain);
@@ -2918,6 +3050,7 @@ OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType *result)
         if (notAfterDate) {
             CFDictionarySetValue(dict, kSecTrustInfoResultNotAfter, notAfterDate);
         }
+        CFReleaseNull(trust->_info);
         trust->_info = dict;
     });
 

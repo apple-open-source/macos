@@ -42,7 +42,6 @@ extern NSString* const OctagonEventAttributeFailureReason;
 extern NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp;
 
 extern NSString* const CuttlefishTrustZone;
-extern NSString* const TrustedPeersHelperErrorDomain;
 
 /* Octagon Errors, preserved here to include all no-longer-present error code */
 #if 0
@@ -110,6 +109,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
 typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorNoPreparedIdentity = 1,
     TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
+    TrustedPeersHelperErrorFailedToCreateRecoveryKey    = 31,
     TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
     TrustedPeersHelperErrorUnknownCloudKitError   = 36,

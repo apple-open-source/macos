@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,75 +73,4 @@ void _SecSystemKeychainAlwaysClearOverride(void)
 {
     gSystemKeychainAlwaysSupported = SystemKeychainAlways_DEFAULT;
     secnotice("keychain", "System Keychain Always Supported override removed");
-}
-
-typedef enum : int {
-    KCSharingChangeTrackingEnabledState_DEFAULT,
-    KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE,
-    KCSharingChangeTrackingEnabledState_OVERRIDE_FALSE,
-} KCSharingChangeTrackingEnabledState;
-
-static _Atomic(KCSharingChangeTrackingEnabledState) gSharingChangeTrackingEnabled = KCSharingChangeTrackingEnabledState_DEFAULT;
-
-bool KCSharingIsChangeTrackingEnabled(void)
-{
-    KCSharingChangeTrackingEnabledState currentState = atomic_load_explicit(&gSharingChangeTrackingEnabled, memory_order_acquire);
-    if (currentState != KCSharingChangeTrackingEnabledState_DEFAULT) {
-        return currentState == KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE;
-    }
-
-    static bool ffSharingAutomaticSyncing = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        ffSharingAutomaticSyncing = os_feature_enabled(Security, KCSharingAutomaticSyncing);
-    });
-
-    return ffSharingAutomaticSyncing;
-}
-
-void KCSharingSetChangeTrackingEnabled(bool enabled)
-{
-    KCSharingChangeTrackingEnabledState newState = enabled ? KCSharingChangeTrackingEnabledState_OVERRIDE_TRUE : KCSharingChangeTrackingEnabledState_OVERRIDE_FALSE;
-    atomic_store_explicit(&gSharingChangeTrackingEnabled, newState, memory_order_release);
-}
-
-void KCSharingClearChangeTrackingEnabledOverride(void)
-{
-    atomic_store_explicit(&gSharingChangeTrackingEnabled, KCSharingChangeTrackingEnabledState_DEFAULT, memory_order_release);
-}
-
-bool _SecTrustSettingsUseXPCEnabled(void)
-{
-    static bool useXPCEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        useXPCEnabled = os_feature_enabled(Security, TrustSettingsUseXPC);
-        secnotice("trustsettings", "TrustSettingsUseXPC is %s (via feature flags)",
-                  useXPCEnabled ? "enabled" : "disabled");
-    });
-    return useXPCEnabled;
-}
-
-bool _SecTrustSettingsUseTrustStoreEnabled(void)
-{
-    static bool useTrustStoreEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        useTrustStoreEnabled = os_feature_enabled(Security, TrustSettingsUseTrustStore);
-        secnotice("trustsettings", "TrustSettingsUseTrustStore is %s (via feature flags)",
-                  useTrustStoreEnabled ? "enabled" : "disabled");
-    });
-    return useTrustStoreEnabled;
-}
-
-bool _SecTrustStoreUsesUUIDEnabled(void)
-{
-    static bool useTrustStoreUUIDEnabled = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        useTrustStoreUUIDEnabled = os_feature_enabled(Security, TrustStoreUsesUUID);
-        secnotice("trustsettings", "TrustStoreUsesUUID is %s (via feature flags)",
-                  useTrustStoreUUIDEnabled ? "enabled" : "disabled");
-    });
-    return useTrustStoreUUIDEnabled;
 }

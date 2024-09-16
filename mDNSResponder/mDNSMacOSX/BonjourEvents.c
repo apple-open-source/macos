@@ -565,12 +565,11 @@ void RemoveEventFromPlugin(BonjourUserEventsPlugin* plugin, CFNumberRef launchdT
         os_log_info(OS_LOG_DEFAULT, "%s:%s: Removing browser %p from _browsers", sPluginIdentifier, __FUNCTION__, browser);
         CFDictionaryRemoveValue(plugin->_browsers, browser); // This triggers release and dealloc of the browser
     }
-    else
-    {
-        os_log_info(OS_LOG_DEFAULT, "%s:%s: Decrementing browsers %p count", sPluginIdentifier, __FUNCTION__, browser);
-        // Decrement my reference count (it was incremented when it was added to _browsers in CreateBrowser)
-        NetBrowserInfoRelease(NULL, browser);
-    }
+
+    // Decrement my reference count. The reference is either the original +1 reference from NetBrowserInfoCreate() or a
+    // +1 retain by CreateBrowser().
+    os_log_info(OS_LOG_DEFAULT, "%s:%s: Decrementing browser %p count", sPluginIdentifier, __FUNCTION__, browser);
+    NetBrowserInfoRelease(NULL, browser);
 
     free(browsers);
 }

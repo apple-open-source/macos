@@ -49,13 +49,6 @@
 #include "nat64.h"
 #include "nat64-macos.h"
 #include "adv-ctl-server.h"
-
-#define STATE_MACHINE_IMPLEMENTATION 1
-typedef enum {
-    route_tracker_state_invalid,
-} state_machine_state_t;
-#define state_machine_state_invalid route_tracker_state_invalid
-
 #include "state-machine.h"
 #include "thread-service.h"
 #include "omr-watcher.h"
@@ -254,6 +247,10 @@ void
 route_tracker_start(route_tracker_t *tracker)
 {
     INFO("starting tracker " PUB_S_SRP, tracker->name);
+    // Immediately check to see if we can advertise a prefix.
+#ifndef BUILD_TEST_ENTRY_POINTS
+    route_tracker_interface_configuration_changed(tracker);
+#endif
     return;
 }
 
@@ -475,6 +472,40 @@ route_tracker_publish_changes(route_tracker_t *tracker)
     }
 }
 
+bool
+route_tracker_check_for_gua_prefixes_on_infrastructure(route_tracker_t *tracker)
+{
+    bool present = false;
+    interface_t *interface = tracker->infrastructure;
+    if (tracker == NULL || interface == NULL) {
+        goto out;
+    }
+    for (icmp_message_t *router = interface->routers; router != NULL; router = router->next) {
+        for (int i = 0; i < router->num_options; i++) {
+            icmp_option_t *option = &router->options[i];
+            if (option->type == icmp_option_prefix_information) {
+                prefix_information_t *prefix = &option->option.prefix_information;
+                if (omr_watcher_prefix_is_non_ula_prefix(prefix)) {
+                    present = true;
+                    goto done;
+                }
+            } else if (option->type == icmp_option_route_information) {
+                route_information_t *rio = &option->option.route_information;
+                if (omr_watcher_prefix_is_non_ula_prefix(rio)) {
+                    present = true;
+                    goto done;
+                }
+            }
+        }
+    }
+done:
+    INFO("interface " PUB_S_SRP ": checked for GUAs on infrastructure: " PUB_S_SRP "present",
+         interface->name, present ? "" : "not ");
+out:
+    return present;
+}
+
+
 #ifndef BUILD_TEST_ENTRY_POINTS
 void
 route_tracker_route_state_changed(route_tracker_t *tracker, interface_t *interface)
@@ -498,30 +529,30 @@ route_tracker_route_state_changed(route_tracker_t *tracker, interface_t *interfa
     if (interface != tracker->infrastructure) {
         return;
     }
-    INFO("interface: " PUB_S_SRP, interface != NULL ? interface->name : "(no interface)");
+    bool need_default_route = have_routable_omr_prefix;
+    // We need a default route if there is a routable omr prefix, but also if there are GUA prefixes on the adjacent
+    // infrastructure link or reachable via the adjacent infrastructure link's router(s).
+    if (interface != NULL && !need_default_route) {
+        need_default_route = route_tracker_check_for_gua_prefixes_on_infrastructure(tracker);
+    }
+    INFO("interface: " PUB_S_SRP PUB_S_SRP " need default route, " PUB_S_SRP " routable OMR prefix",
+         interface != NULL ? interface->name : "(no interface)", need_default_route ? "" : " don't",
+         have_routable_omr_prefix ? "have" : "don't have");
 
     route_tracker_reset_counts(tracker);
 
     // If we have no interface, then all we really care about is that any routes we're publishing should be
     // removed.
     if (interface != NULL) {
-#if SRP_FEATURE_PUBLISH_SPECIFIC_ROUTES
-        for (icmp_message_t *router = interface->routers; router != NULL; router = router->next) {
-            if (have_routable_omr_prefix && router->router_lifetime != 0) {
-#endif
-                static struct in6_addr default_prefix;
-                route_tracker_track_prefix(tracker, &default_prefix, 0, 1800, 1800, true);
-#if SRP_FEATURE_PUBLISH_SPECIFIC_ROUTES
-            }
-            route_tracker_count_prefixes(tracker, router, have_routable_omr_prefix);
+        static struct in6_addr prefix;
+        int width = 0;
+        if (need_default_route) {
+            ((uint8_t *)&prefix)[0] = 0;
+        } else {
+            ((uint8_t *)&prefix)[0] = 0xfc;
+            width = 7;
         }
-#endif
-#if SRP_FEATURE_PUBLISH_SPECIFIC_ROUTES
-        // Track our own prefix
-        if (interface->on_link_prefix_configured) {
-            route_tracker_track_prefix(tracker, &interface->ipv6_prefix, 64, 1800, 1800, true);
-        }
-#endif
+        route_tracker_track_prefix(tracker, &prefix, width, 1800, 1800, true);
     }
 #if SRP_FEATURE_NAT64
     nat64_omr_route_update(route_state->nat64, have_routable_omr_prefix);

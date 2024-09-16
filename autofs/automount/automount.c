@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2012 Apple Inc.
+ * Portions Copyright 2007-2023 Apple Inc.
  */
 
 #pragma ident	"@(#)automount.c	1.50	05/06/08 SMI"
@@ -54,7 +54,8 @@
 
 #include <OpenDirectory/OpenDirectory.h>
 
-#include <os/log.h>
+#include <os/activity.h>
+#include <os/log_private.h>
 
 #include "deflt.h"
 #include "autofs.h"
@@ -73,13 +74,16 @@ static int num_current_mounts;
 static struct statfs *current_mounts;
 static void make_symlink(const char *, const char *);
 static struct statfs *find_mount(const char *);
-int verbose = 0;
-int trace = 0;
+
+int verbose = 0;        /* controls verbosity of the command */
+int trace = 0;          /* controls verbosity of the shared code */
 
 static int autofs_control_fd;
+int flushcache;
+int unmount_automounted;
 
 static void usage(void);
-static void do_unmounts(void);
+static int do_unmounts(void);
 static int load_autofs(void);
 
 static int mount_timeout = AUTOFS_MOUNT_TIMEOUT;
@@ -118,7 +122,7 @@ make_ephemeral_link(struct autodir *dir)
 
 	if (dir->dir_linktarget == NULL) {
 		asprintf(&dir->dir_linktarget, "%s%s",
-			 rosv_data_volume_prefix(NULL), dir->dir_linkname);
+		    rosv_data_volume_prefix(NULL), dir->dir_linkname);
 		if (dir->dir_linktarget == NULL) {
 			rv = ENOMEM;
 			goto out;
@@ -151,8 +155,7 @@ make_ephemeral_link(struct autodir *dir)
 			/*
 			 * We might be dealing with firmlink as the first component of the -static map
 			 */
-			if (automount_realpath(dir->dir_linkname, link_target) == NULL)
-			{
+			if (automount_realpath(dir->dir_linkname, link_target) == NULL) {
 				pr_msg(LOG_ERR, "Conflicting file system object at '%s'[0x%x].", dir->dir_linkname, sb.st_mode & S_IFMT);
 				rv = -1;
 			}
@@ -177,7 +180,7 @@ make_ephemeral_link(struct autodir *dir)
 		printf("debug[%d]:%s:creating:%s->%s", verbose, __FUNCTION__, dir->dir_linkname, dir->dir_linktarget);
 	}
 	if ((rv = synthetic_symlink(dir->dir_linkname,
-				    dir->dir_linktarget, hidden)) != 0) {
+	    dir->dir_linktarget, hidden)) != 0) {
 		const char *link_type = "ephemeral";
 
 		/*
@@ -193,20 +196,20 @@ make_ephemeral_link(struct autodir *dir)
 		if (errno == ENOTSUP || errno == ENOTTY) {
 			link_type = "normal";
 			pr_msg(LOG_INFO,
-			       "synthetic symlinks not supported, falling back "
-			       "to creating real symlink");
+			    "synthetic symlinks not supported, falling back "
+			    "to creating real symlink");
 
 			rv = symlink(dir->dir_linktarget, dir->dir_linkname);
 		}
 		if (rv != 0) {
 			pr_msg(LOG_WARNING, "making %s link: %s: %m", link_type,
-			       dir->dir_linkname);
+			    dir->dir_linkname);
 		}
 	} else {
 		/* if we were succeful in creating ephemeral symlink, we already set hidden flag on it*/
 		hidden = FALSE;
 	}
- out:
+out:
 
 	if (verbose > 2) {
 		printf("debug[%d]:%s:%s:%d:finish\n", verbose, __FUNCTION__, dir->dir_name, rv);
@@ -219,19 +222,19 @@ announce(const struct autodir *dir, const char *what)
 {
 	if (dir->dir_linkname) {
 		pr_msg(LOG_INFO, "%s %s (%s -> %s)",
-		       dir->dir_realpath,
-		       what,
-		       dir->dir_linkname,
-		       dir->dir_linktarget);
+		    dir->dir_realpath,
+		    what,
+		    dir->dir_linkname,
+		    dir->dir_linktarget);
 	} else {
 		pr_msg(LOG_INFO, "%s %s",
-		       dir->dir_realpath, what);
+		    dir->dir_realpath, what);
 	}
 }
 
 static bool
 autofs_mount(const struct autodir * const dir, int const flags,
-	     int const altflags)
+    int const altflags)
 {
 	struct autofs_args ai;
 
@@ -239,44 +242,46 @@ autofs_mount(const struct autodir * const dir, int const flags,
 	 * Mount it.  Use the real path (symlink-free),
 	 * for reasons mentioned above.
 	 */
-	ai.version	= AUTOFS_ARGSVERSION;
-	ai.path 	= dir->dir_realpath;
-	ai.opts		= dir->dir_opts;
-	ai.map		= dir->dir_map;
-	ai.subdir	= "";
-	ai.direct 	= dir->dir_direct;
-	ai.key		= dir->dir_direct ? dir->dir_name : "";
-	ai.mntflags	= altflags;
-	ai.mount_type	= MOUNT_TYPE_MAP;	/* top-level autofs mount */
-	ai.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
+	ai.version      = AUTOFS_ARGSVERSION;
+	ai.path         = dir->dir_realpath;
+	ai.opts         = dir->dir_opts;
+	ai.map          = dir->dir_map;
+	ai.subdir       = "";
+	ai.direct       = dir->dir_direct;
+	ai.key          = dir->dir_direct ? dir->dir_name : "";
+	ai.mntflags     = altflags;
+	ai.mount_type   = MOUNT_TYPE_MAP;       /* top-level autofs mount */
+	ai.node_type    = dir->dir_direct ? NT_TRIGGER : 0;
 
 	if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
-		  MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags, &ai) < 0) {
+	    MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags, &ai) < 0) {
 		pr_msg(LOG_INFO, "mount %s: %m", dir->dir_realpath);
 		return false;
 	}
+
+	os_log_debug(automount_logger, "autofs_mount:%s on %s:direct:%d", dir->dir_map, dir->dir_realpath, dir->dir_direct);
 	return true;
 }
 
 static bool
 autofs_mount_update(const struct statfs * const mntp,
-		    const struct autodir * const dir,
-		    int const altflags)
+    const struct autodir * const dir,
+    int const altflags)
 {
 	struct autofs_update_args au;
 
 	if (strcmp(mntp->f_fstypename, MNTTYPE_AUTOFS) != 0) {
 		pr_msg(LOG_WARNING, "%s: already mounted on %s",
-			mntp->f_mntfromname, dir->dir_realpath);
+		    mntp->f_mntfromname, dir->dir_realpath);
 		return false;
 	}
 
-	au.fsid		= mntp->f_fsid;
-	au.opts		= dir->dir_opts;
-	au.map		= dir->dir_map;
-	au.mntflags	= altflags;
-	au.direct 	= dir->dir_direct;
-	au.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
+	au.fsid         = mntp->f_fsid;
+	au.opts         = dir->dir_opts;
+	au.map          = dir->dir_map;
+	au.mntflags     = altflags;
+	au.direct       = dir->dir_direct;
+	au.node_type    = dir->dir_direct ? NT_TRIGGER : 0;
 
 	if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS, &au) < 0) {
 		pr_msg(LOG_INFO, "update %s: %m", dir->dir_realpath);
@@ -285,63 +290,47 @@ autofs_mount_update(const struct statfs * const mntp,
 	return true;
 }
 
-int
-main(int argc, char *argv[])
+static void
+process_config_file(char **defval, long *timeout_val)
 {
-	long timeout_val;
-	int c;
-	int flushcache = 0;
-	int unmount_automounted = 0;	// Unmount automounted mounts
-	struct autodir *dir, *d;
-	char real_mntpnt[PATH_MAX];
-	struct stat stbuf;
-	char *master_map = "auto_master";
-	int null;
-	struct statfs *mntp;
-	int count = 0;
-	char *stack[STACKSIZ];
-	char **stkptr;
-	char *defval;
-	int fd;
-	int flags, altflags;
-	struct staticmap *static_ent;
-
-	automount_logger = os_log_create("com.apple.filesystem.autofs", "automount");
-
-	os_log(automount_logger, "start");
-	/*
-	 * Read in the values from config file first before we check
-	 * commandline options so the options override the file.
-	 */
 	if ((defopen(AUTOFSADMIN)) == 0) {
-		if ((defval = defread("AUTOMOUNT_TIMEOUT=")) != NULL) {
+		if ((*defval = defread("AUTOMOUNT_TIMEOUT=")) != NULL) {
 			errno = 0;
-			timeout_val = strtol(defval, (char **)NULL, 10);
-			if (errno == 0 && timeout_val > 0 &&
-			    timeout_val <= INT_MAX)
-				mount_timeout = (int)timeout_val;
+			*timeout_val = strtol(*defval, (char **)NULL, 10);
+			if (errno == 0 && *timeout_val > 0 &&
+			    *timeout_val <= INT_MAX) {
+				mount_timeout = (int)*timeout_val;
+			}
 		}
-		if ((defval = defread("AUTOMOUNT_VERBOSE=")) != NULL) {
-			if (strncasecmp("true", defval, 4) == 0)
+		if ((*defval = defread("AUTOMOUNT_VERBOSE=")) != NULL) {
+			if (strncasecmp("true", *defval, 4) == 0) {
 				verbose = TRUE;
-			else
+			} else {
 				verbose = FALSE;
+			}
 		}
-		if ((defval = defread("AUTOMOUNTD_TRACE=")) != NULL) {
+		if ((*defval = defread("AUTOMOUNTD_TRACE=")) != NULL) {
 			/*
 			 * Turn on tracing here too if the automountd
 			 * is set up to do it - since automount calls
 			 * many of the common library functions.
 			 */
 			errno = 0;
-			trace = (int)strtol(defval, (char **)NULL, 10);
-			if (errno != 0)
+			trace = (int)strtol(*defval, (char **)NULL, 10);
+			if (errno != 0) {
 				trace = 0;
+			}
 		}
 
 		/* close defaults file */
 		defopen(NULL);
 	}
+}
+
+static void
+process_command_line_args(int argc, char **argv)
+{
+	int c;
 
 	while ((c = getopt(argc, argv, "mM:D:f:t:vcu?")) != EOF) {
 		switch (c) {
@@ -381,28 +370,19 @@ main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		pr_msg(LOG_ERR, "%s: command line mountpoints/maps "
-			"no longer supported",
-			argv[optind]);
+		pr_msg(LOG_ERR, "%s: command line mountpoints/maps no longer supported", argv[optind]);
 		usage();
 	}
+}
 
-	/*
-	 * Get an array of current system mounts
-	 */
-	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
-	if (num_current_mounts == 0) {
-		pr_msg(LOG_ERR, "Couldn't get current mounts: %m");
-		os_log_error(automount_logger, "finish:getmntinfo");
-		exit(1);
-	}
-
+static void
+open_control_device(void)
+{
 	autofs_control_fd = open("/dev/" AUTOFS_CONTROL_DEVICE, O_RDONLY);
+
 	if (autofs_control_fd == -1 && errno == ENOENT) {
-		/*
-		 * Oops, we probably don't have the autofs kext
-		 * loaded.
-		 */
+		/* Oops, we probably don't have the autofs kext loaded. */
+
 		FTS *fts;
 		static char *const paths[] = { "/Network", NULL };
 		FTSENT *ftsent;
@@ -413,8 +393,7 @@ main(int argc, char *argv[])
 		 * this is the first time we're being run since a reboot.
 		 * Clean out any stuff left in /Network from the reboot.
 		 */
-		fts = fts_open(paths, FTS_NOCHDIR|FTS_PHYSICAL|FTS_XDEV,
-		    NULL);
+		fts = fts_open(paths, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
 		if (fts != NULL) {
 			while ((ftsent = fts_read(fts)) != NULL) {
 				/*
@@ -429,9 +408,9 @@ main(int argc, char *argv[])
 				 *
 				 * We don't remove /Network itself.
 				 */
-				if (ftsent->fts_info == FTS_DP &&
-				    ftsent->fts_level > FTS_ROOTLEVEL)
+				if (ftsent->fts_info == FTS_DP && ftsent->fts_level > FTS_ROOTLEVEL) {
 					rmdir(ftsent->fts_accpath);
+				}
 			}
 			fts_close(fts);
 		}
@@ -442,30 +421,82 @@ main(int argc, char *argv[])
 		error = load_autofs();
 		if (error != 0) {
 			pr_msg(LOG_ERR, "can't load autofs kext");
-			os_log_error(automount_logger, "finish:load_autofs");
+			os_log_error(automount_logger, "finish:load_autofs:error:%d", error);
 			exit(1);
 		}
 
-		/*
-		 * Try the open again.
-		 */
-		autofs_control_fd = open("/dev/" AUTOFS_CONTROL_DEVICE,
-		    O_RDONLY);
-	}
-	if (autofs_control_fd == -1) {
-		if (errno == EBUSY)
-			pr_msg(LOG_ERR, "Another automount is running");
-		else
-			pr_msg(LOG_ERR, "Couldn't open %s: %m", "/dev/" AUTOFS_CONTROL_DEVICE);
-		os_log_error(automount_logger, "finish:autofs_control_fd");
-		exit(1);
+		/* Try the open again. */
+		autofs_control_fd = open("/dev/" AUTOFS_CONTROL_DEVICE, O_RDONLY);
 	}
 
-	/*
-	 * Update the mount timeout.
-	 */
-	if (ioctl(autofs_control_fd, AUTOFS_SET_MOUNT_TO, &mount_timeout) == -1)
+	if (autofs_control_fd == -1) {
+		int error = errno;
+
+		if (error == EBUSY) {
+			pr_msg(LOG_ERR, "Another automount is running");
+		} else {
+			pr_msg(LOG_ERR, "Couldn't open %s: %m", "/dev/" AUTOFS_CONTROL_DEVICE);
+		}
+
+		os_log_error(automount_logger, "finish:autofs_control_fd:error:%d", error);
+		exit(1);
+	}
+}
+
+static void
+get_current_mounts(void)
+{
+	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
+
+	if (num_current_mounts == 0) {
+		int error = errno;
+
+		pr_msg(LOG_ERR, "Couldn't get current mounts: %m");
+		os_log_error(automount_logger, "finish:getmntinfo:error:%d", error);
+
+		exit(1);
+	}
+}
+
+int
+main(int argc, char *argv[])
+{
+	long timeout_val;
+	struct autodir *dir, *d;
+	char real_mntpnt[PATH_MAX];
+	struct stat stbuf;
+	char *master_map = "auto_master";
+	int null;
+	struct statfs *mntp;
+	int count = 0;
+	char *stack[STACKSIZ];
+	char **stkptr;
+	char *defval;
+	int fd;
+	int flags, altflags;
+	struct staticmap *static_ent;
+	struct os_activity_scope_state_s state;
+
+	automount_logger = os_log_create("com.apple.filesystem.autofs", "automount");
+
+	os_activity_t activity = os_activity_create("automount", OS_ACTIVITY_NONE, OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope_enter(activity, &state);
+
+	process_config_file(&defval, &timeout_val);
+
+	process_command_line_args(argc, argv);
+
+	os_log(automount_logger, "main:start:mt:%d:v:%d:fc:%d:u:%d",
+	    mount_timeout, verbose, flushcache, unmount_automounted);
+
+	open_control_device();
+
+	get_current_mounts();
+
+	if (ioctl(autofs_control_fd, AUTOFS_SET_MOUNT_TO, &mount_timeout) == -1) {
 		pr_msg(LOG_WARNING, "AUTOFS_SET_MOUNT_TO failed: %m");
+		os_log_info(automount_logger, "main:set:mount:timout:failed");
+	}
 
 	/*
 	 * Attempt to unmount any non-busy triggered mounts; this includes
@@ -477,11 +508,15 @@ main(int argc, char *argv[])
 	 * can't hang.
 	 */
 	if (unmount_automounted) {
-		if (verbose)
+		if (verbose) {
 			pr_msg(LOG_INFO, "Unmounting triggered mounts");
-		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT_TRIGGERED, 0) == -1)
+		}
+
+		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT_TRIGGERED, 0) == -1) {
 			pr_msg(LOG_WARNING, "AUTOFS_UNMOUNT_TRIGGERED failed: %m");
-		os_log(automount_logger, "finish:update");
+		}
+
+		os_log(automount_logger, "main:finish:update");
 		exit(0);
 	}
 
@@ -490,20 +525,25 @@ main(int argc, char *argv[])
 		 * Notify the automounter that it should flush its caches,
 		 * as we might be on a different network with different maps.
 		 */
-		if (ioctl(autofs_control_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
+		if (ioctl(autofs_control_fd, AUTOFS_NOTIFYCHANGE, 0) == -1) {
 			pr_msg(LOG_WARNING, "AUTOFS_NOTIFYCHANGE failed: %m");
+		}
 	}
 
 	(void) umask(0);
 	ns_setup(stack, &stkptr);
+	os_log(automount_logger, "main:ns_setup:done");
 
 	(void) loadmaster_map(master_map, "", stack, &stkptr);
+	os_log(automount_logger, "main:master_map:load:done");
 
 	/*
 	 * Mount the daemon at its mount points.
 	 */
-	os_log(automount_logger, "master map loaded");
 	for (dir = dir_head; dir; dir = dir->dir_next) {
+		if (verbose > 2) {
+			pr_msg(LOG_DEBUG, "master_map:entry:%s:start", dir->dir_map);
+		}
 
 		if (automount_realpath(dir->dir_name, real_mntpnt) == NULL) {
 			/*
@@ -534,9 +574,8 @@ main(int argc, char *argv[])
 		/*
 		 * Skip null entries
 		 */
-		if (strcmp(dir->dir_map, "-null") == 0)
-		{
-			os_log(automount_logger, "skipping null map");
+		if (strcmp(dir->dir_map, "-null") == 0) {
+			os_log(automount_logger, "master_map:process:null:%s", dir->dir_map);
 			continue;
 		}
 
@@ -545,11 +584,13 @@ main(int argc, char *argv[])
 		 */
 		null = 0;
 		for (d = dir->dir_prev; d; d = d->dir_prev) {
-			if (paths_match(dir, d))
+			if (paths_match(dir, d)) {
 				null = 1;
+			}
 		}
-		if (null)
+		if (null) {
 			continue;
+		}
 
 		/*
 		 * If this is -fstab, and there are no fstab "net" entries,
@@ -672,7 +713,7 @@ main(int argc, char *argv[])
 			 * so we might as well just make a trip to do the
 			 * update.
 			 */
-			if (! autofs_mount_update(mntp, dir, altflags)) {
+			if (!autofs_mount_update(mntp, dir, altflags)) {
 				continue;
 			}
 
@@ -685,8 +726,9 @@ main(int argc, char *argv[])
 			 */
 			make_ephemeral_link(dir);
 
-			if (verbose)
+			if (verbose) {
 				announce(dir, "updated");
+			}
 		} else {
 			int st_flags = 0;
 
@@ -753,7 +795,7 @@ main(int argc, char *argv[])
 				 * mount point.
 				 */
 				if (automount_realpath(dir->dir_name,
-						       real_mntpnt) == NULL) {
+				    real_mntpnt) == NULL) {
 					/*
 					 * Failed.
 					 */
@@ -781,13 +823,14 @@ main(int argc, char *argv[])
 			 * UF_HIDDEN bit on the directory so it'll still
 			 * be invisible to the Finder even if not mounted on.
 			 */
-			if (altflags & AUTOFS_MNT_HIDEFROMFINDER)
+			if (altflags & AUTOFS_MNT_HIDEFROMFINDER) {
 				st_flags |= UF_HIDDEN;
-			else
+			} else {
 				st_flags &= ~UF_HIDDEN;
-			if (chflags(dir->dir_name, st_flags) < 0)
-			{
-				pr_msg(LOG_WARNING, "(%s -> %s): can't set hidden", dir->dir_name, dir->dir_realpath ? dir->dir_realpath : "null");
+			}
+			if (chflags(dir->dir_name, st_flags) < 0) {
+				pr_msg(LOG_WARNING, "(%s -> %s): can't set hidden", dir->dir_name,
+				    dir->dir_realpath ? dir->dir_realpath : "null");
 			}
 
 			/*
@@ -800,9 +843,7 @@ main(int argc, char *argv[])
 			 * later on).
 			 */
 			if ((mntp = find_mount(dir->dir_realpath)) != NULL) {
-				os_log_fault(OS_LOG_DEFAULT,
-					     "UNEXPECTED MOUNT AT %s",
-					     dir->dir_realpath);
+				os_log_fault(automount_logger, "UNEXPECTED MOUNT AT %s", dir->dir_realpath);
 
 				/*
 				 * This is already mounted, so just update it.
@@ -812,25 +853,33 @@ main(int argc, char *argv[])
 				 * so we might as well just make a trip to do the
 				 * update.
 				 */
-				if (! autofs_mount_update(mntp, dir, altflags)) {
+				if (!autofs_mount_update(mntp, dir, altflags)) {
 					continue;
 				}
-				if (verbose)
+				if (verbose) {
 					announce(dir, "updated");
+				}
 			} else {
-				if (! autofs_mount(dir, flags, altflags)) {
+				if (!autofs_mount(dir, flags, altflags)) {
 					continue;
 				}
-				if (verbose)
+				if (verbose) {
 					announce(dir, "mounted");
+				}
 			}
 		}
 
+		if (verbose > 2) {
+			pr_msg(LOG_DEBUG, "master_map:entry:%s:processed", dir->dir_map);
+		}
 		count++;
 	}
+	os_log(automount_logger, "main:master_map:processed:%d", count);
 
-	if (verbose && count == 0)
+	if (verbose && count == 0) {
 		pr_msg(LOG_NOTICE, "no mounts");
+	}
+
 
 	/*
 	 * Now compare the /etc/mnttab with the master
@@ -841,20 +890,22 @@ main(int argc, char *argv[])
 	 * XXX - if there are no autofs mounts left, should we
 	 * unload autofs, or arrange that it be unloaded?
 	 */
-	do_unmounts();
+	count = do_unmounts();
+	os_log(automount_logger, "main:unmounts:done:%d", count);
 
-	/*
-	 * Let PremountHomeDirectoryWithAuthentication() know that we're
-	 * done.
-	 */
-	fd = open("/var/run/automount.initialized", O_CREAT|O_WRONLY, 0600);
-	/* XXXab: What is going to break if we faile to create this? */
+	/* Let PremountHomeDirectoryWithAuthentication() know that we're done. */
+	fd = open("/var/run/automount.initialized", O_CREAT | O_WRONLY, 0600);
+	/* XXXab: What is going to break if we fail to create this? */
 	if (fd >= 0) {
 		close(fd);
+	} else {
+		os_log_error(automount_logger, "main:faled:to:create:automount.initialized", errno);
 	}
 
-	os_log(automount_logger, "finish");
-	return (0);
+	os_log(automount_logger, "main:finish");
+	os_activity_scope_leave(&state);
+
+	return 0;
 }
 
 static void
@@ -902,8 +953,9 @@ make_symlink(const char *target, const char *path)
 				 * Yes, it does.
 				 * We don't need to do anything.
 				 */
-				if (verbose)
+				if (verbose) {
 					pr_msg(LOG_NOTICE, "link %s unchanged", path);
+				}
 				return;
 			}
 
@@ -995,8 +1047,7 @@ make_symlink(const char *target, const char *path)
  * Find the first mount entry given the mountpoint path.
  */
 static struct statfs *
-find_mount(mntpnt)
-	const char *mntpnt;
+find_mount(const char *mntpnt)
 {
 	int i;
 	struct statfs *mnt;
@@ -1010,19 +1061,22 @@ find_mount(mntpnt)
 	for (i = 0; i < num_current_mounts; i++) {
 		mnt = &current_mounts[i];
 		if (!automount_realpath(mnt->f_mntonname, curr_mnt_fullpath)) {
-			goto out;
+			os_log(automount_logger, "automount:find_mount:automount_realpath:fail");
+			continue;
 		}
 		if (strcmp(curr_mnt_fullpath, mntpnt_fullpath) == 0) {
-			return (mnt);
+			os_log(automount_logger, "automount:find_mount:return:%s", mnt->f_mntonname);
+			return mnt;
 		}
 	}
 
 out:
-	return (NULL);
+	os_log(automount_logger, "automount:find_mount:return:NULL");
+	return NULL;
 }
 
 static void
-usage()
+usage(void)
 {
 	pr_msg(LOG_ERR, "Usage: automount  [ -vcu ]  [ -t duration ]");
 	os_log_error(automount_logger, "automount usage");
@@ -1041,11 +1095,11 @@ usage()
  * "real" volumes or not (we force MNT_NOBROWSE on for any mounts we do).
  */
 static const struct mntopt mopts_autofs[] = {
-	{ "browse",			1, AUTOFS_MNT_NOBROWSE, 1 },
+	{ "browse", 1, AUTOFS_MNT_NOBROWSE, 1 },
 	MOPT_STDOPTS,
-	{ MNTOPT_RESTRICT,		0, AUTOFS_MNT_RESTRICT, 1 },
-	{ MNTOPT_HIDEFROMFINDER,	0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
-	{ NULL,				0, 0, 0 }
+	{ MNTOPT_RESTRICT, 0, AUTOFS_MNT_RESTRICT, 1 },
+	{ MNTOPT_HIDEFROMFINDER, 0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
+	{ NULL, 0, 0, 0 }
 };
 
 static int
@@ -1061,18 +1115,18 @@ parse_mntopts(const char *opts, int *flags, int *altflags)
 	mp = getmntopts(opts, mopts_autofs, flags, altflags);
 	if (mp == NULL) {
 		pr_msg(LOG_ERR, "memory allocation failure");
-		return (0);
+		return 0;
 	}
 	freemntopts(mp);
 
-	return (1);
+	return 1;
 }
 
 /*
  * Unmount any autofs mounts that
  * aren't in the master map
  */
-static void
+static int
 do_unmounts(void)
 {
 	int i;
@@ -1084,8 +1138,9 @@ do_unmounts(void)
 
 	for (i = 0; i < num_current_mounts; i++) {
 		mnt = &current_mounts[i];
-		if (strcmp(mnt->f_fstypename, MNTTYPE_AUTOFS) != 0)
+		if (strcmp(mnt->f_fstypename, MNTTYPE_AUTOFS) != 0) {
 			continue;
+		}
 		/*
 		 * Don't unmount autofs mounts done
 		 * from the autofs mount command.
@@ -1102,8 +1157,9 @@ do_unmounts(void)
 		 * that top-level autofs mount.
 		 */
 		if (strcmp(mnt->f_mntfromname, "subtrigger") == 0 ||
-		    strncmp(mnt->f_mntfromname, triggered, sizeof (triggered) - 1) == 0)
+		    strncmp(mnt->f_mntfromname, triggered, sizeof(triggered) - 1) == 0) {
 			continue;
+		}
 
 		current = 0;
 		for (dir = dir_head; dir; dir = dir->dir_next) {
@@ -1113,14 +1169,15 @@ do_unmounts(void)
 			if (dir->dir_realpath != NULL) {
 				automount_realpath(dir->dir_realpath, dir_realpath);
 				automount_realpath(mnt->f_mntonname, mnt_realpath);
-			    if (strcmp(dir_realpath, mnt_realpath) == 0) {
+				if (strcmp(dir_realpath, mnt_realpath) == 0) {
 					current = strcmp(dir->dir_map, "-null");
 					break;
 				}
 			}
 		}
-		if (current)
+		if (current) {
 			continue;
+		}
 
 		/*
 		 * Mark this as being unmounted, and try to unmount it.
@@ -1129,7 +1186,7 @@ do_unmounts(void)
 		    &mnt->f_fsid) == 0) {
 			if (verbose) {
 				pr_msg(LOG_INFO, "%s unmounted",
-					mnt->f_mntonname);
+				    mnt->f_mntonname);
 			}
 			count++;
 
@@ -1154,8 +1211,11 @@ do_unmounts(void)
 			}
 		}
 	}
-	if (verbose && count == 0)
+	if (verbose && count == 0) {
 		pr_msg(LOG_INFO, "no unmounts");
+	}
+
+	return count;
 }
 
 /*
@@ -1165,26 +1225,29 @@ do_unmounts(void)
 static int
 paths_match(struct autodir *d1, struct autodir *d2)
 {
-	if (strcmp(d1->dir_name, d2->dir_name) == 0)
-		return (1);
+	if (strcmp(d1->dir_name, d2->dir_name) == 0) {
+		return 1;
+	}
 	if (d1->dir_realpath != NULL) {
-		if (strcmp(d1->dir_realpath, d2->dir_name) == 0)
-			return (1);
+		if (strcmp(d1->dir_realpath, d2->dir_name) == 0) {
+			return 1;
+		}
 		if (d2->dir_realpath != NULL) {
-			if (strcmp(d1->dir_realpath, d2->dir_realpath) == 0)
-				return (1);
+			if (strcmp(d1->dir_realpath, d2->dir_realpath) == 0) {
+				return 1;
+			}
 		}
 	}
 	if (d2->dir_realpath != NULL) {
-		if (strcmp(d1->dir_name, d2->dir_realpath) == 0)
-			return (1);
+		if (strcmp(d1->dir_name, d2->dir_realpath) == 0) {
+			return 1;
+		}
 	}
-	return (0);
+	return 0;
 }
 
 static int
-mkdir_r(dir)
-	char *dir;
+mkdir_r(char *dir)
 {
 	int err;
 	char *slash;
@@ -1200,14 +1263,14 @@ mkdir_r(dir)
 		/*
 		 * We created the directory.
 		 */
-		return (0);
+		return 0;
 	}
 	if (errno == EEXIST) {
 		/*
 		 * Something already existed there; we'll assume it's
 		 * a directory.  (If it's not, something will fail later.)
 		 */
-		return (0);
+		return 0;
 	}
 	if (errno != ENOENT) {
 		/*
@@ -1215,7 +1278,7 @@ mkdir_r(dir)
 		 * the absence of a directory in the path leading up to
 		 * it.  Give up.
 		 */
-		return (-1);
+		return -1;
 	}
 
 	/*
@@ -1223,14 +1286,16 @@ mkdir_r(dir)
 	 * up to it).
 	 */
 	slash = strrchr(dir, '/');
-	if (slash == NULL)
-		return (-1);
+	if (slash == NULL) {
+		return -1;
+	}
 	*slash = '\0';
 	err = mkdir_r(dir);
 	*slash++ = '/';
-	if (err || !*slash)
-		return (err);
-	return (mkdir(dir, 0555));
+	if (err || !*slash) {
+		return err;
+	}
+	return mkdir(dir, 0555);
 }
 
 /*
@@ -1265,9 +1330,9 @@ rmdir_r(char *path)
 			 */
 			break;
 		}
-		if (rmdir(path) == -1)
-			break;	/* failed */
-
+		if (rmdir(path) == -1) {
+			break;  /* failed */
+		}
 		/*
 		 * Cut off our name, leaving the name of the parent
 		 * directory.
@@ -1296,14 +1361,14 @@ have_ad(void)
 	 * Create the search node.
 	 */
 	error = NULL;
-	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, 
-		kODNodeTypeAuthentication, &error);
+	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault,
+	    kODNodeTypeAuthentication, &error);
 	if (node_ref == NULL) {
 		errstring = od_get_error_string(error);
 		pr_msg(LOG_WARNING, "have_ad: can't create search node for /Search: %s",
 		    errstring);
 		free(errstring);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -1315,7 +1380,7 @@ have_ad(void)
 		pr_msg(LOG_WARNING, "have_ad: can't get subnode names for /Search: %s",
 		    errstring);
 		free(errstring);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -1334,7 +1399,7 @@ have_ad(void)
 	}
 	CFRelease(paths);
 	CFRelease(node_ref);
-	return (have_it);
+	return have_it;
 }
 
 /*
@@ -1344,6 +1409,17 @@ have_ad(void)
  * and substitute an error message for a "%m" string (like syslog).
  */
 /* VARARGS1 */
+os_log_type_t syslog_to_log[] = {
+	OS_LOG_TYPE_FAULT,      /* LOG_EMERG   */
+	OS_LOG_TYPE_FAULT,      /* LOG_ALERT   */
+	OS_LOG_TYPE_FAULT,      /* LOG_CRIT    */
+	OS_LOG_TYPE_ERROR,      /* LOG_ERROR   */
+	OS_LOG_TYPE_ERROR,      /* LOG_WARNING */
+	OS_LOG_TYPE_DEFAULT,    /* LOG_NOTICE  */
+	OS_LOG_TYPE_INFO,       /* LOG_INFO    */
+	OS_LOG_TYPE_DEBUG       /* LOG_DEBUG   */
+};
+
 void
 pr_msg(int priority, const char *fmt, ...)
 {
@@ -1352,10 +1428,10 @@ pr_msg(int priority, const char *fmt, ...)
 	const char *p1;
 	FILE *output;
 
-	output = (priority & 0x07) <= LOG_NOTICE ? stderr : stdout;
+	output = LOG_PRI(priority) <= LOG_NOTICE ? stderr : stdout;
 	if (!isatty(fileno(output))) {
 		va_start(ap, fmt);
-		(void) vsyslog(priority, fmt, ap);
+		os_log_with_args(automount_logger, syslog_to_log[LOG_PRI(priority)], fmt, ap, __builtin_return_address(0));
 		va_end(ap);
 		return;
 	}
@@ -1364,7 +1440,7 @@ pr_msg(int priority, const char *fmt, ...)
 	p2 = buf + strlen(buf);
 
 	for (p1 = fmt; *p1; p1++) {
-		if (*p1 == '%' && *(p1+1) == 'm') {
+		if (*p1 == '%' && *(p1 + 1) == 'm') {
 			(void) strlcpy(p2, strerror(errno),
 			    sizeof buf - (p2 - buf));
 			p2 += strlen(p2);
@@ -1373,8 +1449,9 @@ pr_msg(int priority, const char *fmt, ...)
 			*p2++ = *p1;
 		}
 	}
-	if (p2 > buf && *(p2-1) != '\n')
+	if (p2 > buf && *(p2 - 1) != '\n') {
 		*p2++ = '\n';
+	}
 	*p2 = '\0';
 
 	va_start(ap, fmt);
@@ -1388,29 +1465,32 @@ load_autofs(void)
 	pid_t pid, terminated_pid;
 	int result;
 	union wait status;
-    
+
 	pid = fork();
 	if (pid == 0) {
 		result = execl(gKextLoadCommand, gKextLoadCommand, "-q",
 		    gKextLoadPath, NULL);
 		/* IF WE ARE HERE, WE WERE UNSUCCESSFUL */
-		return (result ? result : ECHILD);
+		return result ? result : ECHILD;
 	}
 
-	if (pid == -1)
-		return (-1);
+	if (pid == -1) {
+		return -1;
+	}
 
 	/* Success! Wait for completion in-line here */
 	while ((terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0) {
 		/* retry if EINTR, else break out with error */
-		if (errno != EINTR)
+		if (errno != EINTR) {
 			break;
+		}
 	}
-    
-	if (terminated_pid == pid && WIFEXITED(status))
-		result = WEXITSTATUS(status);
-	else
-		result = -1;
 
-	return (result);
+	if (terminated_pid == pid && WIFEXITED(status)) {
+		result = WEXITSTATUS(status);
+	} else {
+		result = -1;
+	}
+
+	return result;
 }

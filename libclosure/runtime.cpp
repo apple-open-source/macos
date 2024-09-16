@@ -20,6 +20,8 @@
 #else // __has_include(<os/assumes.h>)
 #define os_assert(_x) assert(_x)
 #define os_assumes(_x) (_x)
+#define os_unlikely(_x) (_x)
+#define os_hardware_trap() abort()
 #endif // __has_include(<os/assumes.h>)
 
 #if __has_include(<platform/string.h>)
@@ -881,6 +883,15 @@ void *_Block_copy(const void *arg) {
         size_t size = Block_size(aBlock);
         struct Block_layout *result = (struct Block_layout *)malloc(size);
         if (!result) return NULL;
+
+        // If the invoke pointer is NULL, this block is bogus. Crash immediately
+        // instead of returning a bogus copied block.
+        if (os_unlikely(aBlock->invoke == NULL)) {
+            // This is a macro that expands to two statements, so the braces are
+            // mandatory here.
+            os_hardware_trap();
+        }
+
         memmove(result, aBlock, size); // bitcopy first
 #if __has_feature(ptrauth_calls)
         // Resign the invoke pointer as it uses address authentication.

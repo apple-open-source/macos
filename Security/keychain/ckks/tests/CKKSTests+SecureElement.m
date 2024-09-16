@@ -29,6 +29,8 @@
 #import "keychain/ckks/tests/CKKSTests.h"
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 
+#import "keychain/ot/ObjCImprovements.h"
+
 @interface CloudKitKeychainSecureElementTests : CloudKitKeychainSyncingTestsBase
 @property CKRecordZoneID* ptaZoneID;
 @property CKRecordZoneID* ptcZoneID;
@@ -693,6 +695,7 @@
 }
 
 - (void)testRecoverFromZoneMissing {
+    WEAKIFY(self);
     XCTestExpectation* initialPTAReadyNotificationExpectation = [self expectLibNotifyReadyForView:self.ptaZoneID.zoneName];
     [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
     [self startCKKSSubsystem];
@@ -748,7 +751,7 @@
 
     XCTestExpectation* fetchExpectation = [self expectationWithDescription:@"fetch should arrive"];
     [self.ckksControl fetchSEViewKeyHierarchy:CKKSSEViewPTA
-                                    forceFetch:NO
+                                   forceFetch:NO
                                         reply:^(CKKSExternalKey * _Nullable currentTLK,
                                                 NSArray<CKKSExternalKey *> * _Nullable pastTLKs,
                                                 NSArray<CKKSExternalTLKShare *> * _Nullable currentTLKShares,
@@ -765,6 +768,31 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter ready");
     self.zones[self.ptaZoneID] = nil;
 
+    self.silentFetchesAllowed = NO;
+    [self expectCKFetchAndRunBeforeFinished:^{
+        STRONGIFY(self);
+        [self holdCloudKitFetches];
+
+        // This fetch will fail due to the PTA zone missing, but we want to make sure its retry succeeds after the zone has been re-created.
+        // We'll add a dependency on the view to re-initialize before the retry kicks off.
+        CKKSResultOperation* waitForKeyState = [CKKSResultOperation operationWithBlock:^{
+            CKKSKeychainViewState* ptaState = [self.defaultCKKS.operationDependencies viewStateForName:CKKSSEViewPTA];
+            XCTAssertNotNil(ptaState, "PTA Zone should be re-initializing");
+            ckksnotice_global("ckks-test", "waiting for view to re-initialize");
+            XCTAssertEqual(0, [ptaState.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:10*NSEC_PER_SEC], "Key state should be re-initialized");
+        }];
+        [self.defaultCKKS.zoneChangeFetcher holdFetchesUntil:waitForKeyState];
+
+        [self expectCKFetchAndRunBeforeFinished:^{
+            STRONGIFY(self);
+            self.silentFetchesAllowed = YES;
+        }];
+
+        [self.defaultCKKS scheduleOperation:waitForKeyState];
+
+        [self releaseCloudKitFetchHold];
+    }];
+
     XCTestExpectation* ptaReadyNotificationExpectation2 = [self expectLibNotifyReadyForView:self.ptaZoneID.zoneName];
     XCTestExpectation* forceFetchExpectation = [self expectationWithDescription:@"fetch should arrive"];
     [self.ckksControl fetchSEViewKeyHierarchy:CKKSSEViewPTA
@@ -779,7 +807,10 @@
         XCTAssertEqual(currentTLKShares.count, 0, "Should be 0 tlkShare");
         [forceFetchExpectation fulfill];
     }];
+
     [self waitForExpectations:@[ptaReadyNotificationExpectation2, forceFetchExpectation] timeout:20];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 @end

@@ -47,6 +47,7 @@
 #import <wtf/Lock.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 
 #import "CoreVideoSoftLink.h"
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -351,6 +352,14 @@ void MediaPlayerPrivateMediaStreamAVFObjC::sampleBufferDisplayLayerStatusDidFail
     updateLayersAsNeeded();
 }
 
+#if PLATFORM(IOS_FAMILY)
+bool MediaPlayerPrivateMediaStreamAVFObjC::canShowWhileLocked() const
+{
+    auto player = m_player.get();
+    return player && player->canShowWhileLocked();
+}
+#endif
+
 void MediaPlayerPrivateMediaStreamAVFObjC::applicationDidBecomeActive()
 {
     if (m_sampleBufferDisplayLayer && m_sampleBufferDisplayLayer->didFail()) {
@@ -595,7 +604,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::pause()
     if (!metaDataAvailable() || !playing() || m_ended)
         return;
 
-    m_pausedTime = currentMediaTime();
+    m_pausedTime = currentTime();
     m_playbackState = PlaybackState::Paused;
 
     for (const auto& track : m_audioTrackMap.values())
@@ -644,7 +653,7 @@ bool MediaPlayerPrivateMediaStreamAVFObjC::hasAudio() const
     return !m_audioTrackMap.isEmpty();
 }
 
-void MediaPlayerPrivateMediaStreamAVFObjC::setPageIsVisible(bool isVisible, String&&)
+void MediaPlayerPrivateMediaStreamAVFObjC::setPageIsVisible(bool isVisible)
 {
     if (m_isPageVisible == isVisible)
         return;
@@ -664,12 +673,12 @@ void MediaPlayerPrivateMediaStreamAVFObjC::setVisibleInViewport(bool isVisible)
     m_isVisibleInViewPort = isVisible;
 }
 
-MediaTime MediaPlayerPrivateMediaStreamAVFObjC::durationMediaTime() const
+MediaTime MediaPlayerPrivateMediaStreamAVFObjC::duration() const
 {
     return MediaTime::positiveInfiniteTime();
 }
 
-MediaTime MediaPlayerPrivateMediaStreamAVFObjC::currentMediaTime() const
+MediaTime MediaPlayerPrivateMediaStreamAVFObjC::currentTime() const
 {
     if (paused())
         return m_pausedTime;
@@ -808,18 +817,6 @@ void MediaPlayerPrivateMediaStreamAVFObjC::readyStateChanged(MediaStreamTrackPri
     scheduleDeferredTask([this] {
         updateReadyState();
     });
-}
-
-bool MediaPlayerPrivateMediaStreamAVFObjC::supportsPictureInPicture() const
-{
-#if PLATFORM(IOS_FAMILY)
-    for (const auto& track : m_videoTrackMap.values()) {
-        if (track->streamTrack().isCaptureTrack())
-            return false;
-    }
-#endif
-    
-    return true;
 }
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -1171,6 +1168,9 @@ void MediaPlayerPrivateMediaStreamAVFObjC::CurrentFramePainter::reset()
 
 void MediaPlayerPrivateMediaStreamAVFObjC::rootLayerBoundsDidChange()
 {
+    if (!m_isMediaLayerRehosting)
+        return;
+
     Locker locker { m_sampleBufferDisplayLayerLock };
     if (m_sampleBufferDisplayLayer)
         m_sampleBufferDisplayLayer->updateBoundsAndPosition(m_sampleBufferDisplayLayer->rootLayer().bounds);
@@ -1210,6 +1210,8 @@ LayerHostingContextID MediaPlayerPrivateMediaStreamAVFObjC::hostingContextID() c
 
 void MediaPlayerPrivateMediaStreamAVFObjC::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRight&& fence)
 {
+    m_isMediaLayerRehosting = false;
+
     if (!m_sampleBufferDisplayLayer || size.isEmpty())
         return;
 

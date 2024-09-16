@@ -57,7 +57,7 @@ includedir	= ${prefix}/include
 includesubdir	= /ncursesw
 libdir		= ${exec_prefix}/lib
 mandir		= /usr/share/man
-pkgdir		= /opt/brew/share/pkgconfig
+pkgdir		= no
 
 include_dir	= ${includedir}${includesubdir}
 

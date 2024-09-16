@@ -30,8 +30,18 @@
 #include "LibWebRTCDnsResolverFactory.h"
 #include "LibWebRTCResolverIdentifier.h"
 #include <WebCore/LibWebRTCMacros.h>
+#include <wtf/Identified.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
+
+namespace WebKit {
+class LibWebRTCResolver;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::LibWebRTCResolver> : std::true_type { };
+}
 
 namespace IPC {
 class Connection;
@@ -40,13 +50,11 @@ class Connection;
 namespace WebKit {
 class LibWebRTCSocketFactory;
 
-class LibWebRTCResolver final : public LibWebRTCDnsResolverFactory::Resolver, private webrtc::AsyncDnsResolverResult, public CanMakeWeakPtr<LibWebRTCResolver> {
+class LibWebRTCResolver final : public LibWebRTCDnsResolverFactory::Resolver, private webrtc::AsyncDnsResolverResult, public CanMakeWeakPtr<LibWebRTCResolver>, public Identified<LibWebRTCResolverIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    LibWebRTCResolver() : m_identifier(LibWebRTCResolverIdentifier::generate()) { }
+    LibWebRTCResolver() = default;
     ~LibWebRTCResolver();
-
-    LibWebRTCResolverIdentifier identifier() const { return m_identifier; }
 
     void start(const rtc::SocketAddress&, Function<void()>&&) final;
 
@@ -65,7 +73,6 @@ private:
 
     static void sendOnMainThread(Function<void(IPC::Connection&)>&&);
 
-    LibWebRTCResolverIdentifier m_identifier;
     Vector<rtc::IPAddress> m_addresses;
     rtc::SocketAddress m_addressToResolve;
     Function<void()> m_callback;

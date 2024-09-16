@@ -45,37 +45,37 @@
 #include <oncrpc/pmap_prot.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#define	NFSCLIENT
+#define NFSCLIENT
 #include <locale.h>
 
 #include "automount.h"
 
-#define	PENALTY_WEIGHT    100000
+#define PENALTY_WEIGHT    100000
 
 struct tstamps {
-	struct tstamps	*ts_next;
-	int		ts_penalty;
-	int		ts_inx;
-	int		ts_rcvd;
-	struct timeval	ts_timeval;
+	struct tstamps  *ts_next;
+	int             ts_penalty;
+	int             ts_inx;
+	int             ts_rcvd;
+	struct timeval  ts_timeval;
 };
 
 /* A list of addresses - all belonging to the same transport */
 
 struct addrs {
-	struct addrs		*addr_next;
-	struct mapfs		*addr_mfs;
-	struct hostent		*addr_addrs;
-	struct tstamps		*addr_if_tstamps;
+	struct addrs            *addr_next;
+	struct mapfs            *addr_mfs;
+	struct hostent          *addr_addrs;
+	struct tstamps          *addr_if_tstamps;
 };
 
 /* A list of connectionless transports */
 
 struct transp {
-	struct transp		*tr_next;
-	int			tr_fd;
-	const char		*tr_afname;
-	struct addrs		*tr_addrs;
+	struct transp           *tr_next;
+	int                     tr_fd;
+	const char              *tr_afname;
+	struct addrs            *tr_addrs;
 };
 
 /* A list of map entries and their roundtrip times, for sorting */
@@ -91,11 +91,11 @@ static struct mapfs *sort_responses(struct transp *);
 static int host_sm(const void *, const void *b);
 static int time_sm(const void *, const void *b);
 extern struct mapfs *add_mfs(struct mapfs *, int, struct mapfs **,
-	struct mapfs **);
+    struct mapfs **);
 
 struct aftype {
-	int	afnum;
-	char	*name;
+	int     afnum;
+	char    *name;
 };
 
 /*
@@ -131,12 +131,12 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 		{ AF_INET6, "IPv6" }
 #endif
 	};
-#define N_AFS	(sizeof aflist / sizeof aflist[0])
+#define N_AFS   (sizeof aflist / sizeof aflist[0])
 	int if_inx;
 	int tsec;
 	int sent, addr_cnt, rcvd;
 	fd_set readfds, mask;
-	register uint32_t xid;		/* xid - unique per addr */
+	register uint32_t xid;          /* xid - unique per addr */
 	register int i;
 	struct rpc_msg msg;
 	struct timeval t, rcv_timeout;
@@ -176,31 +176,33 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	 */
 	dtbsize = FD_SETSIZE;
 	if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
-		if (rl.rlim_cur < FD_SETSIZE)
+		if (rl.rlim_cur < FD_SETSIZE) {
 			dtbsize = (int)rl.rlim_cur;
+		}
 	}
 
 	prev_trans = NULL;
 	prev_addr = NULL;
 	prev_ts = NULL;
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
-
-		if (trace > 2)
+		if (trace > 2) {
 			trace_prt(1, "nfs_cast: host=%s\n", mfs->mfs_host);
+		}
 
 		for (af_idx = 0; af_idx < N_AFS; af_idx++) {
 			af = aflist[af_idx].afnum;
-			trans = (struct transp *)malloc(sizeof (*trans));
+			trans = (struct transp *)malloc(sizeof(*trans));
 			if (trans == NULL) {
 				syslog(LOG_ERR, "no memory");
 				clnt_stat = RPC_CANTSEND;
 				goto done_broad;
 			}
-			(void) memset(trans, 0, sizeof (*trans));
-			if (tr_head == NULL)
+			(void) memset(trans, 0, sizeof(*trans));
+			if (tr_head == NULL) {
 				tr_head = trans;
-			else
+			} else {
 				prev_trans->tr_next = trans;
+			}
 			prev_trans = trans;
 
 			trans->tr_fd = socket(af, SOCK_DGRAM, IPPROTO_UDP);
@@ -222,22 +224,23 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 				 * this map, clear it. Because a host can
 				 * have either v6 or v4 address
 				 */
-				if (mfs->mfs_ignore == 1)
+				if (mfs->mfs_ignore == 1) {
 					mfs->mfs_ignore = 0;
+				}
 
-				a = (struct addrs *)malloc(sizeof (*a));
+				a = (struct addrs *)malloc(sizeof(*a));
 				if (a == NULL) {
 					syslog(LOG_ERR, "no memory");
 					clnt_stat = RPC_CANTSEND;
 					freehostent(hp);
 					goto done_broad;
 				}
-				(void) memset(a, 0, sizeof (*a));
-				if (trans->tr_addrs == NULL)
+				(void) memset(a, 0, sizeof(*a));
+				if (trans->tr_addrs == NULL) {
 					trans->tr_addrs = a;
-				else
-					if (prev_addr != NULL)
-						prev_addr->addr_next = a;
+				} else if (prev_addr != NULL) {
+					prev_addr->addr_next = a;
+				}
 				prev_addr = a;
 				a->addr_if_tstamps = NULL;
 				a->addr_mfs = mfs;
@@ -245,18 +248,19 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 				hostaddrs = hp->h_addr_list;
 				while (*hostaddrs) {
 					ts = (struct tstamps *)
-						malloc(sizeof (*ts));
+					    malloc(sizeof(*ts));
 					if (ts == NULL) {
 						syslog(LOG_ERR, "no memory");
 						clnt_stat = RPC_CANTSEND;
 						goto done_broad;
 					}
-					(void) memset(ts, 0, sizeof (*ts));
+					(void) memset(ts, 0, sizeof(*ts));
 					ts->ts_penalty = mfs->mfs_penalty;
-					if (a->addr_if_tstamps == NULL)
+					if (a->addr_if_tstamps == NULL) {
 						a->addr_if_tstamps = ts;
-					else
+					} else {
 						prev_ts->ts_next = ts;
+					}
 					prev_ts = ts;
 					ts->ts_inx = if_inx++;
 					addr_cnt++;
@@ -265,11 +269,12 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 				break;
 			} else {
 				mfs->mfs_ignore = 1;
-				if (verbose)
+				if (verbose) {
 					syslog(LOG_ERR,
-				"%s:%s address not known",
-				mfs->mfs_host,
-				aflist[af_idx].name);
+					    "%s:%s address not known",
+					    mfs->mfs_host,
+					    aflist[af_idx].name);
+				}
 			}
 		} /* for */
 	} /* for */
@@ -302,8 +307,8 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	}
 	msg.rm_call.cb_cred = sys_auth->ah_cred;
 	msg.rm_call.cb_verf = sys_auth->ah_verf;
-	xdrmem_create(xdrs, (uint8_t *) outbuf, sizeof (outbuf), XDR_ENCODE);
-	if (! xdr_callmsg(xdrs, &msg)) {
+	xdrmem_create(xdrs, (uint8_t *) outbuf, sizeof(outbuf), XDR_ENCODE);
+	if (!xdr_callmsg(xdrs, &msg)) {
 		clnt_stat = RPC_CANTENCODEARGS;
 		goto done_broad;
 	}
@@ -317,10 +322,10 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	 * correctly match the replies.
 	 */
 	for (tsec = 4; timeout > 0; tsec *= 2) {
-
 		timeout -= tsec;
-		if (timeout <= 0)
+		if (timeout <= 0) {
 			tsec += timeout;
+		}
 
 		rcv_timeout.tv_sec = tsec;
 		rcv_timeout.tv_usec = 0;
@@ -338,9 +343,9 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 					 */
 					/* LINTED pointer alignment */
 					*((uint32_t *)outbuf) =
-						htonl(xid + ts->ts_inx);
+					    htonl(xid + ts->ts_inx);
 					(void) gettimeofday(&(ts->ts_timeval),
-						(struct timezone *)0);
+					    (struct timezone *)0);
 					/*
 					 * Check if already received
 					 * from a previous iteration.
@@ -362,7 +367,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 						sin->sin_port = portmap->s_port;
 						memcpy(&sin->sin_addr,
 						    *hostaddrs++, hp->h_length);
-					} else {	/* must be AF_INET6 */
+					} else {        /* must be AF_INET6 */
 						struct sockaddr_in6 *sin6;
 
 						sin6 = (struct sockaddr_in6 *)to;
@@ -381,7 +386,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 				}
 			}
 		}
-		if (sent == 0) {		/* no packets sent ? */
+		if (sent == 0) {                /* no packets sent ? */
 			clnt_stat = RPC_CANTSEND;
 			goto done_broad;
 		}
@@ -390,14 +395,13 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 		 * Have sent all the packets.  Now collect the responses...
 		 */
 		rcvd = 0;
-	recv_again:
+recv_again:
 		msg.acpted_rply.ar_verf = _null_auth;
 		msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
 		readfds = mask;
 
 		switch (select(dtbsize, &readfds,
-			(fd_set *)NULL, (fd_set *)NULL, &rcv_timeout)) {
-
+		    (fd_set *)NULL, (fd_set *)NULL, &rcv_timeout)) {
 		case 0: /* Timed out */
 			/*
 			 * If we got at least one response in the
@@ -409,42 +413,48 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 			 * if the admin has set a high weighting
 			 * value.
 			 */
-			if (rcvd > 0)
+			if (rcvd > 0) {
 				goto done_broad;
+			}
 
 			clnt_stat = RPC_TIMEDOUT;
 			continue;
 
 		case -1:  /* some kind of error */
-			if (errno == EINTR)
+			if (errno == EINTR) {
 				goto recv_again;
+			}
 			syslog(LOG_ERR, "nfscast: select: %m");
-			if (rcvd == 0)
+			if (rcvd == 0) {
 				clnt_stat = RPC_CANTRECV;
+			}
 			goto done_broad;
-
 		}  /* end of select results switch */
 
 		for (trans = tr_head; trans; trans = trans->tr_next) {
-			if (FD_ISSET(trans->tr_fd, &readfds))
+			if (FD_ISSET(trans->tr_fd, &readfds)) {
 				break;
+			}
 		}
-		if (trans == NULL)
+		if (trans == NULL) {
 			goto recv_again;
+		}
 
-	try_again:
-		len = recvfrom(trans->tr_fd, inbuf, sizeof (inbuf), 0,
+try_again:
+		len = recvfrom(trans->tr_fd, inbuf, sizeof(inbuf), 0,
 		    (struct sockaddr *)&from_addr, &fromlen);
 		if (len < 0) {
-			if (errno == EINTR)
+			if (errno == EINTR) {
 				goto try_again;
+			}
 			syslog(LOG_ERR, "nfscast: recvfrom: UDP %s:%m",
-				trans->tr_afname);
+			    trans->tr_afname);
 			clnt_stat = RPC_CANTRECV;
 			continue;
 		}
-		if ((size_t)len < sizeof (uint32_t))
+		if ((size_t)len < sizeof(uint32_t)) {
 			goto recv_again;
+		}
 
 		/*
 		 * see if reply transaction id matches sent id.
@@ -453,38 +463,41 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 		 * different from the send addr if the host has
 		 * more than one addr.
 		 */
-		xdrmem_create(xdrs, (uint8_t *) inbuf, (uint_t)len,	XDR_DECODE);
+		xdrmem_create(xdrs, (uint8_t *) inbuf, (uint_t)len, XDR_DECODE);
 		if (xdr_replymsg(xdrs, &msg)) {
-		    if (msg.rm_reply.rp_stat == MSG_ACCEPTED &&
-			(msg.rm_xid & ~0xFF) == xid) {
-			struct addrs *curr_addr;
+			if (msg.rm_reply.rp_stat == MSG_ACCEPTED &&
+			    (msg.rm_xid & ~0xFF) == xid) {
+				struct addrs *curr_addr;
 
-			i = msg.rm_xid & 0xFF;
-			for (curr_addr = trans->tr_addrs; curr_addr;
-			    curr_addr = curr_addr->addr_next) {
-			    for (ts = curr_addr->addr_if_tstamps; ts;
-				ts = ts->ts_next)
-				if (ts->ts_inx == i && !ts->ts_rcvd) {
-					ts->ts_rcvd = 1;
-					calc_resp_time(&ts->ts_timeval);
-					clnt_stat = RPC_SUCCESS;
-					rcvd++;
-					break;
+				i = msg.rm_xid & 0xFF;
+				for (curr_addr = trans->tr_addrs; curr_addr;
+				    curr_addr = curr_addr->addr_next) {
+					for (ts = curr_addr->addr_if_tstamps; ts;
+					    ts = ts->ts_next) {
+						if (ts->ts_inx == i && !ts->ts_rcvd) {
+							ts->ts_rcvd = 1;
+							calc_resp_time(&ts->ts_timeval);
+							clnt_stat = RPC_SUCCESS;
+							rcvd++;
+							break;
+						}
+					}
 				}
-			}
-		    } /* otherwise, we just ignore the errors ... */
+			} /* otherwise, we just ignore the errors ... */
 		}
 		xdrs->x_op = XDR_FREE;
 		msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
 		(void) xdr_replymsg(xdrs, &msg);
 		XDR_DESTROY(xdrs);
-		if (rcvd == sent)
+		if (rcvd == sent) {
 			goto done_broad;
-		else
+		} else {
 			goto recv_again;
+		}
 	}
-	if (!rcvd)
+	if (!rcvd) {
 		clnt_stat = RPC_TIMEDOUT;
+	}
 
 done_broad:
 	if (rcvd) {
@@ -492,9 +505,10 @@ done_broad:
 		clnt_stat = RPC_SUCCESS;
 	}
 	free_transports(tr_head);
-	if (sys_auth)
+	if (sys_auth) {
 		AUTH_DESTROY(sys_auth);
-	return (clnt_stat);
+	}
+	return clnt_stat;
 }
 
 /*
@@ -503,8 +517,7 @@ done_broad:
  * fastest response isn't necessarily the one that arrived first.
  */
 static struct mapfs *
-sort_responses(trans)
-	struct transp *trans;
+sort_responses(struct transp *trans)
 {
 	struct transp *t;
 	struct addrs *a;
@@ -513,35 +526,36 @@ sort_responses(trans)
 	struct mapfs *p, *mfs_head = NULL, *mfs_tail = NULL;
 	struct sm *buffer;
 
-	buffer = (struct sm *)malloc(allocsize * sizeof (struct sm));
+	buffer = (struct sm *)malloc(allocsize * sizeof(struct sm));
 	if (!buffer) {
 		syslog(LOG_ERR, "sort_responses: malloc error.\n");
-		return (NULL);
+		return NULL;
 	}
 
 	for (t = trans; t; t = t->tr_next) {
 		for (a = t->tr_addrs; a; a = a->addr_next) {
 			for (ti = a->addr_if_tstamps;
-				ti; ti = ti->ts_next) {
-				if (!ti->ts_rcvd)
+			    ti; ti = ti->ts_next) {
+				if (!ti->ts_rcvd) {
 					continue;
+				}
 				ti->ts_timeval.tv_usec +=
-					(ti->ts_penalty * PENALTY_WEIGHT);
+				    (ti->ts_penalty * PENALTY_WEIGHT);
 				if (ti->ts_timeval.tv_usec >= 1000000) {
 					ti->ts_timeval.tv_sec +=
-					(ti->ts_timeval.tv_usec / 1000000);
+					    (ti->ts_timeval.tv_usec / 1000000);
 					ti->ts_timeval.tv_usec =
-					(ti->ts_timeval.tv_usec % 1000000);
+					    (ti->ts_timeval.tv_usec % 1000000);
 				}
 
 				if (size >= allocsize) {
 					allocsize += 10;
 					buffer = (struct sm *)realloc(buffer,
-					    allocsize * sizeof (struct sm));
+					    allocsize * sizeof(struct sm));
 					if (!buffer) {
 						syslog(LOG_ERR,
-					    "sort_responses: malloc error.\n");
-						return (NULL);
+						    "sort_responses: malloc error.\n");
+						return NULL;
 					}
 				}
 				buffer[size].timeval = ti->ts_timeval;
@@ -554,14 +568,15 @@ sort_responses(trans)
 #ifdef DEBUG
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: before host sort:\n");
-		for (i = 0; i < size; i++)
-            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
-			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		for (i = 0; i < size; i++) {
+			trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
+			    buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		}
 		trace_prt(0, "\n");
 	}
 #endif
 
-	qsort((void *)buffer, size, sizeof (struct sm), host_sm);
+	qsort((void *)buffer, size, sizeof(struct sm), host_sm);
 
 	/*
 	 * Cope with multiply listed hosts  by choosing first time
@@ -570,36 +585,40 @@ sort_responses(trans)
 #ifdef DEBUG
 		if (trace > 3) {
 			trace_prt(1, "  sort_responses: comparing %s and %s\n",
-				buffer[i-1].mfs->mfs_host,
-				buffer[i].mfs->mfs_host);
+			    buffer[i - 1].mfs->mfs_host,
+			    buffer[i].mfs->mfs_host);
 		}
 #endif
-		if (strcmp(buffer[i-1].mfs->mfs_host,
-		    buffer[i].mfs->mfs_host) == 0)
-			memcpy(&buffer[i].timeval, &buffer[i-1].timeval,
-				sizeof (struct timeval));
+		if (strcmp(buffer[i - 1].mfs->mfs_host,
+		    buffer[i].mfs->mfs_host) == 0) {
+			memcpy(&buffer[i].timeval, &buffer[i - 1].timeval,
+			    sizeof(struct timeval));
+		}
 	}
-	if (trace > 3)
+	if (trace > 3) {
 		trace_prt(0, "\n");
+	}
 
 #ifdef DEBUG
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: before time sort:\n");
-		for (i = 0; i < size; i++)
-            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
-			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		for (i = 0; i < size; i++) {
+			trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
+			    buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		}
 		trace_prt(0, "\n");
 	}
 #endif
 
-	qsort((void *)buffer, size, sizeof (struct sm), time_sm);
+	qsort((void *)buffer, size, sizeof(struct sm), time_sm);
 
 #ifdef DEBUG
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: after sort:\n");
-		for (i = 0; i < size; i++)
-            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
-			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		for (i = 0; i < size; i++) {
+			trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
+			    buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
+		}
 		trace_prt(0, "\n");
 	}
 #endif
@@ -608,38 +627,42 @@ sort_responses(trans)
 #ifdef DEBUG
 		if (trace > 3) {
 			trace_prt(1, "  sort_responses: adding %s\n",
-				buffer[i].mfs->mfs_host);
+			    buffer[i].mfs->mfs_host);
 		}
 #endif
 		p = add_mfs(buffer[i].mfs, 0, &mfs_head, &mfs_tail);
-		if (!p)
-			return (NULL);
+		if (!p) {
+			return NULL;
+		}
 	}
 	free(buffer);
 
-	return (mfs_head);
+	return mfs_head;
 }
 
 
 /*
  * Comparison routines called by qsort(3).
  */
-static int host_sm(const void *a, const void *b)
+static int
+host_sm(const void *a, const void *b)
 {
-	return (strcmp(((struct sm *)a)->mfs->mfs_host,
-			((struct sm *)b)->mfs->mfs_host));
+	return strcmp(((struct sm *)a)->mfs->mfs_host,
+	           ((struct sm *)b)->mfs->mfs_host);
 }
 
-static int time_sm(const void *a, const void *b)
+static int
+time_sm(const void *a, const void *b)
 {
 	if (timercmp(&(((struct sm *)a)->timeval),
-	    &(((struct sm *)b)->timeval), < /* cstyle */))
-		return (-1);
-	else if (timercmp(&(((struct sm *)a)->timeval),
-	    &(((struct sm *)b)->timeval), > /* cstyle */))
-		return (1);
-	else
-		return (0);
+	    &(((struct sm *)b)->timeval), < /* cstyle */)) {
+		return -1;
+	} else if (timercmp(&(((struct sm *)a)->timeval),
+	    &(((struct sm *)b)->timeval), > /* cstyle */)) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 /*
@@ -649,13 +672,12 @@ static int time_sm(const void *a, const void *b)
  * to an elapsed time.
  */
 static void
-calc_resp_time(send_time)
-struct timeval *send_time;
+calc_resp_time(struct timeval *send_time)
 {
 	struct timeval time_now;
 
 	(void) gettimeofday(&time_now, (struct timezone *)0);
-	if (time_now.tv_usec <  send_time->tv_usec) {
+	if (time_now.tv_usec < send_time->tv_usec) {
 		time_now.tv_sec--;
 		time_now.tv_usec += 1000000;
 	}
@@ -664,16 +686,16 @@ struct timeval *send_time;
 }
 
 static void
-free_transports(trans)
-	struct transp *trans;
+free_transports(struct transp *trans)
 {
 	struct transp *t, *tmpt = NULL;
 	struct addrs *a, *tmpa = NULL;
 	struct tstamps *ts, *tmpts = NULL;
 
 	for (t = trans; t; t = tmpt) {
-		if (t->tr_fd > 0)
+		if (t->tr_fd > 0) {
 			(void) close(t->tr_fd);
+		}
 		for (a = t->tr_addrs; a; a = tmpa) {
 			for (ts = a->addr_if_tstamps; ts; ts = tmpts) {
 				tmpts = ts->ts_next;

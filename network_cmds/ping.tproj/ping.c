@@ -236,7 +236,6 @@ volatile sig_atomic_t finish_up;  /* nonzero if we've been told to finish up */
 volatile sig_atomic_t siginfo_p;
 
 static void fill(char *, char *);
-static u_short in_cksum(u_short *, int);
 static void check_status(void);
 static void finish(void) __dead2;
 static void pinger(void);
@@ -422,7 +421,7 @@ main(int argc, char *const *argv)
 				    optarg);
 			options |= F_INTERVAL;
 			interval = (int)t;
-			if (uid && interval < 100) {
+			if (uid && interval < 2) {
 				errno = EPERM;
 				err(EX_NOPERM, "-i interval too short");
 			}
@@ -1519,49 +1518,6 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 		(void)putchar('\n');
 		(void)fflush(stdout);
 	}
-}
-
-/*
- * in_cksum --
- *	Checksum routine for Internet Protocol family headers (C Version)
- */
-u_short
-in_cksum(u_short *addr, int len)
-{
-	int nleft, sum;
-	u_short *w;
-	union {
-		u_short	us;
-		u_char	uc[2];
-	} last;
-	u_short answer;
-
-	nleft = len;
-	sum = 0;
-	w = addr;
-
-	/*
-	 * Our algorithm is simple, using a 32 bit accumulator (sum), we add
-	 * sequential 16 bit words to it, and at the end, fold back all the
-	 * carry bits from the top 16 bits into the lower 16 bits.
-	 */
-	while (nleft > 1)  {
-		sum += *w++;
-		nleft -= 2;
-	}
-
-	/* mop up an odd byte, if necessary */
-	if (nleft == 1) {
-		last.uc[0] = *(u_char *)w;
-		last.uc[1] = 0;
-		sum += last.us;
-	}
-
-	/* add back carry outs from top 16 bits to low 16 bits */
-	sum = (sum >> 16) + (sum & 0xffff);	/* add hi 16 to low 16 */
-	sum += (sum >> 16);			/* add carry */
-	answer = ~sum;				/* truncate to 16 bits */
-	return(answer);
 }
 
 /*

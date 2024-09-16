@@ -25,6 +25,7 @@
 #include "MediaPlayer.h"
 #include "TextureMapperPlatformLayerBuffer.h"
 #include "TextureMapperPlatformLayerProxyGL.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -35,9 +36,9 @@ MediaPlayerPrivateHolePunch::MediaPlayerPrivateHolePunch(MediaPlayer* player)
     , m_readyTimer(RunLoop::main(), this, &MediaPlayerPrivateHolePunch::notifyReadyState)
     , m_networkState(MediaPlayer::NetworkState::Empty)
 #if USE(NICOSIA)
-    , m_nicosiaLayer(Nicosia::ContentLayer::create(Nicosia::ContentLayerTextureMapperImpl::createFactory(*this)))
+    , m_nicosiaLayer(Nicosia::ContentLayer::create(*this, adoptRef(*new WebCore::TextureMapperPlatformLayerProxyGL(WebCore::TextureMapperPlatformLayerProxy::ContentType::HolePunch))))
 #else
-    , m_platformLayerProxy(adoptRef(new TextureMapperPlatformLayerProxyGL))
+    , m_platformLayerProxy(adoptRef(new TextureMapperPlatformLayerProxyGL(TextureMapperPlatformLayerProxy::ContentType::HolePunch)))
 #endif
 {
     pushNextHolePunchBuffer();
@@ -50,7 +51,7 @@ MediaPlayerPrivateHolePunch::MediaPlayerPrivateHolePunch(MediaPlayer* player)
 MediaPlayerPrivateHolePunch::~MediaPlayerPrivateHolePunch()
 {
 #if USE(NICOSIA)
-    downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).invalidateClient();
+    m_nicosiaLayer->invalidateClient();
 #endif
 }
 
@@ -82,7 +83,7 @@ void MediaPlayerPrivateHolePunch::pushNextHolePunchBuffer()
         };
 
 #if USE(NICOSIA)
-    auto& proxy = downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy();
+    auto& proxy = m_nicosiaLayer->proxy();
     ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
     proxyOperation(downcast<TextureMapperPlatformLayerProxyGL>(proxy));
 #else
@@ -92,7 +93,9 @@ void MediaPlayerPrivateHolePunch::pushNextHolePunchBuffer()
 
 void MediaPlayerPrivateHolePunch::swapBuffersIfNeeded()
 {
+#if !USE(NICOSIA)
     pushNextHolePunchBuffer();
+#endif
 }
 
 #if !USE(NICOSIA)

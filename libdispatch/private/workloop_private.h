@@ -135,6 +135,41 @@ dispatch_workloop_set_cpupercent(dispatch_workloop_t workloop, uint8_t percent,
 		uint32_t refillms);
 
 /*!
+ * @function dispatch_workloop_set_uses_bound_thread
+ *
+ * @abstract
+ * A dispatch workloop created with this property will have a dedicated
+ * thread bound to it. Dispatch will internally create the bound thread upon
+ * dispatch workloop's activation and manage its lifecycle. Any work that
+ * needs to run on the workloop will only be processed by the bound thread.
+ *
+ * The name of the bound thread will be same as the string label associated
+ * with the dispatch workloop. See dispatch_workloop_create_inactive for more details.
+ *
+ * Dispatch workloop configured with a bound thread does not support suspension.
+ *
+ * Functions from the dispatch_sync() family on such specially configured
+ * dispatch workloop with a bound thread or queues targeting them is not supported.
+ *
+ * @param workloop
+ * The dispatch workloop to modify.
+ *
+ * This workloop must be inactive, passing an activated object is undefined
+ * and will cause the process to be terminated.
+ *
+ * @return
+ * Returns 0 if underlying platform supports configuring a dispatch workloop
+ * with a bound thread. Such a thread will be created and bound to the workloop
+ * upon its activation.
+ * Returns -1 otherwise. The dispatch workloop can be still be used like a
+ * regular dispatch workloop.
+ */
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0))
+DISPATCH_EXPORT DISPATCH_NONNULL_ALL DISPATCH_NOTHROW
+int
+dispatch_workloop_set_uses_bound_thread(dispatch_workloop_t workloop);
+
+/*!
  * @function dispatch_workloop_is_current()
  *
  * @abstract

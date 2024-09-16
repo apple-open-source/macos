@@ -1,0 +1,9 @@
+@@ -490,8 +490,6 @@
+ 	slave_name[0] = 0;
+ 	exp_pty_slave_name = slave_name;
+ 	if (openpty(&master, &slave, slave_name, NULL, NULL) != 0) {
+-		close(master);
+-		close(slave);
+ 		return -1;
+ 	}
+ 	if (slave_name[0] == 0) {

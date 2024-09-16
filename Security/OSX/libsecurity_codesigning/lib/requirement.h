@@ -89,7 +89,7 @@ public:
 #if TARGET_OS_OSX
 	IFDUMP(void dump() const);
 #endif
-
+	CFDataRef createlwcrFormData() const;
 private:
 	Endian<uint32_t> mKind;			// expression kind
 };

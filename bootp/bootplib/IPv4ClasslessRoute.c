@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -224,14 +224,17 @@ STATIC void
 IPv4ClasslessRouteListPrint(IPv4ClasslessRouteRef list, int list_count)
 {
     int		i;
+    char	ntopbuf[INET_ADDRSTRLEN];
 
     printf("%d routes\n", list_count);
     for (i = 0; i < list_count; i++) {
 	char	buf[32];
        
 	snprintf(buf, sizeof(buf), "%s/%d",
-	       inet_ntoa(list[i].dest), list[i].prefix_length);
-	printf("%d. %-20s%-20s\n", i + 1, buf, inet_ntoa(list[i].gate));
+		 inet_ntop(AF_INET, &list[i].dest, ntopbuf, sizeof(ntopbuf)),
+		 list[i].prefix_length);
+	printf("%d. %-20s%-20s\n", i + 1, buf,
+	       inet_ntop(AF_INET, &list[i].gate, ntopbuf, sizeof(ntopbuf)));
     }
     return;
 }

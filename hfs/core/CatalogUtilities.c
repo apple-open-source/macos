@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002, 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -227,7 +227,7 @@ FlushCatalog(ExtendedVCB *volume)
 	FCB *	fcb;
 	OSErr	result;
 	struct hfsmount *hfsmp = VCBTOHFS (volume);
-	
+	bool hfs_extime = (hfsmp->hfs_flags & HFS_EXPANDED_TIMES);
 	fcb = GetFileControlBlock(volume->catalogRefNum);
 	result = BTFlushPath(fcb);
 
@@ -239,7 +239,7 @@ FlushCatalog(ExtendedVCB *volume)
 		{
 			hfs_lock_mount (hfsmp);
 			MarkVCBDirty(volume);	// Mark the VCB dirty
-			volume->vcbLsMod = GetTimeUTC();	// update last modified date
+			volume->vcbLsMod = GetTimeUTC(hfs_extime);	// update last modified date
 			hfs_unlock_mount (hfsmp);
 
 		//	result = FlushVolumeControlBlock(volume);

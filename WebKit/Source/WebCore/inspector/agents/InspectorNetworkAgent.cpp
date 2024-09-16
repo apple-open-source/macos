@@ -51,8 +51,8 @@
 #include "InspectorDOMAgent.h"
 #include "InspectorTimelineAgent.h"
 #include "InstrumentingAgents.h"
+#include "JSDOMWindowCustom.h"
 #include "JSExecState.h"
-#include "JSLocalDOMWindowCustom.h"
 #include "JSWebSocket.h"
 #include "LoaderStrategy.h"
 #include "LocalFrame.h"
@@ -90,6 +90,7 @@
 #include <wtf/URL.h>
 #include <wtf/persistence/PersistentEncoder.h>
 #include <wtf/text/Base64.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
@@ -103,6 +104,8 @@ namespace {
 
 class InspectorThreadableLoaderClient final : public ThreadableLoaderClient {
     WTF_MAKE_NONCOPYABLE(InspectorThreadableLoaderClient);
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(InspectorThreadableLoaderClient);
 public:
     InspectorThreadableLoaderClient(RefPtr<LoadResourceCallback>&& callback)
         : m_callback(WTFMove(callback))
@@ -111,13 +114,13 @@ public:
 
     ~InspectorThreadableLoaderClient() override = default;
 
-    void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse& response) override
+    void didReceiveResponse(ScriptExecutionContextIdentifier, ResourceLoaderIdentifier, const ResourceResponse& response) override
     {
         m_mimeType = response.mimeType();
         m_statusCode = response.httpStatusCode();
 
         // FIXME: This assumes text only responses. We should support non-text responses as well.
-        PAL::TextEncoding textEncoding(response.textEncodingName().string());
+        PAL::TextEncoding textEncoding(response.textEncodingName());
         bool useDetector = false;
         if (!textEncoding.isValid()) {
             textEncoding = PAL::UTF8Encoding();
@@ -132,10 +135,10 @@ public:
         if (buffer.isEmpty())
             return;
 
-        m_responseText.append(m_decoder->decode(buffer.data(), buffer.size()));
+        m_responseText.append(m_decoder->decode(buffer.span()));
     }
 
-    void didFinishLoading(ResourceLoaderIdentifier, const NetworkLoadMetrics&) override
+    void didFinishLoading(ScriptExecutionContextIdentifier, ResourceLoaderIdentifier, const NetworkLoadMetrics&) override
     {
         if (m_decoder)
             m_responseText.append(m_decoder->flush());
@@ -144,7 +147,7 @@ public:
         dispose();
     }
 
-    void didFail(const ResourceError& error) override
+    void didFail(ScriptExecutionContextIdentifier, const ResourceError& error) override
     {
         m_callback->sendFailure(error.isAccessControl() ? "Loading resource for inspector failed access control check"_s : "Loading resource for inspector failed"_s);
         dispose();
@@ -175,8 +178,8 @@ Ref<Inspector::Protocol::Network::WebSocketFrame> buildWebSocketMessage(const We
     return Inspector::Protocol::Network::WebSocketFrame::create()
         .setOpcode(frame.opCode)
         .setMask(frame.masked)
-        .setPayloadData(frame.opCode == 1 ? String::fromUTF8WithLatin1Fallback(frame.payload, frame.payloadLength) : base64EncodeToString(frame.payload, frame.payloadLength))
-        .setPayloadLength(frame.payloadLength)
+        .setPayloadData(frame.opCode == 1 ? String::fromUTF8WithLatin1Fallback(frame.payload) : base64EncodeToString(frame.payload))
+        .setPayloadLength(frame.payload.size())
         .release();
 }
 
@@ -338,7 +341,7 @@ static Ref<Inspector::Protocol::Network::Request> buildObjectForResourceRequest(
 
     if (request.httpBody() && !request.httpBody()->isEmpty()) {
         auto bytes = request.httpBody()->flatten();
-        requestObject->setPostData(String::fromUTF8WithLatin1Fallback(bytes.data(), bytes.size()));
+        requestObject->setPostData(String::fromUTF8WithLatin1Fallback(bytes.span()));
     }
 
     if (resourceLoader) {
@@ -563,15 +566,15 @@ void InspectorNetworkAgent::didReceiveResponse(ResourceLoaderIdentifier identifi
     bool isNotModified = response.httpStatusCode() == 304;
 
     CachedResource* cachedResource = nullptr;
-    if (is<SubresourceLoader>(resourceLoader) && !isNotModified)
-        cachedResource = downcast<SubresourceLoader>(resourceLoader)->cachedResource();
+    if (auto* subresourceLoader = dynamicDowncast<SubresourceLoader>(resourceLoader); subresourceLoader && !isNotModified)
+        cachedResource = subresourceLoader->cachedResource();
     if (!cachedResource && loader)
         cachedResource = InspectorPageAgent::cachedResource(loader->frame(), response.url());
 
     if (cachedResource) {
         // Use mime type from cached resource in case the one in response is empty.
         if (resourceResponse && response.mimeType().isEmpty())
-            resourceResponse->setString(Inspector::Protocol::Network::Response::mimeTypeKey, cachedResource->response().mimeType());
+            resourceResponse->setString("mimeType"_s, cachedResource->response().mimeType());
         m_resourcesData->addCachedResource(requestId, cachedResource);
     }
 
@@ -594,12 +597,12 @@ void InspectorNetworkAgent::didReceiveResponse(ResourceLoaderIdentifier identifi
                 });
             }
             
-            resourceResponse->setString(Inspector::Protocol::Network::Response::mimeTypeKey, previousResourceData->mimeType());
+            resourceResponse->setString("mimeType"_s, previousResourceData->mimeType());
             
-            resourceResponse->setInteger(Inspector::Protocol::Network::Response::statusKey, previousResourceData->httpStatusCode());
-            resourceResponse->setString(Inspector::Protocol::Network::Response::statusTextKey, previousResourceData->httpStatusText());
+            resourceResponse->setInteger("status"_s, previousResourceData->httpStatusCode());
+            resourceResponse->setString("statusText"_s, previousResourceData->httpStatusText());
             
-            resourceResponse->setString(Inspector::Protocol::Network::Response::sourceKey, Inspector::Protocol::Helpers::getEnumConstantValue(Inspector::Protocol::Network::Response::Source::DiskCache));
+            resourceResponse->setString("source"_s, Inspector::Protocol::Helpers::getEnumConstantValue(Inspector::Protocol::Network::Response::Source::DiskCache));
         }
     }
 
@@ -630,7 +633,7 @@ void InspectorNetworkAgent::didReceiveData(ResourceLoaderIdentifier identifier, 
         // Often the data is text and we would have a decoder, but for non-text we won't have a decoder.
         // Sync XHRs may not have a cached resource, while non-sync XHRs usually transfer data over on completion.
         if (m_loadingXHRSynchronously && resourceData && !resourceData->hasBufferedData() && !resourceData->cachedResource())
-            m_resourcesData->setResourceContent(requestId, base64EncodeToString(data->data(), data->size()), true);
+            m_resourcesData->setResourceContent(requestId, base64EncodeToString(data->span()), true);
     }
 
     m_frontendDispatcher->dataReceived(requestId, timestamp(), expectedDataLength, encodedDataLength);
@@ -871,10 +874,10 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::enable()
         Locker locker { WebSocket::allActiveWebSocketsLock() };
 
         for (auto* webSocket : activeWebSockets()) {
-            if (!is<Document>(webSocket->scriptExecutionContext()))
+            RefPtr document = dynamicDowncast<Document>(webSocket->scriptExecutionContext());
+            if (!document)
                 continue;
 
-            auto& document = downcast<Document>(*webSocket->scriptExecutionContext());
             auto channel = webSocket->channel();
 
             auto identifier = channel->progressIdentifier();
@@ -1050,7 +1053,7 @@ Inspector::Protocol::ErrorStringOr<String> InspectorNetworkAgent::getSerializedC
 
     WTF::Persistence::Encoder encoder;
     WTF::Persistence::Coder<WebCore::CertificateInfo>::encodeForPersistence(encoder, certificate.value());
-    return base64EncodeToString(encoder.buffer(), encoder.bufferSize());
+    return base64EncodeToString(encoder.span());
 }
 
 WebSocket* InspectorNetworkAgent::webSocketForRequestId(const Inspector::Protocol::Network::RequestId& requestId)
@@ -1078,10 +1081,10 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::Runtime::RemoteObjec
         return makeUnexpected("Missing web socket for given requestId"_s);
 
     // FIXME: <https://webkit.org/b/168475> Web Inspector: Correctly display iframe's and worker's WebSockets
-    if (!is<Document>(webSocket->scriptExecutionContext()))
+    RefPtr document = dynamicDowncast<Document>(webSocket->scriptExecutionContext());
+    if (!document)
         return makeUnexpected("Not supported"_s);
 
-    auto* document = downcast<Document>(webSocket->scriptExecutionContext());
     auto* frame = document->frame();
     if (!frame)
         return makeUnexpected("Missing frame of web socket for given requestId"_s);
@@ -1275,9 +1278,9 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptWithRes
     if (status)
         overrideResponse.setHTTPStatusCode(*status);
     if (!!statusText)
-        overrideResponse.setHTTPStatusText(AtomString { statusText });
+        overrideResponse.setHTTPStatusText(String { statusText });
     if (!!mimeType)
-        overrideResponse.setMimeType(AtomString { mimeType });
+        overrideResponse.setMimeType(String { mimeType });
     if (headers) {
         HTTPHeaderMap explicitHeaders;
         for (auto& header : *headers) {
@@ -1296,10 +1299,8 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptWithRes
             return makeUnexpected("Unable to decode given content"_s);
 
         overrideData = SharedBuffer::create(WTFMove(*buffer));
-    } else {
-        auto utf8Content = content.utf8();
-        overrideData = SharedBuffer::create(utf8Content.data(), utf8Content.length());
-    }
+    } else
+        overrideData = SharedBuffer::create(content.utf8().span());
 
     pendingInterceptResponse->respond(overrideResponse, overrideData);
 
@@ -1324,16 +1325,14 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptRequest
             return makeUnexpected("Unable to decode given content"_s);
 
         data = SharedBuffer::create(WTFMove(*buffer));
-    } else {
-        auto utf8Content = content.utf8();
-        data = SharedBuffer::create(utf8Content.data(), utf8Content.length());
-    }
+    } else
+        data = SharedBuffer::create(content.utf8().span());
 
     // Mimic data URL load behavior - report didReceiveResponse & didFinishLoading.
     ResourceResponse response(pendingRequest->m_loader->url(), mimeType, data->size(), String());
     response.setSource(ResourceResponse::Source::InspectorOverride);
     response.setHTTPStatusCode(status);
-    response.setHTTPStatusText(AtomString { statusText });
+    response.setHTTPStatusText(String { statusText });
     HTTPHeaderMap explicitHeaders;
     for (auto& header : headers.get()) {
         auto headerValue = header.value->asString();
@@ -1384,7 +1383,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptRequest
     if (loader.reachedTerminalState())
         return makeUnexpected("Unable to abort request, it has already been processed"_s);
 
-    addConsoleMessage(makeUnique<Inspector::ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Info, makeString("Web Inspector blocked ", loader.url().string(), " from loading"), loader.identifier().toUInt64()));
+    addConsoleMessage(makeUnique<Inspector::ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Info, makeString("Web Inspector blocked "_s, loader.url().string(), " from loading"_s), loader.identifier().toUInt64()));
 
     loader.didFail(ResourceError(InspectorNetworkAgent::errorDomain(), 0, loader.url(), "Blocked by Web Inspector"_s, toResourceErrorType(errorType)));
     return { };
@@ -1475,12 +1474,12 @@ bool InspectorNetworkAgent::cachedResourceContent(CachedResource& resource, Stri
         if (InspectorNetworkAgent::shouldTreatAsText(resource.mimeType())) {
             auto decoder = InspectorNetworkAgent::createTextDecoder(resource.mimeType(), resource.response().textEncodingName());
             *base64Encoded = false;
-            *result = decoder->decodeAndFlush(buffer->makeContiguous()->data(), buffer->size());
+            *result = decoder->decodeAndFlush(buffer->makeContiguous()->span());
             return true;
         }
 
         *base64Encoded = true;
-        *result = base64EncodeToString(buffer->makeContiguous()->data(), buffer->size());
+        *result = base64EncodeToString(buffer->makeContiguous()->span());
         return true;
     }
 }

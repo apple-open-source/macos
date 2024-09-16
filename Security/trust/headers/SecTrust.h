@@ -647,7 +647,7 @@ CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 
 /*
- *  Legacy functions (OS X only)
+ *  Legacy functions (macOS only)
  */
 #if TARGET_OS_OSX
 
@@ -660,7 +660,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
     @discussion Deprecated in OS X 10.9. User trust settings are managed by
     functions in SecTrustSettings.h (starting with OS X 10.5), and by the
     SecTrustCopyExceptions and SecTrustSetExceptions functions (starting with
-    iOS 4 and OS X 10.9). The latter two functions are recommended for both OS X
+    iOS 4 and OS X 10.9). The latter two functions are recommended for both macOS
     and iOS, as they avoid the need to explicitly specify these values.
  */
 typedef SecTrustResultType SecTrustUserSetting

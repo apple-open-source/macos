@@ -56,7 +56,7 @@ do_lookup1(const autofs_pathname mapname, const char *key,
 	 * call parser w default mount_access = TRUE
 	 */
 	mapents = parse_entry(key, mapname, mapopts, subdir, isdirect,
-		node_type, isrestricted, TRUE, &err);
+	    node_type, isrestricted, TRUE, &err);
 	if (err) {
 		/*
 		 * The entry wasn't found in the map; err was set to
@@ -69,37 +69,38 @@ do_lookup1(const autofs_pathname mapname, const char *key,
 		 * to superusers.
 		 */
 		if (*key == '=' && sendereuid == 0) {
-			if (isdigit(*(key+1))) {
+			if (isdigit(*(key + 1))) {
 				/*
 				 * If next character is a digit
 				 * then set the trace level.
 				 */
-				trace = atoi(key+1);
+				trace = atoi(key + 1);
 				trace_prt(1, "Automountd: trace level = %d\n",
-					trace);
-			} else if (*(key+1) == 'v') {
+				    trace);
+			} else if (*(key + 1) == 'v') {
 				/*
 				 * If it's a "v" then
 				 * toggle verbose mode.
 				 */
 				verbose = !verbose;
 				trace_prt(1, "Automountd: verbose %s\n",
-						verbose ? "on" : "off");
+				    verbose ? "on" : "off");
 			}
 		}
-		return (err);
+		return err;
 	}
 
 	/*
 	 * The entry was found in the map; err was set to 0
-	 * by parse_entry().  
+	 * by parse_entry().
 	 */
-	if (mapents)
+	if (mapents) {
 		free_mapent(mapents);
+	}
 
 	if (trace > 1) {
 		trace_prt(1, "  do_lookup1: node_type=0x%08x error=%d\n",
-			*node_type, err);
+		    *node_type, err);
 	}
-	return (err);
+	return err;
 }

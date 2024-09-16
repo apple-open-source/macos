@@ -31,8 +31,9 @@ public:
     using Base = JSDOMWrapper<TestMapLike>;
     static JSTestMapLike* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestMapLike>&& impl)
     {
-        JSTestMapLike* ptr = new (NotNull, JSC::allocateCell<JSTestMapLike>(globalObject->vm())) JSTestMapLike(structure, *globalObject, WTFMove(impl));
-        ptr->finishCreation(globalObject->vm());
+        auto& vm = globalObject->vm();
+        JSTestMapLike* ptr = new (NotNull, JSC::allocateCell<JSTestMapLike>(vm)) JSTestMapLike(structure, *globalObject, WTFMove(impl));
+        ptr->finishCreation(vm);
         return ptr;
     }
 
@@ -65,7 +66,7 @@ protected:
 
 class JSTestMapLikeOwner final : public JSC::WeakHandleOwner {
 public:
-    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::AbstractSlotVisitor&, const char**) final;
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::AbstractSlotVisitor&, ASCIILiteral*) final;
     void finalize(JSC::Handle<JSC::Unknown>, void* context) final;
 };
 

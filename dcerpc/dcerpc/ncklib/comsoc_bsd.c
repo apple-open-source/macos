@@ -826,6 +826,7 @@ INTERNAL rpc_socket_error_t rpc__bsd_socket_accept
     rpc_socket_error_t serr = RPC_C_SOCKET_OK;
     rpc_bsd_socket_p_t lrpc = (rpc_bsd_socket_p_t) sock->data.pointer;
     rpc_bsd_socket_p_t newlrpc = NULL;
+    boolean            isUnixDomainSocket = false;
     uid_t euid = -1;
     gid_t egid = -1;
 
@@ -854,23 +855,34 @@ accept_again:
     RPC_LOG_SOCKET_ACCEPT_NTR;
     if (addr == NULL)
     {
+        struct sockaddr_storage tmpSockAddr = {0};
         socklen_t addrlen;
 
-        addrlen = 0;
+        addrlen = sizeof(tmpSockAddr);;
         newlrpc->fd = accept
-            ((int) lrpc->fd, (struct sockaddr *) NULL, &addrlen);
+            ((int) lrpc->fd, (struct sockaddr *) &tmpSockAddr, &addrlen);
+        
+        if (newlrpc->fd != -1) {
+            isUnixDomainSocket = (tmpSockAddr.ss_family == AF_UNIX) ? true : false;
+        }
     }
     else
     {
         newlrpc->fd = accept
             ((int) lrpc->fd, (struct sockaddr *) (&addr->sa), (&addr->len));
+        
+        if (newlrpc->fd != -1) {
+            isUnixDomainSocket = (addr->sa.family == AF_UNIX) ? true : false;
+        }
     }
     serr = (newlrpc->fd == -1) ? errno : RPC_C_SOCKET_OK;
     RPC_LOG_SOCKET_ACCEPT_XIT;
 
     if (!serr)
     {
-        serr = rpc__bsd_socket_getpeereid((*newsock), &euid, &egid);
+        if (isUnixDomainSocket == true) {
+            serr = rpc__bsd_socket_getpeereid((*newsock), &euid, &egid);
+        }
     }
     else
     {
@@ -882,8 +894,10 @@ accept_again:
         goto accept_again;
     }
 
-    newlrpc->info.peer_uid = euid;
-    newlrpc->info.peer_gid = egid;
+    if (!(serr) && (isUnixDomainSocket == true)) {
+        newlrpc->info.peer_uid = euid;
+        newlrpc->info.peer_gid = egid;
+    }
 
 cleanup:
     if (serr && newlrpc)

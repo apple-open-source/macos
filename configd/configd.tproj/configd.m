@@ -548,7 +548,7 @@ main(int argc, char * const argv[])
 		server_init();
 
 #if 	!TARGET_OS_SIMULATOR
-		/* register for watchdog monitoring */
+		/* register for watchdog monitoring on SCDynamicStore queue */
 		if (wd_endpoint_register != NULL) { /* "weak_import" */
 			wd_endpoint_register(CONFIGD_WATCHDOG);
 			wd_endpoint_add_queue(server_queue());

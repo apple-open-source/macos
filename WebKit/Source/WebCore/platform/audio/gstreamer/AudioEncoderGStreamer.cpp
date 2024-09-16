@@ -22,7 +22,6 @@
 
 #if ENABLE(WEB_CODECS) && USE(GSTREAMER)
 
-#include "GStreamerCodecUtilities.h"
 #include "GStreamerCommon.h"
 #include "GStreamerElementHarness.h"
 #include "GStreamerRegistryScanner.h"
@@ -30,6 +29,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WorkQueue.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -38,7 +38,7 @@ GST_DEBUG_CATEGORY(webkit_audio_encoder_debug);
 
 static WorkQueue& gstEncoderWorkQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("GStreamer AudioEncoder Queue"));
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("GStreamer AudioEncoder Queue"_s));
     return queue.get();
 }
 
@@ -112,7 +112,7 @@ void GStreamerAudioEncoder::create(const String& codecName, const AudioEncoder::
     if (!error.isEmpty()) {
         encoder->m_internalEncoder->postTask([callback = WTFMove(callback), error = WTFMove(error)]() mutable {
             GST_WARNING("Error creating encoder: %s", error.ascii().data());
-            callback(makeUnexpected(makeString("GStreamer encoding initialization failed with error: ", error)));
+            callback(makeUnexpected(makeString("GStreamer encoding initialization failed with error: "_s, error)));
         });
         return;
     }
@@ -145,7 +145,7 @@ void GStreamerAudioEncoder::encode(RawFrame&& frame, EncodeCallback&& callback)
 
         String resultString;
         if (result)
-            encoder->harness()->processOutputBuffers();
+            encoder->harness()->processOutputSamples();
         else
             resultString = "Encoding failed"_s;
 
@@ -185,7 +185,7 @@ GStreamerInternalAudioEncoder::GStreamerInternalAudioEncoder(AudioEncoder::Descr
     , m_encoder(WTFMove(encoderElement))
 {
     static Atomic<uint64_t> counter = 0;
-    auto binName = makeString("audio-encoder-"_s, GST_OBJECT_NAME(m_encoder.get()), '-', counter.exchangeAdd(1));
+    auto binName = makeString("audio-encoder-"_s, span(GST_OBJECT_NAME(m_encoder.get())), '-', counter.exchangeAdd(1));
 
     GRefPtr<GstElement> harnessedElement = gst_bin_new(binName.ascii().data());
     auto audioconvert = gst_element_factory_make("audioconvert", nullptr);
@@ -231,43 +231,38 @@ GStreamerInternalAudioEncoder::GStreamerInternalAudioEncoder(AudioEncoder::Descr
             AudioEncoder::ActiveConfiguration configuration;
             if (header) {
                 GstMappedBuffer buffer(header, GST_MAP_READ);
-                configuration.description = { { buffer.data(), buffer.size() } };
+                configuration.description = Vector<uint8_t> { std::span { buffer.data(), buffer.size() } };
             }
-            int numberOfChannels;
-            if (gst_structure_get_int(structure, "channels", &numberOfChannels))
-                configuration.numberOfChannels = numberOfChannels;
-
-            int sampleRate;
-            if (gst_structure_get_int(structure, "rate", &sampleRate))
-                configuration.sampleRate = sampleRate;
-
+            configuration.numberOfChannels = gstStructureGet<int>(structure, "channels"_s);
+            configuration.sampleRate = gstStructureGet<int>(structure, "rate"_s);
             encoder->m_descriptionCallback(WTFMove(configuration));
         });
     }), new ThreadSafeWeakPtr { *this }, [](void* data, GClosure*) {
         delete static_cast<ThreadSafeWeakPtr<GStreamerInternalAudioEncoder>*>(data);
     }, static_cast<GConnectFlags>(0));
 
-    m_harness = GStreamerElementHarness::create(WTFMove(harnessedElement), [weakThis = ThreadSafeWeakPtr { *this }, this](auto& stream, const GRefPtr<GstBuffer>& outputBuffer) {
+    m_harness = GStreamerElementHarness::create(WTFMove(harnessedElement), [weakThis = ThreadSafeWeakPtr { *this }, this](auto&, GRefPtr<GstSample>&& outputSample) {
         if (!weakThis.get())
             return;
         if (m_isClosed)
             return;
 
-        const auto& caps = stream.outputCaps();
-        auto structure = gst_caps_get_structure(caps.get(), 0);
-        if (gst_structure_has_name(structure, "audio/x-opus") && gst_buffer_get_size(outputBuffer.get()) < 2) {
+        auto caps = gst_sample_get_caps(outputSample.get());
+        auto outputBuffer = gst_sample_get_buffer(outputSample.get());
+        auto structure = gst_caps_get_structure(caps, 0);
+        if (gst_structure_has_name(structure, "audio/x-opus") && gst_buffer_get_size(outputBuffer) < 2) {
             GST_INFO_OBJECT(m_encoder.get(), "DTX opus packet detected, ignoring it");
             return;
         }
 
         static std::once_flag onceFlag;
         std::call_once(onceFlag, [this] {
-            m_harness->dumpGraph("audio-encoder");
+            m_harness->dumpGraph("audio-encoder"_s);
         });
 
-        bool isKeyFrame = !GST_BUFFER_FLAG_IS_SET(outputBuffer.get(), GST_BUFFER_FLAG_DELTA_UNIT);
+        bool isKeyFrame = !GST_BUFFER_FLAG_IS_SET(outputBuffer, GST_BUFFER_FLAG_DELTA_UNIT);
         GST_TRACE_OBJECT(m_harness->element(), "Notifying encoded%s frame", isKeyFrame ? " key" : "");
-        GstMappedBuffer mappedBuffer(outputBuffer.get(), GST_MAP_READ);
+        GstMappedBuffer mappedBuffer(outputBuffer, GST_MAP_READ);
         AudioEncoder::EncodedFrame encodedFrame { mappedBuffer.createVector(), isKeyFrame, m_timestamp, m_duration };
         m_postTaskCallback([protectedThis = Ref { *this }, this, encodedFrame = WTFMove(encodedFrame)]() mutable {
             if (protectedThis->m_isClosed)
@@ -318,11 +313,8 @@ String GStreamerInternalAudioEncoder::initialize(const String& codecName, const 
                 gst_util_set_object_arg(G_OBJECT(m_encoder.get()), "frame-size", frameSize.ascii().data());
             }
         }
-        m_outputCaps = adoptGRef(gst_caps_new_empty_simple("audio/x-opus"));
-        if (config.numberOfChannels) {
-            int channelMappingFamily = *config.numberOfChannels <= 2 ? 0 : 1;
-            gst_caps_set_simple(m_outputCaps.get(), "channel-mapping-family", G_TYPE_INT, channelMappingFamily, nullptr);
-        }
+        int channelMappingFamily = config.numberOfChannels <= 2 ? 0 : 1;
+        m_outputCaps = adoptGRef(gst_caps_new_simple("audio/x-opus", "channel-mapping-family", G_TYPE_INT, channelMappingFamily, nullptr));
     } else if (codecName == "alaw"_s)
         m_outputCaps = adoptGRef(gst_caps_new_empty_simple("audio/x-alaw"));
     else if (codecName == "ulaw"_s)
@@ -364,13 +356,9 @@ String GStreamerInternalAudioEncoder::initialize(const String& codecName, const 
     // imported/w3c/web-platform-tests/webcodecs/audio-encoder.https.any.html make use of values
     // that would not be accepted by the Opus encoder. So we instead let caps negotiation figure out
     // the most suitable value.
-    m_inputCaps = adoptGRef(gst_caps_new_empty_simple("audio/x-raw"));
-
-    if (config.numberOfChannels)
-        gst_caps_set_simple(m_inputCaps.get(), "channels", G_TYPE_INT, *config.numberOfChannels, nullptr);
+    m_inputCaps = adoptGRef(gst_caps_new_simple("audio/x-raw", "channels", G_TYPE_INT, config.numberOfChannels, nullptr));
 
     g_object_set(m_inputCapsFilter.get(), "caps", m_inputCaps.get(), nullptr);
-
     g_object_set(m_outputCapsFilter.get(), "caps", m_outputCaps.get(), nullptr);
     return emptyString();
 }

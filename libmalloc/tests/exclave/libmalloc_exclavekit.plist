@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>Project</key>
+		<string>libmalloc_exclavekit</string>
+		<key>BATSConfigVersion</key>
+		<string>0.2.0</string>
+		<key>RadarComponents</key>
+		<dict>
+			<key>Name</key>
+			<string>libmalloc</string>
+			<key>Version</key>
+			<string>tests</string>
+		</dict>
+		<key>TestSpecificLogs</key>
+		<array>
+			<string>BATS_TMP_DIR/.*txt</string>
+			<string>BATS_TMP_DIR/.*log</string>
+			<string>BATS_TMP_DIR/.*ips</string>
+			<string>BATS_TMP_DIR/.*core</string>
+			<string>BATS_TMP_DIR/.*xcresult</string>
+		</array>
+		<key>Tests</key>
+		<array>
+			<dict>
+				<key>TestName</key>
+				<string>libmalloc.exclavekit_darwintests</string>
+				<key>Description</key>
+				<string>run libmalloc darwintests in EVE</string>
+				<key>TestOutputType</key>
+				<string>stderrOutput</string>
+				<key>Timeout</key>
+				<integer>1200</integer>
+				<key>RequiresSysctl</key>
+				<string>kern.hv.supported==1</string>
+				<key>Command</key>
+				<array>
+					<string>/usr/local/bin/ExclaveVisor</string>
+					<string>--blob</string>
+					<string>EkDMG:0x80000:/private/var/ExclaveTestingAssets/EERI.dmg</string>
+					<string>--test</string>
+					<string>/AppleInternal/Tests/libmalloc_exclavekit/EVE.libmalloc.exclavekit-darwintest.sbdl</string>
+					<string>--corefile-path</string>
+					<string>EVE_corefile.core</string>
+				</array>
+			</dict>
+		</array>
+	</dict>
+</plist>

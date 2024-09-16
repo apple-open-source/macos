@@ -43,12 +43,15 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fclose.c,v 1.12 2007/01/09 00:28:06 imp E
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 int
 fclose(FILE *fp)
 {
 	int r;
 	int error = 0;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	pthread_once(&__sdidinit, __sinit);
 

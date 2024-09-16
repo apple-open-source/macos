@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/puts.c,v 1.11 2007/01/09 00:28:07 imp Exp
 #include "fvwrite.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 // 3340719: __puts_null__ is used if string is NULL.  Shared by fputs.c
 __private_extern__ char const __puts_null__[] = "(null)";
@@ -57,6 +58,8 @@ puts(char const *s)
 	size_t c;
 	struct __suio uio;
 	struct __siov iov[2];
+
+	libc_hooks_will_read_cstring(s);
 
 	// 3340719: __puts_null__ is used if s is NULL
 	if(s == NULL)

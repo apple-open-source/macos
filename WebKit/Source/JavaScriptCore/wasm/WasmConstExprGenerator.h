@@ -32,8 +32,8 @@
 
 namespace JSC { namespace Wasm {
 
-Expected<void, String> parseExtendedConstExpr(const uint8_t*, size_t, size_t, size_t&, const ModuleInformation&, Type);
-Expected<EncodedJSValue, String> evaluateExtendedConstExpr(const Vector<uint8_t>&, RefPtr<Instance>, const ModuleInformation&, Type);
+Expected<void, String> parseExtendedConstExpr(std::span<const uint8_t>, size_t, size_t&, ModuleInformation&, Type);
+Expected<uint64_t, String> evaluateExtendedConstExpr(const Vector<uint8_t>&, RefPtr<Instance>, const ModuleInformation&, Type);
 
 } } // namespace JSC::Wasm
 

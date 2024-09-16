@@ -28,6 +28,7 @@
 
 #include <os/base_private.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 OS_ASSUME_PTR_ABI_SINGLE_BEGIN
 
@@ -71,6 +72,9 @@ _os_debug_log(const char *msg, ...);
 
 # pragma mark -
 # pragma mark Private To Libc
+
+// weak symbol that main binaries can override with os_debug_log_redirect()
+extern bool _os_debug_log_redirect_func(const char *);
 
 // str must be modifiable (non-const)!
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)

@@ -349,7 +349,10 @@ bool code_sign_allocate(const char* existingFilePath,
         return false;
     }
 
-// rdar://33355401
+// Static analyzer cannot figure out if memory gets allocated when __os_free aka __attribute__((cleanup) is used.
+// This is the smallest section that I was able to exclude the analyzer from.
+//
+// See rdar://33355401 for the static analyzer not being able to handle this.
 #ifndef __clang_analyzer__
     // check if fat file
     const mach_header* mh = (mach_header*)mappedInputFile;

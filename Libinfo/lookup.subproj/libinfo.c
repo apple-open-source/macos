@@ -44,7 +44,7 @@
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld_priv.h>
 #include <sys/stat.h>
-#include <os/feature_private.h>
+#include "darwin_directory_enabled.h"
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
@@ -100,20 +100,6 @@ si_search_file(void)
 	if (search == NULL) search = si_module_with_name("file");
 
 	return search;
-}
-
-OS_ALWAYS_INLINE
-static inline bool
-si_using_darwin_directory(void)
-{
-	static bool result = false;
-#ifdef DARWIN_DIRECTORY_AVAILABLE
-	static dispatch_once_t once;
-	dispatch_once(&once, ^{
-		result = os_feature_enabled_simple(DarwinDirectory, LibinfoLookups, false);
-	});
-#endif // DARWIN_DIRECTORY_AVAILABLE
-	return result;
 }
 
 LIBINFO_EXPORT
@@ -284,7 +270,7 @@ getpwuid(uid_t uid)
 
 	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
 	// the lookups when darwin directory isn't in use.
-	if (!si_using_darwin_directory()) {
+	if (_darwin_directory_enabled()) {
 		// Search the file module first for all system uids
 		// (ie, uid value < 500) since they should all be
 		// in the /etc/*passwd file.
@@ -325,7 +311,7 @@ getpwuid_async_call(uid_t uid, si_user_async_callback callback, void *context)
 
 	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
 	// the lookups when darwin directory isn't in use.
-	if (!si_using_darwin_directory()) {
+	if (!_darwin_directory_enabled()) {
 		// Search the file module first for all system uids
 		// (ie, uid value < 500) since they should all be
 		// in the /etc/*passwd file.
@@ -3353,7 +3339,7 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
     
 	// The darwin directory lookups are all in-memory, no IPC.  Only shortcut
 	// the lookups when darwin directory isn't in use.
-	if (!si_using_darwin_directory()) {
+	if (!_darwin_directory_enabled()) {
 		// Search the file module first for all system uids
 		// (ie, uid value < 500) since they should all be
 		// in the /etc/*passwd file.

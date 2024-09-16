@@ -110,7 +110,7 @@ mvm_aslr_init(void)
 #endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 }
 
-void *
+void * __sized_by_or_null(size)
 mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int vm_page_label, plat_map_t *map_out)
 {
 	if (addr && (flags & VM_FLAGS_ANYWHERE)) {
@@ -147,6 +147,8 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 				"Unsupported unpopulated allocation at address 0x%lx of size 0x%lx with flags %d\n",
 				(unsigned long) addr, (unsigned long) size, flags);
 	}
+
+
 	mach_vm_address_t vm_addr = addr;
 	mach_vm_offset_t allocation_mask = ((mach_vm_offset_t)1 << align) - 1;
 	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr,
@@ -154,23 +156,20 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 			flags | VM_MAKE_TAG(vm_page_label), MEMORY_OBJECT_NULL, 0, FALSE,
 			VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
 	if (kr) {
-		malloc_zone_error(debug_flags, false,
-				"Failed to allocate memory at address 0x%lx of size 0x%lx with flags %d\n",
-				(unsigned long) addr, (unsigned long) size, flags);
 		return NULL;
 	}
 	return __unsafe_forge_bidi_indexable(void *, vm_addr, size);
 #endif // MALLOC_TARGET_EXCLAVES
 }
 
-void *
+void * __sized_by_or_null(size)
 mvm_allocate_pages(size_t size, uint8_t align, uint32_t debug_flags,
 		int vm_page_label)
 {
 	return mvm_allocate_pages_plat(size, align, debug_flags, vm_page_label, NULL);
 }
 
-void *
+void * __sized_by_or_null(size)
 mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags,
 		int vm_page_label, plat_map_t *map_out)
 {
@@ -205,6 +204,8 @@ mvm_allocate_pages_plat(size_t size, uint8_t align, uint32_t debug_flags,
 	if (purgeable) {
 		alloc_flags |= VM_FLAGS_PURGABLE;
 	}
+
+
 	if (allocation_size < size) { // size_t arithmetic wrapped!
 		return NULL;
 	}

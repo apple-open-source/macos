@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "36DFA45A-3107-4FC3-B2DC-B6846CDFD656",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:bootp.xcodeproj",
+        "identifier" : "8A8E99A02B9982F900854AD3",
+        "name" : "IPConfigurationFrameworkTests(embedded)"
+      }
+    }
+  ],
+  "version" : 1
+}

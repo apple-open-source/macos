@@ -70,7 +70,6 @@ public:
     WEBCORE_EXPORT void updateVideoFullscreenInlineImage(PlatformImagePtr) final;
 #endif
 
-    WEBCORE_EXPORT bool requiresTextTrackRepresentation() const final;
     WEBCORE_EXPORT void setTextTrackRepresentationLayer(PlatformLayer*) final;
     WEBCORE_EXPORT void syncTextTrackBounds() final;
 
@@ -79,7 +78,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const final { return "VideoLayerManagerObjC"; }
+    ASCIILiteral logClassName() const final { return "VideoLayerManagerObjC"_s; }
     WTFLogChannel& logChannel() const final;
 
     Ref<const Logger> m_logger;

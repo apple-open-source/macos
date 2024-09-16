@@ -50,6 +50,7 @@ enum {
 class PolicyEngine : public PolicyDatabase {
 public:
 	PolicyEngine();
+	PolicyEngine(const char *path);
 	virtual ~PolicyEngine();
 
 public:

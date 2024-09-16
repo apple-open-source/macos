@@ -51,9 +51,9 @@ LaunchServicesDatabaseObserver::LaunchServicesDatabaseObserver(NetworkProcess&)
 #endif
 }
 
-const char* LaunchServicesDatabaseObserver::supplementName()
+ASCIILiteral LaunchServicesDatabaseObserver::supplementName()
 {
-    return "LaunchServicesDatabaseObserverSupplement";
+    return "LaunchServicesDatabaseObserverSupplement"_s;
 }
 
 void LaunchServicesDatabaseObserver::startObserving(OSObjectPtr<xpc_connection_t> connection)
@@ -98,17 +98,17 @@ LaunchServicesDatabaseObserver::~LaunchServicesDatabaseObserver()
 #endif
 }
 
-const char* LaunchServicesDatabaseObserver::xpcEndpointMessageNameKey() const
+ASCIILiteral LaunchServicesDatabaseObserver::xpcEndpointMessageNameKey() const
 {
     return xpcMessageNameKey;
 }
 
-const char* LaunchServicesDatabaseObserver::xpcEndpointMessageName() const
+ASCIILiteral LaunchServicesDatabaseObserver::xpcEndpointMessageName() const
 {
     return LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointMessageName;
 }
 
-const char* LaunchServicesDatabaseObserver::xpcEndpointNameKey() const
+ASCIILiteral LaunchServicesDatabaseObserver::xpcEndpointNameKey() const
 {
     return LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointNameKey;
 }

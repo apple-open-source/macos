@@ -99,8 +99,10 @@ enum {
 #define _supportedWakeFilters   _reserved->supportedWakeFilters
 #define _disabledWakeFilters    _reserved->disabledWakeFilters
 #define _wompEnabledAssertionID _reserved->wompEnabledAssertionID
+#define _linkActiveCount        _reserved->linkActiveCount
 
 #define kWOMPFeatureKey         "WakeOnMagicPacket"
+#define kIOLinkActiveCount      "IOLinkActiveCount"
 
 UInt32
 IOEthernetInterface::getFilters(
@@ -244,6 +246,14 @@ bool IOEthernetInterface::init(IONetworkController * controller)
     setProperty( kIORequiredPacketFilters, _requiredFilters );
     setProperty( kIOActivePacketFilters,   _activeFilters );
 
+    // Publish debug counters to property table
+
+    _linkActiveCount = OSNumber::withNumber((UInt64) 0, 64);
+    if (_linkActiveCount == 0) {
+        return false;
+    }
+    setProperty( kIOLinkActiveCount, _linkActiveCount );
+
     return true;
 }
 
@@ -321,6 +331,8 @@ void IOEthernetInterface::free()
             _disabledWakeFilters->release();
             _disabledWakeFilters = 0;
         }
+
+        OSSafeReleaseNULL(_linkActiveCount);
 		IOFreeType(_reserved, ExpansionData);
     }
 	
@@ -1407,6 +1419,7 @@ bool IOEthernetInterface::inputEvent( UInt32 type, void * data )
                 if (type == kIONetworkEventTypeLinkUp)
                 {
                     ifnet_set_link_quality(ifp, IFNET_LQM_THRESH_GOOD);
+                    _linkActiveCount->addValue(1);
                 }
                 else
                 {

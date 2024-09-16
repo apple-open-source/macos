@@ -60,7 +60,7 @@ __private_extern__ int triggers_stop(kmod_info_t *, void *);
 /*
  * TRUE if two fsids are equal.
  */
-#define FSIDS_EQUAL(fsid1, fsid2)	\
+#define FSIDS_EQUAL(fsid1, fsid2)       \
 	((fsid1).val[0] == (fsid2).val[0] && \
 	 (fsid1).val[1] == (fsid2).val[1])
 
@@ -91,7 +91,7 @@ trigger_set_mount_to(int newval)
 static int
 unmount_triggered_mount(fsid_t *fsidp, int flags, vfs_context_t ctx)
 {
-	return (vfs_unmountbyfsid(fsidp, flags | MNT_NOBLOCK, ctx));
+	return vfs_unmountbyfsid(fsidp, flags | MNT_NOBLOCK, ctx);
 }
 
 /*
@@ -120,20 +120,20 @@ trigger_make_unresolved(trigger_info_t *ti)
 	 * sequence number.
 	 */
 	ti->ti_seq++;
-	return (vfs_resolver_result(ti->ti_seq, RESOLVER_UNRESOLVED, 0));
+	return vfs_resolver_result(ti->ti_seq, RESOLVER_UNRESOLVED, 0);
 }
 
 /*
  * Sets the TF_INPROG flag on this trigger.
  * ti->ti_lock should be held before this macro is called.
  */
-#define	TRIGGER_BLOCK_OTHERS(ti)	{ \
+#define TRIGGER_BLOCK_OTHERS(ti)        { \
 	lck_mtx_assert((ti)->ti_lock, LCK_MTX_ASSERT_OWNED); \
 	assert(!((ti)->ti_flags & TF_INPROG)); \
 	(ti)->ti_flags |= TF_INPROG; \
 }
 
-#define	TRIGGER_UNBLOCK_OTHERS(ti)	{ \
+#define TRIGGER_UNBLOCK_OTHERS(ti)      { \
 	trigger_unblock_others(ti); \
 }
 
@@ -160,8 +160,9 @@ trigger_do_mount_url(void *arg)
 	kern_return_t ret;
 
 	error = auto_get_automountd_port(&automount_port);
-	if (error)
+	if (error) {
 		goto done;
+	}
 
 	ret = autofs_mount_url(automount_port, argsp->muc_url,
 	    argsp->muc_mountpoint, argsp->muc_opts, argsp->muc_this_fsid,
@@ -170,11 +171,11 @@ trigger_do_mount_url(void *arg)
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: autofs_mount_url failed, status 0x%08x\n", ret);
-		error = EIO;		/* XXX - process Mach errors */
+		error = EIO;            /* XXX - process Mach errors */
 	}
 
 done:
-	return (error);
+	return error;
 }
 
 /*
@@ -228,14 +229,16 @@ trigger_mount_thread(void *arg)
 		 * various flags, from the out parameters for the call.
 		 */
 		ti->ti_mounted_fsid = argsp->tc_mounted_fsid;
-		if (argsp->tc_retflags & MOUNT_RETF_DONTUNMOUNT)
+		if (argsp->tc_retflags & MOUNT_RETF_DONTUNMOUNT) {
 			ti->ti_flags |= TF_DONTUNMOUNT;
-		else
+		} else {
 			ti->ti_flags &= ~TF_DONTUNMOUNT;
-		if (argsp->tc_retflags & MOUNT_RETF_DONTPREUNMOUNT)
+		}
+		if (argsp->tc_retflags & MOUNT_RETF_DONTPREUNMOUNT) {
 			ti->ti_flags |= TF_DONTPREUNMOUNT;
-		else
+		} else {
 			ti->ti_flags &= ~TF_DONTPREUNMOUNT;
+		}
 
 		/*
 		 * Mark it as having been referenced.
@@ -272,7 +275,7 @@ trigger_mount_thread(void *arg)
 	TRIGGER_UNBLOCK_OTHERS(ti);
 	lck_mtx_unlock(ti->ti_lock);
 
-	vnode_rele(vp);	/* release usecount from trigger_resolve() */
+	vnode_rele(vp); /* release usecount from trigger_resolve() */
 
 	(*ti->ti_rel_mount_args)(argsp);
 
@@ -307,14 +310,14 @@ wait_for_mount_locked(trigger_info_t *ti)
 		 * This wait is interruptable, so you can ^C out of
 		 * a mount that's taking a long time.
 		 */
-		error = msleep(&ti->ti_flags, ti->ti_lock, PSOCK|PCATCH,
+		error = msleep(&ti->ti_flags, ti->ti_lock, PSOCK | PCATCH,
 		    "triggered_mount", NULL);
 		if (error == EINTR || error == ERESTART) {
 			/*
 			 * Decided not to wait for operation to
 			 * finish after all.
 			 */
-			return (EINTR);
+			return EINTR;
 		}
 	}
 
@@ -322,7 +325,7 @@ wait_for_mount_locked(trigger_info_t *ti)
 	 * The mount operation finished; return the status with which
 	 * it finished.
 	 */
-	return (ti->ti_error);
+	return ti->ti_error;
 }
 
 /*
@@ -348,7 +351,6 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 	 */
 	if (cnp->cn_flags & ISLASTCN) {
 		switch (pop) {
-
 		case OP_MOUNT:
 			/*
 			 * We're trying to mount something on this, which
@@ -360,22 +362,22 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * XXX - need to protect access to ti_seq with
 			 * the mutex?
 			 */
-			return (vfs_resolver_result(ti->ti_seq,
-			    RESOLVER_NOCHANGE, 0));
+			return vfs_resolver_result(ti->ti_seq,
+			           RESOLVER_NOCHANGE, 0);
 
 		case OP_UNMOUNT:
 			/*
 			 * We don't care.
 			 */
-			return (vfs_resolver_result(ti->ti_seq,
-			    RESOLVER_NOCHANGE, 0));
+			return vfs_resolver_result(ti->ti_seq,
+			           RESOLVER_NOCHANGE, 0);
 
 		case OP_LOOKUP:
 			/*
 			 * Inappropriate on last component
 			 */
-			return (vfs_resolver_result(ti->ti_seq,
-			    RESOLVER_NOCHANGE, 0));
+			return vfs_resolver_result(ti->ti_seq,
+			           RESOLVER_NOCHANGE, 0);
 
 		case OP_STATFS:
 			/*
@@ -383,8 +385,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * node.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -397,8 +399,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * get mount storms.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -409,11 +411,11 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * Finder, etc. won't cause mount storms.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
-				
+
 		case OP_GETXATTR:
 			/*
 			 * getxattr() should not trigger mounts unless this is a
@@ -422,8 +424,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * Finder etc.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -432,8 +434,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * Don't trigger on this, either (see above).
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -457,8 +459,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * *then*.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -470,8 +472,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * removal of autofs objects.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -482,8 +484,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 			 * renames of autofs objects.
 			 */
 			if (!(ti->ti_flags & TF_FORCEMOUNT)) {
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -500,8 +502,8 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 				/*
 				 * No.
 				 */
-				return (vfs_resolver_result(ti->ti_seq,
-				    RESOLVER_NOCHANGE, 0));
+				return vfs_resolver_result(ti->ti_seq,
+				           RESOLVER_NOCHANGE, 0);
 			}
 			break;
 
@@ -533,7 +535,7 @@ top:
 		ti->ti_seq++;
 		result = vfs_resolver_result(ti->ti_seq, RESOLVER_RESOLVED, 0);
 		lck_mtx_unlock(ti->ti_lock);
-		return (result);
+		return result;
 	}
 
 	/*
@@ -566,7 +568,7 @@ top:
 			    RESOLVER_ERROR, ENOENT);
 		}
 		lck_mtx_unlock(ti->ti_lock);
-		return (result);
+		return result;
 	}
 
 	/*
@@ -575,14 +577,14 @@ top:
 	 */
 	if (!vfs_context_can_resolve_triggers(ctx) ||
 	    (ti->ti_check_notrigger_process != NULL &&
-	     (*ti->ti_check_notrigger_process)(pid))) {
+	    (*ti->ti_check_notrigger_process)(pid))) {
 		/*
 		 * Don't trigger anything, just return
 		 * success.
 		 */
 		result = vfs_resolver_result(ti->ti_seq, RESOLVER_NOCHANGE, 0);
 		lck_mtx_unlock(ti->ti_lock);
-		return (result);
+		return result;
 	}
 
 	/*
@@ -609,9 +611,10 @@ top:
 		 * now, but if we get interrupted while we're waiting
 		 * for the mount to complete, we'll drop our iocount.
 		 */
-		error = vnode_get(vp);	/* released at end of trigger_mount_url_thread */
-		if (error != 0)
+		error = vnode_get(vp);  /* released at end of trigger_mount_url_thread */
+		if (error != 0) {
 			goto fail;
+		}
 
 		/*
 		 * Now attempt to grab a usecount on the vnode on which
@@ -624,9 +627,9 @@ top:
 		 * happen until the mount either completes or fails, and
 		 * that won't happen until the write lock is released....
 		 */
-		error = vnode_ref(vp);	/* released at end of trigger_mount_url_thread */
+		error = vnode_ref(vp);  /* released at end of trigger_mount_url_thread */
 		if (error != 0) {
-			vnode_put(vp);	/* release iocount */
+			vnode_put(vp);  /* release iocount */
 			goto fail;
 		}
 
@@ -636,8 +639,8 @@ top:
 		 */
 		argsp = (*ti->ti_get_mount_args)(vp, ctx, &error);
 		if (argsp == NULL) {
-			vnode_rele(vp);	/* release usecount from above */
-			vnode_put(vp);	/* release iocount from above */
+			vnode_rele(vp); /* release usecount from above */
+			vnode_put(vp);  /* release iocount from above */
 			goto fail;
 		}
 
@@ -655,8 +658,8 @@ top:
 		argsp->tc_asid = kauth_cred_getasid(vfs_context_ucred(ctx));
 
 		/* These are "out" arguments; just initialize them */
-		memset(&argsp->tc_mounted_fsid, 0, sizeof (argsp->tc_mounted_fsid));
-		argsp->tc_retflags = 0;	/* until shown otherwise */
+		memset(&argsp->tc_mounted_fsid, 0, sizeof(argsp->tc_mounted_fsid));
+		argsp->tc_retflags = 0; /* until shown otherwise */
 
 		/*
 		 * Now attempt to create a new thread which calls
@@ -699,7 +702,7 @@ top:
 			result = vfs_resolver_result(ti->ti_seq, RESOLVER_ERROR,
 			    ENOENT);
 			lck_mtx_unlock(ti->ti_lock);
-			return (result);
+			return result;
 		}
 	}
 
@@ -733,11 +736,11 @@ top:
 		    error);
 	}
 	lck_mtx_unlock(ti->ti_lock);
-	return (result);
+	return result;
 
 fail_thread:
-	vnode_rele(vp);	/* release usecount from above */
-	vnode_put(vp);	/* release iocount from above */
+	vnode_rele(vp); /* release usecount from above */
+	vnode_put(vp);  /* release iocount from above */
 	(*ti->ti_rel_mount_args)(argsp);
 
 fail:
@@ -746,7 +749,7 @@ fail:
 	TRIGGER_UNBLOCK_OTHERS(ti);
 	result = vfs_resolver_result(ti->ti_seq, RESOLVER_ERROR, error);
 	lck_mtx_unlock(ti->ti_lock);
-	return (result);
+	return result;
 }
 
 /*
@@ -775,14 +778,15 @@ trigger_unresolve(__unused vnode_t vp, int flags, void *data, vfs_context_t ctx)
 	 * and it shouldn't be auto-unmounted as we might not be
 	 * able to correctly re-auto-mount it.
 	 */
-	if (ti->ti_flags & TF_DONTUNMOUNT)
-		error = EBUSY;	/* pretend it's always busy */
-	else
+	if (ti->ti_flags & TF_DONTUNMOUNT) {
+		error = EBUSY;  /* pretend it's always busy */
+	} else {
 		error = unmount_triggered_mount(&ti->ti_mounted_fsid, flags,
 		    ctx);
-	if (error == 0)
+	}
+	if (error == 0) {
 		result = trigger_make_unresolved(ti);
-	else {
+	} else {
 		/*
 		 * The status of the resolver *hasn't* changed, so don't
 		 * change the sequence number.
@@ -791,7 +795,7 @@ trigger_unresolve(__unused vnode_t vp, int flags, void *data, vfs_context_t ctx)
 		    error);
 	}
 	lck_mtx_unlock(ti->ti_lock);
-	return (result);
+	return result;
 }
 
 /*
@@ -815,8 +819,9 @@ trigger_rearm(vnode_t vp, __unused int flags, void *data, vfs_context_t ctx)
 
 	lck_mtx_lock(ti->ti_lock);
 
-	if (ti->ti_rearm != NULL)
+	if (ti->ti_rearm != NULL) {
 		(*ti->ti_rearm)(vp, vfs_context_pid(ctx));
+	}
 
 	if (vnode_mountedhere(vp) != NULL) {
 		/*
@@ -834,7 +839,7 @@ trigger_rearm(vnode_t vp, __unused int flags, void *data, vfs_context_t ctx)
 		result = trigger_make_unresolved(ti);
 	}
 	lck_mtx_unlock(ti->ti_lock);
-	return (result);
+	return result;
 }
 
 /*
@@ -849,8 +854,9 @@ trigger_reclaim(__unused vnode_t vp, void *data)
 	 * If we have a routine to call on a release, do so, passing
 	 * it the private data pointer.
 	 */
-	if (ti->ti_reclaim != NULL)
+	if (ti->ti_reclaim != NULL) {
 		(*ti->ti_reclaim)(ti->ti_private);
+	}
 	trigger_free(ti);
 }
 
@@ -902,7 +908,7 @@ trigger_new_autofs(struct vnode_trigger_param *vnt,
 	vnt->vnt_data = ti;
 	vnt->vnt_flags = VNT_AUTO_REARM;
 
-	return (ti);
+	return ti;
 }
 
 /*
@@ -914,9 +920,9 @@ trigger_new(struct vnode_trigger_param *vnt,
     void *(*get_mount_args)(vnode_t, vfs_context_t, int *),
     void (*rel_mount_args)(void *))
 {
-	return (trigger_new_autofs(vnt, 0, NULL, NULL, NULL, NULL,
-	    get_mount_args, trigger_do_mount_url, rel_mount_args,
-	    NULL, NULL, NULL));
+	return trigger_new_autofs(vnt, 0, NULL, NULL, NULL, NULL,
+	           get_mount_args, trigger_do_mount_url, rel_mount_args,
+	           NULL, NULL, NULL);
 }
 
 void
@@ -929,8 +935,9 @@ trigger_free(trigger_info_t *ti)
 	 * if it's being freed?
 	 */
 	lck_rw_lock_exclusive(resolved_triggers_rwlock);
-	if (ti->ti_flags & TF_RESOLVED)
+	if (ti->ti_flags & TF_RESOLVED) {
 		TAILQ_REMOVE(&resolved_triggers, ti, ti_entries);
+	}
 	lck_rw_unlock_exclusive(resolved_triggers_rwlock);
 	lck_mtx_free(ti->ti_lock, triggers_lck_grp);
 	kfree_type(struct trigger_info, ti);
@@ -947,8 +954,9 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 	vm_map_copy_t copy;
 
 	error = auto_get_automountd_port(&automount_port);
-	if (error)
-		return (error);
+	if (error) {
+		return error;
+	}
 
 	/*
 	 * The blob has unbounded variable length.  Mach RPC does
@@ -967,17 +975,17 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		IOLog("autofs: vm_allocate failed, status 0x%08x\n", ret);
 		/* XXX - deal with Mach errors */
 		auto_release_port(automount_port);
-		return (EIO);
+		return EIO;
 	}
 	ret = vm_map_wire(ipc_kernel_map, vm_map_trunc_page(kmem_buf, vm_map_page_mask(ipc_kernel_map)),
 	    vm_map_round_page(kmem_buf + tbuflen, vm_map_page_mask(ipc_kernel_map)),
-	    VM_PROT_READ|VM_PROT_WRITE, FALSE);
+	    VM_PROT_READ | VM_PROT_WRITE, FALSE);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: vm_map_wire failed, status 0x%08x\n", ret);
 		/* XXX - deal with Mach errors */
 		vm_deallocate(ipc_kernel_map, kmem_buf, tbuflen);
 		auto_release_port(automount_port);
-		return (EIO);
+		return EIO;
 	}
 	bcopy(ptr, (void *)kmem_buf, len);
 	ret = vm_map_unwire(ipc_kernel_map, vm_map_trunc_page(kmem_buf, vm_map_page_mask(ipc_kernel_map)),
@@ -987,7 +995,7 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		/* XXX - deal with Mach errors */
 		vm_deallocate(ipc_kernel_map, kmem_buf, tbuflen);
 		auto_release_port(automount_port);
-		return (EIO);
+		return EIO;
 	}
 	ret = vm_map_copyin(ipc_kernel_map, (vm_map_address_t) kmem_buf,
 	    (vm_map_size_t) len, TRUE, &copy);
@@ -996,7 +1004,7 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		/* XXX - deal with Mach errors */
 		vm_deallocate(ipc_kernel_map, kmem_buf, tbuflen);
 		auto_release_port(automount_port);
-		return (EIO);
+		return EIO;
 	}
 
 	/*
@@ -1011,10 +1019,10 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		IOLog("autofs: autofs_smb_remount_server failed, status 0x%08x\n",
 		    ret);
 		vm_map_copy_discard(copy);
-		return (EIO);		/* XXX - process Mach errors */
+		return EIO;           /* XXX - process Mach errors */
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -1027,13 +1035,13 @@ auto_get_automountd_port(mach_port_t *automount_port)
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: can't get automountd port, status 0x%08x\n",
 		    ret);
-		return (ECONNREFUSED);
+		return ECONNREFUSED;
 	}
 	if (!IPC_PORT_VALID(*automount_port)) {
 		IOLog("autofs: automountd port not valid\n");
-		return (ECONNRESET);
+		return ECONNRESET;
 	}
-	return (0);
+	return 0;
 }
 
 void
@@ -1055,12 +1063,13 @@ auto_new_thread(void (*start)(void *), void *arg)
 	thread_t thread;
 
 	result = kernel_thread_start((thread_continue_t)start, arg, &thread);
-	if (result != KERN_SUCCESS)
-		return (result);
+	if (result != KERN_SUCCESS) {
+		return result;
+	}
 
 	thread_deallocate(thread);
 
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 }
 
 static void
@@ -1088,10 +1097,10 @@ trigger_update_ref_time(fsid_t *fsidp, time_t now)
  * Item in the information copied from the list of resolved triggers.
  */
 struct triggered_mount_info {
-	fsid_t	this_fsid;
-	fsid_t	mounted_fsid;
-	time_t	ref_time;
-	u_int	flags;
+	fsid_t  this_fsid;
+	fsid_t  mounted_fsid;
+	time_t  ref_time;
+	u_int   flags;
 };
 
 /*
@@ -1182,10 +1191,11 @@ unmount_triggered_mounts(int unconditional)
 		 * that'll happen automatically if we unmount what it's
 		 * mounted on.
 		 */
-		if (mounts[i].flags & TF_AUTOFS)
+		if (mounts[i].flags & TF_AUTOFS) {
 			continue;
+		}
 
-		error = 0;	/* assume we will be unmounting this */
+		error = 0;      /* assume we will be unmounting this */
 		if (mounts[i].flags & TF_DONTUNMOUNT) {
 			/*
 			 * This is a "don't ever auto-unmount this"
@@ -1200,15 +1210,17 @@ unmount_triggered_mounts(int unconditional)
 				 * if this is a "don't preemptively
 				 * unmount this" mount, skip it.
 				 */
-				if (mounts[i].flags & TF_DONTPREUNMOUNT)
+				if (mounts[i].flags & TF_DONTPREUNMOUNT) {
 					error = EBUSY;
+				}
 			} else {
 				/*
 				 * This is an auto-unmount; skip it
 				 * if it's been referenced recently.
 				 */
-				if (mounts[i].ref_time + mount_to > now.tv_sec)
+				if (mounts[i].ref_time + mount_to > now.tv_sec) {
 					error = EBUSY;
+				}
 			}
 		}
 		if (error == 0) {
@@ -1294,15 +1306,16 @@ decrement_unmount_thread_count(void)
 	 * down, wake up anybody waiting for us to run out of
 	 * unmount threads.
 	 */
-	if (shutting_down && unmount_threads == 0)
+	if (shutting_down && unmount_threads == 0) {
 		wakeup(&unmount_threads);
+	}
 	lck_mtx_unlock(unmount_threads_lock);
 }
 
 /*
  * Time between unmount_triggered_mounts() calls, in seconds.
  */
-#define UNMOUNT_TRIGGERED_MOUNTS_TIMER	120	/* 2 minutes */
+#define UNMOUNT_TRIGGERED_MOUNTS_TIMER  120     /* 2 minutes */
 
 static void
 triggers_unmount_thread(__unused void *arg)
@@ -1344,8 +1357,9 @@ triggers_do_unmount(__unused void *dummy1, __unused void *dummy2)
 			 */
 			decrement_unmount_thread_count();
 		}
-	} else
+	} else {
 		lck_mtx_unlock(unmount_threads_lock);
+	}
 
 	/*
 	 * Schedule the next unmount attempt for UNMOUNT_TRIGGERED_MOUNTS_TIMER
@@ -1403,18 +1417,22 @@ triggers_start(__unused kmod_info_t *ki, __unused void *data)
 	    &deadline);
 	thread_call_enter_delayed(unmounter_thread_call, deadline);
 
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 
 fail:
-	if (unmounter_thread_call != NULL)
+	if (unmounter_thread_call != NULL) {
 		thread_call_free(unmounter_thread_call);
-	if (unmount_threads_lock != NULL)
+	}
+	if (unmount_threads_lock != NULL) {
 		lck_mtx_free(unmount_threads_lock, triggers_lck_grp);
-	if (resolved_triggers_rwlock != NULL)
+	}
+	if (resolved_triggers_rwlock != NULL) {
 		lck_rw_free(resolved_triggers_rwlock, triggers_lck_grp);
-	if (triggers_lck_grp != NULL)
+	}
+	if (triggers_lck_grp != NULL) {
 		lck_grp_free(triggers_lck_grp);
-	return (KERN_FAILURE);
+	}
+	return KERN_FAILURE;
 }
 
 __private_extern__ int
@@ -1438,7 +1456,7 @@ triggers_stop(__unused kmod_info_t *ki, __unused void *data)
 	if (!TAILQ_EMPTY(&resolved_triggers)) {
 		lck_rw_unlock_shared(resolved_triggers_rwlock);
 		IOLog("triggers_stop: Can't remove, still some resolved triggers\n");
-		return (KERN_NO_ACCESS);
+		return KERN_NO_ACCESS;
 	}
 
 	/*
@@ -1462,5 +1480,5 @@ triggers_stop(__unused kmod_info_t *ki, __unused void *data)
 	lck_rw_free(resolved_triggers_rwlock, triggers_lck_grp);
 	lck_grp_free(triggers_lck_grp);
 
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 }

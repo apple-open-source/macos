@@ -44,7 +44,6 @@
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
-#import "keychain/ckks/CKKSManifest.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 
@@ -67,10 +66,12 @@
 @implementation CloudKitKeychainSyncingSOSIntegrationTests
 
 - (void)testFindManateePiggyTLKs {
-    [self saveFakeKeyHierarchyToLocalDatabase:self.manateeZoneID];
+    [self putFakeKeyHierarchyInCloudKit:self.manateeZoneID];
     [self saveTLKMaterialToKeychain:self.manateeZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.manateeZoneID];
 
     [self startCKKSSubsystem];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     NSDictionary* piggyTLKs = [self SOSPiggyBackCopyFromKeychain];
 
@@ -87,8 +88,11 @@
     [self putFakeKeyHierachiesInCloudKit];
     [self putFakeDeviceStatusesInCloudKit];
     [self saveTLKsToKeychain];
+    [self expectCKKSTLKSelfShareUploads];
 
     [self startCKKSSubsystem];
+    [self waitForKeyHierarchyReadinesses];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     NSDictionary* piggyTLKs = [self SOSPiggyBackCopyFromKeychain];
 

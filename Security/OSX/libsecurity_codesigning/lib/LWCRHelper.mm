@@ -384,4 +384,32 @@ bool evaluateLightweightCodeRequirement(const Security::CodeSigning::Requirement
 		return matches == YES ? true : false;
 	}
 }
+
+void evaluateLightweightCodeRequirementInKernel(audit_token_t token, CFDataRef lwcrData)
+{
+	amfi_interface_constraint_match_result_t result = {AICMR_INVALID_ARGS,{0}};
+
+	bool match = amfi_launch_constraint_matches_process(token, CFDataGetBytePtr(lwcrData), CFDataGetLength(lwcrData), &result);
+	if (!match) {
+		switch (result.error_code) {
+			case AICMR_NOMATCH:
+				Security::MacOSError::throwMe(errSecCSReqFailed);
+			case AICMR_PARSE_ERROR:
+			case AICMR_EXECUTE_ERROR:
+				secerror("%s: requirement could not be parsed error: %s",__FUNCTION__, result.error_msg);
+				Security::MacOSError::throwMe(errSecBadReq);
+			case AICMR_NO_PROCESS:
+				secerror("%s: Process not found error: %s",__FUNCTION__, result.error_msg);
+				Security::MacOSError::throwMe(errSecCSNoSuchCode);
+			case AICMR_INVALID_ARGS:
+				secerror("%s: invalid arguments", __FUNCTION__);
+				Security::MacOSError::throwMe(errSecParam);
+			case AICMR_MATCH:
+			default:
+				secerror("%s: Unexpected error: %s",__FUNCTION__, result.error_msg);
+				Security::MacOSError::throwMe(errSecInternalError);
+		}
+	}
+	// fall through and assume success
+}
 #endif

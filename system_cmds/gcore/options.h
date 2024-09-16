@@ -4,6 +4,7 @@
 
 #include <sys/types.h>
 #include <compression.h>
+#include <stdbool.h>
 
 #include <assert.h>
 
@@ -15,7 +16,7 @@
 #define RDAR_28040018		1	/* 'true' while not fixed i.e. enable workarounds */
 #endif
 
-//#define   CONFIG_SUBMAP   1   /* include submaps (debugging output) */
+#define CONFIG_SUBMAP       1   /* include submaps */
 #define CONFIG_GCORE_MAP	1	/* support 'gcore map' */
 #define CONFIG_GCORE_CONV	1	/* support 'gcore conv' - new -> old core files */
 #define CONFIG_GCORE_FREF	1	/* support 'gcore fref' - referenced file list */
@@ -44,6 +45,7 @@ struct options {
 	int dsymforuuid;    // Try dsysForUUID to retrieve symbol-rich executable
     int gzip;           // pipe corefile via gzip -1 compression
     int stream;         // write corefile sequentially e.g. no pwrites
+    bool notes;         // if set, dump LC_NOTES for memory analysis tools
 };
 
 extern const struct options *opt;

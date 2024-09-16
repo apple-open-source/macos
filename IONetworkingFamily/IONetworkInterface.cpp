@@ -1499,8 +1499,6 @@ IONetworkInterface::if_ioctl( ifnet_t ifp, unsigned long cmd, void * data )
 
 int IONetworkInterface::if_output( ifnet_t ifp, mbuf_t m )
 {
-	UInt32      noraceTemp;
-	int         delta;
 	u_int32_t   outPackets, outErrors;
 
 	IONetworkInterface * self = IFNET_TO_THIS(ifp);
@@ -1520,18 +1518,9 @@ int IONetworkInterface::if_output( ifnet_t ifp, mbuf_t m )
         return EINVAL;
     }
 
-    // Increment output related statistics.	
-	// update the stats that the driver maintains	
-	noraceTemp = self->_driverStats.outputErrors;
-	delta = noraceTemp - self->_lastDriverStats.outputErrors;
-	outErrors = ABS(delta);
-	self->_lastDriverStats.outputErrors = noraceTemp;
-	
-	noraceTemp = self->_driverStats.outputPackets;
-	delta = noraceTemp - self->_lastDriverStats.outputPackets;
-	outPackets = ABS(delta);
-	self->_lastDriverStats.outputPackets = noraceTemp;
-	
+    // Increment output related statistics.
+    self->fetchDriverOutputStats(&outErrors, &outPackets);
+
 	// update the stats in the interface
 	ifnet_stat_increment_out(self->getIfnet(), outPackets, (u_int32_t)mbuf_pkthdr_len(m), outErrors);
 	
@@ -2615,6 +2604,24 @@ void IONetworkInterface::drainOutputQueue(
 
 //------------------------------------------------------------------------------
 
+void IONetworkInterface::fetchDriverOutputStats(
+    uint32_t * outErrors,
+    uint32_t * outPackets )
+{
+    uint32_t deltaErrors;
+    uint32_t deltaPackets;
+
+    // Update the stats that the driver maintains
+    deltaErrors = _driverStats.outputErrors - _lastDriverStats.outputErrors;
+    _lastDriverStats.outputErrors = _driverStats.outputErrors;
+
+    deltaPackets = _driverStats.outputPackets - _lastDriverStats.outputPackets;
+    _lastDriverStats.outputPackets = _driverStats.outputPackets;
+
+    *outErrors = ABS(deltaErrors);
+    *outPackets = ABS(deltaPackets);
+}
+
 IOReturn IONetworkInterface::dequeueOutputPackets(
     uint32_t                maxCount,
     mbuf_t *                packetHead,
@@ -2622,8 +2629,7 @@ IOReturn IONetworkInterface::dequeueOutputPackets(
     uint32_t *              packetCount,
     uint64_t *              packetBytes )
 {
-    uint32_t    txByteCount, temp, txPackets = 0, txErrors = 0;
-    int         delta;
+    uint32_t    txByteCount, txPackets = 0, txErrors = 0;
     errno_t     error;
 
     if (!maxCount || !packetHead)
@@ -2672,23 +2678,7 @@ IOReturn IONetworkInterface::dequeueOutputPackets(
             feedPacketOutputTap(n);
     }
 
-    if (_txThreadSignal != _txThreadSignalLast)
-    {
-        // Update the stats that the driver maintains
-        temp = _driverStats.outputErrors;
-        delta = temp - _lastDriverStats.outputErrors;
-        if (delta)
-        {
-            txErrors = ABS(delta);
-            _lastDriverStats.outputErrors = temp;
-        }
-
-        temp = _driverStats.outputPackets;
-        delta = temp - _lastDriverStats.outputPackets;
-        txPackets = ABS(delta);
-        _lastDriverStats.outputPackets = temp;
-        _txThreadSignalLast = _txThreadSignal;
-    }
+    fetchDriverOutputStats(&txErrors, &txPackets);
 
     // update interface output byte count
     ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
@@ -2699,12 +2689,6 @@ IOReturn IONetworkInterface::dequeueOutputPackets(
 
 no_frames:
     *packetHead  = 0;
-    if (packetTail)
-        packetTail = 0;
-    if (packetCount)
-        packetCount = 0;
-    if (packetBytes)
-        packetBytes = 0;
     return kIOReturnNoFrames;
 }
 
@@ -2716,8 +2700,7 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
     uint32_t *              packetCount,
     uint64_t *              packetBytes )
 {
-    uint32_t            txByteCount, temp, txPackets = 0, txErrors = 0;
-    int                 delta;
+    uint32_t            txByteCount, txPackets = 0, txErrors = 0;
     mbuf_svc_class_t    mbufSC;
     errno_t             error;
 
@@ -2784,23 +2767,7 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
             feedPacketOutputTap(n);
     }
 
-    if (_txThreadSignal != _txThreadSignalLast)
-    {
-        // Update the stats that the driver maintains
-        temp = _driverStats.outputErrors;
-        delta = temp - _lastDriverStats.outputErrors;
-        if (delta)
-        {
-            txErrors = ABS(delta);
-            _lastDriverStats.outputErrors = temp;
-        }
-
-        temp = _driverStats.outputPackets;
-        delta = temp - _lastDriverStats.outputPackets;
-        txPackets = ABS(delta);
-        _lastDriverStats.outputPackets = temp;
-        _txThreadSignalLast = _txThreadSignal;
-    }
+    fetchDriverOutputStats(&txErrors, &txPackets);
 
     // update interface output byte count
     ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
@@ -2811,12 +2778,6 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
 
 no_frames:
     *packetHead  = 0;
-    if (packetTail)
-        packetTail = 0;
-    if (packetCount)
-        packetCount = 0;
-    if (packetBytes)
-        packetBytes = 0;
     return kIOReturnNoFrames;
 }
 
@@ -2827,8 +2788,7 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithMaxSize(
     uint32_t *          packetCount,
     uint64_t *          packetBytes )
 {
-    uint32_t    txByteCount, temp, txPackets = 0, txErrors = 0;
-    int         delta;
+    uint32_t    txByteCount, txPackets = 0, txErrors = 0;
     errno_t     error;
 
     if (!maxSize || !packetHead)
@@ -2859,23 +2819,7 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithMaxSize(
             feedPacketOutputTap(n);
     }
 
-    if (_txThreadSignal != _txThreadSignalLast)
-    {
-        // Update the stats that the driver maintains
-        temp = _driverStats.outputErrors;
-        delta = temp - _lastDriverStats.outputErrors;
-        if (delta)
-        {
-            txErrors = ABS(delta);
-            _lastDriverStats.outputErrors = temp;
-        }
-
-        temp = _driverStats.outputPackets;
-        delta = temp - _lastDriverStats.outputPackets;
-        txPackets = ABS(delta);
-        _lastDriverStats.outputPackets = temp;
-        _txThreadSignalLast = _txThreadSignal;
-    }
+    fetchDriverOutputStats(&txErrors, &txPackets);
 
     // update interface output byte count
     ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
@@ -2886,12 +2830,6 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithMaxSize(
 
 no_frames:
     *packetHead = 0;
-    if (packetTail)
-        packetTail = 0;
-    if (packetCount)
-        packetCount = 0;
-    if (packetBytes)
-        packetBytes = 0;
     return kIOReturnNoFrames;
 }
 

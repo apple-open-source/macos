@@ -97,7 +97,7 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 	serverSessionRef		mySession;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
 
-	SC_trace("close   : %5d",
+	SC_trace("close   : %5u",
 		 storePrivate->server);
 
 	/* Remove all notification keys and patterns */
@@ -115,7 +115,7 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 		Boolean		push	= FALSE;
 		CFStringRef	sessionKey;
 
-		sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
+		sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%u"), storePrivate->server);
 		for (CFIndex i = 0; i < n; i++) {
 			CFStringRef	key	= CFArrayGetValueAtIndex(mySession->sessionKeys, i);
 

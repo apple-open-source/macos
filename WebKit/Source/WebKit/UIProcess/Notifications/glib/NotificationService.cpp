@@ -29,22 +29,33 @@
 #include "WebNotification.h"
 #include <WebCore/Image.h>
 #include <WebCore/NotificationResources.h>
-#include <WebCore/RefPtrCairo.h>
-#include <cairo.h>
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
 #include <mutex>
 #include <unistd.h>
 #include <wtf/FastMalloc.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
 #include <wtf/SafeStrerror.h>
 #include <wtf/Seconds.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UUID.h>
+#include <wtf/glib/Application.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/glib/Sandbox.h>
 #include <wtf/text/CString.h>
+
+#if USE(CAIRO)
+#include <WebCore/RefPtrCairo.h>
+#include <cairo.h>
+#elif USE(SKIA)
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+#include <skia/core/SkPixmap.h>
+IGNORE_CLANG_WARNINGS_END
+#include <skia/core/SkStream.h>
+#include <skia/encode/SkPngEncoder.h>
+#endif
 
 #if PLATFORM(GTK)
 #include <WebCore/GtkVersioning.h>
@@ -57,6 +68,48 @@
 namespace WebKit {
 
 static const Seconds s_dbusCallTimeout = 20_ms;
+
+#if USE(SKIA)
+
+// Alias to avoid conflicting with write() below.
+ssize_t (*writeToFD)(int, const void*, size_t) = write;
+
+// Simple stream that writes to an fd.
+class FileDescriptorWriteStream : public SkWStream {
+public:
+    explicit FileDescriptorWriteStream(int fd)
+        : m_fd(fd, UnixFileDescriptor::Adopt)
+    {
+    };
+
+    bool write(const void* buffer, size_t size) final
+    {
+        ssize_t written = writeToFD(m_fd.value(), buffer, size);
+        if (written < 0)
+            return false;
+
+        if (static_cast<size_t>(written) != size)
+            return false;
+
+        m_bytesWritten += written;
+        return true;
+    };
+
+    void flush() final
+    {
+        fsync(m_fd.value());
+    };
+
+    size_t bytesWritten() const final
+    {
+        return m_bytesWritten;
+    };
+
+private:
+    UnixFileDescriptor m_fd;
+    size_t m_bytesWritten { 0 };
+};
+#endif
 
 class IconCache {
     WTF_MAKE_FAST_ALLOCATED;
@@ -82,7 +135,7 @@ public:
             if (!nativeImage)
                 return { };
 
-            auto surface = nativeImage->platformImage();
+            const auto& surface = nativeImage->platformImage();
             if (!surface)
                 return { };
 
@@ -94,6 +147,7 @@ public:
                 return { };
             }
 
+#if USE(CAIRO)
             auto status = cairo_surface_write_to_png_stream(surface.get(), [](void* userData, const unsigned char* data, unsigned length) -> cairo_status_t {
                 int fd = *static_cast<int*>(userData);
                 while (length) {
@@ -108,8 +162,17 @@ public:
             }, &fd);
 
             close(fd);
-
             return status == CAIRO_STATUS_SUCCESS ? filename.get() : CString();
+#elif USE(SKIA)
+            auto stream = FileDescriptorWriteStream(fd); // Transfers fd ownership.
+            SkPixmap pixmap;
+            if (!surface->peekPixels(&pixmap) || !SkPngEncoder::Encode(&stream, pixmap, { })) {
+                g_warning("Failed to encode notification icon to PNG");
+                return { };
+            }
+
+            return filename.get();
+#endif
         };
 
         auto addResult = m_iconCache.add(iconURL, std::pair<uint32_t, CString>({ 0, CString() }));
@@ -136,10 +199,11 @@ public:
             if (!nativeImage)
                 return nullptr;
 
-            auto surface = nativeImage->platformImage();
+            const auto& surface = nativeImage->platformImage();
             if (!surface)
                 return nullptr;
 
+#if USE(CAIRO)
             GRefPtr<GByteArray> buffer = adoptGRef(g_byte_array_new());
             auto status = cairo_surface_write_to_png_stream(surface.get(), [](void* userData, const unsigned char* data, unsigned length) -> cairo_status_t {
                 auto* buffer = static_cast<GByteArray*>(userData);
@@ -151,6 +215,10 @@ public:
                 return nullptr;
 
             return adoptGRef(g_byte_array_free_to_bytes(buffer.leakRef()));
+#elif USE(SKIA)
+            // FIXME: Add Skia implementation
+            return nullptr;
+#endif
         };
 
         auto addResult = m_iconCache.add(iconURL, std::pair<uint32_t, GRefPtr<GBytes>>({ 0, nullptr }));
@@ -294,14 +362,13 @@ void NotificationService::processCapabilities(GVariant* variant)
     }
 }
 
-static const char* applicationIcon(const char* applicationID)
+static const char* applicationIcon()
 {
     static std::optional<CString> appIcon;
 #if HAVE(GDESKTOPAPPINFO)
     if (!appIcon) {
-        appIcon = [applicationID]() -> CString {
-            if (!applicationID)
-                return { };
+        appIcon = []() -> CString {
+            const char* applicationID = WTF::applicationID().data();
 
 #if PLATFORM(GTK)
             if (auto* iconTheme = gtk_icon_theme_get_for_display(gdk_display_get_default())) {
@@ -346,7 +413,7 @@ bool NotificationService::showNotification(const WebNotification& notification, 
         if (tag.isEmpty())
             return Notification();
 
-        uint64_t notificationID = 0;
+        WebNotificationIdentifier notificationID;
         for (const auto& it : m_notifications) {
             if (it.value.tag == tag) {
                 notificationID = it.key;
@@ -357,7 +424,7 @@ bool NotificationService::showNotification(const WebNotification& notification, 
         return notificationID ? m_notifications.take(notificationID) : Notification({ 0, { }, tag, { } });
     };
 
-    auto addResult = m_notifications.add(notification.notificationID(), findNotificationByTag(notification.tag()));
+    auto addResult = m_notifications.add(notification.identifier(), findNotificationByTag(notification.tag()));
     addResult.iterator->value.iconURL = notification.iconURL();
 
     if (shouldUsePortal()) {
@@ -391,14 +458,9 @@ bool NotificationService::showNotification(const WebNotification& notification, 
             g_variant_builder_add(&actionsBuilder, "s", _("Acknowledge"));
         }
 
-        const char* applicationID = nullptr;
-        if (auto* app = g_application_get_default())
-            applicationID = g_application_get_application_id(app);
-
         GVariantBuilder hintsBuilder;
         g_variant_builder_init(&hintsBuilder, G_VARIANT_TYPE("a{sv}"));
-        if (applicationID)
-            g_variant_builder_add(&hintsBuilder, "{sv}", "desktop-entry", g_variant_new_string(applicationID));
+        g_variant_builder_add(&hintsBuilder, "{sv}", "desktop-entry", g_variant_new_string(WTF::applicationID().data()));
         if (m_capabilities.contains(Capabilities::Persistence) && notification.isPersistentNotification())
             g_variant_builder_add(&hintsBuilder, "{sv}", "resident", g_variant_new_boolean(TRUE));
         if (resources && m_capabilities.contains(Capabilities::IconStatic)) {
@@ -408,13 +470,13 @@ bool NotificationService::showNotification(const WebNotification& notification, 
 
         auto* value = static_cast<GValue*>(fastZeroedMalloc(sizeof(GValue)));
         g_value_init(value, G_TYPE_UINT64);
-        g_value_set_uint64(value, notification.notificationID());
+        g_value_set_uint64(value, notification.identifier().toUInt64());
 
         CString body;
         if (m_capabilities.contains(Capabilities::Body))
             body = notification.body().utf8();
 
-        const char* appIcon = applicationIcon(applicationID);
+        const char* appIcon = applicationIcon();
 
         g_dbus_proxy_call(m_proxy.get(), "Notify", g_variant_new(
             "(susssasa{sv}i)",
@@ -431,7 +493,7 @@ bool NotificationService::showNotification(const WebNotification& notification, 
                 g_variant_get(notificationID.get(), "(u)", &id);
 
                 auto* value = static_cast<GValue*>(userData);
-                NotificationService::singleton().setNotificationID(g_value_get_uint64(value), id);
+                NotificationService::singleton().setNotificationID(WebNotificationIdentifier { g_value_get_uint64(value) }, id);
                 g_value_unset(value);
                 fastFree(value);
             }, value);
@@ -439,7 +501,7 @@ bool NotificationService::showNotification(const WebNotification& notification, 
     return true;
 }
 
-void NotificationService::cancelNotification(uint64_t webNotificationID)
+void NotificationService::cancelNotification(WebNotificationIdentifier webNotificationID)
 {
     if (!m_proxy)
         return;
@@ -473,7 +535,7 @@ void NotificationService::cancelNotification(uint64_t webNotificationID)
     }
 }
 
-void NotificationService::setNotificationID(uint64_t webNotificationID, uint32_t notificationID)
+void NotificationService::setNotificationID(WebNotificationIdentifier webNotificationID, uint32_t notificationID)
 {
     auto it = m_notifications.find(webNotificationID);
     if (it == m_notifications.end())
@@ -482,24 +544,24 @@ void NotificationService::setNotificationID(uint64_t webNotificationID, uint32_t
     it->value.id = notificationID;
 }
 
-uint64_t NotificationService::findNotification(uint32_t notificationID)
+WebNotificationIdentifier NotificationService::findNotification(uint32_t notificationID)
 {
     for (const auto& it : m_notifications) {
         if (it.value.id == notificationID)
             return it.key;
     }
 
-    return 0;
+    return  { };
 }
 
-uint64_t NotificationService::findNotification(const String& notificationID)
+WebNotificationIdentifier NotificationService::findNotification(const String& notificationID)
 {
     for (const auto& it : m_notifications) {
         if (it.value.portalID == notificationID)
             return it.key;
     }
 
-    return 0;
+    return { };
 }
 
 void NotificationService::handleSignal(GDBusProxy* proxy, char*, char* signal, GVariant* parameters, NotificationService* service)
@@ -529,7 +591,7 @@ void NotificationService::handleSignal(GDBusProxy* proxy, char*, char* signal, G
     }
 }
 
-void NotificationService::didClickNotification(uint64_t notificationID)
+void NotificationService::didClickNotification(WebNotificationIdentifier notificationID)
 {
     if (!notificationID)
         return;
@@ -538,7 +600,7 @@ void NotificationService::didClickNotification(uint64_t notificationID)
         observer->didClickNotification(notificationID);
 }
 
-void NotificationService::didCloseNotification(uint64_t notificationID)
+void NotificationService::didCloseNotification(WebNotificationIdentifier notificationID)
 {
     if (!notificationID)
         return;

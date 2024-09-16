@@ -1,7 +1,7 @@
 #
-# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+# SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2022 Klara Systems
+# Copyright (c) 2022-2023 Klara Systems
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,7 +24,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $FreeBSD$
 
 # sys/param.h
 #ifdef __APPLE__
@@ -205,6 +204,62 @@ EOF
 	atf_check -o file:foo-ab cat split-ab
 }
 
+atf_test_case autoextend
+autoextend_body()
+{
+	seq $((26*25+1)) >input
+	atf_check split -l1 input
+	atf_check -o inline:"$((26*25))\n" cat xyz
+	atf_check -o inline:"$((26*25+1))\n" cat xzaaa
+}
+
+atf_test_case noautoextend
+noautoextend_body()
+{
+	seq $((26*26)) >input
+	atf_check split -a2 -l1 input
+	atf_check -o inline:"$((26*26))\n" cat xzz
+}
+
+atf_test_case reautoextend
+reautoextend_body()
+{
+	seq $((26*25+1)) >input
+	atf_check split -a2 -a0 -l1 input
+	atf_check -o inline:"$((26*25))\n" cat xyz
+	atf_check -o inline:"$((26*25+1))\n" cat xzaaa
+}
+
+atf_test_case continue
+continue_body()
+{
+	echo hello >input
+	atf_check split input
+	atf_check -o file:input cat xaa
+	atf_check -s exit:1 -e ignore cat xab
+	atf_check split -c input
+	atf_check -o file:input cat xab
+}
+
+atf_test_case undocumented_kludge
+undocumented_kludge_body()
+{
+	seq 5000 >input
+	atf_check split -1000 input
+	atf_check -o file:xae seq 4001 5000
+	atf_check split -d1000 input
+	atf_check -o file:x04 seq 4001 5000
+}
+
+atf_test_case duplicate_linecount
+duplicate_linecount_body()
+{
+	atf_check -s exit:64 -e ignore split -5 -5 /dev/null
+	atf_check -s exit:64 -e ignore split -l5 -5 /dev/null
+	atf_check -s exit:64 -e ignore split -5 -l5 /dev/null
+	atf_check -s exit:64 -e ignore split -l5 -l5 /dev/null
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case bytes
@@ -214,4 +269,14 @@ atf_init_test_cases()
 	atf_add_test_case numeric_suffix
 	atf_add_test_case larger_suffix_length
 	atf_add_test_case pattern
+#ifndef __APPLE__
+#	atf_add_test_case autoextend
+#endif
+	atf_add_test_case noautoextend
+#ifndef __APPLE__
+#	atf_add_test_case reautoextend
+#endif
+	atf_add_test_case continue
+	atf_add_test_case undocumented_kludge
+	atf_add_test_case duplicate_linecount
 }

@@ -33,6 +33,7 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "ContextDestructionObserverInlines.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "SourceBuffer.h"
@@ -102,11 +103,6 @@ void SourceBufferList::swap(Vector<RefPtr<SourceBuffer>>& other)
 void SourceBufferList::scheduleEvent(const AtomString& eventName)
 {
     queueTaskToDispatchEvent(*this, TaskSource::MediaElement, Event::create(eventName, Event::CanBubble::No, Event::IsCancelable::No));
-}
-
-const char* SourceBufferList::activeDOMObjectName() const
-{
-    return "SourceBufferList";
 }
 
 WebCoreOpaqueRoot root(SourceBufferList* list)

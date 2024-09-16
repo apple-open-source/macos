@@ -128,10 +128,8 @@ RefPtr<StyleImage> BuilderState::createStyleImage(const CSSValue& value)
         return radialGradientvalue->createStyleImage(*this);
     if (auto conicGradientValue = dynamicDowncast<CSSConicGradientValue>(value))
         return conicGradientValue->createStyleImage(*this);
-#if ENABLE(CSS_PAINTING_API)
     if (auto* paintImageValue = dynamicDowncast<CSSPaintImageValue>(value))
         return paintImageValue->createStyleImage(*this);
-#endif
     return nullptr;
 }
 
@@ -142,15 +140,7 @@ std::optional<FilterOperations> BuilderState::createFilterOperations(const CSSVa
 
 bool BuilderState::isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue& value)
 {
-    switch (value.valueID()) {
-    case CSSValueInternalDocumentTextColor:
-    case CSSValueWebkitLink:
-    case CSSValueWebkitActivelink:
-    case CSSValueCurrentcolor:
-        return true;
-    default:
-        return false;
-    }
+    return StyleColor::containsCurrentColor(value) || StyleColor::containsColorSchemeDependentColor(value);
 }
 
 StyleColor BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value, ForVisitedLink forVisitedLink) const
@@ -162,7 +152,7 @@ StyleColor BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value,
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)
 {
-    if (style().styleType() == PseudoId::Before || style().styleType() == PseudoId::After)
+    if (style().pseudoElementType() == PseudoId::Before || style().pseudoElementType() == PseudoId::After)
         m_registeredContentAttributes.append(attributeLocalName);
 }
 
@@ -226,7 +216,7 @@ void BuilderState::updateFontForTextSizeAdjust()
 
 void BuilderState::updateFontForZoomChange()
 {
-    if (m_style.effectiveZoom() == parentStyle().effectiveZoom() && m_style.textZoom() == parentStyle().textZoom())
+    if (m_style.usedZoom() == parentStyle().usedZoom() && m_style.textZoom() == parentStyle().textZoom())
         return;
 
     const auto& childFont = m_style.fontDescription();

@@ -359,7 +359,7 @@ class Test():
         source_json_count = 0
         context_id = 0
         for f in test_files:
-            # TODO: Consolidate. http://anglebug.com/7753
+            # TODO: Consolidate. http://anglebug.com/42266223
             if "_001.cpp" in f or "_001.c" in f:
                 frame_files_count += 1
             elif f.endswith(".json"):
@@ -369,7 +369,7 @@ class Test():
                 if TRACE_FILE_SUFFIX in f:
                     context = f.split(TRACE_FILE_SUFFIX)[1][:-2]
                     context_id = int(context)
-            # TODO: Consolidate. http://anglebug.com/7753
+            # TODO: Consolidate. http://anglebug.com/42266223
             elif f.endswith(".cpp") or f.endswith(".c"):
                 context_source_count += 1
         can_run_replay = frame_files_count >= 1 and context_header_count >= 1 \
@@ -750,6 +750,15 @@ def SetCWDToAngleFolder():
     return cwd
 
 
+def CleanupAfterReplay(replay_build_dir, tests):
+    # Remove files that have test labels in the file name, .e.g:
+    # ClearTest_ClearIsClamped_ES2_Vulkan_SwiftShader.dll.pdb
+    test_labels = [test.GetLabel() for test in tests]
+    for build_file in os.listdir(replay_build_dir):
+        if any(label in build_file for label in test_labels):
+            os.unlink(os.path.join(replay_build_dir, build_file))
+
+
 def RunTests(args, worker_id, job_queue, result_list, message_queue, logger, ninja_lock):
     replay_build_dir = os.path.join(args.out_dir, 'Replay%d' % worker_id)
     replay_exec_path = os.path.join(replay_build_dir, REPLAY_BINARY)
@@ -787,6 +796,8 @@ def RunTests(args, worker_id, job_queue, result_list, message_queue, logger, nin
             test_batch.RunReplay(args, replay_build_dir, replay_exec_path, child_processes_manager,
                                  continued_tests)
             result_list.append(test_batch.GetResults())
+            if not args.keep_temp_files:
+                CleanupAfterReplay(replay_build_dir, continued_tests)
             logger.info('Finished RunReplay: %s', str(test_batch.GetResults()))
         except KeyboardInterrupt:
             child_processes_manager.KillAll()
@@ -860,7 +871,7 @@ def main(args):
         os.environ["RBE_experimental_credentials_helper_args"] = ""
 
     if sys.platform == 'linux' and is_bot:
-        logger.warning('Test is currently a no-op https://anglebug.com/6085')
+        logger.warning('Test is currently a no-op https://anglebug.com/42264614')
         return EXIT_SUCCESS
 
     ninja_lock = multiprocessing.Semaphore(args.max_ninja_jobs)

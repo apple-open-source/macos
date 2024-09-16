@@ -979,7 +979,9 @@ hx509_cert_init_SecFrameworkAuth(hx509_context context, void * identity, hx509_c
     hx509_cert c;
     int ret;
 
-    *cert = NULL;
+    if (cert) {
+	*cert = NULL;
+    }
 
     if (CFDataGetTypeID() == typeid) {
 	void const * keys[4] =  {
@@ -1076,13 +1078,15 @@ hx509_cert_init_SecFrameworkAuth(hx509_context context, void * identity, hx509_c
 	}
 	if (keyAttrs != NULL ) {
 	    keyType = CFDictionaryGetValue(keyAttrs, kSecAttrKeyType);
+	    if (keyType) {
+		CFRetain(keyType);
+	    }
 	    CFRelease(keyAttrs);
 	}
 	if (keyType != NULL) {
 	    certIsECDSA = CFEqual(keyType, kSecAttrKeyTypeECSECPrimeRandom);
 	    CFRelease(keyType);
 	}
-
 	if (certIsECDSA) {
             set_private_key_ecdsa(context, c, pkey, authContext);
         } else {
@@ -1096,7 +1100,9 @@ hx509_cert_init_SecFrameworkAuth(hx509_context context, void * identity, hx509_c
     if (secdata)
 	CFRelease(secdata);
 
-    *cert = c;
+    if (cert) {
+	*cert = c;
+    }
 
     return 0;
 }

@@ -1163,12 +1163,8 @@ static bool Flush(CFErrorRef *error) {
 }
 
 - (void) SOSMonitorModeDisableSOS {
-    if(os_feature_enabled(Security, SOSMonitorMode)) {
-        secnotice("SOSMonitorMode", "Putting SOS into monitor mode");
-        [self.settings setBool: NO forKey: @"SOSEnabled"];
-    } else {
-        secnotice("SOSMonitorMode", "SOSMonitorMode is not turned on for this platform");
-    }
+    secnotice("SOSMonitorMode", "Disabling SOS from monitor mode");
+    [self.settings setBool: NO forKey: @"SOSEnabled"];
 }
 
 - (void) SOSMonitorModeEnableSOS {
@@ -1204,13 +1200,6 @@ static bool Flush(CFErrorRef *error) {
             secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning off SOS for Compatibility mode");
             [self SOSMonitorModeDisableSOS];
             [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSCompatMode"];
-        }
-    } else if(!os_feature_enabled(Security, SOSMonitorMode)) {
-        if(![self SOSMonitorModeSOSIsActive]) {
-            // make sure SOS wasn't accidentally turned off
-            secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning on SOS since monitor mode is unavailable");
-            [self SOSMonitorModeEnableSOS];
-            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSLegacyMode"];
         }
     } else {
         // SOSMonitorMode is go

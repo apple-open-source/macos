@@ -71,6 +71,10 @@
 
 
 #include <AvailabilityInternal.h>
+#include <AvailabilityInternalLegacy.h>
+#if __has_include(<AvailabilityInternalPrivate.h>)
+  #include <AvailabilityInternalPrivate.h>
+#endif
 
 /*
  Macros for defining which versions/platform a given symbol can be used.

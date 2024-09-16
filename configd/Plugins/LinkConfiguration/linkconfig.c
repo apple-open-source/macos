@@ -122,7 +122,7 @@ ioctl_siocsifconstrained(int s, const char * ifname, Boolean enable)
 	ret = ioctl(s, SIOCSIFCONSTRAINED, &ifr);
 	if (ret < 0) {
 		SC_log(LOG_ERR,
-		       "ioctl(%s, SIOCSIFCONSTRAINED %d failed, %s",
+		       "ioctl(%s, SIOCSIFCONSTRAINED %u failed, %s",
 		       ifname, ifr.ifr_constrained, strerror(errno));
 	}
 	return (ret);
@@ -140,7 +140,7 @@ ioctl_siocsifexpensive(int s, const char * ifname, Boolean is_expensive)
 	ret = ioctl(s, SIOCSIFEXPENSIVE, &ifr);
 	if (ret < 0) {
 		SC_log(LOG_ERR,
-		       "ioctl(%s, SIOCSIFEXPENSIVE %d failed, %s",
+		       "ioctl(%s, SIOCSIFEXPENSIVE %u failed, %s",
 		       ifname, ifr.ifr_constrained, strerror(errno));
 	}
 	return (ret);
@@ -349,8 +349,9 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	ifr.ifr_media =  ifm.ifm_current & ~(IFM_NMASK|IFM_TMASK|IFM_OMASK|IFM_GMASK);
 	ifr.ifr_media |= newOptions;
 
-	SC_log(LOG_INFO, "old media settings: 0x%8.8x (0x%8.8x)", ifm.ifm_current, ifm.ifm_active);
-	SC_log(LOG_INFO, "new media settings: 0x%8.8x", ifr.ifr_media);
+	SC_log(LOG_INFO, "old media settings: 0x%8.8x (0x%8.8x)", 
+	       (unsigned int)ifm.ifm_current, (unsigned int)ifm.ifm_active);
+	SC_log(LOG_INFO, "new media settings: 0x%8.8x", (unsigned int)ifr.ifr_media);
 
 	if (ioctl(sock, SIOCSIFMEDIA, (caddr_t)&ifr) == -1) {
 		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMEDIA) failed: %s", interfaceName, strerror(errno));

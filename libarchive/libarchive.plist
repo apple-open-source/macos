@@ -47,6 +47,7 @@
 		<string>Backport patch for CVE-2022-36227 (#102745018)</string>
 		<string>Patch for special header size (108529089)</string>
 		<string>libarchive/archive_write_disk_posix.c patch to fix symlink issue (112604343)</string>
+		<string>libarchive/libarchive/archive_read_support_format_rar.c to path oob access(129148071)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

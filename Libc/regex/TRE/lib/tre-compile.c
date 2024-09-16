@@ -3318,7 +3318,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags,
 #ifdef __LIBC__
   /* In Libc, we need to retain the locale.  Outside Libc, we already called
      duplocale() which does the retaining. */
-  XL_RETAIN(tnfa->loc);
+  xlocale_retain(tnfa->loc);
 #endif /* __LIBC__ */
   return REG_OK;
 
@@ -3403,7 +3403,7 @@ tre_free(regex_t *preg)
 
   if (tnfa->loc)
 #ifdef __LIBC__
-    XL_RELEASE(tnfa->loc);
+    xlocale_release(tnfa->loc);
 #else /* !__LIBC__ */
     freelocale(tnfa->loc);
 #endif /* !__LIBC__ */

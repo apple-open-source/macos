@@ -32,6 +32,7 @@
 #include "SharedCARingBuffer.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 namespace IPC {
 class Semaphore;
@@ -45,6 +46,7 @@ namespace WebKit {
 
 class GPUConnectionToWebProcess;
 class RemoteAudioDestination;
+class RemoteAudioMediaStreamTrackRendererInternalUnitManagerUnit;
 
 class RemoteAudioMediaStreamTrackRendererInternalUnitManager : private IPC::MessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
@@ -56,7 +58,6 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
     bool hasUnits() { return !m_units.isEmpty(); }
-    class Unit;
 
     void notifyLastToCaptureAudioChanged();
 
@@ -68,8 +69,8 @@ private:
     void stopUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier);
     void setAudioOutputDevice(AudioMediaStreamTrackRendererInternalUnitIdentifier, const String&);
 
-    HashMap<AudioMediaStreamTrackRendererInternalUnitIdentifier, UniqueRef<Unit>> m_units;
-    GPUConnectionToWebProcess& m_gpuConnectionToWebProcess;
+    HashMap<AudioMediaStreamTrackRendererInternalUnitIdentifier, UniqueRef<class RemoteAudioMediaStreamTrackRendererInternalUnitManagerUnit>> m_units;
+    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
 };
 
 } // namespace WebKit;

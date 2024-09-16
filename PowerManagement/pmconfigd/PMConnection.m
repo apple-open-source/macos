@@ -286,6 +286,8 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap);
 
 static void setSystemSleepStateTracking(IOPMCapabilityBits);
 
+IOReturn _smcWritePerfStateSensorExData(bool restrictPerf);
+
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms);
 
 
@@ -2402,8 +2404,7 @@ static void PMConnectionPowerCallBack(
         recordFDREvent(kFDRSleepEvent, false);
 
         evaluateADS();
-        if(smcSilentRunningSupport() )
-           gCurrentSilentRunningState = kSilentRunningOn;
+        _clamp_silent_running();
 
         responseController = connectionFireNotification(_kSleepStateBits, (long)capArgs->notifyRef);
 
@@ -2512,8 +2513,7 @@ static void PMConnectionPowerCallBack(
         // Silent until powerd unclamps SilentRunning or unforeseen thermal
         // constraints arise
 
-        if(smcSilentRunningSupport() )
-           gCurrentSilentRunningState = kSilentRunningOn;
+        _clamp_silent_running();
 
         gMachineStateRevertible = true;
 
@@ -3805,27 +3805,40 @@ __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits)
     }
 
     int newSRCap = kSilentRunningOff;
-    CFNumberRef num = CFNumberCreate(0, kCFNumberIntType, &newSRCap);
-    if (num)
-    {
-        if(rootDomainService)
+    
+    // With legacy SMC Support, we write a RootDomain property which results
+    // in the change trickling through to the SMC
+    if (smcSilentRunningSupportType() == kSilentRunningSupportTypeLegacy) {
+        CFNumberRef num = CFNumberCreate(0, kCFNumberIntType, &newSRCap);
+        if (num)
         {
-            IORegistryEntrySetCFProperty(rootDomainService,
-                                         CFSTR(kIOPMSilentRunningKey),
-                                         num);
-            gCurrentSilentRunningState = kSilentRunningOff;
+            if(rootDomainService)
+            {
+                IORegistryEntrySetCFProperty(rootDomainService,
+                                             CFSTR(kIOPMSilentRunningKey),
+                                             num);
+                gCurrentSilentRunningState = kSilentRunningOff;
+            }
+            else
+            {
+                CFRelease(num);
+                return kIOReturnInternalError;
+            }
+            CFRelease(num);
+            return kIOReturnSuccess;
         }
         else
         {
-            CFRelease(num);
             return kIOReturnInternalError;
         }
-        CFRelease(num);
-        return kIOReturnSuccess;
     }
-    else
-    {
-        return kIOReturnInternalError;
+    // With modern SMC Support, we communicate SR unclamp directly to the SMC.
+    else {
+        IOReturn ret = _smcWritePerfStateSensorExData(false);
+        if(ret == kIOReturnSuccess) {
+            gCurrentSilentRunningState = kSilentRunningOff;
+        }
+        return ret;
     }
 }
 
@@ -3840,6 +3853,10 @@ IOReturn _smcWritePerfStateSensorExData(bool restrictPerf)
     
     perfStateSMCSensorExData.SENSORS.sensorArray[SMC_SENSOR_EXCHANGE_POWERD_VER1_IDX_SDDS].FLOATS.rValue = (float)restrictPerf;
     
+#if (TARGET_OS_XR || TARGET_OS_OSX) && !XCTEST
+    INFO_LOG("Setting SMCKey: 'zEPD' to: %d\n", restrictPerf);
+    ret =_smcWriteKeyLarge('zEPD', (uint8_t *) &perfStateSMCSensorExData, SMC_SENSOR_EX_SIZE_BYTES_JUMBO);
+#endif
     perfStateSMCSensorExData.SENSORS.header.uchRollingSequenceNumber++;
     return ret;
 }
@@ -3847,6 +3864,33 @@ IOReturn _smcWritePerfStateSensorExData(bool restrictPerf)
 __private_extern__ bool isInPerfRestrictedMode(void)
 {
     return (gCurrentPerfState == kPerfRestricted);
+}
+
+
+// Clamps machine into SilentRunning if the machine is currently clamped.
+// This is achieved differently based on the type of SMC Support for SilentRunning.
+// With Legacy SMC Support, we have to do nothing. For Modern SMC Support, we have to
+// write the appropriate SMC Key (zEPD).
+__private_extern__ IOReturn _clamp_silent_running(void)
+{
+    // Nothing to do. It's already clamped
+    if(gCurrentSilentRunningState == kSilentRunningOn)
+        return kIOReturnSuccess;
+
+    // Nothing to do. SMC doesn't support SR
+    if(!smcSilentRunningSupport())
+        return kIOReturnUnsupported;
+
+    gCurrentSilentRunningState = kSilentRunningOn;
+    // Clamps on the legacy path are applied on every wake through lower layers, we have
+    // nothing to do.
+    if (smcSilentRunningSupportType() == kSilentRunningSupportTypeLegacy) {
+        return kIOReturnSuccess;
+    }
+
+    else {
+        return _smcWritePerfStateSensorExData(true);
+    }
 }
 
 __private_extern__ IOReturn setRestrictedPerfMode(bool restrictPerf)
@@ -3858,10 +3902,6 @@ __private_extern__ IOReturn setRestrictedPerfMode(bool restrictPerf)
         return ret;
     }
 
-    ret = _smcWritePerfStateSensorExData(restrictPerf);
-    if (ret != kIOReturnSuccess) {
-        ERROR_LOG("Failed to communicate PerfState to SMC, returned 0x%x\n", ret);
-    }
     
     gCurrentPerfState = restrictPerf ? kPerfRestricted : kPerfUnrestricted;
     return ret;

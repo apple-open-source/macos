@@ -30,6 +30,6 @@
 int
 umount_by_fsid(fsid_t *fsid, int flag)
 {
-	return (sysctl_fsid(VFS_CTL_UMOUNT, fsid, NULL, NULL, &flag,
-	    sizeof(flag)));
+	return sysctl_fsid(VFS_CTL_UMOUNT, fsid, NULL, NULL, &flag,
+	           sizeof(flag));
 }

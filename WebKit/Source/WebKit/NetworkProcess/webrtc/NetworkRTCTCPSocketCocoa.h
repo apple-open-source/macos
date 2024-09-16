@@ -31,6 +31,15 @@
 #include <Network/Network.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebKit {
+class NetworkRTCTCPSocketCocoa;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::NetworkRTCTCPSocketCocoa> : std::true_type { };
+}
+
 namespace rtc {
 class SocketAddress;
 }
@@ -45,15 +54,17 @@ public:
     NetworkRTCTCPSocketCocoa(WebCore::LibWebRTCSocketIdentifier, NetworkRTCProvider&, const rtc::SocketAddress&, int options, const String& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&, Ref<IPC::Connection>&&);
     ~NetworkRTCTCPSocketCocoa();
 
+    static void getInterfaceName(NetworkRTCProvider&, const URL&, const String& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&, CompletionHandler<void(String&&)>&&);
+
 private:
     // NetworkRTCProvider::Socket.
     WebCore::LibWebRTCSocketIdentifier identifier() const final { return m_identifier; }
     Type type() const final { return Type::ClientTCP; }
     void close() final;
     void setOption(int option, int value) final;
-    void sendTo(const uint8_t*, size_t, const rtc::SocketAddress&, const rtc::PacketOptions&) final;
+    void sendTo(std::span<const uint8_t>, const rtc::SocketAddress&, const rtc::PacketOptions&) final;
 
-    Vector<uint8_t> createMessageBuffer(const uint8_t*, size_t);
+    Vector<uint8_t> createMessageBuffer(std::span<const uint8_t>);
 
     WebCore::LibWebRTCSocketIdentifier m_identifier;
     NetworkRTCProvider& m_rtcProvider;

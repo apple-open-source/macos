@@ -70,6 +70,7 @@
 #include <wtf/Ref.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -170,7 +171,7 @@ void HTMLLinkElement::attributeChanged(const QualifiedName& name, const AtomStri
         auto didMutateRel = parsedRel != m_relAttribute;
         m_relAttribute = WTFMove(parsedRel);
         if (m_relList)
-            m_relList->associatedAttributeValueChanged(newValue);
+            m_relList->associatedAttributeValueChanged();
         if (didMutateRel)
             process();
         break;
@@ -191,7 +192,7 @@ void HTMLLinkElement::attributeChanged(const QualifiedName& name, const AtomStri
         break;
     case AttributeNames::sizesAttr:
         if (m_sizes)
-            m_sizes->associatedAttributeValueChanged(newValue);
+            m_sizes->associatedAttributeValueChanged();
         process();
         break;
     case AttributeNames::mediaAttr: {
@@ -457,7 +458,7 @@ void HTMLLinkElement::setCSSStyleSheet(const String& href, const URL& baseURL, c
     Ref<HTMLLinkElement> protectedThis(*this);
 
     if (!cachedStyleSheet->errorOccurred() && !matchIntegrityMetadata(*cachedStyleSheet, m_integrityMetadataForPendingSheetRequest)) {
-        document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Cannot load stylesheet ", integrityMismatchDescription(*cachedStyleSheet, m_integrityMetadataForPendingSheetRequest)));
+        document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Cannot load stylesheet "_s, integrityMismatchDescription(*cachedStyleSheet, m_integrityMetadataForPendingSheetRequest)));
 
         m_loading = false;
         sheetLoaded();
@@ -615,17 +616,25 @@ std::optional<LinkIconType> HTMLLinkElement::iconType() const
     return m_relAttribute.iconType;
 }
 
+static bool mayFetchResource(LinkRelAttribute relAttribute)
+{
+    // https://html.spec.whatwg.org/multipage/links.html#linkTypes
+    return relAttribute.isStyleSheet
+        || relAttribute.isLinkModulePreload
+        || relAttribute.isLinkPreload
+#if ENABLE(APPLICATION_MANIFEST)
+        || relAttribute.isApplicationManifest
+#endif
+        || !!relAttribute.iconType;
+}
+
 void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    // Favicons are handled by a special case in LegacyWebArchive::create()
-    if (m_relAttribute.iconType)
+    if (!mayFetchResource(m_relAttribute))
         return;
 
-    if (!m_relAttribute.isStyleSheet)
-        return;
-    
     // Append the URL of this link element.
     addSubresourceURL(urls, href());
 

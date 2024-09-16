@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2009-2022 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,21 +63,20 @@ namespace WebCore {
 using namespace HTMLNames;
 
 struct EntityDescription {
-    const char* characters;
-    uint8_t length;
+    ASCIILiteral characters;
     std::optional<EntityMask> mask;
 };
 
-static const EntityDescription entitySubstitutionList[] = {
-    { "", 0, std::nullopt },
-    { "&amp;", 5, EntityMask::Amp },
-    { "&lt;", 4, EntityMask::Lt },
-    { "&gt;", 4, EntityMask::Gt },
-    { "&quot;", 6, EntityMask::Quot },
-    { "&nbsp;", 6, EntityMask::Nbsp },
-    { "&#9;", 4, EntityMask::Tab },
-    { "&#10;", 5, EntityMask::LineFeed },
-    { "&#13;", 5, EntityMask::CarriageReturn },
+constexpr EntityDescription entitySubstitutionList[] = {
+    { ""_s, std::nullopt },
+    { "&amp;"_s, EntityMask::Amp },
+    { "&lt;"_s, EntityMask::Lt },
+    { "&gt;"_s, EntityMask::Gt },
+    { "&quot;"_s, EntityMask::Quot },
+    { "&nbsp;"_s, EntityMask::Nbsp },
+    { "&#9;"_s, EntityMask::Tab },
+    { "&#10;"_s, EntityMask::LineFeed },
+    { "&#13;"_s, EntityMask::CarriageReturn },
 };
 
 namespace EntitySubstitutionIndex {
@@ -114,10 +113,11 @@ static const uint8_t entityMap[maximumEscapedentityCharacter + 1] = {
 static bool elementCannotHaveEndTag(const Node& node)
 {
     using namespace ElementNames;
-    if (!is<Element>(node))
+    RefPtr element = dynamicDowncast<Element>(node);
+    if (!element)
         return false;
 
-    switch (downcast<Element>(node).elementName()) {
+    switch (element->elementName()) {
         // https://html.spec.whatwg.org/#void-elements
     case HTML::area:
     case HTML::base:
@@ -165,7 +165,7 @@ static bool shouldSelfClose(const Element& element, SerializationSyntax syntax)
 template<typename CharacterType>
 static inline void appendCharactersReplacingEntitiesInternal(StringBuilder& result, const String& source, unsigned offset, unsigned length, OptionSet<EntityMask> entityMask)
 {
-    const CharacterType* text = source.characters<CharacterType>() + offset;
+    auto text = source.span<CharacterType>().subspan(offset);
 
     size_t positionAfterLastEntity = 0;
     for (size_t i = 0; i < length; ++i) {
@@ -173,7 +173,7 @@ static inline void appendCharactersReplacingEntitiesInternal(StringBuilder& resu
         uint8_t substitution = character < std::size(entityMap) ? entityMap[character] : static_cast<uint8_t>(EntitySubstitutionIndex::Null);
         if (UNLIKELY(substitution != EntitySubstitutionIndex::Null) && entityMask.contains(*entitySubstitutionList[substitution].mask)) {
             result.appendSubstring(source, offset + positionAfterLastEntity, i - positionAfterLastEntity);
-            result.appendCharacters(entitySubstitutionList[substitution].characters, entitySubstitutionList[substitution].length);
+            result.append(entitySubstitutionList[substitution].characters);
             positionAfterLastEntity = i + 1;
         }
     }
@@ -193,18 +193,23 @@ void MarkupAccumulator::appendCharactersReplacingEntities(StringBuilder& result,
         appendCharactersReplacingEntitiesInternal<UChar>(result, source, offset, length, entityMask);
 }
 
-MarkupAccumulator::MarkupAccumulator(Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, SerializationSyntax serializationSyntax, HashMap<String, String>&& replacementURLStrings, HashMap<RefPtr<CSSStyleSheet>, String>&& replacementURLStringsForCSSStyleSheet, ShouldIncludeShadowDOM shouldIncludeShadowDOM, const Vector<MarkupExclusionRule>& exclusionRules)
+MarkupAccumulator::MarkupAccumulator(Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, SerializationSyntax serializationSyntax, SerializeShadowRoots serializeShadowRoots, Vector<Ref<ShadowRoot>>&& explicitShadowRoots, const Vector<MarkupExclusionRule>& exclusionRules)
     : m_nodes(nodes)
     , m_resolveURLs(resolveURLs)
     , m_serializationSyntax(serializationSyntax)
-    , m_replacementURLStrings(WTFMove(replacementURLStrings))
-    , m_replacementURLStringsForCSSStyleSheet(WTFMove(replacementURLStringsForCSSStyleSheet))
-    , m_shouldIncludeShadowDOM(shouldIncludeShadowDOM == ShouldIncludeShadowDOM::Yes)
+    , m_serializeShadowRoots(serializeShadowRoots)
+    , m_explicitShadowRoots(WTFMove(explicitShadowRoots))
     , m_exclusionRules(exclusionRules)
 {
+    ASSERT(serializeShadowRoots != SerializeShadowRoots::AllForInterchange || explicitShadowRoots.isEmpty());
 }
 
 MarkupAccumulator::~MarkupAccumulator() = default;
+
+void MarkupAccumulator::enableURLReplacement(HashMap<String, String>&& replacementURLStrings, HashMap<RefPtr<CSSStyleSheet>, String>&& replacementURLStringsForCSSStyleSheet)
+{
+    m_urlReplacementData = URLReplacementData { WTFMove(replacementURLStrings), WTFMove(replacementURLStringsForCSSStyleSheet) };
+}
 
 String MarkupAccumulator::serializeNodes(Node& targetNode, SerializedNodes root)
 {
@@ -214,19 +219,41 @@ String MarkupAccumulator::serializeNodes(Node& targetNode, SerializedNodes root)
 
 bool MarkupAccumulator::appendContentsForNode(StringBuilder& result, const Node& targetNode)
 {
-    if (!targetNode.hasTagName(styleTag))
+    if (!m_urlReplacementData)
         return false;
 
-    if (m_replacementURLStrings.isEmpty() && m_replacementURLStringsForCSSStyleSheet.isEmpty())
+    RefPtr styleElement = dynamicDowncast<HTMLStyleElement>(targetNode);
+    if (!styleElement)
         return false;
 
-    auto& styleElement = downcast<HTMLStyleElement>(targetNode);
-    RefPtr cssStyleSheet = styleElement.sheet();
+    RefPtr cssStyleSheet = styleElement->sheet();
     if (!cssStyleSheet)
         return false;
 
-    result.append(cssStyleSheet->cssTextWithReplacementURLs(m_replacementURLStrings, m_replacementURLStringsForCSSStyleSheet));
+    result.append(cssStyleSheet->cssTextWithReplacementURLs(m_urlReplacementData->replacementURLStrings, m_urlReplacementData->replacementURLStringsForCSSStyleSheet));
     return true;
+}
+
+bool MarkupAccumulator::shouldIncludeShadowRoots() const
+{
+    return m_serializeShadowRoots != SerializeShadowRoots::Explicit || !m_explicitShadowRoots.isEmpty();
+}
+
+bool MarkupAccumulator::includeShadowRoot(const ShadowRoot& shadowRoot) const
+{
+    if (shadowRoot.mode() == ShadowRootMode::UserAgent)
+        return false;
+
+    if (m_serializeShadowRoots == SerializeShadowRoots::AllForInterchange)
+        return true;
+
+    if (m_serializeShadowRoots == SerializeShadowRoots::Serializable && shadowRoot.serializable())
+        return true;
+
+    if (m_explicitShadowRoots.containsIf([&shadowRoot](const auto& item) { return item.ptr() == &shadowRoot; }))
+        return true;
+
+    return false;
 }
 
 void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, SerializedNodes root, const Namespaces* namespaces)
@@ -243,10 +270,18 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
     } else
         namespaceStack.constructAndAppend();
 
+    auto firstChild = [&](auto& current) -> Node* {
+        bool shouldSkipChidren = appendContentsForNode(m_markup, current);
+        if (shouldSkipChidren)
+            return nullptr;
+        RefPtr currentTemplate = dynamicDowncast<HTMLTemplateElement>(current);
+        return currentTemplate ? currentTemplate->content().firstChild() : current.firstChild();
+    };
+
     RefPtr<const Node> current = &targetNode;
     do {
         bool shouldSkipNode = false;
-        if (is<Element>(current) && shouldExcludeElement(downcast<Element>(*current)))
+        if (RefPtr element = dynamicDowncast<const Element>(current); element && shouldExcludeElement(*element))
             shouldSkipNode = true;
 
         bool shouldAppendNode = !shouldSkipNode && !(current == &targetNode && root != SerializedNodes::SubtreeIncludingNode);
@@ -256,19 +291,17 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
         bool shouldEmitCloseTag = !(targetNode.document().isHTMLDocument() && elementCannotHaveEndTag(*current));
         shouldSkipNode = shouldSkipNode || !shouldEmitCloseTag;
         if (!shouldSkipNode) {
-            if (m_shouldIncludeShadowDOM) {
+            if (shouldIncludeShadowRoots()) {
                 RefPtr shadowRoot = current->shadowRoot();
-                if (shadowRoot && shadowRoot->mode() != ShadowRootMode::UserAgent) {
+                if (shadowRoot && includeShadowRoot(*shadowRoot)) {
                     current = shadowRoot;
                     namespaceStack.append(namespaceStack.last());
                     continue;
                 }
             }
 
-            bool shouldSkipChidren = appendContentsForNode(m_markup, *current);
-            auto firstChild = current->hasTagName(templateTag) ? downcast<HTMLTemplateElement>(*current).content().firstChild() : current->firstChild();
-            if (!shouldSkipChidren && firstChild) {
-                current = firstChild;
+            if (auto* child = firstChild(*current)) {
+                current = child;
                 namespaceStack.append(namespaceStack.last());
                 continue;
             }
@@ -285,9 +318,16 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
                 break;
             }
 
-            if (m_shouldIncludeShadowDOM && current->isShadowRoot())
+            if (shouldIncludeShadowRoots() && current->isShadowRoot()) {
                 current = current->shadowHost();
-            else
+                if (m_serializeShadowRoots != SerializeShadowRoots::AllForInterchange) {
+                    if (auto* child = firstChild(*current)) {
+                        current = child;
+                        namespaceStack.append(namespaceStack.last());
+                        break;
+                    }
+                }
+            } else
                 current = current->parentNode();
 
             namespaceStack.removeLast();
@@ -308,57 +348,69 @@ void MarkupAccumulator::serializeNodesWithNamespaces(Node& targetNode, Serialize
     } while (current != &targetNode);
 }
 
-String MarkupAccumulator::resolveURLIfNeeded(const Element& element, const String& urlString) const
+std::pair<String, MarkupAccumulator::IsCreatedByURLReplacement> MarkupAccumulator::resolveURLIfNeeded(const Element& element, const String& urlString) const
 {
-    if (!m_replacementURLStringsForCSSStyleSheet.isEmpty() && is<HTMLLinkElement>(element)) {
-        if (RefPtr cssStyleSheet = downcast<HTMLLinkElement>(element).sheet()) {
-            auto replacementURLString = m_replacementURLStringsForCSSStyleSheet.get(cssStyleSheet);
+    if (RefPtr link = dynamicDowncast<HTMLLinkElement>(element); link && m_urlReplacementData) {
+        if (RefPtr cssStyleSheet = link->sheet()) {
+            auto replacementURLString = m_urlReplacementData->replacementURLStringsForCSSStyleSheet.get(cssStyleSheet);
             if (!replacementURLString.isEmpty())
-                return replacementURLString;
+                return { replacementURLString, IsCreatedByURLReplacement::Yes };
         }
     }
 
-    if (!m_replacementURLStrings.isEmpty()) {
-        if (auto frame = frameForAttributeReplacement(element)) {
-            auto replacementURLString = m_replacementURLStrings.get(frame->frameID().toString());
+    if (m_urlReplacementData) {
+        if (RefPtr frame = frameForAttributeReplacement(element)) {
+            auto replacementURLString = m_urlReplacementData->replacementURLStrings.get(frame->frameID().toString());
             if (!replacementURLString.isEmpty())
-                return replacementURLString;
+                return { replacementURLString, IsCreatedByURLReplacement::Yes };
         }
 
         auto resolvedURLString = element.resolveURLStringIfNeeded(urlString);
-        auto replacementURLString = m_replacementURLStrings.get(resolvedURLString);
+        auto replacementURLString = m_urlReplacementData->replacementURLStrings.get(resolvedURLString);
         if (!replacementURLString.isEmpty())
-            return replacementURLString;
+            return { replacementURLString, IsCreatedByURLReplacement::Yes };
     }
 
-    return element.resolveURLStringIfNeeded(urlString, m_resolveURLs);
+    return { element.resolveURLStringIfNeeded(urlString, m_resolveURLs), IsCreatedByURLReplacement::No };
 }
 
-RefPtr<Element> MarkupAccumulator::replacementElement(const Node& node)
+const ShadowRoot* MarkupAccumulator::suitableShadowRoot(const Node& node)
 {
-    if (!m_shouldIncludeShadowDOM || !node.isShadowRoot())
+    if (!shouldIncludeShadowRoots())
         return nullptr;
 
-    auto& shadowRoot = downcast<ShadowRoot>(node);
-    if (shadowRoot.mode() == ShadowRootMode::UserAgent)
+    RefPtr shadowRoot = dynamicDowncast<ShadowRoot>(node);
+    if (!shadowRoot || !includeShadowRoot(*shadowRoot))
         return nullptr;
-
-    auto element = HTMLTemplateElement::create(HTMLNames::templateTag, node.document());
-    if (shadowRoot.mode() == ShadowRootMode::Open)
-        element->setShadowRootMode(AtomString { "open"_s });
-    else if (shadowRoot.mode() == ShadowRootMode::Closed)
-        element->setShadowRootMode(AtomString { "closed"_s });
-
-    return element;
+    return shadowRoot.get();
 }
 
 void MarkupAccumulator::startAppendingNode(const Node& node, Namespaces* namespaces)
 {
-    if (is<Element>(node))
-        appendStartTag(m_markup, downcast<Element>(node), namespaces);
-    else if (auto element = replacementElement(node))
+    if (RefPtr element = dynamicDowncast<Element>(node))
         appendStartTag(m_markup, *element, namespaces);
-    else
+    else if (auto* shadowRoot = suitableShadowRoot(node)) {
+        m_markup.append("<template shadowrootmode=\""_s);
+        switch (shadowRoot->mode()) {
+        case ShadowRootMode::Open:
+            m_markup.append("open"_s);
+            break;
+        case ShadowRootMode::Closed:
+            m_markup.append("closed"_s);
+            break;
+        case ShadowRootMode::UserAgent:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+        m_markup.append('"');
+        if (shadowRoot->delegatesFocus())
+            m_markup.append(" shadowrootdelegatesfocus=\"\""_s);
+        if (shadowRoot->serializable())
+            m_markup.append(" shadowrootserializable=\"\""_s);
+        if (shadowRoot->isClonable())
+            m_markup.append(" shadowrootclonable=\"\""_s);
+        m_markup.append('>');
+    } else
         appendNonElementNode(m_markup, node, namespaces);
 
     if (m_nodes)
@@ -369,7 +421,7 @@ void MarkupAccumulator::appendEndTag(StringBuilder& result, const Element& eleme
 {
     if (shouldSelfClose(element, m_serializationSyntax) || (!element.hasChildNodes() && elementCannotHaveEndTag(element)))
         return;
-    result.append("</", element.tagQName().toString(), '>');
+    result.append("</"_s, element.tagQName().toString(), '>');
 }
 
 StringBuilder MarkupAccumulator::takeMarkup()
@@ -423,7 +475,7 @@ void MarkupAccumulator::appendNamespace(StringBuilder& result, const AtomString&
     if (namespaceURI.isEmpty()) {
         // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-xhtml-syntax.html#xml-fragment-serialization-algorithm
         if (allowEmptyDefaultNS && namespaces.get(emptyAtom().impl()))
-            result.append(' ', xmlnsAtom(), "=\"\"");
+            result.append(' ', xmlnsAtom(), "=\"\""_s);
         return;
     }
 
@@ -443,7 +495,7 @@ void MarkupAccumulator::appendNamespace(StringBuilder& result, const AtomString&
     if (namespaceURI == XMLNames::xmlNamespaceURI)
         return;
 
-    result.append(' ', xmlnsAtom(), prefix.isEmpty() ? "" : ":", prefix, "=\"");
+    result.append(' ', xmlnsAtom(), prefix.isEmpty() ? ""_s : ":"_s, prefix, "=\""_s);
     appendAttributeValue(result, namespaceURI, false);
     result.append('"');
 }
@@ -495,12 +547,12 @@ static void appendXMLDeclaration(StringBuilder& result, const Document& document
     auto encoding = document.xmlEncoding();
     bool isStandaloneSpecified = document.xmlStandaloneStatus() != Document::StandaloneStatus::Unspecified;
 
-    result.append("<?xml version=\"",
+    result.append("<?xml version=\""_s,
         document.xmlVersion(),
-        encoding.isEmpty() ? "" : "\" encoding=\"",
+        encoding.isEmpty() ? ""_s : "\" encoding=\""_s,
         encoding,
-        isStandaloneSpecified ? (document.xmlStandalone() ? "\" standalone=\"yes" : "\" standalone=\"no") : "",
-        "\"?>");
+        isStandaloneSpecified ? (document.xmlStandalone() ? "\" standalone=\"yes"_s : "\" standalone=\"no"_s) : ""_s,
+        "\"?>"_s);
 }
 
 static void appendDocumentType(StringBuilder& result, const DocumentType& documentType)
@@ -509,33 +561,67 @@ static void appendDocumentType(StringBuilder& result, const DocumentType& docume
         return;
 
     result.append(
-        "<!DOCTYPE ",
+        "<!DOCTYPE "_s,
         documentType.name(),
-        documentType.publicId().isEmpty() ? "" : " PUBLIC \"",
+        documentType.publicId().isEmpty() ? ""_s : " PUBLIC \""_s,
         documentType.publicId(),
-        documentType.publicId().isEmpty() ? "" : "\"",
-        documentType.systemId().isEmpty() ? "" : (documentType.publicId().isEmpty() ? " SYSTEM \"" : " \""),
+        documentType.publicId().isEmpty() ? ""_s : "\""_s,
+        documentType.systemId().isEmpty() ? ""_s : (documentType.publicId().isEmpty() ? " SYSTEM \""_s : " \""_s),
         documentType.systemId(),
-        documentType.systemId().isEmpty() ? ">" : "\">"
+        documentType.systemId().isEmpty() ? ">"_s : "\">"_s
     );
+}
+
+static bool isURLAttributeForElement(const Element& element, const Attribute& attribute)
+{
+    return element.isURLAttribute(attribute) || element.isHTMLContentAttribute(attribute);
+}
+
+void MarkupAccumulator::appendStartTagWithURLReplacement(StringBuilder& result, const Element& element, Namespaces* namespaces)
+{
+    bool hasURLAttribute = false;
+    bool isURLReplaced = false;
+    Vector<Attribute> attributesToAppendIfURLNotReplaced;
+
+    if (element.hasAttributes()) {
+        for (const Attribute& attribute : element.attributesIterator()) {
+            if (attribute.name() == crossoriginAttr || attribute.name() == integrityAttr) {
+                attributesToAppendIfURLNotReplaced.append(attribute);
+                continue;
+            }
+
+            if (!hasURLAttribute && isURLAttributeForElement(element, attribute))
+                hasURLAttribute = true;
+
+            auto updatedAttribute = replaceAttributeIfNecessary(element, attribute);
+            if (appendAttribute(result, element, updatedAttribute, namespaces))
+                isURLReplaced = true;
+        }
+    }
+
+    if (!hasURLAttribute && appendURLAttributeForReplacementIfNecessary(result, element, namespaces))
+        isURLReplaced = true;
+
+    if (isURLReplaced)
+        return;
+
+    for (auto& attribute : attributesToAppendIfURLNotReplaced)
+        appendAttribute(result, element, attribute, namespaces);
 }
 
 void MarkupAccumulator::appendStartTag(StringBuilder& result, const Element& element, Namespaces* namespaces)
 {
     appendOpenTag(result, element, namespaces);
 
-    bool hasURLAttribute = false;
-    if (element.hasAttributes()) {
-        for (const Attribute& attribute : element.attributesIterator()) {
-            if (!hasURLAttribute && (element.isURLAttribute(attribute) || element.isHTMLContentAttribute(attribute)))
-                hasURLAttribute = true;
-            auto updatedAttribute = replaceAttributeIfNecessary(element, attribute);
-            appendAttribute(result, element, updatedAttribute, namespaces);
+    if (m_urlReplacementData) {
+        // This function might change ordering of attributes in markup, so it should only be used for URL replacement case.
+        appendStartTagWithURLReplacement(result, element, namespaces);
+    } else {
+        if (element.hasAttributes()) {
+            for (const Attribute& attribute : element.attributesIterator())
+                appendAttribute(result, element, attribute, namespaces);
         }
     }
-
-    if (!hasURLAttribute)
-        appendURLAttributeIfNecessary(result, element, namespaces);
 
     // Give an opportunity to subclasses to add their own attributes.
     appendCustomAttributes(result, element, namespaces);
@@ -628,46 +714,54 @@ QualifiedName MarkupAccumulator::xmlAttributeSerialization(const Attribute& attr
 
 LocalFrame* MarkupAccumulator::frameForAttributeReplacement(const Element& element) const
 {
-    if (inXMLFragmentSerialization() || m_replacementURLStrings.isEmpty())
+    if (inXMLFragmentSerialization())
         return nullptr;
 
-    auto* currentElement = const_cast<Element*>(&element);
-    if (!is<HTMLFrameElementBase>(currentElement))
+    RefPtr frameElement = dynamicDowncast<HTMLFrameElementBase>(element);
+    if (!frameElement)
         return nullptr;
 
-    auto& frameElement = downcast<HTMLFrameElementBase>(*currentElement);
-    return dynamicDowncast<LocalFrame>(frameElement.contentFrame());
+    return dynamicDowncast<LocalFrame>(frameElement->contentFrame());
 }
 
 Attribute MarkupAccumulator::replaceAttributeIfNecessary(const Element& element, const Attribute& attribute)
 {
+    if (!m_urlReplacementData)
+        return attribute;
+
     if (element.isHTMLContentAttribute(attribute)) {
-        auto frame = frameForAttributeReplacement(element);
+        RefPtr frame = frameForAttributeReplacement(element);
         if (!frame || !frame->loader().documentLoader()->response().url().isAboutSrcDoc())
             return attribute;
 
-        auto replacementURLString = m_replacementURLStrings.get(frame->frameID().toString());
-        if (replacementURLString.isNull())
+        auto replacementURLString = m_urlReplacementData->replacementURLStrings.get(frame->frameID().toString());
+        if (replacementURLString.isEmpty())
             return attribute;
 
         return { srcAttr, AtomString { replacementURLString } };
     }
 
-    return element.replaceURLsInAttributeValue(attribute, m_replacementURLStrings);
+    return element.replaceURLsInAttributeValue(attribute, m_urlReplacementData->replacementURLStrings);
 }
 
-void MarkupAccumulator::appendURLAttributeIfNecessary(StringBuilder& result, const Element& element, Namespaces* namespaces)
+bool MarkupAccumulator::appendURLAttributeForReplacementIfNecessary(StringBuilder& result, const Element& element, Namespaces* namespaces)
 {
-    auto frame = frameForAttributeReplacement(element);
-    if (!frame)
-        return;
+    if (!m_urlReplacementData)
+        return false;
 
-    auto replacementURLString = m_replacementURLStrings.get(frame->frameID().toString());
-    if (!replacementURLString.isNull())
-        appendAttribute(result, element, Attribute { srcAttr, AtomString { replacementURLString } }, namespaces);
+    RefPtr frame = frameForAttributeReplacement(element);
+    if (!frame)
+        return false;
+
+    auto replacementURLString = m_urlReplacementData->replacementURLStrings.get(frame->frameID().toString());
+    if (replacementURLString.isEmpty())
+        return false;
+
+    appendAttribute(result, element, Attribute { srcAttr, AtomString { replacementURLString } }, namespaces);
+    return true;
 }
 
-void MarkupAccumulator::appendAttribute(StringBuilder& result, const Element& element, const Attribute& attribute, Namespaces* namespaces)
+bool MarkupAccumulator::appendAttribute(StringBuilder& result, const Element& element, const Attribute& attribute, Namespaces* namespaces)
 {
     bool isSerializingHTML = !inXMLFragmentSerialization();
 
@@ -690,13 +784,18 @@ void MarkupAccumulator::appendAttribute(StringBuilder& result, const Element& el
     result.append('=');
 
     result.append('"');
+    bool isURLAttributeValueReplaced = false;
     if (element.isURLAttribute(attribute)) {
         // FIXME: This does not fully match other browsers. Firefox percent-escapes
         // non-ASCII characters for innerHTML.
-        appendAttributeValue(result, resolveURLIfNeeded(element, attribute.value()), isSerializingHTML);
+        auto [resolvedURL, isCreatedByURLReplacement] = resolveURLIfNeeded(element, attribute.value());
+        appendAttributeValue(result, resolvedURL, isSerializingHTML);
+        isURLAttributeValueReplaced = isCreatedByURLReplacement == IsCreatedByURLReplacement::Yes;
     } else
         appendAttributeValue(result, attribute.value(), isSerializingHTML);
     result.append('"');
+
+    return isURLAttributeValueReplaced;
 }
 
 void MarkupAccumulator::appendNonElementNode(StringBuilder& result, const Node& node, Namespaces* namespaces)
@@ -706,34 +805,36 @@ void MarkupAccumulator::appendNonElementNode(StringBuilder& result, const Node& 
 
     switch (node.nodeType()) {
     case Node::TEXT_NODE:
-        appendText(result, downcast<Text>(node));
+        appendText(result, uncheckedDowncast<Text>(node));
         break;
     case Node::COMMENT_NODE:
         // FIXME: Comment content is not escaped, but that may be OK because XMLSerializer (and possibly other callers) should raise an exception if it includes "-->".
-        result.append("<!--", downcast<Comment>(node).data(), "-->");
+        result.append("<!--"_s, uncheckedDowncast<Comment>(node).data(), "-->"_s);
         break;
     case Node::DOCUMENT_NODE:
-        appendXMLDeclaration(result, downcast<Document>(node));
+        appendXMLDeclaration(result, uncheckedDowncast<Document>(node));
         break;
     case Node::DOCUMENT_FRAGMENT_NODE:
         break;
     case Node::DOCUMENT_TYPE_NODE:
-        appendDocumentType(result, downcast<DocumentType>(node));
+        appendDocumentType(result, uncheckedDowncast<DocumentType>(node));
         break;
-    case Node::PROCESSING_INSTRUCTION_NODE:
+    case Node::PROCESSING_INSTRUCTION_NODE: {
+        auto& instruction = uncheckedDowncast<ProcessingInstruction>(node);
         // FIXME: PI data is not escaped, but XMLSerializer (and possibly other callers) this should raise an exception if it includes "?>".
-        result.append("<?", downcast<ProcessingInstruction>(node).target(), ' ', downcast<ProcessingInstruction>(node).data(), "?>");
+        result.append("<?"_s, instruction.target(), ' ', instruction.data(), "?>"_s);
         break;
+    }
     case Node::ELEMENT_NODE:
         ASSERT_NOT_REACHED();
         break;
     case Node::CDATA_SECTION_NODE:
         // FIXME: CDATA content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "]]>".
-        result.append("<![CDATA[", downcast<CDATASection>(node).data(), "]]>");
+        result.append("<![CDATA["_s, uncheckedDowncast<CDATASection>(node).data(), "]]>"_s);
         break;
     case Node::ATTRIBUTE_NODE:
         // Only XMLSerializer can pass an Attr. So, |documentIsHTML| flag is false.
-        appendAttributeValue(result, downcast<Attr>(node).value(), false);
+        appendAttributeValue(result, uncheckedDowncast<Attr>(node).value(), false);
         break;
     }
 }

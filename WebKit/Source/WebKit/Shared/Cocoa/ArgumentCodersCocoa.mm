@@ -28,11 +28,10 @@
 
 #if PLATFORM(COCOA)
 
-#import "ArgumentCodersCF.h"
 #import "CoreIPCNSCFObject.h"
+#import "CoreIPCNSURLCredential.h"
 #import "CoreIPCTypes.h"
 #import "CoreTextHelpers.h"
-#import "DataReference.h"
 #import "LegacyGlobalSettings.h"
 #import "Logging.h"
 #import "MessageNames.h"
@@ -55,6 +54,7 @@
 #import <UIKit/UIFont.h>
 #import <UIKit/UIFontDescriptor.h>
 #import <UIKit/UIKit.h>
+#import <pal/ios/UIKitSoftLink.h>
 #endif
 
 #if ENABLE(DATA_DETECTION)
@@ -285,6 +285,10 @@ template<> Class getClass<AVOutputContext>()
 }
 #endif
 #if USE(PASSKIT)
+template<> Class getClass<CNContact>()
+{
+    return PAL::getCNContactClass();
+}
 template<> Class getClass<CNPhoneNumber>()
 {
     return PAL::getCNPhoneNumberClass();
@@ -297,37 +301,53 @@ template<> Class getClass<PKContact>()
 {
     return PAL::getPKContactClass();
 }
+template<> Class getClass<PKPaymentMerchantSession>()
+{
+    return PAL::getPKPaymentMerchantSessionClass();
+}
+template<> Class getClass<PKPayment>()
+{
+    return PAL::getPKPaymentClass();
+}
+template<> Class getClass<PKPaymentToken>()
+{
+    return PAL::getPKPaymentTokenClass();
+}
+template<> Class getClass<PKShippingMethod>()
+{
+    return PAL::getPKShippingMethodClass();
+}
+template<> Class getClass<PKDateComponentsRange>()
+{
+    return PAL::getPKDateComponentsRangeClass();
+}
+template<> Class getClass<PKPaymentMethod>()
+{
+    return PAL::getPKPaymentMethodClass();
+}
+template<> Class getClass<PKSecureElementPass>()
+{
+    return PAL::getPKSecureElementPassClass();
+}
 #endif
+
+template<> Class getClass<PlatformColor>()
+{
+    return PlatformColorClass;
+}
+
+template<> Class getClass<NSShadow>()
+{
+    return PlatformNSShadow;
+}
 
 NSType typeFromObject(id object)
 {
     ASSERT(object);
 
     // Specific classes handled.
-#if USE(AVFOUNDATION)
-    if (PAL::isAVFoundationFrameworkAvailable() && [object isKindOfClass:PAL::getAVOutputContextClass()])
-        return NSType::AVOutputContext;
-#endif
     if ([object isKindOfClass:[NSArray class]])
         return NSType::Array;
-#if USE(PASSKIT)
-    if (PAL::isContactsFrameworkAvailable() && [object isKindOfClass:PAL::getCNPhoneNumberClass()])
-        return NSType::CNPhoneNumber;
-    if (PAL::isContactsFrameworkAvailable() && [object isKindOfClass:PAL::getCNPostalAddressClass()])
-        return NSType::CNPostalAddress;
-    if (PAL::isPassKitCoreFrameworkAvailable() && [object isKindOfClass:PAL::getPKContactClass()])
-        return NSType::PKContact;
-#endif
-    if ([object isKindOfClass:[WebCore::CocoaColor class]])
-        return NSType::Color;
-#if ENABLE(DATA_DETECTION)
-#if PLATFORM(MAC)
-    if (PAL::isDataDetectorsFrameworkAvailable() && [object isKindOfClass:PAL::getWKDDActionContextClass()])
-        return NSType::DDActionContext;
-#endif
-    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getDDScannerResultClass()])
-        return NSType::DDScannerResult;
-#endif
     if ([object isKindOfClass:[NSData class]])
         return NSType::Data;
     if ([object isKindOfClass:[NSDate class]])
@@ -342,10 +362,10 @@ NSType typeFromObject(id object)
         return NSType::Locale;
     if ([object isKindOfClass:[NSNumber class]])
         return NSType::Number;
+    if ([object isKindOfClass:[NSNull class]])
+        return NSType::Null;
     if ([object isKindOfClass:[NSValue class]])
         return NSType::NSValue;
-    if ([object isKindOfClass:[NSPersonNameComponents class]])
-        return NSType::PersonNameComponents;
     if ([object isKindOfClass:[NSString class]])
         return NSType::String;
     if ([object isKindOfClass:[NSURL class]])
@@ -385,11 +405,6 @@ template<> void encodeObjectDirectly<NSObject<NSSecureCoding>>(Encoder& encoder,
 
     auto delegate = adoptNS([[WKSecureCodingArchivingDelegate alloc] init]);
 
-    // FIXME: These can be removed on operating systems that have rdar://107730786.
-    if ([object isKindOfClass:NSURLCredential.class]
-        || [object isKindOfClass:NSURLProtectionSpace.class])
-        [delegate setRewriteMutableDictionary:YES];
-
 #if ENABLE(DATA_DETECTION)
     if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getDDScannerResultClass()])
         [delegate setRewriteMutableString:YES];
@@ -423,13 +438,9 @@ template<> void encodeObjectDirectly<NSObject<NSSecureCoding>>(Encoder& encoder,
 #endif // ENABLE(DATA_DETECTION)
 
 #if USE(PASSKIT)
-    if (PAL::isPassKitCoreFrameworkAvailable()) {
-        bool objectIsPKPaymentMethod = PAL::getPKPaymentMethodClass() && [object isKindOfClass:PAL::getPKPaymentMethodClass()];
-        bool objectIsPKPayment = PAL::getPKPaymentClass() && [object isKindOfClass:PAL::getPKPaymentClass()];
-        if (objectIsPKPaymentMethod || objectIsPKPayment) {
-            [delegate setTransformURLs:NO];
-            [delegate setRewriteMutableArray:YES];
-        }
+    if (PAL::isPassKitCoreFrameworkAvailable() && [object isKindOfClass:PAL::getPKSecureElementPassClass()]) {
+        [delegate setTransformURLs:NO];
+        [delegate setRewriteMutableArray:YES];
     }
 #endif
 
@@ -444,24 +455,6 @@ template<> void encodeObjectDirectly<NSObject<NSSecureCoding>>(Encoder& encoder,
 
 static bool shouldEnableStrictMode(Decoder& decoder, const HashSet<Class>& allowedClasses)
 {
-#if ENABLE(IMAGE_ANALYSIS) && HAVE(VK_IMAGE_ANALYSIS)
-    auto isDecodingKnownVKCImageAnalysisMessageFromUIProcess = [] (auto& decoder) {
-        auto messageName = decoder.messageName();
-        return messageName == IPC::MessageName::WebPage_UpdateWithTextRecognitionResult // UIP -> WCP
-            || messageName == IPC::MessageName::WebPageProxy_RequestTextRecognitionReply; // UIP -> WCP
-    };
-#endif
-
-#if ENABLE(IMAGE_ANALYSIS) && HAVE(VK_IMAGE_ANALYSIS)
-    // blocked by rdar://108673895
-    if (PAL::isVisionKitCoreFrameworkAvailable()
-        && PAL::getVKCImageAnalysisClass()
-        && allowedClasses.contains(PAL::getVKCImageAnalysisClass())
-        && isDecodingKnownVKCImageAnalysisMessageFromUIProcess(decoder)
-        && isInWebProcess())
-        return false;
-#endif
-
 #if HAVE(STRICT_DECODABLE_NSTEXTTABLE) \
     && HAVE(STRICT_DECODABLE_PKCONTACT) \
     && HAVE(STRICT_DECODABLE_CNCONTACT) \
@@ -469,25 +462,6 @@ static bool shouldEnableStrictMode(Decoder& decoder, const HashSet<Class>& allow
     // Shortcut the following unnecessary Class checks on newer OSes to fix rdar://111926152.
     return true;
 #else
-
-    auto isDecodingKnownProtectionSpaceMessage = [] (auto& decoder) {
-        auto messageName = decoder.messageName();
-        return messageName == IPC::MessageName::DownloadProxy_DidReceiveAuthenticationChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_DidReceiveAuthenticationChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_ResourceLoadDidReceiveChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallenge // NP -> UIP
-            || messageName == IPC::MessageName::AuthenticationManager_CompleteAuthenticationChallenge; // UIP -> NP
-    };
-
-    auto isDecodingKnownNSURLCredentialMessage = [] (auto& decoder) {
-        auto messageName = decoder.messageName();
-        return messageName == IPC::MessageName::DownloadProxy_DidReceiveAuthenticationChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_DidReceiveAuthenticationChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_ResourceLoadDidReceiveChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallenge // NP -> UIP
-            || messageName == IPC::MessageName::NetworkProcessProxy_DataTaskReceivedChallengeReply // UIP -> NP
-            || messageName == IPC::MessageName::AuthenticationManager_CompleteAuthenticationChallenge; // UIP -> NP
-    };
 
 #if HAVE(SECURE_ACTION_CONTEXT)
 static constexpr bool haveSecureActionContext = true;
@@ -532,9 +506,21 @@ static constexpr bool haveSecureActionContext = false;
     static constexpr bool haveStrictDecodablePKPaymentPass = false;
 #endif
 
-    if (PAL::isPassKitCoreFrameworkAvailable()
-        && PAL::getPKPaymentMethodClass()
-        && allowedClasses.contains(PAL::getPKPaymentMethodClass()))
+    // FIXME: Remove these checks for CNContact, and PKSecureElementPass
+    // once we directly serialize them ourselves.
+    auto isDecodingPKPaymentRelatedType = [&] () {
+        if (!PAL::isPassKitCoreFrameworkAvailable())
+            return false;
+        if (PAL::getPKPaymentMethodClass() && allowedClasses.contains(PAL::getPKPaymentMethodClass()))
+            return true;
+        if (PAL::getPKSecureElementPassClass() && allowedClasses.contains(PAL::getPKSecureElementPassClass()))
+            return true;
+        if (PAL::isContactsFrameworkAvailable() && PAL::getCNContactClass() && allowedClasses.contains(PAL::getCNContactClass()))
+            return true;
+        return false;
+    };
+
+    if (isDecodingPKPaymentRelatedType())
         return haveStrictDecodableCNContact && haveStrictDecodablePKPaymentPass;
 
     // Don't reintroduce rdar://108660074
@@ -558,26 +544,17 @@ static constexpr bool haveSecureActionContext = false;
     if (allowedClasses.contains(NSParagraphStyle.class))
         return haveStrictDecodableNSTextTable;
 
-    // rdar://109121874
-    if (allowedClasses.contains(NSPresentationIntent.class))
-        return true;
-
     // rdar://107553194, Don't reintroduce rdar://108339450
     if (allowedClasses.contains(NSMutableURLRequest.class))
         return true;
 
-    // rdar://108674269
-    if (allowedClasses.contains(NSURLProtectionSpace.class) && isDecodingKnownProtectionSpaceMessage(decoder))
-        return true;
-
-    if (allowedClasses.contains(NSShadow.class) // rdar://107553244
-        || allowedClasses.contains(NSTextAttachment.class) // rdar://107553273
+    if (allowedClasses.contains(NSTextAttachment.class) // rdar://107553273
 #if ENABLE(APPLE_PAY)
         || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentSetupFeatureClass() && allowedClasses.contains(PAL::getPKPaymentSetupFeatureClass())) // rdar://107553409
         || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentMerchantSessionClass() && allowedClasses.contains(PAL::getPKPaymentMerchantSessionClass())) // rdar://107553452
         || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentClass() && allowedClasses.contains(PAL::getPKPaymentClass()) && isInWebProcess())
 #endif // ENABLE(APPLE_PAY)
-        || (allowedClasses.contains(NSURLCredential.class) && isDecodingKnownNSURLCredentialMessage(decoder))) // rdar://107553367
+        )
         return true;
 
     // Note: Do not add more classes to the list of strict decoded classes.
@@ -597,11 +574,11 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
     auto& allowedClasses = decoder.allowedClasses();
     RELEASE_ASSERT(allowedClasses.size());
 
-    RetainPtr<CFDataRef> data;
-    if (!decoder.decode(data))
+    auto data = decoder.decode<RetainPtr<CFDataRef>>();
+    if (!data)
         return std::nullopt;
 
-    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:bridge_cast(data.get()) error:nullptr]);
+    auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:bridge_cast(data->get()) error:nullptr]);
     unarchiver.get().decodingFailurePolicy = NSDecodingFailurePolicyRaiseException;
 
     auto delegate = adoptNS([[WKSecureCodingArchivingDelegate alloc] init]);
@@ -618,6 +595,21 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
 
     if (allowedClasses.contains(NSParagraphStyle.class))
         allowedClasses.add(NSMutableParagraphStyle.class);
+
+#if USE(PASSKIT)
+    // FIXME: Remove these exceptions for PKSecureElementPass
+    // once we directly serialize them ourselves.
+    if (PAL::isContactsFrameworkAvailable()) {
+        if (allowedClasses.contains(PAL::getPKPaymentClass()) || allowedClasses.contains(PAL::getPKPaymentMethodClass()) || allowedClasses.contains(PAL::getPKPaymentTokenClass())) {
+            allowedClasses.add(PAL::getPKSecureElementPassClass());
+        }
+    }
+
+    if (PAL::isPassKitCoreFrameworkAvailable()) {
+        if (PAL::getPKSecureElementPassClass() && allowedClasses.contains(PAL::getPKSecureElementPassClass()))
+            allowedClasses.add(PAL::getPKPaymentPassClass());
+    }
+#endif
 
     auto allowedClassSet = adoptNS([[NSMutableSet alloc] initWithCapacity:allowedClasses.size()]);
     for (auto allowedClass : allowedClasses)
@@ -640,9 +632,42 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
     }
 }
 
+#define ENCODE_AS_SECURE_CODING(c) \
+template<> void encodeObjectDirectly<c>(IPC::Encoder& encoder, c *instance) \
+{ \
+    encoder << (instance ? std::optional(WebKit::CoreIPCSecureCoding(instance)) : std::nullopt); \
+} \
+template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClasses<c>(IPC::Decoder& decoder) \
+{ \
+    auto result = decoder.decode<std::optional<WebKit::CoreIPCSecureCoding>>(); \
+    if (!result) \
+        return std::nullopt; \
+    return *result ? (*result)->toID() : nullptr; \
+}
+
+ENCODE_AS_SECURE_CODING(NSURLRequest);
+ENCODE_AS_SECURE_CODING(NSParagraphStyle);
+#if USE(PASSKIT)
+ENCODE_AS_SECURE_CODING(PKSecureElementPass);
+#endif
+
+#if ENABLE(DATA_DETECTION) && !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+ENCODE_AS_SECURE_CODING(DDScannerResult);
+#if PLATFORM(MAC)
+ENCODE_AS_SECURE_CODING(WKDDActionContext);
+#endif
+#endif
+
+#undef ENCODE_AS_SECURE_CODING
+
 #pragma mark - CF
 
 template<> void encodeObjectDirectly<CFTypeRef>(Encoder& encoder, CFTypeRef cf)
+{
+    ArgumentCoder<CFTypeRef>::encode(encoder, cf);
+}
+
+template<> void encodeObjectDirectly<CFTypeRef>(StreamConnectionEncoder& encoder, CFTypeRef cf)
 {
     ArgumentCoder<CFTypeRef>::encode(encoder, cf);
 }
@@ -654,22 +679,6 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
         return std::nullopt;
 
     return static_cast<id>(result->get());
-}
-
-#pragma mark - Wrapper Encoder / Decoder Entry Points
-
-void encodeObjectWithWrapper(Encoder& encoder, id object)
-{
-    encoder << WebKit::CoreIPCNSCFObject(object);
-}
-
-std::optional<RetainPtr<id>> decodeObjectFromWrapper(Decoder& decoder, const HashSet<Class>& allowedClasses)
-{
-    std::optional<WebKit::CoreIPCNSCFObject> result = decoder.decodeWithAllowedClasses<WebKit::CoreIPCNSCFObject>(allowedClasses);
-    if (!result)
-        return std::nullopt;
-
-    return result->toID();
 }
 
 } // namespace IPC

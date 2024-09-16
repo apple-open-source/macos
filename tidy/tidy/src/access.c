@@ -164,10 +164,14 @@ static void CheckListUsage( TidyDocImpl* doc, Node* node );
 
 static void GetFileExtension( ctmbstr path, tmbchar *ext, uint maxExt )
 {
-    int i = TY_(tmbstrlen)(path) - 1;
+    size_t i = TY_(tmbstrlen)(path);
     
     ext[0] = '\0';
     
+    if ( i == 0 )
+        return;
+    --i;
+
     do {
         if ( path[i] == '/' || path[i] == '\\' )
             break;
@@ -353,7 +357,7 @@ static Bool IsPlaceHolderObject( ctmbstr txt )
 
 static Bool EndsWithBytes( ctmbstr txt )
 {
-    uint len = TY_(tmbstrlen)( txt );
+    size_t len = TY_(tmbstrlen)( txt );
     return ( len >= 5 && TY_(tmbstrcmp)(txt+len-5, "bytes") == 0 );
 }
 
@@ -601,7 +605,7 @@ static Bool CompareColors( const int rgbBG[3], const int rgbFG[3] )
 * blue = 5.
 *********************************************************************/
 
-static Bool GetRgb( ctmbstr color, int rgb[] )
+static Bool GetRgb( ctmbstr color, int rgb[3] )
 {
     uint x;
 
@@ -3297,7 +3301,7 @@ static void AccessibilityCheckNode( TidyDocImpl* doc, Node* node )
 void TY_(AccessibilityChecks)( TidyDocImpl* doc )
 {
     /* Initialize */
-    InitAccessibilityChecks( doc, cfg(doc, TidyAccessibilityCheckLevel) );
+    InitAccessibilityChecks( doc, (int)cfg(doc, TidyAccessibilityCheckLevel) );
 
     /* Hello there, ladies and gentlemen... */
     TY_(AccessibilityHelloMessage)( doc );

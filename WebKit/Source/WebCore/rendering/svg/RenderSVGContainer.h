@@ -23,7 +23,6 @@
 
 #pragma once
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "RenderSVGModelObject.h"
 #include "SVGBoundingBoxComputation.h"
 
@@ -33,6 +32,7 @@ class SVGElement;
 
 class RenderSVGContainer : public RenderSVGModelObject {
     WTF_MAKE_ISO_ALLOCATED(RenderSVGContainer);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderSVGContainer);
 public:
     virtual ~RenderSVGContainer();
 
@@ -74,4 +74,3 @@ protected:
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGContainer, isRenderSVGContainer())
 
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

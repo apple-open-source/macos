@@ -122,6 +122,10 @@ public:
     virtual void didExceedMemoryFootprintThreshold(size_t, const String&, unsigned, Seconds, bool, WebCore::WasPrivateRelayed, CanSuspend)
     {
     }
+    virtual void webCryptoMasterKey(CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&& completionHandler)
+    {
+        return completionHandler(std::nullopt);
+    }
 };
 
 } // namespace WebKit

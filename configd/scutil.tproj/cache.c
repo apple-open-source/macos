@@ -33,6 +33,7 @@
 
 #include <sys/types.h>
 
+#define __SC_CFRELEASE_NEEDED 1
 #include "scutil.h"
 #include "cache.h"
 #include "SCDynamicStoreInternal.h"
@@ -138,7 +139,10 @@ do_list(int argc, char * const argv[])
 	pattern = CFStringCreateWithCString(NULL,
 					    (argc >= 1) ? argv[0] : ".*",
 					    kCFStringEncodingUTF8);
-
+	if (pattern == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("Failed to allocate pattern\n"));
+		return;
+	}
 	list = SCDynamicStoreCopyKeyList(store, pattern);
 	CFRelease(pattern);
 	if (list == NULL) {
@@ -183,7 +187,7 @@ do_list(int argc, char * const argv[])
 
 	listCnt = CFArrayGetCount(list);
 	sortedList = CFArrayCreateMutableCopy(NULL, listCnt, list);
-	CFRelease(list);
+	__SC_CFRELEASE(list);
 	CFArraySortValues(sortedList,
 			  CFRangeMake(0, listCnt),
 			  sort_keys,
@@ -200,7 +204,7 @@ do_list(int argc, char * const argv[])
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("  no keys.\n"));
 	}
-	CFRelease(sortedList);
+	__SC_CFRELEASE(sortedList);
 
 	return;
 }
@@ -232,7 +236,7 @@ do_add(int argc, char * const argv[])
 		}
 	}
 
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	return;
 }
 
@@ -247,15 +251,12 @@ do_get(int argc, char * const argv[])
 
 	key      = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	newValue = SCDynamicStoreCopyValue(store, key);
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	if (newValue == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
-
-	if (value != NULL) {
-		CFRelease(value);		/* we have new information, release the old */
-	}
+	__SC_CFRELEASE(value);		/* we have new information, release the old */
 	value = newValue;
 
 	return;
@@ -273,7 +274,7 @@ do_set(int argc, char * const argv[])
 	if (!SCDynamicStoreSetValue(store, key, value)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	return;
 }
 
@@ -318,10 +319,10 @@ do_show(int argc, char * const argv[])
 					storeVal = SCDynamicStoreCopyValue(store, storeKey);
 					if (storeVal != NULL) {
 						CFDictionarySetValue(newDict, storeKey, storeVal);
-						CFRelease(storeVal);
+						__SC_CFRELEASE(storeVal);
 					}
 				}
-				CFRelease(keys);
+				__SC_CFRELEASE(keys);
 			}
 
 			if (((storePrivate->cached_set != NULL) &&
@@ -333,17 +334,17 @@ do_show(int argc, char * const argv[])
 
 			newValue = newDict;
 		}
-		CFRelease(patterns);
+		__SC_CFRELEASE(patterns);
 	}
 
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	if (newValue == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
 
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), newValue);
-	CFRelease(newValue);
+	__SC_CFRELEASE(newValue);
 	return;
 }
 
@@ -359,7 +360,7 @@ do_remove(int argc, char * const argv[])
 	if (!SCDynamicStoreRemoveValue(store, key)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	return;
 }
 
@@ -375,6 +376,6 @@ do_notify(int argc, char * const argv[])
 	if (!SCDynamicStoreNotifyValue(store, key)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-	CFRelease(key);
+	__SC_CFRELEASE(key);
 	return;
 }

@@ -285,6 +285,12 @@ _citrus_VIQR_mbrtowc_priv(_VIQREncodingInfo * __restrict ei,
 				*nresult = (size_t)-2;
 				return (0);
 			}
+#ifdef __APPLE__
+			if (psenc->chlen == sizeof(psenc->ch)) {
+				*nresult = (size_t)-1;
+				return (EILSEQ);
+			}
+#endif
 			psenc->ch[psenc->chlen++] = *s0++;
 		}
 		ch = (unsigned char)psenc->ch[i++];

@@ -16,7 +16,7 @@
 
 #include "keychain/ckks/CKKS.h"
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 
 #include "keychain/securityd/spi.h"
 

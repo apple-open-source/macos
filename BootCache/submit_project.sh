@@ -1,13 +1,12 @@
 #!/bin/zsh
 
-# submit_project.sh 2.0.8
+# submit_project.sh 2.0.12
 # source lives at <ssh://git@stash.sd.apple.com/perf/submit_project.git>
 # usage: submit_project.sh [-v <version>] train [train [...]]
 
 # override these values per project
 projname="BootCache" # default: first alphabetically found <projname>.xcodeproj in the current directory
 pbxprojpath="BootCache.xcodeproj/project.pbxproj" # default: <projname>.xcodeproj/project.pbxproj
-repourl="ssh://git@stash.sd.apple.com/perf/BootCache.git" # default: URL of 'origin' in the current git repository
 defaultbranch="main"
 # # #
 
@@ -16,14 +15,6 @@ set -e
 zparseopts -D -A opthash v:
 vers=$opthash[-v]
 trains=($*)
-
-if [[ $trains == "" ]]
-then
-	echo "You need to specify one or more B&I trains to submit to, like this:"
-	echo
-	echo "$0 [-v <version (not including project name, so 123, not ${projname}-123)>] Fuji Whitetail"
-	exit 1
-fi
 
 if [[ $pbxprojpath == "" && $projname == "" ]]
 then
@@ -35,7 +26,21 @@ then
 	projname=$(echo ${pbxprojpath} | cut -d . -f 1)
 fi
 
+if [[ $trains == "" ]]
+then
+	echo "You need to specify one or more B&I trains to submit to, like this:"
+	echo
+	echo "$0 [-v <version (not including project name, so 123, not ${projname}-123)>] Fuji Whitetail"
+	exit 1
+fi
+
 echo "Submitting ${projname} with project file at ${pbxprojpath}..."
+
+if ! git diff-index --quiet HEAD $pbxprojpath
+then
+	echo "$pbxprojpath has uncommitted changes (project file must be clean), bailing."
+	exit 1
+fi
 
 echo 'Fetching the latest from the default remote...'
 echo
@@ -225,12 +230,6 @@ fi
 echo "Running submitproject..."
 echo
 
-urlargs=()
-if [[ $repourl != "" ]]
-then
-	urlargs+=("-url")
-	urlargs+=($repourl)
-fi
-xbs submitproject -git ${urlargs} -tag "${projname}-${vers}" ${submit_to_trains}
+xbs submitproject -tag "${projname}-${vers}" ${submit_to_trains} --submissionPolicy 4
 
 echo "Done, congrats!"

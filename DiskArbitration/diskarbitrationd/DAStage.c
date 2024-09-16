@@ -682,7 +682,7 @@ static void __DAStageProbe( DADiskRef disk )
         
 
         DADiskSetState( disk, kDADiskStateStagedProbe, TRUE );
-
+        
         DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
@@ -720,6 +720,8 @@ static void __DAStageProbeCallback( int             status,
          */
 
         kind = NULL;
+        DADiskSetState( disk, kDADiskStateRequireReprobe, TRUE );
+
     }
     else
     {
@@ -728,6 +730,14 @@ static void __DAStageProbeCallback( int             status,
          */
 
         kind = DAFileSystemGetKind( filesystem );
+#ifdef DA_FSKIT
+        if ( kind && DAFileSystemIsFSModule( filesystem ) )
+        {
+            DALogInfo( "staged fsmodule, id = %@, with %@, success.", disk , kind );
+            kind = DSFSKitGetBundleNameWithoutSuffix( kind );
+        }
+#endif
+        DADiskSetState( disk, kDADiskStateRequireReprobe, FALSE );
 
 #if TARGET_OS_IOS
         /*
@@ -772,6 +782,7 @@ static void __DAStageProbeCallback( int             status,
 
         object = kind ? kCFBooleanTrue : kCFBooleanFalse;
 
+        
         if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeMountableKey, object ) )
         {
             DADiskSetDescription( disk, kDADiskDescriptionVolumeMountableKey, object );

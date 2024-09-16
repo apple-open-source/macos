@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -137,25 +137,12 @@ IPConfigurationControlManagedPrefsGet(void)
 }
 
 STATIC void
-enable_prefs_observer(CFRunLoopRef runloop)
+enable_prefs_observer(dispatch_queue_t queue)
 {
-    CFRunLoopSourceContext 	context;
     dispatch_block_t		handler;
-    CFRunLoopSourceRef		source;
-    dispatch_queue_t		queue;
 
-    bzero(&context, sizeof(context));
-    context.perform = prefs_changed;
-    source = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &context);
-    CFRunLoopAddSource(runloop, source, kCFRunLoopCommonModes);
-    queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     handler = ^{
-	if (source != NULL) {
-	    CFRunLoopSourceSignal(source);
-	    if (runloop != NULL) {
-		CFRunLoopWakeUp(runloop);
-	    }
-	};
+	    prefs_changed(NULL);
     };
     (void)_scprefs_observer_watch(scprefs_observer_type_global,
 				  kIPConfigurationControlPrefsIDStr,
@@ -166,7 +153,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
 #else /* TARGET_OS_IPHONE */
 
 STATIC void
-enable_prefs_observer(CFRunLoopRef runloop)
+enable_prefs_observer(dispatch_queue_t queue)
 {
     return;
 }
@@ -197,18 +184,17 @@ IPConfigurationControlPrefsChanged(SCPreferencesRef prefs,
 }
 
 PRIVATE_EXTERN SCPreferencesRef
-IPConfigurationControlPrefsInit(CFRunLoopRef runloop, 
+IPConfigurationControlPrefsInit(dispatch_queue_t queue,
 				IPConfigurationControlPrefsCallBack callback)
 {
     S_prefs = SCPreferencesCreate(NULL, CFSTR("IPConfigurationControlPrefs"),
 				  kIPConfigurationControlPrefsID);
-    if (runloop != NULL && callback != NULL) {
+    if (queue != NULL && callback != NULL) {
 	S_callback = callback;
 	SCPreferencesSetCallback(S_prefs,
 				 IPConfigurationControlPrefsChanged, NULL);
-	SCPreferencesScheduleWithRunLoop(S_prefs, runloop,
-					 kCFRunLoopCommonModes);
-	enable_prefs_observer(runloop);
+	SCPreferencesSetDispatchQueue(S_prefs, queue);
+	enable_prefs_observer(queue);
     }
     return (S_prefs);
 }
@@ -515,4 +501,15 @@ IPConfigurationControlPrefsSetHideBSSID(Boolean hide)
 {
 	prefs_set_boolean_value(kHideBSSID, hide);
 	return (IPConfigurationControlPrefsSave());
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsSetHideBSSIDDefault(void)
+{
+    SCPreferencesRef	prefs = IPConfigurationControlPrefsGet();
+
+    if (prefs != NULL) {
+	    SCPreferencesRemoveValue(prefs, kHideBSSID);
+    }
+    return (IPConfigurationControlPrefsSave());
 }

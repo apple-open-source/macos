@@ -65,7 +65,7 @@ enum SandboxFlag {
     SandboxAll                  = -1 // Mask with all bits set to 1.
 };
 
-typedef int SandboxFlags;
+using SandboxFlags = int;
 
 class SecurityContext {
 public:
@@ -154,6 +154,7 @@ protected:
     void didFailToInitializeSecurityOrigin() { m_haveInitializedSecurityOrigin = false; }
 
 private:
+    virtual void securityOriginDidChange() { };
     void addSandboxFlags(SandboxFlags);
     virtual std::unique_ptr<ContentSecurityPolicy> makeEmptyContentSecurityPolicy() = 0;
 

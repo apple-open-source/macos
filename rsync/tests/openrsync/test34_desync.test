@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Setup for a desync between receiving block information and trying to block
+# match; we can't proceed with the latter until we have the complete details.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+# These are quite arbitrary, but in testing they very reliably created enough
+# blocks that we would end up tripping the bogus scenario every single time.
+filesz=25967
+blksz=4
+file="blocks"
+
+rm -f "$file" "$file.out"
+
+dd if=/dev/random of="$file" bs=1 count="$filesz" conv=sync
+
+rsync --block-size="$blksz" -- "$file" "$file.out"
+
+# Reliably triggering some of the possible side effects requires a second pass
+# with a shorter file so that we do actually have blocks to send.
+truncate -s $((filesz / 2)) "$file.out"
+rsync --block-size="$blksz" -- "$file" "$file.out"

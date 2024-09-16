@@ -94,7 +94,13 @@ static const CFRuntimeClass	__serverSessionClass = {
 	NULL,					// equal
 	NULL,					// hash
 	NULL,					// copyFormattingDesc
-	__serverSessionCopyDescription	// copyDebugDesc
+	__serverSessionCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 static CFTypeID	__serverSessionTypeID;
@@ -111,7 +117,7 @@ __serverSessionCopyDescription(CFTypeRef cf)
 	CFStringAppendFormat(result, NULL, CFSTR("<serverSession %p [%p]> {"), cf, allocator);
 
 	// add client port
-	CFStringAppendFormat(result, NULL, CFSTR("port = 0x%x (%d)"), session->key, session->key);
+	CFStringAppendFormat(result, NULL, CFSTR("port = 0x%x (%u)"), session->key, session->key);
 
 	// add session info
 	if (session->name != NULL) {
@@ -285,7 +291,7 @@ add_state_handler(void)
 		state_len = (ok && (data != NULL)) ? CFDataGetLength(data) : 0;
 		state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
 		if (state_data_size > MAX_STATEDUMP_SIZE) {
-			SC_log(LOG_ERR, "SCDynamicStore/sessions : state data too large (%zd > %zd)",
+			SC_log(LOG_ERR, "SCDynamicStore/sessions : state data too large (%zu > %zu)",
 			       state_data_size,
 			       (size_t)MAX_STATEDUMP_SIZE);
 			if (data != NULL) CFRelease(data);
@@ -454,7 +460,7 @@ cleanupSession(serverSessionRef session)
 {
 	mach_port_t	server		= session->key;
 
-	SC_trace("cleanup : %5d", server);
+	SC_trace("cleanup : %5u", server);
 
 	/*
 	 * Close any open connections including cancelling any outstanding

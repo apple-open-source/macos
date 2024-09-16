@@ -31,6 +31,7 @@ class Directive;
 class DiagnosticDirective;
 
 class Declaration;
+class ConstAssert;
 
 class Attribute;
 class AlignAttribute;
@@ -77,6 +78,7 @@ class BreakStatement;
 class CallStatement;
 class CompoundAssignmentStatement;
 class CompoundStatement;
+class ConstAssertStatement;
 class ContinueStatement;
 class DecrementIncrementStatement;
 class DiscardStatement;
@@ -111,5 +113,6 @@ enum class ParameterRole : uint8_t;
 enum class StructureRole : uint8_t;
 enum class UnaryOperation : uint8_t;
 enum class VariableFlavor : uint8_t;
+enum class VariableRole : uint8_t;
 
 } // namespace WGSL::AST

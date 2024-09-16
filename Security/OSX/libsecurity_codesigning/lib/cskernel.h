@@ -63,6 +63,7 @@ public:
 	SecStaticCode *identifyGuest(SecCode *guest, CFDataRef *cdhash);
 	SecCodeStatus getGuestStatus(SecCode *guest);
 	void changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation, CFDictionaryRef arguments);
+	void guestMatchesLightweightCodeRequirement(SecCode *guest, const Requirement* lwcr);
 	
 	static KernelCode *active()		{ return globals().code; }
 	

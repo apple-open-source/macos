@@ -59,6 +59,7 @@
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
+#include <utilities/SecDispatchRelease.h>
 #include <utilities/SecSCTUtils.h>
 #include <utilities/array_size.h>
 #include <stdlib.h>
@@ -97,6 +98,8 @@
 #define MAX_POLICY_MAPPINGS 8192
 #define MAX_EKUS 8192
 #define MAX_AIAS 1024
+#define MAX_GENERAL_NAMES 8192
+#define MAX_SUBTREE_NAMES 8192
 
 typedef struct SecCertificateExtension {
 	DERItem extnID;
@@ -244,6 +247,7 @@ typedef bool (*SecCertificateExtensionParser)(SecCertificateRef certificate,
 static CFDictionaryRef sExtensionParsers;
 
 /* Forward declarations of static functions. */
+static bool SecCertificateIsCertificate(SecCertificateRef certificate);
 static CFStringRef SecCertificateCopyDescription(CFTypeRef cf);
 static void SecCertificateDestroy(CFTypeRef cf);
 static bool derDateGetAbsoluteTime(const DERItem *dateChoice,
@@ -384,14 +388,22 @@ static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
     DERReturn drtn = DERDecodeSeqContentInit(generalNamesContent, &gnSeq);
     require_noerr_quiet(drtn, badDER);
     DERDecodedInfo generalNameContent;
+    int gen_name_count = 0;
     while ((drtn = DERDecodeSeqNext(&gnSeq, &generalNameContent)) ==
 		DR_Success) {
 		OSStatus status = SecCertificateParseGeneralNameContentProperty(
 			generalNameContent.tag, &generalNameContent.content, context,
 				callback);
-		if (status)
-			return status;
-	}
+        if (status) {
+            return status;
+        }
+        gen_name_count++;
+        if (gen_name_count > MAX_GENERAL_NAMES) {
+            secwarning("Skipping general names after the first %d", (int)MAX_GENERAL_NAMES);
+            drtn = DR_EndOfSequence;
+            break;
+        }
+    }
     require_quiet(drtn == DR_EndOfSequence, badDER);
 	return errSecSuccess;
 
@@ -406,7 +418,7 @@ OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *cont
     require_noerr_quiet(drtn, badDER);
     // GeneralNames ::= SEQUENCE SIZE (1..MAX)
     require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
-    require_quiet(generalNamesContent.content.length > 0, badDER); // not defining a max due to use of large number of SANs
+    require_quiet(generalNamesContent.content.length > 0, badDER); // not defining a max here since we will stop parsing once we reach MAX_GENERAL_NAMES
     return parseGeneralNamesContent(&generalNamesContent.content, context,
 		callback);
 badDER:
@@ -626,6 +638,7 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
     require_quiet(gs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
                   &kCFTypeArrayCallBacks),
                   badDER);
+    int subtree_count = 0;
     while ((drtn = DERDecodeSeqNext(&gsSeq, &gsContent)) == DR_Success) {
         DERGeneralSubtree derGS;
         require_quiet(gsContent.tag==ASN1_CONSTR_SEQUENCE, badDER);
@@ -658,6 +671,12 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
                                              badDER);
         CFArrayAppendValue(gs, generalName);
         CFReleaseNull(generalName);
+        subtree_count++;
+        if (subtree_count > MAX_SUBTREE_NAMES) {
+            secwarning("Skipping subtrees after the first %d", (int)MAX_SUBTREE_NAMES);
+            drtn = DR_EndOfSequence;
+            break;
+        }
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
 
@@ -1229,9 +1248,7 @@ static bool isAppleExtensionOID(const DERItem *extnID)
 }
 
 /* @@@ if this gets out of hand, it should move to its own file */
-static const uint8_t cccVehicleCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x09 };
-static const uint8_t cccIntermediateCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x08 };
-static const uint8_t cccVehicle[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x01 };
+static const uint8_t cccArc[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05 };
 static const uint8_t mdlPolicy[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0x37,0x15,0x0A };
 static const uint8_t qiPolicy[] = {0x67,0x81,0x14,0x01,0x01};
 static const uint8_t qiRSID[] = {0x67,0x81,0x14,0x01,0x02};
@@ -1242,12 +1259,13 @@ typedef struct {
 } known_extension_entry_t;
 
 const known_extension_entry_t unparsed_known_extensions[] = {
-    { cccVehicleCA, sizeof(cccVehicleCA) },
-    { cccIntermediateCA, sizeof(cccIntermediateCA) },
-    { cccVehicle, sizeof(cccVehicle) },
     { mdlPolicy, sizeof(mdlPolicy) },
     { qiPolicy, sizeof(qiPolicy) },
     { qiRSID, sizeof(qiRSID) },
+};
+
+const known_extension_entry_t unparsed_known_arcs[] = {
+    { cccArc, sizeof(cccArc) },
 };
 
 static bool isOtherKnownExtensionOID(const DERItem *extnID) {
@@ -1255,10 +1273,21 @@ static bool isOtherKnownExtensionOID(const DERItem *extnID) {
         return false;
     }
 
+    // Defined OIDs
     size_t num_unparsed_known_extensions = sizeof(unparsed_known_extensions)/sizeof(unparsed_known_extensions[0]);
     for (size_t i = 0; i < num_unparsed_known_extensions; i++) {
         if (extnID->length == unparsed_known_extensions[i].length) {
             if (0 == memcmp(extnID->data, unparsed_known_extensions[i].oid, extnID->length)) {
+                return true;
+            }
+        }
+    }
+
+    // Defined arcs
+    size_t num_unparsed_known_arcs = sizeof(unparsed_known_arcs)/sizeof(unparsed_known_arcs[0]);
+    for (size_t i = 0; i < num_unparsed_known_arcs; i++) {
+        if (extnID->length > unparsed_known_arcs[i].length) {
+            if (0 == memcmp(extnID->data, unparsed_known_arcs[i].oid, unparsed_known_arcs[i].length)) {
                 return true;
             }
         }
@@ -1872,19 +1901,19 @@ OSStatus SecCertificateSetKeychainItem(SecCertificateRef certificate,
 }
 
 CFDataRef SecCertificateCopyData(SecCertificateRef certificate) {
-	check(certificate);
-	CFDataRef result = NULL;
-	if (!certificate) {
-		return result;
-	}
-	if (certificate->_der_data) {
+    check(certificate);
+    CFDataRef result = NULL;
+    if (!certificate) {
+        return result;
+    }
+    if (certificate->_der_data) {
         CFRetain(certificate->_der_data);
         result = certificate->_der_data;
     } else {
-		result = CFDataCreate(CFGetAllocator(certificate), certificate->_der.data, (CFIndex)certificate->_der.length);
-	}
+        result = CFDataCreate(CFGetAllocator(certificate), certificate->_der.data, (CFIndex)certificate->_der.length);
+    }
 
-	return result;
+    return result;
 }
 
 CFIndex SecCertificateGetLength(SecCertificateRef certificate) {
@@ -1896,7 +1925,7 @@ const UInt8 *SecCertificateGetBytePtr(SecCertificateRef certificate) {
 }
 
 static bool SecCertificateIsCertificate(SecCertificateRef certificate) {
-    if (!certificate) {
+    if (!certificate || !certificate->_der.data || certificate->_der.length > LONG_MAX) {
         return false;
     }
 #ifndef IS_TRUSTTESTS
@@ -4044,8 +4073,8 @@ CFStringRef SecCertificateCopySubjectSummary(SecCertificateRef certificate) {
         CFRelease(summary.description);
     }
 
-    if (!summary.summary) {
-        /* If we didn't find a suitable printable string in the subject at all, we try
+    if (!(summary.type == kSummaryTypeCommonName)) {
+        /* If we didn't find a CN string in the subject, we prefer
            the first email address in the certificate instead. */
         CFArrayRef names = SecCertificateCopyRFC822Names(certificate);
         if (!names) {
@@ -4054,6 +4083,7 @@ CFStringRef SecCertificateCopySubjectSummary(SecCertificateRef certificate) {
             names = SecCertificateCopyDNSNames(certificate);
         }
         if (names) {
+            CFReleaseNull(summary.summary); /* in case we had a non-CN string */
             summary.summary = CFArrayGetValueAtIndex(names, 0);
             CFRetain(summary.summary);
             CFRelease(names);
@@ -4133,6 +4163,24 @@ CFAbsoluteTime SecCertificateNotValidBefore(SecCertificateRef certificate) {
 
 CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRef certificate) {
 	return certificate->_notAfter;
+}
+
+CFDateRef SecCertificateCopyNotValidBeforeDate(SecCertificateRef certificate) {
+    CFDateRef date = NULL;
+    if (!certificate) {
+        return NULL;
+    }
+    date = CFDateCreate(NULL, certificate->_notBefore);
+    return date;
+}
+
+CFDateRef SecCertificateCopyNotValidAfterDate(SecCertificateRef certificate) {
+    CFDateRef date = NULL;
+    if (!certificate) {
+        return NULL;
+    }
+    date = CFDateCreate(NULL, certificate->_notAfter);
+    return date;
 }
 
 CFMutableArrayRef SecCertificateCopySummaryProperties(
@@ -5581,7 +5629,7 @@ bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
             keyType = kSecAttrKeyTypeEd25519;
             break;
         case kSecEd448AlgorithmID:
-            keyType = kSecAttrKeyTypeEd25519;
+            keyType = kSecAttrKeyTypeEd448;
             break;
     }
     if(keyType && CFDictionaryGetValueIfPresent(keySizes, keyType, (const void**)&minSize)
@@ -6533,7 +6581,7 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
     require_quiet(extensionValue, out);
     DERReturn seq_err = DERDecodeSequenceWithBlock(extensionValue, ^DERReturn(DERDecodedInfo *content, bool *stop) {
         DERTag tagnum = content->tag & ASN1_TAGNUM_MASK;
-        CFNumberRef tag = CFNumberCreate(NULL, kCFNumberLongType, &tagnum);
+        CFNumberRef tag = CFNumberCreate(NULL, kCFNumberSInt64Type, &tagnum);
         DERReturn drtn = DR_GenericErr;
         DERDecodedInfo encodedValue;
         CFTypeRef value = NULL;
@@ -6555,7 +6603,7 @@ CFDictionaryRef SecCertificateCopyComponentAttributes(SecCertificateRef certific
             case ASN1_INTEGER: {
                 DERLong intValue = 0;
                 require_noerr(drtn = DERParseInteger64(&encodedValue.content, &intValue), blockOut);
-                value = CFNumberCreate(NULL, kCFNumberLongType, &intValue);
+                value = CFNumberCreate(NULL, kCFNumberSInt64Type, &intValue);
                 break;
             }
             case ASN1_OCTET_STRING:
@@ -6681,18 +6729,46 @@ SecCertificateRef SecCertificateCreateWithPEM(CFAllocatorRef allocator,
     if (!pem_certificate || CFDataGetLength(pem_certificate) <= 0) {
         return NULL;
     }
-    static const char begin_cert[] = "-----BEGIN CERTIFICATE-----\n";
-    static const char end_cert[] = "-----END CERTIFICATE-----\n";
+    static const char begin_cert[] = "-----BEGIN CERTIFICATE-----";
+    static const char end_cert[] = "-----END CERTIFICATE-----";
     uint8_t *base64_data = NULL;
     SecCertificateRef cert = NULL;
     const unsigned char *data = CFDataGetBytePtr(pem_certificate);
     const size_t length = (size_t)CFDataGetLength(pem_certificate);
+
+    /* Find those beginning/ending strings */
     char *begin = strnstr((const char *)data, begin_cert, length);
     char *end = strnstr((const char *)data, end_cert, length);
     if (!begin || !end || begin > end) {
         return NULL;
     }
+
+    /* Following begin_cert can be 0 or more space or htab, check and skip past,
+     * Note that by enforcing begin < end (which was also found in the CFData) we don't run off the CFData buffer */
     begin += sizeof(begin_cert) - 1;
+    while (begin < end && (*begin == ' ' || *begin == '\t')) {
+        begin++;
+    }
+
+    /* Following the white space can be CRLF, CR, or LF, check and skip past
+     * Note that because the found end str is > 2 char, we can't run off the CFData buffer  */
+    switch (*begin) {
+        case '\n':
+            begin++;
+            break;
+        case '\r':
+            begin++;
+            if (*begin == '\n') {
+                begin++;
+            }
+            break;
+        default:
+            return NULL;
+    }
+    if (begin > end) {
+        return NULL;
+    }
+
     size_t base64_length = SecBase64Decode(begin, (size_t)(end - begin), NULL, 0);
     if (base64_length && (base64_length < (size_t)CFDataGetLength(pem_certificate))) {
         require_quiet(base64_data = calloc(1, base64_length), out);

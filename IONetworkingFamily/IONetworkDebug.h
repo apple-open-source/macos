@@ -30,6 +30,7 @@ enum {
     kIONF_IOLog     = 0x02
 };
 
+#if DEVELOPMENT
 #define DLOG(fmt, args...)                              \
         do {                                            \
             if (gIONetworkDebugFlags & kIONF_kprintf)   \
@@ -37,7 +38,9 @@ enum {
             if (gIONetworkDebugFlags & kIONF_IOLog)     \
                 IOLog(fmt, ## args);                    \
         } while (0)
-
+#else
+#define DLOG(fmt, args...)
+#endif
 
 #define LOG(fmt, args...)  \
         do { kprintf(fmt, ## args); IOLog(fmt, ## args); } while(0)

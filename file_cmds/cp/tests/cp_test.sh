@@ -1,5 +1,5 @@
 #
-# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+# SPDX-License-Identifier: BSD-2-Clause
 #
 # Copyright (c) 2020 Kyle Evans <kevans@FreeBSD.org>
 #
@@ -24,7 +24,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $FreeBSD$
 
 check_size()
 {
@@ -52,10 +51,7 @@ basic_symlink_body()
 	atf_check cp baz foo
 	atf_check test '!' -L foo
 
-	atf_check -e inline:"cp: baz and baz are identical (not copied).\n" \
-	    -s exit:1 cp baz baz
-	atf_check -e inline:"cp: bar and baz are identical (not copied).\n" \
-	    -s exit:1 cp baz bar
+	atf_check cmp foo bar
 }
 
 atf_test_case chrdev
@@ -70,6 +66,35 @@ chrdev_body()
 	check_size trunc 4
 	atf_check cp /dev/null trunc
 	check_size trunc 0
+}
+
+atf_test_case hardlink
+hardlink_body()
+{
+	echo "foo" >foo
+	atf_check cp -l foo bar
+	atf_check -o inline:"foo\n" cat bar
+	atf_check_equal "$(stat -f%d,%i foo)" "$(stat -f%d,%i bar)"
+}
+
+atf_test_case hardlink_exists
+hardlink_exists_body()
+{
+	echo "foo" >foo
+	echo "bar" >bar
+	atf_check -s not-exit:0 -e match:exists cp -l foo bar
+	atf_check -o inline:"bar\n" cat bar
+	atf_check_not_equal "$(stat -f%d,%i foo)" "$(stat -f%d,%i bar)"
+}
+
+atf_test_case hardlink_exists_force
+hardlink_exists_force_body()
+{
+	echo "foo" >foo
+	echo "bar" >bar
+	atf_check cp -fl foo bar
+	atf_check -o inline:"foo\n" cat bar
+	atf_check_equal "$(stat -f%d,%i foo)" "$(stat -f%d,%i bar)"
 }
 
 atf_test_case matching_srctgt
@@ -199,6 +224,22 @@ recursive_link_Lflag_body()
 	    '(' ! -L foo-mirror/foo/baz ')'
 }
 
+atf_test_case samefile
+samefile_body()
+{
+	echo "foo" >foo
+	ln foo bar
+	ln -s bar baz
+	atf_check -e match:"baz and baz are identical" \
+	    -s exit:1 cp baz baz
+	atf_check -e match:"bar and baz are identical" \
+	    -s exit:1 cp baz bar
+	atf_check -e match:"foo and baz are identical" \
+	    -s exit:1 cp baz foo
+	atf_check -e match:"bar and foo are identical" \
+	    -s exit:1 cp foo bar
+}
+
 file_is_sparse()
 {
 	atf_check ${0%/*}/sparse "$1"
@@ -206,7 +247,7 @@ file_is_sparse()
 
 files_are_equal()
 {
-	atf_check test "$(stat -f "%d %i" "$1")" != "$(stat -f "%d %i" "$2")"
+	atf_check_not_equal "$(stat -f%d,%i "$1")" "$(stat -f%d,%i "$2")"
 	atf_check cmp "$1" "$2"
 }
 
@@ -294,11 +335,67 @@ standalone_Pflag_body()
 	atf_check -o inline:'Symbolic Link\n' stat -f %SHT baz
 }
 
+atf_test_case symlink
+symlink_body()
+{
+	echo "foo" >foo
+	atf_check cp -s foo bar
+	atf_check -o inline:"foo\n" cat bar
+	atf_check -o inline:"foo\n" readlink bar
+}
+
+atf_test_case symlink_exists
+symlink_exists_body()
+{
+	echo "foo" >foo
+	echo "bar" >bar
+	atf_check -s not-exit:0 -e match:exists cp -s foo bar
+	atf_check -o inline:"bar\n" cat bar
+}
+
+atf_test_case symlink_exists_force
+symlink_exists_force_body()
+{
+	echo "foo" >foo
+	echo "bar" >bar
+	atf_check cp -fs foo bar
+	atf_check -o inline:"foo\n" cat bar
+	atf_check -o inline:"foo\n" readlink bar
+}
+
+atf_test_case directory_to_symlink
+directory_to_symlink_body()
+{
+	mkdir -p foo
+	ln -s .. foo/bar
+	mkdir bar
+	touch bar/baz
+	atf_check -s not-exit:0 -e match:"Not a directory" \
+	    cp -R bar foo
+	atf_check -s not-exit:0 -e match:"Not a directory" \
+	    cp -r bar foo
+}
+
+atf_test_case overwrite_directory
+overwrite_directory_body()
+{
+	mkdir -p foo/bar/baz
+	touch bar
+	atf_check -s not-exit:0 -e match:"Is a directory" \
+	    cp bar foo
+	rm bar
+	mkdir bar
+	touch bar/baz
+	atf_check -s not-exit:0 -e match:"Is a directory" \
+	    cp -R bar foo
+	atf_check -s not-exit:0 -e match:"Is a directory" \
+	    cp -r bar foo
+}
+
 #ifdef __APPLE__
 atf_test_case pflag_ns
 pflag_ns_body()
 {
-
 	gettime_ns=$(atf_get_srcdir)/gettime_ns
 
 	while true; do
@@ -326,20 +423,17 @@ pflag_ns_body()
 	atf_check -o file:foo.times ${gettime_ns} bar
 }
 
-NOCLONE_VOLNAME_FILE=noclone_volname
-
 atf_test_case cflag cleanup
 cflag_body()
 {
-
 	# HFS doesn't support clonefile(2), so we'll use that for our fallback
 	# test.
-	noclone_volname=$(mktemp -u cflag_test_vol_XXXXXXXXXX)
+	noclone_volname=$(mktemp -u "$(atf_get ident)_vol_XXXXXXXXXX")
 
 	mkdir hfs_part
 	echo test_file > hfs_part/foo
 
-	echo "$noclone_volname" > $NOCLONE_VOLNAME_FILE
+	echo "$noclone_volname" > noclone_volname
         atf_check -o not-empty hdiutil create -size 10m \
             -volname "$noclone_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
             "$noclone_volname.dmg"
@@ -369,9 +463,9 @@ cflag_body()
 }
 cflag_cleanup()
 {
-
-	noclone_volname=$(cat $NOCLONE_VOLNAME_FILE)
-	hdiutil detach /Volumes/"$noclone_volname"
+	noclone_volname=$(cat noclone_volname)
+	[ -z "${noclone_volname}" ] ||
+	    hdiutil eject /Volumes/"${noclone_volname}"
 }
 
 atf_test_case Sflag
@@ -386,6 +480,57 @@ Sflag_body()
 	files_are_equal foo bar
 	atf_check -s exit:1 ${0%/*}/sparse bar
 }
+
+atf_test_case link_perms
+link_perms_body()
+{
+	mkdir src
+	touch src/file
+	chmod 0444 src/file
+	ln -s file src/link
+	chmod -h 0777 src/link
+	atf_check -o inline:"120777\n" stat -f '%p' src/link
+
+	# First do a test with a manually copied dst/
+	mkdir dst
+	cp -p src/file dst/file
+
+	atf_check -o inline:"100444\n" stat -f '%p' dst/file
+	cp -P src/link dst
+	atf_check -o inline:"100444\n" stat -f '%p' dst/file
+
+	# Then construct a ref/ with `cp -a` and sanity check it
+	cp -a src ref
+	atf_check -o inline:"100444\n" stat -f '%p' ref/file
+	atf_check -o inline:"120777\n" stat -f '%p' ref/link
+}
+
+atf_test_case link_dir cleanup
+link_dir_body()
+{
+	case_volname=$(mktemp -u "$(atf_get ident)"_vol_XXXXXXXXXX)
+	echo "$case_volname" > case_volname
+        atf_check -o not-empty hdiutil create -size 1m \
+            -volname "$case_volname" -nospotlight -fs "Case-sensitive HFS+" \
+            "$case_volname.dmg"
+        atf_check -o not-empty hdiutil attach \
+            "$case_volname.dmg"
+	rootdir="/Volumes/${case_volname}"
+	atf_check mkdir "${rootdir}"/d
+	atf_check mkdir "${rootdir}"/d/a
+	atf_check touch "${rootdir}"/d/a/foo
+	atf_check mkdir a
+	atf_check ln -s "${PWD}/a" "${rootdir}"/d/A
+	atf_check -s exit:1 -e match:"Not a directory" \
+	    cp -R "${rootdir}"/d d
+	atf_check -s exit:1 test -f a/foo
+}
+link_dir_cleanup()
+{
+	case_volname=$(cat case_volname)
+	[ -z "${case_volname}" ] ||
+	    hdiutil eject /Volumes/"${case_volname}"
+}
 #endif
 
 atf_init_test_cases()
@@ -393,6 +538,9 @@ atf_init_test_cases()
 	atf_add_test_case basic
 	atf_add_test_case basic_symlink
 	atf_add_test_case chrdev
+	atf_add_test_case hardlink
+	atf_add_test_case hardlink_exists
+	atf_add_test_case hardlink_exists_force
 	atf_add_test_case matching_srctgt
 	atf_add_test_case matching_srctgt_contained
 	atf_add_test_case matching_srctgt_link
@@ -400,15 +548,23 @@ atf_init_test_cases()
 	atf_add_test_case recursive_link_dflt
 	atf_add_test_case recursive_link_Hflag
 	atf_add_test_case recursive_link_Lflag
+	atf_add_test_case samefile
 	atf_add_test_case sparse_leading_hole
 	atf_add_test_case sparse_multiple_holes
 	atf_add_test_case sparse_only_hole
 	atf_add_test_case sparse_to_dev
 	atf_add_test_case sparse_trailing_hole
 	atf_add_test_case standalone_Pflag
+	atf_add_test_case symlink
+	atf_add_test_case symlink_exists
+	atf_add_test_case symlink_exists_force
+	atf_add_test_case directory_to_symlink
+	atf_add_test_case overwrite_directory
 #ifdef __APPLE__
 	atf_add_test_case pflag_ns
 	atf_add_test_case cflag
 	atf_add_test_case Sflag
+	atf_add_test_case link_perms
+	atf_add_test_case link_dir
 #endif
 }

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -107,6 +107,15 @@
 
 /* Begin PBXBuildFile section */
 		019BDC1327172B1900B3673C /* energyTelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = 019BDC1227172B1900B3673C /* energyTelemetry.m */; };
+		022F5FAA2BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 022F5FA92BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h */; };
+		022F5FAB2BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 022F5FA92BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h */; };
+		02AB50182BDC105E00AC4A24 /* BatteryTrustedData.m in Sources */ = {isa = PBXBuildFile; fileRef = 0225115B2BAEA76200A946AF /* BatteryTrustedData.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		02AB50192BDC107200AC4A24 /* BatteryTrustedData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0225115D2BAEA79600A946AF /* BatteryTrustedData.h */; };
+		02AB501A2BDDEE3800AC4A24 /* BatteryTrustedData.m in Sources */ = {isa = PBXBuildFile; fileRef = 0225115B2BAEA76200A946AF /* BatteryTrustedData.m */; };
+		02AB501B2BDDEE3800AC4A24 /* BatteryTrustedData.m in Sources */ = {isa = PBXBuildFile; fileRef = 0225115B2BAEA76200A946AF /* BatteryTrustedData.m */; };
+		02AB501C2BDDEE3900AC4A24 /* BatteryTrustedData.m in Sources */ = {isa = PBXBuildFile; fileRef = 0225115B2BAEA76200A946AF /* BatteryTrustedData.m */; };
+		02FBDE602BAEB598008E7F22 /* BatteryTrustedData.m in Sources */ = {isa = PBXBuildFile; fileRef = 0225115B2BAEA76200A946AF /* BatteryTrustedData.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		02FBDE612BAEB59E008E7F22 /* BatteryTrustedData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0225115D2BAEA79600A946AF /* BatteryTrustedData.h */; };
 		081E47AD23958CE90046AC84 /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
 		081E47B82395C1560046AC84 /* BatteryDataCollectionManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 081E47AF23958D4F0046AC84 /* BatteryDataCollectionManager.h */; };
 		083598C127C4093100CF603B /* EnergyTelemetry_unit_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 083598BF27C4093100CF603B /* EnergyTelemetry_unit_test.m */; };
@@ -114,7 +123,6 @@
 		083BBC0925A7AD4400AC5486 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 083BBC0825A7AD4300AC5486 /* Foundation.framework */; };
 		084A0B1A240DC78400C19142 /* BatteryDataCollectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */; };
 		08AD431523A31E11008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
-		08AD431A23A4A248008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
 		08AD431B23A4A473008A8EA3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC361E77593400CF1891 /* Foundation.framework */; };
 		08DC3AF325CF703D00C784FC /* com.apple.bdc.metadata.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 08DC3AF125CF700A00C784FC /* com.apple.bdc.metadata.plist */; };
 		1149A7AA1E8351F80060933C /* PAssertions_XCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */; };
@@ -374,6 +382,18 @@
 		7297A8AA293FDD3C008B9D8E /* PMCoreSmartPowerNapService.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297A8A9293FDD3C008B9D8E /* PMCoreSmartPowerNapService.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		7297A8AD293FDE5D008B9D8E /* PMCoreSmartPowerNapClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297A8AC293FDE5D008B9D8E /* PMCoreSmartPowerNapClient.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		7297A8B1293FE0BF008B9D8E /* PMCoreSmartPowerNapLocationMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297A8B0293FE0BF008B9D8E /* PMCoreSmartPowerNapLocationMonitor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		7297B4C12C29F51300F39783 /* _PMPowerModesProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4C02C29F51300F39783 /* _PMPowerModesProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4C22C29F51300F39783 /* _PMPowerModesProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4C02C29F51300F39783 /* _PMPowerModesProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4C42C29F94600F39783 /* _PMPowerModes.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297B4C32C29F94600F39783 /* _PMPowerModes.m */; };
+		7297B4C52C29F94600F39783 /* _PMPowerModes.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297B4C32C29F94600F39783 /* _PMPowerModes.m */; };
+		7297B4C72C29F96900F39783 /* _PMPowerModes.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4C62C29F96900F39783 /* _PMPowerModes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4C82C29F96900F39783 /* _PMPowerModes.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4C62C29F96900F39783 /* _PMPowerModes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4DA2C2A6B5B00F39783 /* _PMPowerModeSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4D92C2A6B5B00F39783 /* _PMPowerModeSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4DB2C2A6B5B00F39783 /* _PMPowerModeSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4D92C2A6B5B00F39783 /* _PMPowerModeSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4DD2C2A6F4800F39783 /* _PMPowerModeSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297B4DC2C2A6F4800F39783 /* _PMPowerModeSession.m */; };
+		7297B4DE2C2A6F4800F39783 /* _PMPowerModeSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 7297B4DC2C2A6F4800F39783 /* _PMPowerModeSession.m */; };
+		7297B4E02C2B666200F39783 /* _PMPowerModeState.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4DF2C2B666200F39783 /* _PMPowerModeState.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7297B4E12C2B666200F39783 /* _PMPowerModeState.h in Headers */ = {isa = PBXBuildFile; fileRef = 7297B4DF2C2B666200F39783 /* _PMPowerModeState.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40D4F0DD01F4A1F40ACA2928 /* pmset.1 */; };
 		729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -428,6 +448,13 @@
 		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72FB64721A9CF63C008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		730DB1E62ADAF5DC008903F8 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; };
+		730DB1E72ADAF5DE008903F8 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; };
+		730DB1E82ADAF5E0008903F8 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; };
+		731307F42AE2FBF400BE3E96 /* chargeControl.m in Sources */ = {isa = PBXBuildFile; fileRef = 197BB2AA2937D7E600ED13B8 /* chargeControl.m */; };
+		731307F52AE2FBF600BE3E96 /* chargeControl.m in Sources */ = {isa = PBXBuildFile; fileRef = 197BB2AA2937D7E600ED13B8 /* chargeControl.m */; };
+		73406F832AD70F6800B60F10 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		73406F842AD70F6900B60F10 /* BatteryGaugingAccuracyManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		7410B31E281B48A800445416 /* AppleCallbackPowerSourceProvider.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7410B31C281B48A800445416 /* AppleCallbackPowerSourceProvider.cpp */; };
 		7410B31F281B48A800445416 /* AppleCallbackPowerSourceProvider.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 7410B31D281B48A800445416 /* AppleCallbackPowerSourceProvider.hpp */; settings = {ATTRIBUTES = (Private, ); }; };
 		8007E1692458B7ED0059706F /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; platformFilters = (ios, watchos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
@@ -449,7 +476,7 @@
 		804E7F792447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		804E7F7A2447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		805ED60124F75BC30003A796 /* LowPowerMode.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 804E7F702447E10D001FA751 /* LowPowerMode.framework */; };
-		806A69312630FE020002A9C0 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 806A69302630FE020002A9C0 /* CoreAnalytics.framework */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		806A69312630FE020002A9C0 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 806A69302630FE020002A9C0 /* CoreAnalytics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		8070C78C25E0754C0073835D /* AGPMUserLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8070C78B25E0754C0073835D /* AGPMUserLib.a */; };
 		8070C78D25E075590073835D /* AGPMUserLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8070C78B25E0754C0073835D /* AGPMUserLib.a */; };
 		807EAF37245A1EC6004FF827 /* PMLowPowerModeService.h in Headers */ = {isa = PBXBuildFile; fileRef = 807EAF35245A1EC6004FF827 /* PMLowPowerModeService.h */; };
@@ -509,11 +536,13 @@
 		B348AB7725D5BA7B0049E73E /* com.apple.powerd.assertiontimeouts.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB6D25D465920049E73E /* com.apple.powerd.assertiontimeouts.plist */; };
 		B348AB7925D5BABA0049E73E /* powerd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B348AB7225D4C7740049E73E /* powerd.plist */; };
 		B34A590A26430B1F001A952C /* Trial.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A590926430B1F001A952C /* Trial.framework */; platformFilters = (ios, watchos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		B34A863B2B72DE7900AD8CF4 /* PowerExperience.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */; platformFilter = ios; settings = {ATTRIBUTES = (Weak, ); }; };
 		B34DD13C2717581E0069E222 /* _PMSmartPowerNapCallbackProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = B34DD13B2717575C0069E222 /* _PMSmartPowerNapCallbackProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B356E8812863AEBC006B806C /* BacklightServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B356E8802863AEBC006B806C /* BacklightServices.framework */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		B38EF67229C1194D00740871 /* USBDeviceMode.m in Sources */ = {isa = PBXBuildFile; fileRef = B38EF67029C1194600740871 /* USBDeviceMode.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		B391F93628063AFC00963F87 /* com.apple.powerd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B391F9322806390200963F87 /* com.apple.powerd.plist */; };
 		B39B82A92446A30D000FE62D /* XCTest_FunctionDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 1149A7A81E8351EE0060933C /* XCTest_FunctionDefinitions.h */; };
+		B39C576A2AF2EAFE00E4C033 /* SleepWakeResourceMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = B39C57682AF2EAFE00E4C033 /* SleepWakeResourceMonitor.m */; };
 		B39F875E2228A901006D4499 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32531E4162AE00EB0780 /* CoreFoundation.framework */; };
 		B39F875F2228A90A006D4499 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32551E4162B400EB0780 /* IOKit.framework */; };
 		B39F87622228BB91006D4499 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B39F87612228BB91006D4499 /* System.framework */; };
@@ -1275,6 +1304,10 @@
 		019BDC1427172B5F00B3673C /* energyTelemetry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = energyTelemetry.h; sourceTree = "<group>"; };
 		01E5CDA728AF01590026B164 /* CarbonAnalytics.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CarbonAnalytics.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		01E5CDAE28AF05D40026B164 /* carbonAnalytics.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = carbonAnalytics.plist; sourceTree = "<group>"; };
+		021C9B012BB0DAD800628F21 /* CoreAccessories.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAccessories.framework; path = System/Library/PrivateFrameworks/CoreAccessories.framework; sourceTree = SDKROOT; };
+		0225115B2BAEA76200A946AF /* BatteryTrustedData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BatteryTrustedData.m; sourceTree = "<group>"; };
+		0225115D2BAEA79600A946AF /* BatteryTrustedData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryTrustedData.h; sourceTree = "<group>"; };
+		022F5FA92BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleBatteryAuthKeysPrivate.h; sourceTree = "<group>"; };
 		08196AF723C3FDEB00D48110 /* CPMS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CPMS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/PrivateFrameworks/CPMS.framework; sourceTree = DEVELOPER_DIR; };
 		081E47AB23958CE90046AC84 /* BatteryDataCollectionManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BatteryDataCollectionManager.m; sourceTree = "<group>"; };
 		081E47AF23958D4F0046AC84 /* BatteryDataCollectionManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryDataCollectionManager.h; sourceTree = "<group>"; };
@@ -1494,6 +1527,12 @@
 		7297A8AE293FDF3B008B9D8E /* PMCoreSmartPowerNapPredictor_Testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PMCoreSmartPowerNapPredictor_Testing.h; sourceTree = "<group>"; };
 		7297A8AF293FE081008B9D8E /* PMCoreSmartPowerNapLocationMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PMCoreSmartPowerNapLocationMonitor.h; sourceTree = "<group>"; };
 		7297A8B0293FE0BF008B9D8E /* PMCoreSmartPowerNapLocationMonitor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMCoreSmartPowerNapLocationMonitor.m; sourceTree = "<group>"; };
+		7297B4C02C29F51300F39783 /* _PMPowerModesProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMPowerModesProtocol.h; sourceTree = "<group>"; };
+		7297B4C32C29F94600F39783 /* _PMPowerModes.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = _PMPowerModes.m; sourceTree = "<group>"; };
+		7297B4C62C29F96900F39783 /* _PMPowerModes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMPowerModes.h; sourceTree = "<group>"; };
+		7297B4D92C2A6B5B00F39783 /* _PMPowerModeSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMPowerModeSession.h; sourceTree = "<group>"; };
+		7297B4DC2C2A6F4800F39783 /* _PMPowerModeSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = _PMPowerModeSession.m; sourceTree = "<group>"; };
+		7297B4DF2C2B666200F39783 /* _PMPowerModeState.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMPowerModeState.h; sourceTree = "<group>"; };
 		729A742C0A01EBB0000AB587 /* pmset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmset; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A757E0A01EDED000AB587 /* ioupsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioupsd; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A759B0A01F1D7000AB587 /* powerd.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = powerd.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1529,6 +1568,8 @@
 		72FE22EF0A018A5700885E24 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		72FE7EA409AE4931003E0C4C /* ioupsd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = ioupsd.8; sourceTree = "<group>"; };
 		72FE7EA609AE4942003E0C4C /* upsshutdown.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = upsshutdown.8; sourceTree = "<group>"; };
+		73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BatteryGaugingAccuracyManager.m; sourceTree = "<group>"; };
+		73406F822AD70F4B00B60F10 /* BatteryGaugingAccuracyManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryGaugingAccuracyManager.h; sourceTree = "<group>"; };
 		7410B31C281B48A800445416 /* AppleCallbackPowerSourceProvider.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCallbackPowerSourceProvider.cpp; sourceTree = "<group>"; };
 		7410B31D281B48A800445416 /* AppleCallbackPowerSourceProvider.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AppleCallbackPowerSourceProvider.hpp; sourceTree = "<group>"; };
 		800F7AE32637858A00D7C3CD /* PMPowerModeAnalytics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PMPowerModeAnalytics.m; sourceTree = "<group>"; };
@@ -1590,6 +1631,10 @@
 		990FCECB245CD9A200D5B6B7 /* SkyLight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SkyLight.framework; path = System/Library/PrivateFrameworks/SkyLight.framework; sourceTree = SDKROOT; };
 		9C474D6120041C1C00627C4F /* powerd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = powerd.1; sourceTree = "<group>"; };
 		9CD0FD542009607B0030E5A9 /* swd.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = swd.1; sourceTree = "<group>"; };
+		A7909DFF2BB63A9800EB0821 /* entitlements-powerd_test.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-powerd_test.plist"; sourceTree = "<group>"; };
+		A7909E002BB63A9800EB0821 /* entitlements-macOSBatteryHealthUnitTests.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-macOSBatteryHealthUnitTests.plist"; sourceTree = "<group>"; };
+		A7909E012BB63A9800EB0821 /* entitlements-iOSBatteryHealthUnitTests.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-iOSBatteryHealthUnitTests.plist"; sourceTree = "<group>"; };
+		A7F91AE72B8E66BB00376042 /* PowerManagementSignposts.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PowerManagementSignposts.plist; sourceTree = "<group>"; };
 		A999C3F40450D9290018C661 /* RepeatingAutoWake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = RepeatingAutoWake.c; path = pmconfigd/RepeatingAutoWake.c; sourceTree = SOURCE_ROOT; };
 		A999C3F50450D9290018C661 /* RepeatingAutoWake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = RepeatingAutoWake.h; path = pmconfigd/RepeatingAutoWake.h; sourceTree = SOURCE_ROOT; };
 		A9D743DA05AF3D4D0075549C /* upsshutdown */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = upsshutdown; path = pmconfigd/upsshutdown; sourceTree = SOURCE_ROOT; };
@@ -1616,6 +1661,7 @@
 		B348AB7225D4C7740049E73E /* powerd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = powerd.plist; sourceTree = "<group>"; };
 		B34A59062641D6C9001A952C /* powerd-binary-embedded.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "powerd-binary-embedded.xcconfig"; sourceTree = "<group>"; };
 		B34A590926430B1F001A952C /* Trial.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Trial.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS15.0.Internal.sdk/System/Library/PrivateFrameworks/Trial.framework; sourceTree = DEVELOPER_DIR; };
+		B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PowerExperience.framework; path = /System/Library/PrivateFrameworks/PowerExperience.framework; sourceTree = SDKROOT; };
 		B34DD13B2717575C0069E222 /* _PMSmartPowerNapCallbackProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMSmartPowerNapCallbackProtocol.h; sourceTree = "<group>"; };
 		B356E87E2863AE9B006B806C /* BacklightServicesHost.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BacklightServicesHost.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/System/Library/PrivateFrameworks/BacklightServicesHost.framework; sourceTree = DEVELOPER_DIR; };
 		B356E8802863AEBC006B806C /* BacklightServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BacklightServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS16.0.Internal.sdk/System/Library/PrivateFrameworks/BacklightServices.framework; sourceTree = DEVELOPER_DIR; };
@@ -1623,6 +1669,8 @@
 		B38EF67329C1197E00740871 /* USBDeviceMode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = USBDeviceMode.h; sourceTree = "<group>"; };
 		B391F9322806390200963F87 /* com.apple.powerd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.powerd.plist; sourceTree = "<group>"; };
 		B39B82B22447AC7A000FE62D /* BATS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = BATS.plist; sourceTree = "<group>"; };
+		B39C57682AF2EAFE00E4C033 /* SleepWakeResourceMonitor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SleepWakeResourceMonitor.m; sourceTree = "<group>"; };
+		B39C576B2AF2EB1200E4C033 /* SleepWakeResourceMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SleepWakeResourceMonitor.h; sourceTree = "<group>"; };
 		B39F87612228BB91006D4499 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = System/Library/Frameworks/System.framework; sourceTree = SDKROOT; };
 		B3A9BE8327EA6962004A023D /* SmartPowerNapTest.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SmartPowerNapTest.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B3A9BE8527EA6962004A023D /* SmartPowerNapTest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SmartPowerNapTest.m; sourceTree = "<group>"; };
@@ -1783,7 +1831,6 @@
 				72D2324529A6F32100B3A1AF /* OSIntelligence.framework in Frameworks */,
 				807EAF3F245A2385004FF827 /* AggregateDictionary.framework in Frameworks */,
 				B3E63D392405F985009FE961 /* RunningBoardServices.framework in Frameworks */,
-				08AD431A23A4A248008A8EA3 /* Foundation.framework in Frameworks */,
 				13B3011E22B9883100FDC1B9 /* SkyLight.framework in Frameworks */,
 				48232D7E2006B77400B3BD7D /* libDiagnosticMessagesClient.tbd in Frameworks */,
 				4878DC821E776A1E00CF1891 /* libsystemstats.dylib in Frameworks */,
@@ -1821,6 +1868,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B34A863B2B72DE7900AD8CF4 /* PowerExperience.framework in Frameworks */,
 				B318EAD52878C00A0095B664 /* CoreMotion.framework in Frameworks */,
 				B356E8812863AEBC006B806C /* BacklightServices.framework in Frameworks */,
 				B30EE97327BDC63500CE2DD6 /* BiomeLibrary.framework in Frameworks */,
@@ -2066,6 +2114,9 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
+				A7909E012BB63A9800EB0821 /* entitlements-iOSBatteryHealthUnitTests.plist */,
+				A7909E002BB63A9800EB0821 /* entitlements-macOSBatteryHealthUnitTests.plist */,
+				A7909DFF2BB63A9800EB0821 /* entitlements-powerd_test.plist */,
 				1EB4D3932B4F64E500F4F270 /* MGWrapper.m */,
 				7275EE7329A988100064E857 /* FeatureFlag_osx */,
 				1E7A411D29A34F8F00D943EE /* BatteryAuth.h */,
@@ -2090,6 +2141,8 @@
 				A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */,
 				A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */,
 				48CE38981E6224AD001563E6 /* adaptiveDisplay.m */,
+				73406F822AD70F4B00B60F10 /* BatteryGaugingAccuracyManager.h */,
+				73406F812AD70F4A00B60F10 /* BatteryGaugingAccuracyManager.m */,
 				72352E3B2824800B00AAAFEC /* BatteryCapacityCalibration.m */,
 				72352E3D2824804800AAAFEC /* BatteryCapacityCalibration.h */,
 				40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.m */,
@@ -2105,6 +2158,8 @@
 				72CF066A182DB08300F34C80 /* Platform.h */,
 				7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */,
 				7266E16F0E5BEDAE00F9BC0B /* PMConnection.m */,
+				B39C57682AF2EAFE00E4C033 /* SleepWakeResourceMonitor.m */,
+				B39C576B2AF2EB1200E4C033 /* SleepWakeResourceMonitor.h */,
 				220D605F1828511000E98262 /* PMAssertionLog.c */,
 				13B3011822B8580600FDC1B9 /* PMDisplay.m */,
 				13B3011722B8580600FDC1B9 /* PMDisplay.h */,
@@ -2142,6 +2197,8 @@
 				197BB2AA2937D7E600ED13B8 /* chargeControl.m */,
 				B38EF67029C1194600740871 /* USBDeviceMode.m */,
 				B38EF67329C1197E00740871 /* USBDeviceMode.h */,
+				0225115B2BAEA76200A946AF /* BatteryTrustedData.m */,
+				0225115D2BAEA79600A946AF /* BatteryTrustedData.h */,
 			);
 			name = powerd;
 			path = pmconfigd;
@@ -2255,6 +2312,8 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				021C9B012BB0DAD800628F21 /* CoreAccessories.framework */,
+				B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */,
 				7275EE6E29A984CB0064E857 /* Trial.framework */,
 				B318EAD42878C00A0095B664 /* CoreMotion.framework */,
 				B356E8802863AEBC006B806C /* BacklightServices.framework */,
@@ -2466,6 +2525,7 @@
 		728F7A021A2567D500EA70CC /* common */ = {
 			isa = PBXGroup;
 			children = (
+				A7F91AE72B8E66BB00376042 /* PowerManagementSignposts.plist */,
 				728F7A061A25687B00EA70CC /* CommonLib.c */,
 				728F7A091A2657E800EA70CC /* CommonLib.h */,
 				8C0CB46220A691A700FE22F5 /* PowerManagementSignposts.h */,
@@ -2543,6 +2603,7 @@
 				18488DC126740CD800A95BD5 /* AppleSmartBatteryUserClient.h */,
 				72D0ECFE08F73FB600CCEA2F /* Info.plist */,
 				80FD7DB01E36AEA8008803C4 /* Info-Embedded.plist */,
+				022F5FA92BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h */,
 			);
 			name = AppleSmartBatteryManager;
 			sourceTree = "<group>";
@@ -2552,9 +2613,15 @@
 			children = (
 				72B108E5293FCE6F00B0403B /* CoreSmartPowerNap */,
 				B3051FAA26FAA18E00742B0C /* SmartPowerNap */,
+				7297B4DF2C2B666200F39783 /* _PMPowerModeState.h */,
 				804E7F722447E381001FA751 /* _PMLowPowerMode.h */,
 				804E7F732447E381001FA751 /* _PMLowPowerMode.m */,
 				804E7F742447E381001FA751 /* _PMLowPowerModeProtocol.h */,
+				7297B4C02C29F51300F39783 /* _PMPowerModesProtocol.h */,
+				7297B4D92C2A6B5B00F39783 /* _PMPowerModeSession.h */,
+				7297B4DC2C2A6F4800F39783 /* _PMPowerModeSession.m */,
+				7297B4C62C29F96900F39783 /* _PMPowerModes.h */,
+				7297B4C32C29F94600F39783 /* _PMPowerModes.m */,
 				805AA9F32447EBAA00D4DABA /* Info-Embedded.plist */,
 				804E7F5E2447E017001FA751 /* Info.plist */,
 			);
@@ -2738,6 +2805,7 @@
 				18C6ED55289306D300270EDF /* AppleSmartBatteryHFDataClient.h in Headers */,
 				19BE760D2450CF9F00CC8218 /* AppleSmartBatteryKeys.h in Headers */,
 				18C6ED53289306A400270EDF /* AppleSmartBattery.h in Headers */,
+				022F5FAA2BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h in Headers */,
 				19CF63DA2481820F000196E1 /* AppleSmartBatteryKeysPrivate.h in Headers */,
 				19F2D66126D95AEB00EF44FA /* AppleSmartBatteryUserClient.h in Headers */,
 			);
@@ -2747,6 +2815,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02AB50192BDC107200AC4A24 /* BatteryTrustedData.h in Headers */,
 				72DCDE4529A834C800666DB6 /* PMCoreSmartPowerNapPredictor.h in Headers */,
 				72DCDE4629A834C800666DB6 /* PMCoreSmartPowerNapService.h in Headers */,
 				72DCDE4729A834C800666DB6 /* PMCoreSmartPowerNapClient.h in Headers */,
@@ -2780,6 +2849,7 @@
 				48A48D4F1EF42F8F0016FE7B /* HIDEventWatcher.h in Headers */,
 				48A48D501EF42F8F0016FE7B /* PMConnection.h in Headers */,
 				081E47B82395C1560046AC84 /* BatteryDataCollectionManager.h in Headers */,
+				02FBDE612BAEB59E008E7F22 /* BatteryTrustedData.h in Headers */,
 				48A48D521EF42F8F0016FE7B /* PMSystemEvents.h in Headers */,
 				48A48D551EF42F8F0016FE7B /* IOUPSPrivate.h in Headers */,
 				1ED44A0A25E5B3E30006AE96 /* prefs.h in Headers */,
@@ -2804,7 +2874,11 @@
 				72D2324229A6F23F00B3A1AF /* _PMCoreSmartPowerNap.h in Headers */,
 				72D2324329A6F23F00B3A1AF /* _PMCoreSmartPowerNapCallbackProtocol.h in Headers */,
 				804E7F752447E381001FA751 /* _PMLowPowerMode.h in Headers */,
+				7297B4C72C29F96900F39783 /* _PMPowerModes.h in Headers */,
 				804E7F792447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */,
+				7297B4C12C29F51300F39783 /* _PMPowerModesProtocol.h in Headers */,
+				7297B4E12C2B666200F39783 /* _PMPowerModeState.h in Headers */,
+				7297B4DB2C2A6B5B00F39783 /* _PMPowerModeSession.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2819,7 +2893,11 @@
 				804E7F7A2447E381001FA751 /* _PMLowPowerModeProtocol.h in Headers */,
 				72B108E7293FCF7500B0403B /* _PMCoreSmartPowerNapProtocol.h in Headers */,
 				B34DD13C2717581E0069E222 /* _PMSmartPowerNapCallbackProtocol.h in Headers */,
+				7297B4C22C29F51300F39783 /* _PMPowerModesProtocol.h in Headers */,
 				7297A8A0293FD11E008B9D8E /* _PMCoreSmartPowerNap.h in Headers */,
+				7297B4E02C2B666200F39783 /* _PMPowerModeState.h in Headers */,
+				7297B4C82C29F96900F39783 /* _PMPowerModes.h in Headers */,
+				7297B4DA2C2A6B5B00F39783 /* _PMPowerModeSession.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2828,6 +2906,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				18C6ED56289306D400270EDF /* AppleSmartBatteryHFDataClient.h in Headers */,
+				022F5FAB2BD19EFC0027F387 /* AppleBatteryAuthKeysPrivate.h in Headers */,
 				19F2D66226D95AED00EF44FA /* AppleSmartBatteryUserClient.h in Headers */,
 				19FCB62D21B0A32B003CAFE2 /* AppleBatteryAuthKeys.h in Headers */,
 				191954E221B206D90072BF97 /* AppleSmartBatteryKeys.h in Headers */,
@@ -3784,6 +3863,7 @@
 				4878DBD61E71240D00CF1891 /* StandbyTimer.c in Sources */,
 				119B324E1E41507F00EB0780 /* pmconfigd.m in Sources */,
 				119B32501E41508C00EB0780 /* CommonLib.c in Sources */,
+				02AB501C2BDDEE3900AC4A24 /* BatteryTrustedData.m in Sources */,
 				119B324B1E41507400EB0780 /* SystemLoad.c in Sources */,
 				119B32411E41504C00EB0780 /* BatteryTimeRemaining.m in Sources */,
 				119B32491E41506D00EB0780 /* PMSettings.c in Sources */,
@@ -3802,6 +3882,7 @@
 				119B32431E41505400EB0780 /* HIDEventWatcher.c in Sources */,
 				119B324A1E41507000EB0780 /* UPSLowPower.c in Sources */,
 				119B32421E41505000EB0780 /* ExternalMedia.c in Sources */,
+				730DB1E62ADAF5DC008903F8 /* BatteryGaugingAccuracyManager.m in Sources */,
 				119B32461E41506100EB0780 /* PMAssertionLog.c in Sources */,
 				1E0F2DF52B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				13B3011A22B8584100FDC1B9 /* PMDisplay.m in Sources */,
@@ -3874,8 +3955,11 @@
 				954B6A9B26F2CDBA008FD6A7 /* iOSBatteryHealthUnitTests.m in Sources */,
 				1E0F2DF62B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				1EB4D3972B4F64E500F4F270 /* MGWrapper.m in Sources */,
+				730DB1E72ADAF5DE008903F8 /* BatteryGaugingAccuracyManager.m in Sources */,
 				4817EC2A21B6071C0049B606 /* BatteryTimeRemaining.m in Sources */,
+				02AB501B2BDDEE3800AC4A24 /* BatteryTrustedData.m in Sources */,
 				1E7A412729A34F8F00D943EE /* BatteryAuth.m in Sources */,
+				731307F52AE2FBF600BE3E96 /* chargeControl.m in Sources */,
 				956BC9DE2704E2920083F359 /* BatteryHealthUnitTestsStubs.m in Sources */,
 				19B6F49B298AD29E00CD1658 /* CommonLib.c in Sources */,
 			);
@@ -3893,6 +3977,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02AB50182BDC105E00AC4A24 /* BatteryTrustedData.m in Sources */,
 				72DCDE4129A8327D00666DB6 /* PMCoreSmartPowerNapPredictor.m in Sources */,
 				72DCDE4229A8327D00666DB6 /* PMCoreSmartPowerNapService.m in Sources */,
 				72DCDE4329A8327D00666DB6 /* PMCoreSmartPowerNapClient.m in Sources */,
@@ -3925,6 +4010,7 @@
 				4878DC6A1E77686900CF1891 /* StandbyTimer.c in Sources */,
 				4878DC6B1E77686900CF1891 /* PMStore.c in Sources */,
 				084A0B1A240DC78400C19142 /* BatteryDataCollectionManager.m in Sources */,
+				73406F842AD70F6900B60F10 /* BatteryGaugingAccuracyManager.m in Sources */,
 				13B3011922B8583400FDC1B9 /* PMDisplay.m in Sources */,
 				197BB2AB2937D7E600ED13B8 /* chargeControl.m in Sources */,
 				4878DC6C1E77686900CF1891 /* PrivateLib.c in Sources */,
@@ -3950,6 +4036,7 @@
 				B3051FB426FBC5B400742B0C /* PMSmartPowerNapService.m in Sources */,
 				B332FA6A276019330057A2F8 /* PMSmartPowerNapPredictor.m in Sources */,
 				8007E16E245A1AA00059706F /* PMLowPowerModeService.m in Sources */,
+				02FBDE602BAEB598008E7F22 /* BatteryTrustedData.m in Sources */,
 				B341F9B82706297D00626110 /* PMSmartPowerNapClient.m in Sources */,
 				7297A8AD293FDE5D008B9D8E /* PMCoreSmartPowerNapClient.m in Sources */,
 				7297A8B1293FE0BF008B9D8E /* PMCoreSmartPowerNapLocationMonitor.m in Sources */,
@@ -3978,7 +4065,9 @@
 				B38EF67229C1194D00740871 /* USBDeviceMode.m in Sources */,
 				48A48D691EF42F8F0016FE7B /* PMSystemEvents.c in Sources */,
 				72352E3C2824800B00AAAFEC /* BatteryCapacityCalibration.m in Sources */,
+				B39C576A2AF2EAFE00E4C033 /* SleepWakeResourceMonitor.m in Sources */,
 				48A48D6A1EF42F8F0016FE7B /* PMSettings.c in Sources */,
+				73406F832AD70F6800B60F10 /* BatteryGaugingAccuracyManager.m in Sources */,
 				48A48D6C1EF42F8F0016FE7B /* SystemLoad.c in Sources */,
 				48A48D6E1EF42F8F0016FE7B /* PMStore.c in Sources */,
 				48A48D6F1EF42F8F0016FE7B /* PrivateLib.c in Sources */,
@@ -4083,6 +4172,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				72D2324429A6F25400B3A1AF /* _PMCoreSmartPowerNap.m in Sources */,
+				7297B4C42C29F94600F39783 /* _PMPowerModes.m in Sources */,
+				7297B4DD2C2A6F4800F39783 /* _PMPowerModeSession.m in Sources */,
 				804E7F772447E381001FA751 /* _PMLowPowerMode.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4092,6 +4183,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3C2D63D26FA9FC500E86C18 /* _PMSmartPowerNap.m in Sources */,
+				7297B4DE2C2A6F4800F39783 /* _PMPowerModeSession.m in Sources */,
+				7297B4C52C29F94600F39783 /* _PMPowerModes.m in Sources */,
 				804E7F782447E381001FA751 /* _PMLowPowerMode.m in Sources */,
 				7297A8A4293FD273008B9D8E /* _PMCoreSmartPowerNap.m in Sources */,
 			);
@@ -4138,10 +4231,13 @@
 				1E7A412829A34F8F00D943EE /* BatteryAuth.m in Sources */,
 				95E33A662565E5FD00DF678F /* BatteryTimeRemaining.m in Sources */,
 				95E33A1D2565E33500DF678F /* macOSBatteryHealthUnitTests.m in Sources */,
+				02AB501A2BDDEE3800AC4A24 /* BatteryTrustedData.m in Sources */,
 				956BC9DF2704E2920083F359 /* BatteryHealthUnitTestsStubs.m in Sources */,
 				1E0F2DF72B4E231D0051EA70 /* BatteryCapacityMonitor.m in Sources */,
 				19E8117B2989A533006692DC /* CommonLib.c in Sources */,
 				1EB4D3982B4F64E500F4F270 /* MGWrapper.m in Sources */,
+				731307F42AE2FBF400BE3E96 /* chargeControl.m in Sources */,
+				730DB1E82ADAF5E0008903F8 /* BatteryGaugingAccuracyManager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5269,6 +5365,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-powerd_test.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -5341,6 +5438,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-powerd_test.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -5414,6 +5512,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-powerd_test.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -5479,6 +5578,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-powerd_test.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -6698,6 +6798,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-iOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -6786,6 +6887,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-iOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -6874,6 +6976,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-iOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -6959,6 +7062,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-iOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -7911,6 +8015,8 @@
 					DataMigration,
 					"-weak_framework",
 					MediaExperience,
+					"-weak_framework",
+					PowerExperience,
 				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = (
 					"-weak_framework",
@@ -7921,6 +8027,8 @@
 					Trial,
 					"-weak_framework",
 					MediaExperience,
+					"-weak_framework",
+					PowerExperience,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -8021,6 +8129,8 @@
 					Trial,
 					"-weak_framework",
 					DataMigration,
+					"-weak_framework",
+					PowerExperience,
 				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = (
 					"-weak_framework",
@@ -8029,6 +8139,8 @@
 					CoreAnalytics,
 					"-weak_framework",
 					Trial,
+					"-weak_framework",
+					PowerExperience,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -8109,18 +8221,6 @@
 					"-weak_framework",
 					CoreAnalytics,
 				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
-					"-weak_framework",
-					CPMS,
-					"-weak_framework",
-					CoreAnalytics,
-					"-weak_framework",
-					Trial,
-					"-weak_framework",
-					DataMigration,
-					"-weak_framework",
-					MediaExperience,
-				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = (
 					"-weak_framework",
 					CPMS,
@@ -8130,6 +8230,8 @@
 					Trial,
 					"-weak_framework",
 					MediaExperience,
+					"-weak_framework",
+					PowerExperience,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -8227,6 +8329,8 @@
 					Trial,
 					"-weak_framework",
 					DataMigration,
+					"-weak_framework",
+					PowerExperience,
 				);
 				"OTHER_LDFLAGS[sdk=watchos*]" = (
 					"-weak_framework",
@@ -8235,6 +8339,8 @@
 					CoreAnalytics,
 					"-weak_framework",
 					Trial,
+					"-weak_framework",
+					PowerExperience,
 				);
 				PRODUCT_MODULE_NAME = powerd;
 				PRODUCT_NAME = powerd;
@@ -11107,6 +11213,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-macOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -11180,6 +11287,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-macOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -11253,6 +11361,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-macOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -11323,6 +11432,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-macOSBatteryHealthUnitTests.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;

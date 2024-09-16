@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgets.c,v 1.14 2007/01/09 00:28:06 imp Ex
 #include "un-namespace.h"
 #include "local.h"
 #include "libc_private.h"
+#include "libc_hooks_impl.h"
 
 /*
  * Read at most n-1 characters from the given file.
@@ -57,6 +58,9 @@ fgets(char *buf, int n, FILE *fp)
 
 	if (n <= 0)		/* sanity check */
 		return (NULL);
+
+	libc_hooks_will_write(buf, n);
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	FLOCKFILE(fp);
 	ORIENT(fp, -1);

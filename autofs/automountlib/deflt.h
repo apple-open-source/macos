@@ -25,21 +25,21 @@
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
-/*	  All Rights Reserved  	*/
+/*	  All Rights Reserved   */
 
 /*	Copyright (c) 1987, 1988 Microsoft Corporation	*/
 /*	  All Rights Reserved	*/
 
-#ifndef	_DEFLT_H
-#define	_DEFLT_H
+#ifndef _DEFLT_H
+#define _DEFLT_H
 
 /* #pragma ident	"@(#)deflt.h	1.16	05/06/08 SMI" */
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 extern "C" {
 #endif
 
-#define	DEFLT	"/etc/default"
+#define DEFLT   "/etc/default"
 
 /*
  * Following for defcntl(3).
@@ -51,16 +51,16 @@ extern "C" {
  */
 
 /* ... cmds */
-#define	DC_GETFLAGS	0	/* get current flags */
-#define	DC_SETFLAGS	1	/* set flags */
+#define DC_GETFLAGS     0       /* get current flags */
+#define DC_SETFLAGS     1       /* set flags */
 
 /* ... args */
-#define	DC_CASE		0001	/* ON: respect case; OFF: ignore case */
-#define	DC_NOREWIND	0002	/* ON: don't rewind in defread */
-				/* OFF: do rewind in defread */
-#define	DC_STRIP_QUOTES	0004	/* ON: strip quotes; OFF: leave quotes */
+#define DC_CASE         0001    /* ON: respect case; OFF: ignore case */
+#define DC_NOREWIND     0002    /* ON: don't rewind in defread */
+                                /* OFF: do rewind in defread */
+#define DC_STRIP_QUOTES 0004    /* ON: strip quotes; OFF: leave quotes */
 
-#define	DC_STD		((0) | (DC_CASE))
+#define DC_STD          ((0) | (DC_CASE))
 
 #ifdef __STDC__
 extern int defcntl(int, int);
@@ -72,13 +72,13 @@ extern int defopen();
 extern char *defread();
 #endif
 
-#define	TURNON(flags, mask)	((flags) |= (mask))
-#define	TURNOFF(flags, mask)	((flags) &= ~(mask))
-#define	ISON(flags, mask)	(((flags) & (mask)) == (mask))
-#define	ISOFF(flags, mask)	(((flags) & (mask)) != (mask))
+#define TURNON(flags, mask)     ((flags) |= (mask))
+#define TURNOFF(flags, mask)    ((flags) &= ~(mask))
+#define ISON(flags, mask)       (((flags) & (mask)) == (mask))
+#define ISOFF(flags, mask)      (((flags) & (mask)) != (mask))
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 }
 #endif
 
-#endif	/* _DEFLT_H */
+#endif  /* _DEFLT_H */

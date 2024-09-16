@@ -61,7 +61,7 @@ if hw_page_size ~= vm_page_size then
     benchmark:print "Skipping benchmark on this platform because benchmark process has a different page size than the kernel"
     os.exit(0)
 elseif string.find(product_name, "Watch OS") or string.find(product_name, "TVOS") then
-    -- rdar://119044527: Temporarily disable test for watchOS and tvOS
+    -- rdar://103802544: Temporarily disable test for watchOS and tvOS
     benchmark:print "Skipping benchmark on this platform as a temporary workaround to avoid device panics"
     os.exit(0)
 end

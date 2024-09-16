@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "SessionState.h"
 #include "WebPageProxyIdentifier.h"
+#include "WebsiteDataStore.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/Ref.h>
 #include <wtf/WeakPtr.h>
@@ -73,6 +74,8 @@ public:
 
     const URL& resourceDirectoryURL() const { return m_resourceDirectoryURL; }
     void setResourceDirectoryURL(URL&& url) { m_resourceDirectoryURL = WTFMove(url); }
+    RefPtr<WebsiteDataStore> dataStoreForWebArchive() const { return m_dataStoreForWebArchive; }
+    void setDataStoreForWebArchive(WebsiteDataStore* dataStore) { m_dataStoreForWebArchive = dataStore; }
 
     bool itemIsInSameDocument(const WebBackForwardListItem&) const;
     bool itemIsClone(const WebBackForwardListItem&);
@@ -87,8 +90,18 @@ public:
     WebBackForwardCacheEntry* backForwardCacheEntry() const { return m_backForwardCacheEntry.get(); }
     SuspendedPageProxy* suspendedPage() const;
 
+    void setFrameID(WebCore::FrameIdentifier frameID) { m_frameID = frameID; }
+    WebCore::FrameIdentifier frameID() const { return m_frameID; }
+
+    void addRootChildFrameItem(Ref<WebBackForwardListItem>&& item) { m_rootChildFrameItems.append(WTFMove(item)); }
+    WebBackForwardListItem* childItemForFrameID(WebCore::FrameIdentifier) const;
+    WebBackForwardListItem* childItemForProcessID(WebCore::ProcessIdentifier) const;
+
+    void setMainFrameItem(WebBackForwardListItem* item) { m_mainFrameItem = item; }
+    WebBackForwardListItem* mainFrameItem() { return m_mainFrameItem.get(); }
+
 #if !LOG_DISABLED
-    const char* loggingString();
+    String loggingString();
 #endif
 
 private:
@@ -100,11 +113,16 @@ private:
     friend class WebBackForwardCache;
     void setBackForwardCacheEntry(std::unique_ptr<WebBackForwardCacheEntry>&&);
 
+    RefPtr<WebsiteDataStore> m_dataStoreForWebArchive;
+
     BackForwardListItemState m_itemState;
     URL m_resourceDirectoryURL;
     WebPageProxyIdentifier m_pageID;
     WebCore::ProcessIdentifier m_lastProcessIdentifier;
+    WebCore::FrameIdentifier m_frameID;
     std::unique_ptr<WebBackForwardCacheEntry> m_backForwardCacheEntry;
+    WeakPtr<WebBackForwardListItem> m_mainFrameItem;
+    Vector<Ref<WebBackForwardListItem>> m_rootChildFrameItems;
 };
 
 typedef Vector<Ref<WebBackForwardListItem>> BackForwardListItemVector;

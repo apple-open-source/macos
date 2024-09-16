@@ -468,16 +468,12 @@
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-I${SRCROOT}/bc/include",
-					"-DBUILDTYPE=A",
+					"-DBUILD_TYPE=A",
 					"-DMAINEXEC=bc",
 					"-DNDEBUG",
 					"-DBC_ENABLE_EDITLINE",
 					"-DBC_ENABLE_HISTORY",
 					"-DBC_ENABLE_EXTRA_MATH",
-					"-DBC_ENABLE_HISTORY",
-					"-DBC_ENABLE_LONG_OPTIONS",
-					"-DBC_ENABLE_PROMPT",
-					"-DBC_ENABLE_RAND",
 					"-DBC_ENABLED",
 					"-DDC_ENABLED",
 				);

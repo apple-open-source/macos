@@ -581,10 +581,6 @@ ipc_object_copyin_type(
 	case MACH_MSG_TYPE_COPY_SEND:
 		return MACH_MSG_TYPE_PORT_SEND;
 
-	case MACH_MSG_TYPE_DISPOSE_RECEIVE:
-	case MACH_MSG_TYPE_DISPOSE_SEND:
-	case MACH_MSG_TYPE_DISPOSE_SEND_ONCE:
-	/* fall thru */
 	default:
 		return MACH_MSG_TYPE_PORT_NONE;
 	}

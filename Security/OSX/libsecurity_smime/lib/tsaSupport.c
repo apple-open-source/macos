@@ -43,6 +43,7 @@
 #include <Security/SecCmsSignedData.h>
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecImportExport.h>
+#include <Security/SecFramework.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrustPriv.h>
 #include <utilities/SecCFRelease.h>
@@ -643,7 +644,7 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef* error)
     CFPropertyListFormat format = 0;
     OSStatus status = noErr;
 
-    require_action(secFWbundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")),
+    require_action(secFWbundle = SecFrameworkGetBundle(),
                    xit,
                    status = errSecInternalError);
     CFRetain(secFWbundle);

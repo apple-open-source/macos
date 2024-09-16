@@ -27,8 +27,11 @@
 #include <PrivateHeaders/net/if.h>
 #include <PrivateHeaders/sys/sockio.h>
 #include <net/if_types.h>
+#include <skywalk/os_skywalk_private.h>
+#include <skywalk/os_sysctls_private.h>
 
 #include <sys/ioctl.h>
+#include <sys/sysctl.h>
 #include <NetFS/NetFS.h>
 #include <NetFS/NetFSPrivate.h>
 
@@ -193,6 +196,166 @@ getWifiLinkSpeed(int fd, char *name)
     }
     return res;
 }
+
+/* 
+ * Code for finding number of RSS queues copied from skywalkctl.c
+ */
+static int
+sysctl_get_buf(const char *oid_name, void **buffer, size_t *len)
+{
+#define SYSCTL_RETRY_MAX 10
+    int ret = 0;
+
+    *buffer = NULL;
+    for (int try = 0; try < SYSCTL_RETRY_MAX; try++) {
+        ret = sysctlbyname(oid_name, NULL, len, NULL, 0);
+        if (ret != 0) {
+            os_log_error(OS_LOG_DEFAULT, "%s: sysctlbyname for buffer length failed %d retrying",
+                         __FUNCTION__, ret);
+            continue;
+        }
+
+        if (*len == 0) {
+            os_log_error(OS_LOG_DEFAULT, "%s: buf len is 0???", __FUNCTION__);
+            *buffer = NULL;
+            return (0);
+        }
+        
+        *buffer = malloc(*len);
+        if (*buffer == NULL) {
+            os_log_error(OS_LOG_DEFAULT, "%s: malloc failed", __FUNCTION__);
+            return(ENOBUFS);
+        }
+        
+        ret = sysctlbyname(oid_name, *buffer, len, NULL, 0);
+        if (ret != 0) {
+            if (errno == ENOMEM) {
+                os_log_error(OS_LOG_DEFAULT, "%s: sysctlbyname failed with ENOMEM, retrying",
+                             __FUNCTION__);
+                free(*buffer);
+                *buffer = NULL;
+                *len = 0;
+                continue;
+            }
+            os_log_error(OS_LOG_DEFAULT, "%s: sysctlbyname failed %d",
+                         __FUNCTION__, errno);
+            return(errno);
+        }
+        break;
+    }
+
+    return (ret);
+}
+
+static uint8_t
+getNumberRSSQueues(char *if_name)
+{
+    int error = 0;
+    size_t sns_list_length = 0;
+    void *sns_list_buffer = NULL;
+    size_t nli_list_length = 0;
+    void *nli_list_buffer = NULL;
+    struct sk_stats_net_if *sns = NULL;
+    void *sns_list_end = NULL;
+    struct nx_llink_info *nli = NULL;
+    void *nli_list_end = NULL;
+    int j = 0;
+    struct nx_qset_info *nqi = NULL;
+    size_t obj_width = 0;
+    
+    if (if_name == NULL) {
+        os_log_error(OS_LOG_DEFAULT, "%s: if_name is NULL? ", __FUNCTION__);
+        /* Assume just one receive queue */
+        goto exit;
+    }
+
+    sns_list_length = 0;
+    sns_list_buffer = NULL;
+    obj_width = sizeof(struct sk_stats_net_if);
+    error = sysctl_get_buf(SK_STATS_NET_IF, &sns_list_buffer, &sns_list_length);
+    if ((error != 0) || (sns_list_buffer == NULL) || (sns_list_length == 0)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: SK_STATS_NET_IF failed error [%d] sns_list_buffer %s sns_list_length %zu",
+                     __FUNCTION__, error, sns_list_buffer == NULL ? "Null" : "notNull", sns_list_length);
+        /* Assume just one receive queue */
+        goto exit;
+    }
+    
+    if ((sns_list_length % obj_width) != 0) {
+        os_log_error(OS_LOG_DEFAULT, "%s: sns_list_length incorrect ", __FUNCTION__);
+        /* Assume just one receive queue */
+        goto exit;
+    }
+
+    nli_list_length = 0;
+    nli_list_buffer = NULL;
+    obj_width = sizeof(struct nx_llink_info);
+    error = sysctl_get_buf((SK_LLINK_LIST_SYSCTL), &nli_list_buffer, &nli_list_length);
+    if ((error != 0) || (nli_list_buffer == NULL) || (nli_list_length == 0)) {
+        os_log_error(OS_LOG_DEFAULT, "%s: SK_LLINK_LIST_SYSCTL failed error [%d] nli_list_buffer %s nli_list_length %zu",
+                     __FUNCTION__, error, nli_list_buffer == NULL ? "Null" : "notNull", nli_list_length);
+        /* Assume just one receive queue */
+        goto exit;
+    }
+    if ((nli_list_length % obj_width) != 0) {
+        os_log_error(OS_LOG_DEFAULT, "%s: nli_list_length incorrect ", __FUNCTION__);
+        /* Assume just one receive queue */
+        goto exit;
+    }
+    
+    sns_list_end = (char*) sns_list_buffer + sns_list_length;
+
+    for (sns = sns_list_buffer; (void *)sns < sns_list_end; sns++) {
+        /* Search sns list for matching if_name string */
+        if ((strnlen(sns->sns_if_name, IFNAMSIZ) != strnlen(if_name, IFNAMSIZ)) ||
+            (strcasestr(sns->sns_if_name, if_name) == NULL)) {
+            /* Strings do not match, so skip this one */
+            continue;
+        }
+                
+        /* Using the sns uuid, search nli list for a matching uuid */
+        nli_list_end = (char *) nli_list_buffer + nli_list_length;
+        for (nli = nli_list_buffer; (void *)nli < nli_list_end; nli++) {
+            /* Does uuid match? */
+            if (uuid_compare(nli->nli_netif_uuid, sns->sns_nx_uuid) == 0) {
+                /* 
+                 * UUIDs match. Search and see if any of the sets have multiple
+                 * rx queues which indicates RSS support
+                 */
+                for (j = 0; j < nli->nli_qset_cnt; j++) {
+                    /*
+                     * Note that we can also check nqi_num_tx_queues here
+                     * someday if we need it
+                     */
+                    nqi = &nli->nli_qset[j];
+
+                    //os_log_error(OS_LOG_DEFAULT, "%s: rx_queues %d for <%s> ", __FUNCTION__, nqi->nqi_num_rx_queues, if_name);
+                    if (nqi->nqi_num_rx_queues > 1) {
+                        return(nqi->nqi_num_rx_queues);
+                    }
+                }
+                
+                /* Assume there is only one matching uuid in list */
+                /* Assume just one receive queue */
+                goto exit;
+            }
+        }
+
+        break;
+    }
+
+exit:
+    if (sns_list_buffer != NULL) {
+        free(sns_list_buffer);
+    }
+    
+    if (nli_list_buffer != NULL) {
+        free(nli_list_buffer);
+    }
+
+    /* Assume just one receive queue */
+    return(1);
+}
+            
 
 
 struct network_interface_info_vector {
@@ -359,8 +522,12 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
 
         (*responseVector)->next = NULL;
         (*responseVector)->info.nic_index = if_nametoindex(ifa->ifa_name);
-        /* RSS/RDMA capabilities are not supported. */
-        (*responseVector)->info.nic_caps = 0;
+
+        if (getNumberRSSQueues(ifa->ifa_name) > 1) {
+            /* This interface supports client side RSS */
+            (*responseVector)->info.nic_caps = SMB2_IF_CAP_RSS_CAPABLE;
+        }
+        
         (*responseVector)->info.nic_link_speed = link_speed;
         (*responseVector)->info.nic_type = IFM_TYPE(ifmr.ifm_active);
         (*responseVector)->info.port = 0;
@@ -391,7 +558,7 @@ get_client_interfaces( struct smbioc_client_interface *client_interface_update)
     int error = 0;
     struct network_interface_info_vector* info_vector = NULL;
     uint32_t extra_sockaddr_size;
-
+    
     bzero(client_interface_update, sizeof(struct smbioc_client_interface));
     error = createNetworkInterfaceVector(&info_vector, &client_interface_update->interface_instance_count, &extra_sockaddr_size);
 

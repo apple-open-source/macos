@@ -80,6 +80,7 @@
 #include "adv-ctl-server.h"
 #include "srp-replication.h"
 
+
 # define THREAD_DATA_DIR "/var/lib/openthread"
 # define THREAD_ULA_FILE THREAD_DATA_DIR "/thread-mesh-ula"
 
@@ -105,6 +106,7 @@
 #include "omr-publisher.h"
 #include "route-tracker.h"
 #include "icmp.h"
+
 
 #ifdef LINUX
 #define CONFIGURE_STATIC_INTERFACE_ADDRESSES_WITH_IFCONFIG 1
@@ -1034,6 +1036,10 @@ send_router_probes(void *context)
         // Mark routers from which we received neighbor advertises during the probe as reachable. Routers
         // that did not respond are no longer reachable.
         for (icmp_message_t *router = interface->routers; router != NULL; router = router->next) {
+            SEGMENTED_IPv6_ADDR_GEN_SRP(router->source.s6_addr, router_src_addr_buf);
+            INFO("router (%p) " PRI_SEGMENTED_IPv6_ADDR_SRP " was " PUB_S_SRP "reached during probing.", router,
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(router->source.s6_addr, router_src_addr_buf),
+                 router->reached ? "" : "not ");
             router->reachable = router->reached;
         }
         routing_policy_evaluate(interface, false);
@@ -1094,6 +1100,7 @@ router_solicit(icmp_message_t *message)
 {
     interface_t *iface, *interface;
     bool is_retransmission = false;
+
 
     // Further validate the message
     if (message->hop_limit != 255 || message->code != 0) {
@@ -1234,6 +1241,7 @@ router_advertisement(icmp_message_t *message)
     // neighbor solicit.
     message->latest_na = message->received_time;
     message->reachable = true;
+    message->reached = true;
 
     // Check for the stub router flag here so that we have it when scanning PIOs for usability.
     for (int i = 0; i < message->num_options; i++) {
@@ -1261,18 +1269,16 @@ neighbor_advertisement(icmp_message_t *message)
     // prefix.
     for (icmp_message_t *router = message->interface->routers; router != NULL; router = router->next) {
         if (!in6addr_compare(&message->source, &router->source)) {
+            // Only log for usable routers, to avoid a lot of extra noise. However, we don't actually probe routers that
+            // aren't usable, so generally speaking this test will always be true.
             if (router->usable) {
                 SEGMENTED_IPv6_ADDR_GEN_SRP(message->source.s6_addr, source_buf);
                 INFO("usable neighbor advertisement recieved on " PUB_S_SRP " from " PRI_SEGMENTED_IPv6_ADDR_SRP,
                      message->interface->name, SEGMENTED_IPv6_ADDR_PARAM_SRP(message->source.s6_addr, source_buf));
-                router->latest_na = ioloop_timenow();
-                router->reached = true;
-                return;
-            } else {
-                router->latest_na = ioloop_timenow();
-                router->reached = true;
-                return;
             }
+            router->latest_na = ioloop_timenow();
+            router->reached = true;
+            router->reachable = true;
         }
     }
     return;
@@ -1745,7 +1751,7 @@ route_remove_routers_advertising_prefix(interface_t *interface, const struct in6
         if (router_is_advertising(router, prefix, preflen)) {
             *rp = router->next;
             router->next = NULL;
-            free(router);
+            icmp_message_free(router);
         } else {
             rp = &router->next;
         }
@@ -1754,8 +1760,8 @@ route_remove_routers_advertising_prefix(interface_t *interface, const struct in6
 #endif // RA_TESTER
 
 static void
-ifaddr_callback(void *context, const char *name, const addr_t *address, const addr_t *mask,
-                unsigned flags, enum interface_address_change change)
+ifaddr_callback(srp_server_t *server_state, void *context, const char *name, const addr_t *address,
+                const addr_t *mask, unsigned flags, enum interface_address_change change)
 {
     char addrbuf[INET6_ADDRSTRLEN];
     const uint8_t *addrbytes, *maskbytes, *prefp;
@@ -1877,10 +1883,10 @@ ifaddr_callback(void *context, const char *name, const addr_t *address, const ad
                 if (!is_thread_interface) {
                     if (change == interface_address_added) {
                         if (!interface->inactive) {
-                            dnssd_proxy_ifaddr_callback(context, name, address, mask, flags, change);
+                            dnssd_proxy_ifaddr_callback(server_state, context, name, address, mask, flags, change);
                         }
                     } else { // change == interface_address_removed
-                        dnssd_proxy_ifaddr_callback(context, name, address, mask, flags, change);
+                        dnssd_proxy_ifaddr_callback(server_state, context, name, address, mask, flags, change);
                     }
                 }
 #endif // #if !defined(RA_TESTER) && (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
@@ -1893,9 +1899,13 @@ ifaddr_callback(void *context, const char *name, const addr_t *address, const ad
                 // that all the stale router information will be updated during the discovery, or flushed away. If all
                 // routers are flushed, then srp-mdns-proxy will advertise its own prefix and configure the new IPv6
                 // address.
-                if ((address->sa.sa_family == AF_INET || address->sa.sa_family == AF_INET6) &&
-                    change == interface_address_deleted)
+                if (address->sa.sa_family == AF_INET6 &&                                       // An IPv6 address
+                    change == interface_address_deleted &&                                     // went away
+                    in6prefix_compare(&address->sin6.sin6_addr, &interface->ipv6_prefix, 8) && // not one of ours
+                    !is_thread_mesh_synthetic_or_link_local(&address->sin6.sin6_addr))         // not link-local
                 {
+
+                    INFO("clearing router discovery complete flag because address deleted.");
 #ifdef VICARIOUS_ROUTER_DISCOVERY
                     INFO("making all routers stale and start router discovery due to removed address");
                     adjust_router_received_time(interface, ioloop_timenow(),
@@ -1948,8 +1958,17 @@ ifaddr_callback(void *context, const char *name, const addr_t *address, const ad
 #ifndef LINUX
     } else if (address->sa.sa_family == AF_LINK) {
         if (address->ether_addr.len == 6) {
-            memcpy(interface->link_layer, address->ether_addr.addr, 6);
-            interface->have_link_layer_address = true;
+            if (change != interface_address_deleted) {
+                memcpy(interface->link_layer, address->ether_addr.addr, 6);
+                INFO("setting link layer address for " PUB_S_SRP " to " PRI_MAC_ADDR_SRP, interface->name,
+                     MAC_ADDR_PARAM_SRP(interface->link_layer));
+                interface->have_link_layer_address = true;
+            } else {
+                INFO("resetting link layer address for " PUB_S_SRP " (was " PRI_MAC_ADDR_SRP ")", interface->name,
+                     MAC_ADDR_PARAM_SRP(interface->link_layer));
+                memset(interface->link_layer, 0, 6);
+                interface->have_link_layer_address = false;
+            }
         }
 #endif
     }
@@ -2024,7 +2043,7 @@ route_refresh_interface_list(route_state_t *route_state)
     for (interface = route_state->interfaces; interface != NULL; interface = interface->next) {
         interface->old_num_ipv6_addresses = interface->num_ipv6_addresses;
     }
-    ioloop_map_interface_addresses_here(&route_state->interface_addresses, NULL, route_state, ifaddr_callback);
+    ioloop_map_interface_addresses_here(route_state->srp_server, &route_state->interface_addresses, NULL, route_state, ifaddr_callback);
 
     for (interface = route_state->interfaces; interface; interface = interface->next) {
 #if defined(THREAD_BORDER_ROUTER) && !defined(RA_TESTER)
@@ -2332,9 +2351,18 @@ route_omr_watcher_event(route_state_t *route_state, void *UNUSED context, omr_wa
             num_prefixes++;
         }
         if (num_prefixes != route_state->num_thread_prefixes) {
+            int old_num_prefixes = route_state->num_thread_prefixes;
             INFO("%d prefixes instead of %d, evaluating policy", num_prefixes, route_state->num_thread_prefixes);
             routing_policy_evaluate_all_interfaces(route_state, true);
             route_state->num_thread_prefixes = num_prefixes;
+            if (old_num_prefixes == 0 && num_prefixes > 0) {
+                INFO("thread prefix available, may advertise anycast");
+                partition_maybe_advertise_anycast_service(route_state);
+            }
+            if (old_num_prefixes > 0 && num_prefixes == 0) {
+                INFO("all thread prefixes are gone, stop advertising anycast service");
+                partition_stop_advertising_anycast_service(route_state, route_state->thread_sequence_number);
+            }
         }
     }
 }
@@ -2407,13 +2435,6 @@ thread_network_startup(route_state_t *route_state)
     omr_publisher_set_reconnect_callback(route_state->omr_publisher, attempt_wpan_reconnect);
     omr_publisher_start(route_state->omr_publisher);
     omr_watcher_start(route_state->omr_watcher);
-    route_state->route_tracker = route_tracker_create(route_state, "main");
-    if (route_state->route_tracker == NULL) {
-        ERROR("route_tracker create failed");
-        return;
-    }
-    route_tracker_set_reconnect_callback(route_state->route_tracker, attempt_wpan_reconnect);
-    route_tracker_start(route_state->route_tracker);
     route_state->thread_network_running = true;
 }
 #endif //  defined(THREAD_BORDER_ROUTER) && !defined(RA_TESTER)
@@ -2483,6 +2504,7 @@ thread_network_shutdown(route_state_t *route_state)
         cti_events_discontinue(route_state->thread_ml_prefix_connection);
         route_state->thread_ml_prefix_connection = NULL;
     }
+    srp_mdns_flush(route_state->srp_server);
 #if SRP_FEATURE_REPLICATION
     INFO("stop srp replication.");
     srpl_shutdown(route_state->srp_server);
@@ -2492,6 +2514,7 @@ thread_network_shutdown(route_state_t *route_state)
     nat64_stop(route_state);
 #endif
     partition_state_reset(route_state);
+    route_state->thread_network_running = false;
 }
 #endif // RA_TESTER
 
@@ -2594,8 +2617,6 @@ partition_state_reset(route_state_t *route_state)
     if (route_state->service_set_changed_wakeup != NULL) {
         ioloop_cancel_wake_event(route_state->service_set_changed_wakeup);
     }
-
-    route_state->thread_network_running = false;
 }
 
 static void
@@ -2666,7 +2687,7 @@ partition_start_srp_listener(route_state_t *route_state)
     partition_stop_srp_listener(route_state);
 
     INFO("starting listener.");
-    route_state->srp_listener = srp_proxy_listen(avoid_ports, num_avoid_ports, partition_proxy_listener_ready,
+    route_state->srp_listener = srp_proxy_listen(avoid_ports, num_avoid_ports, NULL, partition_proxy_listener_ready,
                                                  partition_srp_listener_canceled, NULL, NULL, route_state->srp_server);
     if (route_state->srp_listener == NULL) {
         ERROR("Unable to start SRP listener, so can't advertise it");
@@ -2872,6 +2893,23 @@ partition_remove_service_done(void *context, cti_status_t status)
 #endif
 }
 
+static bool
+route_maybe_restart_service_tracker(route_state_t *route_state, int *reset, int *increment)
+{
+    *reset = 0;
+    (*increment)++;
+    if (*increment > 5) {
+        if (route_state->srp_server->service_tracker != NULL) {
+            service_tracker_start(route_state->srp_server->service_tracker);
+        } else {
+            FAULT("service tracker not present when restarting.");
+        }
+        *increment = 0;
+        return true;
+    }
+    return false;
+}
+
 static void
 partition_stop_advertising_service(route_state_t *route_state)
 {
@@ -2880,6 +2918,9 @@ partition_stop_advertising_service(route_state_t *route_state)
     uint8_t service_info[] = { 0, 0, 0, 1 };
     int status;
 
+    if (route_maybe_restart_service_tracker(route_state, &route_state->times_advertised_unicast, &route_state->times_unadvertised_unicast)) {
+        INFO("restarted service tracker.");
+    }
     service_info[0] = THREAD_SRP_SERVER_OPTION & 255;
     status = cti_remove_service(route_state->srp_server, route_state, partition_remove_service_done, NULL,
                                 THREAD_ENTERPRISE_NUMBER, service_info, 1);
@@ -2897,6 +2938,9 @@ partition_stop_advertising_anycast_service(route_state_t *route_state, uint8_t s
     uint8_t service_info[] = { 0, 0, 0, 1 };
     int status;
 
+    if (route_maybe_restart_service_tracker(route_state, &route_state->times_advertised_anycast, &route_state->times_unadvertised_anycast)) {
+        INFO("restarted service tracker.");
+    }
     service_info[0] = THREAD_SRP_SERVER_ANYCAST_OPTION & 255;
     service_info[1] = sequence_number;
     status = cti_remove_service(route_state->srp_server, route_state, partition_remove_service_done, NULL,
@@ -2905,6 +2949,12 @@ partition_stop_advertising_anycast_service(route_state_t *route_state, uint8_t s
         INFO("status %d", status);
     }
     route_state->advertising_srp_anycast_service = false;
+    if (route_state->route_tracker != NULL) {
+        INFO("discontinuing route tracker");
+        route_tracker_cancel(route_state->route_tracker);
+        route_tracker_release(route_state->route_tracker);
+        route_state->route_tracker = NULL;
+    }
     route_refresh_interface_list(route_state);
 }
 
@@ -2926,6 +2976,9 @@ partition_start_advertising_service(route_state_t *route_state)
     uint8_t server_info[18];
     int ret;
 
+    if (route_maybe_restart_service_tracker(route_state, &route_state->times_unadvertised_unicast, &route_state->times_advertised_unicast)) {
+        INFO("restarted service tracker.");
+    }
     memcpy(&server_info, &route_state->srp_listener_ip_address, 16);
     server_info[16] = (route_state->srp_service_listen_port >> 8) & 255;
     server_info[17] = route_state->srp_service_listen_port & 255;
@@ -2954,6 +3007,9 @@ partition_start_advertising_anycast_service(route_state_t *route_state)
     uint8_t service_info[] = {0, 0, 0, 1};
     int ret;
 
+    if (route_maybe_restart_service_tracker(route_state, &route_state->times_unadvertised_anycast, &route_state->times_advertised_anycast)) {
+        INFO("restarted service tracker.");
+    }
     service_info[0] = THREAD_SRP_SERVER_ANYCAST_OPTION & 255;
     service_info[1] = route_state->thread_sequence_number;
     INFO("%" PRIu64 "/%02x/ %x", THREAD_ENTERPRISE_NUMBER, service_info[0], route_state->thread_sequence_number);
@@ -2968,6 +3024,18 @@ partition_start_advertising_anycast_service(route_state_t *route_state)
     partition_schedule_anycast_service_add_wakeup(route_state);
     route_state->advertising_srp_anycast_service = true;
     route_refresh_interface_list(route_state);
+
+    if (route_state->route_tracker == NULL) {
+        route_state->route_tracker = route_tracker_create(route_state, "main");
+        if (route_state->route_tracker == NULL) {
+            ERROR("route_tracker create failed");
+            return;
+        }
+        route_tracker_set_reconnect_callback(route_state->route_tracker, attempt_wpan_reconnect);
+        route_tracker_start(route_state->route_tracker);
+    } else {
+        INFO("route tracker already running.");
+    }
 }
 
 static void
@@ -3164,6 +3232,11 @@ partition_maybe_advertise_anycast_service(route_state_t *route_state)
         return;
     }
 
+    if (!route_state->partition_can_advertise_service) {
+        INFO("service advertisements are blocked.");
+        return;
+    }
+
     if (!route_state->partition_can_advertise_anycast_service) {
         INFO("no service to advertise yet.");
         return;
@@ -3171,6 +3244,11 @@ partition_maybe_advertise_anycast_service(route_state_t *route_state)
 
     if (route_state->srp_server->srp_anycast_service_blocked) {
         INFO("service advertising is disabled.");
+        return;
+    }
+
+    if (route_state->num_thread_prefixes == 0) {
+        INFO("OMR prefix is not yet advertised.");
         return;
     }
 
@@ -3374,15 +3452,6 @@ static void partition_maybe_enable_services(route_state_t *route_state)
             omr_publisher_start(route_state->omr_publisher);
             omr_watcher_start(route_state->omr_watcher);
         }
-        if (route_state->route_tracker == NULL) {
-            route_state->route_tracker = route_tracker_create(route_state, "main");
-            if (route_state->route_tracker == NULL) {
-                ERROR("route_tracker create failed");
-                return;
-            }
-            route_tracker_set_reconnect_callback(route_state->route_tracker, attempt_wpan_reconnect);
-            route_tracker_start(route_state->route_tracker);
-        }
     } else {
         INFO("Not enabling service: " PUB_S_SRP,
              am_associated ? "associated" : "!associated");
@@ -3441,6 +3510,29 @@ void partition_block_anycast_service(route_state_t *route_state, bool block)
 }
 
 #endif // RA_TESTER
+
+#if SRP_FEATURE_LOCAL_DISCOVERY
+int
+route_get_current_infra_interface_index(void)
+{
+    extern srp_server_t *srp_servers;
+    if (srp_servers == NULL) {
+        INFO("no SRP servers");
+        return -1;
+    }
+    route_state_t *route_state = srp_servers->route_state;
+    if (route_state == NULL) {
+        INFO("no route state");
+        return -1;
+    }
+    for (interface_t *interface = route_state->interfaces; interface != NULL; interface = interface->next) {
+        if (!interface->inactive && !interface->is_thread) {
+            return (int)interface->index; // real interface indexes are always positive integers
+        }
+    }
+    return -1;
+}
+#endif // SRP_FEATURE_LOCAL_DISCOVERY
 #endif // STUB_ROUTER
 
 // Local Variables:

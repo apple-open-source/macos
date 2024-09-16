@@ -44,6 +44,7 @@ const CFStringRef kSecCodeSignerDigestAlgorithm = CFSTR("digest-algorithm");
 const CFStringRef kSecCodeSignerDryRun =		CFSTR("dryrun");
 const CFStringRef kSecCodeSignerEntitlements =	CFSTR("entitlements");
 const CFStringRef kSecCodeSignerFlags =			CFSTR("flags");
+const CFStringRef kSecCodeSignerForceLibraryEntitlements = CFSTR("force-library-entitlements");
 const CFStringRef kSecCodeSignerIdentifier =	CFSTR("identifier");
 const CFStringRef kSecCodeSignerIdentifierPrefix = CFSTR("identifier-prefix");
 const CFStringRef kSecCodeSignerIdentity =		CFSTR("signer");

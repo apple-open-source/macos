@@ -1,0 +1,18 @@
+diff --git a/setup.py b/setup.py
+index 4ebbc1b..511538e 100644
+--- a/setup.py
++++ b/setup.py
+@@ -12,6 +12,13 @@ import sys
+ 
+ from setuptools import find_packages, setup
+ 
++from distutils.sysconfig import get_config_vars
++
++config_vars = get_config_vars()
++for key in config_vars:
++    if isinstance(config_vars[key], str) and 'libressl/' in str(config_vars[key]):
++        config_vars[key] = config_vars[key].replace('libressl/', 'libressl-3.3/')
++
+ 
+ base_dir = os.path.dirname(__file__)
+ src_dir = os.path.join(base_dir, "src")

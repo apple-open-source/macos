@@ -3,13 +3,16 @@
 #include <stdatomic.h>
 #include <math.h>
 #include <unistd.h>
-#include <sys/sysctl.h>
-#include <mach/mach.h>
 #include <pthread.h>
 #include <malloc/malloc.h>
 #include <darwintest.h>
 
 #include <../src/internal.h>
+
+#if !MALLOC_TARGET_EXCLAVES
+#include <sys/sysctl.h>
+#include <mach/mach.h>
+#endif // !MALLOC_TARGET_EXCLAVES
 
 // These tests are based on perf_contended_malloc_free, but intended as
 // functional stress tests rather than performance tests.
@@ -23,7 +26,7 @@ T_GLOBAL_META(T_META_TAG_XZONE);
 
 #pragma mark -
 
-uint64_t
+static uint64_t
 random_busy_counts(unsigned int *seed, uint64_t *first, uint64_t *second)
 {
 	uint64_t random = rand_r(seed);
@@ -81,7 +84,14 @@ busy(uint64_t n)
 	}
 }
 
+#if MALLOC_TARGET_EXCLAVES
+static pthread_cond_t ready_cond;
+static pthread_mutex_t ready_mut;
+static uint32_t num_waiting_threads;
+#else
 static semaphore_t ready_sem, start_sem;
+#endif // MALLOC_TARGET_EXCLAVES
+
 static uint32_t nthreads;
 static _Atomic uint32_t active_thr;
 static _Atomic int64_t todo;
@@ -89,6 +99,12 @@ static _Atomic int64_t todo;
 static uint32_t
 ncpu(void)
 {
+#if MALLOC_TARGET_EXCLAVES
+	// TODO: Switch to sysctl once liblibc reports multi-cpu. Currently EVE runs
+	// tests on a single thread, but it's good to get some concurrenct tests in,
+	// even if the threads don't run in parallel
+	return 8;
+#else
 	static uint32_t activecpu, physicalcpu;
 	if (!activecpu) {
 		uint32_t n;
@@ -100,6 +116,7 @@ ncpu(void)
 		physicalcpu = n;
 	}
 	return MIN(activecpu, physicalcpu);
+#endif // MALLOC_TARGET_EXCLAVES
 }
 
 static uint32_t live_allocations;
@@ -116,6 +133,10 @@ malloc_threaded_stress(bool singlethreaded, size_t from, size_t to, size_t incr,
 	int batch_size;
 	char *e;
 
+#if MALLOC_TARGET_EXCLAVES
+	nthreads = singlethreaded ? 1 : ncpu();
+	busy_select = 0;
+#else
 	if (singlethreaded) {
 		nthreads = 1;
 	} else {
@@ -130,6 +151,7 @@ malloc_threaded_stress(bool singlethreaded, size_t from, size_t to, size_t incr,
 	if ((e = getenv("THREADED_STRESS_CPU_BUSY"))) {
 		busy_select = strtoul(e, NULL, 0);
 	}
+#endif // MALLOC_TARGET_EXCLAVES
 
 	atomic_init(&todo, iterations);
 	atomic_init(&active_thr, nthreads);
@@ -142,18 +164,47 @@ malloc_threaded_stress(bool singlethreaded, size_t from, size_t to, size_t incr,
 	max_rand = (to - from) / incr;
 	assert((to - from) % incr == 0);
 
+#if MALLOC_TARGET_EXCLAVES
+	r = pthread_cond_init(&ready_cond, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, "condvar create");
+	r = pthread_mutex_init(&ready_mut, NULL);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, "mutex create");
+	num_waiting_threads = 0;
+#else
 	kr = semaphore_create(mach_task_self(), &ready_sem, SYNC_POLICY_FIFO, 0);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
 	kr = semaphore_create(mach_task_self(), &start_sem, SYNC_POLICY_FIFO, 0);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_create");
+#endif // MALLOC_TARGET_EXCLAVES
 
-	pthread_t threads[nthreads];
+	// Allocate thread array on heap to avoid llvm inserting stack check, which
+	// doesn't compile
+	pthread_t *threads = malloc(sizeof(pthread_t) * nthreads);
 	for (int i = 0; i < nthreads; i++) {
 		r = pthread_create(&threads[i], NULL, thread_fn,
 				(void *)(uintptr_t)(i + 1));
 		T_QUIET; T_ASSERT_POSIX_ZERO(r, "pthread_create");
 	}
 
+#if MALLOC_TARGET_EXCLAVES
+	// Wait for all nthreads to signal that they're ready
+	for (;;) {
+		r = pthread_mutex_lock(&ready_mut);
+		iferr (r) {T_QUIET; T_ASSERT_POSIX_ZERO(r, NULL);}
+		T_ASSERT_POSIX_ZERO(r, "lock mutex");
+		if (num_waiting_threads == nthreads) {
+			r = pthread_cond_broadcast(&ready_cond);
+			T_ASSERT_POSIX_ZERO(r, "ready condvar broadcast");
+			r = pthread_mutex_unlock(&ready_mut);
+			T_ASSERT_POSIX_ZERO(r, "ready mutex unlock");
+			break;
+		} else {
+			r = pthread_mutex_unlock(&ready_mut);
+			T_ASSERT_POSIX_ZERO(r, "ready mutex unlock");
+			yield();
+		}
+	}
+#else
 	for (int i = 0; i < nthreads; i++) {
 		kr = semaphore_wait(ready_sem);
 		iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait");}
@@ -161,11 +212,14 @@ malloc_threaded_stress(bool singlethreaded, size_t from, size_t to, size_t incr,
 
 	kr = semaphore_signal_all(start_sem);
 	iferr (kr) {T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_signal_all");}
+#endif // MALLOC_TARGET_EXCLAVES
 
 	for (int i = 0; i < nthreads; i++) {
 		r = pthread_join(threads[i], NULL);
-		T_QUIET; T_ASSERT_POSIX_ZERO(r, "pthread_join");
+		T_ASSERT_POSIX_ZERO(r, "pthread_join");
 	}
+
+	free(threads);
 }
 
 static void *
@@ -182,8 +236,18 @@ malloc_size_stress_thread(void *arg)
 	// start threads off in different positions in allocations array
 	pos = (seed - 1) * (live_allocations / nthreads);
 	remaining_frees = live_allocations;
+#if MALLOC_TARGET_EXCLAVES
+	r = pthread_mutex_lock(&ready_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, NULL);
+	num_waiting_threads++;
+	r = pthread_cond_wait(&ready_cond, &ready_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, NULL);
+	r = pthread_mutex_unlock(&ready_mut);
+	T_QUIET; T_ASSERT_POSIX_ZERO(r, NULL);
+#else
 	kr = semaphore_wait_signal(start_sem, ready_sem);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "semaphore_wait_signal");
+#endif // MALLOC_TARGET_EXCLAVES
 
 	while (1) {
 		uint64_t first, second;
@@ -206,8 +270,11 @@ malloc_size_stress_thread(void *arg)
 			dummy = busy(second);
 			free(alloc);
 
+			// Calling malloc_size on free pointers isn't safe in exclaves
+#if !MALLOC_TARGET_EXCLAVES
 			// Try again while (possibly) free
 			malloc_size(alloc);
+#endif // !MALLOC_TARGET_EXCLAVES
 		}
 	}
 
@@ -239,6 +306,8 @@ T_DECL(threaded_stress_malloc_size_small,
 			iterations, malloc_size_stress_thread);
 }
 
+#if !MALLOC_TARGET_EXCLAVES
+// Exclaves don't support fork()
 static void *
 malloc_fork_stress_thread(void *arg)
 {
@@ -341,3 +410,4 @@ T_DECL(threaded_stress_fork_small,
 	malloc_threaded_stress(false, 2048, 8192, 2048, 64,
 			iterations, malloc_fork_stress_thread);
 }
+#endif // MALLOC_TARGET_EXCLAVES

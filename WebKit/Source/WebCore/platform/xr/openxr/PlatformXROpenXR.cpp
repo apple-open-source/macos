@@ -232,8 +232,10 @@ void OpenXRDevice::requestFrame(RequestFrameCallback&& callback)
 
             for (auto& layer : m_layers) {
                 auto layerData = layer.value->startFrame();
-                if (layerData)
-                    frameData.layers.add(layer.key, *layerData);
+                if (layerData) {
+                    auto layerDataRef = makeUniqueRef<PlatformXR::FrameData::LayerData>(*layerData);
+                    frameData.layers.add(layer.key, WTFMove(layerDataRef));
+                }
             }
 
             if (m_input)
@@ -366,14 +368,14 @@ void OpenXRDevice::collectSupportedSessionModes()
     auto result = xrEnumerateViewConfigurations(m_instance, m_systemId, 0, &viewConfigurationCount, nullptr);
     RETURN_IF_FAILED(result, "xrEnumerateViewConfigurations", m_instance);
 
-    XrViewConfigurationType viewConfigurations[viewConfigurationCount];
-    result = xrEnumerateViewConfigurations(m_instance, m_systemId, viewConfigurationCount, &viewConfigurationCount, viewConfigurations);
+    Vector<XrViewConfigurationType> viewConfigurations(viewConfigurationCount);
+    result = xrEnumerateViewConfigurations(m_instance, m_systemId, viewConfigurationCount, &viewConfigurationCount, viewConfigurations.data());
     RETURN_IF_FAILED(result, "xrEnumerateViewConfigurations", m_instance);
 
     FeatureList features = collectSupportedFeatures();
-    for (uint32_t i = 0; i < viewConfigurationCount; ++i) {
+    for (auto& viewConfiguration : viewConfigurations) {
         auto viewConfigurationProperties = createStructure<XrViewConfigurationProperties, XR_TYPE_VIEW_CONFIGURATION_PROPERTIES>();
-        result = xrGetViewConfigurationProperties(m_instance, m_systemId, viewConfigurations[i], &viewConfigurationProperties);
+        result = xrGetViewConfigurationProperties(m_instance, m_systemId, viewConfiguration, &viewConfigurationProperties);
         if (result != XR_SUCCESS) {
             LOG(XR, "xrGetViewConfigurationProperties(): error %s\n", resultToString(result, m_instance).utf8().data());
             continue;

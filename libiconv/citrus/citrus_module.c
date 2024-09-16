@@ -340,6 +340,11 @@ _citrus_find_getops(_citrus_module_t handle, const char *modname,
 int
 _citrus_load_module(_citrus_module_t *rhandle, const char *encname)
 {
+#if defined(__APPLE__) && defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+	*rhandle = RTLD_SELF;
+	return (0);
+#else
+
 	const char *p;
 	char path[PATH_MAX];
 	void *handle;
@@ -370,12 +375,21 @@ _citrus_load_module(_citrus_module_t *rhandle, const char *encname)
 	*rhandle = (_citrus_module_t)handle;
 
 	return (0);
+#endif
 }
 
 void
 _citrus_unload_module(_citrus_module_t handle)
 {
 
+#ifdef __APPLE__
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	if (handle == RTLD_SELF)
+		return;
+#else /* !FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
+	assert(handle != RTLD_SELF);
+#endif /* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */
+#endif /* __APPLE__ */
 	if (handle)
 		dlclose((void *)handle);
 }

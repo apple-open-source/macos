@@ -28,6 +28,8 @@
 #include "DALog.h"
 #include "DAPrivate.h"
 #include "DAMain.h"
+#include "DAQueue.h"
+#include "DASupport.h"
 
 #include <grp.h>
 #include <paths.h>
@@ -37,6 +39,7 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
+#include <FSPrivate.h>
 #if TARGET_OS_OSX
 #include <IOKit/storage/IOBDMedia.h>
 #include <IOKit/storage/IOCDMedia.h>
@@ -70,6 +73,9 @@ struct __DADisk
     DADiskState            _state;
     gid_t                  _userGID;
     uid_t                  _userUID;
+#ifdef DA_FSKIT
+    CFDictionaryRef        _fskitAdditions;
+#endif
 };
 
 typedef struct __DADisk __DADisk;
@@ -146,6 +152,9 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_state                = 0;
         disk->_userGID              = ___GID_WHEEL;
         disk->_userUID              = ___UID_ROOT;
+#ifdef DA_FSKIT
+        disk->_fskitAdditions       = NULL;
+#endif
 
         assert( disk->_description );
         assert( disk->_id          );
@@ -184,6 +193,9 @@ static void __DADiskDeallocate( CFTypeRef object )
     if ( disk->_propertyNotification )  IOObjectRelease( disk->_propertyNotification );
     if ( disk->_serialization        )  CFRelease( disk->_serialization );
     if ( disk->_containerId        )    free( disk->_containerId );
+#ifdef DA_FSKIT
+    if ( disk->_fskitAdditions       )  CFRelease( disk->_fskitAdditions );
+#endif
 }
 
 static Boolean __DADiskEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -1012,13 +1024,41 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                             if ( sts == 0 )
                             {
                                 disk->_devicePath[0] = strdup( name );
-                                DALogInfo("Setting device path %s for %s", name, id);
+                                
+                                DALogInfo( "Setting device path %s for %s", name, id );
+                                CFIndex count;
+                                CFIndex index;
+                                count = CFArrayGetCount( gDADiskList );
+                                for ( int index = 0; index < count; index++ )
+                                {
+                                    DADiskRef subdisk;
+                                    
+                                    subdisk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+                                    
+                                    if ( disk != subdisk )
+                                    {
+                                        const char *devicePath = DADiskGetBSDPath( subdisk , FALSE);
+                                        if ( devicePath && strcmp( devicePath, name ) == 0 && DADiskGetIOMedia( subdisk ) )
+                                        {
+                                            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaWritableKey, DADiskGetDescription( subdisk, kDADiskDescriptionMediaWritableKey ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeKindKey, CFSTR( "apfs" ) );
                                 CFStringRef volumeURL = CFStringCreateWithCString( kCFAllocatorDefault, fs->f_mntfromname, kCFStringEncodingUTF8 );
                                 if ( volumeURL )
                                 {
                                     CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeLifsURLKey, volumeURL );
                                     CFRelease( volumeURL );
                                 }
+                                CFTypeRef object = _FSCopyNameForVolumeFormatAtURL( path );
+                                if ( object )
+                                {
+                                    CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeTypeKey, object );
+                                    CFRelease( object );
+                                }
+                                
                             }
                         }
                        
@@ -1028,8 +1068,11 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                         CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumePathKey, path );
 
                         CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeMountableKey, kCFBooleanTrue );
-
-                        CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeKindKey, kind );
+                        
+                        if ( CFDictionaryGetValue( disk->_description, kDADiskDescriptionVolumeKindKey ) == NULL )
+                        {
+                            CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeKindKey, kind );
+                        }
 
                         object = _DAFileSystemCopyNameAndUUID( NULL, path , NULL);
 
@@ -1379,6 +1422,84 @@ void DADiskSetFileSystem( DADiskRef disk, DAFileSystemRef filesystem )
         disk->_filesystem = filesystem;
     }
 }
+
+#ifdef DA_FSKIT
+
+/*
+ * __DADiskFSKitAccumulateKeys - add dictionary key to the supplied set
+ */
+static void __DADiskFSKitAccumulateKeys(const void *key, const void *value, void *context)
+{
+    CFSetAddValue( context, key);
+}
+/*
+ * __DADiskFSKitAddToDictionary - add key/value to supplied disk
+ */
+static void __DADiskFSKitAddToDictionary(const void *key, const void *value, void *context)
+{
+    DADiskSetDescription( context , key , value );
+}
+/*
+ * __DADiskFSKitRemoveFromDictionary - remove key/value from supplied disk
+ */
+static void __DADiskFSKitRemoveFromDictionary(const void *key, const void *value, void *context)
+{
+    DADiskSetDescription( context , key , NULL );
+}
+
+void DADiskSetFskitAdditions( DADiskRef disk, CFDictionaryRef additions )
+{
+    CFMutableSetRef         keys;
+    CFArrayRef              keysArray;
+    CFIndex                 count;
+
+    keys = CFSetCreateMutable( kCFAllocatorDefault, 0, &kCFTypeSetCallBacks );
+
+    if ( disk->_fskitAdditions )
+    {
+        CFDictionaryApplyFunction( disk->_fskitAdditions , __DADiskFSKitAccumulateKeys       , keys );
+        CFDictionaryApplyFunction( disk->_fskitAdditions , __DADiskFSKitRemoveFromDictionary , disk );
+
+        CFRelease( disk->_fskitAdditions );
+        disk->_fskitAdditions = NULL;
+    }
+
+    if ( additions )
+    {
+        CFDictionaryApplyFunction( additions , __DADiskFSKitAccumulateKeys  , keys );
+        CFDictionaryApplyFunction( additions , __DADiskFSKitAddToDictionary , disk );
+
+        CFRetain( additions );
+    }
+
+    disk->_fskitAdditions = additions;
+
+    count = CFSetGetCount( keys );
+
+    if ( count == 0)
+    {
+        // We didn't have any additions before and we have none now. Ok. We are done.
+        return;
+    }
+
+    {
+        const void    **buffer;
+
+        buffer = malloc(count * sizeof(void *));
+
+        CFSetGetValues( keys , buffer );
+
+        keysArray = CFArrayCreate( kCFAllocatorDefault, buffer , count, &kCFTypeArrayCallBacks);
+
+        free(buffer);
+    }
+
+    DADiskDescriptionChangedCallback( disk, keysArray );
+
+    CFRelease( keys );
+    CFRelease( keysArray );
+}
+#endif
 
 void DADiskSetOption( DADiskRef disk, DADiskOption option, Boolean value )
 {

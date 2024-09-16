@@ -154,6 +154,27 @@ bracket_y_body()
 	    echo 'bra[ke]' | sed 'y[\[][ct['
 }
 
+atf_test_case enhanced
+enhanced_head()
+{
+	atf_set "descr" "Verify -H"
+}
+enhanced_body()
+{
+	echo "0_0" >input
+	# enhanced features such as \< and \d are disabled by default
+	atf_check -o inline:"0_0\n" sed -e 's/\<\d/o/' <input
+	atf_check -o inline:"0_0\n" sed -E -e 's/\<\d/o/' <input
+	# -H enables enhanced features
+	atf_check -o inline:"o_0\n" sed -H -e 's/\<\d/o/' <input
+	# -H alone does not enable extended syntax
+	atf_check -o inline:"0_0\n" sed -H -e 's/\<(\d)/o/' <input
+	# -EH enables extended syntax with enhanced features
+	atf_check -o inline:"o_0\n" sed -EH -e 's/\<(\d)/o/' <input
+	# order of -E and -H does not matter
+	atf_check -o inline:"o_0\n" sed -HE -e 's/\<(\d)/o/' <input
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case inplace_command_q
@@ -163,4 +184,5 @@ atf_init_test_cases()
 	atf_add_test_case commands_on_stdin
 	atf_add_test_case hex_subst
 	atf_add_test_case bracket_y
+	atf_add_test_case enhanced
 }

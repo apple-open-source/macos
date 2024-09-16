@@ -5,6 +5,8 @@
 #include <darwintest.h>
 
 T_DECL(reallocarray, "reallocarray(3)",
+	   T_META_TAG_VM_PREFERRED,
+	   T_META_RUN_CONCURRENTLY(true),
 	   T_META_CHECK_LEAKS(NO)){
 	void *ptr;
 	T_WITH_ERRNO; T_EXPECT_NOTNULL((ptr = reallocarray(NULL, 8, 8)), NULL);
@@ -16,6 +18,8 @@ T_DECL(reallocarray, "reallocarray(3)",
 }
 
 T_DECL(reallocarrayf, "reallocarrayf(3)",
+	   T_META_TAG_VM_PREFERRED,
+	   T_META_RUN_CONCURRENTLY(true),
 	   T_META_CHECK_LEAKS(NO)){
 	void *ptr;
 	T_WITH_ERRNO; T_EXPECT_NOTNULL((ptr = reallocarrayf(NULL, 8, 8)), NULL);

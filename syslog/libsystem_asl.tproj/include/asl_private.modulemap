@@ -1,0 +1,49 @@
+module aslPrivate [system] {
+  header "asl_private.h"
+  export *
+
+  explicit module asl_client {
+    header "asl_client.h"
+    export *
+  }
+
+  explicit module asl_core {
+    header "asl_core.h"
+    export *
+  }
+
+  explicit module asl_file {
+    header "asl_file.h"
+    export *
+  }
+
+  explicit module asl_legacy1 {
+    header "asl_legacy1.h"
+    export *
+  }
+
+  explicit module asl_msg {
+    header "asl_msg.h"
+    export *
+  }
+
+  explicit module asl_msg_list {
+    header "asl_msg_list.h"
+    export *
+  }
+
+  explicit module asl_object {
+    header "asl_object.h"
+    export *
+  }
+
+  explicit module asl_store {
+    header "asl_store.h"
+    export *
+  }
+
+  explicit module asl_string {
+    header "asl_string.h"
+    export *
+  }
+}

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSToStyleMap.h"
 #include "CascadeLevel.h"
@@ -38,6 +39,7 @@ namespace WebCore {
 class FilterOperations;
 class FontCascadeDescription;
 class RenderStyle;
+class StyleColor;
 class StyleImage;
 class StyleResolver;
 
@@ -49,12 +51,14 @@ class BuilderState;
 void maybeUpdateFontForLetterSpacing(BuilderState&, CSSValue&);
 
 enum class ForVisitedLink : bool { No, Yes };
+enum class ApplyValueType : uint8_t { Value, Initial, Inherit };
 
 struct BuilderContext {
     Ref<const Document> document;
     const RenderStyle& parentStyle;
     const RenderStyle* rootElementStyle = nullptr;
     RefPtr<const Element> element = nullptr;
+    AnchorPositionedStateMap* anchorPositionedStateMap = nullptr;
 };
 
 class BuilderState {
@@ -73,7 +77,7 @@ public:
     inline void setFontDescription(FontCascadeDescription&&);
     void setFontSize(FontCascadeDescription&, float size);
     inline void setZoom(float);
-    inline void setEffectiveZoom(float);
+    inline void setUsedZoom(float);
     inline void setWritingMode(WritingMode);
     inline void setTextOrientation(TextOrientation);
 

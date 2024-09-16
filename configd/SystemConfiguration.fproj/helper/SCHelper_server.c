@@ -422,7 +422,13 @@ static const CFRuntimeClass __SCHelperSessionClass = {
 	NULL,					// equal
 	NULL,					// hash
 	NULL,					// copyFormattingDesc
-	__SCHelperSessionCopyDescription	// copyDebugDesc
+	__SCHelperSessionCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -1941,7 +1947,7 @@ notify_server(mach_msg_header_t *request, mach_msg_header_t *reply)
 			break;
 	}
 
-	SC_log(LOG_NOTICE, "HELP!, Received notification: port=%d, msgh_id=%d",
+	SC_log(LOG_NOTICE, "HELP!, Received notification: port=%u, msgh_id=%d",
 	       Request->not_header.msgh_local_port,
 	       Request->not_header.msgh_id);
 
@@ -2011,7 +2017,7 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 		// check if our on-the-stack reply buffer will be big enough
 		if (bufSize > sizeof(bufReply_q)) {
-			SC_log(LOG_NOTICE, "buffer size should be increased > %d",
+			SC_log(LOG_NOTICE, "buffer size should be increased > %u",
 			       _helper_subsystem.maxsize);
 		}
 	}

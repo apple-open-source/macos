@@ -7,16 +7,17 @@
   readonly attribute NavigationHistoryEntry? currentEntry;
   undefined updateCurrentEntry(NavigationUpdateCurrentEntryOptions options);
   readonly attribute NavigationTransition? transition;
+  readonly attribute NavigationActivation? activation;
 
   readonly attribute boolean canGoBack;
   readonly attribute boolean canGoForward;
 
-  NavigationResult navigate(USVString url, optional NavigationNavigateOptions options = {});
-  NavigationResult reload(optional NavigationReloadOptions options = {});
+  [ReturnsPromisePair] NavigationResult navigate(USVString url, optional NavigationNavigateOptions options = {});
+  [ReturnsPromisePair] NavigationResult reload(optional NavigationReloadOptions options = {});
 
-  NavigationResult traverseTo(DOMString key, optional NavigationOptions options = {});
-  NavigationResult back(optional NavigationOptions options = {});
-  NavigationResult forward(optional NavigationOptions options = {});
+  [ReturnsPromisePair] NavigationResult traverseTo(DOMString key, optional NavigationOptions options = {});
+  [ReturnsPromisePair] NavigationResult back(optional NavigationOptions options = {});
+  [ReturnsPromisePair] NavigationResult forward(optional NavigationOptions options = {});
 
   attribute EventHandler onnavigate;
   attribute EventHandler onnavigatesuccess;
@@ -45,9 +46,8 @@ dictionary NavigationReloadOptions : NavigationOptions {
     JSGenerateToJSObject,
 ] 
 dictionary NavigationResult {
-  boolean todo = true;
-  // Promise<NavigationHistoryEntry> committed;
-  // Promise<NavigationHistoryEntry> finished;
+  [BypassDocumentFullyActiveCheck] Promise<NavigationHistoryEntry> committed;
+  [BypassDocumentFullyActiveCheck] Promise<NavigationHistoryEntry> finished;
 };
 
 enum NavigationHistoryBehavior {

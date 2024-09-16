@@ -40,11 +40,8 @@ bool FrameState::validateDocumentState(const Vector<AtomString>& documentState)
             continue;
 
         // rdar://48634553 indicates 8-bit string can be invalid.
-        const LChar* characters8 = stateString.characters8();
-        for (unsigned i = 0; i < stateString.length(); ++i) {
-            auto character = characters8[i];
+        for (auto character : stateString.span8())
             RELEASE_ASSERT(isLatin1(character));
-        }
     }
     return true;
 }
@@ -55,6 +52,17 @@ void FrameState::setDocumentState(const Vector<AtomString>& documentState, Shoul
 
     if (shouldValidate == ShouldValidate::Yes)
         validateDocumentState(m_documentState);
+}
+
+const FrameState* FrameState::stateForFrameID(WebCore::FrameIdentifier frameID) const
+{
+    if (this->frameID == frameID)
+        return this;
+    for (auto& child : children) {
+        if (auto* state = child.stateForFrameID(frameID))
+            return state;
+    }
+    return nullptr;
 }
 
 } // namespace WebKit

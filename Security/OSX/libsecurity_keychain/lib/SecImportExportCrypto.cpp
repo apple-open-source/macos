@@ -333,7 +333,7 @@ OSStatus impExpImportKeyCommon(
 	CSSM_RETURN			crtn;
 	CSSM_DATA			labelData;
 	CSSM_KEY			unwrappedKey;
-	CSSM_DL_DB_HANDLE   dlDbHandle;
+	CSSM_DL_DB_HANDLE   dlDbHandle = {NULL, NULL};
 	CSSM_DL_DB_HANDLE   *dlDbPtr = NULL;
 	OSStatus			ortn;
 	CSSM_ACCESS_CREDENTIALS	nullCreds;

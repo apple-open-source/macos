@@ -305,6 +305,29 @@ pdfjs-editor-ink-button-label = Kreslení
 pdfjs-editor-stamp-button =
     .title = Přidání či úprava obrázků
 pdfjs-editor-stamp-button-label = Přidání či úprava obrázků
+pdfjs-editor-highlight-button =
+    .title = Zvýraznění
+pdfjs-editor-highlight-button-label = Zvýraznění
+pdfjs-highlight-floating-button =
+    .title = Zvýraznit
+pdfjs-highlight-floating-button1 =
+    .title = Zvýraznit
+    .aria-label = Zvýraznit
+pdfjs-highlight-floating-button-label = Zvýraznit
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Odebrat kresbu
+pdfjs-editor-remove-freetext-button =
+    .title = Odebrat text
+pdfjs-editor-remove-stamp-button =
+    .title = Odebrat obrázek
+pdfjs-editor-remove-highlight-button =
+    .title = Odebrat zvýraznění
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Barva
 pdfjs-editor-free-text-size-input = Velikost
@@ -314,6 +337,10 @@ pdfjs-editor-ink-opacity-input = Průhlednost
 pdfjs-editor-stamp-add-image-button =
     .title = Přidat obrázek
 pdfjs-editor-stamp-add-image-button-label = Přidat obrázek
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Tloušťka
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Změna tloušťky při zvýrazňování jiných položek než textu
 pdfjs-free-text =
     .aria-label = Textový editor
 pdfjs-free-text-default-content = Začněte psát…
@@ -351,3 +378,29 @@ pdfjs-editor-resizer-label-bottom-right = Pravý dolní roh — změna velikosti
 pdfjs-editor-resizer-label-bottom-middle = Střed dole — změna velikosti
 pdfjs-editor-resizer-label-bottom-left = Levý dolní roh — změna velikosti
 pdfjs-editor-resizer-label-middle-left = Vlevo uprostřed — změna velikosti
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Barva zvýraznění
+pdfjs-editor-colorpicker-button =
+    .title = Změna barvy
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Výběr barev
+pdfjs-editor-colorpicker-yellow =
+    .title = Žlutá
+pdfjs-editor-colorpicker-green =
+    .title = Zelená
+pdfjs-editor-colorpicker-blue =
+    .title = Modrá
+pdfjs-editor-colorpicker-pink =
+    .title = Růžová
+pdfjs-editor-colorpicker-red =
+    .title = Červená
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Zobrazit vše
+pdfjs-editor-highlight-show-all-button =
+    .title = Zobrazit vše

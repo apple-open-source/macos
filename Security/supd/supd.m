@@ -541,7 +541,14 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
                                              orCreateWithStorePath:[self.class databasePathForTransparency]
                                             requireDeviceAnalytics:NO
                                             requireiCloudAnalytics:YES]];
+    } else if ([topicName isEqualToString:SFAnalyticsTopicSWTransparency]) {
+        self.terseMetrics = YES;
+        [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"swtransparency"
+                                             orCreateWithStorePath:[self.class databasePathForSWTransparency]
+                                            requireDeviceAnalytics:NO
+                                            requireiCloudAnalytics:YES]];
     }
+
 
     _topicClients = clients;
 }
@@ -651,17 +658,8 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return NO;
 }
 
-- (BOOL)postJSON:(NSData*)json toEndpoint:(NSURL*)endpoint error:(NSError**)error
+- (NSURLSession*) getSession
 {
-    if (!endpoint) {
-        if (error) {
-            NSString *description = [NSString stringWithFormat:@"No endpoint for %@", _internalTopicName];
-            *error = [NSError errorWithDomain:@"SupdUploadErrorDomain"
-                                         code:-10
-                                     userInfo:@{NSLocalizedDescriptionKey : description}];
-        }
-        return false;
-    }
     /*
      * Create the NSURLSession
      *  We use the ephemeral session config because we don't need cookies or cache
@@ -674,6 +672,20 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
                                                               delegate:self
                                                          delegateQueue:nil];
 
+    return postSession;
+}
+
+- (BOOL)postJSON:(NSData*)json toEndpoint:(NSURL*)endpoint postSession:(NSURLSession*)postSession error:(NSError**)error
+{
+    if (!endpoint) {
+        if (error) {
+            NSString *description = [NSString stringWithFormat:@"No endpoint for %@", _internalTopicName];
+            *error = [NSError errorWithDomain:@"SupdUploadErrorDomain"
+                                         code:-10
+                                     userInfo:@{NSLocalizedDescriptionKey : description}];
+        }
+        return NO;
+    }
     NSMutableURLRequest* postRequest = [[NSMutableURLRequest alloc] init];
     postRequest.URL = endpoint;
     postRequest.HTTPMethod = @"POST";
@@ -853,7 +865,11 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return statistics;
 }
 
-- (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client store:(SFAnalyticsSQLiteStore*)store uuid:(NSUUID *)uuid timestamp:(NSNumber*)timestamp lastUploadTime:(NSNumber*)lastUploadTime
+- (NSMutableDictionary*)healthSummaryWithName:(SFAnalyticsClient*)client
+                                        store:(SFAnalyticsSQLiteStore*)store
+                                         uuid:(NSUUID *)uuid
+                                    timestamp:(NSNumber*)timestamp
+                               lastUploadTime:(NSNumber*)lastUploadTime
 {
     dispatch_assert_queue(client.queue);
     NSString *name = client.name;
@@ -866,7 +882,7 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     }
     summary[SFAnalyticsEventTime] = timestamp;    // Splunk wants milliseconds
     [SFAnalytics addOSVersionToEvent:summary];
-    if (lastUploadTime) {
+    if (lastUploadTime != nil) {
         summary[SFAnalyticsAttributeLastUploadTime] = lastUploadTime;
     }
 
@@ -1132,6 +1148,23 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
     return carryStatus;
 }
 
+- (BOOL)ckDeviceAccountApprovedTopic:(NSString *)topic {
+    if (os_variant_has_internal_diagnostics("com.apple.security") == false) {
+        return NO;
+    }
+    static dispatch_once_t onceToken;
+    static NSSet<NSString*>* topics;
+    dispatch_once(&onceToken, ^{
+        topics = [NSSet setWithArray:@[
+            SFAnalyticsTopicKeySync,
+            SFAnalyticsTopicCloudServices,
+            SFAnalyticsTopicTransparency,
+            SFAnalyticsTopicSWTransparency,
+        ]];
+    });
+    return [topics containsObject:topic];
+}
+
 - (BOOL)copyEvents:(NSMutableArray<NSDictionary *> *)healthSummaries
           failures:(NSMutableArray<NSDictionary *> *)failures
          forUpload:(BOOL)upload
@@ -1149,15 +1182,14 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
     NSString *appleUser = nil;
     NSDictionary *carryStatus = nil;
 
-    if (os_variant_has_internal_diagnostics("com.apple.security") &&
-        ([_internalTopicName isEqualToString:SFAnalyticsTopicKeySync] ||
-         [_internalTopicName isEqual:SFAnalyticsTopicCloudServices] ||
-         [_internalTopicName isEqualToString:SFAnalyticsTopicTransparency]))
-    {
+    if ([self ckDeviceAccountApprovedTopic:_internalTopicName]) {
         ckdeviceID = [self askSecurityForCKDeviceID];
         accountID = accountAltDSID();
         appleUser = [self appleUser];
         carryStatus = [self carryStatus];
+        secnotice("getLoggingJSON", "including deviceID for internal user");
+    } else {
+        secnotice("getLoggingJSON", "no deviceID for internal user");
     }
     
     NSNumber* timestamp = @([[NSDate date] timeIntervalSince1970] * 1000);
@@ -1372,7 +1404,7 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
 
 // this method is kind of evil for the fact that it has side-effects in pulling other things besides the metricsURL from the server, and as such should NOT be memoized.
 // TODO redo this, probably to return a dictionary.
-- (NSURL*)splunkUploadURL:(BOOL)force
+- (NSURL*)splunkUploadURL:(BOOL)force urlSession:(NSURLSession*)urlSession
 {
     if (!force && ![self haveEligibleClients]) {    // force is true IFF called from supdctl. Customers don't have it and internal audiences must call it explicitly.
         secnotice("getURL", "Not going to talk to server for topic %@ because no eligible clients", [self internalTopicName]);
@@ -1389,16 +1421,11 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
 
     __block NSError* error = nil;
-    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    NSURLSession* storeBagSession = [NSURLSession sessionWithConfiguration:configuration
-                                                                  delegate:self
-                                                             delegateQueue:nil];
-
     NSURL* requestEndpoint = _splunkBagURL;
     __block NSURL* result = nil;
-    NSURLSessionDataTask* storeBagTask = [storeBagSession dataTaskWithURL:requestEndpoint completionHandler:^(NSData * _Nullable data,
-                                                                                                              NSURLResponse * _Nullable __unused response,
-                                                                                                              NSError * _Nullable responseError) {
+    NSURLSessionDataTask* storeBagTask = [urlSession dataTaskWithURL:requestEndpoint completionHandler:^(NSData * _Nullable data,
+                                                                                                         NSURLResponse * _Nullable __unused response,
+                                                                                                         NSError * _Nullable responseError) {
 
         __strong __typeof(self) strongSelf = weakSelf;
         if (!strongSelf) {
@@ -1639,6 +1666,15 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>*)clients
 #endif
 }
 
++ (NSString*)databasePathForSWTransparency
+{
+#if TARGET_OS_OSX
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"SWTransparencyAnalytics"];
+#else
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/SWTransparencyAnalytics.db") path];
+#endif
+}
+
 @end
 
 @interface supd ()
@@ -1740,6 +1776,8 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             xpc_activity_register("com.apple.securityuploadd.triggerupload", XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
                 xpc_activity_state_t activityState = xpc_activity_get_state(activity);
                 secnotice("supd", "hit xpc activity trigger, state: %ld", activityState);
@@ -1748,6 +1786,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                     [self performRegularlyScheduledUpload];
                 }
             });
+#pragma clang diagnostic pop
         });
     }
     return self;
@@ -1806,9 +1845,14 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     
     BOOL result = NO;
     NSError* localError = nil;
+    NSURLSession* postSession = nil;
     for (SFAnalyticsTopic *topic in _analyticsTopics) {
         @autoreleasepool { // The logging JSONs get quite large. Ensure they're deallocated between topics.
-            __block NSURL* endpoint = [topic splunkUploadURL:force];   // has side effects!
+            if (postSession == nil) {
+                postSession = [topic getSession];
+            }
+
+            __block NSURL* endpoint = [topic splunkUploadURL:force urlSession:postSession];   // has side effects!
 
             if (!endpoint) {
                 secnotice("upload", "Skipping upload for %@ because no endpoint", [topic internalTopicName]);
@@ -1839,6 +1883,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 
 
             if ([topic isSampledUpload]) {
+                bool failed = false;
                 for (NSDictionary* event in jsonEvents) {
                     // make sure we don't hold on to each NSURL related in each autorelease pool
                     @autoreleasepool {
@@ -1848,6 +1893,7 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                                 // Pretend this was a success because at least we'll get rid of bad data.
                                 // If someone keeps logging bad data and we only catch it here then
                                 // this causes sustained data loss for the entire topic.
+                                failed = true;
                                 [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
                             }
                             secerror("upload: failed to serialized chunked log events for logging topic %@: %@", [topic internalTopicName], localError);
@@ -1857,14 +1903,16 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                         if (![self->_reporter saveReport:serializedEvent fileName:[topic internalTopicName]]) {
                             secerror("upload: failed to write analytics data to log");
                         }
-                        if ([topic postJSON:serializedEvent toEndpoint:endpoint error:&localError]) {
+                        if ([topic postJSON:serializedEvent toEndpoint:endpoint postSession:postSession error:&localError]) {
                             secnotice("upload", "Successfully posted JSON for %@", [topic internalTopicName]);
                             result = YES;
-                            [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
                         } else {
                             secerror("upload: Failed to post JSON for %@: %@", [topic internalTopicName], localError);
                         }
                     }
+                }
+                if (failed == false) {
+                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
                 }
             } else {
                 /* If we didn't sample this report, update date to prevent trying to upload again sooner

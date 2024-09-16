@@ -54,6 +54,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)populateUnderlyingErrorsStartingWithRootError:(NSError* _Nullable)error;
 - (BOOL)permittedToSendMetrics;
 
+#if __has_include(<AAAFoundation/AAAFoundation.h>)
++ (NSString* _Nullable)fetchDeviceSessionIDFromAuthKit:(NSString*)altDSID;
+#endif
+
 @end
 
 NS_ASSUME_NONNULL_END

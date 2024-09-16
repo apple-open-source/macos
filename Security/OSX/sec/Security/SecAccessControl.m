@@ -207,13 +207,11 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             CFReleaseNull(constraint);
         }
 
-#if TARGET_OS_OSX
-        if (flags & kSecAccessControlWatch) {
-            require_quiet(constraint = SecAccessConstraintCreateWatch(allocator), errOut);
+        if (flags & kSecAccessControlCompanion) {
+            require_quiet(constraint = SecAccessConstraintCreateCompanion(allocator), errOut);
             CFArrayAppendValue(constraints, constraint);
             CFReleaseNull(constraint);
         }
-#endif
         
 #pragma clang diagnostic pop
 
@@ -221,12 +219,16 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             SecAccessControlSetRequirePassword(access_control, true);
         }
 
+// Remove this when libaks_acl_cf_keys.h starts providing this symbol.
+#define kAKSKeyOpKEMDecapsulate ((CFTypeRef)CFSTR("okd"))
+
         CFIndex constraints_count = CFArrayGetCount(constraints);
         if (constraints_count > 1) {
             require_quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, constraint, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, constraint, error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, constraint, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
@@ -239,6 +241,7 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
@@ -250,6 +253,7 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, kCFBooleanTrue, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpComputeKey, kCFBooleanTrue, error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpKEMDecapsulate, kCFBooleanTrue, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             }
@@ -345,8 +349,12 @@ SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef
     return SecAccessConstraintCreateBiometryCurrentSet(allocator, catacombUUID, bioDbHash);
 }
 
-SecAccessConstraintRef SecAccessConstraintCreateWatch(CFAllocatorRef allocator) {
+SecAccessConstraintRef SecAccessConstraintCreateCompanion(CFAllocatorRef allocator) {
     return CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintWatch), kCFBooleanTrue, NULL);
+}
+
+SecAccessConstraintRef SecAccessConstraintCreateWatch(CFAllocatorRef allocator) {
+    return SecAccessConstraintCreateCompanion(allocator);
 }
 
 static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRef allocator, size_t numRequired, CFArrayRef constraints, CFErrorRef *error) {
@@ -462,8 +470,25 @@ void SecAccessControlSetBound(SecAccessControlRef access_control, bool bound) {
 }
 
 bool SecAccessControlIsBound(SecAccessControlRef access_control) {
+    // First check for explicitly set 'bound' flag.
     CFTypeRef bound = CFDictionaryGetValue(access_control->dict, kSecAccessControlKeyBound);
-    return bound != NULL && CFEqualSafe(bound, kCFBooleanTrue);
+    if (bound != NULL && CFEqualSafe(bound, kCFBooleanTrue)) {
+        return true;
+    }
+
+    if (SecAccessControlGetRequirePassword(access_control)) {
+        return false;
+    }
+
+    NSDictionary *acl = (__bridge NSDictionary *)SecAccessControlGetConstraints(access_control);
+    for (id constraint in acl.allValues) {
+        if (!CFEqual((__bridge CFTypeRef)constraint, kCFBooleanTrue)) {
+            return false;
+        }
+    }
+
+    // ACL was evaluated as trivial one, consider it being bound.
+    return true;
 }
 
 CFDataRef SecAccessControlCopyData(SecAccessControlRef access_control) {

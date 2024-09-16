@@ -127,7 +127,8 @@ void parsePath(const xmlChar *path) {
 	while ((*cur != 0) && (*cur != ' ') && (*cur != PATH_SEPARATOR))
 	    cur++;
 	if (cur != path) {
-	    paths[nbpaths] = xmlStrndup(path, cur - path);
+	    long path_len = cur - path;
+	    paths[nbpaths] = xmlStrndup(path, CLAMP_TO_INT_MAX(path_len));
 	    if (paths[nbpaths] != NULL)
 		nbpaths++;
 	    path = cur;
@@ -573,7 +574,7 @@ main(int argc, char **argv)
         return (1);
     }
 
-    srand(time(NULL));
+    srand((unsigned)time(NULL));
     xmlInitMemory();
 
 #if defined(_WIN32) && !defined(__CYGINW__)

@@ -27,6 +27,7 @@
 #import "WebPasteboardProxy.h"
 
 #import "Connection.h"
+#import "PageLoadState.h"
 #import "PasteboardAccessIntent.h"
 #import "RemotePageProxy.h"
 #import "SandboxExtension.h"
@@ -107,6 +108,9 @@ std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::acce
 
     for (Ref page : process->pages()) {
         Ref preferences = page->preferences();
+        if (preferences->shouldSuppressTextInputFromEditingDuringProvisionalNavigation() && page->pageLoadState().isProvisional())
+            continue;
+
         if (!preferences->domPasteAllowed() || !preferences->javaScriptCanAccessClipboard())
             continue;
 
@@ -639,22 +643,12 @@ std::optional<DataOwnerType> WebPasteboardProxy::determineDataOwner(IPC::Connect
 
     std::optional<DataOwnerType> result;
     for (Ref page : process->pages()) {
-        if (page->webPageID() == *pageID) {
+        if (page->webPageIDInMainFrameProcess() == *pageID) {
             result = page->dataOwnerForPasteboard(intent);
             break;
         }
     }
 
-    for (WeakPtr<RemotePageProxy> remotePage : process->remotePages()) {
-        if (!remotePage)
-            continue;
-
-        RefPtr page = remotePage->page();
-        if (page && page->webPageID() == *pageID) {
-            result = page->dataOwnerForPasteboard(intent);
-            break;
-        }
-    }
     // If this message check is hit, then the incoming web page ID doesn't correspond to any page
     // currently known to the UI process.
     MESSAGE_CHECK_WITH_RETURN_VALUE(result.has_value(), std::nullopt);
@@ -702,17 +696,16 @@ std::optional<WebPasteboardProxy::PasteboardAccessType> WebPasteboardProxy::Past
 #if ENABLE(IPC_TESTING_API)
 void WebPasteboardProxy::testIPCSharedMemory(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, SharedMemory::Handle&& handle, std::optional<PageIdentifier> pageID, CompletionHandler<void(int64_t, String)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), completionHandler(-1, makeString("error")));
-    MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler(-1, makeString("error")));
+    MESSAGE_CHECK_COMPLETION(!pasteboardName.isEmpty(), completionHandler(-1, "error"_str));
+    MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler(-1, "error"_str));
 
     auto sharedMemoryBuffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer) {
-        completionHandler(-1, makeString("error EOM"));
+        completionHandler(-1, "error EOM"_s);
         return;
     }
 
-    String message = { static_cast<char*>(sharedMemoryBuffer->data()), static_cast<unsigned>(sharedMemoryBuffer->size()) };
-    completionHandler(sharedMemoryBuffer->size(), WTFMove(message));
+    completionHandler(sharedMemoryBuffer->size(), sharedMemoryBuffer->span());
 }
 #endif
 

@@ -68,20 +68,22 @@ enum
     _kDADiskUnmountApprovalCallback,
     _kDAIdleCallback,
     _kDADiskListCompleteCallback,
-    _kDADiskLastKind = _kDADiskListCompleteCallback
+    _kDADiskSetFSKitAdditionsCallback,
+    _kDADiskLastKind = _kDADiskSetFSKitAdditionsCallback
 };
 
 typedef UInt32 _DACallbackKind;
 
 enum
 {
-    _kDADiskClaim   = _kDADiskClaimCallback,
-    _kDADiskEject   = _kDADiskEjectCallback,
-    _kDADiskMount   = _kDADiskMountCallback,
-    _kDADiskProbe   = _kDADiskProbeCallback,
-    _kDADiskRefresh = _kDADiskRefreshCallback,
-    _kDADiskRename  = _kDADiskRenameCallback,
-    _kDADiskUnmount = _kDADiskUnmountCallback
+    _kDADiskClaim               = _kDADiskClaimCallback,
+    _kDADiskEject               = _kDADiskEjectCallback,
+    _kDADiskMount               = _kDADiskMountCallback,
+    _kDADiskProbe               = _kDADiskProbeCallback,
+    _kDADiskRefresh             = _kDADiskRefreshCallback,
+    _kDADiskRename              = _kDADiskRenameCallback,
+    _kDADiskUnmount             = _kDADiskUnmountCallback,
+    _kDADiskSetFSKitAdditions   = _kDADiskSetFSKitAdditionsCallback,
 };
 
 typedef UInt32 _DARequestKind;

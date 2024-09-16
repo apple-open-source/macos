@@ -33,9 +33,9 @@ cmake_print_variables(DRIVERKIT)
 
 list(APPEND TEMPLATE_SOURCES  Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityInternalPrivate.h AvailabilityMacros.h
                               AvailabilityProhibitedInternal.h AvailabilityVersions.h VersionMap.h for_dyld_priv.inc os_availability.h )
-list(APPEND UNIFDEF_SOURCES   os_availability.modulemap os_availability_private.modulemap AvailabilityPrivate.modulemap )
+list(APPEND UNIFDEF_SOURCES   os_availability.modulemap os_availability_private.modulemap )
 
-list(APPEND LOCAL_MODULEMAPS  os_availability_private.modulemap AvailabilityPrivate.modulemap)
+list(APPEND LOCAL_MODULEMAPS  os_availability_private.modulemap)
 list(APPEND PUBLIC_MODULEMAPS os_availability.modulemap)
 list(APPEND LOCAL_HEADERS     AvailabilityInternalPrivate.h AvailabilityProhibitedInternal.h)
 list(APPEND PUBLIC_HEADERS    Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityMacros.h AvailabilityVersions.h)

@@ -11,6 +11,7 @@
 #import "debugging.h"
 
 @interface ServiceDelegate : NSObject <NSXPCListenerDelegate>
++ (instancetype)new NS_UNAVAILABLE;
 @end
 
 @implementation ServiceDelegate

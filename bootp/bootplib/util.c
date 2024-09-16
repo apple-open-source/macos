@@ -395,20 +395,6 @@ link_addr_to_string(char * string_buffer, int string_buffer_length,
     return;
 }
 
-PRIVATE_EXTERN void
-fill_with_random(void * buf, uint32_t len)
-{
-    int			i;
-    int			n;
-    uint32_t * 		p = (uint32_t *)buf;
-    
-    n = len / sizeof(*p);
-    for (i = 0; i < n; i++, p++) {
-	*p = arc4random();
-    }
-    return;
-}
-
 #define ROUNDUP(a) \
     ((a) > 0 ? (1 + (((a) - 1) | (sizeof(u_int32_t) - 1))) : sizeof(u_int32_t))
 

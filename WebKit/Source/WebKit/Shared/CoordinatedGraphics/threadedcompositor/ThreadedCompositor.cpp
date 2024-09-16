@@ -55,24 +55,25 @@ static constexpr unsigned c_defaultRefreshRate = 60000;
 #endif
 
 #if HAVE(DISPLAY_LINK)
-Ref<ThreadedCompositor> ThreadedCompositor::create(Client& client, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY)
+Ref<ThreadedCompositor> ThreadedCompositor::create(Client& client, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY, DamagePropagation damagePropagation)
 {
-    return adoptRef(*new ThreadedCompositor(client, displayID, viewportSize, scaleFactor, flipY));
+    return adoptRef(*new ThreadedCompositor(client, displayID, viewportSize, scaleFactor, flipY, damagePropagation));
 }
 #else
-Ref<ThreadedCompositor> ThreadedCompositor::create(Client& client, ThreadedDisplayRefreshMonitor::Client& displayRefreshMonitorClient, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY)
+Ref<ThreadedCompositor> ThreadedCompositor::create(Client& client, ThreadedDisplayRefreshMonitor::Client& displayRefreshMonitorClient, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY, DamagePropagation damagePropagation)
 {
-    return adoptRef(*new ThreadedCompositor(client, displayRefreshMonitorClient, displayID, viewportSize, scaleFactor, flipY));
+    return adoptRef(*new ThreadedCompositor(client, displayRefreshMonitorClient, displayID, viewportSize, scaleFactor, flipY, damagePropagation));
 }
 #endif
 
 #if HAVE(DISPLAY_LINK)
-ThreadedCompositor::ThreadedCompositor(Client& client, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY)
+ThreadedCompositor::ThreadedCompositor(Client& client, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY, DamagePropagation damagePropagation)
 #else
-ThreadedCompositor::ThreadedCompositor(Client& client, ThreadedDisplayRefreshMonitor::Client& displayRefreshMonitorClient, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY)
+ThreadedCompositor::ThreadedCompositor(Client& client, ThreadedDisplayRefreshMonitor::Client& displayRefreshMonitorClient, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY, DamagePropagation damagePropagation)
 #endif
     : m_client(client)
     , m_flipY(flipY)
+    , m_damagePropagation(damagePropagation)
     , m_compositingRunLoop(makeUnique<CompositingRunLoop>([this] { renderLayerTree(); }))
 #if !HAVE(DISPLAY_LINK)
     , m_displayRefreshMonitor(ThreadedDisplayRefreshMonitor::create(displayID, displayRefreshMonitorClient, WebCore::DisplayUpdate { 0, c_defaultRefreshRate / 1000 }))
@@ -103,7 +104,9 @@ ThreadedCompositor::ThreadedCompositor(Client& client, ThreadedDisplayRefreshMon
         m_display.updateTimer->startOneShot(Seconds { 1.0 / m_display.displayUpdate.updatesPerSecond });
 #endif
 
-        m_scene = adoptRef(new CoordinatedGraphicsScene(this));
+        const auto propagateDamage = (m_damagePropagation == DamagePropagation::None)
+            ? WebCore::Damage::ShouldPropagate::No : WebCore::Damage::ShouldPropagate::Yes;
+        m_scene = adoptRef(new CoordinatedGraphicsScene(this, propagateDamage));
         m_nativeSurfaceHandle = m_client.nativeSurfaceHandleForCompositing();
 
         createGLContext();
@@ -232,6 +235,7 @@ void ThreadedCompositor::renderLayerTree()
     WebCore::IntPoint scrollPosition;
     float scaleFactor;
     bool needsResize;
+    uint32_t compositionRequestID;
 
     Vector<RefPtr<Nicosia::Scene>> states;
 
@@ -241,6 +245,7 @@ void ThreadedCompositor::renderLayerTree()
         scrollPosition = m_attributes.scrollPosition;
         scaleFactor = m_attributes.scaleFactor;
         needsResize = m_attributes.needsResize;
+        compositionRequestID = m_attributes.compositionRequestID;
 
         states = WTFMove(m_attributes.states);
 
@@ -270,16 +275,27 @@ void ThreadedCompositor::renderLayerTree()
     if (needsResize)
         glViewport(0, 0, viewportSize.width(), viewportSize.height());
 
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    m_client.clearIfNeeded();
 
     m_scene->applyStateChanges(states);
     m_scene->paintToCurrentGLContext(viewportTransform, FloatRect { FloatPoint { }, viewportSize }, m_flipY);
 
-    m_context->swapBuffers();
+    WebCore::Damage boundsDamage;
+    const auto& frameDamage = ([this, &boundsDamage]() -> const WebCore::Damage& {
+        const auto& damage = m_scene->lastDamage();
+        if (m_damagePropagation != DamagePropagation::None && !damage.isInvalid()) {
+            if (m_damagePropagation == DamagePropagation::Unified) {
+                boundsDamage.add(damage.bounds());
+                return boundsDamage;
+            }
+            return damage;
+        }
+        return WebCore::Damage::invalid();
+    })();
 
+    m_context->swapBuffers();
     if (m_scene->isActive())
-        m_client.didRenderFrame();
+        m_client.didRenderFrame(compositionRequestID, frameDamage);
 }
 
 void ThreadedCompositor::sceneUpdateFinished()
@@ -311,10 +327,12 @@ void ThreadedCompositor::sceneUpdateFinished()
     m_compositingRunLoop->updateCompleted(stateLocker);
 }
 
-void ThreadedCompositor::updateSceneState(const RefPtr<Nicosia::Scene>& state)
+void ThreadedCompositor::updateSceneState(const RefPtr<Nicosia::Scene>& state, uint32_t compositionRequestID)
 {
     Locker locker { m_attributes.lock };
-    m_attributes.states.append(state);
+    if (state)
+        m_attributes.states.append(state);
+    m_attributes.compositionRequestID = compositionRequestID;
     m_compositingRunLoop->scheduleUpdate();
 }
 

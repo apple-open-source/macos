@@ -150,8 +150,8 @@ enum {
     kIOPCIConfiguratorBoot	         = 0x00004000,
     kIOPCIConfiguratorIGIsMapped     = 0x00008000,
     kIOPCIConfiguratorFPBEnable      = 0x00010000,
-//    kIOPCIConfiguratorAllocate       = 0x00020000,
-	kIOPCIConfiguratorUsePause       = 0x00040000,
+//  kIOPCIConfiguratorAllocate       = 0x00020000,
+    kIOPCIConfiguratorUsePause       = 0x00040000,
 
     kIOPCIConfiguratorCheckTunnel    = 0x00080000,
     kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
@@ -165,6 +165,8 @@ enum {
     kIOPCIConfiguratorSystemMap      = 0x04000000,  // Force all devices to use system mapper, x86 only
 
     kIOPCIConfiguratorDefaultETF     = 0x08000000, // Use default extended tag settings
+
+    kIOPCIConfiguratorForcePause     = 0x10000000, // Force all probes to trigger a pause
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
@@ -201,15 +203,17 @@ enum {
     kPCIDeviceStatePropertiesDone    = 0x00000002,
     kPCIDeviceStateTreeConnected     = 0x00000004,
     kPCIDeviceStateConfigurationDone = 0x00000008,
-    kPCIDeviceStateScanned          = 0x00000010,
-    kPCIDeviceStateAllocatedBus     = 0x00000020,
-    kPCIDeviceStateTotalled         = 0x00000040,
-    kPCIDeviceStateAllocated        = 0x00000080,
-    kPCIDeviceStateChildChanged     = 0x00000100,
-	kPCIDeviceStateChildAdded       = 0x00000200,
-    kPCIDeviceStateNoLink           = 0x00000400,
-    kPCIDeviceStateRangesProbed     = 0x00000800,
-    kPCIDeviceStateAttached         = 0x00001000,
+    kPCIDeviceStateScanned           = 0x00000010,
+    kPCIDeviceStateAllocatedBus      = 0x00000020,
+    kPCIDeviceStateTotalled          = 0x00000040,
+    kPCIDeviceStateAllocated         = 0x00000080,
+    kPCIDeviceStateChildChanged      = 0x00000100,
+	kPCIDeviceStateChildAdded        = 0x00000200,
+    kPCIDeviceStateNoLink            = 0x00000400,
+    kPCIDeviceStateRangesProbed      = 0x00000800,
+    kPCIDeviceStateAttached          = 0x00001000,
+
+    kPCIDeviceStateDomainChanged     = 0x00002000, // 1+ children in a root port's hierarchy domain was added/removed
 
 	kPCIDeviceStateConfigProtectShift = 15,
 	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
@@ -221,6 +225,7 @@ enum {
     kPCIDeviceStatePaused           = 0x10000000,
     kPCIDeviceStateRequestPause     = 0x08000000,
     kPCIDeviceStateHidden           = 0x04000000,
+    kPCIDeviceStateLinkInt          = 0x02000000,
 
     kPCIDeviceStateDeadOrHidden     = kPCIDeviceStateDead | kPCIDeviceStateHidden
 };
@@ -253,12 +258,6 @@ enum
     kPCIHotPlugTunnelRootParent = kPCIHotPlugTunnel | kPCIHPRootParent,
 };
 
-// value of expressPayloadSetting
-enum
-{
-    kPCIMaxPayloadSizeSet = 0x01,
-};
-
 #define kPCIBridgeMaxCount  256
 
 enum 
@@ -278,6 +277,7 @@ enum
     kConfigOpTestPause,
     kConfigOpFindEntry,
     kConfigOpFindEntryByAddress,
+    kConfigOpLinkInt,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -400,6 +400,7 @@ protected:
 	int32_t bootResetProc(void * ref, IOPCIConfigEntry * bridge);
     int32_t totalProc(void * ref, IOPCIConfigEntry * bridge);
     int32_t allocateProc(void * ref, IOPCIConfigEntry * bridge);
+    int32_t domainFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge);
 	int32_t bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge);
 
     void    configure(uint32_t options);
@@ -444,6 +445,7 @@ protected:
 	bool    treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask);
     void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
+    void    bridgeMPSOverride(IOPCIConfigEntry * bridge);
     void    bridgeFinishProbe(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);
     OSDictionary * constructProperties(IOPCIConfigEntry * device);

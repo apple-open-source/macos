@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -715,6 +715,16 @@ struct smb_vnode_attr {
 /* SMB 2/3 IoctlFlags, 2.2.31 */
 #define SMB2_IOCTL_IS_FSCTL		0x00000001
 
+/* SMB 2/3 Network Interface Info Capabilities, 2.2.32.5 */
+#define SMB2_IF_CAP_RSS_CAPABLE  (0x01)
+#define SMB2_IF_CAP_RDMA_CAPABLE (0x02)
+
+#define SMB2_MC_IPV4_LEN (0x10)
+#define SMB2_MC_IPV6_LEN (0x1C)
+
+#define SMB2_QUERY_NETWORK_RESPONSE_IPV4_FAMILY     0x0002
+#define SMB2_QUERY_NETWORK_RESPONSE_IPV6_FAMILY     0x0017
+
 /* SMB 2/3 QUERY_DIRECTORY Flags, 2.2.33 */
 #define SMB2_RESTART_SCANS		0x01
 #define SMB2_RETURN_SINGLE_ENTRY	0x02
@@ -915,5 +925,15 @@ struct smb3_aes_transform_hdr
 } __attribute__((__packed__));
 
 typedef struct smb3_aes_transform_hdr SMB3_AES_TF_HEADER;
+
+/* SMB 3 Compression defines */
+#define SMB2_SIGNATURE_COMPRESSION      "\xFCSMB"
+#define SMB2_SIGLEN_COMPRESSION         4
+
+#define SMB2_COMPRESSION_FLAG_NONE      0x0000
+#define SMB2_COMPRESSION_FLAG_CHAINED   0x0001
+
+#define SMB2_READFLAG_REQUEST_COMPRESSED 0x02
+
 
 #endif /* SMB_SMB2_H */

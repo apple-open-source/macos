@@ -32,7 +32,6 @@
 #import "DefaultWebBrowserChecks.h"
 #import "HighPerformanceGPUManager.h"
 #import "Logging.h"
-#import "ObjCObjectGraph.h"
 #import "SandboxUtilities.h"
 #import "SharedBufferReference.h"
 #import "WKAPICast.h"
@@ -42,6 +41,7 @@
 #import "WebProcessPool.h"
 #import <WebCore/ActivityState.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <pal/spi/ios/MobileGestaltSPI.h>
 #import <sys/sysctl.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Scope.h>
@@ -67,7 +67,7 @@
 #import "WindowServerConnection.h"
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #import "TCCSoftLink.h"
 #endif
 
@@ -83,68 +83,6 @@ const MemoryCompactLookupOnlyRobinHoodHashSet<String>& WebProcessProxy::platform
     });
 
     return platformPathsWithAssumedReadAccess;
-}
-
-RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGraph& objectGraph)
-{
-    struct Transformer final : ObjCObjectGraph::Transformer {
-        Transformer(WebProcessProxy& webProcessProxy)
-            : m_webProcessProxy(webProcessProxy)
-        {
-        }
-
-        Ref<WebProcessProxy> protectedWebProcessProxy() const { return const_cast<WebProcessProxy&>(m_webProcessProxy.get()); }
-
-        bool shouldTransformObject(id object) const override
-        {
-            if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
-                return true;
-            return false;
-        }
-
-        RetainPtr<id> transformObject(id object) const override
-        {
-            if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
-                if (auto webPageProxy = protectedWebProcessProxy()->webPage(handle.pageProxyID)) {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-                    return [WKBrowsingContextController _browsingContextControllerForPageRef:toAPI(webPageProxy.get())];
-ALLOW_DEPRECATED_DECLARATIONS_END
-                }
-
-                return [NSNull null];
-            }
-            return object;
-        }
-
-        CheckedRef<WebProcessProxy> m_webProcessProxy;
-    };
-
-    return ObjCObjectGraph::create(ObjCObjectGraph::transform(objectGraph.rootObject(), Transformer(*this)).get());
-}
-
-RefPtr<ObjCObjectGraph> WebProcessProxy::transformObjectsToHandles(ObjCObjectGraph& objectGraph)
-{
-    struct Transformer final : ObjCObjectGraph::Transformer {
-        bool shouldTransformObject(id object) const override
-        {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (dynamic_objc_cast<WKBrowsingContextController>(object))
-                return true;
-ALLOW_DEPRECATED_DECLARATIONS_END
-            return false;
-        }
-
-        RetainPtr<id> transformObject(id object) const override
-        {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* controller = dynamic_objc_cast<WKBrowsingContextController>(object))
-                return controller.handle;
-ALLOW_DEPRECATED_DECLARATIONS_END
-            return object;
-        }
-    };
-
-    return ObjCObjectGraph::create(ObjCObjectGraph::transform(objectGraph.rootObject(), Transformer()).get());
 }
 
 static Vector<String>& mediaTypeCache()
@@ -246,7 +184,7 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
     m_hasSentMessageToUnblockAccessibilityServer = true;
 }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 void WebProcessProxy::isAXAuthenticated(CoreIPCAuditToken&& auditToken, CompletionHandler<void(bool)>&& completionHandler)
 {
     auto authenticated = TCCAccessCheckAuditToken(get_TCC_kTCCServiceAccessibility(), auditToken.auditToken(), nullptr);
@@ -320,11 +258,21 @@ std::optional<audit_token_t> WebProcessProxy::auditToken() const
     return connection()->getAuditToken();
 }
 
-Vector<SandboxExtension::Handle> WebProcessProxy::fontdMachExtensionHandles(SandboxExtension::MachBootstrapOptions machBootstrapOptions) const
+std::optional<Vector<SandboxExtension::Handle>> WebProcessProxy::fontdMachExtensionHandles()
 {
-    return SandboxExtension::createHandlesForMachLookup({ "com.apple.fonts"_s }, auditToken(), machBootstrapOptions);
+    if (std::exchange(m_sentFontdMachExtensionHandles, true))
+        return std::nullopt;
+    return SandboxExtension::createHandlesForMachLookup({ "com.apple.fonts"_s }, auditToken(), SandboxExtension::MachBootstrapOptions::EnableMachBootstrap);
 }
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebProcessProxyCocoaAdditions.mm>)
+#import <WebKitAdditions/WebProcessProxyCocoaAdditions.mm>
+#else
+bool WebProcessProxy::shouldDisableJITCage() const
+{
+    return false;
+}
+#endif
 
 }
 

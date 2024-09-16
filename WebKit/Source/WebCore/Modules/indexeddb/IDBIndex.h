@@ -81,8 +81,9 @@ public:
     void markAsDeleted();
     bool isDeleted() const { return m_deleted; }
 
-    void ref();
-    void deref();
+    // ActiveDOMObject.
+    void ref() const final;
+    void deref() const final;
 
     WebCoreOpaqueRoot opaqueRoot();
 
@@ -98,7 +99,6 @@ private:
     ExceptionOr<Ref<IDBRequest>> doGetAllKeys(std::optional<uint32_t> count, Function<ExceptionOr<RefPtr<IDBKeyRange>>()> &&);
 
     // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
     bool virtualHasPendingActivity() const final;
 
     IDBIndexInfo m_info;

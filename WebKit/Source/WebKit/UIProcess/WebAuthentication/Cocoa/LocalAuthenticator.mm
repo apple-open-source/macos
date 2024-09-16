@@ -29,7 +29,7 @@
 #if ENABLE(WEB_AUTHN)
 
 #import "Logging.h"
-#import "AuthenticationServicesCoreSoftLink.h"
+#import "MockLocalConnection.h"
 #import <Security/SecItem.h>
 #import <WebCore/AuthenticatorAssertionResponse.h>
 #import <WebCore/AuthenticatorAttachment.h>
@@ -38,6 +38,7 @@
 #import <WebCore/CBORWriter.h>
 #import <WebCore/ExceptionData.h>
 #import <WebCore/FidoConstants.h>
+#import <WebCore/MediationRequirement.h>
 #import <WebCore/PublicKeyCredentialCreationOptions.h>
 #import <WebCore/PublicKeyCredentialRequestOptions.h>
 #import <WebCore/WebAuthenticationConstants.h>
@@ -45,12 +46,16 @@
 #import <pal/crypto/CryptoDigest.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/Vector.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 #import <wtf/text/Base64.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/text/StringHash.h>
+
+#import "AuthenticationServicesCoreSoftLink.h"
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/LocalAuthenticatorAdditions.h>
@@ -83,12 +88,12 @@ using CBOR = cbor::CBORValue;
 namespace LocalAuthenticatorInternal {
 
 // Credential ID is currently SHA-1 of the corresponding public key.
-const uint16_t credentialIdLength = 20;
-const uint64_t counter = 0;
+constexpr uint16_t credentialIdLength = 20;
+constexpr uint64_t counter = 0;
 // This aaguid is unattested.
-const uint8_t aaguid[] = { 0xFB, 0xFC, 0x30, 0x07, 0x15, 0x4E, 0x4E, 0xCC, 0x8C, 0x0B, 0x6E, 0x02, 0x05, 0x57, 0xD7, 0xBD }; // Randomly generated.
+constexpr std::array<uint8_t, 16> aaguid = { 0xFB, 0xFC, 0x30, 0x07, 0x15, 0x4E, 0x4E, 0xCC, 0x8C, 0x0B, 0x6E, 0x02, 0x05, 0x57, 0xD7, 0xBD }; // Randomly generated.
 
-const char kLargeBlobMapKey[] = "largeBlob";
+constexpr char kLargeBlobMapKey[] = "largeBlob";
 
 static inline bool emptyTransportsOrContain(const Vector<AuthenticatorTransport>& transports, AuthenticatorTransport target)
 {
@@ -101,14 +106,16 @@ static inline HashSet<String> produceHashSet(const Vector<PublicKeyCredentialDes
     HashSet<String> result;
     for (auto& credentialDescriptor : credentialDescriptors) {
         if (emptyTransportsOrContain(credentialDescriptor.transports, AuthenticatorTransport::Internal) && credentialDescriptor.type == PublicKeyCredentialType::PublicKey && credentialDescriptor.id.length() == credentialIdLength)
-            result.add(base64EncodeToString(credentialDescriptor.id.data(), credentialDescriptor.id.length()));
+            result.add(base64EncodeToString(credentialDescriptor.id.span()));
     }
     return result;
 }
 
-static inline uint8_t authDataFlags(ClientDataType type, LocalConnection::UserVerification verification, bool synchronizable)
+static inline uint8_t authDataFlags(ClientDataType type, LocalConnection::UserVerification verification, bool synchronizable, std::optional<MediationRequirement> mediation)
 {
-    auto flags = userPresenceFlag;
+    auto flags = 0;
+    if (type != ClientDataType::Create || mediation != MediationRequirement::Conditional)
+        flags |= userPresenceFlag;
     if (verification != LocalConnection::UserVerification::Presence)
         flags |= userVerifiedFlag;
     if (type == ClientDataType::Create)
@@ -120,98 +127,24 @@ static inline uint8_t authDataFlags(ClientDataType type, LocalConnection::UserVe
 
 static inline Vector<uint8_t> aaguidVector()
 {
-    static NeverDestroyed<Vector<uint8_t>> aaguidVector = { aaguid, aaguidLength };
+    static NeverDestroyed<Vector<uint8_t>> aaguidVector = { aaguid };
     return aaguidVector;
-}
-
-static inline RetainPtr<NSData> toNSData(const Vector<uint8_t>& data)
-{
-    return adoptNS([[NSData alloc] initWithBytes:data.data() length:data.size()]);
 }
 
 static inline RetainPtr<NSData> toNSData(ArrayBuffer* buffer)
 {
     ASSERT(buffer);
-    return adoptNS([[NSData alloc] initWithBytes:buffer->data() length:buffer->byteLength()]);
+    return WTF::toNSData(buffer->span());
 }
 
 static inline Ref<ArrayBuffer> toArrayBuffer(NSData *data)
 {
-    return ArrayBuffer::create(reinterpret_cast<const uint8_t*>(data.bytes), data.length);
+    return ArrayBuffer::create(span(data));
 }
 
-static inline Ref<ArrayBuffer> toArrayBuffer(const Vector<uint8_t>& data)
+static inline Ref<ArrayBuffer> toArrayBuffer(std::span<const uint8_t> data)
 {
-    return ArrayBuffer::create(data.data(), data.size());
-}
-
-static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCredentials(const String& rpId)
-{
-    // Search Keychain for existing credential matched the RP ID.
-    NSDictionary *query = @{
-        (id)kSecClass: (id)kSecClassKey,
-        (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
-        (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
-        (id)kSecAttrAccessGroup: @(LocalAuthenticatorAccessGroup),
-        (id)kSecAttrLabel: rpId,
-        (id)kSecReturnAttributes: @YES,
-        (id)kSecMatchLimit: (id)kSecMatchLimitAll,
-        (id)kSecUseDataProtectionKeychain: @YES
-    };
-
-    CFTypeRef attributesArrayRef = nullptr;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &attributesArrayRef);
-    if (status && status != errSecItemNotFound)
-        return std::nullopt;
-    auto retainAttributesArray = adoptCF(attributesArrayRef);
-    NSArray *sortedAttributesArray = [(NSArray *)attributesArrayRef sortedArrayUsingComparator:^(NSDictionary *a, NSDictionary *b) {
-        return [b[(id)kSecAttrModificationDate] compare:a[(id)kSecAttrModificationDate]];
-    }];
-
-    Vector<Ref<AuthenticatorAssertionResponse>> result;
-    result.reserveInitialCapacity(sortedAttributesArray.count);
-    for (NSDictionary *attributes in sortedAttributesArray) {
-        auto decodedResponse = cbor::CBORReader::read(vectorFromNSData(attributes[(id)kSecAttrApplicationTag]));
-        if (!decodedResponse || !decodedResponse->isMap()) {
-            ASSERT_NOT_REACHED();
-            return std::nullopt;
-        }
-        auto& responseMap = decodedResponse->getMap();
-
-        RefPtr<ArrayBuffer> userHandle;
-        auto it = responseMap.find(CBOR(fido::kEntityIdMapKey));
-        if (it != responseMap.end() && it->second.isByteString()) {
-            userHandle = toArrayBuffer(it->second.getByteString());
-        }
-
-        it = responseMap.find(CBOR(fido::kEntityNameMapKey));
-        if (it == responseMap.end() || !it->second.isString()) {
-            ASSERT_NOT_REACHED();
-            return std::nullopt;
-        }
-        auto& username = it->second.getString();
-
-        auto response = AuthenticatorAssertionResponse::create(toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), WTFMove(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform);
-
-        auto group = groupForAttributes(attributes);
-        if (!group.isNull()) {
-            response->setGroup(group);
-            response->setSynchronizable(true);
-        } else if ([[attributes allKeys] containsObject:bridge_cast(kSecAttrSynchronizable)])
-            response->setSynchronizable([attributes[(id)kSecAttrSynchronizable] isEqual:@YES]);
-        it = responseMap.find(CBOR(fido::kDisplayNameMapKey));
-        if (it != responseMap.end() && it->second.isString())
-            response->setDisplayName(it->second.getString());
-
-        it = responseMap.find(CBOR(kLargeBlobMapKey));
-        if (it != responseMap.end() && it->second.isByteString())
-            response->setLargeBlob(ArrayBuffer::create(it->second.getByteString()));
-
-        response->setAccessGroup(attributes[(id)kSecAttrAccessGroup]);
-
-        result.append(WTFMove(response));
-    }
-    return result;
+    return ArrayBuffer::create(data);
 }
 
 static Vector<AuthenticatorTransport> transports()
@@ -245,6 +178,56 @@ LocalAuthenticator::LocalAuthenticator(UniqueRef<LocalConnection>&& connection)
 {
 }
 
+std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> LocalAuthenticator::getExistingCredentials(const String& rpId)
+{
+    RetainPtr sortedAttributesArray = m_connection->getExistingCredentials(rpId);
+    Vector<Ref<AuthenticatorAssertionResponse>> result;
+    result.reserveInitialCapacity([sortedAttributesArray count]);
+    for (NSDictionary *attributes in sortedAttributesArray.get()) {
+        auto decodedResponse = cbor::CBORReader::read(makeVector(attributes[(id)kSecAttrApplicationTag]));
+        if (!decodedResponse || !decodedResponse->isMap()) {
+            ASSERT_NOT_REACHED();
+            return std::nullopt;
+        }
+        auto& responseMap = decodedResponse->getMap();
+
+        RefPtr<ArrayBuffer> userHandle;
+        auto it = responseMap.find(CBOR(fido::kEntityIdMapKey));
+        if (it != responseMap.end() && it->second.isByteString()) {
+            userHandle = LocalAuthenticatorInternal::toArrayBuffer(it->second.getByteString());
+        }
+
+        it = responseMap.find(CBOR(fido::kEntityNameMapKey));
+        if (it == responseMap.end() || !it->second.isString()) {
+            ASSERT_NOT_REACHED();
+            return std::nullopt;
+        }
+        auto& username = it->second.getString();
+
+        auto response = AuthenticatorAssertionResponse::create(LocalAuthenticatorInternal::toArrayBuffer(attributes[(id)kSecAttrApplicationLabel]), WTFMove(userHandle), String(username), (__bridge SecAccessControlRef)attributes[(id)kSecAttrAccessControl], AuthenticatorAttachment::Platform);
+
+        auto group = groupForAttributes(attributes);
+        if (!group.isNull()) {
+            response->setGroup(group);
+            response->setSynchronizable(true);
+        } else if ([[attributes allKeys] containsObject:bridge_cast(kSecAttrSynchronizable)])
+            response->setSynchronizable([attributes[(id)kSecAttrSynchronizable] isEqual:@YES]);
+        it = responseMap.find(CBOR(fido::kDisplayNameMapKey));
+        if (it != responseMap.end() && it->second.isString())
+            response->setDisplayName(it->second.getString());
+
+        it = responseMap.find(CBOR(LocalAuthenticatorInternal::kLargeBlobMapKey));
+        if (it != responseMap.end() && it->second.isByteString())
+            response->setLargeBlob(ArrayBuffer::create(it->second.getByteString()));
+
+        response->setAccessGroup(attributes[(id)kSecAttrAccessGroup]);
+
+        result.append(WTFMove(response));
+    }
+    return result;
+}
+
+
 void LocalAuthenticator::makeCredential()
 {
     using namespace LocalAuthenticatorInternal;
@@ -269,7 +252,7 @@ void LocalAuthenticator::makeCredential()
     ASSERT(creationOptions.rp.id);
     auto existingCredentials = getExistingCredentials(*creationOptions.rp.id);
     if (!existingCredentials) {
-        receiveException({ ExceptionCode::UnknownError, makeString("Couldn't get existing credentials") });
+        receiveException({ ExceptionCode::UnknownError, "Couldn't get existing credentials"_s });
         return;
     }
     m_existingCredentials = WTFMove(*existingCredentials);
@@ -279,7 +262,7 @@ void LocalAuthenticator::makeCredential()
         if (notFound != m_existingCredentials.findIf([&excludeCredentialIds] (auto& credential) {
             auto* rawId = credential->rawId();
             ASSERT(rawId);
-            return excludeCredentialIds.contains(base64EncodeToString(rawId->data(), rawId->byteLength()));
+            return excludeCredentialIds.contains(base64EncodeToString(rawId->span()));
         })) {
             receiveException({ ExceptionCode::InvalidStateError, "At least one credential matches an entry of the excludeCredentials list in the platform attached authenticator."_s }, WebAuthenticationStatus::LAExcludeCredentialsMatched);
             return;
@@ -309,7 +292,7 @@ void LocalAuthenticator::continueMakeCredentialAfterReceivingLAContext(LAContext
         accessControl = adoptCF(SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, kSecAccessControlPrivateKeyUsage | kSecAccessControlUserPresence, &errorRef));
         auto retainError = adoptCF(errorRef);
         if (errorRef) {
-            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't create access control: ", String(((NSError*)errorRef).localizedDescription)) });
+            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't create access control: "_s, String(((NSError*)errorRef).localizedDescription)) });
             return;
         }
     }
@@ -395,7 +378,7 @@ std::optional<WebCore::ExceptionData> LocalAuthenticator::processLargeBlobExtens
         auto retainAttributesArray = adoptCF(attributesArrayRef);
         NSDictionary *dict = (NSDictionary *)attributesArrayRef;
 
-        auto decodedResponse = cbor::CBORReader::read(vectorFromNSData(dict[(id)kSecAttrApplicationTag]));
+        auto decodedResponse = cbor::CBORReader::read(makeVector(dict[(id)kSecAttrApplicationTag]));
         if (!decodedResponse || !decodedResponse->isMap()) {
             ASSERT_NOT_REACHED();
             return WebCore::ExceptionData { ExceptionCode::UnknownError, "Could not read credential."_s };
@@ -503,7 +486,7 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
         publicKeyDataRef = adoptCF(SecKeyCopyExternalRepresentation(publicKey.get(), &errorRef));
         auto retainError = adoptCF(errorRef);
         if (errorRef) {
-            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't export the public key: ", String(((NSError*)errorRef).localizedDescription)) });
+            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't export the public key: "_s, String(((NSError*)errorRef).localizedDescription)) });
             return;
         }
         ASSERT(((NSData *)publicKeyDataRef.get()).length == (1 + 2 * ES256FieldElementLength)); // 04 | X | Y
@@ -515,7 +498,7 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
     Vector<uint8_t> credentialId;
     {
         auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_1);
-        digest->addBytes(nsPublicKeyData.bytes, nsPublicKeyData.length);
+        digest->addBytes(span(nsPublicKeyData));
         credentialId = digest->computeHash();
         m_provisionalCredentialId = toNSData(credentialId);
 
@@ -547,7 +530,7 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
         cosePublicKey = encodeES256PublicKeyAsCBOR(WTFMove(x), WTFMove(y));
     }
 
-    auto flags = authDataFlags(ClientDataType::Create, verification, shouldUpdateQuery());
+    auto flags = authDataFlags(ClientDataType::Create, verification, shouldUpdateQuery(), requestData().mediation);
     // Skip attestation.
     auto authData = buildAuthData(*creationOptions.rp.id, flags, counter, buildAttestedCredentialData(aaguidVector(), credentialId, cosePublicKey));
 
@@ -582,7 +565,7 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
     {
         Vector<cbor::CBORValue> cborArray;
         for (size_t i = 0; i < [certificates count]; i++)
-            cborArray.append(cbor::CBORValue(vectorFromNSData((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)certificates[i])).get())));
+            cborArray.append(cbor::CBORValue(makeVector((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)certificates[i])).get())));
         attestationStatementMap[cbor::CBORValue("x5c")] = cbor::CBORValue(WTFMove(cborArray));
     }
     auto attestationObject = buildAttestationObject(WTFMove(authData), "apple"_s, WTFMove(attestationStatementMap), creationOptions.attestation);
@@ -638,7 +621,7 @@ void LocalAuthenticator::getAssertion()
         if (allowCredentialIds.isEmpty())
             return credential.copyRef();
         auto* rawId = credential->rawId();
-        if (allowCredentialIds.contains(base64EncodeToString(rawId->data(), rawId->byteLength())))
+        if (allowCredentialIds.contains(base64EncodeToString(rawId->span())))
             return credential.copyRef();
         return nullptr;
     });
@@ -700,7 +683,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
 
     // Step 10.
     auto requestOptions = std::get<PublicKeyCredentialRequestOptions>(requestData().options);
-    auto flags = authDataFlags(ClientDataType::Get, verification, response->synchronizable());
+    auto flags = authDataFlags(ClientDataType::Get, verification, response->synchronizable(), requestData().mediation);
     auto authData = buildAuthData(requestOptions.rpId, flags, counter, { });
 
     // Step 11.
@@ -724,7 +707,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
         CFTypeRef privateKeyRef = nullptr;
         OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query.get(), &privateKeyRef);
         if (status) {
-            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't get the private key reference: ", status) });
+            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't get the private key reference: "_s, status) });
             RELEASE_LOG_ERROR(WebAuthn, "Couldn't get the private key reference: %d", status);
             return;
         }
@@ -739,7 +722,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
         auto retainError = adoptCF(errorRef);
         if (errorRef) {
             RELEASE_LOG_ERROR(WebAuthn, "Couldn't generate signature: %@", ((NSError*)errorRef).localizedDescription);
-            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't generate the signature: ", String(((NSError*)errorRef).localizedDescription)) });
+            receiveException({ ExceptionCode::UnknownError, makeString("Couldn't generate the signature: "_s, String(((NSError*)errorRef).localizedDescription)) });
             return;
         }
     }
@@ -755,7 +738,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
     };
 
     NSDictionary *updateParams = @{
-        (id)kSecAttrLabel: requestOptions.rpId,
+        (id)kSecAttrApplicationLabel: nsCredentialId.get(),
     };
     auto status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)updateParams);
     if (status)
@@ -805,9 +788,7 @@ void LocalAuthenticator::deleteDuplicateCredential() const
     m_existingCredentials.findIf([creationOptions] (auto& credential) {
         auto* userHandle = credential->userHandle();
         ASSERT(userHandle);
-        if (userHandle->byteLength() != creationOptions.user.id.length())
-            return false;
-        if (memcmp(userHandle->data(), creationOptions.user.id.data(), userHandle->byteLength()))
+        if (!equalSpans(userHandle->span(), creationOptions.user.id.span()))
             return false;
 
         NSDictionary *query = @{

@@ -60,7 +60,6 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 // TextMarker and TextMarkerRange API constants.
 
 // TextMarker attributes:
-#define AXTextMarkerIsNullAttribute @"AXTextMarkerIsNull"
 #define AXTextMarkerIsValidAttribute @"AXTextMarkerIsValid"
 #define AXIndexForTextMarkerAttribute @"AXIndexForTextMarker"
 #define AXTextMarkerForIndexAttribute @"AXTextMarkerForIndex"
@@ -74,14 +73,11 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 #define AXEndTextMarkerAttribute @"AXEndTextMarker"
 
 // TextMarkerRange creation:
-#define AXTextMarkerRangeForNSRangeAttribute @"AXTextMarkerRangeForNSRange"
 #define AXTextMarkerRangeForTextMarkersAttribute @"AXTextMarkerRangeForTextMarkers"
 #define AXTextMarkerRangeForUnorderedTextMarkersAttribute @"AXTextMarkerRangeForUnorderedTextMarkers"
 
 // TextMarkerRange attributes:
 #define AXLengthForTextMarkerRangeAttribute @"AXLengthForTextMarkerRange"
-#define AXStartTextMarkerForTextMarkerRangeAttribute @"AXStartTextMarkerForTextMarkerRange"
-#define AXEndTextMarkerForTextMarkerRangeAttribute @"AXEndTextMarkerForTextMarkerRange"
 
 // Text extraction:
 #define AXStringForTextMarkerRangeAttribute @"AXStringForTextMarkerRange"
@@ -125,6 +121,11 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 #define AXSelectedTextMarkerRangeAttribute @"AXSelectedTextMarkerRange"
 #define AXStyleTextMarkerRangeForTextMarkerAttribute @"AXStyleTextMarkerRangeForTextMarker"
 
+// Private attributes exposed only for testing:
+#define _AXStartTextMarkerForTextMarkerRangeAttribute @"_AXStartTextMarkerForTextMarkerRange"
+#define _AXEndTextMarkerForTextMarkerRangeAttribute @"_AXEndTextMarkerForTextMarkerRange"
+#define _AXTextMarkerRangeForNSRangeAttribute @"_AXTextMarkerRangeForNSRange"
+
 #if ENABLE(TREE_DEBUGGING)
 #define AXTextMarkerDebugDescriptionAttribute @"AXTextMarkerDebugDescription"
 #define AXTextMarkerRangeDebugDescriptionAttribute @"AXTextMarkerRangeDebugDescription"
@@ -134,10 +135,8 @@ extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 
 @interface WebAccessibilityObjectWrapper : WebAccessibilityObjectWrapperBase
 
-- (RetainPtr<AXTextMarkerRef>)textMarkerForFirstPositionInTextControl:(WebCore::HTMLTextFormControlElement&)textControl;
-
 // When a plugin uses a WebKit control to act as a surrogate view (e.g. PDF use WebKit to create text fields).
-- (id)associatedPluginParent;
+- (id)_associatedPluginParent;
 
 @end
 
@@ -175,5 +174,7 @@ CharacterOffset characterOffsetForTextMarker(AXObjectCache*, AXTextMarkerRef);
 AXTextMarkerRef startOrEndTextMarkerForRange(AXObjectCache*, const std::optional<SimpleRange>&, bool isStart);
 AXTextMarkerRangeRef textMarkerRangeFromRange(AXObjectCache*, const std::optional<SimpleRange>&);
 std::optional<SimpleRange> rangeForTextMarkerRange(AXObjectCache*, AXTextMarkerRangeRef);
+
+NSArray *renderWidgetChildren(const AXCoreObject&);
 
 } // namespace WebCore

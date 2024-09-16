@@ -32,6 +32,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/URL.h>
 #include <wtf/glib/ChassisType.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 #if OS(UNIX)
@@ -46,14 +47,14 @@
 
 namespace WebCore {
 
-static const char* platformForUAString()
+static ASCIILiteral platformForUAString()
 {
 #if OS(MACOS)
-    return "Macintosh";
+    return "Macintosh"_s;
 #else
     if (chassisType() == WTF::ChassisType::Mobile)
-        return "Linux";
-    return "X11";
+        return "Linux"_s;
+    return "X11"_s;
 #endif
 }
 
@@ -65,7 +66,7 @@ static const String platformVersionForUAString()
 
     struct utsname name;
     uname(&name);
-    static NeverDestroyed<const String> uaOSVersion(makeString(name.sysname, ' ', name.machine));
+    static NeverDestroyed<const String> uaOSVersion(makeString(span(name.sysname), ' ', span(name.machine)));
     return uaOSVersion;
 #else
     // We will always claim to be Safari in Intel Mac OS X, since Safari without
@@ -78,14 +79,14 @@ static const String platformVersionForUAString()
 static String buildUserAgentString(const UserAgentQuirks& quirks)
 {
     StringBuilder uaString;
-    uaString.append("Mozilla/5.0 (");
+    uaString.append("Mozilla/5.0 ("_s);
 
     if (quirks.contains(UserAgentQuirks::NeedsMacintoshPlatform))
         uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsMacintoshPlatform));
     else {
-        uaString.append(platformForUAString(), "; ");
+        uaString.append(platformForUAString(), "; "_s);
 #if defined(USER_AGENT_BRANDING)
-        uaString.append(USER_AGENT_BRANDING "; ");
+        uaString.append(USER_AGENT_BRANDING "; "_s);
 #endif
         uaString.append(platformVersionForUAString());
     }
@@ -95,7 +96,7 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
         return uaString.toString();
     }
 
-    uaString.append(") AppleWebKit/605.1.15 (KHTML, like Gecko) ");
+    uaString.append(") AppleWebKit/605.1.15 (KHTML, like Gecko) "_s);
 
     // Note that Chrome UAs advertise *both* Chrome/X and Safari/X, but it does
     // not advertise Version/X.
@@ -104,11 +105,11 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
     } else
-        uaString.append("Version/17.0 ");
+        uaString.append("Version/17.0 "_s);
 
     if (chassisType() == WTF::ChassisType::Mobile)
-        uaString.append("Mobile ");
-    uaString.append("Safari/605.1.15");
+        uaString.append("Mobile "_s);
+    uaString.append("Safari/605.1.15"_s);
 
     return uaString.toString();
 }
@@ -137,7 +138,7 @@ String standardUserAgent(const String& applicationName, const String& applicatio
         String finalApplicationVersion = applicationVersion;
         if (finalApplicationVersion.isEmpty())
             finalApplicationVersion = "605.1.15"_s;
-        userAgent = standardUserAgentStatic() + ' ' + applicationName + '/' + finalApplicationVersion;
+        userAgent = makeString(standardUserAgentStatic(), ' ', applicationName, '/', finalApplicationVersion);
     }
 
     static bool checked = false;

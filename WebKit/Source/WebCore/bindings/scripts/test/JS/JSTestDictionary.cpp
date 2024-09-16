@@ -28,15 +28,15 @@
 namespace WebCore {
 using namespace JSC;
 
-template<> TestDictionary convertDictionary<TestDictionary>(JSGlobalObject& lexicalGlobalObject, JSValue value)
+template<> ConversionResult<IDLDictionary<TestDictionary>> convertDictionary<TestDictionary>(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
-    VM& vm = JSC::getVM(&lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
     if (UNLIKELY(!isNullOrUndefined && !object)) {
         throwTypeError(&lexicalGlobalObject, throwScope);
-        return { };
+        return ConversionResultException { };
     }
     TestDictionary result;
     JSValue memberValue;
@@ -44,11 +44,13 @@ template<> TestDictionary convertDictionary<TestDictionary>(JSGlobalObject& lexi
         memberValue = jsUndefined();
     else {
         memberValue = object->get(&lexicalGlobalObject, Identifier::fromString(vm, "member"_s));
-        RETURN_IF_EXCEPTION(throwScope, { });
+        RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     if (!memberValue.isUndefined()) {
-        result.member = convert<IDLDouble>(lexicalGlobalObject, memberValue);
-        RETURN_IF_EXCEPTION(throwScope, { });
+        auto memberConversionResult = convert<IDLDouble>(lexicalGlobalObject, memberValue);
+        if (UNLIKELY(memberConversionResult.hasException(throwScope)))
+            return ConversionResultException { };
+        result.member = memberConversionResult.releaseReturnValue();
     }
     return result;
 }

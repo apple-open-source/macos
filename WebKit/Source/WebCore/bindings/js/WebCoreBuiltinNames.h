@@ -120,6 +120,9 @@ namespace WebCore {
     macro(ContactsManager) \
     macro(ContentVisibilityAutoStateChangeEvent) \
     macro(ConvolverNode) \
+    macro(CreateHTMLCallback) \
+    macro(CreateScriptCallback) \
+    macro(CreateScriptURLCallback) \
     macro(Credential) \
     macro(CredentialsContainer) \
     macro(CryptoKey) \
@@ -179,6 +182,7 @@ namespace WebCore {
     macro(DecompressionStreamTransform) \
     macro(DelayNode) \
     macro(DeprecationReportBody) \
+    macro(DigitalCredential) \
     macro(DocumentTimeline) \
     macro(DynamicsCompressorNode) \
     macro(ElementInternals) \
@@ -201,6 +205,7 @@ namespace WebCore {
     macro(FileSystemFileHandle) \
     macro(FileSystemHandle) \
     macro(FileSystemSyncAccessHandle) \
+    macro(FragmentDirective) \
     macro(GainNode) \
     macro(GPU) \
     macro(GPUAdapter) \
@@ -266,6 +271,7 @@ namespace WebCore {
     macro(IDBTransaction) \
     macro(IDBVersionChangeEvent) \
     macro(IIRFilterNode) \
+    macro(IdentityCredentialsContainer) \
     macro(ImageBitmap) \
     macro(ImageBitmapRenderingContext) \
     macro(ImageCapture) \
@@ -297,10 +303,12 @@ namespace WebCore {
     macro(MediaRecorderErrorEvent) \
     macro(MediaSessionCoordinator) \
     macro(MediaSource) \
+    macro(MediaSourceHandle) \
     macro(MediaStream) \
     macro(MediaStreamAudioDestinationNode) \
     macro(MediaStreamAudioSourceNode) \
     macro(MediaStreamTrack) \
+    macro(MediaStreamTrackProcessor) \
     macro(MerchantValidationEvent) \
     macro(MockRTCRtpTransform) \
     macro(NavigateEvent) \
@@ -311,6 +319,7 @@ namespace WebCore {
     macro(NavigationPreloadManager) \
     macro(NavigationTransition) \
     macro(NavigatorCredentials) \
+    macro(NavigatorIdentity) \
     macro(NavigatorMediaDevices) \
     macro(NavigatorPermissions) \
     macro(NavigatorUserMedia) \
@@ -437,6 +446,12 @@ namespace WebCore {
     macro(ToggleEvent) \
     macro(TransformStream) \
     macro(TransformStreamDefaultController) \
+    macro(TrustedHTML) \
+    macro(TrustedScript) \
+    macro(TrustedScriptURL) \
+    macro(TrustedTypePolicy) \
+    macro(TrustedTypePolicyFactory) \
+    macro(TrustedTypePolicyOptions) \
     macro(UndoItem) \
     macro(UndoManager) \
     macro(VideoDecoder) \
@@ -445,6 +460,7 @@ namespace WebCore {
     macro(ViewTimeline) \
     macro(ViewTransition) \
     macro(VisualViewport) \
+    macro(WGSLLanguageFeatures) \
     macro(WakeLock) \
     macro(WakeLockSentinel) \
     macro(WaveShaperNode) \
@@ -508,11 +524,11 @@ namespace WebCore {
     macro(XRViewerPose) \
     macro(XRViewport) \
     macro(XRWebGLLayer) \
+    macro(VideoTrackGenerator) \
     macro(abortAlgorithm) \
     macro(abortSteps) \
     macro(addAbortAlgorithmToSignal) \
     macro(appendFromJS) \
-    macro(applicationCache) \
     macro(associatedReadableByteStreamController) \
     macro(autoAllocateChunkSize) \
     macro(backingMap) \
@@ -692,6 +708,7 @@ namespace WebCore {
     macro(textEncoderStreamEncoder) \
     macro(textEncoderStreamTransform) \
     macro(transformAlgorithm) \
+    macro(trustedTypes) \
     macro(underlyingByteSource) \
     macro(underlyingSink) \
     macro(underlyingSource) \

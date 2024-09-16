@@ -29,18 +29,22 @@
 #include "EditorState.h"
 #include "InputMethodState.h"
 #include "PageClientImpl.h"
+#include "WebProcessProxy.h"
 #include <WebCore/PlatformEvent.h>
+
+#if USE(ATK)
+#include <atk/atk.h>
+#endif
 
 #if ENABLE(WPE_PLATFORM)
 #include <wpe/wpe-platform.h>
 #endif
 
-#if ENABLE(ACCESSIBILITY)
-#include <atk/atk.h>
+#if USE(GBM)
+#include "DMABufRendererBufferFormat.h"
 #endif
 
 #if USE(GBM) && ENABLE(WPE_PLATFORM)
-#include "DMABufRendererBufferFormat.h"
 #include "MessageSenderInlines.h"
 #include "WebPageMessages.h"
 #endif
@@ -65,10 +69,12 @@ WPEView* WebPageProxy::wpeView() const
 
 void WebPageProxy::bindAccessibilityTree(const String& plugID)
 {
-#if ENABLE(ACCESSIBILITY)
+#if USE(ATK)
     auto* accessible = static_cast<PageClientImpl&>(pageClient()).accessible();
     atk_socket_embed(ATK_SOCKET(accessible), const_cast<char*>(plugID.utf8().data()));
     atk_object_notify_state_change(accessible, ATK_STATE_TRANSIENT, FALSE);
+#else
+    UNUSED_PARAM(plugID);
 #endif
 }
 
@@ -101,16 +107,16 @@ Vector<DMABufRendererBufferFormat> WebPageProxy::preferredBufferFormats() const
     if (!view)
         return { };
 
-    GList* formats = wpe_view_get_preferred_dma_buf_formats(view);
+    auto* formats = wpe_view_get_preferred_dma_buf_formats(view);
     if (!formats)
         return { };
 
     Vector<DMABufRendererBufferFormat> dmabufFormats;
-    dmabufFormats.reserveInitialCapacity(g_list_length(formats));
-    for (GList* i = formats; i; i = g_list_next(i)) {
-        auto* format = static_cast<WPEBufferDMABufFormat*>(i->data);
+    const char* mainDevice = wpe_buffer_dma_buf_formats_get_device(formats);
+    auto groupCount = wpe_buffer_dma_buf_formats_get_n_groups(formats);
+    for (unsigned i = 0; i < groupCount; ++i) {
         DMABufRendererBufferFormat dmabufFormat;
-        switch (wpe_buffer_dma_buf_format_get_usage(format)) {
+        switch (wpe_buffer_dma_buf_formats_get_group_usage(formats, i)) {
         case WPE_BUFFER_DMA_BUF_FORMAT_USAGE_RENDERING:
             dmabufFormat.usage = DMABufRendererBufferFormat::Usage::Rendering;
             break;
@@ -121,15 +127,24 @@ Vector<DMABufRendererBufferFormat> WebPageProxy::preferredBufferFormats() const
             dmabufFormat.usage = DMABufRendererBufferFormat::Usage::Scanout;
             break;
         }
-        dmabufFormat.fourcc = wpe_buffer_dma_buf_format_get_fourcc(format);
-        auto* modifiers = wpe_buffer_dma_buf_format_get_modifiers(format);
-        dmabufFormat.modifiers.reserveInitialCapacity(modifiers->len);
-        for (guint i = 0; i < modifiers->len; ++i) {
-            guint64* mod = &g_array_index(modifiers, guint64, i);
-            dmabufFormat.modifiers.append(*mod);
+        const char* targetDevice = wpe_buffer_dma_buf_formats_get_group_device(formats, i);
+        dmabufFormat.drmDevice = targetDevice ? targetDevice : mainDevice;
+        auto formatsCount = wpe_buffer_dma_buf_formats_get_group_n_formats(formats, i);
+        dmabufFormat.formats.reserveInitialCapacity(formatsCount);
+        for (unsigned j = 0; j < formatsCount; ++j) {
+            DMABufRendererBufferFormat::Format format;
+            format.fourcc = wpe_buffer_dma_buf_formats_get_format_fourcc(formats, i, j);
+            auto* modifiers = wpe_buffer_dma_buf_formats_get_format_modifiers(formats, i, j);
+            format.modifiers.reserveInitialCapacity(modifiers->len);
+            for (unsigned k = 0; k < modifiers->len; ++k) {
+                auto* modifier = &g_array_index(modifiers, guint64, k);
+                format.modifiers.append(*modifier);
+            }
+            dmabufFormat.formats.append(WTFMove(format));
         }
         dmabufFormats.append(WTFMove(dmabufFormat));
     }
+
     return dmabufFormats;
 #else
     return { };
@@ -143,7 +158,7 @@ void WebPageProxy::preferredBufferFormatsDidChange()
     if (!view)
         return;
 
-    send(Messages::WebPage::PreferredBufferFormatsDidChange(preferredBufferFormats()));
+    legacyMainFrameProcess().send(Messages::WebPage::PreferredBufferFormatsDidChange(preferredBufferFormats()), webPageIDInMainFrameProcess());
 }
 #endif
 #endif
@@ -174,6 +189,20 @@ OptionSet<WebCore::PlatformEvent::Modifier> WebPageProxy::currentStateOfModifier
     return modifiers;
 #else
     return { };
+#endif
+}
+
+void WebPageProxy::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
+{
+    if (!hasRunningProcess() || !m_drawingArea) {
+        callback();
+        return;
+    }
+
+#if USE(COORDINATED_GRAPHICS)
+    static_cast<PageClientImpl&>(pageClient()).callAfterNextPresentationUpdate(WTFMove(callback));
+#else
+    callback();
 #endif
 }
 

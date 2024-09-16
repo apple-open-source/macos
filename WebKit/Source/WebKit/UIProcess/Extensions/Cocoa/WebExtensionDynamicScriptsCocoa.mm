@@ -31,6 +31,8 @@
 #import "WebExtensionDynamicScripts.h"
 
 #if ENABLE(WK_WEB_EXTENSIONS)
+#import "APIData.h"
+#import "CocoaHelpers.h"
 #import "WKContentWorld.h"
 #import "WKFrameInfoPrivate.h"
 #import "WKWebViewInternal.h"
@@ -90,23 +92,44 @@ std::optional<SourcePair> sourcePairForResource(String path, RefPtr<WebExtension
 SourcePairs getSourcePairsForParameters(const WebExtensionScriptInjectionParameters& parameters, RefPtr<WebExtension> extension)
 {
     if (parameters.files) {
-        SourcePairs sourcePairs;
-        for (auto& file : parameters.files.value())
-            sourcePairs.append(sourcePairForResource(file, extension));
-        return sourcePairs;
+        return WTF::compactMap(parameters.files.value(), [&](auto& file) -> std::optional<SourcePair> {
+            return sourcePairForResource(file, extension);
+        });
     }
 
-    return { SourcePair { parameters.code.value_or(parameters.function.value_or(parameters.css.value_or(""_s))), std::nullopt } };
+    return { SourcePair { parameters.code.value_or(parameters.function.value_or(parameters.css.value_or(""_s))), URL { } } };
 }
 
-void executeScript(std::optional<SourcePairs> scriptPairs, WKWebView *webView, API::ContentWorld& executionWorld, WebExtensionTab *tab, const WebExtensionScriptInjectionParameters& parameters, WebExtensionContext& context, CompletionHandler<void(InjectionResultHolder&)>&& completionHandler)
+class InjectionResultHolder : public RefCounted<InjectionResultHolder> {
+    WTF_MAKE_NONCOPYABLE(InjectionResultHolder);
+    WTF_MAKE_FAST_ALLOCATED;
+
+public:
+    template<typename... Args>
+    static Ref<InjectionResultHolder> create(Args&&... args)
+    {
+        return adoptRef(*new InjectionResultHolder(std::forward<Args>(args)...));
+    }
+
+    InjectionResultHolder() = default;
+
+    InjectionResults results;
+};
+
+void executeScript(const SourcePairs& scriptPairs, WKWebView *webView, API::ContentWorld& executionWorld, WebExtensionTab& tab, const WebExtensionScriptInjectionParameters& parameters, WebExtensionContext& context, CompletionHandler<void(InjectionResults&&)>&& completionHandler)
 {
     auto injectionResults = InjectionResultHolder::create();
     auto aggregator = MainRunLoopCallbackAggregator::create([injectionResults, completionHandler = WTFMove(completionHandler)]() mutable {
-        completionHandler(injectionResults);
+        completionHandler(WTFMove(injectionResults->results));
     });
 
-    [webView _frames:makeBlockPtr([webView = RetainPtr { webView }, tab, context = Ref { context }, scriptPairs, executionWorld = Ref { executionWorld }, injectionResults, aggregator, parameters](_WKFrameTreeNode *mainFrame) mutable {
+    [webView _frames:makeBlockPtr([webView = RetainPtr { webView }, tab = Ref { tab }, context = Ref { context }, scriptPairs, executionWorld = Ref { executionWorld }, injectionResults, aggregator, parameters](_WKFrameTreeNode *mainFrame) mutable {
+        if (!mainFrame.info.isMainFrame) {
+            RELEASE_LOG_INFO(Extensions, "Not executing script because the mainFrame is nil");
+            injectionResults->results.append(toInjectionResultParameters(nil, nil, @"Failed to execute script."));
+            return;
+        }
+
         WKContentWorld *world = executionWorld->wrapper();
         Vector<RetainPtr<_WKFrameTreeNode>> frames = getFrames(mainFrame, parameters.frameIDs);
 
@@ -114,23 +137,24 @@ void executeScript(std::optional<SourcePairs> scriptPairs, WKWebView *webView, A
             WKFrameInfo *frameInfo = frame.get().info;
             NSURL *frameURL = frameInfo.request.URL;
 
-            if (!context->hasPermission(frameURL, tab)) {
+            if (!context->hasPermission(frameURL, tab.ptr())) {
                 injectionResults->results.append(toInjectionResultParameters(nil, frameInfo, @"Failed to execute script. Extension does not have access to this frame."));
                 continue;
             }
 
             if (parameters.function) {
                 NSString *javaScript = [NSString stringWithFormat:@"return (%@)(...arguments)", (NSString *)parameters.function.value()];
-                NSArray *arguments = parameters.arguments ? createNSArray(parameters.arguments.value()).get() : @[ ];
+                NSArray *arguments = parameters.arguments ? parseJSON(parameters.arguments.value(), JSONOptions::FragmentsAllowed) : @[ ];
 
                 [webView _callAsyncJavaScript:javaScript arguments:@{ @"arguments": arguments } inFrame:frameInfo inContentWorld:world completionHandler:makeBlockPtr([injectionResults, aggregator, frameInfo](id resultOfExecution, NSError *error) mutable {
                     injectionResults->results.append(toInjectionResultParameters(resultOfExecution, frameInfo, error.localizedDescription));
                 }).get()];
+
                 continue;
             }
 
-            for (auto& script : scriptPairs.value()) {
-                [webView _evaluateJavaScript:script.value().first withSourceURL:script.value().second.value_or(URL { }) inFrame:frameInfo inContentWorld:executionWorld->wrapper() completionHandler:makeBlockPtr([injectionResults, aggregator, frameInfo](id resultOfExecution, NSError *error) mutable {
+            for (auto& script : scriptPairs) {
+                [webView _evaluateJavaScript:script.first withSourceURL:script.second inFrame:frameInfo inContentWorld:executionWorld->wrapper() completionHandler:makeBlockPtr([injectionResults, aggregator, frameInfo](id resultOfExecution, NSError *error) mutable {
                     injectionResults->results.append(toInjectionResultParameters(resultOfExecution, frameInfo, error.localizedDescription));
                 }).get()];
             }
@@ -138,16 +162,13 @@ void executeScript(std::optional<SourcePairs> scriptPairs, WKWebView *webView, A
     }).get()];
 }
 
-void injectStyleSheets(SourcePairs styleSheetPairs, WKWebView *webView, API::ContentWorld& executionWorld, WebCore::UserContentInjectedFrames injectedFrames, WebExtensionContext& context)
+void injectStyleSheets(const SourcePairs& styleSheetPairs, WKWebView *webView, API::ContentWorld& executionWorld, WebCore::UserStyleLevel styleLevel, WebCore::UserContentInjectedFrames injectedFrames, WebExtensionContext& context)
 {
     auto page = webView._page;
-    auto pageID = page->webPageID();
+    auto pageID = page->webPageIDInMainFrameProcess();
 
     for (auto& styleSheet : styleSheetPairs) {
-        if (!styleSheet)
-            continue;
-
-        auto userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { styleSheet.value().first, styleSheet.value().second.value_or(URL { }), Vector<String> { }, Vector<String> { }, injectedFrames, WebCore::UserStyleLevel::User, pageID }, executionWorld);
+        auto userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { styleSheet.first, styleSheet.second, Vector<String> { }, Vector<String> { }, injectedFrames, styleLevel, pageID }, executionWorld);
 
         auto& controller = page.get()->userContentController();
         controller.addUserStyleSheet(userStyleSheet);
@@ -156,14 +177,14 @@ void injectStyleSheets(SourcePairs styleSheetPairs, WKWebView *webView, API::Con
     }
 }
 
-void removeStyleSheets(SourcePairs styleSheetPairs, WKWebView *webView,  WebCore::UserContentInjectedFrames injectedFrames, WebExtensionContext& context)
+void removeStyleSheets(const SourcePairs& styleSheetPairs, WKWebView *webView,  WebCore::UserContentInjectedFrames injectedFrames, WebExtensionContext& context)
 {
     UserStyleSheetVector styleSheetsToRemove;
     auto& dynamicallyInjectedUserStyleSheets = context.dynamicallyInjectedUserStyleSheets();
 
     for (auto& styleSheetContent : styleSheetPairs) {
         for (auto& userStyleSheet : dynamicallyInjectedUserStyleSheets) {
-            if (userStyleSheetMatchesContent(userStyleSheet, styleSheetContent.value(), injectedFrames)) {
+            if (userStyleSheetMatchesContent(userStyleSheet, styleSheetContent, injectedFrames)) {
                 styleSheetsToRemove.append(userStyleSheet);
                 auto& controller = webView._page.get()->userContentController();
                 controller.removeUserStyleSheet(userStyleSheet);
@@ -182,7 +203,7 @@ WebExtensionScriptInjectionResultParameters toInjectionResultParameters(id resul
     WebExtensionScriptInjectionResultParameters parameters;
 
     if (resultOfExecution)
-        parameters.result = resultOfExecution;
+        parameters.resultJSON = encodeJSONString(resultOfExecution, JSONOptions::FragmentsAllowed);
 
     if (info)
         parameters.frameID = toWebExtensionFrameIdentifier(info);
@@ -191,13 +212,6 @@ WebExtensionScriptInjectionResultParameters toInjectionResultParameters(id resul
         parameters.error = errorMessage;
 
     return parameters;
-}
-
-WebExtensionRegisteredScript::WebExtensionRegisteredScript(WebExtensionContext& extensionContext, const WebExtensionRegisteredScriptParameters& parameters)
-    : m_extensionContext(extensionContext)
-    , m_parameters(parameters)
-{
-
 }
 
 void WebExtensionRegisteredScript::updateParameters(const WebExtensionRegisteredScriptParameters& parameters)

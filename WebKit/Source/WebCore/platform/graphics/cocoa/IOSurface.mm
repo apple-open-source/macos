@@ -36,6 +36,7 @@
 #import "ProcessIdentity.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/Assertions.h>
+#import <wtf/EnumTraits.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/MathExtras.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -242,6 +243,10 @@ IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSu
     case Format::YUV422:
         options = optionsForBiplanarSurface(size, '422f', 1, 1, name);
         break;
+    case Format::RGBX:
+    case Format::RGBA:
+        options = optionsFor32BitSurface(size, 'RGBA', name);
+        break;
     }
     m_surface = adoptCF(IOSurfaceCreate((CFDictionaryRef)options));
     success = !!m_surface;
@@ -249,7 +254,7 @@ IOSurface::IOSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSu
         setColorSpaceProperty();
         m_totalBytes = IOSurfaceGetAllocSize(m_surface.get());
     } else
-        RELEASE_LOG_ERROR(Layers, "IOSurface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), format);
+        RELEASE_LOG_ERROR(Layers, "IOSurface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), enumToUnderlyingType(format));
 }
 
 static std::optional<IOSurface::Format> formatFromSurface(IOSurfaceRef surface)
@@ -268,6 +273,9 @@ static std::optional<IOSurface::Format> formatFromSurface(IOSurfaceRef surface)
 
     if (pixelFormat == '422f')
         return IOSurface::Format::YUV422;
+
+    if (pixelFormat == 'RGBA')
+        return IOSurface::Format::RGBA;
 
     return { };
 }
@@ -422,6 +430,11 @@ IOSurface::BitmapConfiguration IOSurface::bitmapConfiguration() const
     case Format::YUV422:
         ASSERT_NOT_REACHED();
         break;
+    case Format::RGBX:
+        bitmapInfo = static_cast<CGBitmapInfo>(kCGImageAlphaNoneSkipFirst) | static_cast<CGBitmapInfo>(kCGBitmapByteOrder32Host);
+        break;
+    case Format::RGBA:
+        break;
     }
 
     return { bitmapInfo, bitsPerComponent };
@@ -431,7 +444,7 @@ RetainPtr<CGContextRef> IOSurface::createCompatibleBitmap(unsigned width, unsign
 {
     auto configuration = bitmapConfiguration();
     auto bitsPerPixel = configuration.bitsPerComponent * 4;
-    auto bytesPerRow = width * bitsPerPixel;
+    auto bytesPerRow = roundUpToMultipleOfNonPowerOfTwo(bytesPerRowAlignment(), width * (bitsPerPixel / 8));
 
     ensureColorSpace();
     return adoptCF(CGBitmapContextCreate(NULL, width, height, configuration.bitsPerComponent, bytesPerRow, m_colorSpace->platformColorSpace(), configuration.bitmapInfo));
@@ -638,33 +651,6 @@ std::optional<DestinationColorSpace> IOSurface::surfaceColorSpace() const
     return DestinationColorSpace { colorSpaceCF };
 }
 
-IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
-{
-    switch (format) {
-    case PixelFormat::RGBA8:
-        RELEASE_ASSERT_NOT_REACHED();
-        return IOSurface::Format::BGRA;
-    case PixelFormat::BGRX8:
-        return IOSurface::Format::BGRX;
-    case PixelFormat::BGRA8:
-        return IOSurface::Format::BGRA;
-#if HAVE(IOSURFACE_RGB10)
-    case PixelFormat::RGB10:
-        return IOSurface::Format::RGB10;
-    case PixelFormat::RGB10A8:
-        return IOSurface::Format::RGB10A8;
-#else
-    case PixelFormat::RGB10:
-    case PixelFormat::RGB10A8:
-        RELEASE_ASSERT_NOT_REACHED();
-        return IOSurface::Format::BGRA;
-#endif
-    }
-
-    ASSERT_NOT_REACHED();
-    return IOSurface::Format::BGRA;
-}
-
 IOSurface::Name IOSurface::nameForRenderingPurpose(RenderingPurpose purpose)
 {
     switch (purpose) {
@@ -719,6 +705,12 @@ TextStream& operator<<(TextStream& ts, IOSurface::Format format)
         ts << "RGB10A8";
         break;
 #endif
+    case IOSurface::Format::RGBX:
+        ts << "RGBX";
+        break;
+    case IOSurface::Format::RGBA:
+        ts << "RGBA";
+        break;
     }
     return ts;
 }

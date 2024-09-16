@@ -1,0 +1,25 @@
+# Syntax documentation:
+# https://docs.mibexsoftware.com/codeowners/owner-rules
+
+# Groups
+@@@Admins @mpalmur @joshua_otto
+@@@Maintainers @joshua_otto @aaron_morrison
+@@@XZone @@Maintainers @jarrad @daming_chen
+@@@Exclaves @@Maintainers @daming_chen
+@@@PGM @@Maintainers @jlettner
+@@@Sanitizers @@Maintainers @u_hameed @m_borsa @daming_chen
+
+# For each changed file in the PR, exactly one rule is applied.
+# Last matched rule takes precedence.
+
+# Default
+* @@Maintainers
+
+# Protect this file
+CODEOWNERS @@Admins
+
+# Specific
+*exclave* @@Exclaves
+*xzone* @@XZone
+*pgm* @@PGM
+*sanitizer* @@Sanitizers

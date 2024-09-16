@@ -73,6 +73,7 @@ struct Dwarf_Attribute_s {
 
     Dwarf_CU_Context ar_cu_context;
     Dwarf_Small *ar_debug_info_ptr;
+	Dwarf_Unsigned implicit_const_val;
     Dwarf_Attribute ar_next;
 };
 
@@ -101,6 +102,7 @@ struct Dwarf_CU_Context_s {
     Dwarf_Small cc_length_size;
     Dwarf_Small cc_extension_size;
     Dwarf_Half cc_version_stamp;
+	Dwarf_Small cc_unit_type;
     Dwarf_Sword cc_abbrev_offset;
     Dwarf_Small cc_address_size;
     Dwarf_Word cc_debug_info_offset;
@@ -109,7 +111,6 @@ struct Dwarf_CU_Context_s {
     Dwarf_CU_Context cc_next;
     unsigned char cc_offset_length;
 };
-
 
 struct Dwarf_Debug_s {
     dwarf_elf_handle de_elf; /* see de_elf_must_close at end of struct */
@@ -192,6 +193,7 @@ struct Dwarf_Debug_s {
     Dwarf_Small *de_debug_str;
     Dwarf_Small *de_debug_frame;
     Dwarf_Small *de_debug_pubtypes; /* DWARF3 .debug_pubtypes */
+	Dwarf_Small *de_debug_str_offset; /* DWARF5 .debug_str_offsets */
     Dwarf_Small *de_debug_frame_eh_gnu;	/* gnu for the g++ eh_frame
 					   section */
 
@@ -200,6 +202,7 @@ struct Dwarf_Debug_s {
 			identical to DWARF3 .debug_pubtypes. */
     Dwarf_Small *de_debug_varnames;
     Dwarf_Small *de_debug_weaknames;
+	Dwarf_Small de_debug_str_offset_entry_size; /* DWARF5 .debug_str_offsets*/
 
     Dwarf_Unsigned de_debug_info_size;
     Dwarf_Unsigned de_debug_abbrev_size;
@@ -210,6 +213,8 @@ struct Dwarf_Debug_s {
     Dwarf_Unsigned de_debug_pubnames_size;
     Dwarf_Unsigned de_debug_str_size;
     Dwarf_Unsigned de_debug_pubtypes_size; /* DWARF3 .debug_pubtypes*/
+	Dwarf_Unsigned de_debug_str_offset_size; /* DWARF5 .debug_str_offsets*/
+	Dwarf_Unsigned de_debug_str_offset_header_size; /* DWARF5 .debug_str_offsets*/
 
 
     Dwarf_Unsigned de_debug_frame_size;
@@ -252,6 +257,7 @@ struct Dwarf_Debug_s {
     Dwarf_Half de_debug_info_index;
     Dwarf_Half de_debug_abbrev_index;
     Dwarf_Half de_debug_pubtypes_index; /* DWARF3 .debug_pubtypes */
+	Dwarf_Half de_debug_str_offset_index; /* DWARF5 .debug_str_offsets */
 
     /* Default is DW_FRAME_INITIAL_VALUE from header. */
     Dwarf_Half de_frame_rule_initial_value;  
@@ -274,6 +280,7 @@ struct Dwarf_Chain_s {
 #define CURRENT_VERSION_STAMP		2 /* DWARF2 */
 #define CURRENT_VERSION_STAMP3		3 /* DWARF3 */
 #define CURRENT_VERSION_STAMP4		4 /* DWARF4 */
+#define CURRENT_VERSION_STAMP5		5 /* DWARF5 */
 
     /* Size of cu header version stamp field. */
 #define CU_VERSION_STAMP_SIZE   sizeof(Dwarf_Half)

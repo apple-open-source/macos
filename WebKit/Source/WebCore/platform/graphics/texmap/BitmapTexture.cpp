@@ -51,7 +51,25 @@ static const GLenum s_pixelDataType = GL_UNSIGNED_INT_8_8_8_8_REV;
 static const GLenum s_pixelDataType = GL_UNSIGNED_BYTE;
 #endif
 
+// On GLES3, the format we want for packed depth stencil is GL_DEPTH24_STENCIL8, but when added through
+// the extension this format is called GL_DEPTH24_STENCIL8_OES. In any case they hold the same value 0x88F0
+// so we can just use the first one.
+// These definitions may not exist if this is a GLES1/2 context without the GL_OES_packed_depth_stencil
+// extension. We need to define the one we want to use in order to build on every case.
+#ifndef GL_DEPTH24_STENCIL8
+#define GL_DEPTH24_STENCIL8 0x88F0
+#endif
+
 namespace WebCore {
+
+GLenum depthBufferFormat()
+{
+    auto* glContext = GLContext::current();
+    if (glContext->version() >= 300 || glContext->glExtensions().OES_packed_depth_stencil)
+        return GL_DEPTH24_STENCIL8;
+
+    return GL_DEPTH_COMPONENT16;
+}
 
 BitmapTexture::BitmapTexture(const IntSize& size, OptionSet<Flags> flags, GLint internalFormat)
     : m_flags(flags)
@@ -59,6 +77,9 @@ BitmapTexture::BitmapTexture(const IntSize& size, OptionSet<Flags> flags, GLint 
     , m_internalFormat(internalFormat == GL_DONT_CARE ? GL_RGBA : internalFormat)
     , m_format(GL_RGBA)
 {
+    GLint boundTexture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
+
     glGenTextures(1, &m_id);
     glBindTexture(GL_TEXTURE_2D, m_id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -66,6 +87,8 @@ BitmapTexture::BitmapTexture(const IntSize& size, OptionSet<Flags> flags, GLint 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, m_internalFormat, m_size.width(), m_size.height(), 0, m_format, s_pixelDataType, nullptr);
+
+    glBindTexture(GL_TEXTURE_2D, boundTexture);
 }
 
 void BitmapTexture::reset(const IntSize& size, OptionSet<Flags> flags)
@@ -86,7 +109,11 @@ void BitmapTexture::updateContents(const void* srcData, const IntRect& targetRec
     // We are updating a texture with format RGBA with content from a buffer that has BGRA format. Instead of turning BGRA
     // into RGBA and then uploading it, we upload it as is. This causes the texture format to be RGBA but the content to be BGRA,
     // so we mark the texture to convert the colors when painting the texture.
+#if CPU(LITTLE_ENDIAN)
     m_colorConvertFlags = TextureMapperFlags::ShouldConvertTextureBGRAToRGBA;
+#else
+    m_colorConvertFlags = TextureMapperFlags::ShouldConvertTextureARGBToRGBA;
+#endif
 
     glBindTexture(GL_TEXTURE_2D, m_id);
 
@@ -141,23 +168,24 @@ void BitmapTexture::updateContents(NativeImage* frameImage, const IntRect& targe
     if (!frameImage)
         return;
 
-    int bytesPerLine;
-    const uint8_t* imageData;
-
 #if USE(CAIRO)
     cairo_surface_t* surface = frameImage->platformImage().get();
-    imageData = cairo_image_surface_get_data(surface);
-    bytesPerLine = cairo_image_surface_get_stride(surface);
-#endif
+    const uint8_t* imageData = cairo_image_surface_get_data(surface);
+    int bytesPerLine = cairo_image_surface_get_stride(surface);
 
     updateContents(imageData, targetRect, offset, bytesPerLine);
+#else
+    UNUSED_PARAM(targetRect);
+    UNUSED_PARAM(offset);
+    RELEASE_ASSERT_NOT_REACHED();
+#endif
 }
 
 void BitmapTexture::updateContents(GraphicsLayer* sourceLayer, const IntRect& targetRect, const IntPoint& offset, float scale)
 {
     // Making an unconditionally unaccelerated buffer here is OK because this code
     // isn't used by any platforms that respect the accelerated bit.
-    auto imageBuffer = ImageBuffer::create(targetRect.size(), RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    auto imageBuffer = ImageBuffer::create(targetRect.size(), RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
     if (!imageBuffer)
         return;
 
@@ -181,18 +209,29 @@ void BitmapTexture::updateContents(GraphicsLayer* sourceLayer, const IntRect& ta
 
 void BitmapTexture::initializeStencil()
 {
-#if !USE(TEXMAP_DEPTH_STENCIL_BUFFER)
-    if (m_rbo)
+    if (m_flags.contains(Flags::DepthBuffer)) {
+        // We have a depth buffer and we're asked to have a stencil buffer as well. This is only
+        // possible if packed depth stencil is available. If that's the case, just bind the depth
+        // buffer as the stencil one if haven't done so. If packed depth stencil is not available
+        // don't do anything, which will cause stencil clips on this surface to fail.
+        if (depthBufferFormat() == GL_DEPTH24_STENCIL8 && !m_stencilBound) {
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthBufferObject);
+            m_stencilBound = true;
+        }
+        return;
+    }
+
+    // We don't have a depth buffer. Use a stencil only buffer.
+    if (m_stencilBufferObject)
         return;
 
-    glGenRenderbuffers(1, &m_rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, m_rbo);
+    glGenRenderbuffers(1, &m_stencilBufferObject);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBufferObject);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, m_size.width(), m_size.height());
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_rbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBufferObject);
     glClearStencil(0);
     glClear(GL_STENCIL_BUFFER_BIT);
-#endif
 }
 
 void BitmapTexture::initializeDepthBuffer()
@@ -200,15 +239,9 @@ void BitmapTexture::initializeDepthBuffer()
     if (m_depthBufferObject)
         return;
 
-#if USE(TEXMAP_DEPTH_STENCIL_BUFFER)
-    GLenum format = GL_DEPTH24_STENCIL8_OES;
-#else
-    GLenum format = GL_DEPTH_COMPONENT16;
-#endif
-
     glGenRenderbuffers(1, &m_depthBufferObject);
     glBindRenderbuffer(GL_RENDERBUFFER, m_depthBufferObject);
-    glRenderbufferStorage(GL_RENDERBUFFER, format, m_size.width(), m_size.height());
+    glRenderbufferStorage(GL_RENDERBUFFER, depthBufferFormat(), m_size.width(), m_size.height());
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBufferObject);
 }
@@ -260,17 +293,23 @@ BitmapTexture::~BitmapTexture()
     if (m_fbo)
         glDeleteFramebuffers(1, &m_fbo);
 
-#if !USE(TEXMAP_DEPTH_STENCIL_BUFFER)
-    if (m_rbo)
-        glDeleteRenderbuffers(1, &m_rbo);
-#endif
-
     if (m_depthBufferObject)
         glDeleteRenderbuffers(1, &m_depthBufferObject);
+
+    if (m_stencilBufferObject)
+        glDeleteRenderbuffers(1, &m_stencilBufferObject);
 }
 
 void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID)
 {
+    copyFromExternalTexture(sourceTextureID, { 0, 0, m_size.width(), m_size.height() }, { });
+}
+
+void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID, const IntRect& targetRect, const IntSize& sourceOffset)
+{
+    RELEASE_ASSERT(sourceOffset.width() + targetRect.width() <= m_size.width());
+    RELEASE_ASSERT(sourceOffset.height() + targetRect.height() <= m_size.height());
+
     GLint boundTexture = 0;
     GLint boundFramebuffer = 0;
     GLint boundActiveTexture = 0;
@@ -288,13 +327,18 @@ void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID)
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, id());
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, m_size.width(), m_size.height());
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, targetRect.x(), targetRect.y(), sourceOffset.width(), sourceOffset.height(), targetRect.width(), targetRect.height());
 
     glBindTexture(GL_TEXTURE_2D, boundTexture);
     glBindFramebuffer(GL_FRAMEBUFFER, boundFramebuffer);
     glBindTexture(GL_TEXTURE_2D, boundTexture);
     glActiveTexture(boundActiveTexture);
     glDeleteFramebuffers(1, &copyFbo);
+}
+
+void BitmapTexture::copyFromExternalTexture(BitmapTexture& sourceTexture, const IntRect& sourceRect, const IntSize& destinationOffset)
+{
+    copyFromExternalTexture(sourceTexture.id(), sourceRect, destinationOffset);
 }
 
 } // namespace WebCore

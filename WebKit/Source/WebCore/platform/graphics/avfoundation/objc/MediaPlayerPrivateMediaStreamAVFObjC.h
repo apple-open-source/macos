@@ -54,10 +54,10 @@ enum class VideoFrameRotation : uint16_t;
 class MediaPlayerPrivateMediaStreamAVFObjC final
     : public MediaPlayerPrivateInterface
     , public RefCounted<MediaPlayerPrivateMediaStreamAVFObjC>
-    , private MediaStreamPrivate::Observer
-    , public MediaStreamTrackPrivate::Observer
+    , private MediaStreamPrivateObserver
+    , public MediaStreamTrackPrivateObserver
     , public RealtimeMediaSource::VideoFrameObserver
-    , public SampleBufferDisplayLayer::Client
+    , public SampleBufferDisplayLayerClient
     , private LoggerHelper
 {
 public:
@@ -86,13 +86,13 @@ public:
     void destroyLayers();
 
     const Logger& logger() const final { return m_logger.get(); }
-    const char* logClassName() const override { return "MediaPlayerPrivateMediaStreamAVFObjC"; }
+    ASCIILiteral logClassName() const override { return "MediaPlayerPrivateMediaStreamAVFObjC"_s; }
     const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
     WTFLogChannel& logChannel() const final;
 
-    using MediaStreamTrackPrivate::Observer::weakPtrFactory;
-    using MediaStreamTrackPrivate::Observer::WeakValueType;
-    using MediaStreamTrackPrivate::Observer::WeakPtrImplType;
+    using MediaStreamTrackPrivateObserver::weakPtrFactory;
+    using MediaStreamTrackPrivateObserver::WeakValueType;
+    using MediaStreamTrackPrivateObserver::WeakPtrImplType;
 
 private:
     PlatformLayer* rootLayer() const;
@@ -114,7 +114,7 @@ private:
     void prepareToPlay() override;
     PlatformLayer* platformLayer() const override;
     
-    bool supportsPictureInPicture() const override;
+    bool supportsPictureInPicture() const final { return true; }
     bool supportsFullscreen() const override { return true; }
 
     void play() override;
@@ -131,12 +131,12 @@ private:
     bool hasVideo() const override;
     bool hasAudio() const override;
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
     void setVisibleForCanvas(bool) final;
     void setVisibleInViewport(bool) final;
 
-    MediaTime durationMediaTime() const override;
-    MediaTime currentMediaTime() const override;
+    MediaTime duration() const override;
+    MediaTime currentTime() const override;
 
     void seekToTarget(const SeekTarget&) final { };
     bool seeking() const final { return false; }
@@ -212,7 +212,7 @@ private:
     };
     bool playing() const { return m_playbackState == PlaybackState::Playing; }
 
-    // MediaStreamPrivate::Observer
+    // MediaStreamPrivateObserver
     void activeStatusChanged() override;
     void characteristicsChanged() override;
     void didAddTrack(MediaStreamTrackPrivate&) override;
@@ -287,8 +287,11 @@ private:
     const void* m_logIdentifier;
     std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
 
-    // SampleBufferDisplayLayer::Client
+    // SampleBufferDisplayLayerClient
     void sampleBufferDisplayLayerStatusDidFail() final;
+#if PLATFORM(IOS_FAMILY)
+    bool canShowWhileLocked() const final;
+#endif
 
     RetainPtr<WebRootSampleBufferBoundsChangeListener> m_boundsChangeListener;
 
@@ -305,6 +308,7 @@ private:
     bool m_waitingForFirstImage { false };
     bool m_isActiveVideoTrackEnabled { true };
     bool m_hasEnqueuedBlackFrame { false };
+    bool m_isMediaLayerRehosting { true };
 
     uint64_t m_sampleCount { 0 };
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };

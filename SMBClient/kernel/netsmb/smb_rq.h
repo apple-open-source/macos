@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,8 +52,11 @@
                                     /* Note: we need to remove this in Sarah */
 #define	SMBR_SIGNED         0x0400	/* SMB 2/3 sign this packet */
 #define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
-#define SMBR_ALT_CH_DISCON 0x10000  /* An alternate channel got disconnected. Pass all requests to another channel. */
-#define SMBR_ENQUEUED      0x20000  /* Debugging sanity check */
+#define SMBR_ALT_CH_DISCON  0x10000  /* An alternate channel got disconnected. Pass all requests to another channel. */
+#define SMBR_ENQUEUED       0x20000  /* Debugging sanity check */
+
+#define SMBR_COMPRESSED     0x40000  /* Request or Reply is compressed IO */
+#define SMBR_DONT_COMPRESS  0x80000  /* Write request is not allowed to be compressed */
 
 /* smb_t2rq t2_flags and smb_ntrq nt_flags */
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
@@ -133,7 +136,8 @@ struct smb_rq {
     /* Used by SMB 1 and SMB 2/3 */
 	uint32_t		sr_seqno;
 	uint32_t		sr_rseqno;
-	struct mbchain	sr_rq;
+    struct mbchain  sr_rq;
+    struct mbchain  sr_rq_compressed;
     struct mdchain	sr_rp;
     uint8_t			*sr_rqsig;
 	uint32_t		sr_ntstatus;

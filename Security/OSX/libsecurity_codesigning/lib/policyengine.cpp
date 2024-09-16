@@ -77,6 +77,17 @@ PolicyEngine::PolicyEngine()
 	}
 }
 
+PolicyEngine::PolicyEngine(const char *path)
+	: PolicyDatabase(path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOFOLLOW)
+{
+	try {
+		mOpaqueAllowlist = new OpaqueAllowlist();
+	} catch (...) {
+		mOpaqueAllowlist = NULL;
+		secerror("Failed opening the gkopaque database.");
+	}
+}
+
 PolicyEngine::~PolicyEngine()
 {
 	delete mOpaqueAllowlist;

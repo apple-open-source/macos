@@ -74,7 +74,22 @@
 				<string>/AppleInternal/XCTests/com.apple.security/AuthorizationTests.xctest</string>
 			</array>
 			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_AuthorizationTest</string>
+			<string>BATS_UTD_Disabled_AuthorizationTests</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>AuthorizationRootTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/AuthorizationRootTests.xctest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_AuthorizationRootTests</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -189,6 +204,18 @@
 			<string>BATS_UTD_Disabled_SecCodeSignerAPITest</string>
 			<key>ShowSubtestResults</key>
 			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecurityUnitTestsMacOS</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/UnlockKeychainAndRunSecurityUnitTests.sh</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecurityUnitTestsMacOS</string>
 		</dict>
 		<dict>
 			<key>TestName</key>

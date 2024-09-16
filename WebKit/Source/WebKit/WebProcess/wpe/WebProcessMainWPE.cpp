@@ -39,6 +39,14 @@
 #include <WebCore/GStreamerCommon.h>
 #endif
 
+#if USE(SKIA)
+#include <skia/core/SkGraphics.h>
+#endif
+
+#if USE(SYSPROF_CAPTURE)
+#include <wtf/SystemTracing.h>
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -46,8 +54,16 @@ class WebProcessMainWPE final : public AuxiliaryProcessMainBase<WebProcess> {
 public:
     bool platformInitialize() override
     {
+#if USE(SYSPROF_CAPTURE)
+        SysprofAnnotator::createIfNeeded("WebKit (Web)"_s);
+#endif
+
 #if USE(GCRYPT)
         PAL::GCrypt::initialize();
+#endif
+
+#if USE(SKIA)
+        SkGraphics::Init();
 #endif
 
 #if ENABLE(DEVELOPER_MODE)

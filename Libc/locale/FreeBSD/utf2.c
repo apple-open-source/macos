@@ -59,7 +59,7 @@ typedef struct {
 } _UTF2State;
 
 int
-_UTF2_init(struct __xlocale_st_runelocale *xrl)
+_UTF2_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _UTF2_mbrtowc;

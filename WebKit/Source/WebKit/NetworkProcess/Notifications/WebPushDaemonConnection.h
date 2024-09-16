@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
 
 #include "DaemonConnection.h"
 #include "MessageSender.h"
@@ -46,9 +46,9 @@ namespace WebPushD {
 
 struct ConnectionTraits {
     using MessageType = WebPushD::MessageType;
-    static constexpr const char* protocolVersionKey { WebPushD::protocolVersionKey };
+    static constexpr auto protocolVersionKey { WebPushD::protocolVersionKey };
     static constexpr uint64_t protocolVersionValue { WebPushD::protocolVersionValue };
-    static constexpr const char* protocolEncodedMessageKey { WebPushD::protocolEncodedMessageKey };
+    static constexpr auto protocolEncodedMessageKey { WebPushD::protocolEncodedMessageKey };
 };
 
 class Connection : public Daemon::ConnectionToMachService<ConnectionTraits>, public IPC::MessageSender {
@@ -62,7 +62,7 @@ public:
 private:
     void newConnectionWasInitialized() const final;
 #if PLATFORM(COCOA)
-    RetainPtr<xpc_object_t> dictionaryFromMessage(MessageType, Daemon::EncodedMessage&&) const final { return nullptr; }
+    OSObjectPtr<xpc_object_t> dictionaryFromMessage(MessageType, Daemon::EncodedMessage&&) const final { return nullptr; }
     void connectionReceivedEvent(xpc_object_t) final { }
 #endif
     void sendDebugModeIsEnabledMessageIfNecessary() const;
@@ -82,4 +82,4 @@ private:
 } // namespace WebPushD
 } // namespace WebKit
 
-#endif // ENABLE(BUILT_IN_NOTIFICATIONS)
+#endif // ENABLE(WEB_PUSH_NOTIFICATIONS)

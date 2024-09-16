@@ -14,14 +14,23 @@
 #include "hfs-tests.h"
 #include "test-utils.h"
 #include "disk-image.h"
+#include "../../core/hfs_fsctl.h"
 
-TEST(doc_tombstone)
+TEST(doc_tombstone, .run_as_root = true)
+
+#define DOC_ID_DMG	"/tmp/test_doc_id.sparseimage"
+#define DOC_ID_MNT	"/tmp/test_doc_id_mnt"
 
 int run_doc_tombstone(__unused test_ctx_t *ctx)
 {
-	
-	disk_image_t *di = disk_image_get();
-	
+	disk_image_opts_t opts = {
+		.mount_point = DOC_ID_MNT,
+		.enable_owners = true
+	};
+
+	disk_image_t *di = disk_image_create(DOC_ID_DMG, &opts);
+	assert_no_err(chmod(DOC_ID_MNT, 0777));
+
 	char *file;
 	char *new;
 	char *old;
@@ -280,6 +289,43 @@ int run_doc_tombstone(__unused test_ctx_t *ctx)
 	assert_equal(orig_doc_id, attrs.doc_id, "%u");
 	
 	assert_no_err(rmdir(file));
+
+	// permissions tests
+	char *src;
+	char *dest;
+	asprintf(&src, "%s/doc-id-transfer-src", di->mount_point);
+	asprintf(&dest, "%s/doc-id-transfer-dest", di->mount_point);
+	const uid_t user_uid = 501;
+
+	// user fails to transfer from a file owned by root to a file owned by user
+	assert_equal_int(geteuid(), 0);
+	assert_with_errno((fd = open(src, O_RDWR | O_CREAT, 0644)) >= 0);
+	assert_no_err(chflags(src, UF_TRACKED));
+	assert_no_err(seteuid(user_uid));
+	assert_with_errno((fd = open(dest, O_RDWR | O_CREAT, 0644)) >= 0);
+	assert_call_fail(fsctl(src, HFSIOC_TRANSFER_DOCUMENT_ID, &fd, 0), EACCES);
+	assert_no_err(close(fd));
+	assert_no_err(seteuid(0));
+
+	// user fails to transfer from a file owned by user to a file owned by root
+	assert_no_err(chown(src, user_uid, -1));
+	assert_no_err(chown(dest, 0, -1));
+	assert_no_err(seteuid(user_uid));
+	assert_with_errno((fd = open(dest, O_RDONLY)) >= 0);
+	assert_call_fail(fsctl(src, HFSIOC_TRANSFER_DOCUMENT_ID, &fd, 0), EACCES);
+	assert_no_err(close(fd));
+	assert_no_err(seteuid(0));
+
+	// user succeeds to transfer from a file owned by user to another file owned by user
+	assert_no_err(chown(dest, user_uid, -1));
+	assert_no_err(seteuid(user_uid));
+	assert_with_errno((fd = open(dest, O_RDONLY)) >= 0);
+	assert_no_err(fsctl(src, HFSIOC_TRANSFER_DOCUMENT_ID, &fd, 0));
+	assert_no_err(close(fd));
+	assert_no_err(seteuid(0));
+
+	assert_no_err(unlink(src));
+	assert_no_err(unlink(dest));
 
 	return 0;
 }

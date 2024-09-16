@@ -227,7 +227,7 @@ void ServicesOverlayController::selectedTelephoneNumberRangesChanged()
 
 void ServicesOverlayController::invalidateHighlightsOfType(DataDetectorHighlight::Type type)
 {
-    if (!m_page.settings().serviceControlsEnabled())
+    if (!m_page->settings().serviceControlsEnabled())
         return;
 
     m_dirtyHighlightTypes.add(type);
@@ -248,8 +248,8 @@ void ServicesOverlayController::buildPotentialHighlightsIfNeeded()
     m_dirtyHighlightTypes = { };
 
     if (m_potentialHighlights.isEmpty()) {
-        if (m_servicesOverlay)
-            m_page.pageOverlayController().uninstallPageOverlay(*m_servicesOverlay, PageOverlay::FadeMode::DoNotFade);
+        if (RefPtr servicesOverlay = m_servicesOverlay.get())
+            m_page->pageOverlayController().uninstallPageOverlay(*servicesOverlay, PageOverlay::FadeMode::DoNotFade);
         return;
     }
 
@@ -278,15 +278,14 @@ Seconds ServicesOverlayController::remainingTimeUntilHighlightShouldBeShown(Data
     if (!highlight)
         return 0_s;
 
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page.mainFrame());
+    Ref page = m_page.get();
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
     if (!localMainFrame)
         return 0_s;
 
     Seconds minimumTimeUntilHighlightShouldBeShown = 200_ms;
-    RefPtr focusedOrMainFrame = CheckedRef(m_page.focusController())->focusedOrMainFrame();
-    if (!focusedOrMainFrame)
-        return 0_s;
-    if (focusedOrMainFrame->selection().selection().isContentEditable())
+    RefPtr focusedOrMainFrame = page->checkedFocusController()->focusedOrMainFrame();
+    if (focusedOrMainFrame && focusedOrMainFrame->selection().selection().isContentEditable())
         minimumTimeUntilHighlightShouldBeShown = 1_s;
 
     bool mousePressed = localMainFrame->eventHandler().mousePressed();
@@ -339,12 +338,13 @@ void ServicesOverlayController::removeAllPotentialHighlightsOfType(DataDetectorH
 
 void ServicesOverlayController::buildPhoneNumberHighlights()
 {
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page.mainFrame());
+    Ref page = m_page.get();
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
     if (!localMainFrame)
         return;
 
     Vector<SimpleRange> phoneNumberRanges;
-    for (Frame* frame = &m_page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
+    for (Frame* frame = &page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
         auto* localFrame = dynamicDowncast<LocalFrame>(frame);
         if (!localFrame)
             continue;
@@ -378,12 +378,8 @@ void ServicesOverlayController::buildPhoneNumberHighlights()
         rect.setLocation(mainFrameView.windowToContents(viewForRange->contentsToWindow(rect.location())));
 
         CGRect cgRect = rect;
-#if HAVE(DD_HIGHLIGHT_CREATE_WITH_SCALE)
         auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, &cgRect, 1, mainFrameView.visibleContentRect(), static_cast<DDHighlightStyle>(DDHighlightStyleBubbleStandard) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow), YES, NSWritingDirectionNatural, NO, YES, 0));
-#else
-        auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection(nullptr, &cgRect, 1, mainFrameView.visibleContentRect(), static_cast<DDHighlightStyle>(DDHighlightStyleBubbleStandard) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow), YES, NSWritingDirectionNatural, NO, YES));
-#endif
-        auto highlight = DataDetectorHighlight::createForTelephoneNumber(m_page, *this, WTFMove(ddHighlight), WTFMove(range));
+        auto highlight = DataDetectorHighlight::createForTelephoneNumber(*this, WTFMove(ddHighlight), WTFMove(range));
         m_highlights.add(highlight.get());
         newPotentialHighlights.add(WTFMove(highlight));
     }
@@ -403,8 +399,9 @@ void ServicesOverlayController::buildSelectionHighlight()
 
     HashSet<RefPtr<DataDetectorHighlight>> newPotentialHighlights;
 
-    if (auto selectionRange = m_page.selection().firstRange()) {
-        RefPtr mainFrameView = m_page.mainFrame().virtualView();
+    Ref page = m_page.get();
+    if (auto selectionRange = page->selection().firstRange()) {
+        RefPtr mainFrameView = page->mainFrame().virtualView();
         if (!mainFrameView)
             return;
 
@@ -420,12 +417,8 @@ void ServicesOverlayController::buildSelectionHighlight()
 
         if (!cgRects.isEmpty()) {
             CGRect visibleRect = mainFrameView->visibleContentRect();
-#if HAVE(DD_HIGHLIGHT_CREATE_WITH_SCALE)
             auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, cgRects.begin(), cgRects.size(), visibleRect, static_cast<DDHighlightStyle>(DDHighlightStyleBubbleNone) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow) | static_cast<DDHighlightStyle>(DDHighlightStyleButtonShowAlways), YES, NSWritingDirectionNatural, NO, YES, 0));
-#else
-            auto ddHighlight = adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection(nullptr, cgRects.begin(), cgRects.size(), visibleRect, static_cast<DDHighlightStyle>(DDHighlightStyleBubbleNone) | static_cast<DDHighlightStyle>(DDHighlightStyleStandardIconArrow) | static_cast<DDHighlightStyle>(DDHighlightStyleButtonShowAlways), YES, NSWritingDirectionNatural, NO, YES));
-#endif
-            auto highlight = DataDetectorHighlight::createForSelection(m_page, *this, WTFMove(ddHighlight), WTFMove(*selectionRange));
+            auto highlight = DataDetectorHighlight::createForSelection(*this, WTFMove(ddHighlight), WTFMove(*selectionRange));
             m_highlights.add(highlight.get());
             newPotentialHighlights.add(WTFMove(highlight));
         }
@@ -464,7 +457,7 @@ void ServicesOverlayController::replaceHighlightsOfTypePreservingEquivalentHighl
 
 bool ServicesOverlayController::hasRelevantSelectionServices()
 {
-    return m_page.chrome().client().hasRelevantSelectionServices(m_isTextOnly);
+    return m_page->chrome().client().hasRelevantSelectionServices(m_isTextOnly);
 }
 
 void ServicesOverlayController::createOverlayIfNeeded()
@@ -472,17 +465,18 @@ void ServicesOverlayController::createOverlayIfNeeded()
     if (m_servicesOverlay)
         return;
 
-    if (!m_page.settings().serviceControlsEnabled())
+    Ref page = m_page.get();
+    if (!page->settings().serviceControlsEnabled())
         return;
 
     auto overlay = PageOverlay::create(*this, PageOverlay::OverlayType::Document);
     m_servicesOverlay = overlay.ptr();
-    m_page.pageOverlayController().installPageOverlay(WTFMove(overlay), PageOverlay::FadeMode::DoNotFade);
+    page->pageOverlayController().installPageOverlay(WTFMove(overlay), PageOverlay::FadeMode::DoNotFade);
 }
 
 Vector<SimpleRange> ServicesOverlayController::telephoneNumberRangesForFocusedFrame()
 {
-    RefPtr focusedOrMainFrame = CheckedRef(m_page.focusController())->focusedOrMainFrame();
+    RefPtr focusedOrMainFrame = m_page->checkedFocusController()->focusedOrMainFrame();
     if (!focusedOrMainFrame)
         return { };
     return focusedOrMainFrame->editor().detectedTelephoneNumberRanges();
@@ -493,7 +487,7 @@ DataDetectorHighlight* ServicesOverlayController::findTelephoneNumberHighlightCo
     if (selectionHighlight.type() != DataDetectorHighlight::Type::Selection)
         return nullptr;
 
-    auto selectionRange = m_page.selection().toNormalizedRange();
+    auto selectionRange = m_page->selection().toNormalizedRange();
     if (!selectionRange)
         return nullptr;
 
@@ -580,7 +574,7 @@ void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActive
 
 bool ServicesOverlayController::mouseEvent(PageOverlay&, const PlatformMouseEvent& event)
 {
-    m_mousePosition = m_page.mainFrame().virtualView()->windowToContents(event.position());
+    m_mousePosition = m_page->mainFrame().virtualView()->windowToContents(event.position());
 
     bool mouseIsOverActiveHighlightButton = false;
     determineActiveHighlight(mouseIsOverActiveHighlightButton);
@@ -643,13 +637,14 @@ void ServicesOverlayController::didScrollFrame(PageOverlay&, LocalFrame& frame)
 
 void ServicesOverlayController::handleClick(const IntPoint& clickPoint, DataDetectorHighlight& highlight)
 {
-    RefPtr frameView = m_page.mainFrame().virtualView();
+    Ref page = m_page.get();
+    RefPtr frameView = page->mainFrame().virtualView();
     if (!frameView)
         return;
 
     IntPoint windowPoint = frameView->contentsToWindow(clickPoint);
 
-    RefPtr focusedOrMainFrame = CheckedRef(m_page.focusController())->focusedOrMainFrame();
+    RefPtr focusedOrMainFrame = page->checkedFocusController()->focusedOrMainFrame();
     if (!focusedOrMainFrame)
         return;
 
@@ -658,10 +653,31 @@ void ServicesOverlayController::handleClick(const IntPoint& clickPoint, DataDete
             return plainText(range);
         });
 
-        m_page.chrome().client().handleSelectionServiceClick(focusedOrMainFrame->selection(), WTFMove(selectedTelephoneNumbers), windowPoint);
+        page->chrome().client().handleSelectionServiceClick(focusedOrMainFrame->selection(), WTFMove(selectedTelephoneNumbers), windowPoint);
     } else if (highlight.type() == DataDetectorHighlight::Type::TelephoneNumber)
-        m_page.chrome().client().handleTelephoneNumberClick(plainText(highlight.range()), windowPoint, frameView->contentsToWindow(focusedOrMainFrame->editor().firstRectForRange(highlight.range())));
+        page->chrome().client().handleTelephoneNumberClick(plainText(highlight.range()), windowPoint, frameView->contentsToWindow(focusedOrMainFrame->editor().firstRectForRange(highlight.range())));
 }
+
+#pragma mark - DataDetectorHighlightClient
+
+#if ENABLE(DATA_DETECTION)
+
+void ServicesOverlayController::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps)
+{
+    protectedPage()->scheduleRenderingUpdate(requestedSteps);
+}
+
+float ServicesOverlayController::deviceScaleFactor() const
+{
+    return protectedPage()->deviceScaleFactor();
+}
+
+RefPtr<GraphicsLayer> ServicesOverlayController::createGraphicsLayer(GraphicsLayerClient& client)
+{
+    return GraphicsLayer::create(protectedPage()->chrome().client().graphicsLayerFactory(), client);
+}
+
+#endif
 
 } // namespace WebKit
 

@@ -151,15 +151,15 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             // The zone does not exist! CloudKit will tell us that the deletion failed.
             if(!self.creationError) {
                 self.creationError = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:@{
-                                                                                                                               CKErrorRetryAfterKey: @(0.2),
-                                                                                                                               }];
+                    CKErrorRetryAfterKey: @(0.2),
+                }];
             }
 
             // There really should be a better way to do this...
             NSMutableDictionary* newDictionary = [self.creationError.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
             NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
             newPartials[zoneID] = [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorZoneNotFound
-                                                               userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: zone '%@' not found", zoneID.zoneName]}];
+                                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: zone '%@' not found", zoneID.zoneName]}];
             newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
 
             self.creationError = [[NSError alloc] initWithDomain:self.creationError.domain code:self.creationError.code userInfo:newDictionary];
@@ -236,14 +236,14 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             // This is an error: the zone doesn't exist
             ckksnotice("fakeck", subscription.zoneID, "failing subscription for missing zone");
             self.subscriptionError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                      code:CKErrorPartialFailure
-                                                                  userInfo:@{
-                                                                             CKErrorRetryAfterKey: @(0.2),
-                                                                             CKPartialErrorsByItemIDKey:
-                                                                                 @{subscription.zoneID:[[NSError alloc] initWithDomain:CKErrorDomain
-                                                                                                                                        code:CKErrorZoneNotFound
-                                                                                                                                    userInfo:@{}]}
-                                                                                                      }];
+                                                                code:CKErrorPartialFailure
+                                                            userInfo:@{
+                CKErrorRetryAfterKey: @(0.2),
+                CKPartialErrorsByItemIDKey:
+                    @{subscription.zoneID:[[NSError alloc] initWithDomain:CKErrorDomain
+                                                                     code:CKErrorZoneNotFound
+                                                                 userInfo:@{}]}
+            }];
 
         } else if(fakezone.subscriptionError) {
             ckksnotice("fakeck", subscription.zoneID, "failing subscription with injected error %@", fakezone.subscriptionError);
@@ -336,6 +336,34 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     return true;
 }
 
+- (NSMutableArray<CKRecordID*>*) obtainReverseSortedRecordIDs:(FakeCKZone*)zone
+                                                   fetchToken:(FakeCKServerChangeToken* _Nullable)fetchToken
+                                                 limitFetchTo:(FakeCKServerChangeToken* _Nullable)limitFetchTo
+{
+    NSDictionary<CKRecordID*, CKRecord*>* db = fetchToken ? zone.pastDatabases[fetchToken.token] : zone.currentDatabase;
+    NSArray<CKRecordID*>* reversedRecordIDs = [db keysSortedByValueUsingComparator:^NSComparisonResult(CKRecord*  _Nonnull record1, CKRecord*  _Nonnull record2) {
+        NSInteger etag1 = [record1.etag integerValue];
+        NSInteger etag2 = [record2.etag integerValue];
+        
+        if (etag1 > etag2) {
+            return NSOrderedAscending;
+        } else if (etag1 < etag2) {
+            return NSOrderedDescending;
+        }
+        return NSOrderedSame;
+    }];
+    
+    NSMutableArray<CKRecordID*>* reversedRecordIDsMutable = [NSMutableArray arrayWithArray:reversedRecordIDs];
+    if (limitFetchTo) {
+        for (CKRecordID* recordIDToDelete in [zone.pastDatabases[limitFetchTo.token] allKeys]) {
+            [reversedRecordIDsMutable removeObject:recordIDToDelete];
+        }
+    }
+
+    return reversedRecordIDsMutable;
+    
+}
+
 - (void)main {
     // iterate through database, and return items that aren't in lastDatabase
     FakeCKDatabase* ckdb = [FakeCKFetchRecordZoneChangesOperation ckdb];
@@ -345,16 +373,21 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
     for(CKRecordZoneID* zoneID in self.recordZoneIDs) {
         FakeCKZone* zone = ckdb[zoneID];
+        BOOL fetchNewestChangesFirst = NO;
+
         if(!zone) {
             // Only really supports a single zone failure
             ckksnotice("fakeck", zoneID, "Fetched for a missing zone %@", zoneID);
             NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                          code:CKErrorZoneNotFound
-                                                                      userInfo:@{}];
+                                                                    code:CKErrorZoneNotFound
+                                                                userInfo:@{}];
             NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                              code:CKErrorPartialFailure
-                                                          userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
+                                                        code:CKErrorPartialFailure
+                                                    userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
 
+            if (self.blockAfterFetch) {
+                self.blockAfterFetch();
+            }
             self.fetchRecordZoneChangesCompletionBlock(error);
             return;
         }
@@ -376,72 +409,155 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             return;
         }
 
-        // Extract the database at the last time they asked
-        CKServerChangeToken* fetchToken = self.configurationsByRecordZoneID[zoneID].previousServerChangeToken;
-        __block NSDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
-        __block NSDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
-        __block CKServerChangeToken* currentChangeToken = nil;
-        __block bool moreComing = false;
+        // Extract the previousServerChangeToken used for syncing. If we have no previousServerChangeToken, this implies either 1) a fresh sync or 2) a resync, both of which will be done in reverse.
+        FakeCKServerChangeToken *fetchTokenWithDirection = nil;
+        if (self.configurationsByRecordZoneID[zoneID].previousServerChangeToken) {
+            fetchTokenWithDirection = [FakeCKServerChangeToken decodeCKServerChangeToken:self.configurationsByRecordZoneID[zoneID].previousServerChangeToken];
+        }
+        ckksnotice("fakeck", zone.zoneID, "fetch token: %@", fetchTokenWithDirection);
 
-        __block NSError* opError = nil;
+        // Set direction of fetch either using previous fetch token, or we assume reverse sync with nil fetch token.
+        fetchNewestChangesFirst = fetchTokenWithDirection ? !fetchTokenWithDirection.forward : YES;
 
-        dispatch_sync(zone.queue, ^{
-            lastDatabase = fetchToken ? zone.pastDatabases[fetchToken] : nil;
+        // Forward Sync
+        if (!fetchNewestChangesFirst) {
+            __block NSDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
+            __block NSDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
+            __block FakeCKServerChangeToken* currentChangeToken = nil;
+            __block bool moreComing = false;
 
-            // You can fetch with the current change token; that's fine
-            if([fetchToken isEqual:zone.currentChangeToken]) {
-                lastDatabase = zone.currentDatabase;
+            __block NSError* opError = nil;
+
+            dispatch_sync(zone.queue, ^{
+                lastDatabase = fetchTokenWithDirection ? zone.pastDatabases[fetchTokenWithDirection.token] : nil;
+
+                // You can fetch with the current change token; that's fine
+                if([fetchTokenWithDirection.token isEqual:zone.currentChangeToken.token]) {
+                    lastDatabase = zone.currentDatabase;
+                }
+
+                currentDatabase = zone.currentDatabase;
+                currentChangeToken = zone.currentChangeToken;
+
+                if (zone.limitFetchTo != nil) {
+                    currentDatabase = zone.pastDatabases[zone.limitFetchTo.token];
+                    currentChangeToken = zone.limitFetchTo;
+                    zone.limitFetchTo = nil;
+                    opError = zone.limitFetchError;
+                    moreComing = true;
+                }
+            });
+
+            ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@ database then: %@", zone.zoneID, currentDatabase, fetchTokenWithDirection, lastDatabase);
+
+            if(!lastDatabase && fetchTokenWithDirection) {
+                ckksnotice("fakeck", zone.zoneID, "no database for this change token: failing fetch with 'CKErrorChangeTokenExpired'");
+                self.fetchRecordZoneChangesCompletionBlock([[NSError alloc]
+                                                            initWithDomain:CKErrorDomain
+                                                            code:CKErrorPartialFailure userInfo:@{CKPartialErrorsByItemIDKey:
+                                                                                                      @{zoneID:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorChangeTokenExpired userInfo:@{}]}
+                                                                                                }]);
+                if (self.blockAfterFetch) {
+                    self.blockAfterFetch();
+                }
+                return;
             }
 
-            currentDatabase = zone.currentDatabase;
-            currentChangeToken = zone.currentChangeToken;
+            NSMutableDictionary<CKRecordID*, CKRecord*>* filteredCurrentDatabase = [currentDatabase mutableCopy];
+            NSMutableDictionary<CKRecordID*, CKRecord*>* filteredLastDatabase = [lastDatabase mutableCopy];
 
-            if (zone.limitFetchTo != nil) {
-                currentDatabase = zone.pastDatabases[zone.limitFetchTo];
-                currentChangeToken = zone.limitFetchTo;
-                zone.limitFetchTo = nil;
-                opError = zone.limitFetchError;
-                moreComing = true;
+            for(CKRecordID* recordID in zone.recordIDsToSkip) {
+                filteredCurrentDatabase[recordID] = nil;
+                filteredLastDatabase[recordID] = nil;
             }
-        });
 
-        ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@ database then: %@", zone.zoneID, currentDatabase, fetchToken, lastDatabase);
+            [filteredCurrentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
+                id last = [filteredLastDatabase objectForKey: recordID];
+                if(!last || ![record isEqual:last]) {
+                    self.recordChangedBlock(record);
+                }
+            }];
 
-        if(!lastDatabase && fetchToken) {
-            ckksnotice("fakeck", zone.zoneID, "no database for this change token: failing fetch with 'CKErrorChangeTokenExpired'");
-            self.fetchRecordZoneChangesCompletionBlock([[NSError alloc]
-                                                        initWithDomain:CKErrorDomain
-                                                        code:CKErrorPartialFailure userInfo:@{CKPartialErrorsByItemIDKey:
-                              @{zoneID:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorChangeTokenExpired userInfo:@{}]}
-                            }]);
-            return;
+            // iterate through lastDatabase, and delete items that aren't in database
+            [filteredLastDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
+                id current = [filteredCurrentDatabase objectForKey: recordID];
+                if(current == nil) {
+                    self.recordWithIDWasDeletedBlock(recordID, [record recordType]);
+                }
+            }];
+
+            // Record current serverChangeToken as previous serverChangeToken
+            NSKeyedArchiver *encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+            [currentChangeToken encodeWithCoder:encoder];
+            CKServerChangeToken* encodedChangeToken = [[CKServerChangeToken alloc] initWithData:encoder.encodedData];
+            self.recordZoneChangeTokensUpdatedBlock(zoneID, encodedChangeToken, nil);
+            self.recordZoneFetchCompletionBlock(zoneID, encodedChangeToken, nil, moreComing, opError);
         }
 
-        NSMutableDictionary<CKRecordID*, CKRecord*>* filteredCurrentDatabase = [currentDatabase mutableCopy];
-        NSMutableDictionary<CKRecordID*, CKRecord*>* filteredLastDatabase = [lastDatabase mutableCopy];
+        // Reverse sync
+        else {
+            __block NSMutableDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
+            __block FakeCKServerChangeToken* currentChangeToken = nil;
+            __block bool moreComing = false;
+            __block NSError* opError = nil;
+            __block NSMutableArray<CKRecordID*>* sortedCKRecordIDs = nil;
 
-        for(CKRecordID* recordID in zone.recordIDsToSkip) {
-            filteredCurrentDatabase[recordID] = nil;
-            filteredLastDatabase[recordID] = nil;
+            dispatch_sync(zone.queue, ^{
+
+                currentChangeToken = [[FakeCKServerChangeToken alloc] initWithAttributes:zone.currentChangeToken.token forward:NO];
+
+                // Limit the "latest" records returned to `limitFetchTo`
+                if (zone.limitFetchTo != nil) {
+                    currentChangeToken = zone.limitFetchTo;
+                    zone.limitFetchTo = nil;
+                    opError = zone.limitFetchError;
+                    moreComing = true;
+                }
+
+                // Obtain the record IDs in the diff between previous fetch token and current change token
+                sortedCKRecordIDs = [self obtainReverseSortedRecordIDs:zone fetchToken:fetchTokenWithDirection limitFetchTo:zone.limitFetchTo];
+                currentDatabase = [[NSMutableDictionary alloc] init];
+                for (CKRecordID* recordID in sortedCKRecordIDs) {
+                    currentDatabase[recordID] = zone.currentDatabase[recordID];
+                }
+
+                ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@", zone.zoneID, currentDatabase, fetchTokenWithDirection);
+
+                if(fetchTokenWithDirection && !zone.pastDatabases[fetchTokenWithDirection.token]) {
+                    ckksnotice("fakeck", zone.zoneID, "no previous state for this change token: failing fetch with 'CKErrorChangeTokenExpired'");
+                    self.fetchRecordZoneChangesCompletionBlock([[NSError alloc]
+                                                                initWithDomain:CKErrorDomain
+                                                                code:CKErrorPartialFailure userInfo:@{CKPartialErrorsByItemIDKey:
+                                                                                                          @{zoneID:[[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorChangeTokenExpired userInfo:@{}]}
+                                                                                                    }]);
+                    return;
+                }
+
+                NSMutableDictionary<CKRecordID*, CKRecord*>* filteredCurrentDatabase = [currentDatabase mutableCopy];
+
+                for(CKRecordID* recordID in zone.recordIDsToSkip) {
+                    filteredCurrentDatabase[recordID] = nil;
+                }
+
+                // Zone additions and modifications should be processed the same way regardless of forward sync or reverse sync. Deletions don't call `recordWithIDWasDeletedBlock`.
+
+                [filteredCurrentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
+                    self.recordChangedBlock(record);
+                }];
+
+                // If we no longer have more things coming and we are in reverse sync then we change to forward syncing
+                if (!moreComing) {
+                    currentChangeToken.forward = YES;
+                }
+
+                // Record current serverChangeToken as previous serverChangeToken
+                NSKeyedArchiver *encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+                [currentChangeToken encodeWithCoder:encoder];
+                CKServerChangeToken* encodedChangeToken = [[CKServerChangeToken alloc] initWithData:encoder.encodedData];
+                self.recordZoneChangeTokensUpdatedBlock(zoneID, encodedChangeToken, nil);
+                self.recordZoneFetchCompletionBlock(zoneID, encodedChangeToken, nil, moreComing, opError);
+            });
         }
-
-        [filteredCurrentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
-            id last = [filteredLastDatabase objectForKey: recordID];
-            if(!last || ![record isEqual:last]) {
-                self.recordChangedBlock(record);
-            }
-        }];
-
-        // iterate through lastDatabase, and delete items that aren't in database
-        [filteredLastDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
-            id current = [filteredCurrentDatabase objectForKey: recordID];
-            if(current == nil) {
-                self.recordWithIDWasDeletedBlock(recordID, [record recordType]);
-            }
-        }];
-
-        self.recordZoneChangeTokensUpdatedBlock(zoneID, currentChangeToken, nil);
-        self.recordZoneFetchCompletionBlock(zoneID, currentChangeToken, nil, moreComing, opError);
     }
 
     if(self.blockAfterFetch) {
@@ -498,11 +614,11 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         if(!zone) {
             ckksnotice("fakeck", zoneID, "Fetched for a missing zone %@", zoneID);
             NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                          code:CKErrorZoneNotFound
-                                                                      userInfo:@{}];
+                                                                    code:CKErrorZoneNotFound
+                                                                userInfo:@{}];
             NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                              code:CKErrorPartialFailure
-                                                          userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
+                                                        code:CKErrorPartialFailure
+                                                    userInfo:@{CKPartialErrorsByItemIDKey: @{zoneID:zoneNotFoundError}}];
 
             // Not strictly right, but good enough for now
             self.fetchRecordsCompletionBlock(nil, error);
@@ -531,7 +647,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             NSMutableDictionary* newDictionary = [operror.userInfo mutableCopy] ?: [NSMutableDictionary dictionary];
             NSMutableDictionary* newPartials = newDictionary[CKPartialErrorsByItemIDKey] ?: [NSMutableDictionary dictionary];
             newPartials[recordID] = [[NSError alloc] initWithDomain:operror.domain code:CKErrorUnknownItem
-                                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: no record of %@", recordID]}];
+                                                           userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Mock CloudKit: no record of %@", recordID]}];
             newDictionary[CKPartialErrorsByItemIDKey] = newPartials;
 
             operror = [[NSError alloc] initWithDomain:operror.domain code:operror.code userInfo:newDictionary];
@@ -582,10 +698,10 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
         // I'm really not sure if this is right, but...
         NSError* zoneNotFoundError = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                                      code:CKErrorZoneNotFound
-                                                                  userInfo:@{
-                                                                             CKErrorRetryAfterKey: @(0.2),
-                                                                             }];
+                                                                code:CKErrorZoneNotFound
+                                                            userInfo:@{
+            CKErrorRetryAfterKey: @(0.2),
+        }];
         self.queryCompletionBlock(nil, zoneNotFoundError);
         return;
     }
@@ -664,6 +780,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
 @interface FakeCKZone ()
 @property NSMutableArray<NSError*>* fetchErrors;
+@property int ctag;
 @end
 
 @implementation FakeCKZone
@@ -682,6 +799,8 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         _limitFetchTo = nil;
         _fetchRecordZoneChangesOperationCount = 0;
         _fetchRecordZoneChangesTimestamps = [[NSMutableArray alloc] init];
+        _ctag = 0;
+
         dispatch_sync(_queue, ^{
             [self _onqueueRollChangeToken];
         });
@@ -697,7 +816,8 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     dispatch_assert_queue(self.queue);
 
     NSData* changeToken = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
-    self.currentChangeToken = [[CKServerChangeToken alloc] initWithData: changeToken];
+    self.currentChangeToken = [[FakeCKServerChangeToken alloc] initWithAttributes:[[CKServerChangeToken alloc] initWithData: changeToken] forward:YES];
+    self.ctag += 1;
 }
 
 - (void)addToZone: (CKKSCKRecordHolder*) item zoneID: (CKRecordZoneID*) zoneID {
@@ -731,11 +851,12 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     dispatch_assert_queue(self.queue);
 
     // Save off this current databse
-    self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
+    self.pastDatabases[self.currentChangeToken.token] = [self.currentDatabase mutableCopy];
 
     [self _onqueueRollChangeToken];
 
-    record.etag = [self.currentChangeToken description];
+    record.etag = [@(self.ctag) stringValue];
+
     ckksnotice("fakeck", self.zoneID, "change tag: %@ %@", record.recordChangeTag, record.recordID);
     record.modificationDate = [NSDate date];
     self.currentDatabase[record.recordID] = record;
@@ -779,14 +900,14 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
         // TODO: doesn't yet support CKRecordChangedErrorAncestorRecordKey, since I don't understand it
         return [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorServerRecordChanged
-                                            userInfo:@{CKRecordChangedErrorClientRecordKey:record,
-                                                       CKRecordChangedErrorServerRecordKey:existingRecord}];
+                                      userInfo:@{CKRecordChangedErrorClientRecordKey:record,
+                                                 CKRecordChangedErrorServerRecordKey:existingRecord}];
     }
 
     if(!existingRecord && record.etag != nil) {
         ckksnotice("fakeck", self.zoneID, "update to a record that doesn't exist! Fail the write: %@", record);
         return [[NSError alloc] initWithDomain:CKErrorDomain code:CKErrorUnknownItem
-                                            userInfo:nil];
+                                      userInfo:nil];
     }
     return nil;
 }
@@ -812,7 +933,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     dispatch_sync(self.queue, ^{
         ckksnotice("fakeck", self.zoneID, "Change token before server-deleted record is : %@", self.currentChangeToken);
 
-        self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
+        self.pastDatabases[self.currentChangeToken.token] = [self.currentDatabase mutableCopy];
         [self _onqueueRollChangeToken];
 
         [self.currentDatabase removeObjectForKey: recordID];
@@ -843,24 +964,24 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 {
     // Note: uses SecCKKSContainerName, but that's probably okay
     NSError* extensionError = [[NSError alloc] initWithDomain:serverDomain
-                                                               code:code
-                                                           userInfo:@{
-                                                                      CKErrorServerDescriptionKey: desc,
-                                                                      NSLocalizedDescriptionKey: desc,
-                                                                      }];
+                                                         code:code
+                                                     userInfo:@{
+        CKErrorServerDescriptionKey: desc,
+        NSLocalizedDescriptionKey: desc,
+    }];
     NSError* internalError = [[NSError alloc] initWithDomain:CKUnderlyingErrorDomain
-                                                              code:CKUnderlyingErrorPluginError
-                                                          userInfo:@{CKErrorServerDescriptionKey: desc,
-                                                                     NSLocalizedDescriptionKey: desc,
-                                                                     NSUnderlyingErrorKey: extensionError,
-                                                                     }];
-    NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
-                                                      code:CKErrorServerRejectedRequest
-                                                  userInfo:@{NSUnderlyingErrorKey: internalError,
-                                                             CKErrorServerDescriptionKey: desc,
-                                                             NSLocalizedDescriptionKey: desc,
-                                                             CKContainerIDKey: SecCKKSContainerName,
+                                                        code:CKUnderlyingErrorPluginError
+                                                    userInfo:@{CKErrorServerDescriptionKey: desc,
+                                                               NSLocalizedDescriptionKey: desc,
+                                                               NSUnderlyingErrorKey: extensionError,
                                                              }];
+    NSError* error = [[NSError alloc] initWithDomain:CKErrorDomain
+                                                code:CKErrorServerRejectedRequest
+                                            userInfo:@{NSUnderlyingErrorKey: internalError,
+                                                       CKErrorServerDescriptionKey: desc,
+                                                       NSLocalizedDescriptionKey: desc,
+                                                       CKContainerIDKey: SecCKKSContainerName,
+                                                     }];
 
     return error;
 }
@@ -892,6 +1013,45 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     return ((self.accountStatus == other.accountStatus) &&
             (self.accountPartition == other.accountPartition) &&
             (self.hasValidCredentials == other.hasValidCredentials));
+}
+
+@end
+
+@implementation FakeCKServerChangeToken
+
+- (instancetype)initWithAttributes:(CKServerChangeToken*)token
+                           forward:(BOOL)forward {
+    if ((self = [super init])) {
+        _token = token;
+        _forward = forward;
+    }
+    return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+
+    if ((self = [super init])) {
+        if (coder) {
+            _token = [[CKServerChangeToken alloc] initWithData:[coder decodeObjectOfClass:[NSData class] forKey:@"token"]];
+            _forward = [coder decodeBoolForKey:@"forward"];
+
+        }
+    }
+    return self;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeObject:self.token.data forKey:@"token"];
+    [coder encodeBool:self.forward forKey:@"forward"];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
++ (instancetype)decodeCKServerChangeToken:(CKServerChangeToken*)token {
+    NSKeyedUnarchiver* decoder = [[NSKeyedUnarchiver alloc] initForReadingFromData:token.data error:nil];
+    return [[FakeCKServerChangeToken alloc] initWithCoder:decoder];
 }
 
 @end

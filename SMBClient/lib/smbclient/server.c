@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1006,7 +1006,28 @@ SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
         sattrs->session_reconnect_time = session_prop.ioc_session_reconnect_time;
         sattrs->session_reconnect_count = session_prop.ioc_session_reconnect_count;
         
-        if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
+         /* Compression */
+        sattrs->client_compression_algorithms_map = session_prop.client_compression_algorithms_map;
+        sattrs->server_compression_algorithms_map = session_prop.server_compression_algorithms_map;
+        sattrs->compression_io_threshold = session_prop.compression_io_threshold;
+        sattrs->compression_chunk_len = session_prop.compression_chunk_len;
+        sattrs->compression_max_fail_cnt = session_prop.compression_max_fail_cnt;
+
+        sattrs->write_compress_cnt = session_prop.write_compress_cnt;
+        sattrs->write_cnt_LZ77Huff = session_prop.write_cnt_LZ77Huff;
+        sattrs->write_cnt_LZ77 = session_prop.write_cnt_LZ77;
+        sattrs->write_cnt_LZNT1 = session_prop.write_cnt_LZNT1;
+        sattrs->write_cnt_fwd_pattern = session_prop.write_cnt_fwd_pattern;
+        sattrs->write_cnt_bwd_pattern = session_prop.write_cnt_bwd_pattern;
+
+        sattrs->read_compress_cnt = session_prop.read_compress_cnt;
+        sattrs->read_cnt_LZ77Huff = session_prop.read_cnt_LZ77Huff;
+        sattrs->read_cnt_LZ77 = session_prop.read_cnt_LZ77;
+        sattrs->read_cnt_LZNT1 = session_prop.read_cnt_LZNT1;
+        sattrs->read_cnt_fwd_pattern = session_prop.read_cnt_fwd_pattern;
+        sattrs->read_cnt_bwd_pattern = session_prop.read_cnt_bwd_pattern;
+
+       if (sattrs->session_misc_flags & SMBV_MNT_SNAPSHOT) {
             strlcpy(sattrs->snapshot_time, session_prop.snapshot_time,
                     sizeof(sattrs->snapshot_time));
         }

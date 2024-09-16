@@ -93,7 +93,8 @@ using namespace KeychainCore;
 			} \
 		} \
 	} else { \
-		__itemImplRef=(SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL); \
+		bool __is_cdsa_key_item=(itemRef && SecKeyIsLegacyInstance((SecKeyRef)itemRef)); \
+		__itemImplRef=(SecKeychainItemRef)((__is_cdsa_key_item) ? CFRetain(itemRef) : NULL); \
 	} \
 	try {
 

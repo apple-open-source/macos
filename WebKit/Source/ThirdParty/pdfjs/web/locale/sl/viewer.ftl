@@ -305,6 +305,23 @@ pdfjs-editor-ink-button-label = Riši
 pdfjs-editor-stamp-button =
     .title = Dodajanje ali urejanje slik
 pdfjs-editor-stamp-button-label = Dodajanje ali urejanje slik
+pdfjs-editor-highlight-button =
+    .title = Poudarek
+pdfjs-editor-highlight-button-label = Poudarek
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Odstrani risbo
+pdfjs-editor-remove-freetext-button =
+    .title = Odstrani besedilo
+pdfjs-editor-remove-stamp-button =
+    .title = Odstrani sliko
+pdfjs-editor-remove-highlight-button =
+    .title = Odstrani označbo
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Barva
 pdfjs-editor-free-text-size-input = Velikost
@@ -314,6 +331,10 @@ pdfjs-editor-ink-opacity-input = Neprosojnost
 pdfjs-editor-stamp-add-image-button =
     .title = Dodaj sliko
 pdfjs-editor-stamp-add-image-button-label = Dodaj sliko
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Debelina
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Spremeni debelino pri označevanju nebesedilnih elementov
 pdfjs-free-text =
     .aria-label = Urejevalnik besedila
 pdfjs-free-text-default-content = Začnite tipkati …
@@ -351,3 +372,22 @@ pdfjs-editor-resizer-label-bottom-right = Spodnji desni kot – spremeni velikos
 pdfjs-editor-resizer-label-bottom-middle = Spodaj na sredini – spremeni velikost
 pdfjs-editor-resizer-label-bottom-left = Spodnji levi kot – spremeni velikost
 pdfjs-editor-resizer-label-middle-left = Levo na sredini – spremeni velikost
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Barva označbe
+pdfjs-editor-colorpicker-button =
+    .title = Spremeni barvo
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Izbira barve
+pdfjs-editor-colorpicker-yellow =
+    .title = Rumena
+pdfjs-editor-colorpicker-green =
+    .title = Zelena
+pdfjs-editor-colorpicker-blue =
+    .title = Modra
+pdfjs-editor-colorpicker-pink =
+    .title = Roza
+pdfjs-editor-colorpicker-red =
+    .title = Rdeča

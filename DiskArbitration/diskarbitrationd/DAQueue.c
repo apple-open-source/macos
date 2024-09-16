@@ -512,7 +512,9 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                 case _kDADiskClaimCallback:
                 case _kDADiskEjectCallback:
                 case _kDADiskMountCallback:
+                case _kDADiskProbeCallback:
                 case _kDADiskRenameCallback:
+                case _kDADiskSetFSKitAdditionsCallback:
                 case _kDADiskUnmountCallback:
                 {
                     DACallbackSetDisk( callback, argument0 );

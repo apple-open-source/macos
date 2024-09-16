@@ -324,6 +324,17 @@ mach_msg_priority_relpri_inline(mach_msg_priority_t pri)
 
 #endif // PRIVATE
 
+#if XNU_KERNEL_PRIVATE
+__enum_decl(mach_msg_type_name_t, unsigned int, {
+	MACH_MSG_TYPE_NONE            =  0,     /* no disposition */
+	MACH_MSG_TYPE_MOVE_RECEIVE    = 16,     /* Must hold receive right */
+	MACH_MSG_TYPE_MOVE_SEND       = 17,     /* Must hold send right(s) */
+	MACH_MSG_TYPE_MOVE_SEND_ONCE  = 18,     /* Must hold sendonce right */
+	MACH_MSG_TYPE_COPY_SEND       = 19,     /* Must hold send right(s) */
+	MACH_MSG_TYPE_MAKE_SEND       = 20,     /* Must hold receive right */
+	MACH_MSG_TYPE_MAKE_SEND_ONCE  = 21,     /* Must hold receive right */
+});
+#else
 typedef unsigned int mach_msg_type_name_t;
 
 #define MACH_MSG_TYPE_MOVE_RECEIVE      16      /* Must hold receive right */
@@ -336,6 +347,7 @@ typedef unsigned int mach_msg_type_name_t;
 #define MACH_MSG_TYPE_DISPOSE_RECEIVE   24      /* must hold receive right */
 #define MACH_MSG_TYPE_DISPOSE_SEND      25      /* must hold send right(s) */
 #define MACH_MSG_TYPE_DISPOSE_SEND_ONCE 26      /* must hold sendonce right */
+#endif
 
 typedef unsigned int mach_msg_copy_options_t;
 
@@ -979,6 +991,10 @@ typedef natural_t mach_msg_type_number_t;
 #define MACH_MSG_TYPE_PORT_ANY_SEND(x)                  \
 	(((x) >= MACH_MSG_TYPE_MOVE_SEND) &&            \
 	 ((x) <= MACH_MSG_TYPE_MAKE_SEND_ONCE))
+
+#define MACH_MSG_TYPE_PORT_ANY_SEND_ONCE(x)             \
+	(((x) == MACH_MSG_TYPE_MOVE_SEND_ONCE) ||       \
+	 ((x) == MACH_MSG_TYPE_MAKE_SEND_ONCE))
 
 #define MACH_MSG_TYPE_PORT_ANY_RIGHT(x)                 \
 	(((x) >= MACH_MSG_TYPE_MOVE_RECEIVE) &&         \

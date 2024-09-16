@@ -212,6 +212,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("keychain_restore_syncable");
         case sec_keychain_sync_update_message_id: 
             return CFSTR("keychain_sync_update_message");
+        case sec_ota_pki_trust_store_asset_version_id:
+            return CFSTR("ota_pki_trust_store_asset_version");
+        case sec_ota_pki_trust_store_content_digest_id:
+            return CFSTR("ota_pki_trust_store_content_digest");
         case sec_ota_pki_trust_store_version_id:
             return CFSTR("ota_pki_trust_store_version");
         case sec_ota_pki_asset_version_id:

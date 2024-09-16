@@ -26,8 +26,11 @@
 #pragma once
 
 #include "ASTExpression.h"
+#include <wtf/OptionSet.h>
 
 namespace WGSL {
+class BoundsCheckVisitor;
+class RewriteGlobalVariables;
 class TypeChecker;
 
 namespace AST {
@@ -39,6 +42,8 @@ namespace AST {
 class CallExpression final : public Expression {
     WGSL_AST_BUILDER_NODE(CallExpression);
 
+    friend BoundsCheckVisitor;
+    friend RewriteGlobalVariables;
     friend TypeChecker;
 
 public:
@@ -49,6 +54,8 @@ public:
     Expression::List& arguments() { return m_arguments; }
 
     bool isConstructor() const { return m_isConstructor; }
+
+    const OptionSet<ShaderStage>& visibility() const { return m_visibility; }
 
 private:
     CallExpression(SourceSpan span, Expression::Ref&& target, Expression::List&& arguments)
@@ -65,6 +72,7 @@ private:
     Expression::List m_arguments;
 
     bool m_isConstructor { false };
+    OptionSet<ShaderStage> m_visibility { ShaderStage::Compute, ShaderStage::Vertex, ShaderStage::Fragment };
 };
 
 } // namespace AST

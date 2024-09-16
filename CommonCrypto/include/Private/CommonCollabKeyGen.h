@@ -39,6 +39,213 @@ extern "C" {
 typedef struct _CCCollabKeyGenContributor *CCCollabKeyGenContributorRef;
 typedef struct _CCCollabKeyGenOwner *CCCollabKeyGenOwnerRef;
 
+typedef struct _CCCKG2Contributor *CCCKG2ContributorRef;
+typedef struct _CCCKG2Owner *CCCKG2OwnerRef;
+typedef struct _CCCKG2Params *CCCKG2Params;
+
+/*!
+    @function   CCCKG2ParamsP224Sha256Version2
+
+    @abstract   Returns CKG parameters for P-224 and SHA-256, protocol v2.
+
+    @result     The CKG parameters.
+*/
+CCCKG2Params
+CCCKG2ParamsP224Sha256Version2(void)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2GetCommitmentSize
+
+    @abstract   Returns the size of a contributor commitment in bytes.
+
+    @param      params     CKG parameters.
+
+    @result     The commitment size or kCCParamError.
+*/
+int
+CCCKG2GetCommitmentSize(CCCKG2Params params)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2GetShareSize
+
+    @abstract   Returns the size of an owner share in bytes.
+
+    @param      params     CKG parameters.
+
+    @result     The share size or kCCParamError.
+*/
+int
+CCCKG2GetShareSize(CCCKG2Params params)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2GetOpeningSize
+
+    @abstract   Returns the size of a contributor opening in bytes.
+
+    @param      params     CKG parameters.
+
+    @result     The opening size or kCCParamError.
+*/
+int
+CCCKG2GetOpeningSize(CCCKG2Params params)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2ContributorCreate
+
+    @abstract   Creates a new CKG contributor context.
+
+    @param      params     CKG parameters.
+
+    @param      contrib    Pointer to a CCCKG2ContributorRef.
+
+    @result     Returns kCCSuccess on success, and kCCParamError or kCCMemoryFailure on failure.
+*/
+CCCryptorStatus
+CCCKG2ContributorCreate(CCCKG2Params params, CCCKG2ContributorRef *contrib)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2ContributorDestroy
+
+    @abstract   Destroys a CKG contributor context.
+
+    @param      contrib    The CCCKG2ContributorRef to destroy.
+*/
+void
+CCCKG2ContributorDestroy(CCCKG2ContributorRef contrib)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2OwnerCreate
+
+    @abstract   Creates a new CKG owner context.
+
+    @param      params     CKG parameters.
+
+    @param      owner    Pointer to a CCCKG2OwnerRef.
+
+    @result     Returns kCCSuccess on success, and kCCParamError or kCCMemoryFailure on failure.
+*/
+CCCryptorStatus
+CCCKG2OwnerCreate(CCCKG2Params params, CCCKG2OwnerRef *owner)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2OwnerDestroy
+
+    @abstract   Destroys a CKG owner context.
+
+    @param      owner      The CCCKG2OwnerRef to destroy.
+*/
+void
+CCCKG2OwnerDestroy(CCCKG2OwnerRef owner)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2ContributorCommit
+
+    @abstract   Generates a new contributor commitment.
+
+    @param      contrib          A CCCKG2ContributorRef.
+
+    @param      commitment       Commitment output buffer.
+
+    @param      commitmentLen    Length of the commitment buffer (see CCCKG2GetCommitmentSize).
+
+    @result     kCCSuccess on success, or an error code on failure.
+*/
+CCCryptorStatus
+CCCKG2ContributorCommit(CCCKG2ContributorRef contrib,
+                        void *commitment, size_t commitmentLen)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2OwnerGenerateShare
+
+    @abstract   Takes a contributor commitment and generates a new owner share.
+
+    @param      owner            A CCCKG2OwnerRef.
+
+    @param      commitment       Contributor commitment buffer.
+
+    @param      commitmentLen    Length of the commitment buffer (see CCCKG2GetCommitmentSize).
+
+    @param      share            Share output buffer.
+
+    @param      shareLen         Length of the share buffer (see CCCKG2GetShareSize).
+
+    @result     kCCSuccess on success, or an error code on failure.
+*/
+CCCryptorStatus
+CCCKG2OwnerGenerateShare(CCCKG2OwnerRef owner,
+                         const void *commitment, size_t commitmentLen,
+                         void *share, size_t shareLen)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2ContributorFinish
+
+    @abstract   Takes an owner share and finishes the contributor protocol flow
+                by opening the commitment and computing the public key P and
+                the symmetric secret SK.
+
+    @param      contrib          A CCCKG2ContributorRef.
+
+    @param      share            Owner share buffer.
+
+    @param      shareLen         Length of the share buffer (see CCCKG2GetShareSize).
+
+    @param      opening          Opening output buffer.
+
+    @param      openingLen       Length of the opening buffer (see CCCKG2GetOpeningSize).
+
+    @param      sharedKey        Shared key output buffer (SK).
+
+    @param      sharedKeyLen     Length of the shared key buffer.
+
+    @param      publicKey        Pointer to a CCECCryptorRef (P).
+
+    @result     kCCSuccess on success, or an error code on failure.
+*/
+CCCryptorStatus
+CCCKG2ContributorFinish(CCCKG2ContributorRef contrib,
+                        const void *share, size_t shareLen,
+                        void *opening, size_t openingLen,
+                        void *sharedKey, size_t sharedKeyLen,
+                        CCECCryptorRef *publicKey)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+    @function   CCCKG2OwnerFinish
+
+    @abstract   Takes a contributor opening and finishes the owner protocol
+                flow by computing the public key P and the symmetric secret SK.
+
+    @param      owner            A CCCKG2OwnerRef.
+
+    @param      opening          Opening buffer.
+
+    @param      openingLen       Length of the opening buffer (see CCCKG2GetOpeningSize).
+
+    @param      sharedKey        Shared key output buffer (SK).
+
+    @param      sharedKeyLen     Length of the shared key buffer.
+
+    @param      privateKey       Pointer to a CCECCryptorRef (d,P).
+
+    @result     kCCSuccess on success, or an error code on failure.
+*/
+CCCryptorStatus
+CCCKG2OwnerFinish(CCCKG2OwnerRef owner,
+                  const void *opening, size_t openingLen,
+                  void *sharedKey, size_t sharedKeyLen,
+                  CCECCryptorRef *privateKey)
+API_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
 /*!
     @function   CCCKGGetCommitmentSize
 

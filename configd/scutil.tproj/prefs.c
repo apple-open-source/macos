@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1023,48 +1023,94 @@ on_off_str(Boolean on)
 
 /* -------------------- */
 
-#if	!TARGET_OS_IPHONE
-
 #include "InterfaceNamerControlPrefs.h"
 
 static void
-allow_new_interfaces_usage(void)
+bool_usage(const char * name)
 {
-	fprintf(stderr, "usage: scutil --allow-new-interfaces [on|off|default]\n");
-	return;
+	fprintf(stderr,
+		"usage: scutil --%s [on|off]\n",
+		name);
+}
+
+static void
+configure_new_interfaces_usage(void)
+{
+	bool_usage(CONFIGURE_NEW_INTERFACES);
 }
 
 __private_extern__
 void
-do_ifnamer(char * pref, int argc, char * const argv[])
+do_configure_new_interfaces(char * pref, int argc, char * const argv[])
 {
-	Boolean	allow	= FALSE;
+	Boolean			configure = FALSE;
+	_SCControlPrefsRef	control;
+
+	if (argc > 1) {
+		configure_new_interfaces_usage();
+		exit(1);
+	}
+	if (strcmp(pref, CONFIGURE_NEW_INTERFACES)) {
+		return;
+	}
+	control = InterfaceNamerControlPrefsInit(NULL, NULL);
+	if (argc == 0) {
+		configure = InterfaceNamerControlPrefsConfigureNewInterfaces(control);
+		SCPrint(TRUE, stdout, CFSTR("ConfigureNewInterfaces is %s\n"),
+			on_off_str(configure));
+		return;
+	}
+	if (!get_bool_from_string(argv[0], FALSE, &configure, NULL)) {
+		configure_new_interfaces_usage();
+		exit(1);
+	}
+
+	if (!InterfaceNamerControlPrefsSetConfigureNewInterfaces(control,
+								 configure)) {
+		SCPrint(TRUE, stderr, CFSTR("failed to set preferences\n"));
+		exit(2);
+	}
+	return;
+}
+
+
+#if	!TARGET_OS_IPHONE
+
+static void
+allow_new_interfaces_usage(void)
+{
+	bool_usage(ALLOW_NEW_INTERFACES);
+}
+
+__private_extern__
+void
+do_allow_new_interfaces(char * pref, int argc, char * const argv[])
+{
+	Boolean			allow = FALSE;
+	_SCControlPrefsRef	control;
 
 	if (argc > 1) {
 		allow_new_interfaces_usage();
 		exit(1);
 	}
-
-	if (strcmp(pref, "allow-new-interfaces")) {
+	if (strcmp(pref, ALLOW_NEW_INTERFACES)) {
 		return;
 	}
-
+	control = InterfaceNamerControlPrefsInit(NULL, NULL);
 	if (argc == 0) {
+		allow = InterfaceNamerControlPrefsAllowNewInterfaces(control);
 		SCPrint(TRUE, stdout, CFSTR("AllowNewInterfaces is %s\n"),
-			on_off_str(InterfaceNamerControlPrefsAllowNewInterfaces()));
+			on_off_str(allow));
 		return;
 	}
-
 	if (!get_bool_from_string(argv[0], FALSE, &allow, NULL)) {
 		allow_new_interfaces_usage();
 		exit(1);
 	}
-
-	if (!InterfaceNamerControlPrefsSetAllowNewInterfaces(allow)) {
+	if (!InterfaceNamerControlPrefsSetAllowNewInterfaces(control, allow)) {
 		SCPrint(TRUE, stderr, CFSTR("failed to set preferences\n"));
 		exit(2);
 	}
-
 	return;
 }
 

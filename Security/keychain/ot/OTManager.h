@@ -49,7 +49,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class OTContext;
 @class OTCuttlefishContext;
-@class OTClientStateMachine;
 @class CKKSLockStateTracker;
 @class CKKSAccountStateTracker;
 @class CloudKitClassDependencies;
@@ -121,10 +120,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)removeContextForContainerName:(NSString*)containerName
                             contextID:(NSString*)contextID;
 
-- (OTClientStateMachine*)clientStateMachineForContainerName:(NSString* _Nullable)containerName
-                                                  contextID:(NSString*)contextID
-                                                 clientName:(NSString*)clientName;
-
 -(BOOL)ghostbustByMidEnabled;
 -(BOOL)ghostbustBySerialEnabled;
 -(BOOL)ghostbustByAgeEnabled;
@@ -190,13 +185,18 @@ NS_ASSUME_NONNULL_BEGIN
                        uuid:(NSUUID *)uuid
                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
+- (void)recreateInheritanceKey:(OTControlArguments*)arguments
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey *)oldIK
+                        reply:(void (^)(OTInheritanceKey *_Nullable crk, NSError *_Nullable error))reply;
+
 - (void)tlkRecoverabilityForEscrowRecordData:(OTControlArguments*)arguments
                                   recordData:(NSData*)recordData
                                       source:(OTEscrowRecordFetchSource)source
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
-                   machineID:(NSString*)machineID
+                   machineID:(NSString* _Nullable)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
 
 - (void)getAccountMetadata:(OTControlArguments*)arguments

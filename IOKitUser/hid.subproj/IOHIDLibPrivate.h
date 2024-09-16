@@ -261,6 +261,9 @@ uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isIntern
 CF_EXPORT
 CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef _Nullable allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * _Nullable category);
 
+CF_EXPORT
+bool _IOHIDIsRestrictedRemappingProperty(CFTypeRef property);
+
 typedef void (^IOHIDCFSetBlock) (CFTypeRef value);
 
 void _IOHIDCFSetApplyBlock (CFSetRef set, IOHIDCFSetBlock block);
@@ -285,6 +288,7 @@ __END_DECLS
 
 #include <dlfcn.h>
 
+#ifdef TARGET_OS_OSX
 #define IOHID_DYN_LINK_DYLIB(directory, lib) \
 static void* lib##Library() \
 { \
@@ -292,6 +296,13 @@ static void* lib##Library() \
     if (!libLibrary) libLibrary = dlopen(#directory "/lib" #lib ".dylib", RTLD_NOW); \
     return libLibrary; \
 }
+#else
+#define IOHID_DYN_LINK_DYLIB(directory, lib) \
+static void* lib##Library() \
+{  \
+    return nil; \
+}
+#endif
 
 #define IOHID_DYN_LINK_FUNCTION(framework, functionName, localNameForFunction, resultType, defaultResult, parameterDeclarations, parameterNames) \
 static resultType init##functionName parameterDeclarations; \

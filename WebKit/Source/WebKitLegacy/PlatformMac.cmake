@@ -91,7 +91,6 @@ list(APPEND WebKitLegacy_SOURCES
     mac/WebCoreSupport/WebAlternativeTextClient.mm
     mac/WebCoreSupport/WebChromeClient.mm
     mac/WebCoreSupport/WebContextMenuClient.mm
-    mac/WebCoreSupport/WebDeviceOrientationClient.mm
     mac/WebCoreSupport/WebDragClient.mm
     mac/WebCoreSupport/WebEditorClient.mm
     mac/WebCoreSupport/WebFrameNetworkingContext.mm
@@ -383,7 +382,6 @@ set(WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES
 
     mac/Misc/WebKitStatisticsPrivate.h
     mac/Misc/WebCache.h
-    mac/Misc/NSURLDownloadSPI.h
     mac/Misc/WebStringTruncator.h
     mac/Misc/WebNSFileManagerExtras.h
     mac/Misc/WebNSWindowExtras.h
@@ -599,9 +597,9 @@ foreach (_file ${WebKitLegacy_SOURCES})
     if (NOT ${_c99_index} EQUAL -1)
         set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS -std=c99)
     elseif (NOT ${_cpp_index} EQUAL -1)
-        set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS -std=c++2a)
+        set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS -std=c++2b)
     else ()
-        set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS "-ObjC++ -std=c++2a")
+        set_source_files_properties(${_file} PROPERTIES COMPILE_FLAGS "-ObjC++ -std=c++2b")
     endif ()
 endforeach ()
 

@@ -829,6 +829,11 @@ extern kauth_cred_t proc_ucred_unsafe(proc_t p) __exported;
 __private_extern__ int proc_core_name(const char *format, const char *name, uid_t uid, pid_t pid,
     char *cr_name, size_t cr_name_len);
 #endif
+/* proc_best_name_for_pid finds a process with a given pid and copies its best name of
+ * the executable (32-byte name if it exists, otherwise the 16-byte name) to
+ * the passed in buffer. The size of the buffer is to be passed in as well.
+ */
+extern void proc_best_name_for_pid(int pid, char * buf, int size);
 extern int isinferior(struct proc *, struct proc *);
 __private_extern__ struct proc *pzfind(pid_t);  /* Find zombie by id. */
 __private_extern__ struct proc *proc_find_zombref(pid_t);       /* Find zombie by id. */
@@ -954,9 +959,9 @@ extern void proc_set_trampact(proc_t, int, user_addr_t);
 extern void proc_set_sigact_trampact(proc_t, int, user_addr_t, user_addr_t);
 extern void proc_reset_sigact(proc_t, sigset_t);
 extern void proc_setexecutableuuid(proc_t, const uuid_t);
-extern const unsigned char *proc_executableuuid_addr(proc_t);
-extern void proc_getresponsibleuuid(proc_t, unsigned char *, unsigned long);
-extern void proc_setresponsibleuuid(proc_t target_proc, unsigned char *responsible_uuid, unsigned long size);
+extern const unsigned char *__counted_by(sizeof(uuid_t)) proc_executableuuid_addr(proc_t);
+extern void proc_getresponsibleuuid(proc_t target_proc, unsigned char *__counted_by(size)responsible_uuid, unsigned long size);
+extern void proc_setresponsibleuuid(proc_t target_proc, unsigned char *__counted_by(size)responsible_uuid, unsigned long size);
 
 #pragma mark - process iteration
 

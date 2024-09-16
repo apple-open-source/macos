@@ -88,6 +88,7 @@ __level_to_type(int level)
 
 #define kIPConfigurationLogCategoryServer	"Server"
 #define kIPConfigurationLogCategoryLibrary	"Library"
+#define kIPConfigurationLogCategoryHelper	"Helper"
 
 void
 IPConfigLogSetHandle(os_log_t handle);

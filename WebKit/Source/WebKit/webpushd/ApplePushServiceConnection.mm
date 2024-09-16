@@ -51,7 +51,7 @@
     ASSERT(isMainRunLoop());
 
     if (_connection && publicToken.length)
-        _connection->didReceivePublicToken(Vector<uint8_t> { static_cast<const uint8_t*>(publicToken.bytes), publicToken.length });
+        _connection->didReceivePublicToken(makeVector(publicToken));
 }
 
 - (void)connection:(APSConnection *)connection didReceiveIncomingMessage:(APSIncomingMessage *)message
@@ -81,8 +81,7 @@ ApplePushServiceConnection::~ApplePushServiceConnection()
 
 static RetainPtr<APSURLTokenInfo> makeTokenInfo(const String& topic, const Vector<uint8_t>& vapidPublicKey)
 {
-    auto serverPublicKey = adoptNS([[NSData alloc] initWithBytes:vapidPublicKey.data() length:vapidPublicKey.size()]);
-    return adoptNS([[APSURLTokenInfo alloc] initWithTopic:topic vapidPublicKey:serverPublicKey.get()]);
+    return adoptNS([[APSURLTokenInfo alloc] initWithTopic:topic vapidPublicKey:toNSData(vapidPublicKey).get()]);
 }
 
 void ApplePushServiceConnection::subscribe(const String& topic, const Vector<uint8_t>& vapidPublicKey, SubscribeHandler&& subscribeHandler)

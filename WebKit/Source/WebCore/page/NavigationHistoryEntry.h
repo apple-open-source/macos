@@ -28,6 +28,7 @@
 #include "ContextDestructionObserver.h"
 #include "EventHandler.h"
 #include "EventTarget.h"
+#include "HistoryItem.h"
 #include <wtf/RefCounted.h>
 
 namespace JSC {
@@ -36,33 +37,37 @@ class JSValue;
 
 namespace WebCore {
 
+class SerializedScriptValue;
+
 class NavigationHistoryEntry final : public RefCounted<NavigationHistoryEntry>, public EventTarget, public ContextDestructionObserver {
     WTF_MAKE_ISO_ALLOCATED(NavigationHistoryEntry);
 public:
     using RefCounted<NavigationHistoryEntry>::ref;
     using RefCounted<NavigationHistoryEntry>::deref;
 
-    const String& url() const { return m_url; };
-    const String& key() const { return m_key; };
-    const String& id() const { return m_id; };
-    uint64_t index() const { return m_index; };
-    bool sameDocument() const { return m_sameDocument; };
-    const JSC::JSValue& getState() const { return m_state; };
+    static Ref<NavigationHistoryEntry> create(ScriptExecutionContext* context, Ref<HistoryItem>&& historyItem) { return adoptRef(*new NavigationHistoryEntry(context, WTFMove(historyItem))); }
+
+    const String& url() const;
+    String key() const;
+    String id() const;
+    uint64_t index() const;
+    bool sameDocument() const;
+    JSC::JSValue getState(JSDOMGlobalObject&) const;
+
+    void setState(RefPtr<SerializedScriptValue>&&);
+
+    HistoryItem& associatedHistoryItem() const { return m_associatedHistoryItem; }
 
 private:
-    NavigationHistoryEntry(ScriptExecutionContext*);
+    NavigationHistoryEntry(ScriptExecutionContext*, Ref<HistoryItem>&&);
 
-    EventTargetInterface eventTargetInterface() const final;
+    enum EventTargetInterfaceType eventTargetInterface() const final;
     ScriptExecutionContext* scriptExecutionContext() const final;
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
-    String m_url;
-    String m_key;
-    String m_id;
-    uint64_t m_index;
-    JSC::JSValue m_state;
-    bool m_sameDocument;
+    const WTF::UUID m_id;
+    Ref<HistoryItem> m_associatedHistoryItem;
 };
 
 } // namespace WebCore

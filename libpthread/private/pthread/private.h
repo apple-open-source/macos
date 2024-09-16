@@ -29,6 +29,7 @@
 #include <Availability.h>
 #include <os/tsd.h>
 #include <mach/std_types.h>
+#include <sys/types.h>
 #include <pthread/tsd_private.h>
 
 __API_AVAILABLE(macos(10.9), ios(7.0))

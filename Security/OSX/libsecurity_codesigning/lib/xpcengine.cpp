@@ -376,5 +376,27 @@ void xpcEngineLegacyCheck(CFDataRef hashData, SecCSDigestAlgorithm hashType, CFS
 	}
 }
 
+void xpcEngineEnable(void)
+{
+	Message msg("enable");
+	
+	msg.send();
+	
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+}
+
+void xpcEngineDisable(void)
+{
+	Message msg("disable");
+	
+	msg.send();
+	
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+}
+
 } // end namespace CodeSigning
 } // end namespace Security

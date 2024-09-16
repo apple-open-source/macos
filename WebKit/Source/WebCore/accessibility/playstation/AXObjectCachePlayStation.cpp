@@ -26,8 +26,6 @@
 #include "config.h"
 #include "AXObjectCache.h"
 
-#if ENABLE(ACCESSIBILITY)
-
 #include "AccessibilityObject.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -37,10 +35,10 @@
 
 namespace WebCore {
 
-void AXObjectCache::attachWrapper(AccessibilityObject* obj)
+void AXObjectCache::attachWrapper(AccessibilityObject& object)
 {
     auto wrapper = adoptRef(*new AccessibilityObjectWrapper());
-    obj->setWrapper(wrapper.ptr());
+    object.setWrapper(wrapper.ptr());
 }
 
 void AXObjectCache::detachWrapper(AXCoreObject*, AccessibilityDetachmentType)
@@ -79,28 +77,28 @@ static AXObjectCache::AXNotification checkInteractableObjects(AXCoreObject* obje
     return AXObjectCache::AXNotification::AXPressDidSucceed;
 }
 
-void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotification notification)
+void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNotification notification)
 {
-    if (!object
-        || !object->document()
-        || !object->document()->view()
-        || object->document()->view()->layoutContext().layoutState()
-        || object->document()->childNeedsStyleRecalc())
+    if (!!object.document()
+        || !object.document()->view()
+        || object.document()->view()->layoutContext().layoutState()
+        || object.document()->childNeedsStyleRecalc())
         return;
 
+    RefPtr protectedObject = &object;
     switch (notification) {
     case AXNotification::AXSelectedChildrenChanged:
-        object = notifyChildrenSelectionChange(object);
+        protectedObject = downcast<AccessibilityObject>(notifyChildrenSelectionChange(protectedObject.get()));
         break;
     case AXNotification::AXPressDidSucceed:
-        notification = checkInteractableObjects(object);
+        notification = checkInteractableObjects(protectedObject.get());
         break;
     default:
         break;
     }
 
     ChromeClient& client = document().frame()->page()->chrome().client();
-    client.postAccessibilityNotification(*static_cast<AccessibilityObject*>(object), notification);
+    client.postAccessibilityNotification(*protectedObject, notification);
 }
 
 void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject* object, AXTextChange textChange, unsigned offset, const String& text)
@@ -131,7 +129,9 @@ void AXObjectCache::handleScrolledToAnchor(const Node* scrolledToNode)
 {
     if (!scrolledToNode)
         return;
-    postPlatformNotification(AccessibilityObject::firstAccessibleObjectFromNode(scrolledToNode), AXScrolledToAnchor);
+
+    if (RefPtr object = AccessibilityObject::firstAccessibleObjectFromNode(scrolledToNode))
+        postPlatformNotification(*object, AXScrolledToAnchor);
 }
 
 void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node* newFocusedNode)
@@ -143,11 +143,8 @@ void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node* newFocuse
     if (!page || !page->chrome().platformPageClient())
         return;
 
-    AXCoreObject* focusedObject = focusedObjectForPage(page);
-    if (!focusedObject)
-        return;
-
-    postPlatformNotification(focusedObject, AXFocusedUIElementChanged);
+    if (RefPtr focusedObject = focusedObjectForPage(page))
+        postPlatformNotification(*focusedObject, AXFocusedUIElementChanged);
 }
 
 void AXObjectCache::platformPerformDeferredCacheUpdate()
@@ -155,5 +152,3 @@ void AXObjectCache::platformPerformDeferredCacheUpdate()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(ACCESSIBILITY)

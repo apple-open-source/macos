@@ -36,6 +36,15 @@ OBJC_CLASS AVAssetResourceLoadingRequest;
 OBJC_CLASS WebCDMSessionAVFoundationObjCListener;
 
 namespace WebCore {
+class CDMSessionAVFoundationObjC;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CDMSessionAVFoundationObjC> : std::true_type { };
+}
+
+namespace WebCore {
 
 class MediaPlayerPrivateAVFoundationObjC;
 
@@ -58,7 +67,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const { return m_logger; }
     const void* logIdentifier() const { return m_logIdentifier; }
-    const char* logClassName() const { return "CDMSessionAVFoundationObjC"; }
+    ASCIILiteral logClassName() const { return "CDMSessionAVFoundationObjC"_s; }
     WTFLogChannel& logChannel() const;
 #endif
 

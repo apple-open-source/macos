@@ -88,9 +88,6 @@ private:
 #if PLATFORM(IOS_FAMILY)
     void setIsInBackground(bool) final;
 #endif
-#if PLATFORM(MAC)
-    void whenReady(CompletionHandler<void(CaptureSourceError&&)>&&) final;
-#endif
 
     std::optional<Vector<int>> discreteSampleRates() const final { return { { 8000, 16000, 32000, 44100, 48000, 96000 } }; }
 
@@ -105,7 +102,7 @@ private:
     void audioUnitWillStart();
 
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "CoreAudioCaptureSource"; }
+    ASCIILiteral logClassName() const override { return "CoreAudioCaptureSource"_s; }
 #endif
 
     uint32_t m_captureDeviceID { 0 };
@@ -130,7 +127,7 @@ public:
     virtual OSStatus produceSpeakerSamples(size_t sampleCount, AudioBufferList&, uint64_t sampleTime, double hostTime, AudioUnitRenderActionFlags&) = 0;
 };
 
-class CoreAudioCaptureSourceFactory : public AudioCaptureFactory, public AudioSession::InterruptionObserver {
+class CoreAudioCaptureSourceFactory : public AudioCaptureFactory, public AudioSessionInterruptionObserver {
 public:
     WEBCORE_EXPORT static CoreAudioCaptureSourceFactory& singleton();
 
@@ -149,7 +146,7 @@ public:
     BaseAudioSharedUnit& unit();
 
 private:
-    // AudioSession::InterruptionObserver.
+    // AudioSessionInterruptionObserver
     void beginAudioSessionInterruption() final { beginInterruption(); }
     void endAudioSessionInterruption(AudioSession::MayResume) final { endInterruption(); }
 

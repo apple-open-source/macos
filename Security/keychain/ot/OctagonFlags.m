@@ -61,6 +61,18 @@
     return self.flagConditions[flag];
 }
 
+- (CKKSCondition* _Nullable)conditionForFlagIfPresent:(OctagonFlag*)flag {
+    __block CKKSCondition* ret = nil;
+
+    dispatch_sync(self.queue, ^{
+        if([self.flags containsObject:flag]) {
+            ret = self.flagConditions[flag];
+        }
+    });
+
+    return ret;
+}
+
 - (void)setFlag:(nonnull OctagonFlag *)flag {
     dispatch_sync(self.queue, ^{
         [self _onqueueSetFlag:flag];

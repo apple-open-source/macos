@@ -1,7 +1,7 @@
 /*
     File:		MBCUserDefaults.mm
     Contains:	User defaults keys
-    Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+    Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
     IMPORTANT: This Apple software is supplied to you by Apple Computer,
     Inc.  ("Apple") in consideration of your agreement to the following
@@ -47,6 +47,7 @@
 
 #import "MBCUserDefaults.h"
 
+
 NSString * const kMBCBoardStyle         = @"MBCBoardStyle";
 NSString * const kMBCListenForMoves     = @"MBCListenForMoves";
 NSString * const kMBCPieceStyle         = @"MBCPieceStyle";
@@ -70,4 +71,39 @@ NSString * const kMBCBoardSpin          = @"MBCBoardSpin";
 NSString * const kMBCCastleSides        = @"MBCCastleSides";
 NSString * const kMBCGCVictories        = @"MBCGCVictories";
 NSString * const kMBCShowGameLog        = @"MBCShowGameLog";
+NSString * const kMBCShowEdgeNotation   = @"MBCShowEdgeNotation";
+NSString * const kMBCSharePlayEnabledFF = @"SharePlayEnabled";
+NSString * const kMBCUseMetalRendererFF = @"UseMetalRenderer";
 
+@implementation MBCUserDefaults
+
++ (BOOL)isSharePlayEnabled {
+    static BOOL sIsEnabled;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"Defaults" ofType:@"plist"];
+        NSDictionary *dict = [[NSDictionary alloc] initWithContentsOfFile:path];
+        sIsEnabled = [[dict objectForKey:kMBCSharePlayEnabledFF] boolValue];
+    });
+    return sIsEnabled;
+}
+
++ (BOOL)isMetalRenderingEnabled {
+    static BOOL sUsingMetal;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sUsingMetal = NO;
+    });
+    return sUsingMetal;
+}
+
++ (BOOL)usingScreenCaptureKit {
+    static BOOL sUsingSCK;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sUsingSCK = NO;
+    });
+    return sUsingSCK;
+}
+
+@end

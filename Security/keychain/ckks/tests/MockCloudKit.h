@@ -43,6 +43,15 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property (nonatomic, assign, readonly) BOOL isFinishingOnCallbackQueue;
 @end
 
+@interface FakeCKServerChangeToken : NSObject <NSSecureCoding>
+@property BOOL forward;
+@property CKServerChangeToken* token;
+- (instancetype)initWithAttributes:(CKServerChangeToken*)token
+                           forward:(BOOL)forward;
+- (instancetype _Nullable)initWithCoder:(NSCoder* _Nullable)coder;
++ (BOOL)supportsSecureCoding;
++ (instancetype)decodeCKServerChangeToken:(CKServerChangeToken*)token;
+@end
 
 @interface FakeCKModifyRecordZonesOperation : FakeCKOperation <CKKSModifyRecordZonesOperation> {
     CKOperationConfiguration* _configuration;
@@ -73,6 +82,11 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
     CKOperationConfiguration* _configuration;
 }
 
+// Order a dict of CKRecords by reverse Etag
+- (NSMutableArray<CKRecordID*>*) obtainReverseSortedRecordIDs:(FakeCKZone*)zone
+                                                   fetchToken:(FakeCKServerChangeToken* _Nullable)fetchToken
+                                                 limitFetchTo:(FakeCKServerChangeToken* _Nullable)limitFetchTo;
+
 + (FakeCKDatabase*)ckdb;
 @property (nonatomic, copy) NSString *operationID;
 @property (nonatomic, readonly, strong, nullable) CKOperationConfiguration *resolvedConfiguration;
@@ -101,11 +115,12 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @interface FakeCKZone : NSObject
 // Used while mocking: database is the contents of the current current CloudKit database, pastDatabase is the state of the world in the past at different change tokens
 @property CKRecordZoneID* zoneID;
-@property CKServerChangeToken* currentChangeToken;
+@property FakeCKServerChangeToken* currentChangeToken;
+
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* currentDatabase;
 @property NSMutableDictionary<CKServerChangeToken*, NSMutableDictionary<CKRecordID*, CKRecord*>*>* pastDatabases;
 @property bool flag;  // used however you'd like in a test
-@property (nullable) CKServerChangeToken* limitFetchTo; // Only return partial results up until here (if asking for current change token)
+@property (nullable) FakeCKServerChangeToken* limitFetchTo; // Only return partial results up until here (if asking for current change token)
 @property (nullable) NSError* limitFetchError; // If limitFetchTo fires, finish the operation with this error (likely a network timeout)
 @property int fetchRecordZoneChangesOperationCount;
 @property NSMutableArray<NSDate*>* fetchRecordZoneChangesTimestamps;

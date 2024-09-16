@@ -25,7 +25,7 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"));
 #pragma mark -
 #pragma mark Allocator Functions
 
-T_DECL(lookup_size, "lookup_size")
+T_DECL(lookup_size, "lookup_size", T_META_TAG_VM_PREFERRED)
 {
 	zone.begin = 640000; zone.end = 650240; // lookup_slot
 	slots[0] = (slot_t){
@@ -42,7 +42,7 @@ T_DECL(lookup_size, "lookup_size")
 	T_EXPECT_EQ(lookup_size(&zone, 641031),  0ul, "freed block address");
 }
 
-T_DECL(allocate, "allocate")
+T_DECL(allocate, "allocate", T_META_TAG_VM_PREFERRED)
 {
 	T_EXPECT_NULL(allocate(&zone, 5, 16), "zone full");
 
@@ -58,13 +58,13 @@ T_DECL(allocate, "allocate")
 	// Slot metadata
 	T_EXPECT_EQ((unsigned int)(slots[1].state), ss_allocated, "slot.state");
 	T_EXPECT_EQ((unsigned int)(slots[1].metadata), 2, "slot.metadata");
-	T_EXPECT_EQ(slots[1].size, (uint16_t)8, "slot.size"); // zone->min_alignment
+	T_EXPECT_EQ(slots[1].size, (uint16_t)16, "slot.size");
 	T_EXPECT_EQ(slots[1].offset, (uint16_t)1008, "slot.offset");
 	T_EXPECT_EQ(metadata[2].alloc.trace_size, (uint16_t)88, "metadata.alloc.trace_size");
 	// Zone state
 	T_EXPECT_EQ(zone.num_allocations, 1, "zone.num_allocations");
-	T_EXPECT_EQ(zone.size_in_use, 8ul, "zone.size_in_use");
-	T_EXPECT_EQ(zone.max_size_in_use, 8ul, "zone.max_size_in_use");
+	T_EXPECT_EQ(zone.size_in_use, 16ul, "zone.size_in_use");
+	T_EXPECT_EQ(zone.max_size_in_use, 16ul, "zone.max_size_in_use");
 
 	zone.max_size_in_use = 55;
 	expected_trace_buffers[1] = metadata[3].trace_buffer; expected_trace_sizes[1] = 216;
@@ -73,7 +73,7 @@ T_DECL(allocate, "allocate")
 	T_EXPECT_EQ(zone.max_size_in_use, 55ul, "max_size_in_use is high water mark");
 }
 
-T_DECL(deallocate, "deallocate")
+T_DECL(deallocate, "deallocate", T_META_TAG_VM_PREFERRED)
 {
 	zone.begin = 640000; zone.end = 650240; // lookup_slot
 	slots[0] = (slot_t){
@@ -104,7 +104,7 @@ T_DECL(deallocate, "deallocate")
 
 // TODO(yln): test for reallocate with bad ptr
 
-T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled")
+T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled", T_META_TAG_VM_PREFERRED)
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
@@ -124,7 +124,7 @@ T_DECL(reallocate_guarded_to_sampled, "reallocate: guarded -> sampled")
 	T_EXPECT_EQ((unsigned int)(slots[1].state), ss_allocated, "destination slot");
 }
 
-T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
+T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled", T_META_TAG_VM_PREFERRED)
 {
 	expected_size_ptr = 1337; size_ret_value = 5; // wrapped_size
 	zone.max_allocations = 2; // is_full
@@ -141,7 +141,7 @@ T_DECL(reallocate_unguarded_to_sampled, "reallocate: unguarded -> sampled")
 	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_allocated, "destination slot");
 }
 
-T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled")
+T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled", T_META_TAG_VM_PREFERRED)
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size
@@ -156,7 +156,7 @@ T_DECL(reallocate_guarded_to_unsampled, "reallocate: guarded -> unsampled")
 	T_EXPECT_EQ((unsigned int)(slots[0].state), ss_freed, "source slot");
 }
 
-T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsampled (zone full)")
+T_DECL(reallocate_guarded_to_unsampled_zone_full, "reallocate: guarded -> unsampled (zone full)", T_META_TAG_VM_PREFERRED)
 {
 	zone.begin = 640000; zone.end = 650240; // is_guarded
 	slots[0] = (slot_t){ .state = ss_allocated, .metadata = 1, .size = 5 }; // lookup_size

@@ -1,6 +1,6 @@
 /* service-publisher.h
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,11 @@ void service_publisher_cancel(service_publisher_t *NONNULL publisher);
 service_publisher_t *NULLABLE service_publisher_create(srp_server_t *NONNULL server_state);
 void service_publisher_start(service_publisher_t *NONNULL publisher);
 void service_publisher_stop_publishing(service_publisher_t *NONNULL publisher);
+bool service_publisher_get_ml_eid(service_publisher_t *NULLABLE publisher, struct in6_addr *NONNULL ml_eid);
 
-
+void service_publisher_unadvertise_all(service_publisher_t *NONNULL publisher);
+void service_publisher_re_advertise_matching(service_publisher_t *NONNULL publisher);
+void service_publisher_wanted_service_added(service_publisher_t *NONNULL publisher);
 #endif // _SERVICE_PUBLISHER_H__
 
 // Local Variables:

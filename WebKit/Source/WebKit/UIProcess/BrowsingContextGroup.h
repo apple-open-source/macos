@@ -25,23 +25,53 @@
 
 #pragma once
 
-#include <WebCore/RegistrableDomain.h>
+#include "Site.h"
 #include <wtf/RefCounted.h>
+#include <wtf/WeakHashMap.h>
+#include <wtf/WeakListHashSet.h>
+
+namespace IPC {
+class Connection;
+}
 
 namespace WebKit {
 
+class FrameProcess;
+class ProvisionalPageProxy;
+class RemotePageProxy;
+class WebPageProxy;
+class WebPreferences;
 class WebProcessProxy;
 
-class BrowsingContextGroup : public RefCounted<BrowsingContextGroup> {
+class BrowsingContextGroup : public RefCounted<BrowsingContextGroup>, public CanMakeWeakPtr<BrowsingContextGroup> {
 public:
     static Ref<BrowsingContextGroup> create() { return adoptRef(*new BrowsingContextGroup()); }
+    ~BrowsingContextGroup();
 
-    WebProcessProxy* processForDomain(const WebCore::RegistrableDomain&);
-    void addProcessForDomain(const WebCore::RegistrableDomain&, WebProcessProxy&);
+    Ref<FrameProcess> ensureProcessForSite(const Site&, WebProcessProxy&, const WebPreferences&);
+    Ref<FrameProcess> ensureProcessForConnection(IPC::Connection&, WebPageProxy&, const WebPreferences&);
+    FrameProcess* processForSite(const Site&);
+    void addFrameProcess(FrameProcess&);
+    void removeFrameProcess(FrameProcess&);
+
+    void addPage(WebPageProxy&);
+    void removePage(WebPageProxy&);
+    void forEachRemotePage(const WebPageProxy&, Function<void(RemotePageProxy&)>&&);
+
+    RemotePageProxy* remotePageInProcess(const WebPageProxy&, const WebProcessProxy&);
+
+    std::unique_ptr<RemotePageProxy> takeRemotePageInProcessForProvisionalPage(const WebPageProxy&, const WebProcessProxy&);
+    void transitionPageToRemotePage(WebPageProxy&, const Site& openerSite);
+    void transitionProvisionalPageToRemotePage(ProvisionalPageProxy&, const Site& provisionalNavigationFailureSite);
+
+    bool hasRemotePages(const WebPageProxy&);
+
 private:
     BrowsingContextGroup();
 
-    HashMap<WebCore::RegistrableDomain, WeakPtr<WebProcessProxy>> m_processMap;
+    HashMap<Site, WeakPtr<FrameProcess>> m_processMap;
+    WeakListHashSet<WebPageProxy> m_pages;
+    WeakHashMap<WebPageProxy, HashSet<std::unique_ptr<RemotePageProxy>>> m_remotePages;
 };
 
 }

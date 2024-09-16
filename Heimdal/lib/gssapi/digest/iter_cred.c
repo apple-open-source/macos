@@ -107,7 +107,8 @@ _gss_scram_iter_creds_f(OM_uint32 flags,
 	errx(1, "out of memory");
 
     query_result = HeimCredCopyQuery(query);
-
+    CFRELEASE_NULL(query);
+    
     CFIndex n, count = CFArrayGetCount(query_result);
     for (n = 0; n < count; n++) {
 	char *user = NULL;
@@ -148,7 +149,7 @@ _gss_scram_iter_creds_f(OM_uint32 flags,
 	free(user);
 	CFRELEASE_NULL(userName);
     }
-    CFRelease(query_result);
+    CFRELEASE_NULL(query_result);
     (*cred_iter)(userctx, NULL, NULL);
 #endif
 }

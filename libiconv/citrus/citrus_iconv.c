@@ -404,6 +404,7 @@ _citrus_iconv_open(struct _citrus_iconv * __restrict * __restrict rcv,
 	(*rcv)->cv_shared = ci;
 	ret = (*ci->ci_ops->io_init_context)(*rcv);
 #ifdef __APPLE__
+	(*rcv)->cv_fallbacks = NULL;
 	/*
 	 * cv_wchar_dir specifically encodes whether src/dst are wchar_t so that
 	 * we can invoke our wc fallbacks only for the correct encodings.

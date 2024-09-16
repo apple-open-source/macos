@@ -53,7 +53,7 @@ MALLOC_NOEXPORT
 malloc_zero_policy_t malloc_zero_policy = MALLOC_ZERO_POLICY_DEFAULT;
 
 static inline malloc_zone_t *
-find_registered_zone(const void * __unsafe_indexable ptr, size_t *returned_size,
+_find_registered_zone(const void * __unsafe_indexable ptr, size_t *returned_size,
 	bool known_non_default)
 {
 	malloc_zone_t *zone;
@@ -85,6 +85,13 @@ find_registered_zone(const void * __unsafe_indexable ptr, size_t *returned_size,
 		*returned_size = size;
 	}
 	return zone;
+}
+
+malloc_zone_t *
+find_registered_zone(const void * __unsafe_indexable ptr, size_t *returned_size,
+	bool known_non_default)
+{
+	return _find_registered_zone(ptr, returned_size, known_non_default);
 }
 
 /*********  Creation and destruction    ************/
@@ -154,7 +161,7 @@ malloc_zone_t* malloc_default_zone(void)
 
 /*********  Block creation and manipulation ************/
 
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_malloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 {
 	// This and similar conditionals are commented out to avoid compiler
@@ -169,13 +176,13 @@ _malloc_zone_malloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(size)
 malloc_zone_malloc(malloc_zone_t *zone, size_t size)
 {
 	return _malloc_zone_malloc(zone, size, MZ_NONE);
 }
 
-void *
+void * __sized_by_or_null(num_items * size)
 _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 		malloc_zone_options_t mzo)
 {
@@ -191,13 +198,13 @@ _malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size,
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(num_items * size)
 malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)
 {
 	return _malloc_zone_calloc(zone, num_items, size, MZ_NONE);
 }
 
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_valloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 {
 	// if (os_unlikely(malloc_too_large(size))) {
@@ -214,13 +221,13 @@ _malloc_zone_valloc(malloc_zone_t *zone, size_t size, malloc_zone_options_t mzo)
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(size)
 malloc_zone_valloc(malloc_zone_t *zone, size_t size)
 {
 	return _malloc_zone_valloc(zone, size, MZ_NONE);
 }
 
-void *
+void * __sized_by_or_null(size)
 _malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 		size_t size, malloc_type_descriptor_t type_desc)
 {
@@ -232,7 +239,7 @@ _malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(size)
 malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 		size_t size)
 {
@@ -259,11 +266,11 @@ malloc_zone_from_ptr(const void * __unsafe_indexable ptr)
 	if (!ptr) {
 		return NULL;
 	} else {
-		return find_registered_zone(ptr, NULL, false);
+		return _find_registered_zone(ptr, NULL, false);
 	}
 }
 
-void * __alloc_align(2) __alloc_size(3)
+void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 _malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 	malloc_zone_options_t mzo, malloc_type_descriptor_t type_desc)
 {
@@ -303,7 +310,7 @@ out:
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(size)
 malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 {
 	return _malloc_zone_memalign(zone, alignment, size, MZ_NONE,
@@ -311,7 +318,7 @@ malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 }
 
 MALLOC_NOINLINE
-void *
+void * __sized_by_or_null(size)
 malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		size_t size, malloc_options_np_t options)
 {
@@ -324,7 +331,7 @@ malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		zone = malloc_zones[0];
 	}
 
-	if (zone->version >= 15) {
+	if (zone->version >= 15 && zone->malloc_with_options) {
 		return zone->malloc_with_options(zone, align, size, options);
 	}
 
@@ -364,7 +371,7 @@ void
 malloc_set_zone_name(malloc_zone_t *z, const char *name)
 {
 	if (z->zone_name) {
-		malloc_zone_t *old_zone = find_registered_zone(z->zone_name, NULL,
+		malloc_zone_t *old_zone = _find_registered_zone(z->zone_name, NULL,
 			false);
 		if (old_zone) {
 			malloc_zone_free(old_zone, (char *)z->zone_name);
@@ -400,7 +407,7 @@ find_zone_and_free(void * __unsafe_indexable ptr, bool known_non_default)
 		return;
 	}
 
-	zone = find_registered_zone(ptr, &size, known_non_default);
+	zone = _find_registered_zone(ptr, &size, known_non_default);
 	if (!zone) {
 		malloc_report(MALLOC_REPORT_DEBUG | MALLOC_REPORT_NOLOG,
 			"*** error for object %p: pointer being freed was not allocated\n",
@@ -415,27 +422,23 @@ find_zone_and_free(void * __unsafe_indexable ptr, bool known_non_default)
 
 /*********    Generic ANSI callouts    ************/
 
-// FIXME: Return NULL instead but we need bounds checking support
-// rdar://75598414 (Support __counted_by_or_null and __sized_by_or_null)
-#define NONZERO_SZ(sz) ((sz) ? (sz) : 1)
-
-void *
+void * __sized_by_or_null(size)
 malloc(size_t size)
 {
-	return malloc_zone_malloc(_malloc_zones[0], NONZERO_SZ(size));
+	return malloc_zone_malloc(_malloc_zones[0], size);
 }
 
-void *
+void * __sized_by_or_null(size)
 aligned_alloc(size_t alignment, size_t size)
 {
-	return _malloc_zone_memalign(_malloc_zones[0], alignment, NONZERO_SZ(size),
+	return _malloc_zone_memalign(_malloc_zones[0], alignment, size,
 		MZ_POSIX | MZ_C11, MALLOC_TYPE_DESCRIPTOR_NONE);
 }
 
-void *
+void * __sized_by_or_null(num_items * size)
 calloc(size_t num_items, size_t size)
 {
-	return malloc_zone_calloc(_malloc_zones[0], num_items, NONZERO_SZ(size));
+	return malloc_zone_calloc(_malloc_zones[0], num_items, size);
 }
 
 void
@@ -459,7 +462,7 @@ free(void * __unsafe_indexable ptr)
 	return _free(ptr);
 }
 
-void *
+void * __sized_by_or_null(new_size)
 _realloc(void * __unsafe_indexable in_ptr, size_t new_size)
 {
 	void * __bidi_indexable retval = NULL;
@@ -476,9 +479,9 @@ _realloc(void * __unsafe_indexable in_ptr, size_t new_size)
 	// size."  So we only free the original memory if the allocation succeeds.
 	old_ptr = (new_size == 0) ? NULL : in_ptr;
 	if (!old_ptr) {
-		retval = malloc_zone_malloc(_malloc_zones[0], NONZERO_SZ(new_size));
+		retval = malloc_zone_malloc(_malloc_zones[0], new_size);
 	} else {
-		zone = find_registered_zone(old_ptr, NULL, false);
+		zone = _find_registered_zone(old_ptr, NULL, false);
 		if (!zone) {
 			malloc_report(MALLOC_REPORT_CRASH,
 				"*** error for object %p: pointer being realloc'd was not allocated\n",
@@ -496,13 +499,13 @@ _realloc(void * __unsafe_indexable in_ptr, size_t new_size)
 	return retval;
 }
 
-void *
+void * __sized_by_or_null(new_size)
 realloc(void * __unsafe_indexable in_ptr, size_t new_size)
 {
 	return _realloc(in_ptr, new_size);
 }
 
-void *
+void * __sized_by_or_null(new_size)
 reallocf(void * __unsafe_indexable in_ptr, size_t new_size)
 {
 	void *ptr = realloc(in_ptr, new_size);
@@ -514,10 +517,10 @@ reallocf(void * __unsafe_indexable in_ptr, size_t new_size)
 	return ptr;
 }
 
-void *
+void * __sized_by_or_null(size)
 valloc(size_t size)
 {
-	return _malloc_zone_valloc(_malloc_zones[0], NONZERO_SZ(size), MZ_POSIX);
+	return _malloc_zone_valloc(_malloc_zones[0], size, MZ_POSIX);
 }
 
 size_t
@@ -529,7 +532,7 @@ malloc_size(const void * __unsafe_indexable ptr)
 		return size;
 	}
 
-	(void)find_registered_zone(ptr, &size, false);
+	(void)_find_registered_zone(ptr, &size, false);
 	return size;
 }
 
@@ -548,7 +551,7 @@ _posix_memalign(void * __unsafe_indexable *memptr, size_t alignment,
 
 	/* POSIX is silent on NULL == memptr !?! */
 
-	retval = malloc_zone_memalign(_malloc_zones[0], alignment, NONZERO_SZ(size));
+	retval = malloc_zone_memalign(_malloc_zones[0], alignment, size);
 	if (retval == NULL) {
 		// To avoid testing the alignment constraints redundantly, we'll rely on
 		// the test made in malloc_zone_memalign to vet each request. Only if
@@ -591,7 +594,7 @@ malloc_claimed_address(void *ptr)
 	return false;
 }
 
-void *
+void * __sized_by_or_null(nmemb * size)
 reallocarray(void * in_ptr, size_t nmemb, size_t size)
 {
 	size_t alloc_size;
@@ -602,7 +605,7 @@ reallocarray(void * in_ptr, size_t nmemb, size_t size)
 	return realloc(in_ptr, alloc_size);
 }
 
-void *
+void * __sized_by_or_null(nmemb * size)
 reallocarrayf(void * in_ptr, size_t nmemb, size_t size)
 {
 	size_t alloc_size;
@@ -686,5 +689,6 @@ malloc_zone_print(malloc_zone_t *zone, boolean_t verbose)
 void
 malloc_zero_on_free_disable(void)
 {
-	malloc_zero_policy = MALLOC_ZERO_NONE;
+	malloc_zone_error(MALLOC_ABORT_ON_ERROR, false,
+			"xzone cannot disable zero on free");
 }

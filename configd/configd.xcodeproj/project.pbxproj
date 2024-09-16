@@ -1220,6 +1220,9 @@
 		F94D0B0F27B21DEE00252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
 		F94D0B1027B21DF300252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
 		F94D0B1127B21DF600252F6A /* WiFiUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F99A33B127B21CA400BD5FDA /* WiFiUtil.h */; };
+		F95179A02BE4104B005B0289 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
+		F95179A12BE4105D005B0289 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
+		F95179A22BE41990005B0289 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
 		F955668D2652EBC8002EAD01 /* prefsmon_log.c in Sources */ = {isa = PBXBuildFile; fileRef = F955668B2652EBC8002EAD01 /* prefsmon_log.c */; };
 		F955668E2652EBC8002EAD01 /* preboot.m in Sources */ = {isa = PBXBuildFile; fileRef = F955668C2652EBC8002EAD01 /* preboot.m */; };
 		F95566912652EBF0002EAD01 /* preboot.h in Headers */ = {isa = PBXBuildFile; fileRef = F955668F2652EBF0002EAD01 /* preboot.h */; };
@@ -1280,6 +1283,10 @@
 		F9DAB81F273D854700E0F229 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		F9E8B87428132B9500523749 /* Network.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87228132B9500523749 /* Network.tiff */; };
 		F9E8B87628132B9500523749 /* WiFi.tiff in Resources */ = {isa = PBXBuildFile; fileRef = F9E8B87328132B9500523749 /* WiFi.tiff */; };
+		F9F427892AE6CD1000869131 /* NetworkInterfaceUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F9F427882AE6CD1000869131 /* NetworkInterfaceUtil.c */; };
+		F9F4278A2AE6CD1000869131 /* NetworkInterfaceUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F9F427882AE6CD1000869131 /* NetworkInterfaceUtil.c */; };
+		F9F4278C2AE6CD2A00869131 /* NetworkInterfaceUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F9F4278B2AE6CD2A00869131 /* NetworkInterfaceUtil.h */; };
+		F9F4278D2AE6CD2A00869131 /* NetworkInterfaceUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F9F4278B2AE6CD2A00869131 /* NetworkInterfaceUtil.h */; };
 		F9FC44C32951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
 		F9FC44C42951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
 		F9FC44C52951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */; };
@@ -2520,6 +2527,8 @@
 		F9DA26732702404D00B31870 /* WatchdogClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchdogClient.framework; path = System/Library/PrivateFrameworks/WatchdogClient.framework; sourceTree = SDKROOT; };
 		F9E8B87228132B9500523749 /* Network.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tiff; sourceTree = "<group>"; };
 		F9E8B87328132B9500523749 /* WiFi.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = WiFi.tiff; sourceTree = "<group>"; };
+		F9F427882AE6CD1000869131 /* NetworkInterfaceUtil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = NetworkInterfaceUtil.c; sourceTree = "<group>"; };
+		F9F4278B2AE6CD2A00869131 /* NetworkInterfaceUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkInterfaceUtil.h; sourceTree = "<group>"; };
 		F9FC44C22951282A00BDBA54 /* SCNetworkCategoryManagerInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkCategoryManagerInternal.h; sourceTree = "<group>"; };
 		F9FC44C92954FBC200BDBA54 /* CategoryManagerCommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CategoryManagerCommon.h; sourceTree = "<group>"; };
 		F9FC44CA2954FBC200BDBA54 /* CategoryManagerCommon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CategoryManagerCommon.c; sourceTree = "<group>"; };
@@ -3108,6 +3117,8 @@
 		159D53AC07528B36004F8947 /* InterfaceNamer */ = {
 			isa = PBXGroup;
 			children = (
+				F9F4278B2AE6CD2A00869131 /* NetworkInterfaceUtil.h */,
+				F9F427882AE6CD1000869131 /* NetworkInterfaceUtil.c */,
 				159D53AE07528B36004F8947 /* ifnamer.c */,
 				15DA6E68267550060077A9BF /* Control */,
 				15FD73EE0754DE62001CC321 /* Info.plist */,
@@ -4315,6 +4326,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15A9BDA81D8DEA67007024DB /* plugin_shared.h in Headers */,
+				F9F4278D2AE6CD2A00869131 /* NetworkInterfaceUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4395,6 +4407,7 @@
 			files = (
 				1572AA8F1D82375A0021E093 /* plugin_shared.h in Headers */,
 				1581BCD21E28673600F69B1E /* InterfaceNamerControlPrefs.h in Headers */,
+				F9F4278C2AE6CD2A00869131 /* NetworkInterfaceUtil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6334,7 +6347,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n    ${SCRIPT_INPUT_FILE_0} com.apple.configd.plist\nfi";
+			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n    ${SCRIPT_INPUT_FILE_0} com.apple.configd.plist\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		15FBB55117D78B670035D752 /* Update MachServices */ = {
@@ -6593,6 +6606,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F95179A22BE41990005B0289 /* InterfaceNamerControlPrefs.c in Sources */,
 				15732ABE16EA511900F3AC4C /* scutil.c in Sources */,
 				15732ABF16EA511900F3AC4C /* commands.c in Sources */,
 				15732AC016EA511900F3AC4C /* dictionary.c in Sources */,
@@ -6633,6 +6647,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F95179A12BE4105D005B0289 /* InterfaceNamerControlPrefs.c in Sources */,
 				157434000D4A8137002ACA73 /* scutil.c in Sources */,
 				157434010D4A8137002ACA73 /* commands.c in Sources */,
 				157434020D4A8137002ACA73 /* dictionary.c in Sources */,
@@ -6693,6 +6708,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F95179A02BE4104B005B0289 /* InterfaceNamerControlPrefs.c in Sources */,
+				F9F4278A2AE6CD1000869131 /* NetworkInterfaceUtil.c in Sources */,
 				157A85080D56C8AA00B6F1A0 /* ifnamer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6786,6 +6803,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				159D541607528DF1004F8947 /* ifnamer.c in Sources */,
+				F9F427892AE6CD1000869131 /* NetworkInterfaceUtil.c in Sources */,
 				15FB1F8A1E27EA8700B4F809 /* InterfaceNamerControlPrefs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -8612,6 +8630,10 @@
 					"-Wno-unused-macros",
 					"-Wno-used-but-marked-unused",
 					"-Wno-vla",
+					"-Wno-switch-default",
+					"-Wno-pre-c11-compat",
+					"-Wno-c23-extensions",
+					"-Wno-unknown-warning-option",
 				);
 			};
 			name = Debug;
@@ -8717,6 +8739,10 @@
 					"-Wno-unused-macros",
 					"-Wno-used-but-marked-unused",
 					"-Wno-vla",
+					"-Wno-switch-default",
+					"-Wno-pre-c11-compat",
+					"-Wno-c23-extensions",
+					"-Wno-unknown-warning-option",
 				);
 			};
 			name = Release;

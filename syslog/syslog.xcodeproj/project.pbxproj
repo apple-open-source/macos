@@ -67,6 +67,21 @@
 			name = executables_DaytonaBridge;
 			productName = All;
 		};
+		D0BB03C02B5F24E50045AE64 /* executables_macOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D0BB03CB2B5F24E50045AE64 /* Build configuration list for PBXAggregateTarget "executables_macOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D0BB03C12B5F24E50045AE64 /* PBXTargetDependency */,
+				D0BB03C32B5F24E50045AE64 /* PBXTargetDependency */,
+				D0BB03C52B5F24E50045AE64 /* PBXTargetDependency */,
+				D0BB03C72B5F24E50045AE64 /* PBXTargetDependency */,
+				D0BB03C92B5F24E50045AE64 /* PBXTargetDependency */,
+			);
+			name = executables_macOS;
+			productName = All;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -124,7 +139,14 @@
 		505ACBA8108FD18400197086 /* asl_ipc.defs in Headers */ = {isa = PBXBuildFile; fileRef = 505ACBA2108FD18400197086 /* asl_ipc.defs */; };
 		505ACBA9108FD18400197086 /* asl_memory.c in Sources */ = {isa = PBXBuildFile; fileRef = 505ACBA3108FD18400197086 /* asl_memory.c */; };
 		505ACBAA108FD18400197086 /* asl_memory.h in Headers */ = {isa = PBXBuildFile; fileRef = 505ACBA4108FD18400197086 /* asl_memory.h */; };
+		84F077322A15828800ED1933 /* asl.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 84F077302A157F9E00ED1933 /* asl.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
+		84F077332A15828B00ED1933 /* asl_private.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 84F077312A157FAF00ED1933 /* asl_private.modulemap */; settings = {ATTRIBUTES = (Private, ); }; };
 		8FBD22362241ED0000CEBA6A /* asl_mt_shim.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F77AF5A2241CD17004AF9B4 /* asl_mt_shim.c */; };
+		D098D0942AD47DAD001EDA53 /* newsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = D098D06D2AD47D30001EDA53 /* newsyslog.c */; };
+		D098D0952AD47DAD001EDA53 /* ptimes.c in Sources */ = {isa = PBXBuildFile; fileRef = D098D0702AD47D30001EDA53 /* ptimes.c */; };
+		D098D0982AD47E05001EDA53 /* newsyslog.conf.5 in Copy Manpage.5 */ = {isa = PBXBuildFile; fileRef = D098D06C2AD47D30001EDA53 /* newsyslog.conf.5 */; };
+		D098D09A2AD47E47001EDA53 /* newsyslog.8 in Copy Manpage.8 */ = {isa = PBXBuildFile; fileRef = D098D0712AD47D30001EDA53 /* newsyslog.8 */; };
+		D098D0A12AD48628001EDA53 /* com.apple.newsyslog.plist in Install Launch Daemons */ = {isa = PBXBuildFile; fileRef = D098D0A02AD48623001EDA53 /* com.apple.newsyslog.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -198,6 +220,41 @@
 			remoteGlobalIDString = 5039177B109140C30001165E;
 			remoteInfo = syslogd;
 		};
+		D0BB03C22B5F24E50045AE64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 505ACB9C108FD16400197086;
+			remoteInfo = aslcommon;
+		};
+		D0BB03C42B5F24E50045AE64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 50391765109140450001165E;
+			remoteInfo = aslmanager;
+		};
+		D0BB03C62B5F24E50045AE64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 503917C71091413E0001165E;
+			remoteInfo = util;
+		};
+		D0BB03C82B5F24E50045AE64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5039177B109140C30001165E;
+			remoteInfo = syslogd;
+		};
+		D0BB03CA2B5F24E50045AE64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D098D08D2AD47D9B001EDA53;
+			remoteInfo = newsyslog;
+		};
 		FCF3761810D2EED700C0EC8D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -270,6 +327,49 @@
 				503A827B109904E400B0D08A /* syslog.conf.5 in Copy Manpages.5 */,
 			);
 			name = "Copy Manpages.5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D098D08C2AD47D9B001EDA53 /* Copy Manpage.5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				D098D0982AD47E05001EDA53 /* newsyslog.conf.5 in Copy Manpage.5 */,
+			);
+			name = "Copy Manpage.5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D098D0962AD47DB7001EDA53 /* Install /etc/newsyslog.d */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+			);
+			name = "Install /etc/newsyslog.d";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D098D0992AD47E3C001EDA53 /* Copy Manpage.8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D098D09A2AD47E47001EDA53 /* newsyslog.8 in Copy Manpage.8 */,
+			);
+			name = "Copy Manpage.8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D098D09F2AD485C3001EDA53 /* Install Launch Daemons */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D098D0A12AD48628001EDA53 /* com.apple.newsyslog.plist in Install Launch Daemons */,
+			);
+			name = "Install Launch Daemons";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -348,7 +448,18 @@
 		505ACBA2108FD18400197086 /* asl_ipc.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = asl_ipc.defs; sourceTree = "<group>"; };
 		505ACBA3108FD18400197086 /* asl_memory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_memory.c; sourceTree = "<group>"; };
 		505ACBA4108FD18400197086 /* asl_memory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = asl_memory.h; sourceTree = "<group>"; };
+		84F077302A157F9E00ED1933 /* asl.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = asl.modulemap; sourceTree = "<group>"; };
+		84F077312A157FAF00ED1933 /* asl_private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = asl_private.modulemap; sourceTree = "<group>"; };
 		8F77AF5A2241CD17004AF9B4 /* asl_mt_shim.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = asl_mt_shim.c; sourceTree = "<group>"; };
+		D098D06C2AD47D30001EDA53 /* newsyslog.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = newsyslog.conf.5; sourceTree = "<group>"; };
+		D098D06D2AD47D30001EDA53 /* newsyslog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = newsyslog.c; sourceTree = "<group>"; };
+		D098D06E2AD47D30001EDA53 /* pathnames.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		D098D06F2AD47D30001EDA53 /* extern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
+		D098D0702AD47D30001EDA53 /* ptimes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ptimes.c; sourceTree = "<group>"; };
+		D098D0712AD47D30001EDA53 /* newsyslog.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = newsyslog.8; sourceTree = "<group>"; };
+		D098D08E2AD47D9B001EDA53 /* newsyslog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newsyslog; sourceTree = BUILT_PRODUCTS_DIR; };
+		D098D0A02AD48623001EDA53 /* com.apple.newsyslog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.newsyslog.plist; sourceTree = "<group>"; };
+		D0A70A792AE977770080FB6E /* newsyslog.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = newsyslog.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -392,12 +503,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D098D08B2AD47D9B001EDA53 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		08FB7794FE84155DC02AAC07 /* syslog */ = {
 			isa = PBXGroup;
 			children = (
+				D098D06B2AD47D30001EDA53 /* newsyslog */,
 				505ACBA1108FD18400197086 /* aslcommon */,
 				503917691091404D0001165E /* aslmanager */,
 				503917C41091412B0001165E /* util */,
@@ -426,6 +545,8 @@
 		3F6F43CE1613A8E300CA9ADB /* include */ = {
 			isa = PBXGroup;
 			children = (
+				84F077302A157F9E00ED1933 /* asl.modulemap */,
+				84F077312A157FAF00ED1933 /* asl_private.modulemap */,
 				3F6F43CF1613A8E300CA9ADB /* asl.h */,
 				3F6F43D01613A8E300CA9ADB /* asl_core.h */,
 				2D31F3C117E77F3300F2A60C /* asl_client.h */,
@@ -474,6 +595,7 @@
 		3FFD43F717485C5B007DAC1B /* xcodeconfig */ = {
 			isa = PBXGroup;
 			children = (
+				D0A70A792AE977770080FB6E /* newsyslog.xcconfig */,
 				3F6B6311185AF66C00F692C5 /* aslmanager.xcconfig */,
 				3F6B6312185AF66C00F692C5 /* base.xcconfig */,
 				3F6B6313185AF66C00F692C5 /* syslogd.xcconfig */,
@@ -541,6 +663,7 @@
 				5039177C109140C30001165E /* syslogd */,
 				503917C81091413E0001165E /* syslog */,
 				3F6F43CA1613922800CA9ADB /* libsystem_asl.dylib */,
+				D098D08E2AD47D9B001EDA53 /* newsyslog */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -557,6 +680,20 @@
 			path = aslcommon;
 			sourceTree = "<group>";
 		};
+		D098D06B2AD47D30001EDA53 /* newsyslog */ = {
+			isa = PBXGroup;
+			children = (
+				D098D0A02AD48623001EDA53 /* com.apple.newsyslog.plist */,
+				D098D06C2AD47D30001EDA53 /* newsyslog.conf.5 */,
+				D098D06D2AD47D30001EDA53 /* newsyslog.c */,
+				D098D06E2AD47D30001EDA53 /* pathnames.h */,
+				D098D06F2AD47D30001EDA53 /* extern.h */,
+				D098D0702AD47D30001EDA53 /* ptimes.c */,
+				D098D0712AD47D30001EDA53 /* newsyslog.8 */,
+			);
+			path = newsyslog;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -564,7 +701,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				84F077322A15828800ED1933 /* asl.modulemap in Headers */,
 				2D31F3C517E77F3300F2A60C /* asl_client.h in Headers */,
+				84F077332A15828B00ED1933 /* asl_private.modulemap in Headers */,
 				2D31F3C817E77F3300F2A60C /* asl_string.h in Headers */,
 				3F6F43F21613A8E300CA9ADB /* asl.h in Headers */,
 				2D31F3C717E77F3300F2A60C /* asl_object.h in Headers */,
@@ -683,6 +822,27 @@
 			productReference = 505ACB9D108FD16400197086 /* libaslcommon.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		D098D08D2AD47D9B001EDA53 /* newsyslog */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D098D0922AD47D9B001EDA53 /* Build configuration list for PBXNativeTarget "newsyslog" */;
+			buildPhases = (
+				D098D08A2AD47D9B001EDA53 /* Sources */,
+				D098D08B2AD47D9B001EDA53 /* Frameworks */,
+				D098D08C2AD47D9B001EDA53 /* Copy Manpage.5 */,
+				D098D0992AD47E3C001EDA53 /* Copy Manpage.8 */,
+				D098D0962AD47DB7001EDA53 /* Install /etc/newsyslog.d */,
+				D098D09E2AD485A3001EDA53 /* ShellScript */,
+				D098D09F2AD485C3001EDA53 /* Install Launch Daemons */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = newsyslog;
+			productName = newsyslog;
+			productReference = D098D08E2AD47D9B001EDA53 /* newsyslog */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -690,6 +850,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0460;
+				TargetAttributes = {
+					D098D08D2AD47D9B001EDA53 = {
+						CreatedOnToolsVersion = 15.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "syslog" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -714,8 +880,10 @@
 				50391765109140450001165E /* aslmanager */,
 				503917C71091413E0001165E /* util */,
 				5039177B109140C30001165E /* syslogd */,
+				D098D08D2AD47D9B001EDA53 /* newsyslog */,
 				3F6F43C91613922800CA9ADB /* libsystem_asl */,
 				721700891CCABF6F000FC779 /* executables_DaytonaBridge */,
+				D0BB03C02B5F24E50045AE64 /* executables_macOS */,
 			);
 		};
 /* End PBXProject section */
@@ -733,7 +901,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "exec ${PROJECT_DIR}/syslogd.tproj/after_install.sh";
+			shellScript = "exec ${PROJECT_DIR}/syslogd.tproj/after_install.sh\n";
+		};
+		D098D09E2AD485A3001EDA53 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}\"/private/etc/newsyslog.d\n";
+			showEnvVarsInLog = 0;
 		};
 		FCAC6D7410AB34C9008DEAC9 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -829,6 +1015,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D098D08A2AD47D9B001EDA53 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D098D0942AD47DAD001EDA53 /* newsyslog.c in Sources */,
+				D098D0952AD47DAD001EDA53 /* ptimes.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -881,6 +1076,31 @@
 			isa = PBXTargetDependency;
 			target = 5039177B109140C30001165E /* syslogd */;
 			targetProxy = 721700911CCABF6F000FC779 /* PBXContainerItemProxy */;
+		};
+		D0BB03C12B5F24E50045AE64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 505ACB9C108FD16400197086 /* aslcommon */;
+			targetProxy = D0BB03C22B5F24E50045AE64 /* PBXContainerItemProxy */;
+		};
+		D0BB03C32B5F24E50045AE64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 50391765109140450001165E /* aslmanager */;
+			targetProxy = D0BB03C42B5F24E50045AE64 /* PBXContainerItemProxy */;
+		};
+		D0BB03C52B5F24E50045AE64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 503917C71091413E0001165E /* util */;
+			targetProxy = D0BB03C62B5F24E50045AE64 /* PBXContainerItemProxy */;
+		};
+		D0BB03C72B5F24E50045AE64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5039177B109140C30001165E /* syslogd */;
+			targetProxy = D0BB03C82B5F24E50045AE64 /* PBXContainerItemProxy */;
+		};
+		D0BB03C92B5F24E50045AE64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D098D08D2AD47D9B001EDA53 /* newsyslog */;
+			targetProxy = D0BB03CA2B5F24E50045AE64 /* PBXContainerItemProxy */;
 		};
 		FCF3761910D2EED700C0EC8D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1077,6 +1297,72 @@
 			};
 			name = Release;
 		};
+		D098D0932AD47D9B001EDA53 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D0A70A792AE977770080FB6E /* newsyslog.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		D0BB03CC2B5F24E50045AE64 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1164,6 +1450,22 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				721700931CCABF6F000FC779 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D098D0922AD47D9B001EDA53 /* Build configuration list for PBXNativeTarget "newsyslog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D098D0932AD47D9B001EDA53 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0BB03CB2B5F24E50045AE64 /* Build configuration list for PBXAggregateTarget "executables_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0BB03CC2B5F24E50045AE64 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

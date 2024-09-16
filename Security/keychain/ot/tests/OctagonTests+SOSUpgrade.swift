@@ -104,8 +104,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.mockAuthKit.machineIDFetchErrors.add(NSError(domain: CKErrorDomain,
-                                                                   code: CKError.networkUnavailable.rawValue,
-                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
+                                                          code: CKError.networkUnavailable.rawValue,
+                                                          userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -171,7 +171,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.wait(for: [establishExpectation], timeout: 10)
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateAttemptSOSUpgrade, within: 10 * NSEC_PER_SEC)
 
         // Some time later, it should become ready
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

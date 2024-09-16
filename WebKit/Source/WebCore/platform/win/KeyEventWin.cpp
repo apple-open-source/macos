@@ -31,6 +31,7 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/HexNumber.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 
 #ifndef MAPVK_VSC_TO_VK_EX
 #define MAPVK_VSC_TO_VK_EX 3
@@ -145,7 +146,7 @@ static String keyIdentifierForWindowsKeyCode(unsigned short keyCode)
         case VK_DELETE:
             return "U+007F"_s;
         default:
-            return makeString("U+", hex(toASCIIUpper(keyCode), 4));
+            return makeString("U+"_s, hex(toASCIIUpper(keyCode), 4));
     }
 }
 
@@ -219,7 +220,7 @@ static int windowsKeycodeWithLocation(WPARAM keycode, LPARAM keyData)
 
 static inline String singleCharacterString(UChar c)
 {
-    return String(&c, 1);
+    return span(c);
 }
 
 static WindowsKeyNames& windowsKeyNames()

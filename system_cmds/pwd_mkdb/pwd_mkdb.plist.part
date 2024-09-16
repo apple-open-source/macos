@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>pwd_mkdb</string>
+		<key>OpenSourceVersion</key>
+		<string>2023-12-20</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.sbin/pwd_mkdb?id=fcaae06579bfedbaadddb98c34985168e32cbc8e</string>
+		<key>OpenSourceImportDate</key>
+		<string>2023-12-20</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>pwd_mkdb.c: rename -s (cachesize) option to -S</string>
+			<string>pwd_mkdb.c: add -s (secure only) option</string>
+			<string>pwd_mkdb.c: rename -C (check) option to -c</string>
+			<string>pwd_mkdb.8: match code changes</string>
+			<string>pwd_mkdb.c: disable most of the code except -c and -p</string>
+			<string>pwd_mkdb.8: document that pwd_mkdb is useless</string>
+			<string>pw_scan.c, pwd_mkdb.c: support negative ids</string>
+			<string>pw_scan.c: Darwin doesn't have pw_fields</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

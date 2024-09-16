@@ -237,31 +237,6 @@ bool SecCKKSTestsDisable(void) {
 }
 
 // Feature flags to twiddle behavior
-static bool CKKSSyncManifests = false;
-bool SecCKKSSyncManifests(void) {
-    return CKKSSyncManifests;
-}
-bool SecCKKSEnableSyncManifests(void) {
-    CKKSSyncManifests = true;
-    return CKKSSyncManifests;
-}
-bool SecCKKSSetSyncManifests(bool value) {
-    CKKSSyncManifests = value;
-    return CKKSSyncManifests;
-}
-
-static bool CKKSEnforceManifests = false;
-bool SecCKKSEnforceManifests(void) {
-    return CKKSEnforceManifests;
-}
-bool SecCKKSEnableEnforceManifests(void) {
-    CKKSEnforceManifests = true;
-    return CKKSEnforceManifests;
-}
-bool SecCKKSSetEnforceManifests(bool value) {
-    CKKSEnforceManifests = value;
-    return CKKSEnforceManifests;
-}
 
 // defaults write com.apple.security.ckks reduce-rate-limiting YES
 static bool CKKSReduceRateLimiting = false;
@@ -285,34 +260,6 @@ bool SecCKKSSetReduceRateLimiting(bool value) {
     CKKSReduceRateLimiting = value;
     ckksnotice_global("ratelimit", "reduce-rate-limiting is now %@", CKKSReduceRateLimiting ? @"on" : @"off");
     return CKKSReduceRateLimiting;
-}
-
-typedef enum {
-    CKKSHighPriorityOperation_DEFAULT,
-    CKKSHighPriorityOperation_OVERRIDE_TRUE,
-    CKKSHighPriorityOperation_OVERRIDE_FALSE,
-} CKKSHighPriorityOperation;
-
-static CKKSHighPriorityOperation gCKKSHighPriorityOperation = CKKSHighPriorityOperation_DEFAULT;
-
-bool SecCKKSHighPriorityOperations(void) {
-    if (gCKKSHighPriorityOperation != CKKSHighPriorityOperation_DEFAULT) {
-        return gCKKSHighPriorityOperation == CKKSHighPriorityOperation_OVERRIDE_TRUE;
-    }
-
-    static bool ffCKKSHighPriorityOperation = false;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        ffCKKSHighPriorityOperation = os_feature_enabled(Security, CKKSHighPriorityOperations);
-    });
-
-    return ffCKKSHighPriorityOperation;
-}
-
-bool SecCKKSSetHighPriorityOperations(bool value) {
-    gCKKSHighPriorityOperation = value ? CKKSHighPriorityOperation_OVERRIDE_TRUE : CKKSHighPriorityOperation_OVERRIDE_FALSE;
-    secnotice("keychain", "CKKSHighPriorityOperation Supported overridden to %s", value ? "enabled" : "disabled");
-    return value;
 }
 
 // Here's a mechanism for CKKS feature flags with default values from NSUserDefaults:
@@ -481,14 +428,18 @@ void SecCKKSNotifyBlock(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, 
         SecDbItemRef deleted = NULL;
         SecDbItemRef added = NULL;
 
-        SecDbEventTranslateComponents(r, (CFTypeRef*) &deleted, (CFTypeRef*) &added);
+        @autoreleasepool {
+            SecDbEventTranslateComponents(r, (CFTypeRef*) &deleted, (CFTypeRef*) &added);
+        }
 
         if(!added && !deleted) {
             ckkserror_global("ckks", "SecDbEvent gave us garbage: %@", r);
             return;
         }
 
-        [[CKKSViewManager manager] handleKeychainEventDbConnection: dbconn source:source added: added deleted: deleted];
+        @autoreleasepool {
+            [[CKKSViewManager manager] handleKeychainEventDbConnection: dbconn source:source added: added deleted: deleted];
+        }
     });
 #endif
 }

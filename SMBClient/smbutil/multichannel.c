@@ -68,10 +68,6 @@ const char *iod_state_to_text[] = {
 #define RSS_MASK  (0xF00000000)
 #define RSS_SHIFT (32)
 
-#define SMB2_IF_CAP_RSS_CAPABLE  (0x01)
-#define SMB2_IF_CAP_RDMA_CAPABLE (0x02)
-
-
 #define SMB2_MC_STATE_IDLE          0x00 /* This NIC is ready to be used */
 #define SMB2_MC_STATE_ON_TRIAL      0x01 /* This NIC was sent to connection trial */
 #define SMB2_MC_STATE_USED          0x02 /* This NIC is being used */
@@ -591,10 +587,10 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
         }
         
         if (output_format == None) {
-            print_header(stdout,output_format);
+            print_header(stdout, output_format);
         }
 
-        for(uint32_t u=0; u<mc_props.num_of_iod_properties; u++) {
+        for (uint32_t u = 0; u < mc_props.num_of_iod_properties; u++) {
 
             struct smbioc_iod_prop *p = &mc_props.iod_properties[u];
 
@@ -617,27 +613,39 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
                 char rss_buf[20] = "     N/A";
                 if (p->iod_prop_s_if != (uint64_t)(-1)) {
                     if (p->iod_prop_s_if_caps & SMB2_IF_CAP_RSS_CAPABLE) {
-                        sprintf(rss_buf,"%4llu (RSS_%llu)",
+                        sprintf(rss_buf, "%4llu (RSS_%llu)",
                                 p->iod_prop_s_if & (~RSS_MASK),
                                 (p->iod_prop_s_if & (RSS_MASK)) >> RSS_SHIFT);
                     } else {
-                        sprintf(rss_buf,"%4llu        ",
+                        sprintf(rss_buf, "%4llu        ",
                                 p->iod_prop_s_if & (~RSS_MASK));
                     }
                 }
                 
+                char client_rss_buf[20] = "     N/A";
+                if (p->iod_prop_c_if != (uint64_t)(-1)) {
+                    if (p->iod_prop_c_if_caps & SMB2_IF_CAP_RSS_CAPABLE) {
+                        sprintf(client_rss_buf, "%4llu (RSS_%llu)",
+                                p->iod_prop_c_if & (~RSS_MASK),
+                                (p->iod_prop_c_if & (RSS_MASK)) >> RSS_SHIFT);
+                    } else {
+                        sprintf(client_rss_buf, "%4llu        ",
+                                p->iod_prop_c_if & (~RSS_MASK));
+                    }
+                }
+
                 char c_if_type[40]="    N/A";
                 if (p->iod_prop_c_if != (uint64_t)(-1)) {
-                    sprintf(c_if_type, " %-6s (%-8s) %3llu ",
+                    sprintf(c_if_type, " %-6s (%-8s) %-12s ",
                             c_if,
                             (p->iod_prop_c_if_type == IFM_ETHER) ? "Ethernet" : "wifi",
-                            p->iod_prop_c_if);
+                            client_rss_buf);
                 }
 
                 // Print as follows:
                 //    M       0      en11   (Ethernet)   18 (RSS)  [session active       ]   192.168.0.100             445    1.0 Gb
                 fprintf(stdout, "%-3s%6u %-27s %-12s  [%-21s]   %-24s  %3u    %s\n",
-                        (p->iod_flags & SMBIOD_ALTERNATE_CHANNEL)?"ALT":"M",
+                        (p->iod_flags & SMBIOD_ALTERNATE_CHANNEL) ? "ALT" : "M",
                         p->iod_prop_id,
                         c_if_type,
                         rss_buf,
@@ -677,7 +685,7 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
 
         void * npp = server_nics.ioc_nic_props_buffer;
 
-        for(uint32_t u=0; u<server_nics.num_of_nics; u++) {
+        for(uint32_t u = 0; u < server_nics.num_of_nics; u++) {
 
             struct nic_properties *nic_info = (struct nic_properties *)npp;
             if (nic_info->if_index & RSS_MASK) {

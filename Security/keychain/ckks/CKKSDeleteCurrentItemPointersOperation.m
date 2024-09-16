@@ -88,10 +88,10 @@
         // We're likely rolling a PCS identity, or creating a new one. User cares.
         self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
-        if(SecCKKSHighPriorityOperations()) {
-            // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
-            self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
-        }
+        // CKKSSetHighPriorityOperations is default enabled
+        // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
+        self.modifyRecordsOperation.qualityOfService = NSQualityOfServiceUserInitiated;
+        
 
         self.modifyRecordsOperation.group = self.ckoperationGroup;
 

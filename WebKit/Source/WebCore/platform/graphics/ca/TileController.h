@@ -52,6 +52,8 @@ const int kDefaultTileSize = 512;
 
 class TileController final : public TiledBacking {
     WTF_MAKE_NONCOPYABLE(TileController); WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(TileController);
+
     friend class TileCoverageMap;
     friend class TileGrid;
 public:
@@ -110,6 +112,7 @@ public:
     void didEndLiveResize() final;
 
     IntSize tileSize() const final;
+    FloatRect rectForTile(TileIndex) const final;
     IntRect bounds() const final;
     IntRect boundsWithoutMargin() const final;
     bool hasMargins() const final;
@@ -153,6 +156,12 @@ private:
     float topContentInset() const { return m_topContentInset; }
 
     // TiledBacking member functions.
+    PlatformLayerIdentifier layerIdentifier() const final;
+    void setClient(TiledBackingClient*) final;
+
+    TileGridIdentifier primaryGridIdentifier() const final;
+    std::optional<TileGridIdentifier> secondaryGridIdentifier() const final;
+
     void setVisibleRect(const FloatRect&) final;
     void setLayoutViewportRect(std::optional<FloatRect>) final;
     void setCoverageRect(const FloatRect&) final;
@@ -178,6 +187,7 @@ private:
     void setMarginSize(int) final;
     void setZoomedOutContentsScale(float) final;
     float zoomedOutContentsScale() const final;
+    float tilingScaleFactor() const final;
 
     void updateMargins();
     void clearZoomedOutTileGrid();
@@ -188,6 +198,10 @@ private:
 
     void notePendingTileSizeChange();
     void tileSizeChangeTimerFired();
+
+    void willRepaintTile(TileGrid&, TileIndex, const FloatRect& tileClip, const FloatRect& paintDirtyRect);
+    void willRemoveTile(TileGrid&, TileIndex);
+    void willRepaintAllTiles(TileGrid&);
 
 #if !PLATFORM(IOS_FAMILY)
     FloatRect adjustTileCoverageForDesktopPageScrolling(const FloatRect& coverageRect, const FloatSize& newSize, const FloatRect& previousVisibleRect, const FloatRect& visibleRect) const;
@@ -200,6 +214,8 @@ private:
     PlatformCALayerClient* owningGraphicsLayer() const { return m_tileCacheLayer->owner(); }
 
     PlatformCALayer* m_tileCacheLayer;
+
+    WeakPtr<TiledBackingClient> m_client;
 
     float m_zoomedOutContentsScale { 0 };
     float m_deviceScaleFactor;

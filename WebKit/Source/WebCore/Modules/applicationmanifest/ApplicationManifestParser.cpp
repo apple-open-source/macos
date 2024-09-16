@@ -35,6 +35,7 @@
 #include <JavaScriptCore/ConsoleMessage.h>
 #include <optional>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -448,6 +449,8 @@ URL ApplicationManifestParser::parseId(const JSON::Object& manifest, const URL& 
     if (!protocolHostAndPortAreEqual(idURL, startURL))
         return startURL;
 
+    idURL.removeFragmentIdentifier();
+
     return idURL;
 }
 
@@ -483,6 +486,8 @@ std::optional<URL> ApplicationManifestParser::parseScope(const JSON::Object& man
         logDeveloperWarning("The start URL is not within scope of the provided scope URL."_s);
         return std::nullopt;
     }
+
+    scopeURL.removeQueryAndFragmentIdentifier();
 
     return scopeURL;
 }

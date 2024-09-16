@@ -38,7 +38,7 @@ class WebPageDebuggable final : public Inspector::RemoteInspectionTarget {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(WebPageDebuggable);
 public:
-    WebPageDebuggable(WebPageProxy&);
+    static Ref<WebPageDebuggable> create(WebPageProxy&);
     ~WebPageDebuggable() = default;
 
     Inspector::RemoteControllableTarget::Type type() const final { return Inspector::RemoteControllableTarget::Type::WebPage; }
@@ -52,11 +52,15 @@ public:
     void dispatchMessageFromRemote(String&& message) final;
     void setIndicating(bool) final;
 
-    const String& nameOverride() const { return m_nameOverride; }
+    const String& nameOverride() const final { return m_nameOverride; }
     void setNameOverride(const String&);
 
+    void detachFromPage();
+
 private:
-    WebPageProxy& m_page;
+    explicit WebPageDebuggable(WebPageProxy&);
+
+    WebPageProxy* m_page;
     String m_nameOverride;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -140,7 +140,13 @@ static const CFRuntimeClass __SCNetworkReachabilityClass = {
 	NULL,					// equal
 	NULL,					// hash
 	NULL,					// copyFormattingDesc
-	__SCNetworkReachabilityCopyDescription	// copyDebugDesc
+	__SCNetworkReachabilityCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -306,7 +312,7 @@ __SCNetworkReachabilityCopyDescription(CFTypeRef cf)
 					} else if (endpoint_type == nw_endpoint_type_host) {
 						CFStringAppendFormat(result, NULL, CFSTR(", %s"), nw_endpoint_get_hostname(endpoint));
 					} else {
-						CFStringAppendFormat(result, NULL, CFSTR(", unexpected nw_endpoint type: %d"), endpoint_type);
+						CFStringAppendFormat(result, NULL, CFSTR(", unexpected nw_endpoint type: %u"), endpoint_type);
 					}
 					return TRUE;
 				});
@@ -1026,7 +1032,7 @@ SCNetworkReachabilityCopyResolvedAddress(SCNetworkReachabilityRef	target,
 				CFArrayAppendValue(array, string);
 				CFRelease(string);
 			} else {
-				SC_log(LOG_ERR, "unexpected nw_endpoint type: %d", endpoint_type);
+				SC_log(LOG_ERR, "unexpected nw_endpoint type: %u", endpoint_type);
 			}
 			return TRUE;
 		});
@@ -1325,6 +1331,7 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 			}
 			nw_release(synthesizedEvaluator);
 			nw_release(synthesizedEndpoint);
+			free(prefixes);
 		}
 	} else {
 		// Don't synthesize in non-scheduled mode to avoid generating DNS traffic
@@ -1811,7 +1818,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 
 								hostname = nw_endpoint_get_hostname(resolvedEndpoint);
 								if (hostname != NULL) {
-									ret = asprintf(&e_caller, "endpoint %zd, %s",
+									ret = asprintf(&e_caller, "endpoint %zu, %s",
 										       index,
 										       hostname);
 								}
@@ -1825,14 +1832,14 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 									char	buf[128];
 
 									_SC_sockaddr_to_string(addr, buf, sizeof(buf));
-									ret = asprintf(&e_caller, "endpoint %zd, %s",
+									ret = asprintf(&e_caller, "endpoint %zu, %s",
 										       index,
 										       buf);
 								}
 								break;
 							}
 							default : {
-								ret = asprintf(&e_caller, "endpoint %zd, ?",
+								ret = asprintf(&e_caller, "endpoint %zu, ?",
 									       index);
 								break;
 							}

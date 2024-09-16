@@ -10,5 +10,15 @@
 	<true/>
 	<key>com.apple.security.iokit-user-client-class</key>
 	<string>AppleAPFSUserClient</string>
+	<key>com.apple.private.LiveFS.connection</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>com.apple.fskit.mount</string>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.fskit.mount</string>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.filesystems.fskitd</string>
+	</array>
 </dict>
 </plist>

@@ -86,6 +86,26 @@ typedef enum {
 MALLOC_NOEXPORT
 extern malloc_zero_policy_t malloc_zero_policy;
 
+#if !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+#if CONFIG_CHECK_PLATFORM_BINARY
+MALLOC_NOEXPORT
+extern bool malloc_is_platform_binary;
+#endif
+
+MALLOC_NOEXPORT
+bool
+_malloc_is_platform_binary(void);
+
+#if CONFIG_CHECK_SECURITY_POLICY
+MALLOC_NOEXPORT
+extern bool malloc_internal_security_policy;
+#endif
+
+MALLOC_NOEXPORT
+bool
+_malloc_allow_internal_security_policy(void);
+#endif // !MALLOC_TARGET_EXCLAVES && !MALLOC_TARGET_EXCLAVES_INTROSPECTOR
+
 MALLOC_NOEXPORT
 unsigned
 malloc_zone_batch_malloc_fallback(malloc_zone_t *zone, size_t size,
@@ -129,20 +149,10 @@ typedef enum {
 	MALLOC_PROCESS_QUICKLOOK_THUMBNAIL_SECURE,
 	MALLOC_PROCESS_QUICKLOOK_PREVIEW,
 	MALLOC_PROCESS_QUICKLOOK_THUMBNAIL,
-
-	MALLOC_PROCESS_TELNETD,
-	MALLOC_PROCESS_SSHD,
-	MALLOC_PROCESS_SSHD_KEYGEN_WRAPPER,
-	MALLOC_PROCESS_BASH,
-	MALLOC_PROCESS_DASH,
-	MALLOC_PROCESS_SH,
-	MALLOC_PROCESS_ZSH,
-	MALLOC_PROCESS_PYTHON3,
-	MALLOC_PROCESS_PERL,
-	MALLOC_PROCESS_SU,
-	MALLOC_PROCESS_TIME,
-	MALLOC_PROCESS_FIND,
-	MALLOC_PROCESS_XARGS,
+#if TARGET_OS_OSX
+	MALLOC_PROCESS_QUICKLOOK_UISERVICE,
+	MALLOC_PROCESS_QUICKLOOK_MACOS,
+#endif // TARGET_OS_OSX
 
 	// Browser
 	MALLOC_PROCESS_BROWSER,
@@ -161,11 +171,35 @@ typedef enum {
 	MALLOC_PROCESS_COMMCENTER,
 	MALLOC_PROCESS_WIFIP2PD,
 	MALLOC_PROCESS_WIFIANALYTICSD,
+
+#if TARGET_OS_OSX
+	MALLOC_PROCESS_SAFARI,
+	MALLOC_PROCESS_SAFARI_SUPPORT,
+	MALLOC_PROCESS_VTDECODERXPCSERVICE,
+#endif // TARGET_OS_OSX
+
+	// NOTE: Processes enumerated above this line are considered "security
+	// critical", and will get additional features (guard pages, more pointer
+	// buckets, etc) if the secure allocator is enabled. Processes below the
+	// line have identities, but don't get these additional features
+	MALLOC_PROCESS_MAX_SEC_CRITICAL__MARK,
+	MALLOC_PROCESS_MAX_SEC_CRITICAL = MALLOC_PROCESS_MAX_SEC_CRITICAL__MARK - 1,
+
+	// Non security critical processes
 	MALLOC_PROCESS_AEGIRPOSTER,
 	MALLOC_PROCESS_COLLECTIONSPOSTER,
+	MALLOC_PROCESS_MDS_STORES,
 
 	MALLOC_PROCESS_COUNT,
 } malloc_process_identity_t;
+
+static MALLOC_INLINE
+bool
+malloc_process_is_security_critical(malloc_process_identity_t identity)
+{
+	return identity > MALLOC_PROCESS_NONE &&
+			identity <= MALLOC_PROCESS_MAX_SEC_CRITICAL;
+}
 
 #endif // CONFIG_MALLOC_PROCESS_IDENTITY
 

@@ -50,6 +50,11 @@
 #define kCoreAnalyticsDictionaryAppleMultiPressFailIntervalsKey     "PressFailureTime"
 #define kCoreAnalyticsDictionaryAppleMultiPressPassIntervalsKey     "PressSuccessTime"
 
+#define kCoreAnalyticsDictionaryAppleCrownEvents                            "com.apple.iokit.hid.crown"
+#define kCoreAnalyticsDictionaryAppleCrownClockwiseRotationKey              "clockwiseRotation"
+#define kCoreAnalyticsDictionaryAppleCrownCounterclockwiseRotationKey       "counterclockwiseRotation"
+#define kCoreAnalyticsDictionaryAppleCrownPressCountKey                     "pressCount"
+
 
 #define kMaxMultiPressTime (2 * NSEC_PER_SEC)
 
@@ -120,6 +125,7 @@ _keyServices(NULL)
 {
     bzero(&_pending_buttons, sizeof(_pending_buttons));
     bzero(&_pending_keystats, sizeof(_pending_keystats));
+    bzero(&_pending_crownstats, sizeof(_pending_crownstats));
     CFPlugInAddInstanceForFactory( factoryID );
 }
 //------------------------------------------------------------------------------
@@ -259,6 +265,8 @@ void IOHIDEventSystemStatistics::registerService(IOHIDServiceRef service)
 {
     registerKeyboardService(service);
     registerMultiPressService(service);
+    registerCrownService(service);
+    registerButtonService(service);
 }
 
 void IOHIDEventSystemStatistics::registerKeyboardService(IOHIDServiceRef service)
@@ -325,6 +333,26 @@ void IOHIDEventSystemStatistics::registerMultiPressService(IOHIDServiceRef servi
             CFRelease(mpServiceDict);
         }
     }
+}
+
+void IOHIDEventSystemStatistics::registerCrownService(IOHIDServiceRef service)
+{
+    if (!IOHIDServiceConformsTo(service, kHIDPage_AppleVendorLisa, kHIDUsage_AppleVendorLisa_Crown)) {
+        return;
+    }
+    _crownService = service;
+    
+    HIDLogDebug("Crown service registered");
+}
+
+void IOHIDEventSystemStatistics::registerButtonService(IOHIDServiceRef service)
+{
+    if (!IOHIDServiceConformsTo(service, kHIDPage_Telephony, kHIDUsage_Tfon_Phone)) {
+        return;
+    }
+    _buttonService = service;
+    
+    HIDLogDebug("Button service registered");
 }
 
 //------------------------------------------------------------------------------
@@ -434,6 +462,7 @@ void IOHIDEventSystemStatistics::handlePendingStats()
 {
     __block Buttons               buttons          = {};
     __block KeyStats              keyStats         = {};
+    __block CrownStats            crownStats       = {};
     CFMutableDictionaryRefWrap    adclientKeys     = NULL;
     
     dispatch_sync(_dispatch_queue, ^{
@@ -442,6 +471,9 @@ void IOHIDEventSystemStatistics::handlePendingStats()
         
         bcopy(&_pending_keystats, &keyStats, sizeof(KeyStats));
         bzero(&_pending_keystats, sizeof(KeyStats));
+        
+        bcopy(&_pending_crownstats, &crownStats, sizeof(CrownStats));
+        bzero(&_pending_crownstats, sizeof(CrownStats));
 
     });
     
@@ -473,6 +505,20 @@ void IOHIDEventSystemStatistics::handlePendingStats()
 
         return keyDictionary;
     });
+    
+    if(crownStats.updated) {
+        
+        HIDLogDebug("Crown stats clockwise rotation: %d counterclockwise rotation: %d press count: %d",
+               crownStats.rotation_clockwise, crownStats.rotation_counterclockwise, crownStats.press_count);
+        
+        analytics_send_event_lazy(kCoreAnalyticsDictionaryAppleCrownEvents, ^xpc_object_t {
+            xpc_object_t keyDictionary = xpc_dictionary_create(NULL, NULL, 0);
+            xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryAppleCrownClockwiseRotationKey, crownStats.rotation_clockwise);
+            xpc_dictionary_set_int64(keyDictionary, kCoreAnalyticsDictionaryAppleCrownCounterclockwiseRotationKey, crownStats.rotation_counterclockwise);
+            xpc_dictionary_set_uint64(keyDictionary, kCoreAnalyticsDictionaryAppleCrownPressCountKey, crownStats.press_count);
+            return keyDictionary;
+        });
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -578,6 +624,11 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                                 _pending_buttons.home_wake++;
                             else
                                 _pending_buttons.home_action++;
+                            //For button presses specifically on the crown, aggregate in crown stats
+                            if((sender == _buttonService) && _crownService) {
+                                _pending_crownstats.press_count++;
+                                _pending_crownstats.updated = true;
+                            }
                             break;
                         case kHIDUsage_Csmr_Power:
                             if ( !_displayState )
@@ -589,6 +640,19 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
                             signal = false;
                             break;
                     }
+                }
+            } else if((sender == _crownService) && (IOHIDEventGetType(event) == kIOHIDEventTypeScroll)) {
+                int32_t scrollValue = (int32_t)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldScrollY);
+                signal = true;
+                
+                if (scrollValue > 0) {
+                    _pending_crownstats.rotation_clockwise += scrollValue;
+                    _pending_crownstats.updated = true;
+                } else if (scrollValue < 0) {
+                    _pending_crownstats.rotation_counterclockwise += scrollValue;
+                    _pending_crownstats.updated = true;
+                } else {
+                    signal = false;
                 }
             }
 

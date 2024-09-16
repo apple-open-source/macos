@@ -26,6 +26,7 @@
 #include <Security/SecKeychainItemPriv.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecItemPriv.h>
+#include <Security/SecKeyPriv.h>
 
 #include <security_keychain/Keychains.h>
 #include <security_keychain/KeyItem.h>

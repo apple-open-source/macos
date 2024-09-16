@@ -1,0 +1,65 @@
+#! /bin/sh
+
+# Test that the --size-only option prevents destination files from being
+# updated if their size matches the source file, regardless of mtime.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+
+# Create the source tree with a file large enough to trigger
+# rsync's differential file transfer mode:
+#
+mkdir src
+dd if=/dev/random of=src/file bs=128k count=8
+SZ=$(stat -f %z src/file)
+
+
+# The initial rsync should create the dest dir and transfer
+# the full file (regardless of --whole-file mode):
+#
+X=$(rsync -av --stats src/ dst/ 2>&1 | sed -En -e 's/,//g' -e 's/^(Unmatched|Literal) data: ([0-9]+).*$/\2/p')
+[ "$X" -eq "${SZ}" ]
+compare_trees -t src dst
+
+
+# rsync --no-whole-file after growing src/file should elicit
+# a differential transfer:
+#
+date >> src/file
+
+X=$(rsync -av --stats --no-whole-file src/ dst/ 2>&1 | sed -En -e 's/,//g' -e 's/^(Unmatched|Literal) data: ([0-9]+).*$/\2/p')
+[ "$X" -eq "$(date | wc -c)" ]
+compare_trees -t src dst
+
+
+# rsync --whole-file after growing src/file should elicit
+# a full transfer:
+#
+date >> src/file
+SZ=$(stat -f %z src/file)
+
+X=$(rsync -av --stats --whole-file src/ dst/ 2>&1 | sed -En -e 's/,//g' -e 's/^(Unmatched|Literal) data: ([0-9]+).*$/\2/p')
+[ "$X" -eq "${SZ}" ]
+compare_trees -t src dst
+
+
+# rsync --whole-file --partial-dir after growing src/file should elicit
+# a full transfer and recursively remove the partial dir:
+#
+date >> src/file
+SZ=$(stat -f %z src/file)
+
+PDIR="pdir"
+mkdir dst/${PDIR}
+date >> dst/${PDIR}/file
+
+X=$(rsync -av --stats --whole-file --partial-dir=${PDIR} src/ dst/ 2>&1 | sed -En -e 's/,//g' -e 's/^(Unmatched|Literal) data: ([0-9]+).*$/\2/p')
+[ "$X" -eq "${SZ}" ]
+
+touch src dst
+compare_trees -t src dst

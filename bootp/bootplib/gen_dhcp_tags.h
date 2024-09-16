@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,6 +120,10 @@ enum {
     dhcptag_tftp_server_name_e         	= 66,
     dhcptag_bootfile_name_e            	= 67,
 
+    /* timezone options (RFC 4833) */
+    dhcptag_posix_timezone_e           	= 100,
+    dhcptag_tzdb_timezone_e            	= 101,
+
     /* IPv6-only preferred (RFC 8925) */
     dhcptag_ipv6_only_preferred_e      	= 108,
 
@@ -165,8 +169,6 @@ enum {
     dhcptag_97_e                       	= 97,
     dhcptag_98_e                       	= 98,
     dhcptag_99_e                       	= 99,
-    dhcptag_100_e                      	= 100,
-    dhcptag_101_e                      	= 101,
     dhcptag_102_e                      	= 102,
     dhcptag_103_e                      	= 103,
     dhcptag_104_e                      	= 104,
@@ -397,6 +399,8 @@ enum {
 #define DHCPTAG_CLIENT_IDENTIFIER          	"client_identifier"
 #define DHCPTAG_TFTP_SERVER_NAME           	"tftp_server_name"
 #define DHCPTAG_BOOTFILE_NAME              	"bootfile_name"
+#define DHCPTAG_POSIX_TIMEZONE             	"posix_timezone"
+#define DHCPTAG_TZDB_TIMEZONE              	"tzdb_timezone"
 #define DHCPTAG_IPV6_ONLY_PREFERRED        	"ipv6_only_preferred"
 #define DHCPTAG_NETINFO_SERVER_ADDRESS     	"netinfo_server_address"
 #define DHCPTAG_NETINFO_SERVER_TAG         	"netinfo_server_tag"
@@ -429,8 +433,6 @@ enum {
 #define DHCPTAG_97                         	"97"
 #define DHCPTAG_98                         	"98"
 #define DHCPTAG_99                         	"99"
-#define DHCPTAG_100                        	"100"
-#define DHCPTAG_101                        	"101"
 #define DHCPTAG_102                        	"102"
 #define DHCPTAG_103                        	"103"
 #define DHCPTAG_104                        	"104"

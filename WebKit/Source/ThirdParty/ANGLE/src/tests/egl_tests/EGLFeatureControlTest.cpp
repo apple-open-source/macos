@@ -33,7 +33,7 @@ class EGLFeatureControlTest : public ANGLETest<>
 
     bool initTest()
     {
-        // http://anglebug.com/3629 This test sporadically times out on Win10/Intel
+        // http://anglebug.com/42262291 This test sporadically times out on Win10/Intel
         if (IsWindows() && IsIntel())
             return false;
 
@@ -302,6 +302,7 @@ TEST_P(EGLFeatureControlTest, OverrideFeaturesDependent)
 
         // Features that must become disabled as a result of the above
         GetFeatureName(Feature::SupportsDepthStencilResolve),
+        GetFeatureName(Feature::SupportsDepthStencilIndependentResolveNone),
         GetFeatureName(Feature::SupportsSampler2dViewOf3d),
         GetFeatureName(Feature::SupportsFragmentShadingRate),
     };

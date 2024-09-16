@@ -39,7 +39,9 @@ NS_ASSUME_NONNULL_BEGIN
              radar:(NSString*)radar
      componentName:(NSString*)componentName
   componentVersion:(NSString*)componentVersion
-       componentID:(NSString*)componentID;
+       componentID:(NSString*)componentID
+        attributes:(NSDictionary* _Nullable)attributes;
+
 @end
 
 @interface SFAnalyticsCollection : NSObject

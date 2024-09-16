@@ -1165,6 +1165,18 @@ sideok:
 		    (isthree(cs.final) ? 3 : 2) : 1;
 		break;
 	}
+#ifdef __APPLE__
+	/*
+	 * There's likely a more correct solution for this.  The problem is that
+	 * one can get into situations with CS*MULTI where we encode two escape
+	 * sequences (e.g., "ESC $ +" followed by "ESC O") and end up with an
+	 * `i` of 2 or 3, which will overflow the MB_LEN_MAX `tmp`.  We reject
+	 * them here with EILSEQ, but it may just be that we shouldn't have
+	 * tried to pull anything else from `wc` at all.
+	 */
+	if (sizeof(tmp) - (p - tmp) < i)
+		goto ilseq;
+#endif
 	while (i-- > 0)
 		*p++ = ((wc >> (i << 3)) & 0x7f) | mask;
 

@@ -746,7 +746,7 @@ format,                                                                         
                                                                                initialRequest:request];
 #if TARGET_OS_TV
     [self registerStateTransitionWatcher:watcher
-                            startTimeout:self.timeout?:180*NSEC_PER_SEC];
+                            startTimeout:self.timeout?:240*NSEC_PER_SEC];
 #else
     [self registerStateTransitionWatcher:watcher
                             startTimeout:self.timeout?:120*NSEC_PER_SEC];

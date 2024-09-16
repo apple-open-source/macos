@@ -31,6 +31,8 @@
 #include <mach/mach_time.h>
 #include <os/transaction_private.h>
 #include <Security/SecCertificateInternal.h>
+#include <dispatch/dispatch.h>
+
 #include "utilities/debugging.h"
 #include "utilities/SecCFWrappers.h"
 #include "utilities/SecPLWrappers.h"
@@ -108,8 +110,18 @@ typedef void (^CompletionHandler)(void);
         return;
     }
 
-    /* Hold a transaction until we finish the update */
+    /* Hold a transaction until we finish the update, terminated with SIGTERM */
     __block os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.updateDb");
+    __block dispatch_source_t termSource = NULL;
+    
+    // some other SIGTERM handler will terminate us, we just abandon the transaction
+    termSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0));
+    dispatch_source_set_event_handler(termSource, ^{
+        secnotice("validupdate", "Got SIGTERM, abandon all hope and clear transaction");
+        transaction = nil;
+    });
+    dispatch_activate(termSource);
+
     dispatch_async(_revDbUpdateQueue, ^{
         /* LOG EVENT: background update started */
         secnotice("validupdate", "update started at %f", (double)CFAbsoluteTimeGetCurrent());
@@ -121,6 +133,7 @@ typedef void (^CompletionHandler)(void);
             secerror("failed to read %@ with error %d", updateFileURL, rtn);
             TrustdHealthAnalyticsLogErrorCode(TAEventValidUpdate, TAFatalError, rtn);
             [self reschedule];
+            dispatch_source_cancel(termSource);
             transaction = nil;
             return;
         }
@@ -147,6 +160,7 @@ typedef void (^CompletionHandler)(void);
         gUpdateStarted = 0;
 
         self->_handler();
+        dispatch_source_cancel(termSource);
         transaction = nil; // we're all done now
     });
 }

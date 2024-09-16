@@ -56,6 +56,8 @@ public:
     static Ref<MediaSourcePrivateGStreamer> open(MediaSourcePrivateClient&, MediaPlayerPrivateGStreamerMSE&);
     virtual ~MediaSourcePrivateGStreamer();
 
+    RefPtr<MediaPlayerPrivateInterface> player() const final;
+
     constexpr MediaPlatformType platformType() const final { return MediaPlatformType::GStreamer; }
 
     AddStatus addSourceBuffer(const ContentType&, bool, RefPtr<SourceBufferPrivate>&) override;
@@ -66,8 +68,6 @@ public:
     MediaPlayer::ReadyState mediaPlayerReadyState() const override;
     void setMediaPlayerReadyState(MediaPlayer::ReadyState) override;
 
-    MediaTime currentMediaTime() const final;
-
     void notifyActiveSourceBuffersChanged() final;
 
     void startPlaybackIfHasAllTracks();
@@ -75,7 +75,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
-    const char* logClassName() const override { return "MediaSourcePrivateGStreamer"; }
+    ASCIILiteral logClassName() const override { return "MediaSourcePrivateGStreamer"_s; }
     const void* logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;
 

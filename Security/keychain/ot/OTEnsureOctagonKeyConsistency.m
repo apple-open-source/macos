@@ -27,7 +27,6 @@
 
 #import <SecurityFoundation/SecurityFoundation.h>
 #import "keychain/ot/OTEnsureOctagonKeyConsistency.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"

@@ -43,6 +43,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/tmpnam.c,v 1.6 2007/01/09 00:28:07 imp Ex
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "libc_hooks_impl.h"
+
 __warn_references(tmpnam,
     "warning: tmpnam() possibly used unsafely; consider using mkstemp()");
 
@@ -68,6 +70,9 @@ tmpnam(char *s)
 		}
 		s = tmpnam_buf;
 	}
+
+	libc_hooks_will_write(s, L_tmpnam);
+
 	(void)snprintf(s, L_tmpnam, "%stmp.%lu.XXXXXX", P_tmpdir, tmpcount);
 	++tmpcount;
 	return (_mktemp(s));

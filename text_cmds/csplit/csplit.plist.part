@@ -6,6 +6,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>csplit.c: fix non-english locale tests (54053569)</string>
+		<string>csplit.c: re-raise signal errors to propagate correct exit status (128143070)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>csplit</string>

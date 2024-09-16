@@ -200,6 +200,29 @@ __nullable
 CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFErrorRef *error)
     API_AVAILABLE(macos(10.13), ios(11.0), watchos(4.0), tvos(11.0), bridgeos(3.0));
 
+/*!
+ @function SecCertificateCopyNotValidBeforeDate
+ @abstract Obtain the starting date of the given certificate.
+ @param certificate The certificate from which to get values.
+ @result Returns the absolute time at which the given certificate becomes valid,
+ or NULL if this value could not be obtained. The caller must CFRelease the value returned.
+ */
+__nullable
+CFDateRef SecCertificateCopyNotValidBeforeDate(SecCertificateRef certificate)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0), bridgeos(10.0));
+
+/*!
+ @function SecCertificateCopyNotValidAfterDate
+ @abstract Obtain the expiration date of the given certificate.
+ @param certificate The certificate from which to get values.
+ @result Returns the absolute time at which the given certificate expires,
+ or NULL if this value could not be obtained. The caller must CFRelease the value returned.
+ */
+__nullable
+CFDateRef SecCertificateCopyNotValidAfterDate(SecCertificateRef certificate)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0), bridgeos(10.0));
+
+
 #if TARGET_OS_IPHONE
 /*!
  @function SecCertificateCopySerialNumber
@@ -227,7 +250,7 @@ CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorR
 #endif
 
 /*
- * Legacy functions (OS X only)
+ * Legacy functions (macOS only)
  */
 #if SEC_OS_OSX
 /*!

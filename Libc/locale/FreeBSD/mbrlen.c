@@ -39,7 +39,7 @@ mbrlen_l(const char * __restrict s, size_t n, mbstate_t * __restrict ps,
 	NORMALIZE_LOCALE(loc);
 	if (ps == NULL)
 		ps = &loc->__mbs_mbrlen;
-	return (loc->__lc_ctype->__mbrtowc(NULL, s, n, ps, loc));
+	return (XLOCALE_CTYPE(loc)->__mbrtowc(NULL, s, n, ps, loc));
 }
 
 size_t

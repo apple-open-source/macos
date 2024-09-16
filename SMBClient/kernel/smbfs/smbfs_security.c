@@ -390,8 +390,9 @@ smb_printsid(struct ntsid *sidptr, char *sidendptr, const char *printstr,
 	
 	if (subauthendptr > sidendptr) {
 		len = MAX_SID_PRINTBUFFER - (s - sidprintbuf);
-		(void)snprintf(s, len, " buffer overflow prevented: subauthendptr > sidendptr");
-		return;		
+		(void)snprintf(s, len, " buffer overflow prevented: 0x%lx > 0x%lx",
+                       smb_hideaddr(subauthendptr), smb_hideaddr(sidendptr));
+		return;
 	}
 	
 	for (ip = subauthptr; subs--; ip++)  { 

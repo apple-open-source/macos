@@ -283,6 +283,7 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
     xmlChar *expr, *val;
     xmlNsPtr *nsList = NULL;
     int nsNr = 0;
+    long str_len;
 
     if (str == NULL) return(NULL);
     if (*str == 0)
@@ -293,12 +294,14 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	if (*cur == '{') {
 	    if (*(cur+1) == '{') {	/* escaped '{' */
 	        cur++;
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		cur++;
 		str = cur;
 		continue;
 	    }
-	    ret = xmlStrncat(ret, str, cur - str);
+	    str_len = cur - str;
+	    ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 	    str = cur;
 	    cur++;
 	    while ((*cur != 0) && (*cur != '}')) {
@@ -315,11 +318,13 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	    if (*cur == 0) {
 	        xsltTransformError(ctxt, NULL, inst,
 			"xsltAttrTemplateValueProcessNode: unmatched '{'\n");
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		goto exit;
 	    }
 	    str++;
-	    expr = xmlStrndup(str, cur - str);
+	    str_len = cur - str;
+	    expr = xmlStrndup(str, CLAMP_TO_INT_MAX(str_len));
 	    if (expr == NULL)
 		goto exit;
 	    else if (*expr == '{') {
@@ -354,7 +359,8 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	} else if (*cur == '}') {
 	    cur++;
 	    if (*cur == '}') {	/* escaped '}' */
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		cur++;
 		str = cur;
 		continue;
@@ -366,7 +372,8 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	    cur++;
     }
     if (cur != str) {
-	ret = xmlStrncat(ret, str, cur - str);
+	str_len = cur - str;
+	ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
     }
 
 exit:

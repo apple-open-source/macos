@@ -29,8 +29,8 @@
 #include "CachedResourceHandle.h"
 #include "Document.h"
 #include "Timer.h"
-#include <wtf/CheckedRef.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakRef.h>
 
 namespace WebCore {
 

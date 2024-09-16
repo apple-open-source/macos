@@ -51,6 +51,7 @@ static NSString* kSecPreferenceDomain = @"com.apple.security";
 
 @end
 
+
 static BOOL SecTTRDisabled = NO;
 
 @implementation SecTapToRadar
@@ -142,10 +143,13 @@ static BOOL SecTTRDisabled = NO;
         return;
     }
 
-    NSString *title = [NSString stringWithFormat:@"Triggered SecTTR: %@ - %@", ttrRequest.alert, ttrRequest.radarnumber];
+    NSString *title = [NSString stringWithFormat:@"SFA: %@ - %@", ttrRequest.alert, ttrRequest.radarnumber];
     NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
 
-    NSString *desc = [NSString stringWithFormat:@"%@\nRelated radar: rdar://%@", ttrRequest.radarDescription, ttrRequest.radarnumber];
+    NSString *desc = [NSString stringWithFormat:@"%@\n%@\nRelated radar: rdar://%@",
+                      ttrRequest.radarDescription,
+                      ttrRequest.reason ?: @"",
+                      ttrRequest.radarnumber];
     NSString *encodedDesc = [desc stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
 
     NSString *url = [NSString stringWithFormat:@"tap-to-radar://new?"
@@ -171,26 +175,26 @@ static BOOL SecTTRDisabled = NO;
 + (BOOL)askUserIfTTR:(SecTapToRadar *)ttrRequest
 {
     BOOL result = NO;
-
+    
 #if TARGET_OS_IOS
     NSDictionary *alertOptions = @{
         (NSString *)kCFUserNotificationDefaultButtonTitleKey : @"Tap-To-Radar",
         (NSString *)kCFUserNotificationAlternateButtonTitleKey : @"Go away",
         (NSString *)kCFUserNotificationAlertMessageKey : ttrRequest.alert,
-        (NSString *)kCFUserNotificationAlertHeaderKey : @"Security",
+        (NSString *)kCFUserNotificationAlertHeaderKey : ttrRequest.componentName,
     };
-
+    
     SInt32 error = 0;
     CFUserNotificationRef notification = CFUserNotificationCreate(NULL, 0, kCFUserNotificationPlainAlertLevel, &error, (__bridge CFDictionaryRef)alertOptions);
     if (notification != NULL) {
         CFOptionFlags responseFlags = 0;
         CFUserNotificationReceiveResponse(notification, 1.0 * 60 * 3, &responseFlags);
         switch (responseFlags & 0x03) {
-        case kCFUserNotificationDefaultResponse:
-            result = YES;
-            break;
-        default:
-            break;
+            case kCFUserNotificationDefaultResponse:
+                result = YES;
+                break;
+            default:
+                break;
         }
         CFRelease(notification);
     } else {

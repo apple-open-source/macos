@@ -44,12 +44,15 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fscanf.c,v 1.13 2007/01/09 00:28:06 imp E
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 int
 fscanf(FILE * __restrict fp, char const * __restrict fmt, ...)
 {
 	int ret;
 	va_list ap;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	va_start(ap, fmt);
 	FLOCKFILE(fp);
@@ -64,6 +67,8 @@ fscanf_l(FILE * __restrict fp, locale_t loc, char const * __restrict fmt, ...)
 {
 	int ret;
 	va_list ap;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	NORMALIZE_LOCALE(loc);
 	va_start(ap, fmt);

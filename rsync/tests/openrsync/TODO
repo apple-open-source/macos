@@ -1,0 +1,27 @@
+Next flags to test:
+-l symbolic links # done
+-t times # done
+-r recursive (as in, do not for the test) # done
+- atimes
+- see whether chmod goes to umask # done
+Then:
+- include (and mix with exclude)
+- include-from / exclude-from
+  Make sure the +/- syntax inside the file is implemented
+  Make sure that --include=- works for stdin
+  Error on ! in include file
+Then:
+- max-size
+- min-size
+- specials (actually use the pipe)
+Later:
+- server mode
+- -x (requires root and needs to be portable to macOS)
+
+Postphone testing these options:
+-g group - would introduce a dependency on groups on the machine
+-o owner - would introduce a dependency on groups on the machine and
+           would have to run uid root
+Also test:
+- group symbolic and group by number, which requires a second machine
+  with different groups

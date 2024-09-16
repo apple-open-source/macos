@@ -61,10 +61,14 @@ void malloc_memory_event_handler(unsigned long);
 #endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 
 API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
-void * reallocarray(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarray) __result_use_check;
+void * __sized_by_or_null(nmemb * size) reallocarray(void * in_ptr,
+		size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarray)
+		__result_use_check;
 
 API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
-void * reallocarrayf(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarrayf) __result_use_check;
+void * __sized_by_or_null(nmemb * size) reallocarrayf(void * in_ptr,
+		size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarrayf)
+		__result_use_check;
 
 /*
  * Checks whether an address might belong to any registered zone. False positives
@@ -82,7 +86,8 @@ boolean_t malloc_claimed_address(void *ptr) __result_use_check;
  * allowed.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
-boolean_t malloc_zone_claimed_address(malloc_zone_t *zone, void *ptr) __result_use_check;
+boolean_t malloc_zone_claimed_address(malloc_zone_t *zone, void *ptr)
+		__result_use_check;
 
 /**
  * Returns whether the nano allocator (or a roughly equivalent configuration of
@@ -159,7 +164,8 @@ typedef struct {
 /**
  * Like memory_reader_t, but caller must free returned memory if not NULL.
  */
-typedef void * __sized_by(size) (*crash_reporter_memory_reader_t)(task_t task, vm_address_t address, size_t size);
+typedef void * __sized_by_or_null(size) (*crash_reporter_memory_reader_t)(
+		task_t task, vm_address_t address, size_t size);
 
 /****** Probabilistic Guard Malloc ******/
 
@@ -179,8 +185,10 @@ typedef struct {
 } pgm_report_t;
 
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
-kern_return_t pgm_extract_report_from_corpse(vm_address_t fault_address, pgm_report_t *report, task_t task,
-		vm_address_t *zone_addresses, uint32_t zone_count, crash_reporter_memory_reader_t crm_reader) __result_use_check;
+kern_return_t pgm_extract_report_from_corpse(vm_address_t fault_address,
+		pgm_report_t *report, task_t task, vm_address_t *zone_addresses,
+		uint32_t zone_count, crash_reporter_memory_reader_t crm_reader)
+		__result_use_check;
 #endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 
 /****** Sanitizer Zone ******/
@@ -189,7 +197,8 @@ struct malloc_sanitizer_poison {
 	// ASAN_HEAP_LEFTRZ: [ptr, ptr + leftrz_sz)
 	// ASAN_VALID: [ptr + leftrz_sz, ptr + alloc_sz)
 	// ASAN_HEAP_RIGHTRZ: [ptr + leftrz_sz + alloc_sz, ptr + leftrz_sz + alloc_sz + rightrz_sz)
-	void (*heap_allocate_poison)(uintptr_t ptr, size_t leftrz_sz, size_t alloc_sz, size_t rightrz_sz);
+	void (*heap_allocate_poison)(uintptr_t ptr, size_t leftrz_sz,
+			size_t alloc_sz, size_t rightrz_sz);
 	// ASAN_HEAP_FREED: [ptr, ptr + sz)
 	void (*heap_deallocate_poison)(uintptr_t ptr, size_t sz);
 	// ASAN_HEAP_INTERNAL: [ptr, ptr + sz)
@@ -214,8 +223,10 @@ typedef struct {
 } sanitizer_report_t;
 
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
-kern_return_t sanitizer_diagnose_fault_from_crash_reporter(vm_address_t fault_address, sanitizer_report_t *report,
-		task_t task, vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader) __result_use_check;
+kern_return_t sanitizer_diagnose_fault_from_crash_reporter(
+		vm_address_t fault_address, sanitizer_report_t *report, task_t task,
+		vm_address_t zone_address, crash_reporter_memory_reader_t crm_reader)
+		__result_use_check;
 #endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 
 /****** Malloc with flags ******/
@@ -229,12 +240,21 @@ OS_OPTIONS(malloc_options_np, uint64_t,
  * @function malloc_type_zone_malloc_with_options_np
  *
  * @discussion
- * This function shouldn't be called directly, the declaration is an
- * implementation detail for malloc_zone_malloc_with_options_np
+ * When malloc_zone_malloc_with_options_np was introduced, the TMO inferrence
+ * argument index was incorrectly set to the 4th argument (options). As such,
+ * TMO rewritten callsites will put the type descriptor in the 5th argument,
+ * instead of the 4th. To avoid revlocking and potential bincompat issues, we're
+ * leaving this symbol (_with_options_np) in the dylib with the type_id in the
+ * fifth argument, and adding the corrected symbol under a different name.
+ *
+ * This symbol will be deleted at some point in the future when no software is
+ * calling through it.
  */
-SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
-		driverkit(23.4), xros(1.1))
-void *malloc_type_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align, size_t size,
+SPI_DEPRECATED("Do not call through typed entrypoint directly",
+		macos(14.3, 15.0), ios(17.4, 18.0), tvos(17.4, 18.0),
+		watchos(10.4, 11.0), driverkit(23.4, 24.0), xros(1.1, 2.0))
+void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_np(
+		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_options_np_t options, malloc_type_id_t desc) __result_use_check
 #if defined(__has_attribute) && __has_attribute(diagnose_if)
 __attribute__((__diagnose_if__(align & (align-1),
@@ -242,7 +262,27 @@ __attribute__((__diagnose_if__(align & (align-1),
 __attribute__((__diagnose_if__(align && (size % align),
 		"size should be an integral multiple of align", "error")))
 #endif
-__alloc_size(3) __alloc_align(2);
+		__alloc_size(3) __alloc_align(2);
+
+/*!
+ * @function malloc_type_zone_malloc_with_options_internal
+ *
+ * @discussion
+ * This function shouldn't be called directly, the declaration is an
+ * implementation detail for malloc_zone_malloc_with_options_np
+ */
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0),
+		driverkit(24.0), xros(2.0))
+void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_internal(
+		malloc_zone_t *zone, size_t align, size_t size,
+		malloc_type_id_t desc, malloc_options_np_t options) __result_use_check
+#if defined(__has_attribute) && __has_attribute(diagnose_if)
+__attribute__((__diagnose_if__(align & (align-1),
+		"alignment should be 0 or a power of 2", "error")))
+__attribute__((__diagnose_if__(align && (size % align),
+		"size should be an integral multiple of align", "error")))
+#endif
+		__alloc_size(3) __alloc_align(2);
 #endif // MALLOC_TARGET_64BIT
 
 /*!
@@ -253,12 +293,12 @@ __alloc_size(3) __alloc_align(2);
  * parameter may be NULL, in which case the default zone will be used.
  *
  * @param align
- * The minimum alignment of the requested allocation. This parameter must be a
- * power of 2 and an integral multiple of size, or, if no particular alignment
- * is required, this parameter can be set to 0.
+ * The minimum alignment of the requested allocation. This parameter must be
+ * zero to request no particular alignment, or a power of 2 >= sizeof(void *).
  *
  * @param size
- * The size, in bytes, of the requested allocation.
+ * The size, in bytes, of the requested allocation. Must be an integral multiple
+ * of align if align is non-zero.
  *
  * @param options
  * A bitmask of options defining how the memory should be allocated. See the
@@ -273,15 +313,17 @@ __alloc_size(3) __alloc_align(2);
  */
 SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
 		driverkit(23.4), xros(1.1))
-void *malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align, size_t size,
-		malloc_options_np_t options)  __result_use_check __alloc_size(3) __alloc_align(2)
+void * __sized_by_or_null(size) malloc_zone_malloc_with_options_np(
+		malloc_zone_t *zone, size_t align, size_t size,
+		malloc_options_np_t options) __result_use_check
 #if defined(__has_attribute) && __has_attribute(diagnose_if)
 __attribute__((__diagnose_if__(align & (align-1),
 		"alignment should be 0 or a power of 2", "error")))
 __attribute__((__diagnose_if__(align && (size % align),
 		"size should be an integral multiple of align", "error")))
 #endif
-_MALLOC_TYPED(malloc_type_zone_malloc_with_options_np, 4);
+		__alloc_size(3) __alloc_align(2)
+		_MALLOC_TYPED(malloc_type_zone_malloc_with_options_internal, 3);
 
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 // Indicates whether the libmalloc debug dylib is in use in the current process

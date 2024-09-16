@@ -89,6 +89,12 @@
                           error:error];
 }
 
+- (void)addKeyToCache:(NSString*)keyUUID
+                  key:(CKKSKey*)key
+{
+    self.keyCache[keyUUID] = key;
+}
+
 @end
 
 #endif

@@ -159,7 +159,7 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 - (BOOL)isAppleTV
 {
 #if TARGET_OS_TV
-    bool isAppleTV = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == kMGDeviceClassAppleTV);
+    bool isAppleTV = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAppleTV);
     return isAppleTV;
 #else // TARGET_OS_TV
     return NO;

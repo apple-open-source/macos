@@ -1,6 +1,6 @@
 /* omr-watcher.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -663,6 +663,21 @@ omr_watcher_prefix_present(omr_watcher_t *watcher, omr_prefix_priority_t priorit
         SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
         INFO("didn't match prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
              SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf), prefix->prefix_length);
+    }
+    INFO("returning false");
+    return false;
+}
+
+bool
+omr_watcher_non_ula_prefix_present(omr_watcher_t *watcher)
+{
+    for (omr_prefix_t *prefix = watcher->prefixes; prefix != NULL; prefix = prefix->next) {
+        if (omr_watcher_prefix_is_non_ula_prefix(prefix)) {
+            SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
+            INFO("matched prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
+                 SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf), prefix->prefix_length);
+            return true;
+        }
     }
     INFO("returning false");
     return false;

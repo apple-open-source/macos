@@ -49,10 +49,7 @@ static void	 _citrus_##_m_##_mapper_uninit(				\
 		    struct _citrus_mapper *);				\
 static int	 _citrus_##_m_##_mapper_convert				\
 		    (struct _citrus_mapper * __restrict,		\
-		    _citrus_index_t * __restrict,			\
-		    _citrus_index_t * __restrict,			\
-		    int * __restrict,					\
-		    void * __restrict);					\
+		    struct _citrus_mapper_convert_ctx * __restrict);	\
 static void	 _citrus_##_m_##_mapper_init_state			\
 		    (void);
 #else
@@ -91,8 +88,7 @@ typedef	int (*_citrus_mapper_init_t)(
 typedef void (*_citrus_mapper_uninit_t)(struct _citrus_mapper *);
 #ifdef __APPLE__
 typedef int (*_citrus_mapper_convert_t)(struct _citrus_mapper * __restrict,
-    _citrus_index_t * __restrict, _citrus_index_t * __restrict,
-    int * __restrict, void * __restrict);
+    struct _citrus_mapper_convert_ctx * __restrict);
 #else
 typedef int (*_citrus_mapper_convert_t)(struct _citrus_mapper * __restrict,
     _citrus_index_t * __restrict, _citrus_index_t, void * __restrict);
@@ -127,5 +123,17 @@ struct _citrus_mapper {
 	_CITRUS_HASH_ENTRY(_citrus_mapper)	 cm_entry;
 	int					 cm_refcount;
 	char					*cm_key;
+#ifdef __APPLE__
+	int					 cm_dir;
+#endif
 };
+
+#ifdef __APPLE__
+struct _citrus_mapper_convert_ctx {
+	_citrus_index_t		*dst;
+	_citrus_index_t		*src;
+	int			*cnt;
+	void			 *ps;
+};
+#endif /* __APPLE__ */
 #endif

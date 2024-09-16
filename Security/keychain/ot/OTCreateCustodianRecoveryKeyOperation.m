@@ -28,7 +28,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/OctagonTrust/OTCustodianRecoveryKey.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCreateCustodianRecoveryKeyOperation.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"

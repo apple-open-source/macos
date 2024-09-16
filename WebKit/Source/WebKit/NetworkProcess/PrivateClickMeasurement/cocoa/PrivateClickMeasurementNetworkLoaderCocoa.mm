@@ -33,6 +33,7 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/cocoa/SpanCocoa.h>
 
 static RetainPtr<SecTrustRef>& allowedLocalTestServerTrust()
 {
@@ -120,7 +121,7 @@ void NetworkLoader::start(URL&& url, RefPtr<JSON::Object>&& jsonPayload, WebCore
         request.get().HTTPMethod = @"POST";
         [request setValue:WebCore::HTTPHeaderValues::applicationJSONContentType() forHTTPHeaderField:@"Content-Type"];
         auto body = jsonPayload->toJSONString().utf8();
-        request.get().HTTPBody = adoptNS([[NSData alloc] initWithBytes:body.data() length:body.length()]).get();
+        request.get().HTTPBody = toNSData(body.span()).get();
     }
 
     setPCMDataCarriedOnRequest(pcmDataCarried, request.get());
@@ -130,7 +131,7 @@ void NetworkLoader::start(URL&& url, RefPtr<JSON::Object>&& jsonPayload, WebCore
         taskMap().remove(identifier);
         if (error)
             return callback(error.localizedDescription, { });
-        if (auto jsonValue = JSON::Value::parseJSON(String::fromUTF8(static_cast<const LChar*>(data.bytes), data.length)))
+        if (auto jsonValue = JSON::Value::parseJSON(String::fromUTF8(span(data))))
             return callback({ }, jsonValue->asObject());
         callback({ }, nullptr);
     }).get()];

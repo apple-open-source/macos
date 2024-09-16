@@ -1,0 +1,266 @@
+.\"Copyright 1998, 1999 Martin Cracauer
+.\"See file COPYRIGHT in the distribution package for copying terms
+.Dd March, 30, 1999
+.Dt cstream 1
+.Os
+.Sh NAME
+.Nm cstream
+.Nd direct data streams, with bandwidth limiting, FIFO, audio,
+duplication and extended reporting support.
+.Sh SYNOPSIS
+.Nm cstream
+.Op Fl b Ar num
+.Op Fl B Ar num
+.Op Fl i Ar filename
+.Op Fl I Ar string
+.Op Fl l
+.Op Fl n Ar num
+.Op Fl o Ar filename
+.Op Fl O Ar string
+.Op Fl p Ar filename
+.Op Fl t Ar num
+.Op Fl T Ar num
+.Op Fl v Ar num
+.Op Fl V
+.Op Ar filename
+.Sh DESCRIPTION
+.Nm Cstream
+filters data streams, much like the UNIX tool 
+.Xr dd 1 .
+It has a more traditional commandline syntax, support for precise
+bandwidth limiting and reporting and support for FIFOs. Data limits
+and throughput rate calculation will work for files > 4 GB.
+.Pp
+.Nm Cstream
+reads from the standard input and writes to the standard output, if no
+filenames are given. It will also 'generate' or 'sink' data if desired.
+.Pp
+Options:
+.Bl -tag -width "-l num  "
+.It Fl b Ar num
+Set the block size used for read/write to
+.Ar num .
+The default is 8192 bytes.
+.It Fl B Ar num
+Buffer input up to
+.Ar num
+bytes before writing. The default is the blocksize. It is an error to
+set this to anything below the blocksize. Useful when writing tapes
+and similar that prefer few large writes of many small.
+.It Fl c Ar num
+Concurrent operation. Use a separate process for output. This is
+especially useful in combination with the -B option.
+.Bl -tag -compact -width "  "
+.It 0 = use one process only (default)
+.It 1 = read process will buffer
+.It 2 = write process will buffer
+.It 3 = both processes will buffer. 
+In combination with a large buffer size this will often load your memory
+heavily, every time the reader transfers the buffer it collected to the
+writer. If you use -c 3 and have a buffer size of 128 Megabytes 256 MB of
+memory will be touched at once.
+.El 
+.It Fl i Ar num
+.It Fl o Ar num
+Set the file names to use for input or output, respectively. If the
+output file name is "-", data will just be discarded. If the input
+file name is "-", data will be generated 'out of the void'. If these
+options aren't given, stdin/stout will be used. If you need to give
+.Fl o
+or
+.Fl i
+options and want stdin/stdout, specify the empty string, like this:
+.Pp
+cstream -i''
+.Pp
+If TCP support has been compiled in (default), hostname:portnumber
+will try to connect to the specified host at the specified port and
+:portnumber will open a TCP socket on the local machine and wait for a
+connection to arrive. SECURITY NOTE: cstream includes no mechanism to
+restrict the hosts that may connect to this port. Unless your machine
+has other network filters, anyone will be able to connect.
+.It Fl I Ar string
+.It Fl O Ar string
+Specify the type of input and output file, respectively. 
+.Bl -tag -compact -width "  "
+.It If string
+includes 'f', a fifo will be created. 
+.It If string
+includes 'F', a rsync(2) will be issued before closing the output file.
+.It If string
+includes 'a', the file will be assumed to be a opensound-compatible
+audio device and will be switched to CD-like settings.  
+.It If string
+includes 't', a copy of the stream will be sent to file descriptor 3.
+.It If string
+includes 'N', TCP will not be used for that file even if the name has a ":".
+.El 
+.It Fl l
+Include line count in statistics.
+.It Fl n Ar num
+Limit the total amount of data to
+.Ar num . 
+If there is more input available, it will be discarded,
+.Nm cstream
+will exit after the limit has been reached. If there is less input,
+the limit will not be reached and no error will be signaled.
+.Pp
+.Ar num
+may have a trailing 'k', 'm' or 'g' which means Kilobytes, Megabytes or
+Gigabytes (where Kilo = 1024). This applies to all numeric options.
+.It Fl p Ar filename
+Write the process id of cstream to 
+.Ar filename .
+If cstream uses a separate writer process (option -c), this is the pid
+of the parent (reader) process.
+.It Fl t Ar num
+Limit the throughput of the data stream to
+.Ar num 
+bytes/second. Limiting is done at the input side, you can rely on
+cstream not accepting more than this rate. If the number you give is
+positive, cstream accumulates errors and tries to keep the overall
+rate at the specified value, for the whole session. If you give a
+negative number, it is an upper limit for each read/write system call
+pair. In other words: the negative number will never exceed that
+limit, the positive number will exceed it to make good for previous
+underutilization.
+.It Fl T Ar num
+Report throughput every num seconds.
+.It Fl v Ar num
+Set verbose level to
+.Ar num .
+By default, it is set to 0, which means no messages are displayed as
+long as no errors occur. A value of 1 means that total amount of data
+and throughput will be displayed at the end of program run. A value of
+2 means the transfer rate since the end of the first read/write pair
+will also be reported (useful when there is an initial delay). A value
+of 3 means there will also be separate measurements for read and
+write. This option is resource-consuming and currently isn't
+implemented. A value of 4 means that notices about each single
+read/write will be displayed. High values include all message types of
+lower values.
+.It Fl V
+Print version number to stdout and exit with 0.
+.It Ar filename
+A single filename as the last argument without an option switch will
+be used as input file if -i has not been used.
+.It Ic SIGUSR1
+.It Ic SIGINFO
+Sending SIGUSR1 (or SIGINFO, which is usually mapped to Control-T on
+you keyboard) to cstream causes it to display throughput rates to
+stderr. The stream will continue as if nothing happened.
+.It Ic SIGUSR2
+Exit and report throughput rates, if requested.
+.It Ic SIGHUP
+I found myself sending SIGHUP accidentally too often. But ignoring or
+misusing SIGHUP is not an option for me. Thus, when
+.Nm cstream
+received
+SIGHUP, it will wait 5 seconds for another SIGHUP, to give users a
+chance to correct a possible mistake. If no additional SIGHUP is
+received,
+.Nm cstream
+kills itself with SIGHUP.
+.El
+.Sh EXAMPLES
+.Bl -tag -width indent
+.It Ic "cstream -o tmpfile -v 1 -n 384m -i -"
+Writes 384 Megabytes of unspecified data to file 
+.Pa tmpfile
+and display verbose throughput rate. Makes a good benchmark, the speed
+of
+.Pa /dev/null
+varies too much from system to system.
+.It Ic "cstream -i tmpfile -v 1 -n 384m -o -"
+Read the same file back in and discard data.
+.It Ic "cstream -b 2000  -t 10000 /var/log/messages"
+Will display the file in a more or less watchable speed.
+.It Ic "dump 0sf 400000 - / | cstream -v 1 -b 32768 -o /dev/rst0 -p pidfile"
+.It Ic kill \-USR1 `cat pidfile`
+Write the output from dump(1) to tape. Each time the signal is sent,
+the throughput and data rate so far will be displayed.
+.It Ic "cstream -t 176400 -i /dev/dsp0 -I f -o -"
+Makes kind of a soundcard emulator which may be used to test audio
+applications that need something to write to that limits the data rate
+as a real soundcard does. This obviously doesn't work when the
+application tries to write data using mmap(2) and the application has
+to ignore errors when it tries to set soundcard parameters using
+ioctl(2). 
+.It Ic "cstream -t 176400 -i /dev/dsp0 -I f -o /dev/dsp1 -O f"
+Similar soundcard emulator, except that it allows you to grab the data
+your applications sends to it from the other fifo, while still having
+precise timing.
+.It Ic "cstream -Oa -o /dev/dsp0 myhost.mydomain.com:17324"
+Connects port 3333 on host myhost.mydomain.com and whatever data it
+finds there will be sent to the soundcard, with appropriate settings
+for CD quality stereo play.
+.It Ic "cstream -i myaudiofile.raw -o :17324"
+This will open a TCP server on port 17324 and waits until someone
+connects (for example, the commandline from the previous
+example). Then it will send the contents of myaudiofile.raw down the
+TCP stream (for the previous audio example, typically a CD audio track
+like you get from the tosha or cdparanoia utilities).
+.It Ic "cstream -OD -o myfile"
+Write to file myfile with O_DIRECT.  That usually means that the
+filesystem buffer cache will not try to cache this file.  You can use
+that to prevent copying operations from eating up physical memory.
+Note that when cstream encounters a write error it will switch the
+output file from O_DIRECT to a normal file and write all further
+blocks without O_DIRECT if writes without O_DIRECT succeed.  In
+practice that usually means that your last block, if not a multiple of
+the filesystem block size, will still be written into the file (the
+maximum amount of data written without O_DIRECT is your blocksize
+minus one).  That way cstream ensures that the output file has the
+length of the input, however odd the length was and no matter what
+restrictions your OS places on O_DIRECT output.  Again, cstream will
+*not* pad the output to the block size, you get the same file and file
+size as if not using O_DIRECT, at the cost of switching to
+non-O_DIRECT whenever a block is not the right size.  
+.It Ic cstream -i :3333 | dd obs=8192 | ./cstream -omyfile -v7 -OD
+This is what you need to do to buffer TCP input, so that the last
+cstream will not switch away from O_DIRECT prematurely because of
+short reads.  If your input can do short reads (e.g. from TCP), and
+you want to ensure that O_DIRECT stays in effect, you need a buffer
+between the TCP stream and the O_DIRECT stream.  Since cstream does
+not yet support different input and output block sizes, dd is
+suitable here.  Note that this is only necessary if the OS requires
+multiples of the filesystem block size for O_DIRECT.  At the time of
+this writing this construct is needed on Linux for using TCP
+streams with O_DIRECT, but it is not needed on FreeBSD.
+.It Ic "cstream -OS -o myfile"
+Writes to file myfile with O_SYNC.  This means by the time the system
+call returns the data is known to be on disk.  This is not the same
+thing as O_DIRECT.  O_DIRECT can do its own buffering, with O_SYNC
+there is no buffering at all.  At the time of this writing, O_SYNC on
+both Linux and FreeBSD is very slow (1/5th to 1/10th of normal write)
+and O_DIRECT is reasonably fast (1/4th to 1/2 of normal write).  You
+can combined O_SYNC and O_DIRECT. 
+.El
+.Sh ERRORS
+.Bl -tag -width "-l num  "
+.It Exit code 0 means success.
+.It Exit code 1 means a commandline syntax usage error.
+.It Exit code 2 means other errors, especially system errors.
+.El
+.Sh Bugs
+There should be an option to begin writing directly after the first
+read ended and then fill the buffer with reads in the background.
+Right now writing will not begin before the reader has filled the
+buffer completely for the first time.
+.Pp 
+Not a bug: the code to do O_DIRECT is reasonably sophisticated.  It
+will fall back to normal I/O on errors.  But before doing that it
+knows about both filesystem blocksize requirements (will default I/O
+blocksize to whatever the filesystem of the output file is in) and page
+alignment requirements (I/O will happen from a page-aligned buffer).
+However, the combination of concurrent read/writes (-c options) and
+O_DIRECT has not been tested beyond basic verification that it gets
+some tests right.
+.Sh SEE ALSO
+.Xr dd 1 ,
+.Xr mkfifo 2
+.Sh HISTORY
+.Nm cstream
+was initially written by Martin Cracauer in 1998.
+For updates and more information see
+http://www.cons.org/cracauer/cstream.html

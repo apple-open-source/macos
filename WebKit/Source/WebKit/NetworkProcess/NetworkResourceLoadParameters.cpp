@@ -48,7 +48,7 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
     , bool shouldRestrictHTTPResponseAccess
     , WebCore::PreflightPolicy preflightPolicy
     , bool shouldEnableCrossOriginResourcePolicy
-    , Vector<RefPtr<WebCore::SecurityOrigin>>&& frameAncestorOrigins
+    , Vector<Ref<WebCore::SecurityOrigin>>&& frameAncestorOrigins
     , bool pageHasResourceLoadClient
     , std::optional<WebCore::FrameIdentifier> parentFrameID
     , bool crossOriginAccessControlCheckEnabled
@@ -69,7 +69,11 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
     , URL&& mainDocumentURL
     , std::optional<UserContentControllerIdentifier> userContentControllerIdentifier
 #endif
+#if ENABLE(WK_WEB_EXTENSIONS)
+    , bool pageHasLoadedWebExtensions
+#endif
     , bool linkPreconnectEarlyHintsEnabled
+    , bool shouldRecordFrameLoadForStorageAccess
     ) : NetworkLoadParameters(WTFMove(networkLoadParameters))
         , identifier(identifier)
         , maximumBufferingTime(maximumBufferingTime)
@@ -104,7 +108,11 @@ NetworkResourceLoadParameters::NetworkResourceLoadParameters(
         , mainDocumentURL(WTFMove(mainDocumentURL))
         , userContentControllerIdentifier(userContentControllerIdentifier)
 #endif
+#if ENABLE(WK_WEB_EXTENSIONS)
+        , pageHasLoadedWebExtensions(pageHasLoadedWebExtensions)
+#endif
         , linkPreconnectEarlyHintsEnabled(linkPreconnectEarlyHintsEnabled)
+        , shouldRecordFrameLoadForStorageAccess(shouldRecordFrameLoadForStorageAccess)
 {
     if (httpBody) {
         request.setHTTPBody(WTFMove(httpBody));
@@ -128,7 +136,7 @@ RefPtr<SecurityOrigin> NetworkResourceLoadParameters::parentOrigin() const
 {
     if (frameAncestorOrigins.isEmpty())
         return nullptr;
-    return frameAncestorOrigins.first();
+    return frameAncestorOrigins.first().ptr();
 }
 
 std::optional<Vector<SandboxExtension::Handle>> NetworkResourceLoadParameters::sandboxExtensionsIfHttpBody() const

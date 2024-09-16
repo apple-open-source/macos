@@ -26,7 +26,6 @@
 #pragma once
 
 #include "ArgumentCoders.h"
-#include "DataReference.h"
 #include "Logging.h"
 #include "MessageArgumentDescriptions.h"
 #include "MessageNames.h"
@@ -65,10 +64,10 @@ inline TextStream textStreamForLogging(const Connection& connection, MessageName
 
     switch (forReply) {
     case ForReply::No:
-        stream << "-> " << WebCore::processTypeDescription(WebCore::processType()) << ' ' << getCurrentProcessID() << " receiver " << object << "] " << description(messageName);
+        stream << "-> "_s << WebCore::processTypeDescription(WebCore::processType()) << ' ' << getCurrentProcessID() << " receiver "_s << object << "] "_s << description(messageName);
         break;
     case ForReply::Yes:
-        stream << "<- " << WebCore::processTypeDescription(WebCore::processType()) << ' ' << getCurrentProcessID() << "] " << description(messageName) << " Reply";
+        stream << "<- "_s << WebCore::processTypeDescription(WebCore::processType()) << ' ' << getCurrentProcessID() << "] "_s << description(messageName) << " Reply"_s;
         break;
     }
 
@@ -283,14 +282,14 @@ void handleMessageSynchronous(StreamServerConnection& connection, Decoder& decod
     using ValidationType = MethodSignatureValidation<MF>;
     static_assert(std::is_same_v<typename ValidationType::MessageArguments, typename MessageType::Arguments>);
 
-    Connection::SyncRequestID syncRequestID;
-    if (UNLIKELY(!decoder.decode(syncRequestID)))
+    auto syncRequestID = decoder.decode<Connection::SyncRequestID>();
+    if (UNLIKELY(!syncRequestID))
         return;
 
     auto arguments = decoder.decode<typename MessageType::Arguments>();
     if (UNLIKELY(!arguments)) {
 #if ENABLE(IPC_TESTING_API)
-        connection.sendDeserializationErrorSyncReply(syncRequestID);
+        connection.sendDeserializationErrorSyncReply(*syncRequestID);
 #endif
         return;
     }
@@ -302,7 +301,7 @@ void handleMessageSynchronous(StreamServerConnection& connection, Decoder& decod
     callMemberFunction(object, function, WTFMove(*arguments),
         CompletionHandlerType([syncRequestID, connection = Ref { connection }] (auto&&... args) mutable {
             logReply(connection->protectedConnection(), MessageType::name(), args...);
-            connection->sendSyncReply<MessageType>(syncRequestID, std::forward<decltype(args)>(args)...);
+            connection->sendSyncReply<MessageType>(*syncRequestID, std::forward<decltype(args)>(args)...);
         }));
 }
 

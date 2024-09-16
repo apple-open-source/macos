@@ -47,7 +47,7 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 	CFStringRef			storeStr;
 	CFDictionaryRef			storeValue;
 
-	SC_trace("list    : %5d : %s : %@",
+	SC_trace("list    : %5u : %s : %@",
 		 storePrivate->server,
 		 isRegex  ? "pattern" : "key",
 		 key);

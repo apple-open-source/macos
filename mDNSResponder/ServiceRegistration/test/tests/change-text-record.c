@@ -1,6 +1,6 @@
 /* change-text-record.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,12 @@ test_change_text_record_callback(DNSServiceRef sdref, DNSServiceFlags UNUSED fla
         }
     }
 
+    // if we have already updated text record, there's nothing to do;
+    // otherwise, schedule a txt update.
+    if (updated_text_record) {
+        return;
+    }
+
     // Allow time for the mDNS registration to finish
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 2), dispatch_get_main_queue(), ^{
             char txt_buf[128];
@@ -83,6 +89,7 @@ test_change_text_record_callback(DNSServiceRef sdref, DNSServiceFlags UNUSED fla
             TEST_FAIL_CHECK_STATUS(state, ret == kDNSServiceErr_NoError,
                                    "text record update failed: srp_client_update_record returned %d", ret);
             srp_network_state_stable(NULL);
+            updated_text_record = true;
 
             // We will not get another callback because of a TXT record update unless it produces a conflict.
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 2), dispatch_get_main_queue(), ^{
@@ -135,8 +142,8 @@ test_change_text_record_start(test_state_t *next_test)
     test_state_t *state = test_state_create(srp_servers, "Change Text Record test", NULL, description, NULL);
 
     srp_proxy_init("local");
-    state->primary->stub_router_enabled = true;
-    state->srp_listener = srp_proxy_listen(NULL, 0, test_change_text_record_ready, NULL, NULL, NULL, state->primary);
+    srp_test_enable_stub_router(state, srp_servers);
+    state->srp_listener = srp_proxy_listen(NULL, 0, NULL, test_change_text_record_ready, NULL, NULL, NULL, state->primary);
     TEST_FAIL_CHECK(state, state->srp_listener != NULL, "listener create failed");
     state->next = next_test;
 

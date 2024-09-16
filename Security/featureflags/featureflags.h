@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2021-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,21 +39,6 @@ bool _SecSystemKeychainAlwaysIsEnabled(void);
 void _SecSystemKeychainAlwaysOverride(bool value);
 void _SecSystemKeychainAlwaysClearOverride(void);
 
-/// Indicates if change tracking is enabled for shared items. If `true`, changes
-/// to shared items will be fetched and uploaded automatically.
-bool KCSharingIsChangeTrackingEnabled(void);
-
-/// Enables or disables change tracking for shared items. This is exposed for
-/// testing only.
-void KCSharingSetChangeTrackingEnabled(bool enabled);
-
-/// Resets the change tracking state to the default.
-void KCSharingClearChangeTrackingEnabledOverride(void);
-
-// Helpers for trust settings feature flags
-bool _SecTrustSettingsUseXPCEnabled(void);
-bool _SecTrustSettingsUseTrustStoreEnabled(void);
-bool _SecTrustStoreUsesUUIDEnabled(void);
 
 #ifdef    __cplusplus
 }

@@ -70,8 +70,8 @@ build-postfix :
 	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles CC="$(CC_PATH)" \
 		OPT=" -g -Os" \
 		CCARGS=" -DNO_NETINFO \
-			 -DUSE_TLS -I$(SDKROOT)/usr/local/libressl/include \
-			 -L$(SDKROOT)/usr/local/libressl/lib \
+			 -DUSE_TLS -I$(SDKROOT)/usr/local/libressl-3.3/include \
+			 -L$(SDKROOT)/usr/local/libressl-3.3/lib \
 			 -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -I$(SDKROOT)/usr/include/sasl \
 			 -DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
 			 -DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP \

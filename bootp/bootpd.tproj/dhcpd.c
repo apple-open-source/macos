@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -613,6 +613,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	     boolean_t dhcp_allocate)
 {
     dhcp_binding_t	binding = dhcp_binding_none_e;
+    char *		bootfile = NULL;
+    char * *		bootfile_p;
     char		cid_type;
     int			cid_len;
     void *		cid;
@@ -644,6 +646,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     uint32_t		txbuf[ETHERMTU / sizeof(uint32_t)];
     boolean_t		use_broadcast = FALSE;
 
+    bootfile_p = dhcp_supply_bootfile ? &bootfile : NULL;
     iaddr.s_addr = 0;
     max_packet = dhcp_max_message_size(request->options_p);
     if (max_packet > sizeof(txbuf)) {
@@ -720,7 +723,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 
 	if (bootp_getbyhw_file(cid_type, cid, cid_len,
 			       subnet_match, &match, &iaddr,
-			       &hostname, NULL)
+			       &hostname, bootfile_p)
 #if USE_OPEN_DIRECTORY
 	    || ((use_open_directory == TRUE)
 		&& bootp_getbyhw_ds(cid_type, cid, cid_len,
@@ -883,6 +886,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  }
 	  reply->dp_ciaddr.s_addr = 0;
 	  reply->dp_yiaddr = iaddr;
+	  if (bootfile != NULL) {
+	      strlcpy((char *)reply->dp_file, bootfile, sizeof(reply->dp_file));
+	  }
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e, sizeof(lease),
 			 &lease) != dhcpoa_success_e) {
 	      my_log(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
@@ -1182,6 +1188,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 				  reply_msgtype,
 				  rq, &options);
 	  reply->dp_yiaddr = iaddr;
+	  if (bootfile != NULL) {
+	      strlcpy((char *)reply->dp_file, bootfile, sizeof(reply->dp_file));
+	  }
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
 			 sizeof(lease), &lease) != dhcpoa_success_e) {
 	      my_log(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
@@ -1297,7 +1306,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 			    dhcptag_parameter_request_list_e,
 			    &num_params, NULL);
 
-	    bzero(reply->dp_file, sizeof(reply->dp_file));
+	    if (bootfile == NULL) {
+		bzero(reply->dp_file, sizeof(reply->dp_file));
+	    }
 	    strlcpy((char *)reply->dp_sname, server_name,
 		    sizeof(reply->dp_sname));
 
@@ -1345,6 +1356,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
  no_reply:
     if (hostname != NULL) {
 	free(hostname);
+    }
+    if (bootfile != NULL) {
+	free(bootfile);
     }
     if (idstr != scratch_idstr) {
 	free(idstr);

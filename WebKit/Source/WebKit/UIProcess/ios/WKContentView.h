@@ -71,6 +71,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 @property (nonatomic, readonly) UIInterfaceOrientation interfaceOrientation;
 @property (nonatomic, readonly) NSUndoManager *undoManagerForWebView;
 
+#if HAVE(SPATIAL_TRACKING_LABEL)
+@property (nonatomic, readonly) const String& spatialTrackingLabel;
+#endif
+
 - (instancetype)initWithFrame:(CGRect)frame processPool:(NakedRef<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect
@@ -89,6 +93,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)didInterruptScrolling;
 - (void)didZoomToScale:(CGFloat)scale;
 - (void)willStartZoomOrScroll;
+- (BOOL)screenIsBeingCaptured;
 
 - (void)_webViewDestroyed;
 
@@ -100,6 +105,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(GPU_PROCESS)
 - (void)_gpuProcessDidExit;
 #endif
+#if ENABLE(MODEL_PROCESS)
+- (void)_modelProcessDidExit;
+#endif
 - (void)_processWillSwap;
 - (void)_didRelaunchProcess;
 
@@ -108,6 +116,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(GPU_PROCESS)
 - (void)_gpuProcessDidCreateContextForVisibilityPropagation;
 #endif // ENABLE(GPU_PROCESS)
+#if ENABLE(MODEL_PROCESS)
+- (void)_modelProcessDidCreateContextForVisibilityPropagation;
+#endif // ENABLE(MODEL_PROCESS)
 #if USE(EXTENSIONKIT)
 - (UIView *)_createVisibilityPropagationView;
 #endif

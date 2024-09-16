@@ -48,6 +48,28 @@ void _os_workgroup_interval_explicit_dispose(os_workgroup_interval_t wgi);
 
 extern pthread_key_t _os_workgroup_key;
 void _os_workgroup_tsd_cleanup(void *ctxt);
+void _os_workgroup_join_token_tsd_cleanup(void *ctxt);
+
+/*!
+ * @function _os_workgroup_join_update_wg
+ *
+ * @abstract
+ * Takes care of updating the os workgroup userspace object state.
+ * It is expected to be called after the calling thread has performed a
+ * corresponding work interval join in the kernel.
+ */
+void _os_workgroup_join_update_wg(os_workgroup_t wg, os_workgroup_join_token_t token);
+
+/*!
+ * @function _os_workgroup_leave_update_wg
+ *
+ * @abstract
+ * Takes care of updating the os workgroup userspace object state.
+ * It is expected to be called after the calling thread has performed a
+ * corresponding work interval leave in the kernel.
+ */
+void _os_workgroup_leave_update_wg(os_workgroup_t wg);
+
 /*!
  * @function _os_workgroup_get_backing_workinterval
  *

@@ -54,7 +54,39 @@ ExternalTexture::ExternalTexture(Device& device)
 {
 }
 
+bool ExternalTexture::isValid() const
+{
+    return m_pixelBuffer.get() || m_destroyed;
+}
+
 ExternalTexture::~ExternalTexture() = default;
+
+void ExternalTexture::destroy()
+{
+    m_destroyed = true;
+    for (auto& commandEncoder : m_commandEncoders)
+        commandEncoder.makeSubmitInvalid();
+
+    m_commandEncoders.clear();
+}
+
+void ExternalTexture::undestroy()
+{
+    m_commandEncoders.clear();
+    m_destroyed = false;
+}
+
+void ExternalTexture::setCommandEncoder(CommandEncoder& commandEncoder) const
+{
+    m_commandEncoders.add(commandEncoder);
+    if (isDestroyed())
+        commandEncoder.makeSubmitInvalid();
+}
+
+bool ExternalTexture::isDestroyed() const
+{
+    return m_destroyed;
+}
 
 } // namespace WebGPU
 
@@ -68,4 +100,14 @@ void wgpuExternalTextureReference(WGPUExternalTexture externalTexture)
 void wgpuExternalTextureRelease(WGPUExternalTexture externalTexture)
 {
     WebGPU::fromAPI(externalTexture).deref();
+}
+
+void wgpuExternalTextureDestroy(WGPUExternalTexture externalTexture)
+{
+    WebGPU::fromAPI(externalTexture).destroy();
+}
+
+void wgpuExternalTextureUndestroy(WGPUExternalTexture externalTexture)
+{
+    WebGPU::fromAPI(externalTexture).undestroy();
 }

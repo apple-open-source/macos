@@ -20,7 +20,7 @@
  * CDDL HEADER END
  */
 /*
- * 	selfcheck.c
+ *      selfcheck.c
  *      Copyright (c) 1999 Sun Microsystems Inc.
  *      All Rights Reserved.
  */
@@ -50,8 +50,7 @@
 static int self_check_af(char *, struct ifaddrs *, int);
 
 int
-self_check(hostname)
-	char *hostname;
+self_check(char *hostname)
 {
 	int res;
 	struct ifaddrs *ifaddrs;
@@ -76,18 +75,18 @@ self_check(hostname)
 		/*
 		 * This cannot possibly be any host, much less us.
 		 */
-		return (0);
+		return 0;
 	}
 
 	if (getifaddrs(&ifaddrs) == -1) {
 		syslog(LOG_ERR, "getifaddrs failed:  %s\n",
 		    strerror(errno));
-		return (0);
+		return 0;
 	}
 	res = self_check_af(hostname, ifaddrs, AF_INET6) ||
 	    self_check_af(hostname, ifaddrs, AF_INET);
 	freeifaddrs(ifaddrs);
-	return (res);
+	return res;
 }
 
 static int
@@ -103,30 +102,31 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 
 	if ((hostinfo = getipnodebyname(hostname, family, AI_DEFAULT,
 	    &error_num)) == NULL) {
-		if (error_num == TRY_AGAIN)
+		if (error_num == TRY_AGAIN) {
 			syslog(LOG_DEBUG,
 			    "self_check: unknown host: %s (try again later)\n",
 			    hostname);
-		else
+		} else {
 			syslog(LOG_DEBUG,
 			    "self_check: unknown host: %s[%d]\n", hostname, error_num);
+		}
 
-		return (0);
+		return 0;
 	}
 
 	for (hostptr = hostinfo->h_addr_list; *hostptr; hostptr++) {
 		for (ifaddr = ifaddrs; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
 			addr = ifaddr->ifa_addr;
-			if (addr->sa_family != hostinfo->h_addrtype)
+			if (addr->sa_family != hostinfo->h_addrtype) {
 				continue;
+			}
 			switch (addr->sa_family) {
-
 			case AF_INET:
 				addr_in = (struct sockaddr_in *)addr;
 				if (memcmp(*hostptr, &addr_in->sin_addr,
 				    hostinfo->h_length) == 0) {
 					freehostent(hostinfo);
-					return (1);
+					return 1;
 				}
 				break;
 
@@ -135,7 +135,7 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 				if (memcmp(*hostptr, &addr_in6->sin6_addr,
 				    hostinfo->h_length) == 0) {
 					freehostent(hostinfo);
-					return (1);
+					return 1;
 				}
 				break;
 
@@ -146,5 +146,5 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 	}
 
 	freehostent(hostinfo);
-	return (0);
+	return 0;
 }

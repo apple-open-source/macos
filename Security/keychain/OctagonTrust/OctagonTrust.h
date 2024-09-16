@@ -36,6 +36,8 @@
 #import <OctagonTrust/OTICDPRecordSilentContext.h>
 #import <OctagonTrust/OTEscrowRecordMetadata.h>
 #import <OctagonTrust/OTEscrowRecordMetadataClientMetadata.h>
+#import <OctagonTrust/OTEscrowRecordMetadataPasscodeGeneration.h>
+#import <OctagonTrust/OTEscrowMoveRequestContext.h>
 #import <OctagonTrust/OTSecureElementPeerIdentity.h>
 #import <OctagonTrust/OTCurrentSecureElementIdentities.h>
 #import <OctagonTrust/OTAccountSettings.h>

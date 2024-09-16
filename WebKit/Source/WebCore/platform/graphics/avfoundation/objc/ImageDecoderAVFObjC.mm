@@ -332,6 +332,7 @@ ImageDecoderAVFObjC::ImageDecoderAVFObjC(const FragmentedSharedBuffer& data, con
     , m_decompressionSession(WebCoreDecompressionSession::createRGB())
     , m_resourceOwner(WTFMove(resourceOwner))
 {
+    m_decompressionSession->setResourceOwner(m_resourceOwner);
     [m_loader updateData:data.makeContiguous()->createNSData().get() complete:NO];
 
     [m_asset.get().resourceLoader setDelegate:m_loader.get() queue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
@@ -546,11 +547,6 @@ bool ImageDecoderAVFObjC::frameIsCompleteAtIndex(size_t index) const
     return sampleIsComplete(*sampleData);
 }
 
-ImageDecoder::FrameMetadata ImageDecoderAVFObjC::frameMetadataAtIndex(size_t) const
-{
-    return { };
-}
-
 Seconds ImageDecoderAVFObjC::frameDurationAtIndex(size_t index) const
 {
     auto* sampleData = sampleAtIndex(index);
@@ -575,11 +571,6 @@ Vector<ImageDecoder::FrameInfo> ImageDecoderAVFObjC::frameInfos() const
         auto& imageSample = static_cast<ImageDecoderAVFObjCSample&>(sample.second.get());
         return ImageDecoder::FrameInfo { imageSample.hasAlpha(), Seconds(imageSample.duration().toDouble()) };
     });
-}
-
-bool ImageDecoderAVFObjC::frameAllowSubsamplingAtIndex(size_t index) const
-{
-    return index <= m_sampleData.size();
 }
 
 unsigned ImageDecoderAVFObjC::frameBytesAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const

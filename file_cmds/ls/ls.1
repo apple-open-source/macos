@@ -206,6 +206,11 @@ This option is not defined in
 Display whiteouts when scanning directories.
 This option is not defined in
 .St -p1003.1-2008 .
+.It Fl X
+When listing recursively, do not descend into directories that would
+cross file system boundaries.
+More specifically, this option will prevent descending into directories that
+have a different device number.
 .It Fl a
 Include directory entries whose names begin with a
 dot
@@ -854,10 +859,12 @@ executable with setgid bit set
 directory writable to others, with sticky bit
 .It
 directory writable to others, without sticky bit
+.It
+dataless file
 .El
 .Pp
 The default is
-.Qq "exfxcxdxbxegedabagacad" ,
+.Qq "exfxcxdxbxegedabagacadah" ,
 i.e., blue foreground and
 default background for regular directories, black foreground and red
 background for setuid executables, etc.

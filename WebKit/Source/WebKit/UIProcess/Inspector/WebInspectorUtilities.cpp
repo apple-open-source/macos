@@ -35,7 +35,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/WeakHashSet.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -60,7 +60,7 @@ unsigned inspectorLevelForPage(WebPageProxy* page)
 
 String defaultInspectorPageGroupIdentifierForPage(WebPageProxy* page)
 {
-    return makeString("__WebInspectorPageGroupLevel", inspectorLevelForPage(page), "__");
+    return makeString("__WebInspectorPageGroupLevel"_s, inspectorLevelForPage(page), "__"_s);
 }
 
 void trackInspectorPage(WebPageProxy* inspectorPage, WebPageProxy* inspectedPage)

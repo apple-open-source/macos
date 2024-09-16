@@ -33,6 +33,7 @@
 #include <IOKit/IODataQueue.h>
 
 #undef DISABLE_DATAQUEUE_WARNING
+#include <vm/vm_kern_xnu.h>
 
 #include <IOKit/IODataQueueShared.h>
 #include <IOKit/IOLib.h>

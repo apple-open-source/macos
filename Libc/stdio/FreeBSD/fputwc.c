@@ -48,7 +48,7 @@ __fputwc(wchar_t wc, FILE *fp, locale_t loc)
 {
 	char buf[MB_LEN_MAX];
 	size_t i, len;
-	struct __xlocale_st_runelocale *xrl = loc->__lc_ctype;
+	struct xlocale_ctype *xrl = XLOCALE_CTYPE(loc);
 
 	if (xrl->__mb_cur_max == 1 && wc > 0 && wc <= UCHAR_MAX) {
 		/*
@@ -59,7 +59,7 @@ __fputwc(wchar_t wc, FILE *fp, locale_t loc)
 		*buf = (unsigned char)wc;
 		len = 1;
 	} else {
-		if ((len = loc->__lc_ctype->__wcrtomb(buf, wc, &fp->_mbstate, loc)) == (size_t)-1) {
+		if ((len = XLOCALE_CTYPE(loc)->__wcrtomb(buf, wc, &fp->_mbstate, loc)) == (size_t)-1) {
 			fp->_flags |= __SERR;
 			return (WEOF);
 		}

@@ -30,8 +30,17 @@
 #include "SimpleRange.h"
 #include "TextChecking.h"
 #include "Timer.h"
-#include <wtf/CheckedPtr.h>
 #include <wtf/Deque.h>
+#include <wtf/WeakPtr.h>
+
+namespace WebCore {
+class SpellChecker;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::SpellChecker> : std::true_type { };
+}
 
 namespace WebCore {
 
@@ -59,7 +68,7 @@ private:
 
     SpellCheckRequest(const SimpleRange& checkingRange, const SimpleRange& automaticReplacementRange, const SimpleRange& paragraphRange, const String&, OptionSet<TextCheckingType>, TextCheckingProcessType);
 
-    CheckedPtr<SpellChecker> m_checker;
+    SingleThreadWeakPtr<SpellChecker> m_checker;
     SimpleRange m_checkingRange;
     SimpleRange m_automaticReplacementRange;
     SimpleRange m_paragraphRange;
@@ -67,7 +76,7 @@ private:
     TextCheckingRequestData m_requestData;
 };
 
-class SpellChecker : public CanMakeCheckedPtr {
+class SpellChecker : public CanMakeSingleThreadWeakPtr<SpellChecker> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     friend class SpellCheckRequest;

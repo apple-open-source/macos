@@ -122,6 +122,8 @@ public:
         Opus,
     };
 
+    using ConsumeFrameDataResult = std::variant<MediaTime, webm::Status>;
+
     class TrackData {
         WTF_MAKE_FAST_ALLOCATED;
     public:
@@ -154,7 +156,8 @@ public:
 
         WebMParser& parser() const { return m_parser; }
 
-        virtual webm::Status consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&)
+        using ConsumeFrameDataResult = WebMParser::ConsumeFrameDataResult;
+        virtual ConsumeFrameDataResult consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&)
         {
             ASSERT_NOT_REACHED();
             return webm::Status(webm::Status::kInvalidElementId);
@@ -220,8 +223,8 @@ public:
         void flushPendingSamples();
 
     private:
-        const char* logClassName() const { return "VideoTrackData"; }
-        webm::Status consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&) final;
+        ASCIILiteral logClassName() const { return "VideoTrackData"_s; }
+        ConsumeFrameDataResult consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&) final;
         void resetCompletedFramesState() final;
         void processPendingMediaSamples(const MediaTime&);
         WTF::Deque<MediaSamplesBlock::MediaSampleItem> m_pendingMediaSamples;
@@ -244,9 +247,9 @@ public:
         ~AudioTrackData();
 
     private:
-        webm::Status consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&) final;
+        ConsumeFrameDataResult consumeFrameData(webm::Reader&, const webm::FrameMetadata&, uint64_t*, const MediaTime&) final;
         void resetCompletedFramesState() final;
-        const char* logClassName() const { return "AudioTrackData"; }
+        ASCIILiteral logClassName() const { return "AudioTrackData"_s; }
 
         std::unique_ptr<PacketDurationParser> m_packetDurationParser;
 #if !HAVE(AUDIOFORMATPROPERTY_VARIABLEPACKET_SUPPORTED)
@@ -286,7 +289,7 @@ private:
     const Logger* loggerPtr() const { return m_logger.get(); }
     const Logger& logger() const final { ASSERT(m_logger); return *m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const final { return "WebMParser"; }
+    ASCIILiteral logClassName() const final { return "WebMParser"_s; }
 
     std::unique_ptr<SourceBufferParser::InitializationSegment> m_initializationSegment;
     Vector<std::pair<uint64_t, Ref<SharedBuffer>>> m_keyIds;
@@ -296,6 +299,7 @@ private:
     bool m_initializationSegmentProcessed { false };
     uint32_t m_timescale { 1000 };
     uint64_t m_currentTimecode { 0 };
+    MediaTime m_currentDuration;
 
     State m_state { State::None };
 
@@ -360,7 +364,7 @@ private:
     const Logger* loggerPtr() const { return m_logger.get(); }
     const Logger& logger() const final { ASSERT(m_logger); return *m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
-    const char* logClassName() const final { return "SourceBufferParserWebM"; }
+    ASCIILiteral logClassName() const final { return "SourceBufferParserWebM"_s; }
     WTFLogChannel& logChannel() const final;
 
     DidParseTrimmingDataCallback m_didParseTrimmingDataCallback;

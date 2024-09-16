@@ -32,4 +32,5 @@ typedef enum {
 } P12_PBE_ID;
 
 int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length, 
-    unsigned iter_count, P12_PBE_ID pbe_id, uint8_t *data, size_t length);
+    unsigned iter_count, P12_PBE_ID pbe_id, uint8_t *data, size_t length,
+    unsigned int hash_blocksize, unsigned int hash_outputsize);

@@ -29,7 +29,6 @@
 #import <Security/SecKeyPriv.h>
 
 #import "keychain/ot/OTPrepareAndRecoverTLKSharesForInheritancePeerOperation.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
 #import "keychain/ot/OTStates.h"
 

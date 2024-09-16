@@ -2160,7 +2160,7 @@ WritePackArgValueVariable(FILE *file, argument_t *arg)
     fprintf(file, "\t%s->%s = (mach_msg_type_number_t) strlen(%s->%s) + 1;\n",
       arg->argCount->argOutSegment, arg->argCount->argMsgField, arg->argOutSegment, arg->argMsgField);
     fputs("#endif /* __LP64__ */\n", file);
-
+    fprintf(file, "\t%s->%sOffset = 0;\n", arg->argCount->argOutSegment, arg->argMsgField);
   }
 }
 

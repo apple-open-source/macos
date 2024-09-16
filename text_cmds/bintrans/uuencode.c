@@ -29,20 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1983, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)uuencode.c	8.2 (Berkeley) 4/2/94";
-#endif /* not lint */
-#endif
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 /*
  * uuencode [input] output
  *
@@ -78,7 +64,7 @@ extern int main_base64_encode(const char *, const char *);
 static void encode(void);
 static void base64_encode(void);
 static int arg_to_col(const char *);
-static void usage(void);
+static void usage(void) __dead2;
 
 static FILE *output;
 static int mode;
@@ -112,7 +98,7 @@ main_base64_encode(const char *in, const char *w)
 	if (w != NULL)
 		columns = arg_to_col(w);
 	base64_encode();
-	if (ferror(output))
+	if (fflush(output) != 0)
 		errx(1, "write error");
 	exit(0);
 }
@@ -182,15 +168,8 @@ main_encode(int argc, char *argv[])
 		base64_encode();
 	else
 		encode();
-	if (ferror(output))
-		errx(1, "write error");
-#ifdef __APPLE__
-	/*
-	 * rdar://problem/89052523 - don't ignore errors when flushing stdout.
-	 */
 	if (fflush(output) != 0)
-		err(1, "flush output");
-#endif
+		errx(1, "write error");
 	exit(0);
 }
 

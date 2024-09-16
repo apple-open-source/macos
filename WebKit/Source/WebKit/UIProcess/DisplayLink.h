@@ -32,6 +32,7 @@
 #include <WebCore/DisplayUpdate.h>
 #include <WebCore/PlatformScreen.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 
@@ -43,12 +44,18 @@
 #include "DisplayVBlankMonitor.h"
 #endif
 
+#if USE(WPE_BACKEND_PLAYSTATION)
+struct wpe_playstation_display;
+#endif
+
 namespace WebKit {
 
 class DisplayLink {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    class Client : public CanMakeThreadSafeCheckedPtr {
+    class Client : public CanMakeThreadSafeCheckedPtr<Client> {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Client);
     friend class DisplayLink;
     public:
         virtual ~Client() = default;
@@ -110,6 +117,9 @@ private:
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::unique_ptr<DisplayVBlankMonitor> m_vblankMonitor;
+#endif
+#if USE(WPE_BACKEND_PLAYSTATION)
+    struct wpe_playstation_display* m_display;
 #endif
     Lock m_clientsLock;
     HashMap<CheckedRef<Client>, ClientInfo> m_clients WTF_GUARDED_BY_LOCK(m_clientsLock);

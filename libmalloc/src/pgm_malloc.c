@@ -25,7 +25,6 @@
 
 #include <TargetConditionals.h>
 #include <mach/mach_time.h>  // mach_absolute_time()
-#include <sys/codesign.h>  // csops()
 
 #include "internal.h"
 
@@ -85,7 +84,6 @@ typedef struct {
 	uint32_t max_allocations;
 	uint32_t max_metadata;
 	uint32_t sample_counter_range;
-	uint32_t min_alignment;
 	bool debug;
 	uint64_t debug_log_throttle_ms;
 
@@ -314,19 +312,21 @@ lookup_slot(const pgm_zone_t *zone, vm_address_t addr)
 #pragma mark -
 #pragma mark Allocator Helpers
 
+// Darwin ABI requires 16 byte alignment.
+static const size_t k_min_alignment = 16;
+
 static bool
 is_power_of_2(size_t n) {
 	return __builtin_popcountl(n) == 1;
 }
 
 static size_t
-block_size(size_t size, size_t min_alignment)
+block_size(size_t size)
 {
-	MALLOC_ASSERT(is_power_of_2(min_alignment));
 	if (size == 0) {
-		return min_alignment;
+		return k_min_alignment;
 	}
-	const size_t mask = (min_alignment - 1);
+	const size_t mask = (k_min_alignment - 1);
 	return (size + mask) & ~mask;
 }
 
@@ -425,14 +425,14 @@ static vm_address_t
 allocate(pgm_zone_t *zone, size_t size, size_t alignment)
 {
 	MALLOC_ASSERT(size <= PAGE_SIZE);
-	MALLOC_ASSERT(zone->min_alignment <= alignment && alignment <= PAGE_SIZE);
+	MALLOC_ASSERT(k_min_alignment <= alignment && alignment <= PAGE_SIZE);
 	MALLOC_ASSERT(is_power_of_2(alignment));
 
 	if (is_full(zone)) {
 		return (vm_address_t)NULL;
 	}
 
-	size = block_size(size, zone->min_alignment);
+	size = block_size(size);
 	uint32_t slot = choose_available_slot(zone);
 	uint32_t metadata = choose_metadata(zone, slot);
 	uint16_t offset = choose_offset_on_page(size, alignment, PAGE_SIZE);
@@ -511,7 +511,7 @@ reallocate(pgm_zone_t *zone, vm_address_t addr, size_t new_size, boolean_t sampl
 
 	vm_address_t new_addr;
 	if (sample && !is_full(zone)) {
-		new_addr = allocate(zone, new_size, zone->min_alignment);
+		new_addr = allocate(zone, new_size, k_min_alignment);
 		MALLOC_ASSERT(new_addr);
 	} else {
 		new_addr = (vm_address_t)DELEGATE(malloc, new_size);
@@ -577,7 +577,7 @@ pgm_size(pgm_zone_t *zone, const void *ptr)
 static void *
 pgm_malloc(pgm_zone_t *zone, size_t size)
 {
-	SAMPLED_ALLOCATE(size, zone->min_alignment, malloc, size);
+	SAMPLED_ALLOCATE(size, k_min_alignment, malloc, size);
 	return ptr;
 }
 
@@ -588,7 +588,7 @@ pgm_calloc(pgm_zone_t *zone, size_t num_items, size_t size)
 	if (os_unlikely(os_mul_overflow(num_items, size, &total_size))) {
 		return DELEGATE(calloc, num_items, size);
 	}
-	SAMPLED_ALLOCATE(total_size, zone->min_alignment, calloc, num_items, size);
+	SAMPLED_ALLOCATE(total_size, k_min_alignment, calloc, num_items, size);
 	memset(ptr, 0, total_size);
 	return ptr;
 }
@@ -638,7 +638,7 @@ pgm_memalign(pgm_zone_t *zone, size_t alignment, size_t size)
 	if (alignment > PAGE_SIZE || !is_power_of_2(alignment) || alignment < sizeof(void *)) {
 		return DELEGATE(memalign, alignment, size);
 	}
-	size_t adj_alignment = MAX(alignment, zone->min_alignment);
+	size_t adj_alignment = MAX(alignment, k_min_alignment);
 	SAMPLED_ALLOCATE(size, adj_alignment, memalign, alignment, size);
 	return ptr;
 }
@@ -652,7 +652,8 @@ pgm_free_definite_size(pgm_zone_t *zone, void *ptr, size_t size)
 static boolean_t
 pgm_claimed_address(pgm_zone_t *zone, void *ptr)
 {
-	return is_guarded(zone, (vm_address_t)ptr);
+	DELEGATE_UNGUARDED(ptr, claimed_address, ptr);
+	return true;
 }
 
 static void *
@@ -660,7 +661,7 @@ pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
 		uint64_t options)
 {
 	if (os_unlikely(should_sample(zone, size))) {
-		size_t adj_alignment = MAX(align, zone->min_alignment);
+		size_t adj_alignment = MAX(align, k_min_alignment);
 		lock(zone);
 		void *ptr = (void *)allocate(zone, size, adj_alignment);
 		unlock(zone);
@@ -670,10 +671,12 @@ pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
 			}
 			return ptr;
 		}
-		// If the allocaiton fails, fall back to the wrapped zone
+		// If the allocation fails, fall back to the wrapped zone
 	}
 
-	if (zone->wrapped_zone->version >= 15) {
+	// FIXME: calls wrapped_zone->malloc_with_options/memalign without NULL check
+	if (zone->wrapped_zone->version >= 15 &&
+			zone->wrapped_zone->malloc_with_options) {
 		return DELEGATE(malloc_with_options, align, size, options);
 	} else if (align) {
 		void *ptr = DELEGATE(memalign, align, size);
@@ -701,8 +704,7 @@ check_configuration(const pgm_zone_t *zone)
 			(zone->max_allocations <= zone->max_metadata / 2) &&  // choose_metadata() relies on max_allocations << max_metadata
 			(zone->max_metadata <= zone->num_slots) &&
 			(zone->num_slots <= k_max_slots) &&
-			(zone->sample_counter_range > 0) &&
-			(zone->min_alignment == 1 || zone->min_alignment == 16);  // strict alignment || Darwin ABI alignment
+			(zone->sample_counter_range > 0);
 }
 
 static bool
@@ -738,9 +740,9 @@ check_slot(const pgm_zone_t *zone, const slot_t *slot)
 	return (slot->state <= ss_freed) &&
 			(slot->metadata < zone->num_metadata) &&
 			(slot->size <= PAGE_SIZE) &&
-			(slot->size == block_size(slot->size, zone->min_alignment)) &&
+			(slot->size == block_size(slot->size)) &&
 			(slot->offset <= PAGE_SIZE) &&
-			(slot->offset % zone->min_alignment == 0) &&
+			(slot->offset % k_min_alignment == 0) &&
 			((size_t)slot->offset + slot->size <= PAGE_SIZE);
 }
 
@@ -1049,7 +1051,7 @@ static const malloc_zone_t malloc_zone_template = {
 	// Specialized operations
 	.memalign = FN_PTR(pgm_memalign),
 	.free_definite_size = FN_PTR(pgm_free_definite_size),
-	.pressure_relief = NULL,
+	.pressure_relief = malloc_zone_pressure_relief_fallback,
 	.claimed_address = FN_PTR(pgm_claimed_address),
 	.try_free_default = NULL,
 	.malloc_with_options = FN_PTR(pgm_malloc_with_options),
@@ -1093,7 +1095,6 @@ static struct {
 	bool internal_build;
 	bool MallocProbGuard_is_set;
 	bool MallocProbGuard;
-	bool MallocProbGuardViaLaunchd;
 } g_env;
 
 void
@@ -1107,20 +1108,16 @@ pgm_init_config(bool internal_build)
 		g_env.MallocProbGuard_is_set = true;
 		g_env.MallocProbGuard = env_bool("MallocProbGuard");
 	}
-	if (env_bool("MallocProbGuardViaLaunchd")) {
-		g_env.MallocProbGuardViaLaunchd = true;
-	}
 }
 
 static bool
 is_platform_binary(void)
 {
-	uint32_t flags = 0;
-	int err = csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags));
-	if (err) {
-		return false;
-	}
-	return (flags & CS_PLATFORM_BINARY);
+#if CONFIG_CHECK_PLATFORM_BINARY
+	return malloc_is_platform_binary;
+#else
+	return _malloc_is_platform_binary();
+#endif
 }
 
 extern bool main_image_has_section(const char* segname, const char *sectname);
@@ -1130,16 +1127,10 @@ should_activate(bool internal_build)
 	if (!internal_build && !is_platform_binary()) {
 		return false;
 	}
-#if TARGET_OS_OSX
 	uint32_t activation_rate = (internal_build ? 250 : 1000);
 	if (rand_uniform(activation_rate) != 0) {
 		return false;
 	}
-#else
-	if (!g_env.MallocProbGuardViaLaunchd) {
-		return false;
-	}
-#endif
 	if (main_image_has_section("__DATA", "__pgm_opt_out")) {
 		return false;
 	}
@@ -1174,8 +1165,6 @@ pgm_should_enable(void)
 		}
 #elif PGM_ALLOW_NON_INTERNAL_ACTIVATION
 		return true;
-#elif TARGET_OS_DRIVERKIT
-		// Never enable for DriverKit
 #else
 		if (internal_build) {
 			return true;
@@ -1233,15 +1222,13 @@ configure_zone(pgm_zone_t *zone)
 	uint32_t sample_rate = env_uint("MallocProbGuardSampleRate", choose_sample_rate());
 	// Approximate a (1 / sample_rate) chance for sampling; 1 means "always sample".
 	zone->sample_counter_range = (sample_rate != 1) ? (2 * sample_rate) : 1;
-	bool strict_alignment = env_var("MallocProbGuardStrictAlignment") ? env_bool("MallocProbGuardStrictAlignment") : FEATURE_FLAG(ProbGuardStrictAlignment, false);
-	zone->min_alignment = (strict_alignment && MALLOC_TARGET_64BIT) ? 1 : 16;  // Darwin ABI requires 16 byte alignment.
 	zone->debug = env_bool("MallocProbGuardDebug");
 	zone->debug_log_throttle_ms = env_uint("MallocProbGuardDebugLogThrottleInMillis", 1000);
 
 	if (zone->debug) {
 		malloc_report(ASL_LEVEL_INFO,
-				"ProbGuard configuration: %u kB budget, 1/%u sample rate, %u/%u/%u allocations/metadata/slots, strict alignment: %d\n",
-				memory_budget_in_kb, sample_rate, zone->max_allocations, zone->max_metadata, zone->num_slots, strict_alignment);
+				"ProbGuard configuration: %u kB budget, 1/%u sample rate, %u/%u/%u allocations/metadata/slots\n",
+				memory_budget_in_kb, sample_rate, zone->max_allocations, zone->max_metadata, zone->num_slots);
 	}
 	if (!check_configuration(zone)) {
 		MALLOC_REPORT_FATAL_ERROR(0, "ProbGuard: bad configuration");
@@ -1265,6 +1252,7 @@ disable_unsupported_apis(malloc_zone_t *pgm_zone, const malloc_zone_t *wrapped_z
 	#define DISABLE_UNSUPPORTED(api) if (!wrapped_zone->api) pgm_zone->api = NULL;
 	DISABLE_UNSUPPORTED(memalign)
 	DISABLE_UNSUPPORTED(free_definite_size)
+	DISABLE_UNSUPPORTED(claimed_address)
 }
 
 static void

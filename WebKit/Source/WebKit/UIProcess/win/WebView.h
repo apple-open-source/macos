@@ -58,6 +58,7 @@ public:
     HWND window() const { return m_window; }
     void setParentWindow(HWND);
     void windowAncestryDidChange();
+    WebCore::IntSize viewSize() { return m_viewSize; }
     void setIsInWindow(bool);
     void setIsVisible(bool);
     bool isWindowActive();
@@ -122,7 +123,7 @@ private:
     void updateChildWindowGeometries();
 
     void didCommitLoadForMainFrame(bool useCustomRepresentation);
-    void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const IPC::DataReference&);
+    void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, std::span<const uint8_t>);
     virtual double customRepresentationZoomFactor();
     virtual void setCustomRepresentationZoomFactor(double);
 
@@ -154,6 +155,7 @@ private:
 
     std::unique_ptr<WebKit::PageClientImpl> m_pageClient;
     RefPtr<WebPageProxy> m_page;
+    WebCore::IntSize m_viewSize;
 };
 
 } // namespace WebKit

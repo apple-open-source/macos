@@ -70,10 +70,9 @@
 #ifndef _SYS_STAT_H_
 #define _SYS_STAT_H_
 
-#if defined(ENABLE_EXCLAVE_STORAGE)
-
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <time.h>
 
 struct stat {
     dev_t           st_dev;         /* [XSI] ID of device containing file */
@@ -286,6 +285,8 @@ struct stat {
 #define EF_IS_SYNTHETIC         0x00000020      /* a synthetic directory/symlink */
 #define EF_SHARES_ALL_BLOCKS    0x00000040      /* file shares all of its blocks with another file */
 #endif
+
+#if defined(ENABLE_EXCLAVE_STORAGE)
 
 __BEGIN_DECLS
 

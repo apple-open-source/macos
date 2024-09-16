@@ -144,18 +144,30 @@
 /* citrus_mapper */
 #ifndef _CITRUS_MAPPER_NO_NAMESPACE
 #define _mapper			_citrus_mapper
+#ifdef __APPLE__
+#define _mapper_convert_ctx	_citrus_mapper_convert_ctx
+#endif
 #define _mapper_ops		_citrus_mapper_ops
 #define _mapper_traits		_citrus_mapper_traits
 #define _mapper_open		_citrus_mapper_open
 #define _mapper_open_direct	_citrus_mapper_open_direct
 #define _mapper_close		_citrus_mapper_close
+#ifdef __APPLE__
+#define	_mapper_get_mapdir_from_key _citrus_mapper_get_mapdir_from_key
+#endif
 #define _MAPPER_CONVERT_SUCCESS	_CITRUS_MAPPER_CONVERT_SUCCESS
 #define _MAPPER_CONVERT_NONIDENTICAL _CITRUS_MAPPER_CONVERT_NONIDENTICAL
 #define _MAPPER_CONVERT_SRC_MORE _CITRUS_MAPPER_CONVERT_SRC_MORE
 #define _MAPPER_CONVERT_DST_MORE _CITRUS_MAPPER_CONVERT_DST_MORE
 #define _MAPPER_CONVERT_ILSEQ	_CITRUS_MAPPER_CONVERT_ILSEQ
 #define _MAPPER_CONVERT_FATAL	_CITRUS_MAPPER_CONVERT_FATAL
+#ifdef __APPLE__
 #define _MAPPER_CONVERT_TRANSLIT _CITRUS_MAPPER_CONVERT_TRANSLIT
+#define _MAPPER_CONVERT_COMBINE(d, v) _CITRUS_MAPPER_CONVERT_COMBINE(d, v)
+#define _MAPPER_CONVERT_ENCODE_DIR(x) _CITRUS_MAPPER_CONVERT_ENCODE_DIR(x)
+#define _MAPPER_CONVERT_DIR(x)	_CITRUS_MAPPER_CONVERT_DIR(x)
+#define _MAPPER_CONVERT_ERROR(x) _CITRUS_MAPPER_CONVERT_ERROR(x)
+#endif
 #define _mapper_convert		_citrus_mapper_convert
 #define _mapper_init_state	_citrus_mapper_init_state
 #define _mapper_get_state_size	_citrus_mapper_get_state_size

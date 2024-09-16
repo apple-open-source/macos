@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,19 +55,24 @@
 #define NNEEDS_FLUSH	0x00010 /* Need to flush the file */
 #define	NNEEDS_EOF_SET	0x00020	/* Need to set the eof, ignore the eof from the server */
 #define	NATTRCHANGED	0x00040	/* Did we change the size of the file, clear cache on close */
-#define	NALLOC			0x00080	/* being created */
-#define	NWALLOC			0x00100	/* awaiting creation */
-#define	NTRANSIT		0x00200	/* being reclaimed */
-#define	NWTRANSIT		0x00400	/* awaiting reclaim */
-#define	NDELETEONCLOSE	0x00800	/* We need to delete this item on close */
-#define	NMARKEDFORDLETE	0x01000	/* This item will has been marked for deletion */
-#define	NNEGNCENTRIES	0x02000	/* Directory has negative name cache entries */
-#define NWINDOWSYMLNK	0x04000 /* This is a Conrad/Steve Window's symbolic links */
-#define N_POLLNOTIFY	0x08000 /* Change notify is not support, poll */
-#define NO_EXTENDEDOPEN 0x10000 /* The server doesn't support the extended open reply */
-#define NHAS_POSIXMODES 0x20000 /* This node has a Windows NFS ACE that contains posix modes */
-#define NNEEDS_UBC_INVALIDATE 0x40000 /* Need to do a UBC_INVALIDATE on this file */
-#define NNEEDS_UBC_PUSHDIRTY  0x80000 /* Need to do a UBC_PUSH_DIRTY | UBC_INVALIDATE on this file */
+#define	NDELETEONCLOSE	0x00080	/* We need to delete this item on close */
+#define	NMARKEDFORDLETE	0x00100	/* This item will has been marked for deletion */
+#define	NNEGNCENTRIES	0x00200	/* Directory has negative name cache entries */
+#define NWINDOWSYMLNK	0x00400 /* This is a Conrad/Steve Window's symbolic links */
+#define N_POLLNOTIFY	0x00800 /* Change notify is not support, poll */
+#define NO_EXTENDEDOPEN 0x01000 /* The server doesn't support the extended open reply */
+#define NHAS_POSIXMODES 0x02000 /* This node has a Windows NFS ACE that contains posix modes */
+#define NNEEDS_UBC_INVALIDATE 0x04000 /* Need to do a UBC_INVALIDATE on this file */
+#define NNEEDS_UBC_PUSHDIRTY  0x08000 /* Need to do a UBC_PUSH_DIRTY | UBC_INVALIDATE on this file */
+#define N_DONT_COMPRESS      0x010000 /* This file is not allowed to be compressed */
+#define N_WRITE_IMMEDIATELY  0x020000 /* Writes must also be sent to server immediately */
+
+/* Bits for smbnode.n_flag_alloc */
+/* protected by smbnode.n_flag_alloc_lock */
+#define    NALLOC       0x00001    /* being created */
+#define    NWALLOC      0x00002    /* awaiting creation */
+#define    NTRANSIT     0x00004    /* being reclaimed */
+#define    NWTRANSIT    0x00008    /* awaiting reclaim */
 
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
@@ -178,7 +183,7 @@ struct smb_enum_cache {
 struct smb_dir_cookie {
     uint64_t        key;
     struct timespec last_used;
-    uint64_t        resume_offset;
+    off_t           resume_offset;
     uint64_t        resume_node_id;
     char            *resume_name_p;
 };
@@ -227,8 +232,10 @@ struct smbnode {
     bool                n_write_unsafe; /* vop is a read operation, ie we cannot pushdirty the UBC */
 	void *				n_activation;
 	uint32_t			n_lockState;	/* current lock state */
-	uint32_t			n_flag;
-    vnode_t             n_parent_vnode;
+    uint32_t            n_flag;
+    uint32_t            n_flag_alloc;
+    lck_mtx_t           n_flag_alloc_lock;
+    vnode_t             n_parent_vnode; /* could be invalid, only use with smbfs_smb_get_parent() */
     uint32_t            n_parent_vid;
 	vnode_t				n_vnode;
 	struct smbmount		*n_mount;
@@ -494,14 +501,16 @@ void smb_get_uid_gid_mode(struct smb_share *share, struct smbmount *smp,
 int smbfs_readvdir(vnode_t vp, uio_t uio, int flags, int32_t *numdirent,
                    vfs_context_t context);
 int smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
-                  u_quad_t to, int ioflag, vfs_context_t context);
+                  u_quad_t to, int ioflag,
+                  uint32_t *allow_compressionp, vfs_context_t context);
 int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
-                 SMBFID fid, vfs_context_t context);
-int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-				  SMBFID fid, int ioflag, vfs_context_t context);
+                 SMBFID fid, uint32_t allow_compression,
+                 vfs_context_t context);
+int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop,
+				  SMBFID fid, int ioflag,
+                  uint32_t *allow_compressionp, vfs_context_t context);
 void smbfs_uio_update(uio_t uio, user_size_t length);
 int32_t smbfs_IObusy(struct smbmount *smp);
-void smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent);
 void smbfs_CloseChildren(struct smb_share *share,
                          struct smbnode *parent,
                          u_int32_t need_lock,

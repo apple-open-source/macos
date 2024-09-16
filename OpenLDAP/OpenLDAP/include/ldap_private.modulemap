@@ -1,0 +1,4 @@
+module ldapPrivate [system] {
+  header "ldap_private.h"
+  export *
+}

@@ -318,7 +318,7 @@ format_iolog_path(void)
 	iolog_path = NULL;
 	goto done;
     }
-
+	
     /* Stash pointer to the I/O log for the event log. */
     sudo_user.iolog_path = iolog_path + sizeof("iolog_path=") - 1;
     sudo_user.iolog_file = sudo_user.iolog_path + 1 + strlen(dir);

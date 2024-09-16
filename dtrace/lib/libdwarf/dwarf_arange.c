@@ -567,8 +567,9 @@ dwarf_get_cu_die_offset(Dwarf_Arange arange,
 	    return res;
 	}
     }
-
-    *returned_offset = offset + _dwarf_length_of_cu_header(dbg, offset);
+	
+	*returned_offset = offset + _dwarf_length_of_cu_header(dbg, offset,
+														   dbg->de_cu_context->cc_version_stamp);
     return DW_DLV_OK;
 }
 
@@ -629,9 +630,9 @@ dwarf_get_arange_info(Dwarf_Arange arange,
 		return res;
 	    }
 	}
-
 	*cu_die_offset =
-	    offset + _dwarf_length_of_cu_header(dbg, offset);
+		offset + _dwarf_length_of_cu_header(dbg, offset,
+											dbg->de_cu_context->cc_version_stamp);
     }
     return (DW_DLV_OK);
 }

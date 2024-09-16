@@ -53,7 +53,7 @@ void Token::setFilename(const ANTLR_USE_NAMESPACE(std)string&)
 {
 }
 
-ANTLR_USE_NAMESPACE(std)string emptyString("");
+[[clang::no_destroy]] ANTLR_USE_NAMESPACE(std)string emptyString("");
 
 const ANTLR_USE_NAMESPACE(std)string& Token::getFilename() const
 {
@@ -65,7 +65,7 @@ ANTLR_USE_NAMESPACE(std)string Token::toString() const
 	return "[\""+getText()+"\",<"+type+">]";
 }
 
-ANTLR_API RefToken nullToken;
+[[clang::no_destroy]] ANTLR_API RefToken nullToken;
 
 #ifndef NO_STATIC_CONSTS
 const int Token::MIN_USER_TYPE;

@@ -101,7 +101,7 @@ SHLIB_PATH=$PATH
 export SHLIB_PATH
 
 # set a variable to simplify environment update in shlib
-SHLIB_HOST=darwin22.0.0
+SHLIB_HOST=darwin23.0.0
 export SHLIB_HOST
 
 # don't use user's TERMINFO variable

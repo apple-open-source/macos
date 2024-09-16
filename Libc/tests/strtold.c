@@ -198,6 +198,15 @@ static void strtold_verify(const char *src,
   strtold_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, e_errno, src + strlen(src));
 }
 
+static void strtold_verify_overflow(const char *src, long double expected_nearest, long double expected_down, long double expected_up) {
+  int expected_errno = ERANGE;
+  strtold_verify_with_rounding_mode(src, FE_TONEAREST, expected_nearest, expected_errno, src + strlen(src));
+  strtold_verify_with_rounding_mode(src, FE_DOWNWARD, expected_down, expected_errno, src + strlen(src));
+  strtold_verify_with_rounding_mode(src, FE_UPWARD, expected_up, expected_errno, src + strlen(src));
+  long double expected = signbit(expected_nearest) ? expected_up : expected_down;
+  strtold_verify_with_rounding_mode(src, FE_TOWARDZERO, expected, expected_errno, src + strlen(src));
+}
+
 static void strtold_verify_infinity(const char *src, long double expected) {
   strtold_verify_with_rounding_mode(src, FE_TONEAREST, expected, 0, src + strlen(src));
   strtold_verify_with_rounding_mode(src, FE_DOWNWARD, expected, 0, src + strlen(src));
@@ -308,14 +317,14 @@ T_DECL(strtold_float80, "strtold(3) for long double == float80")
   // Just a bit less than 2 ** 16384 (== max_normal + 1 ULP == overflow threshold)
   strtold_verify("1189731495357231765085759326628007130763444687096510237472674821e4869", infinity, max_normal, infinity);
   // Just a bit more than 2 ** 16384 (== max_normal + 1 ULP == overflow threshold)
-  strtold_verify("1189731495357231765085759326628007130763444687096510237472674822e4869", infinity, infinity, infinity);
-  strtold_verify("11897314953572317650857593266280071307634446870965103e4880", infinity, infinity, infinity);
-  strtold_verify("1189731495357231765085759326628007130763445e4890", infinity, infinity, infinity);
-  strtold_verify("118973149535723176508575932662801e4900", infinity, infinity, infinity);
-  strtold_verify("11897314953572317650858e4910", infinity, infinity, infinity);
-  strtold_verify("1189731495358e4920", infinity, infinity, infinity);
-  strtold_verify("1189732e4926", infinity, infinity, infinity);
-  strtold_verify("2e4932", infinity, infinity, infinity);
+  strtold_verify_overflow("1189731495357231765085759326628007130763444687096510237472674822e4869", infinity, max_normal, infinity);
+  strtold_verify_overflow("11897314953572317650857593266280071307634446870965103e4880", infinity, max_normal, infinity);
+  strtold_verify_overflow("1189731495357231765085759326628007130763445e4890", infinity, max_normal, infinity);
+  strtold_verify_overflow("118973149535723176508575932662801e4900", infinity, max_normal, infinity);
+  strtold_verify_overflow("11897314953572317650858e4910", infinity, max_normal, infinity);
+  strtold_verify_overflow("1189731495358e4920", infinity, max_normal, infinity);
+  strtold_verify_overflow("1189732e4926", infinity, max_normal, infinity);
+  strtold_verify_overflow("2e4932", infinity, max_normal, infinity);
   
   strtold_verify("3.1415926535897932385", pi, pi_pred, pi);
   strtold_verify("3.141592653589793238462643383279502884197169399"

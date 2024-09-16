@@ -167,7 +167,12 @@ fprint_client(FILE *f, client_t *c)
 			break;
 
 		case NOTIFY_TYPE_XPC_EVENT:
-			write_status(f, "xpc event: %llu\n", c->deliver.event_token);
+			if (c->state_and_type & NOTIFY_CLIENT_STATE_THROTTLED)
+			{
+				write_status(f, "xpc event: %llu (throttled)\n", c->deliver.event_token);
+			} else {
+				write_status(f, "xpc event: %llu\n", c->deliver.event_token);
+			}
 			break;
 
 		case NOTIFY_TYPE_COMMON_PORT:
@@ -210,7 +215,12 @@ fprint_quick_client(FILE *f, client_t *c)
 		break;
 
 	case NOTIFY_TYPE_XPC_EVENT:
-		write_status(f, "event,%llu\n", c->deliver.event_token);
+		if (c->state_and_type & NOTIFY_CLIENT_STATE_THROTTLED)
+		{
+			write_status(f, "event-throttled,%llu\n", c->deliver.event_token);
+		} else {
+			write_status(f, "event,%llu\n", c->deliver.event_token);
+		}
 		break;
 
 	case NOTIFY_TYPE_COMMON_PORT:
@@ -394,7 +404,7 @@ fprint_quick_status(FILE *f)
 
 	write_status(f, "--- NAME TABLE ---\n");
 	write_status(f, "Name Info: id, uid, gid, access, refcount, postcount, last hour postcount, slot, val, state\n");
-	write_status(f, "Client Info: client_id, pid,token, lastval, suspend_count, 0, 0, type, type-info\n\n\n");
+	write_status(f, "Client Info: client_id, pid,token, lastval, suspend_count, pending, 0, type, type-info\n\n\n");
 
 	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *n) {
 		fprint_quick_name_info(f, n);
@@ -1419,6 +1429,7 @@ main(int argc, const char *argv[])
 	xpc_event_publisher_set_error_handler(publisher, ^(int error) {
 		NOTIFY_INTERNAL_CRASH(error, "Event publisher error");
 	});
+	xpc_event_publisher_set_throttling(publisher, INFLIGHT_XPC_EVENT_HARD_LIMIT);
 	xpc_event_publisher_activate(publisher);
 
 	/* Set up SIGUSR1 */

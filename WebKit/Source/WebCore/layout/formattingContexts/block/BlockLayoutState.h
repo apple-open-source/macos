@@ -27,6 +27,7 @@
 
 #include "Font.h"
 #include "PlacedFloats.h"
+#include <algorithm>
 
 namespace WebCore {
 namespace Layout {
@@ -37,7 +38,7 @@ class BlockFormattingContext;
 class BlockLayoutState {
 public:
     struct LineClamp {
-        size_t allowedLineCount() const { return std::max(maximumLineCount - currentLineCount, 0lu); }
+        size_t allowedLineCount() const { return std::max(maximumLineCount - currentLineCount, static_cast<size_t>(0)); }
         size_t maximumLineCount { 0 };
         size_t currentLineCount { 0 };
     };

@@ -164,12 +164,34 @@ CFDictionaryRef SecOTAPKICopyNonTlsTrustedCTLogs(void);
 CF_EXPORT
 CFDictionaryRef SecOTAPKICopyCTLogForKeyID(CFDataRef keyID, CFErrorRef* error);
 
-// SPI to return the current OTA PKI trust store version
-// Note: Trust store is not mutable by assets
+// SPI to return the current OTA PKI trust store (PKITrustStore) asset version as a string
 CF_EXPORT
-uint64_t SecOTAPKIGetCurrentTrustStoreVersion(CFErrorRef* CF_RETURNS_RETAINED  error);
+CFStringRef SecOTAPKICopyCurrentTrustStoreAssetVersion(CFErrorRef* CF_RETURNS_RETAINED error);
 
-// SPI to return the current OTA PKI asset version
+// SPI to return the current OTA PKI trust store (PKITrustStore) content digest as a hex string
+CF_EXPORT
+CFStringRef SecOTAPKICopyCurrentTrustStoreContentDigest(CFErrorRef* CF_RETURNS_RETAINED error);
+
+// SPI to check whether the given path is on an AuthAPFS volume
+CF_EXPORT
+bool SecOTAPKIPathIsOnAuthAPFSVolume(CFStringRef path);
+
+// SPI to return the OTA PKI trust store version (PKITrustStore) available at the given path
+// (this may be a different path than the current SecOTAPKI instance is using)
+CF_EXPORT
+uint64_t SecOTAPKIGetAvailableTrustStoreVersion(CFStringRef path, CFErrorRef* CF_RETURNS_RETAINED error);
+
+// SPI to return the built-in (system) OTA PKI trust store version
+// (note: some variants may not have a built-in trust store)
+CF_EXPORT
+uint64_t SecOTAPKIGetSystemTrustStoreVersion(CFErrorRef* CF_RETURNS_RETAINED error);
+
+// SPI to return the current OTA PKI trust store version
+// (version maintained as part of the current SecOTAPKI instance)
+CF_EXPORT
+uint64_t SecOTAPKIGetCurrentTrustStoreVersion(CFErrorRef* CF_RETURNS_RETAINED error);
+
+// SPI to return the current OTA PKI (PKITrustSupplementals) asset version
 CF_EXPORT
 uint64_t SecOTAPKIGetCurrentAssetVersion(CFErrorRef* error);
 
@@ -180,7 +202,7 @@ uint64_t SecOTASecExperimentGetCurrentAssetVersion(CFErrorRef* error);
 // SPI to reset the current OTA PKI asset version to the version shipped
 // with the system
 CF_EXPORT
-uint64_t SecOTAPKIResetCurrentAssetVersion(CFErrorRef* CF_RETURNS_RETAINED  error);
+uint64_t SecOTAPKIResetCurrentAssetVersion(CFErrorRef* CF_RETURNS_RETAINED error);
 
 // SPI to signal trustd to get a new set of trust data
 // Always returns the current asset version. Returns an error with

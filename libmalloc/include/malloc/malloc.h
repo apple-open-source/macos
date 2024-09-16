@@ -64,51 +64,275 @@ __ptrcheck_abi_assume_single()
 __BEGIN_DECLS
 /*********	Type definitions	************/
 
+/*
+ * Only zone implementors should depend on the layout of this structure;
+ * Regular callers should use the access functions below
+ */
 typedef struct _malloc_zone_t {
-	/* Only zone implementors should depend on the layout of this structure;
-	Regular callers should use the access functions below */
-	void	*reserved1;	/* RESERVED FOR CFAllocator DO NOT USE */
-	void	*reserved2;	/* RESERVED FOR CFAllocator DO NOT USE */
-	size_t 	(* MALLOC_ZONE_FN_PTR(size))(struct _malloc_zone_t *zone, const void * __unsafe_indexable ptr); /* returns the size of a block or 0 if not in this zone; must be fast, especially for negative answers */
-	void 	* __sized_by(size) (* MALLOC_ZONE_FN_PTR(malloc))(struct _malloc_zone_t *zone, size_t size);
-	void 	* __sized_by(num_items * size) (* MALLOC_ZONE_FN_PTR(calloc))(struct _malloc_zone_t *zone, size_t num_items, size_t size); /* same as malloc, but block returned is set to zero */
-	void 	* __sized_by(size) (* MALLOC_ZONE_FN_PTR(valloc))(struct _malloc_zone_t *zone, size_t size); /* same as malloc, but block returned is set to zero and is guaranteed to be page aligned */
-	void 	(* MALLOC_ZONE_FN_PTR(free))(struct _malloc_zone_t *zone, void * __unsafe_indexable ptr);
-	void 	* __sized_by(size) (* MALLOC_ZONE_FN_PTR(realloc))(struct _malloc_zone_t *zone, void * __unsafe_indexable ptr, size_t size);
-	void 	(* MALLOC_ZONE_FN_PTR(destroy))(struct _malloc_zone_t *zone); /* zone is destroyed and all memory reclaimed */
-	const char	* __null_terminated zone_name;
-
-	/* Optional batch callbacks; these may be NULL */
-	unsigned	(* MALLOC_ZONE_FN_PTR(batch_malloc))(struct _malloc_zone_t *zone, size_t size, void * __unsafe_indexable * __counted_by(num_requested) results, unsigned num_requested); /* given a size, returns pointers capable of holding that size; returns the number of pointers allocated (maybe 0 or less than num_requested) */
-	void	(* MALLOC_ZONE_FN_PTR(batch_free))(struct _malloc_zone_t *zone, void * __unsafe_indexable * __counted_by(num_to_be_freed) to_be_freed, unsigned num_to_be_freed); /* frees all the pointers in to_be_freed; note that to_be_freed may be overwritten during the process */
-
-	struct malloc_introspection_t	* MALLOC_INTROSPECT_TBL_PTR(introspect);
-	unsigned	version;
-
-	/* aligned memory allocation. The callback may be NULL. Present in version >= 5. */
-	void * __sized_by(size) (* MALLOC_ZONE_FN_PTR(memalign))(struct _malloc_zone_t *zone, size_t alignment, size_t size);
-
-	/* free a pointer known to be in zone and known to have the given size. The callback may be NULL. Present in version >= 6.*/
-	void (* MALLOC_ZONE_FN_PTR(free_definite_size))(struct _malloc_zone_t *zone, void * __sized_by(size) ptr, size_t size);
-
-	/* Empty out caches in the face of memory pressure. The callback may be NULL. Present in version >= 8. */
-	size_t 	(* MALLOC_ZONE_FN_PTR(pressure_relief))(struct _malloc_zone_t *zone, size_t goal);
+	void *reserved1;	/* RESERVED FOR CFAllocator DO NOT USE */
+	void *reserved2;	/* RESERVED FOR CFAllocator DO NOT USE */
 
 	/*
-	 * Checks whether an address might belong to the zone. May be NULL. Present in version >= 10.
-	 * False positives are allowed (e.g. the pointer was freed, or it's in zone space that has
-	 * not yet been allocated. False negatives are not allowed.
+	 * Returns the size of a block or 0 if not in this zone; must be fast,
+	 * especially for negative answers.
 	 */
-	boolean_t (* MALLOC_ZONE_FN_PTR(claimed_address))(struct _malloc_zone_t *zone, void * __unsafe_indexable ptr);
+	size_t (* MALLOC_ZONE_FN_PTR(size))(struct _malloc_zone_t *zone,
+			const void * __unsafe_indexable ptr);
 
-	/* For zone 0 implementations: try to free ptr, promising to call find_zone_and_free
-	 * if it turns out not to belong to us */
-	void 	(* MALLOC_ZONE_FN_PTR(try_free_default))(struct _malloc_zone_t *zone, void * __unsafe_indexable ptr);
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc))(
+			struct _malloc_zone_t *zone, size_t size);
 
-	/* memory allocation with an extensible binary flags option. Present in
-	 * version >= 15 */
-	void * __sized_by(size) (* MALLOC_ZONE_FN_PTR(malloc_with_options))(struct _malloc_zone_t *zone, size_t align, size_t size, uint64_t options);
+	/* Same as malloc, but block returned is set to zero */
+	void * __sized_by_or_null(num_items * size) (* MALLOC_ZONE_FN_PTR(calloc))(
+			struct _malloc_zone_t *zone, size_t num_items, size_t size);
+
+	/* Same as malloc, but block returned is guaranteed to be page-aligned */
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(valloc))(
+			struct _malloc_zone_t *zone, size_t size);
+
+	void (* MALLOC_ZONE_FN_PTR(free))(struct _malloc_zone_t *zone,
+			void * __unsafe_indexable ptr);
+
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(realloc))(
+			struct _malloc_zone_t *zone, void * __unsafe_indexable ptr,
+			size_t size);
+
+	/* Zone is destroyed and all memory reclaimed */
+	void (* MALLOC_ZONE_FN_PTR(destroy))(struct _malloc_zone_t *zone);
+
+	const char * __null_terminated zone_name;
+
+	/* Optional batch callbacks; these may be NULL */
+
+	/*
+	 * Given a size, returns pointers capable of holding that size; returns the
+	 * number of pointers allocated (maybe 0 or less than num_requested)
+	 */
+	unsigned (* MALLOC_ZONE_FN_PTR(batch_malloc))(struct _malloc_zone_t *zone,
+			size_t size,
+			void * __unsafe_indexable * __counted_by(num_requested) results,
+			unsigned num_requested);
+
+	/*
+	 * Frees all the pointers in to_be_freed; note that to_be_freed may be
+	 * overwritten during the process
+	 */
+	void (* MALLOC_ZONE_FN_PTR(batch_free))(struct _malloc_zone_t *zone,
+			void * __unsafe_indexable * __counted_by(num_to_be_freed) to_be_freed,
+			unsigned num_to_be_freed);
+
+	struct malloc_introspection_t * MALLOC_INTROSPECT_TBL_PTR(introspect);
+	unsigned version;
+
+	/* Aligned memory allocation. May be NULL.  Present in version >= 5. */
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(memalign))(
+			struct _malloc_zone_t *zone, size_t alignment, size_t size);
+
+	/*
+	 * Free a pointer known to be in zone and known to have the given size.
+	 * May be NULL. Present in version >= 6.
+	 */
+	void (* MALLOC_ZONE_FN_PTR(free_definite_size))(struct _malloc_zone_t *zone,
+			void * __sized_by(size) ptr, size_t size);
+
+	/*
+	 * Empty out caches in the face of memory pressure. May be NULL.
+	 * Present in version >= 8.
+	 */
+	size_t (* MALLOC_ZONE_FN_PTR(pressure_relief))(struct _malloc_zone_t *zone,
+			size_t goal);
+
+	/*
+	 * Checks whether an address might belong to the zone. May be NULL. Present
+	 * in version >= 10.  False positives are allowed (e.g. the pointer was
+	 * freed, or it's in zone space that has not yet been allocated. False
+	 * negatives are not allowed.
+	 */
+	boolean_t (* MALLOC_ZONE_FN_PTR(claimed_address))(
+			struct _malloc_zone_t *zone, void * __unsafe_indexable ptr);
+
+	/*
+	 * For libmalloc-internal zone 0 implementations only: try to free ptr,
+	 * promising to call find_zone_and_free if it turns out not to belong to us.
+	 * May be present in version >= 13.
+	 */
+	void (* MALLOC_ZONE_FN_PTR(try_free_default))(struct _malloc_zone_t *zone,
+			void * __unsafe_indexable ptr);
+
+	/*
+	 * Memory allocation with an extensible binary flags option. Currently for
+	 * libmalloc-internal zone implementations only - should be NULL otherwise.
+	 * Added in version >= 15.
+	 */
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc_with_options))(
+			struct _malloc_zone_t *zone, size_t align, size_t size,
+			uint64_t options);
+
+	/*
+	 * Typed Memory Operations versions of zone functions.  Present in
+	 * version >= 16.
+	 */
+
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc_type_malloc))(
+			struct _malloc_zone_t *zone, size_t size, malloc_type_id_t type_id);
+
+	void * __sized_by_or_null(count * size) (* MALLOC_ZONE_FN_PTR(malloc_type_calloc))(
+			struct _malloc_zone_t *zone, size_t count, size_t size,
+			malloc_type_id_t type_id);
+
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc_type_realloc))(
+			struct _malloc_zone_t *zone, void * __unsafe_indexable ptr,
+			size_t size, malloc_type_id_t type_id);
+
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc_type_memalign))(
+			struct _malloc_zone_t *zone, size_t alignment, size_t size,
+			malloc_type_id_t type_id);
+
+	/* Must be NULL for non-libmalloc zone implementations */
+	void * __sized_by_or_null(size) (* MALLOC_ZONE_FN_PTR(malloc_type_malloc_with_options))(
+			struct _malloc_zone_t *zone, size_t align, size_t size, uint64_t options,
+			malloc_type_id_t type_id);
 } malloc_zone_t;
+
+/*!
+ * @enum malloc_type_callsite_flags_v0_t
+ *
+ * Information about where and how malloc was called
+ *
+ * @constant MALLOC_TYPE_CALLSITE_FLAGS_V0_FIXED_SIZE
+ * Set in malloc_type_summary_v0_t if the call to malloc was called with a fixed
+ * size. Note that, at present, this bit is set in all callsites where the
+ * compiler rewrites a call to malloc
+ *
+ * @constant MALLOC_TYPE_CALLSITE_FLAGS_V0_ARRAY
+ * Set in malloc_type_summary_v0_t if the type being allocated is an array, e.g.
+ * allocated via new[] or calloc(count, size)
+ */
+typedef enum {
+	MALLOC_TYPE_CALLSITE_FLAGS_V0_NONE = 0,
+	MALLOC_TYPE_CALLSITE_FLAGS_V0_FIXED_SIZE = 1 << 0,
+	MALLOC_TYPE_CALLSITE_FLAGS_V0_ARRAY = 1 << 1,
+} malloc_type_callsite_flags_v0_t;
+
+/*!
+ * @enum malloc_type_kind_v0_t
+ *
+ * @constant MALLOC_TYPE_KIND_V0_OTHER
+ * Default allocation type, used for most calls to malloc
+ *
+ * @constant MALLOC_TYPE_KIND_V0_OBJC
+ * Marks a type allocated by libobjc
+ *
+ * @constant MALLOC_TYPE_KIND_V0_SWIFT
+ * Marks a type allocated by the Swift runtime
+ *
+ * @constant MALLOC_TYPE_KIND_V0_CXX
+ * Marks a type allocated by the C++ runtime's operator new
+ */
+typedef enum {
+	MALLOC_TYPE_KIND_V0_OTHER = 0,
+	MALLOC_TYPE_KIND_V0_OBJC = 1,
+	MALLOC_TYPE_KIND_V0_SWIFT = 2,
+	MALLOC_TYPE_KIND_V0_CXX = 3
+} malloc_type_kind_v0_t;
+
+/*!
+ * @struct malloc_type_layout_semantics_v0_t
+ *
+ * @field contains_data_pointer
+ * True if the allocated type or any of its fields is a pointer
+ * to a data type (i.e. the pointee contains no pointers)
+ *
+ * @field contains_struct_pointer
+ * True if the allocated type or any of its fields is a pointer
+ * to a struct or union
+ *
+ * @field contains_immutable_pointer
+ * True if the allocated type or any of its fields is a const pointer
+ *
+ * @field contains_anonymous_pointer
+ * True if the allocated type or any of its fields is a pointer
+ * to something other than a struct or data type
+ *
+ * @field is_reference_counted
+ * True if the allocated type is reference counted
+ *
+ * @field contains_generic_data
+ * True if the allocated type or any of its fields are not pointers
+ */
+typedef struct {
+	bool contains_data_pointer : 1;
+	bool contains_struct_pointer : 1;
+	bool contains_immutable_pointer : 1;
+	bool contains_anonymous_pointer : 1;
+	bool is_reference_counted : 1;
+	uint16_t reserved_0 : 3;
+	bool contains_generic_data : 1;
+	uint16_t reserved_1 : 7;
+} malloc_type_layout_semantics_v0_t;
+
+/*!
+ * @struct malloc_type_summary_v0_t
+ *
+ * @field version
+ * Versioning field of the type summary. Set to 0 for the current verison. New
+ * fields can be added where the reserved fields currently are without
+ * incrementing the version, as long as they are non-breaking.
+ *
+ * @field callsite_flags
+ * Details from the callsite of malloc inferred by the compiler
+ *
+ * @field type_kind
+ * Details about the runtime making the allocation
+ *
+ * @field layout_semantics
+ * Details about what kinds of data are contained in the type being allocated
+ *
+ * @discussion
+ * The reserved fields should not be read from or written to, and may be
+ * used for additional fields and information in future versions
+ */
+typedef struct {
+	uint32_t version : 4;
+	uint32_t reserved_0 : 2;
+	malloc_type_callsite_flags_v0_t callsite_flags : 4;
+	malloc_type_kind_v0_t type_kind : 2;
+	uint32_t reserved_1 : 4;
+	malloc_type_layout_semantics_v0_t layout_semantics;
+} malloc_type_summary_v0_t;
+
+/*!
+ * @union malloc_type_descriptor_v0_t
+ *
+ * @field hash
+ * Hash of the type layout of the allocated type, or if type inference failed,
+ * the hash of the callsite's file, line and column. The hash allows the
+ * allocator to disambiguate between different types with the same summary, e.g.
+ * types that have the same fields in different orders.
+ *
+ * @field summary
+ * Details of the type being allocated
+ *
+ * @field type_id
+ * opaque type used for punning
+ *
+ * @discussion
+ * Use malloc_type_descriptor_v0_t to decode the opaque malloc_type_id_t with
+ * version == 0 into a malloc_type_summary_v0_t:
+ *
+ * <code>
+ * malloc_type_descriptor_v0_t desc = (malloc_type_descriptor_v0_t){ .type_id = id };
+ * </code>
+ *
+ * See LLVM documentation for more details
+ */
+typedef union {
+	struct {
+		uint32_t hash;
+		malloc_type_summary_v0_t summary;
+	};
+	malloc_type_id_t type_id;
+} malloc_type_descriptor_v0_t;
 
 /*********	Creation and destruction	************/
 
@@ -125,19 +349,19 @@ extern void malloc_destroy_zone(malloc_zone_t *zone);
 
 /*********	Block creation and manipulation	************/
 
-extern void *malloc_zone_malloc(malloc_zone_t *zone, size_t size) __alloc_size(2) _MALLOC_TYPED(malloc_type_zone_malloc, 2);
+extern void * __sized_by_or_null(size) malloc_zone_malloc(malloc_zone_t *zone, size_t size) __alloc_size(2) _MALLOC_TYPED(malloc_type_zone_malloc, 2);
 	/* Allocates a new pointer of size size; zone must be non-NULL */
 
-extern void *malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size) __alloc_size(2,3) _MALLOC_TYPED(malloc_type_zone_calloc, 3);
+extern void * __sized_by_or_null(num_items * size) malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size) __alloc_size(2,3) _MALLOC_TYPED(malloc_type_zone_calloc, 3);
 	/* Allocates a new pointer of size num_items * size; block is cleared; zone must be non-NULL */
 
-extern void *malloc_zone_valloc(malloc_zone_t *zone, size_t size) __alloc_size(2) _MALLOC_TYPED(malloc_type_zone_valloc, 2);
+extern void * __sized_by_or_null(size) malloc_zone_valloc(malloc_zone_t *zone, size_t size) __alloc_size(2) _MALLOC_TYPED(malloc_type_zone_valloc, 2);
 	/* Allocates a new pointer of size size; zone must be non-NULL; Pointer is guaranteed to be page-aligned and block is cleared */
 
 extern void malloc_zone_free(malloc_zone_t *zone, void * __unsafe_indexable ptr);
 	/* Frees pointer in zone; zone must be non-NULL */
 
-extern void *malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr, size_t size) __alloc_size(3) _MALLOC_TYPED(malloc_type_zone_realloc, 3);
+extern void * __sized_by_or_null(size) malloc_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr, size_t size) __alloc_size(3) _MALLOC_TYPED(malloc_type_zone_realloc, 3);
 	/* Enlarges block if necessary; zone must be non-NULL */
 
 extern malloc_zone_t *malloc_zone_from_ptr(const void * __unsafe_indexable ptr);
@@ -150,7 +374,7 @@ extern size_t malloc_size(const void * __unsafe_indexable ptr);
 extern size_t malloc_good_size(size_t size);
 	/* Returns number of bytes greater than or equal to size that can be allocated without padding */
 
-extern void *malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size) __alloc_align(2) __alloc_size(3) _MALLOC_TYPED(malloc_type_zone_memalign, 3) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
+extern void * __sized_by_or_null(size) malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size) __alloc_align(2) __alloc_size(3) _MALLOC_TYPED(malloc_type_zone_memalign, 3) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
 	/*
 	 * Allocates a new pointer of size size whose address is an exact multiple of alignment.
 	 * alignment must be a power of two and at least as large as sizeof(void *).
@@ -371,6 +595,12 @@ extern void malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void 
 //   malloc_introspection_t::zone_type
 // Version 15:
 //   malloc_zone_t::malloc_with_options
+// Version 16:
+//   malloc_zone_t::malloc_type_malloc
+//   malloc_zone_t::malloc_type_calloc
+//   malloc_zone_t::malloc_type_realloc
+//   malloc_zone_t::malloc_type_memalign
+//   malloc_zone_t::malloc_type_malloc_with_options
 
 // These functions are optional and calling them requires two checks:
 //  * Check zone version to ensure zone struct is large enough to include the member.

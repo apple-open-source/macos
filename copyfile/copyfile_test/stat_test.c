@@ -18,11 +18,13 @@
 
 REGISTER_TEST(preserve_dst_flags, true, 60);
 REGISTER_TEST(preserve_dst_tracked, false, 30);
+REGISTER_TEST(setuid, false, 30);
 
 #define STORAGE_CLASS   	"copyfile_test"
 #define SPECIAL_DIR_NAME	"special_dir/"
 #define REGULAR_DIR_NAME	"regular_dir"
 #define TEST_FILE_NAME  	"almighty_tallest"
+#define DISK_IMAGE_SIZE_MB	4
 
 typedef int (*special_mkdir_func)(const char *, mode_t, const char *);
 
@@ -144,13 +146,13 @@ bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t bl
 	bool success = true;
 
 	// Create source file
-	assert_with_errno(snprintf(file_src, BSIZE_B, "%s/" TEST_FILE_NAME, test_directory) > 0);
+	test_file_id = rand() % DEFAULT_NAME_MOD;
+	assert_with_errno(snprintf(file_src, BSIZE_B, "%s/%s.%d", test_directory, TEST_FILE_NAME, test_file_id) > 0);
 	assert_no_err(close(open(file_src, O_CREAT|O_EXCL, 0644)));
 	assert_no_err(truncate(file_src, src_fsize));
 
 	// Create destination file
-	test_file_id = rand() % DEFAULT_NAME_MOD;
-	assert_with_errno(snprintf(file_dst, BSIZE_B, "%s/%s.%d", test_directory, TEST_FILE_NAME, test_file_id) > 0);
+	assert_with_errno(snprintf(file_dst, BSIZE_B, "%s/%s.dst.%d", test_directory, TEST_FILE_NAME, test_file_id) > 0);
 	assert_no_err(close(open(file_dst, O_CREAT|O_EXCL, 0644)));
 
 	// Track destination file
@@ -165,6 +167,99 @@ bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t bl
 
 	(void)unlink(file_src);
 	(void)unlink(file_dst);
+
+	return success ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+bool do_setuid_test(const char *test_directory, __unused size_t block_size) {
+	char exterior_dir[BSIZE_B] = {0};
+	char file_src[BSIZE_B] = {0}, file_dst[BSIZE_B] = {0};
+#if TARGET_OS_OSX
+	char dmg_mount_dir[BSIZE_B] = {0};
+	char file_dst_external[BSIZE_B] = {0};
+	copyfile_state_t cpf_state;
+#endif
+	struct stat sb;
+	int test_folder_id;
+	int src_file_fd = -1;
+	bool success = true;
+
+	const mode_t suidperms = S_ISUID;
+
+	// Get ready for the test.
+	test_folder_id = rand () % DEFAULT_NAME_MOD;
+	create_test_file_name(test_directory, "setuid", test_folder_id, exterior_dir);
+	assert_no_err(mkdir(exterior_dir, DEFAULT_MKDIR_PERM));
+
+	// Create path names.
+	assert_with_errno(snprintf(file_src, BSIZE_B, "%s/src", exterior_dir) > 0);
+	assert_with_errno(snprintf(file_dst, BSIZE_B, "%s/dst", exterior_dir) > 0);
+#if TARGET_OS_OSX
+	assert_with_errno(snprintf(dmg_mount_dir, BSIZE_B, "%s/mount", exterior_dir) > 0);
+	assert_with_errno(snprintf(file_dst_external, BSIZE_B, "%s/dst", dmg_mount_dir) > 0);
+	assert_no_err(mkdir(dmg_mount_dir, DEFAULT_MKDIR_PERM));
+#endif
+
+	// Create an empty source file, setting setuid on it.
+	src_file_fd = open(file_src, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
+	assert_with_errno(src_file_fd >= 0);
+	assert_no_err(fchmod(src_file_fd, ACCESSPERMS | suidperms));
+
+	// Now, copy the source to the (non-existent) destination
+	// and verify that the bit is preserved on macOS,
+	// and not preserved on iOS (where nosuid is the default).
+	assert_no_err(copyfile(file_src, file_dst, NULL, COPYFILE_METADATA));
+	assert_no_err(stat(file_dst, &sb));
+#if TARGET_OS_OSX
+	success = success && (sb.st_mode == (S_IFREG | ACCESSPERMS | suidperms));
+#else
+	success = success && (sb.st_mode == (S_IFREG | ACCESSPERMS));
+#endif
+
+	assert_no_err(unlink(file_dst));
+
+	// Repeat the test with COPYFILE_CLONE, and see that the
+	// setuid bit is not preserved (but the other permission bits are).
+	assert_no_err(copyfile(file_src, file_dst, NULL, COPYFILE_CLONE));
+	assert_no_err(stat(file_dst, &sb));
+	success = success && (sb.st_mode == (S_IFREG | ACCESSPERMS));
+	assert_equal(sb.st_mode, S_IFREG | ACCESSPERMS, "%hd");
+
+	assert_no_err(unlink(file_dst));
+
+#if TARGET_OS_OSX
+	// Repeat the test but copy to a volume that is mounted nosuid
+	// (the default for our disk image setup)
+	// and verify we don't set the setuid bit there.
+	disk_image_create(APFS_FSTYPE, dmg_mount_dir, DISK_IMAGE_SIZE_MB);
+	assert_no_err(copyfile(file_src, file_dst_external, NULL, COPYFILE_CLONE));
+	assert_no_err(stat(file_dst_external, &sb));
+	success = success && (sb.st_mode == (S_IFREG | ACCESSPERMS));
+	assert_equal(sb.st_mode, S_IFREG | ACCESSPERMS, "%hd");
+
+	assert_no_err(unlink(file_dst_external));
+
+	// Repeat the test, with the 'preserve setuid bit' override set,
+	// and make sure we preserve the bit.
+	cpf_state = copyfile_state_alloc();
+	uint32_t preserve_suid = 1;
+	assert_with_errno(cpf_state);
+	assert_no_err(copyfile_state_set(cpf_state, COPYFILE_STATE_PRESERVE_SUID, &preserve_suid));
+	assert_no_err(copyfile_state_get(cpf_state, COPYFILE_STATE_PRESERVE_SUID, &preserve_suid));
+	assert_not_equal(preserve_suid, 0, "%u");
+
+	assert_no_err(copyfile(file_src, file_dst_external, cpf_state, COPYFILE_CLONE));
+	assert_no_err(stat(file_dst_external, &sb));
+	success = success && (sb.st_mode == (S_IFREG | ACCESSPERMS | suidperms));
+
+	assert_no_err(copyfile_state_free(cpf_state));
+	cpf_state = NULL;
+#endif
+
+#if TARGET_OS_OSX
+	disk_image_destroy(dmg_mount_dir, false);
+#endif
+	assert_no_err(removefile(exterior_dir, NULL, REMOVEFILE_RECURSIVE));
 
 	return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }

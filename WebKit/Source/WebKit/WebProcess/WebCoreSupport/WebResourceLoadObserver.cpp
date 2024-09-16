@@ -38,6 +38,7 @@
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/Page.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -120,7 +121,7 @@ String WebResourceLoadObserver::statisticsForURL(const URL& url)
     if (!statistics)
         return emptyString();
 
-    return makeString("Statistics for ", url.host().toString(), ":\n", statistics->toString());
+    return makeString("Statistics for "_s, url.host().toString(), ":\n"_s, statistics->toString());
 }
 
 Vector<ResourceLoadStatistics> WebResourceLoadObserver::takeStatistics()
@@ -147,6 +148,10 @@ void WebResourceLoadObserver::logFontLoad(const Document& document, const String
     if (isEphemeral())
         return;
 
+    RefPtr page = document.page();
+    if (!page)
+        return;
+
 #if ENABLE(WEB_API_STATISTICS)
     RegistrableDomain registrableDomain { document.url() };
     auto& statistics = ensureResourceStatisticsForRegistrableDomain(registrableDomain);
@@ -158,7 +163,7 @@ void WebResourceLoadObserver::logFontLoad(const Document& document, const String
         if (statistics.fontsSuccessfullyLoaded.add(familyName).isNewEntry)
             shouldCallNotificationCallback = true;
     }
-    RegistrableDomain mainFrameRegistrableDomain { document.topDocument().url() };
+    RegistrableDomain mainFrameRegistrableDomain { page->mainFrameURL() };
     if (statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs.add(mainFrameRegistrableDomain).isNewEntry)
         shouldCallNotificationCallback = true;
     if (shouldCallNotificationCallback)
@@ -175,10 +180,14 @@ void WebResourceLoadObserver::logCanvasRead(const Document& document)
     if (isEphemeral())
         return;
 
+    RefPtr page = document.page();
+    if (!page)
+        return;
+
 #if ENABLE(WEB_API_STATISTICS)
     RegistrableDomain registrableDomain { document.url() };
     auto& statistics = ensureResourceStatisticsForRegistrableDomain(registrableDomain);
-    RegistrableDomain mainFrameRegistrableDomain { document.topDocument().url() };
+    RegistrableDomain mainFrameRegistrableDomain { page->mainFrameURL() };
     statistics.canvasActivityRecord.wasDataRead = true;
     if (statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs.add(mainFrameRegistrableDomain).isNewEntry)
         scheduleNotificationIfNeeded();
@@ -192,11 +201,15 @@ void WebResourceLoadObserver::logCanvasWriteOrMeasure(const Document& document, 
     if (isEphemeral())
         return;
 
+    RefPtr page = document.page();
+    if (!page)
+        return;
+
 #if ENABLE(WEB_API_STATISTICS)
     RegistrableDomain registrableDomain { document.url() };
     auto& statistics = ensureResourceStatisticsForRegistrableDomain(registrableDomain);
     bool shouldCallNotificationCallback = false;
-    RegistrableDomain mainFrameRegistrableDomain { document.topDocument().url() };
+    RegistrableDomain mainFrameRegistrableDomain { page->mainFrameURL() };
     if (statistics.canvasActivityRecord.recordWrittenOrMeasuredText(textWritten))
         shouldCallNotificationCallback = true;
     if (statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs.add(mainFrameRegistrableDomain).isNewEntry)
@@ -214,6 +227,10 @@ void WebResourceLoadObserver::logNavigatorAPIAccessed(const Document& document, 
     if (isEphemeral())
         return;
 
+    RefPtr page = document.page();
+    if (!page)
+        return;
+
 #if ENABLE(WEB_API_STATISTICS)
     RegistrableDomain registrableDomain { document.url() };
     auto& statistics = ensureResourceStatisticsForRegistrableDomain(registrableDomain);
@@ -222,7 +239,7 @@ void WebResourceLoadObserver::logNavigatorAPIAccessed(const Document& document, 
         statistics.navigatorFunctionsAccessed.add(functionName);
         shouldCallNotificationCallback = true;
     }
-    RegistrableDomain mainFrameRegistrableDomain { document.topDocument().url() };
+    RegistrableDomain mainFrameRegistrableDomain { page->mainFrameURL() };
     if (statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs.add(mainFrameRegistrableDomain).isNewEntry)
         shouldCallNotificationCallback = true;
     if (shouldCallNotificationCallback)
@@ -238,6 +255,10 @@ void WebResourceLoadObserver::logScreenAPIAccessed(const Document& document, con
     if (isEphemeral())
         return;
 
+    RefPtr page = document.page();
+    if (!page)
+        return;
+
 #if ENABLE(WEB_API_STATISTICS)
     RegistrableDomain registrableDomain { document.url() };
     auto& statistics = ensureResourceStatisticsForRegistrableDomain(registrableDomain);
@@ -246,7 +267,7 @@ void WebResourceLoadObserver::logScreenAPIAccessed(const Document& document, con
         statistics.screenFunctionsAccessed.add(functionName);
         shouldCallNotificationCallback = true;
     }
-    RegistrableDomain mainFrameRegistrableDomain { document.topDocument().url() };
+    RegistrableDomain mainFrameRegistrableDomain { page->mainFrameURL() };
     if (statistics.topFrameRegistrableDomainsWhichAccessedWebAPIs.add(mainFrameRegistrableDomain).isNewEntry)
         shouldCallNotificationCallback = true;
     if (shouldCallNotificationCallback)
@@ -366,7 +387,7 @@ void WebResourceLoadObserver::logUserInteractionWithReducedTimeResolution(const 
     }
 
     if (RefPtr frame = document.frame()) {
-        if (RefPtr opener = dynamicDowncast<LocalFrame>(frame->loader().opener())) {
+        if (RefPtr opener = dynamicDowncast<LocalFrame>(frame->opener())) {
             if (RefPtr openerDocument = opener->document()) {
                 if (auto* openerPage = openerDocument->page())
                     requestStorageAccessUnderOpener(topFrameDomain, Ref { *WebPage::fromCorePage(*openerPage) }, *openerDocument);
@@ -427,18 +448,20 @@ bool WebResourceLoadObserver::hasCrossPageStorageAccess(const SubFrameDomain& su
     return false;
 }
 
-void WebResourceLoadObserver::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubFrameDomain>&& domains, CompletionHandler<void()>&& completionHandler)
+void WebResourceLoadObserver::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubFrameDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {
-    for (auto& topDomain : domains.keys()) {
-        m_domainsWithCrossPageStorageAccess.ensure(topDomain, [] {
-            return HashSet<RegistrableDomain> { };
-        }).iterator->value.add(domains.get(topDomain));
-
-        // Some sites have quirks where multiple login domains require storage access.
-        if (auto additionalLoginDomain = WebCore::NetworkStorageSession::findAdditionalLoginDomain(topDomain, domains.get(topDomain))) {
+    for (const auto& [topDomain, subResourceDomains] : domains) {
+        for (auto& subResourceDomain : subResourceDomains) {
             m_domainsWithCrossPageStorageAccess.ensure(topDomain, [] {
                 return HashSet<RegistrableDomain> { };
-            }).iterator->value.add(*additionalLoginDomain);
+            }).iterator->value.add(subResourceDomain);
+
+            // Some sites have quirks where multiple login domains require storage access.
+            if (auto additionalLoginDomain = WebCore::NetworkStorageSession::findAdditionalLoginDomain(topDomain, subResourceDomain)) {
+                m_domainsWithCrossPageStorageAccess.ensure(topDomain, [] {
+                    return HashSet<RegistrableDomain> { };
+                }).iterator->value.add(*additionalLoginDomain);
+            }
         }
     }
     completionHandler();

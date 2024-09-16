@@ -41,11 +41,30 @@
 #include "RealtimeIncomingVideoSourceGStreamer.h"
 #include "RealtimeOutgoingAudioSourceGStreamer.h"
 #include "RealtimeOutgoingVideoSourceGStreamer.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 GST_DEBUG_CATEGORY(webkit_webrtc_pc_backend_debug);
 #define GST_CAT_DEFAULT webkit_webrtc_pc_backend_debug
+
+class WebRTCLogObserver : public WebCoreLogObserver {
+public:
+    GstDebugCategory* debugCategory() const final
+    {
+        return webkit_webrtc_pc_backend_debug;
+    }
+    bool shouldEmitLogMessage(const WTFLogChannel& channel) const final
+    {
+        return g_str_has_prefix(channel.name, "WebRTC");
+    }
+};
+
+WebRTCLogObserver& webrtcLogObserverSingleton()
+{
+    static NeverDestroyed<WebRTCLogObserver> sharedInstance;
+    return sharedInstance;
+}
 
 static std::unique_ptr<PeerConnectionBackend> createGStreamerPeerConnectionBackend(RTCPeerConnection& peerConnection)
 {
@@ -68,9 +87,21 @@ GStreamerPeerConnectionBackend::GStreamerPeerConnectionBackend(RTCPeerConnection
     , m_endpoint(GStreamerMediaEndpoint::create(*this))
 {
     disableICECandidateFiltering();
+
+    // PeerConnectionBackend relies on the Document logger, so to prevent duplicate messages in case
+    // more than one PeerConnection is created, we register a single observer.
+    auto& logObserver = webrtcLogObserverSingleton();
+    logObserver.addWatch(logger());
+
+    auto logIdentifier = makeString(hex(reinterpret_cast<uintptr_t>(this->logIdentifier())));
+    GST_INFO_OBJECT(m_endpoint->pipeline(), "WebCore logs identifier for this pipeline is: %s", logIdentifier.ascii().data());
 }
 
-GStreamerPeerConnectionBackend::~GStreamerPeerConnectionBackend() = default;
+GStreamerPeerConnectionBackend::~GStreamerPeerConnectionBackend()
+{
+    auto& logObserver = webrtcLogObserverSingleton();
+    logObserver.removeWatch(logger());
+}
 
 void GStreamerPeerConnectionBackend::suspend()
 {
@@ -157,26 +188,7 @@ void GStreamerPeerConnectionBackend::getStats(RTCRtpSender& sender, Ref<Deferred
 
 void GStreamerPeerConnectionBackend::getStats(RTCRtpReceiver& receiver, Ref<DeferredPromise>&& promise)
 {
-    if (!receiver.backend()) {
-        m_endpoint->getStats(nullptr, nullptr, WTFMove(promise));
-        return;
-    }
-
-    GstElement* bin = nullptr;
-    const GstStructure* additionalStats = nullptr;
-    auto& source = receiver.track().privateTrack().source();
-    if (source.isIncomingAudioSource())
-        bin = static_cast<RealtimeIncomingAudioSourceGStreamer&>(source).bin();
-    else if (source.isIncomingVideoSource()) {
-        auto& incomingVideoSource = static_cast<RealtimeIncomingVideoSourceGStreamer&>(source);
-        bin = incomingVideoSource.bin();
-        additionalStats = incomingVideoSource.stats();
-    } else
-        RELEASE_ASSERT_NOT_REACHED();
-
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(bin, "sink"));
-    auto srcPad = adoptGRef(gst_pad_get_peer(sinkPad.get()));
-    m_endpoint->getStats(srcPad.get(), additionalStats, WTFMove(promise));
+    m_endpoint->getStats(receiver, WTFMove(promise));
 }
 
 void GStreamerPeerConnectionBackend::doSetLocalDescription(const RTCSessionDescription* description)
@@ -213,7 +225,6 @@ void GStreamerPeerConnectionBackend::close()
 void GStreamerPeerConnectionBackend::doStop()
 {
     m_endpoint->stop();
-    m_pendingReceivers.clear();
 }
 
 void GStreamerPeerConnectionBackend::doAddIceCandidate(RTCIceCandidate& candidate, AddIceCandidateCallback&& callback)
@@ -351,7 +362,7 @@ void GStreamerPeerConnectionBackend::dispatchPendingTrackEvents(MediaStream& med
 {
     auto events = WTFMove(m_pendingTrackEvents);
     for (auto& event : events) {
-        event.streams = Vector<RefPtr<MediaStream>>({ &mediaStream });
+        event.streams = Vector<Ref<MediaStream>>({ mediaStream });
         dispatchTrackEvent(event);
     }
 }
@@ -379,6 +390,32 @@ void GStreamerPeerConnectionBackend::gatherDecoderImplementationName(Function<vo
 bool GStreamerPeerConnectionBackend::isNegotiationNeeded(uint32_t eventId) const
 {
     return m_endpoint->isNegotiationNeeded(eventId);
+}
+
+std::optional<bool> GStreamerPeerConnectionBackend::canTrickleIceCandidates() const
+{
+    return m_endpoint->canTrickleIceCandidates();
+}
+
+void GStreamerPeerConnectionBackend::tearDown()
+{
+    for (auto& transceiver : connection().currentTransceivers()) {
+        auto& track = transceiver->receiver().track();
+        auto& source = track.privateTrack().source();
+        if (source.isIncomingAudioSource()) {
+            auto& audioSource = static_cast<RealtimeIncomingAudioSourceGStreamer&>(source);
+            audioSource.tearDown();
+        } else if (source.isIncomingVideoSource()) {
+            auto& videoSource = static_cast<RealtimeIncomingVideoSourceGStreamer&>(source);
+            videoSource.tearDown();
+        }
+
+        if (auto senderBackend = transceiver->sender().backend())
+            static_cast<GStreamerRtpSenderBackend*>(senderBackend)->tearDown();
+
+        auto& backend = backendFromRTPTransceiver(*transceiver);
+        backend.tearDown();
+    }
 }
 
 #undef GST_CAT_DEFAULT

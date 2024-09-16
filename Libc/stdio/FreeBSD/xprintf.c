@@ -62,6 +62,7 @@
 #include "xprintf_private.h"
 #include "xprintf_domain.h"
 #include "fvwrite.h"
+#include "libc_hooks_impl.h"
 
 /*
  * Defining XPRINTF_DEBUG allows the __private_extern__ variable __use_xprintf
@@ -242,25 +243,26 @@ __printf_arginfo_n(const struct printf_info *pi, size_t n, int *argt)
 __private_extern__ int
 __printf_render_n(FILE *io __unused, const struct printf_info *pi, const void *const *arg)
 {
-
-	if (pi->is_char)
-		**((signed char **)arg[0]) = (signed char)pi->sofar;
-	else if (pi->is_short)
-		**((short **)arg[0]) = (short)pi->sofar;
-	else if (pi->is_long)
-		**((long **)arg[0]) = pi->sofar;
-	else if (pi->is_long_double)
-		**((long long **)arg[0]) = pi->sofar;
-	else if (pi->is_intmax)
-		**((intmax_t **)arg[0]) = pi->sofar;
-	else if (pi->is_ptrdiff)
-		**((ptrdiff_t **)arg[0]) = pi->sofar;
-	else if (pi->is_quad)
-		**((quad_t **)arg[0]) = pi->sofar;
-	else if (pi->is_size)
-		**((size_t **)arg[0]) = pi->sofar;
-	else
-		**((int **)arg[0]) = pi->sofar;
+	void *ptr = (void*)arg[0];
+	if (pi->is_char) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, signed char, pi->sofar);
+	} else if (pi->is_short) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, short, pi->sofar);
+	} else if (pi->is_long) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long, pi->sofar);
+	} else if (pi->is_long_double) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long long, pi->sofar);
+	} else if (pi->is_intmax) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, intmax_t, pi->sofar);
+	} else if (pi->is_ptrdiff) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, ptrdiff_t, pi->sofar);
+	} else if (pi->is_quad) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, quad_t, pi->sofar);
+	} else if (pi->is_size) {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, size_t, pi->sofar);
+	} else {
+		LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, int, pi->sofar);
+	}
 
 	return (0);
 }
@@ -817,12 +819,18 @@ __printf_exec(printf_comp_t restrict pc, FILE * restrict fp, va_list ap)
 		case PA_POINTER:
 			pc->args[ch].pvoidarg = va_arg (ap, void *);
 			break;
-		case PA_STRING:
-			pc->args[ch].pchararg = va_arg (ap, char *);
+		case PA_STRING: {
+			char *s = va_arg(ap, char *);
+			libc_hooks_will_read_cstring(s);
+			pc->args[ch].pchararg = s;
 			break;
-		case PA_WSTRING:
-			pc->args[ch].pwchararg = va_arg (ap, wchar_t *);
+		}
+		case PA_WSTRING: {
+			wchar_t *wcs = va_arg(ap, wchar_t *);
+			libc_hooks_will_read_wcstring(wcs);
+			pc->args[ch].pwchararg = wcs;
 			break;
+		}
 		case PA_DOUBLE:
 #ifndef NO_FLOATING_POINT
 			pc->args[ch].doublearg = va_arg (ap, double);
@@ -916,6 +924,9 @@ __v2printf(printf_comp_t restrict pc, printf_domain_t restrict domain, FILE * re
 	struct _printf_compiled spc;
 	int ret, saverrno;
 
+	libc_hooks_will_read(loc, sizeof(*loc));
+	libc_hooks_will_read_cstring(fmt);
+
 	/*
 	 * All the printf family (including extensible printf variants) funnel
 	 * down to this point.  So we can do common work here, and then fork
@@ -956,7 +967,7 @@ __v2printf(printf_comp_t restrict pc, printf_domain_t restrict domain, FILE * re
 	bzero(&spc, sizeof(spc));
 	spc.fmt = fmt;
 	DEFAULT_CURRENT_LOCALE(loc);
-	XL_RETAIN(loc);
+	xlocale_retain(loc);
 	spc.loc = loc;
 	/*
 	 * We don't need to lock the printf_comp_t mutex, since the
@@ -966,14 +977,14 @@ __v2printf(printf_comp_t restrict pc, printf_domain_t restrict domain, FILE * re
 	if (__printf_comp(&spc, domain) < 0) {
 	    saverrno = errno;
 	    pthread_rwlock_unlock(&domain->rwlock);
-	    XL_RELEASE(loc);
+	    xlocale_release(loc);
 	    errno = saverrno;
 	    return EOF;
 	}
 	ret = __printf_exec(&spc, fp, ap);
 	saverrno = errno;
 	pthread_rwlock_unlock(&domain->rwlock);
-	XL_RELEASE(loc);
+	xlocale_release(loc);
 
 #ifdef XPRINTF_PERF
 	printf_info_enqueue(spc.pa);

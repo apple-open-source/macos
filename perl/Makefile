@@ -77,6 +77,11 @@ VERSIONMANLIST = $(VERSIONERDIR)/$(Project)/usr-share-man.list
 VERSIONERFIX = dummy.pl scriptvers.ed
 
 build::
+	@set -x && \
+	for vers in $(VERSIONS); do \
+	    $(MAKE) -C "$(SRCROOT)/$$vers" custominstallsrc SRCROOT="$(SRCROOT)/$$vers" TOPSRCROOT='$(SRCROOT)' || exit 1; \
+	done
+
 	$(RSYNC) '$(SRCROOT)/' '$(OBJROOT)'
 	@set -x && \
 	for vers in $(VERSIONS); do \
@@ -110,14 +115,6 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
-
-installsrc: custominstallsrc
-
-custominstallsrc:
-	@set -x && \
-	for vers in $(VERSIONS); do \
-	    $(MAKE) -C "$(SRCROOT)/$$vers" custominstallsrc SRCROOT="$(SRCROOT)/$$vers" TOPSRCROOT='$(SRCROOT)' || exit 1; \
-	done
 
 merge: mergebegin mergedefault mergeversions versionerdir mergebin $(EXTRAMERGE)
 

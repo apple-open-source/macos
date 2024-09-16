@@ -9,22 +9,14 @@
 #define LIBANGLE_RENDERER_VULKAN_CLKERNELVK_H_
 
 #include "libANGLE/renderer/vulkan/cl_types.h"
+#include "libANGLE/renderer/vulkan/vk_cache_utils.h"
+#include "libANGLE/renderer/vulkan/vk_helpers.h"
+#include "libANGLE/renderer/vulkan/vk_utils.h"
 
 #include "libANGLE/renderer/CLKernelImpl.h"
 
 namespace rx
 {
-
-class CLKernelVk : public CLKernelImpl
-{
-  public:
-    CLKernelVk(const cl::Kernel &kernel);
-    ~CLKernelVk() override;
-
-    angle::Result setArg(cl_uint argIndex, size_t argSize, const void *argValue) override;
-
-    angle::Result createInfo(CLKernelImpl::Info *infoOut) const override;
-};
 
 struct CLKernelArgument
 {
@@ -70,6 +62,46 @@ struct CLKernelArgument
 };
 using CLKernelArguments = std::vector<CLKernelArgument>;
 using CLKernelArgsMap   = angle::HashMap<std::string, CLKernelArguments>;
+
+class CLKernelVk : public CLKernelImpl
+{
+  public:
+    using Ptr = std::unique_ptr<CLKernelVk>;
+    CLKernelVk(const cl::Kernel &kernel,
+               std::string &name,
+               std::string &attributes,
+               CLKernelArguments &args);
+    ~CLKernelVk() override;
+
+    angle::Result setArg(cl_uint argIndex, size_t argSize, const void *argValue) override;
+
+    angle::Result createInfo(CLKernelImpl::Info *infoOut) const override;
+
+    CLProgramVk *getProgram() { return mProgram; }
+    const std::string &getKernelName() { return mName; }
+    const CLKernelArguments &getArgs() { return mArgs; }
+    vk::AtomicBindingPointer<vk::PipelineLayout> &getPipelineLayout() { return mPipelineLayout; }
+    vk::DescriptorSetLayoutPointerArray &getDescriptorSetLayouts() { return mDescriptorSetLayouts; }
+
+    angle::Result getOrCreateComputePipeline(vk::PipelineCacheAccess *pipelineCache,
+                                             const cl::NDRange &ndrange,
+                                             const cl::Device &device,
+                                             vk::PipelineHelper **pipelineOut,
+                                             cl::WorkgroupCount *workgroupCountOut);
+
+  private:
+    static constexpr std::array<size_t, 3> kEmptyWorkgroupSize = {0, 0, 0};
+
+    CLProgramVk *mProgram;
+    CLContextVk *mContext;
+    std::string mName;
+    std::string mAttributes;
+    CLKernelArguments mArgs;
+    vk::ShaderProgramHelper mShaderProgramHelper;
+    vk::ComputePipelineCache mComputePipelineCache;
+    vk::AtomicBindingPointer<vk::PipelineLayout> mPipelineLayout;
+    vk::DescriptorSetLayoutPointerArray mDescriptorSetLayouts{};
+};
 
 }  // namespace rx
 

@@ -1238,6 +1238,7 @@ main(int argc, char** argv)
 	int		locale;
 	int		subunitlen;
 	int		testno;
+	int		errors = 0;
 	unsigned long	level;
 	unsigned long	skip;
 	char*		p;
@@ -2319,11 +2320,12 @@ main(int argc, char** argv)
 		}
 		if (fp != stdin)
 			fclose(fp);
+		errors += state.errors;
 	}
 	if (getenv("MallocStackLogging") != NULL)
 	{
 		printf("pid=%d\n", (int)getpid());
 		pause();
 	}
-	return 0;
+	return errors == 0 ? 0 : 1;
 }

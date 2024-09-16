@@ -35,6 +35,7 @@
 #include <wtf/Identified.h>
 #include <wtf/Lock.h>
 #include <wtf/MediaTime.h>
+#include <wtf/ObjectIdentifier.h>
 
 DECLARE_CORE_MEDIA_TRAITS(SampleCursor);
 
@@ -46,7 +47,10 @@ namespace WebKit {
 
 class MediaTrackReader;
 
-class MediaSampleCursor : public CoreMediaWrapped<MediaSampleCursor>, ThreadSafeIdentified<MediaSampleCursor> {
+enum class MediaSampleCursorIdentifierType { };
+using MediaSampleCursorIdentifier = AtomicObjectIdentifier<MediaSampleCursorIdentifierType>;
+
+class MediaSampleCursor : public CoreMediaWrapped<MediaSampleCursor>, private Identified<MediaSampleCursorIdentifier> {
 public:
     using DecodeOrderIterator = WebCore::DecodeOrderSampleMap::iterator;
     using PresentationOrderIterator = WebCore::PresentationOrderSampleMap::iterator;
@@ -101,7 +105,7 @@ private:
     OSStatus getPlayableHorizon(CMTime*) const;
 
     const WTF::Logger& logger() const { return m_logger; }
-    const char* logClassName() const { return "MediaSampleCursor"; }
+    ASCIILiteral logClassName() const { return "MediaSampleCursor"_s; }
     const void* logIdentifier() const { return m_logIdentifier; }
     WTFLogChannel& logChannel() const;
 
@@ -147,11 +151,11 @@ constexpr MediaSampleCursor::WrapperClass MediaSampleCursor::wrapperClass()
         .getSyncInfo = [](MTPluginSampleCursorRef sampleCursor, MTPluginSampleCursorSyncInfo* syncInfo) -> OSStatus {
             return unwrap(sampleCursor)->getSyncInfo(syncInfo);
         },
-        .copyFormatDescription = [](MTPluginSampleCursorRef sampleCursor, CMFormatDescriptionRef* formatDescription) {
-            return unwrap(sampleCursor)->copyFormatDescription(formatDescription);
-        },
         .copySampleLocation = [](MTPluginSampleCursorRef sampleCursor, MTPluginSampleCursorStorageRange* storageRange, MTPluginByteSourceRef* byteSource) {
             return unwrap(sampleCursor)->copySampleLocation(storageRange, byteSource);
+        },
+        .copyFormatDescription = [](MTPluginSampleCursorRef sampleCursor, CMFormatDescriptionRef* formatDescription) {
+            return unwrap(sampleCursor)->copyFormatDescription(formatDescription);
         },
 #if HAVE(MT_PLUGIN_SAMPLE_CURSOR_PLAYABLE_HORIZON)
         .getPlayableHorizon = [](MTPluginSampleCursorRef sampleCursor, CMTime* playableHorizon) {

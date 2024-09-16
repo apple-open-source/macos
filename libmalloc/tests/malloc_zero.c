@@ -2,10 +2,14 @@
 #include <darwintest.h>
 #include <malloc_private.h>
 
+#include "../src/platform.h"
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
 
+#if !MALLOC_TARGET_EXCLAVES
+// Exclaves don't support disabling zero on free
 T_DECL(malloc_checkfix_zero_on_free, "Test malloc_zero_on_free_disable() SPI",
-		T_META_ENVVAR("MallocZeroOnFree=1"))
+		T_META_ENVVAR("MallocZeroOnFree=1"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	// Drive some activity up front
 	void *p1 = malloc(16);
@@ -27,6 +31,7 @@ T_DECL(malloc_checkfix_zero_on_free, "Test malloc_zero_on_free_disable() SPI",
 
 	T_PASS("Reached the end");
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 static void
 assert_all_zero(char *allocation, size_t size)
@@ -36,10 +41,12 @@ assert_all_zero(char *allocation, size_t size)
 	}
 }
 
+#if !MALLOC_TARGET_EXCLAVES
 T_DECL(malloc_zone_batch_zero_on_free, "malloc_zone_batch_free must zero-on-free",
 		T_META_ENVVAR("MallocZeroOnFree=1"),
 		T_META_ENVVAR("MallocCheckZeroOnFreeCorruption=1"),
-		T_META_ENVVAR("MallocNanoZone=0"))
+		T_META_ENVVAR("MallocNanoZone=0"),
+		T_META_TAG_VM_PREFERRED)
 {
 	const int n = 3;
 	const size_t size = 272;
@@ -61,6 +68,7 @@ T_DECL(malloc_zone_batch_zero_on_free, "malloc_zone_batch_free must zero-on-free
 
 	T_PASS("Successful calloc after batch free");
 }
+#endif // !MALLOC_TARGET_EXCLAVES
 
 static void
 check_zeroing_mode(void)
@@ -112,14 +120,16 @@ check_zeroing_mode(void)
 
 T_DECL(malloc_zero_on_alloc, "Exercise zero-on-alloc mode",
 		T_META_ENVVAR("MallocZeroOnAlloc=1"),
-		T_META_ENVVAR("MallocNanoZone=1"))
+		T_META_ENVVAR("MallocNanoZone=1"),
+		T_META_TAG_VM_NOT_PREFERRED)
 {
 	check_zeroing_mode();
 }
 
 T_DECL(malloc_zero_on_free, "Exercise zero-on-free mode",
 		T_META_ENVVAR("MallocZeroOnFree=1"),
-		T_META_ENVVAR("MallocNanoZone=1"))
+		T_META_ENVVAR("MallocNanoZone=1"),
+		T_META_TAG_VM_NOT_PREFERRED)
 {
 	check_zeroing_mode();
 }

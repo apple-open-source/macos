@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,7 +61,7 @@
 #include "ipconfigd_threads.h"
 
 typedef struct {
-    arp_client_t *		arp;
+    arp_client_t		arp;
     timer_callout_t *		timer;
     uint32_t			address_timeout_secs;
     bool			address_is_verified;
@@ -230,7 +230,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto stop;
 	  }
-	  failover->arp = arp_client_init(G_arp_session, if_p);
+	  failover->arp = arp_client_init(if_p);
 	  if (failover->arp == NULL) {
 	      my_log(LOG_NOTICE, "FAILOVER %s: arp_client_init failed",
 		     if_name(if_p));

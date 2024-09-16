@@ -29,14 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)utils.c	8.3 (Berkeley) 4/1/94";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/param.h>
 #include <sys/acl.h>
 #include <sys/stat.h>
@@ -86,6 +78,11 @@ __FBSDID("$FreeBSD$");
  */
 #define BUFSIZE_SMALL (MAXPHYS)
 
+/*
+ * Prompt used in -i case.
+ */
+#define YESNO "(y/n [n]) "
+
 static ssize_t
 copy_fallback(int from_fd, int to_fd)
 {
@@ -110,7 +107,7 @@ copy_fallback(int from_fd, int to_fd)
 		wcount = write(to_fd, bufp, wresid);
 		if (wcount <= 0)
 			break;
-		if (wcount >= (ssize_t)wresid)
+		if (wcount >= wresid)
 			break;
 	}
 	return (wcount < 0 ? wcount : rcount);
@@ -163,7 +160,7 @@ copy_file(const FTSENT *entp, int dne)
 	struct copyfile_context cpctx;
 	copyfile_state_t cpfs;
 #endif /* __APPLE__ */
-	struct stat *fs;
+	struct stat sb, *fs;
 	ssize_t wcount;
 	off_t wtotal;
 	int ch, checkch, from_fd, rval, to_fd;
@@ -175,14 +172,43 @@ copy_file(const FTSENT *entp, int dne)
 	int use_copy_file_range = 1;
 #endif /* __APPLE__ */
 
-	from_fd = to_fd = -1;
-	if (!lflag && !sflag &&
-	    (from_fd = open(entp->fts_path, O_RDONLY, 0)) == -1) {
-		warn("%s", entp->fts_path);
-		return (1);
-	}
-
 	fs = entp->fts_statp;
+	from_fd = to_fd = -1;
+	if (!lflag && !sflag) {
+		if ((from_fd = open(entp->fts_path, O_RDONLY, 0)) < 0 ||
+		    fstat(from_fd, &sb) != 0) {
+			warn("%s", entp->fts_path);
+			return (1);
+		}
+		/*
+		 * Check that the file hasn't been replaced with one of a
+		 * different type.  This can happen if we've been asked to
+		 * copy something which is actively being modified and
+		 * lost the race, or if we've been asked to copy something
+		 * like /proc/X/fd/Y which stat(2) reports as S_IFREG but
+		 * is actually something else once you open it.
+		 */
+#ifndef __APPLE__
+		if ((sb.st_mode & S_IFMT) != (fs->st_mode & S_IFMT)) {
+#else /* __APPLE__ */
+		/*
+		 * Additionally, guard against the possibility that a
+		 * symbolic link which is dangling when FTS sees it (so
+		 * fs->st_mode & S_IFMT is S_IFLNK) but is no longer
+		 * dangling by the time we get to it (so open() succeeds)
+		 * leads to something that turns out to be a symbolic link
+		 * after we open it (so sb.st_mode & S_IFMT is also
+		 * S_IFLNK, defeating the check).  This can't happen
+		 * upstream because O_SYMLINK does not exist there so
+		 * (fs->st_mode & S_IFMT) cannot be S_IFLNK.
+		 */
+		if ((sb.st_mode & S_IFMT) != (fs->st_mode & S_IFMT) ||
+		    S_ISLNK(sb.st_mode)) {
+#endif /* __APPLE__ */
+			warnx("%s: File changed", entp->fts_path);
+			return (1);
+		}
+	}
 
 	/*
 	 * If the file exists and we're interactive, verify with the user.
@@ -193,7 +219,6 @@ copy_file(const FTSENT *entp, int dne)
 	 * modified by the umask.)
 	 */
 	if (!dne) {
-#define YESNO "(y/n [n]) "
 		if (nflag) {
 			if (vflag)
 				printf("%s not overwritten\n", to.p_path);
@@ -202,16 +227,13 @@ copy_file(const FTSENT *entp, int dne)
 		} else if (iflag) {
 			(void)fprintf(stderr, "overwrite %s? %s", 
 			    to.p_path, YESNO);
-
 #ifdef __APPLE__
 			/* Load user specified locale */
 			setlocale(LC_MESSAGES, "");
 #endif /* __APPLE__ */
-
 			checkch = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
-
 #ifdef __APPLE__
 			/* only care about the first character */
 			resp[0] = checkch;
@@ -226,133 +248,127 @@ copy_file(const FTSENT *entp, int dne)
 		}
 
 #ifdef __APPLE__
-		if (cflag) {
-			(void)unlink(to.p_path);
-			ret = clonefile(entp->fts_path, to.p_path, 0);
-			if (ret == 0 || errno != ENOTSUP) {
-				if (ret != 0)
-					warn("%s: clonefile failed", to.p_path);
-				(void)close(from_fd);
-				return (ret == 0 ? 0 : 1);
-			}
-		}
-
 		/*
-		 * -c will have unlinked the file, we can't possibly do the
-		 * conformant behavior.
+		 * POSIX requires us to try to overwrite the existing file
+		 * and unlink it only if overwriting fails, so we'll deal
+		 * with it later, unless we were asked to attempt either
+		 * clonefile(2), link(2), or symlink(2) (the latter two
+		 * only if the -f flag was also given).
 		 */
-		if (!cflag && !lflag && !sflag && unix2003_compat) {
-		    /* first try to overwrite existing destination file name */
-		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
-		    if (to_fd == -1) {
-			if (fflag) {
-			    /* Only if it fails remove file and create a new one */
-			    (void)unlink(to.p_path);
-			    to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
-					 fs->st_mode & ~(S_ISUID | S_ISGID));
-			}
-		    }
-		} else
-#endif /* __APPLE__ */
+		if (!unix2003_compat || cflag || (fflag && (lflag || sflag))) {
+#else /* !__APPLE__ */
 		if (fflag) {
-			/*
-			 * Remove existing destination file name create a new
-			 * file.
-			 */
-			(void)unlink(to.p_path);
-			if (!lflag && !sflag) {
-				to_fd = open(to.p_path,
-				    O_WRONLY | O_TRUNC | O_CREAT,
-				    fs->st_mode & ~(S_ISUID | S_ISGID));
-			}
-		} else if (!lflag && !sflag) {
-			/* Overwrite existing destination file name. */
-#ifdef __APPLE__
-			int oflags = O_WRONLY | O_TRUNC;
-
-			/*
-			 * If clonefile(2) failed, we're simply falling back to
-			 * copyfile(2) but we already unlinked the new file.
-			 * Create it again here.
-			 */
-			if (cflag)
-				oflags |= O_CREAT;
-
-			to_fd = open(to.p_path, oflags,
-			    fs->st_mode & ~(S_ISUID | S_ISGID));
-#else
-			to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
-#endif
-		}
-	} else if (!lflag && !sflag) {
-#ifdef __APPLE__
-		if (cflag) {
-			ret = clonefile(entp->fts_path, to.p_path, 0);
-			if (ret == 0 || errno != ENOTSUP) {
-				if (ret != 0)
-					warn("%s: clonefile failed", to.p_path);
-				(void)close(from_fd);
-				return (ret == 0 ? 0 : 1);
-			}
-		}
 #endif /* __APPLE__ */
-
-		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
-		    fs->st_mode & ~(S_ISUID | S_ISGID));
-	}
-
-	if (!lflag && !sflag && to_fd == -1) {
-		warn("%s", to.p_path);
-		rval = 1;
-		goto done;
+			/* remove existing destination file */
+			(void)unlink(to.p_path);
+			dne = 1;
+		}
 	}
 
 	rval = 0;
 
 #ifdef __APPLE__
-       if (!lflag && !sflag) {
-	       if (S_ISREG(fs->st_mode)) {
-		       struct statfs sfs;
+	if (cflag) {
+		ret = clonefile(entp->fts_path, to.p_path, 0);
+		if (ret == 0)
+			goto done;
+		if (errno != ENOTSUP) {
+			warn("%s: clonefile failed", to.p_path);
+			rval = 1;
+			goto done;
+		}
+	}
+#endif /* __APPLE__ */
+	if (lflag) {
+		if (link(entp->fts_path, to.p_path) != 0) {
+			warn("%s", to.p_path);
+			rval = 1;
+		}
+		goto done;
+	}
 
-		       /*
-			* Pre-allocate blocks for the destination file if it
-			* resides on Xsan.
-			*/
-		       if (fstatfs(to_fd, &sfs) == 0 &&
-			   strcmp(sfs.f_fstypename, "acfs") == 0) {
-			       fstore_t fst;
+	if (sflag) {
+		if (symlink(entp->fts_path, to.p_path) != 0) {
+			warn("%s", to.p_path);
+			rval = 1;
+		}
+		goto done;
+	}
 
-			       fst.fst_flags = 0;
-			       fst.fst_posmode = F_PEOFPOSMODE;
-			       fst.fst_offset = 0;
-			       fst.fst_length = fs->st_size;
+	if (!dne) {
+		/* overwrite existing destination file */
+		to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
+#ifdef __APPLE__
+		/*
+		 * The file already exists, but we failed to open and
+		 * truncate it.  If -f was specified, try to remove it,
+		 * and if successful, set the dne flag so we go on to try
+		 * to create it below.  We save and restore errno so that
+		 * if unlink() fails, we'll later print the error from
+		 * open() rather than the one from unlink().
+		 */
+		if (to_fd == -1 && fflag) {
+			int saved_errno = errno;
+			if (unlink(to.p_path) == 0)
+				dne = 1;
+			errno = saved_errno;
+		}
+	}
+	if (dne) {
+#else /* !__APPLE__ */
+	} else {
+#endif /* __APPLE__ */
+		/* create new destination file */
+		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
+		    fs->st_mode & ~(S_ISUID | S_ISGID));
+	}
+	if (to_fd == -1) {
+		warn("%s", to.p_path);
+		rval = 1;
+		goto done;
+	}
 
-			       (void) fcntl(to_fd, F_PREALLOCATE, &fst);
-		       }
-	       }
+#ifdef __APPLE__
+	if (S_ISREG(fs->st_mode)) {
+		struct statfs sfs;
 
-	       if (fstat(to_fd, &to_stat) == 0) {
-		       mode = to_stat.st_mode;
-		       if ((mode & (S_IRWXG|S_IRWXO)) &&
-			   fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO)) != 0) {
-			       if (errno != EPERM) /* we have write access but do not own the file */
-				       warn("%s: fchmod failed", to.p_path);
-			       mode = 0;
-		       }
-	       } else {
-		       warn("%s", to.p_path);
-		       rval = 1;
-		       goto done;
-	       }
-       }
+		/*
+		 * Pre-allocate blocks for the destination file if it
+		 * resides on Xsan.
+		 */
+		if (fstatfs(to_fd, &sfs) == 0 &&
+		    strcmp(sfs.f_fstypename, "acfs") == 0) {
+			fstore_t fst;
 
-       /*
-	* If we weren't asked to create a hard or soft link, and both the
-	* source and the destination are regular files, use fcopyfile(3),
-	* which has the ability to preserve holes if the source is sparse.
-	*/
-       if (!lflag && !sflag &&
-	   S_ISREG(fs->st_mode) && S_ISREG(to_stat.st_mode)) {
+			fst.fst_flags = 0;
+			fst.fst_posmode = F_PEOFPOSMODE;
+			fst.fst_offset = 0;
+			fst.fst_length = fs->st_size;
+
+			(void) fcntl(to_fd, F_PREALLOCATE, &fst);
+		}
+	}
+
+	if (fstat(to_fd, &to_stat) == 0) {
+		mode = to_stat.st_mode;
+		if ((mode & (S_IRWXG|S_IRWXO)) &&
+		    fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO)) != 0) {
+			if (errno != EPERM) /* we have write access but do not own the file */
+				warn("%s: fchmod failed", to.p_path);
+			mode = 0;
+		}
+	} else {
+		warn("%s", to.p_path);
+		rval = 1;
+		goto done;
+	}
+
+	/*
+	 * If we weren't asked to create a hard or soft link, and both the
+	 * source and the destination are regular files, use fcopyfile(3),
+	 * which has the ability to preserve holes if the source is sparse.
+	 */
+	if (S_ISREG(fs->st_mode) && S_ISREG(to_stat.st_mode)) {
 		/*
 		 * The documentation doesn't say, but copyfile_state_t is
 		 * a pointer to a struct, and copyfile_state_alloc() can
@@ -390,48 +406,39 @@ copy_file(const FTSENT *entp, int dne)
 				rval = 1;
 			}
 		}
-       } else
+	} else {
 #endif /* __APPLE__ */
-	if (!lflag && !sflag) {
-		wtotal = 0;
-		do {
+	wtotal = 0;
+	do {
 #ifndef __APPLE__
-			if (use_copy_file_range) {
-				wcount = copy_file_range(from_fd, NULL,
-				    to_fd, NULL, SSIZE_MAX, 0);
-				if (wcount < 0 && errno == EINVAL) {
-					/* Prob a non-seekable FD */
-					use_copy_file_range = 0;
-				}
+		if (use_copy_file_range) {
+			wcount = copy_file_range(from_fd, NULL,
+			    to_fd, NULL, SSIZE_MAX, 0);
+			if (wcount < 0 && errno == EINVAL) {
+				/* probably a non-seekable descriptor */
+				use_copy_file_range = 0;
 			}
+		}
 #endif /* !__APPLE__ */
-			if (!use_copy_file_range) {
-				wcount = copy_fallback(from_fd, to_fd);
-			}
-			wtotal += wcount;
-			if (info) {
-				info = 0;
-				(void)fprintf(stderr,
-				    "%s -> %s %3d%%\n",
-				    entp->fts_path, to.p_path,
-				    cp_pct(wtotal, fs->st_size));
-			}
-		} while (wcount > 0);
-		if (wcount < 0) {
-			warn("%s", entp->fts_path);
-			rval = 1;
+		if (!use_copy_file_range) {
+			wcount = copy_fallback(from_fd, to_fd);
 		}
-	} else if (lflag) {
-		if (link(entp->fts_path, to.p_path)) {
-			warn("%s", to.p_path);
-			rval = 1;
+		wtotal += wcount;
+		if (info) {
+			info = 0;
+			(void)fprintf(stderr,
+			    "%s -> %s %3d%%\n",
+			    entp->fts_path, to.p_path,
+			    cp_pct(wtotal, fs->st_size));
 		}
-	} else if (sflag) {
-		if (symlink(entp->fts_path, to.p_path)) {
-			warn("%s", to.p_path);
-			rval = 1;
-		}
+	} while (wcount > 0);
+	if (wcount < 0) {
+		warn("%s", entp->fts_path);
+		rval = 1;
 	}
+#ifdef __APPLE__
+	}
+#endif /* __APPLE__ */
 
 	/*
 	 * Don't remove the target even after an error.  The target might
@@ -439,38 +446,35 @@ copy_file(const FTSENT *entp, int dne)
 	 * or its contents might be irreplaceable.  It would only be safe
 	 * to remove it if we created it and its length is 0.
 	 */
-
-	if (!lflag && !sflag) {
 #ifdef __APPLE__
-		if (mode != 0 && fchmod(to_fd, mode))
-			warn("%s: fchmod failed", to.p_path);
-		/* do these before setfile in case copyfile changes mtime */
-		if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
-			if (fcopyfile(from_fd, to_fd, NULL,
-			    COPYFILE_XATTR) < 0) {
-				warn("%s: could not copy extended attributes to %s",
-				    entp->fts_path, to.p_path);
-				rval = 1;
-			}
-		}
-#endif /* __APPLE__ */
-		if (pflag && setfile(fs, to_fd))
-			rval = 1;
-#ifdef __APPLE__
-		/* If this ACL denies writeattr then setfile will fail... */
-		if (pflag && fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
-			warn("%s: could not copy ACL to %s",
+	if (mode != 0 && fchmod(to_fd, mode))
+		warn("%s: fchmod failed", to.p_path);
+	/* do these before setfile in case copyfile changes mtime */
+	if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
+		if (fcopyfile(from_fd, to_fd, NULL,
+			COPYFILE_XATTR) < 0) {
+			warn("%s: could not copy extended attributes to %s",
 			    entp->fts_path, to.p_path);
 			rval = 1;
 		}
-#else  /* !__APPLE__ */
-		if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
-			rval = 1;
+	}
 #endif /* __APPLE__ */
-		if (close(to_fd)) {
-			warn("%s", to.p_path);
-			rval = 1;
-		}
+	if (pflag && setfile(fs, to_fd))
+		rval = 1;
+#ifdef __APPLE__
+	/* If this ACL denies writeattr then setfile will fail... */
+	if (pflag && fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
+		warn("%s: could not copy ACL to %s",
+		    entp->fts_path, to.p_path);
+		rval = 1;
+	}
+#else  /* !__APPLE__ */
+	if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
+		rval = 1;
+#endif /* __APPLE__ */
+	if (close(to_fd)) {
+		warn("%s", to.p_path);
+		rval = 1;
 	}
 
 done:
@@ -506,7 +510,7 @@ copy_link(const FTSENT *p, int exists)
 #ifdef __APPLE__
 	if (!Xflag) {
 		if (copyfile(p->fts_path, to.p_path, NULL,
-		    COPYFILE_XATTR | COPYFILE_NOFOLLOW_SRC) < 0) {
+		    COPYFILE_XATTR | COPYFILE_NOFOLLOW) < 0) {
 			warn("%s: could not copy extended attributes to %s",
 			     p->fts_path, to.p_path);
 			return (1);
@@ -617,24 +621,27 @@ setfile(struct stat *fs, int fd)
 			rval = 1;
 		}
 
-	if (!gotstat || fs->st_flags != ts.st_flags)
+	if (!Nflag && (!gotstat || fs->st_flags != ts.st_flags))
 		if (fdval ?
 		    fchflags(fd, fs->st_flags) :
 		    (islink ? lchflags(to.p_path, fs->st_flags) :
 		    chflags(to.p_path, fs->st_flags))) {
-#ifdef __APPLE__
 			/*
-			 * rdar://problem/21067328 - `cp -p` may fail due to the restrict
-			 * flag.
+			 * NFS doesn't support chflags; ignore errors unless
+			 * there's reason to believe we're losing bits.  (Note,
+			 * this still won't be right if the server supports
+			 * flags and we were trying to *remove* flags on a file
+			 * that we copied, i.e., that we didn't create.)
 			 */
-			if (errno != EPERM) {
-				warn("%schflags: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+#ifdef __APPLE__
+			if ((errno != EPERM && errno != EOPNOTSUPP) ||
+			    fs->st_flags != 0) {
+#else /* !__APPLE__ */
+			if (errno != EOPNOTSUPP || fs->st_flags != 0) {
+#endif /* __APPLE__ */
+				warn("chflags: %s", to.p_path);
 				rval = 1;
 			}
-#else /* !__APPLE__ */
-			warn("chflags: %s", to.p_path);
-			rval = 1;
-#endif /* __APPLE__ */
 		}
 
 	return (rval);

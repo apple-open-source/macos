@@ -33,7 +33,10 @@
 #include "JITCode.h"
 #include "Options.h"
 #include "PerfLog.h"
+#include "WasmCallee.h"
+#include "YarrJIT.h"
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/MakeString.h>
 
 namespace JSC {
 
@@ -42,31 +45,86 @@ size_t LinkBuffer::s_profileCummulativeLinkedCounts[LinkBuffer::numberOfProfiles
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LinkBuffer);
 
-LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithoutDisassemblyImpl()
+static const char* profileName(LinkBuffer::Profile profile)
+{
+#define RETURN_LINKBUFFER_PROFILE_NAME(name) case LinkBuffer::Profile::name: return #name;
+    switch (profile) {
+        FOR_EACH_LINKBUFFER_PROFILE(RETURN_LINKBUFFER_PROFILE_NAME)
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+#undef RETURN_LINKBUFFER_PROFILE_NAME
+    return "";
+}
+
+LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithoutDisassemblyImpl(ASCIILiteral simpleName)
 {
     performFinalization();
     
     ASSERT(m_didAllocate);
-    if (m_executableMemory)
-        return CodeRef<LinkBufferPtrTag>(*m_executableMemory);
-    
-    return CodeRef<LinkBufferPtrTag>::createSelfManagedCodeRef(m_code);
+    CodeRef<LinkBufferPtrTag> codeRef(m_executableMemory ? CodeRef<LinkBufferPtrTag>(*m_executableMemory) : CodeRef<LinkBufferPtrTag>::createSelfManagedCodeRef(m_code));
+
+    if (UNLIKELY(Options::logJITCodeForPerf()))
+        logJITCodeForPerf(codeRef, simpleName);
+
+    return codeRef;
 }
 
-LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithDisassemblyImpl(bool dumpDisassembly, const char* format, ...)
+void LinkBuffer::logJITCodeForPerf(CodeRef<LinkBufferPtrTag>& codeRef, ASCIILiteral simpleName)
 {
-    CodeRef<LinkBufferPtrTag> result = finalizeCodeWithoutDisassemblyImpl();
-
 #if OS(LINUX) || OS(DARWIN)
-    if (Options::logJITCodeForPerf()) {
-        StringPrintStream out;
-        va_list argList;
-        va_start(argList, format);
-        out.vprintf(format, argList);
-        va_end(argList);
-        PerfLog::log(out.toCString(), result.code().untaggedPtr<const uint8_t*>(), result.size());
+    auto dumpSimpleName = [&](StringPrintStream& out, ASCIILiteral simpleName) {
+        if (simpleName.isNull())
+            out.print("unspecified");
+        else
+            out.print(simpleName);
+    };
+
+    StringPrintStream out;
+    out.print(profileName(m_profile), ": ");
+    switch (m_profile) {
+    case Profile::Baseline:
+    case Profile::DFG:
+    case Profile::FTL: {
+        if (m_ownerUID)
+            static_cast<CodeBlock*>(m_ownerUID)->dumpSimpleName(out);
+        else
+            dumpSimpleName(out, simpleName);
+        break;
+    }
+#if ENABLE(WEBASSEMBLY)
+    case Profile::WasmOMG:
+    case Profile::WasmBBQ: {
+        if (m_ownerUID)
+            out.print(makeString(static_cast<Wasm::Callee*>(m_ownerUID)->indexOrName()));
+        else
+            dumpSimpleName(out, simpleName);
+        break;
     }
 #endif
+#if ENABLE(YARR_JIT)
+    case Profile::YarrJIT: {
+        if (m_ownerUID)
+            static_cast<Yarr::YarrCodeBlock*>(m_ownerUID)->dumpSimpleName(out);
+        else
+            dumpSimpleName(out, simpleName);
+        break;
+    }
+#endif
+    default:
+        dumpSimpleName(out, simpleName);
+        break;
+    }
+    if (!m_isRewriting)
+        PerfLog::log(out.toCString(), codeRef.code().untaggedPtr<const uint8_t*>(), codeRef.size());
+#else
+    UNUSED_PARAM(codeRef);
+    UNUSED_PARAM(simpleName);
+#endif
+}
+
+LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithDisassemblyImpl(bool dumpDisassembly, ASCIILiteral simpleName, const char* format, ...)
+{
+    CodeRef<LinkBufferPtrTag> result = finalizeCodeWithoutDisassemblyImpl(simpleName);
 
     if (!dumpDisassembly && !Options::logJIT())
         return result;
@@ -239,7 +297,7 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
     auto& jumpsToLink = macroAssembler.jumpsToLink();
     m_assemblerStorage = macroAssembler.m_assembler.buffer().releaseAssemblerData();
     uint8_t* inData = bitwise_cast<uint8_t*>(m_assemblerStorage.buffer());
-#if CPU(ARM64E)
+#if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
     ARM64EHash<ShouldSign::No> verifyUncompactedHash;
     m_assemblerHashesStorage = macroAssembler.m_assembler.buffer().releaseAssemblerHashes();
     uint32_t* inHashes = bitwise_cast<uint32_t*>(m_assemblerHashesStorage.buffer());
@@ -261,7 +319,7 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
 
     auto read = [&](const InstructionType* ptr) -> InstructionType {
         InstructionType value = *ptr;
-#if CPU(ARM64E)
+#if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
         unsigned index = (bitwise_cast<uint8_t*>(ptr) - inData) / 4;
         uint32_t hash = verifyUncompactedHash.update(value, index);
         RELEASE_ASSERT(inHashes[index] == hash);
@@ -271,6 +329,9 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
 
     if (g_jscConfig.useFastJITPermissions)
         threadSelfRestrictRWXToRW();
+#if ENABLE(MPROTECT_RX_TO_RWX)
+    ExecutableAllocator::singleton().startWriting(outData, initialSize);
+#endif
 
     if (m_shouldPerformBranchCompaction) {
         for (unsigned i = 0; i < jumpCount; ++i) {
@@ -353,9 +414,9 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
         else
             target = codeOutData + to - executableOffsetFor(to);
         if (g_jscConfig.useFastJITPermissions)
-            MacroAssembler::link<memcpyWrapper>(linkRecord, outData + linkRecord.from(), location, target);
+            MacroAssembler::link<MachineCodeCopyMode::Memcpy>(linkRecord, outData + linkRecord.from(), location, target);
         else
-            MacroAssembler::link<performJITMemcpy>(linkRecord, outData + linkRecord.from(), location, target);
+            MacroAssembler::link<MachineCodeCopyMode::JITMemcpy>(linkRecord, outData + linkRecord.from(), location, target);
     }
 
     size_t compactSize = writePtr + initialSize - readPtr;
@@ -363,11 +424,10 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
         size_t nopSizeInBytes = initialSize - compactSize;
 
         if (g_jscConfig.useFastJITPermissions)
-            Assembler::fillNops<memcpyWrapper>(outData + compactSize, nopSizeInBytes);
+            Assembler::fillNops<MachineCodeCopyMode::Memcpy>(outData + compactSize, nopSizeInBytes);
         else
-            Assembler::fillNops<performJITMemcpy>(outData + compactSize, nopSizeInBytes);
+            Assembler::fillNops<MachineCodeCopyMode::JITMemcpy>(outData + compactSize, nopSizeInBytes);
     }
-
     if (g_jscConfig.useFastJITPermissions)
         threadSelfRestrictRWXToRX();
 
@@ -388,6 +448,10 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
 #else
     ASSERT(codeOutData != outData);
     performJITMemcpy(codeOutData, outData, m_size);
+#endif
+
+#if ENABLE(MPROTECT_RX_TO_RWX)
+    ExecutableAllocator::singleton().finishWriting(outData, initialSize);
 #endif
 
     jumpsToLink.clear();
@@ -422,9 +486,6 @@ void LinkBuffer::linkCode(MacroAssembler& macroAssembler, JITCompilationEffort e
     RELEASE_ASSERT(roundUpToMultipleOf<Assembler::instructionSize>(code) == code);
 #endif
     performJITMemcpy(code, buffer.data(), buffer.codeSize());
-#if CPU(MIPS)
-    macroAssembler.m_assembler.relocateJumps(buffer.data(), code);
-#endif
 #elif CPU(ARM_THUMB2)
     copyCompactAndLinkCode<uint16_t>(macroAssembler, effort);
 #elif CPU(ARM64)
@@ -458,7 +519,7 @@ void LinkBuffer::allocate(MacroAssembler& macroAssembler, JITCompilationEffort e
         initialSize = macroAssembler.m_assembler.codeSize();
     }
 
-#if CPU(ARM64E)
+#if ENABLE(JIT_SIGN_ASSEMBLER_BUFFER)
     macroAssembler.m_assembler.buffer().arm64eHash().deallocatePinForCurrentThread();
 #endif
 
@@ -484,7 +545,7 @@ void LinkBuffer::linkComments(MacroAssembler& assembler)
             return string.isolatedCopy();
         });
         if (!addResult.isNewEntry)
-            addResult.iterator->value = addResult.iterator->value + "\n; "_s + string;
+            addResult.iterator->value = makeString(addResult.iterator->value, "\n; "_s, string);
     }
 
     AssemblyCommentRegistry::singleton().registerCodeRange(m_executableMemory->start().untaggedPtr(), m_executableMemory->end().untaggedPtr(), WTFMove(map));
@@ -492,10 +553,16 @@ void LinkBuffer::linkComments(MacroAssembler& assembler)
 
 void LinkBuffer::performFinalization()
 {
+#if ENABLE(MPROTECT_RX_TO_RWX)
+    ExecutableAllocator::singleton().startWriting(code(), m_size);
+#endif
     for (auto& task : m_linkTasks)
         task->run(*this);
     for (auto& task : m_lateLinkTasks)
         task->run(*this);
+#if ENABLE(MPROTECT_RX_TO_RWX)
+    ExecutableAllocator::singleton().finishWriting(code(), m_size);
+#endif
 
 #ifndef NDEBUG
     ASSERT(!m_completed);
@@ -506,13 +573,6 @@ void LinkBuffer::performFinalization()
     s_profileCummulativeLinkedSizes[static_cast<unsigned>(m_profile)] += m_size;
     s_profileCummulativeLinkedCounts[static_cast<unsigned>(m_profile)]++;
     MacroAssembler::cacheFlush(code(), m_size);
-}
-
-void LinkBuffer::runMainThreadFinalizationTasks()
-{
-    for (auto& task : m_mainThreadFinalizationTasks)
-        task->run();
-    m_mainThreadFinalizationTasks.clear();
 }
 
 #if DUMP_LINK_STATISTICS
@@ -581,19 +641,10 @@ void LinkBuffer::dumpProfileStatistics(std::optional<PrintStream*> outStream)
     Stat sortedStats[numberOfProfiles];
     PrintStream& out = outStream ? *outStream.value() : WTF::dataFile();
 
-#define RETURN_LINKBUFFER_PROFILE_NAME(name) case Profile::name: return #name;
-    auto name = [] (Profile profile) -> const char* {
-        switch (profile) {
-            FOR_EACH_LINKBUFFER_PROFILE(RETURN_LINKBUFFER_PROFILE_NAME)
-        }
-        RELEASE_ASSERT_NOT_REACHED();
-    };
-#undef RETURN_LINKBUFFER_PROFILE_NAME
-
     size_t totalOfAllProfilesSize = 0;
     auto dumpStat = [&] (const Stat& stat) {
         char formattedName[21];
-        snprintf(formattedName, 21, "%20s", name(stat.profile));
+        snprintf(formattedName, 21, "%20s", profileName(stat.profile));
 
         const char* largerUnit = nullptr;
         double sizeInLargerUnit = stat.size;

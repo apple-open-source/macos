@@ -1,7 +1,7 @@
 /*
 	File:		main.m
 	Contains:	Chess main program
-	Copyright:	© 2002-2010 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2024 by Apple Computer, Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following

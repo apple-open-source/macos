@@ -60,7 +60,7 @@ typedef struct {
 } _MSKanjiState;
 
 int
-_MSKanji_init(struct __xlocale_st_runelocale *xrl)
+_MSKanji_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _MSKanji_mbrtowc;

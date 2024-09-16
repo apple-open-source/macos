@@ -47,6 +47,21 @@ void MacContext::init(const Context &context, bool isSigning)
 		keyData, keyLen);
 	uint32 minKey = 0;
 	switch(mAlg) {
+		case CSSM_ALGID_SHA512:
+			minKey = HMAC_SHA_MIN_KEY_SIZE;
+			mDigestSize = CC_SHA512_DIGEST_LENGTH;
+			ccAlg = kCCHmacAlgSHA512;
+			break;
+		case CSSM_ALGID_SHA384:
+			minKey = HMAC_SHA_MIN_KEY_SIZE;
+			mDigestSize = CC_SHA384_DIGEST_LENGTH;
+			ccAlg = kCCHmacAlgSHA384;
+			break;
+		case CSSM_ALGID_SHA256:
+			minKey = HMAC_SHA_MIN_KEY_SIZE;
+			mDigestSize = CC_SHA256_DIGEST_LENGTH;
+			ccAlg = kCCHmacAlgSHA256;
+			break;
 		case CSSM_ALGID_SHA1HMAC:
 			minKey = HMAC_SHA_MIN_KEY_SIZE;
 			mDigestSize = CC_SHA1_DIGEST_LENGTH;
@@ -83,7 +98,7 @@ void MacContext::final(CssmData &out)
 }
 
 /* verify only */
-#define MAX_DIGEST_SIZE		CC_SHA1_DIGEST_LENGTH
+#define MAX_DIGEST_SIZE		CC_SHA512_DIGEST_LENGTH
 
 void MacContext::final(const CssmData &in)
 {

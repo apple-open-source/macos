@@ -81,6 +81,7 @@
 #include "NodeTraversal.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
+#include "Quirks.h"
 #include "RenderElement.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
@@ -422,7 +423,7 @@ void HTMLElement::attributeChanged(const QualifiedName& name, const AtomString& 
         }
         return;
     case AttributeNames::popoverAttr:
-        if (document().settings().popoverAttributeEnabled() && !document().quirks().shouldDisablePopoverAttributeQuirk())
+        if (document().settings().popoverAttributeEnabled())
             popoverAttributeChanged(newValue);
         return;
     case AttributeNames::spellcheckAttr: {
@@ -730,6 +731,16 @@ void HTMLElement::setSpellcheck(bool enable)
     setAttributeWithoutSynchronization(spellcheckAttr, enable ? trueAtom() : falseAtom());
 }
 
+bool HTMLElement::writingsuggestions() const
+{
+    return isWritingSuggestionsEnabled();
+}
+
+void HTMLElement::setWritingsuggestions(bool enable)
+{
+    setAttributeWithoutSynchronization(writingsuggestionsAttr, enable ? trueAtom() : falseAtom());
+}
+
 void HTMLElement::effectiveSpellcheckAttributeChanged(bool newValue)
 {
     for (auto it = descendantsOfType<HTMLElement>(*this).begin(); it;) {
@@ -780,7 +791,7 @@ String HTMLElement::accessKeyLabel() const
 #else
     // Currently accessKeyModifier in non-cocoa platforms is hardcoded to Alt, so no reason to do extra work here.
     // If this ever becomes configurable, make this code use EventHandler::accessKeyModifiers().
-    result.append("Alt+");
+    result.append("Alt+"_s);
 #endif
 
     result.append(accessKey);
@@ -808,16 +819,6 @@ bool HTMLElement::translate() const
 void HTMLElement::setTranslate(bool enable)
 {
     setAttributeWithoutSynchronization(translateAttr, enable ? "yes"_s : "no"_s);
-}
-
-bool HTMLElement::rendererIsEverNeeded()
-{
-    if (hasTagName(noembedTag)) {
-        RefPtr frame { document().frame() };
-        if (frame && frame->arePluginsEnabled())
-            return false;
-    }
-    return StyledElement::rendererIsEverNeeded();
 }
 
 FormAssociatedElement* HTMLElement::asFormAssociatedElement()
@@ -1299,50 +1300,6 @@ static ExceptionOr<bool> checkPopoverValidity(HTMLElement& element, PopoverVisib
     return true;
 }
 
-// https://html.spec.whatwg.org/#topmost-popover-ancestor
-// Consider both DOM ancestors and popovers where the given popover was invoked from as ancestors.
-// Use top layer positions to disambiguate the topmost one when both exist.
-static HTMLElement* topmostPopoverAncestor(HTMLElement& newPopover)
-{
-    // Store positions to avoid having to do O(n) search for every popover invoker.
-    HashMap<Ref<const HTMLElement>, size_t> topLayerPositions;
-    size_t i = 0;
-    for (auto& element : newPopover.document().autoPopoverList())
-        topLayerPositions.add(element, i++);
-
-    topLayerPositions.add(newPopover, i);
-
-    RefPtr<HTMLElement> topmostAncestor;
-
-    auto checkAncestor = [&](Element* candidate) {
-        if (!candidate)
-            return;
-
-        // https://html.spec.whatwg.org/#nearest-inclusive-open-popover
-        auto nearestInclusiveOpenPopover = [](Element& candidate) -> HTMLElement* {
-            for (RefPtr element = &candidate; element; element = element->parentElementInComposedTree()) {
-                if (auto* htmlElement = dynamicDowncast<HTMLElement>(element.get())) {
-                    if (htmlElement->popoverState() == PopoverState::Auto && htmlElement->popoverData()->visibilityState() == PopoverVisibilityState::Showing)
-                        return htmlElement;
-                }
-            }
-            return nullptr;
-        };
-
-        auto* candidateAncestor = nearestInclusiveOpenPopover(*candidate);
-        if (!candidateAncestor)
-            return;
-        if (!topmostAncestor || topLayerPositions.get(*topmostAncestor) < topLayerPositions.get(*candidateAncestor))
-            topmostAncestor = candidateAncestor;
-    };
-
-    checkAncestor(newPopover.parentElementInComposedTree());
-
-    checkAncestor(newPopover.popoverData()->invoker());
-
-    return topmostAncestor.get();
-}
-
 // https://html.spec.whatwg.org/#popover-focusing-steps
 static void runPopoverFocusingSteps(HTMLElement& popover)
 {
@@ -1419,8 +1376,8 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     if (popoverState() == PopoverState::Auto) {
         auto originalState = popoverState();
-        RefPtr ancestor = topmostPopoverAncestor(*this);
-        document->hideAllPopoversUntil(ancestor.get(), FocusPreviousElement::No, fireEvents);
+        auto hideUntil = topmostPopoverAncestor(TopLayerElementType::Popover);
+        document->hideAllPopoversUntil(hideUntil, FocusPreviousElement::No, fireEvents);
 
         if (popoverState() != originalState)
             return Exception { ExceptionCode::InvalidStateError, "The value of the popover attribute was changed while hiding the popover."_s };
@@ -1452,10 +1409,8 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     queuePopoverToggleEventTask(PopoverVisibilityState::Hidden, PopoverVisibilityState::Showing);
 
-#if ENABLE(ACCESSIBILITY)
     if (CheckedPtr cache = document->existingAXObjectCache())
         cache->onPopoverToggle(*this);
-#endif
 
     return { };
 }
@@ -1475,8 +1430,7 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
         fireEvents = FireEvents::No;
 
     if (popoverState() == PopoverState::Auto) {
-        // Unable to protect the document as it may have started destruction.
-        document().hideAllPopoversUntil(this, focusPreviousElement, fireEvents);
+        RefAllowingPartiallyDestroyed<Document> { document() }->hideAllPopoversUntil(this, focusPreviousElement, fireEvents);
 
         check = checkPopoverValidity(*this, PopoverVisibilityState::Showing);
         if (check.hasException())
@@ -1515,10 +1469,8 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
         popoverData()->setPreviouslyFocusedElement(nullptr);
     }
 
-#if ENABLE(ACCESSIBILITY)
     if (CheckedPtr cache = document().existingAXObjectCache())
         cache->onPopoverToggle(*this);
-#endif
 
     return { };
 }
@@ -1575,6 +1527,37 @@ void HTMLElement::popoverAttributeChanged(const AtomString& value)
         clearPopoverData();
     else
         ensurePopoverData().setPopoverState(newPopoverState);
+}
+
+bool HTMLElement::isValidInvokeAction(const InvokeAction action)
+{
+    return Element::isValidInvokeAction(action) || action == InvokeAction::TogglePopover || action == InvokeAction::ShowPopover || action == InvokeAction::HidePopover;
+}
+
+bool HTMLElement::handleInvokeInternal(const HTMLFormControlElement& invoker, const InvokeAction& action)
+{
+    if (popoverState() == PopoverState::None)
+        return false;
+
+    if (isPopoverShowing()) {
+        bool shouldHide = action == InvokeAction::Auto
+            || action == InvokeAction::TogglePopover
+            || action == InvokeAction::HidePopover;
+        if (shouldHide) {
+            hidePopover();
+            return true;
+        }
+    } else {
+        bool shouldShow = action == InvokeAction::Auto
+            || action == InvokeAction::TogglePopover
+            || action == InvokeAction::ShowPopover;
+        if (shouldShow) {
+            showPopover(&invoker);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 const AtomString& HTMLElement::popover() const

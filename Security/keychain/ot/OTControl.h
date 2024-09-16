@@ -121,6 +121,7 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
                permanentInfoSig:(NSData *)permanentInfoSig
                      stableInfo:(NSData *)stableInfo
                   stableInfoSig:(NSData *)stableInfoSig
+                  maxCapability:(NSString*)maxCapability
                           reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply;
 
 - (void)rpcJoinWithArguments:(OTControlArguments*)arguments
@@ -273,6 +274,17 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
                        uuid:(NSUUID *)uuid
                       reply:(void (^)(bool exists, NSError *_Nullable error))reply;
 
+- (void)recreateInheritanceKey:(OTControlArguments*)arguments
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey*)oldIK
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply;
+
+- (void)createInheritanceKey:(OTControlArguments*)arguments
+                        uuid:(NSUUID *_Nullable)uuid
+              claimTokenData:(NSData *)claimTokenData
+             wrappingKeyData:(NSData *)wrappingKeyData
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply;
+
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
@@ -316,13 +328,17 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
 - (void)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
 
+// Note: is _always_ async, no matter how the overall OTControl is configured
+- (void)fetchUserControllableViewsSyncStatusAsync:(OTControlArguments*)arguments
+                                            reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply;
+
 - (void)invalidateEscrowCache:(OTControlArguments*)arguments
                         reply:(nonnull void (^)(NSError * _Nullable error))reply;
 
 - (void)resetAccountCDPContents:(OTControlArguments*)arguments
-        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
-   idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-	       notifyIdMS:(bool)notifyIdMS
+              idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+         idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
+                     notifyIdMS:(bool)notifyIdMS
                           reply:(void (^)(NSError* _Nullable error))reply;
 
 
@@ -359,7 +375,7 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
                                        reply:(void (^)(NSArray<NSString*>* _Nullable views, NSError* _Nullable error))reply;
 
 - (void)setMachineIDOverride:(OTControlArguments*)arguments
-                   machineID:(NSString*)machineID
+                   machineID:(NSString* _Nullable)machineID
                        reply:(void (^)(NSError* _Nullable replyError))reply;
 
 - (void)isRecoveryKeySet:(OTControlArguments*)arguments

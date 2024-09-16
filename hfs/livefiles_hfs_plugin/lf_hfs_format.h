@@ -1,4 +1,4 @@
-/*  Copyright © 2017-2018 Apple Inc. All rights reserved.
+/*  Copyright © 2017-2023 Apple Inc. All rights reserved.
  *
  *  lf_hfs_format.h
  *  livefiles_hfs
@@ -252,9 +252,12 @@ enum {
     kHFSFastDevCandidateMask = 0x0400,
 
     kHFSAutoCandidateBit     = 0x000b,      /* this item was automatically marked as a fast-dev candidate by the kernel */
-    kHFSAutoCandidateMask    = 0x0800
+    kHFSAutoCandidateMask    = 0x0800,
 
-    // There are only 4 flag bits remaining: 0x1000, 0x2000, 0x4000, 0x8000
+    kHFSCatExpandedTimesBit  = 0x000c,      /* this item has expanded timestamps */
+    kHFSCatExpandedTimesMask = 0x1000
+
+    // There are only 3 flag bits remaining: 0x2000, 0x4000, 0x8000
 
 };
 
@@ -310,6 +313,7 @@ enum {
      */
     kHFSUnusedNodeFixBit                = 31,        /* Unused nodes in the Catalog B-tree have been zero-filled.  See Radar #6947811. */
     kHFSContentProtectionBit            = 30,        /* Volume has per-file content protection */
+    kHFSExpandedTimesBit                = 29,        /* Volume has expanded / non-MacOS native timestamps */
 
     /***  Keep these in sync with the bits above ! ****/
     kHFSVolumeHardwareLockMask          = 0x00000080,
@@ -323,15 +327,17 @@ enum {
     kHFSVolumeSoftwareLockMask          = 0x00008000,
 
     /* Bits 16-31 are allocated from high to low */
-
+    kHFSExpandedTimesMask               = 0x20000000,
     kHFSContentProtectionMask           = 0x40000000,
     kHFSUnusedNodeFixMask               = 0x80000000,
+
 
     kHFSMDBAttributesMask               = 0x8380
 };
 
 enum {
-    kHFSUnusedNodesFixDate = 0xc5ef2480        /* March 25, 2009 */
+    kHFSUnusedNodesFixDate 				= 0xc5ef2480, /* March 25, 2009 (aka 3320784000) */
+    kHFSUnusedNodesFixExpandedDate 		= 0x49c97400 /* March 25, 2009 (aka 1237939200) - BSD epoch-relative */ 
 };
 
 /* Mac OS X has 16 bytes worth of "BSD" info.

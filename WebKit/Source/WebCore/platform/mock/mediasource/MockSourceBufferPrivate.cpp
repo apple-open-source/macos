@@ -108,14 +108,17 @@ public:
     static Ref<MockMediaDescription> create(const MockTrackBox& box) { return adoptRef(*new MockMediaDescription(box)); }
     virtual ~MockMediaDescription() = default;
 
-    AtomString codec() const override { return m_box.codec(); }
-    bool isVideo() const override { return m_box.kind() == MockTrackBox::Video; }
-    bool isAudio() const override { return m_box.kind() == MockTrackBox::Audio; }
-    bool isText() const override { return m_box.kind() == MockTrackBox::Text; }
+    bool isVideo() const final { return m_box.kind() == MockTrackBox::Video; }
+    bool isAudio() const final { return m_box.kind() == MockTrackBox::Audio; }
+    bool isText() const final { return m_box.kind() == MockTrackBox::Text; }
 
 private:
-    MockMediaDescription(const MockTrackBox& box) : m_box(box) { }
-    MockTrackBox m_box;
+    MockMediaDescription(const MockTrackBox& box)
+        : MediaDescription(box.codec().isolatedCopy())
+        , m_box(box)
+    {
+    }
+    const MockTrackBox m_box;
 };
 
 Ref<MockSourceBufferPrivate> MockSourceBufferPrivate::create(MockMediaSourcePrivate& parent)
@@ -144,7 +147,7 @@ Ref<MediaPromise> MockSourceBufferPrivate::appendInternal(Ref<SharedBuffer>&& da
     m_inputBuffer.appendVector(data->extractData());
 
     while (m_inputBuffer.size()) {
-        auto buffer = ArrayBuffer::create(m_inputBuffer.data(), m_inputBuffer.size());
+        auto buffer = ArrayBuffer::create(m_inputBuffer);
         uint64_t boxLength = MockBox::peekLength(buffer.ptr());
         if (boxLength > buffer->byteLength())
             break;

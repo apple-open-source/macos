@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2018,2023-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
  */
 
 #import <Foundation/Foundation.h>
+#include "OTAAutoAssetClient.h"
 #include "OTATrustUtilities.h"
 
 #include <errno.h>
@@ -41,6 +42,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <ftw.h>
 #include "SecFramework.h"
+#include "featureflags/featureflags.h"
 #include <pthread.h>
 #include <sys/param.h>
 #include <stdlib.h>
@@ -65,6 +67,7 @@
 #if !TARGET_OS_BRIDGE
 #import <MobileAsset/MAAsset.h>
 #import <MobileAsset/MAAssetQuery.h>
+#import <MobileAsset/MAAutoAsset.h>
 #endif // !TARGET_OS_BRIDGE
 
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -159,7 +162,8 @@ static NSURL *SecSystemTrustStoreCopyResourceNSURL(NSString *resourceFileName) {
 }
 
 static CFDataRef SecSystemTrustStoreCopyResourceContents(CFStringRef resourceName,
-                                                         CFStringRef resourceType, CFStringRef subDirName) {
+                                                         CFStringRef resourceType,
+                                                         CFStringRef subDirName) {
     if (!TrustdVariantHasCertificatesBundle()) {
         return NULL;
     }
@@ -169,7 +173,9 @@ static CFDataRef SecSystemTrustStoreCopyResourceContents(CFStringRef resourceNam
         SInt32 error;
         if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
                                                       url, &data, NULL, NULL, &error)) {
-            secwarning("read: %ld", (long) error);
+            const char *urlStr = [(__bridge NSURL*)url fileSystemRepresentation];
+            if (!urlStr) { urlStr = ""; }
+            secwarning("Unable to get data from \"%s\": error %ld", urlStr, (long) error);
         }
         CFRelease(url);
     }
@@ -181,9 +187,16 @@ static CFDataRef SecSystemTrustStoreCopyResourceContents(CFStringRef resourceNam
 // MARK: Forward Declarations
 static uint64_t GetAssetVersion(CFErrorRef *error);
 static uint64_t GetSystemVersion(CFStringRef key);
+static uint64_t GetTrustStoreAssetVersion(SecOTAPKIRef otapkiref, CFStringRef key);
 static BOOL UpdateFromAsset(NSURL *localURL, NSNumber *asset_version, NSError **error);
 static void TriggerUnlockNotificationOTATrustAssetCheck(NSString* assetType, dispatch_queue_t queue);
-
+static CFStringRef SecAssetTrustStoreCopyContentDigest(SecOTAPKIRef otapkiref);
+static CFURLRef SecAssetTrustStoreCopyResourceURL(SecOTAPKIRef otapkiref, CFStringRef resourceName,
+                                                  CFStringRef resourceType, CFStringRef subDirName);
+static CFDataRef SecAssetTrustStoreCopyResourceContents(SecOTAPKIRef otapkiref, CFStringRef resourceName,
+                                                        CFStringRef resourceType, CFStringRef subDirName);
+static CFDataRef SecAssetTrustStoreMetadataCopyResourceContents(SecOTAPKIRef otapkiref, CFStringRef resourceName,
+                                                                CFStringRef resourceType, CFStringRef subDirName);
 #if !TARGET_OS_BRIDGE
 static NSNumber *SecExperimentUpdateAsset(MAAsset *asset, NSNumber *asset_version, NSError **error);
 #endif
@@ -1059,6 +1072,71 @@ static uint64_t GetSystemVersion(CFStringRef key) {
     return system_version;
 }
 
+static uint64_t GetTrustStoreVersionFromData(CFDataRef assetVersionData, CFStringRef key) {
+    uint64_t system_version = 0;
+    if (NULL != assetVersionData) {
+        CFPropertyListFormat propFormat;
+        CFDictionaryRef versionPlist =  CFPropertyListCreateWithData(kCFAllocatorDefault, assetVersionData, 0, &propFormat, NULL);
+        if (NULL != versionPlist && CFDictionaryGetTypeID() == CFGetTypeID(versionPlist)) {
+            CFNumberRef versionNumber = (CFNumberRef)CFDictionaryGetValue(versionPlist, (const void *)key);
+            if (NULL != versionNumber) {
+                int64_t asset_number = 0;
+                CFNumberGetValue(versionNumber, kCFNumberSInt64Type, &asset_number);
+                if (asset_number < 0) { // Not valid
+                    asset_number = 0;
+                }
+                system_version = (uint64_t)asset_number;
+            }
+        }
+        CFReleaseSafe(versionPlist);
+    }
+    return system_version;
+}
+
+/* note: this returns the value for the input key contained in AssetVersion.plist,
+ * so can be used for reading both PKITrustSupplementals and PKITrustStore versions.
+ * A key value of VersionNumber returns the PKITrustStore content version.
+ * A key value of MobileAssetContentVersion returns the PKITrustSupplementals version.
+ */
+static uint64_t GetTrustStoreAssetVersion(SecOTAPKIRef otapkiref, CFStringRef key) {
+    uint64_t system_version = 0;
+    bool is_system = false;
+    CFDataRef assetVersionData = NULL;
+
+    assetVersionData = SecAssetTrustStoreCopyResourceContents(otapkiref, CFSTR("AssetVersion"), CFSTR("plist"), NULL);
+    system_version = GetTrustStoreVersionFromData(assetVersionData, key);
+    if (0 == system_version) {
+        CFReleaseNull(assetVersionData);
+        assetVersionData = SecSystemTrustStoreCopyResourceContents(CFSTR("AssetVersion"), CFSTR("plist"), NULL);
+        system_version = GetTrustStoreVersionFromData(assetVersionData, key);
+        is_system = true;
+    }
+    CFReleaseNull(assetVersionData);
+    secnotice("OTATrust", "Using trust store version %llu from %s", (unsigned long long)system_version, (is_system) ? "system" : "asset");
+    return system_version;
+}
+
+/* note: this returns the PKITrustStore asset version, not the PKITrustSupplementals asset version */
+static CF_RETURNS_RETAINED CFStringRef InitializeTrustStoreAssetVersion(SecOTAPKIRef otapkiref) {
+    CFStringRef assetVersion = NULL;
+
+    CFDataRef infoPlistData = SecAssetTrustStoreMetadataCopyResourceContents(otapkiref, CFSTR("Info"), CFSTR("plist"), NULL);
+    if (infoPlistData != NULL) {
+        CFPropertyListFormat propFormat;
+        CFDictionaryRef infoPlist = CFPropertyListCreateWithData(kCFAllocatorDefault, infoPlistData, 0, &propFormat, NULL);
+        if (infoPlist != NULL && isDictionary(infoPlist)) {
+            CFDictionaryRef maProps = (CFDictionaryRef)CFDictionaryGetValue(infoPlist, (const void *)CFSTR("MobileAssetProperties"));
+            if (maProps != NULL && isDictionary(maProps)) {
+                assetVersion = (CFStringRef)CFDictionaryGetValue(maProps, (const void *)CFSTR("AssetVersion"));
+                CFRetainSafe(assetVersion);
+            }
+        }
+        CFReleaseSafe(infoPlist);
+        CFReleaseSafe(infoPlistData);
+    }
+    return assetVersion;
+}
+
 static bool initialization_error_from_asset_data = false;
 
 static bool ShouldInitializeWithAsset(void) {
@@ -1314,15 +1392,25 @@ static const uint8_t* MapFile(const char* path, size_t* out_file_size) {
     size_t size = 0;
 
     if (NULL == path || NULL == out_file_size) {
+        secerror("MapFile: path or out_file_size was NULL");
         return NULL;
     }
 
     *out_file_size = 0;
 
     fd = open(path, O_RDONLY);
-    if (fd < 0) { return NULL; }
+    if (fd < 0) {
+        secerror("MapFile: unable to open %s (errno %d)", path, errno);
+        return NULL;
+    }
     rtn = fstat(fd, &sb);
-    if (rtn || (sb.st_size > (off_t) ((UINT32_MAX >> 1)-1))) {
+    if (rtn != 0) {
+        secerror("MapFile: fstat of %s returned %d (errno %d)", path, rtn, errno);
+        close(fd);
+        return NULL;
+    }
+    if (sb.st_size > (off_t) ((UINT32_MAX >> 1)-1)) {
+        secerror("MapFile: %s is too large (%lld)", path, (long long)sb.st_size);
         close(fd);
         return NULL;
     }
@@ -1330,7 +1418,7 @@ static const uint8_t* MapFile(const char* path, size_t* out_file_size) {
 
     buf = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (!buf || buf == MAP_FAILED) {
-        secerror("unable to map %s (errno %d)", path, errno);
+        secerror("MapFile: unable to map %s (errno %d)", path, errno);
         close(fd);
         return NULL;
     }
@@ -1356,7 +1444,7 @@ struct index_record {
 };
 typedef struct index_record index_record;
 
-static bool InitializeAnchorTable(CFDictionaryRef* pLookupTable, const char** ppAnchorTable) {
+static bool InitializeAnchorTable(SecOTAPKIRef otapkiref, CFDictionaryRef* pLookupTable, const char** ppAnchorTable, size_t *pAnchorTableSize, bool usingAsset) {
 
     bool result = false;
 
@@ -1387,17 +1475,25 @@ static bool InitializeAnchorTable(CFDictionaryRef* pLookupTable, const char** pp
 
     // local_anchorTable is still NULL so the asset in the system trust store bundle needs to be used.
     CFReleaseSafe(cert_index_file_data);
-    cert_index_file_data = SecSystemTrustStoreCopyResourceContents(CFSTR("certsIndex"), CFSTR("data"), NULL);
+    if (usingAsset) {
+        cert_index_file_data = SecAssetTrustStoreCopyResourceContents(otapkiref, CFSTR("certsIndex"), CFSTR("data"), NULL);
+    } else {
+        cert_index_file_data = SecSystemTrustStoreCopyResourceContents(CFSTR("certsIndex"), CFSTR("data"), NULL);
+    }
     if (!cert_index_file_data) {
         secerror("could not find certsIndex");
     }
-    table_data_url =  SecSystemTrustStoreCopyResourceURL(CFSTR("certsTable"), CFSTR("data"), NULL);
+    if (usingAsset) {
+        table_data_url = SecAssetTrustStoreCopyResourceURL(otapkiref, CFSTR("certsTable"), CFSTR("data"), NULL);
+    } else {
+        table_data_url = SecSystemTrustStoreCopyResourceURL(CFSTR("certsTable"), CFSTR("data"), NULL);
+    }
     if (!table_data_url) {
         secerror("could not find certsTable");
     }
 
     if (NULL != table_data_url) {
-        table_data_cstr_path  = CFURLCopyFileSystemPath(table_data_url, kCFURLPOSIXPathStyle);
+        table_data_cstr_path = CFURLCopyFileSystemPath(table_data_url, kCFURLPOSIXPathStyle);
         if (NULL != table_data_cstr_path) {
             memset(file_path_buffer, 0, PATH_MAX);
             table_data_path = CFStringGetCStringPtr(table_data_cstr_path, kCFStringEncodingUTF8);
@@ -1406,13 +1502,16 @@ static bool InitializeAnchorTable(CFDictionaryRef* pLookupTable, const char** pp
                     table_data_path = file_path_buffer;
                 }
             }
-            local_anchorTable  = (char *)MapFile(table_data_path, &local_anchorTableSize);
+            local_anchorTable = (char *)MapFile(table_data_path, &local_anchorTableSize);
+            if (!local_anchorTable) {
+                secerror("InitializeAnchorTable: failed to map file at %@", table_data_cstr_path);
+            }
             CFReleaseSafe(table_data_cstr_path);
         }
     }
     CFReleaseSafe(table_data_url);
 
-    if (NULL == local_anchorTable || NULL  == cert_index_file_data) {
+    if (NULL == local_anchorTable || NULL == cert_index_file_data) {
         // we are in trouble
         if (NULL != local_anchorTable) {
             UnMapFile(local_anchorTable, local_anchorTableSize);
@@ -1468,6 +1567,7 @@ static bool InitializeAnchorTable(CFDictionaryRef* pLookupTable, const char** pp
     if (NULL != anchorLookupTable && NULL != local_anchorTable) {
         *pLookupTable = anchorLookupTable;
         *ppAnchorTable = local_anchorTable;
+        *pAnchorTableSize = local_anchorTableSize;
         result = true;
     } else {
         CFReleaseSafe(anchorLookupTable);
@@ -1537,6 +1637,8 @@ static CF_RETURNS_RETAINED CFArrayRef InitializeAppleCertificateAuthorities(void
 static SecOTAPKIRef kCurrentOTAPKIRef = NULL;
 /* This queue is for making changes to the OTAPKI reference */
 static dispatch_queue_t kOTAQueue = NULL;
+/* This queue is for reloading auto-assets when they change */
+static dispatch_queue_t kOTAReloadAssetsQueue = NULL;
 
 struct _OpaqueSecOTAPKI {
     CFRuntimeBase       _base;
@@ -1549,6 +1651,9 @@ struct _OpaqueSecOTAPKI {
     CFDictionaryRef     _evPolicyToAnchorMapping;
     CFDictionaryRef     _anchorLookupTable;
     const char*         _anchorTable;
+    size_t              _anchorTableSize;
+    CFStringRef         _trustStoreAssetVersion;
+    CFStringRef         _trustStoreContentDigest;
     uint64_t            _trustStoreVersion;
     const char*         _validDatabaseSnapshot;
     CFIndex             _validSnapshotVersion;
@@ -1562,6 +1667,8 @@ struct _OpaqueSecOTAPKI {
     uint64_t            _secExperimentAssetVersion;
     bool                _ctKillSwitch;
     bool                _nonTlsCtKillSwitch;
+    OTAAutoAssetClient* _autoAssetClient;
+    CFStringRef         _autoAssetPath;
 };
 
 CFGiblisFor(SecOTAPKI)
@@ -1590,11 +1697,15 @@ static void SecOTAPKIInitialize(CFTypeRef cf) {
     otapkiref->_evPolicyToAnchorMapping = NULL;
     otapkiref->_anchorLookupTable = NULL;
     otapkiref->_anchorTable = NULL;
+    otapkiref->_trustStoreAssetVersion = NULL;
+    otapkiref->_trustStoreContentDigest = NULL;
     otapkiref->_validDatabaseSnapshot = NULL;
     otapkiref->_lastAssetCheckIn = NULL;
     otapkiref->_eventSamplingRates = NULL;
     otapkiref->_appleCAs = NULL;
     otapkiref->_secExperimentConfig = NULL;
+    otapkiref->_autoAssetClient = NULL;
+    otapkiref->_autoAssetPath = NULL;
 }
 
 static void SecOTAPKIDestroy(CFTypeRef cf) {
@@ -1606,6 +1717,8 @@ static void SecOTAPKIDestroy(CFTypeRef cf) {
 
     CFReleaseNull(otapkiref->_evPolicyToAnchorMapping);
     CFReleaseNull(otapkiref->_anchorLookupTable);
+    CFReleaseNull(otapkiref->_trustStoreAssetVersion);
+    CFReleaseNull(otapkiref->_trustStoreContentDigest);
 
     CFReleaseNull(otapkiref->_trustedCTLogs);
     CFReleaseNull(otapkiref->_nonTlsTrustedCTLogs);
@@ -1623,10 +1736,12 @@ static void SecOTAPKIDestroy(CFTypeRef cf) {
         free((void *)otapkiref->_validDatabaseSnapshot);
         otapkiref->_validDatabaseSnapshot = NULL;
     }
+    otapkiref->_autoAssetClient = NULL;
+    CFReleaseNull(otapkiref->_autoAssetPath);
 }
 
-static uint64_t GetSystemTrustStoreVersion(void) {
-    return GetSystemVersion(CFSTR("VersionNumber"));
+static uint64_t GetSystemTrustStoreVersion(SecOTAPKIRef otapkiref) {
+    return GetTrustStoreAssetVersion(otapkiref, CFSTR("VersionNumber"));
 }
 
 static uint64_t GetAssetVersion(CFErrorRef *error) {
@@ -1694,6 +1809,7 @@ static CF_RETURNS_RETAINED CFDateRef InitializeLastAssetCheckIn(void) {
 static SecOTAPKIRef SecOTACreate(void) {
 
     SecOTAPKIRef otapkiref = NULL;
+    NSError* assetError = nil;
 
     otapkiref = CFTypeAllocate(SecOTAPKI, struct _OpaqueSecOTAPKI , kCFAllocatorDefault);
 
@@ -1710,9 +1826,31 @@ static SecOTAPKIRef SecOTACreate(void) {
         otapkiref->_nonTlsCtKillSwitch = true;
         return otapkiref;
     }
+    
+    // TrustStoreUsesOTA is default enabled
+    if (TrustdVariantAllowsMobileAsset()) {
+        // Create an instance of our AutoAsset (MobileAsset) client
+        otapkiref->_autoAssetClient = [[OTAAutoAssetClient alloc] initWithError:&assetError];
+#if !TARGET_OS_BRIDGE
+        if (otapkiref->_autoAssetClient) {
+            // Register for AutoAsset update notifications
+            [otapkiref->_autoAssetClient registerForAssetChangedNotificationsWithBlock:^{
+                dispatch_sync(kOTAReloadAssetsQueue, ^{
+                    secnotice("OTATrust", "--- Received asset download notification ---");
+                    secnotice("OTATrust", "Will exit when clean to use updated assets");
+                    xpc_transaction_exit_clean();
+                });
+            }];
+        } else {
+            secerror("Error initializing OTAAutoAssetClient: %@", assetError);
+            TrustdHealthAnalyticsLogErrorCode(TAEventAssetBuiltIn, false, (assetError) ? (OSStatus)CFErrorGetCode((__bridge CFErrorRef)assetError) : -1);
+        }
+#endif
+        assetError = nil;
+    }
 
     // Start off by getting the trust store version
-    otapkiref->_trustStoreVersion = GetSystemTrustStoreVersion();
+    otapkiref->_trustStoreVersion = GetSystemTrustStoreVersion(otapkiref);
 
     // Get the set of revoked keys (if present)
     CFSetRef revokedKeysSet = InitializeRevokedList();
@@ -1765,17 +1903,29 @@ static SecOTAPKIRef SecOTACreate(void) {
 
     CFDictionaryRef anchorLookupTable = NULL;
     const char* anchorTablePtr = NULL;
+    size_t anchorTableSize = 0;
 
-    if (!InitializeAnchorTable(&anchorLookupTable, &anchorTablePtr)) {
-        CFReleaseSafe(anchorLookupTable);
-        if (anchorTablePtr) {
-            free((void *)anchorTablePtr);
+    /* Initialize anchors from asset, falling back to system anchors on failure */
+    if (!InitializeAnchorTable(otapkiref, &anchorLookupTable, &anchorTablePtr, &anchorTableSize, true)) {
+        secnotice("OTATrust", "Using built-in system anchors");
+        if (!InitializeAnchorTable(otapkiref, &anchorLookupTable, &anchorTablePtr, &anchorTableSize, false)) {
+            CFReleaseSafe(anchorLookupTable);
+            if (anchorTablePtr) {
+                free((void *)anchorTablePtr);
+            }
+            CFReleaseNull(otapkiref);
+            return otapkiref;
         }
-        CFReleaseNull(otapkiref);
-        return otapkiref;
     }
     otapkiref->_anchorLookupTable = anchorLookupTable;
     otapkiref->_anchorTable = anchorTablePtr;
+    otapkiref->_anchorTableSize = anchorTableSize;
+
+    /* Initialize trust store asset version */
+    otapkiref->_trustStoreAssetVersion = InitializeTrustStoreAssetVersion(otapkiref);
+
+    /* Initialize content digest */
+    otapkiref->_trustStoreContentDigest = SecAssetTrustStoreCopyContentDigest(otapkiref);
 
     /* Initialize our update handling */
     if (TrustdVariantAllowsMobileAsset()) {
@@ -1802,7 +1952,8 @@ SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void) {
                                                                                  QOS_CLASS_BACKGROUND, 0);
             attr = dispatch_queue_attr_make_with_autorelease_frequency(attr, DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM);
             kOTABackgroundQueue = dispatch_queue_create("com.apple.security.OTAPKIBackgroundQueue", attr);
-            if (!kOTAQueue || !kOTABackgroundQueue) {
+            kOTAReloadAssetsQueue = dispatch_queue_create("com.apple.security.OTAPKIReloadAssetQueue", NULL);
+            if (!kOTAQueue || !kOTABackgroundQueue || !kOTAReloadAssetsQueue) {
                 secerror("Failed to create OTAPKI Queues. May crash later.");
             }
             dispatch_sync(kOTAQueue, ^{
@@ -2289,6 +2440,81 @@ CFDictionaryRef SecOTAPKICopyCTLogForKeyID(CFDataRef keyID, CFErrorRef* error) {
     return logDict;
 }
 
+CFStringRef SecOTAPKICopyCurrentTrustStoreAssetVersion(CFErrorRef* CF_RETURNS_RETAINED  error) {
+    SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+    if (NULL == otapkiref) {
+        SecError(errSecInternal, error, CFSTR("Unable to get the current OTAPKIRef"));
+        return 0;
+    }
+
+    CFStringRef result = CFRetainSafe(otapkiref->_trustStoreAssetVersion);
+    CFReleaseNull(otapkiref);
+    return result;
+}
+
+CFStringRef SecOTAPKICopyCurrentTrustStoreContentDigest(CFErrorRef* CF_RETURNS_RETAINED  error) {
+    SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+    if (NULL == otapkiref) {
+        SecError(errSecInternal, error, CFSTR("Unable to get the current OTAPKIRef"));
+        return 0;
+    }
+
+    CFStringRef result = CFRetainSafe(otapkiref->_trustStoreContentDigest);
+    CFReleaseNull(otapkiref);
+    return result;
+}
+
+bool SecOTAPKIPathIsOnAuthAPFSVolume(CFStringRef path) {
+    const char *pathstr = [(__bridge NSString*)path UTF8String];
+    if (!pathstr) {
+        return false;
+    }
+    int fd = openat_authenticated_np(AT_FDCWD, pathstr, O_RDONLY, AUTH_OPEN_NOAUTHFD);
+    if (fd == -1) {
+        return false;
+    }
+    close(fd);
+    return true;
+}
+
+uint64_t SecOTAPKIGetAvailableTrustStoreVersion(CFStringRef path, CFErrorRef* error) {
+    uint64_t trustStoreVersion = 0;
+    int64_t assetNumber = 0;
+    if (NULL == path) {
+        SecError(errSecInternal, error, CFSTR("Unable to get trust store version (empty path)"));
+        return 0;
+    }
+    NSString *filename = @"AssetVersion.plist";
+    NSString *pathString = [NSString stringWithFormat:@"%@/%@", (__bridge NSString*)path, filename];
+    NSURL *fileURL = [NSURL fileURLWithPath:pathString isDirectory:NO];
+    NSData *fileData = [NSData dataWithContentsOfURL:fileURL];
+    if (NULL != fileData) {
+        CFPropertyListFormat propFormat;
+        CFDictionaryRef versionPlist = CFPropertyListCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)fileData, 0, &propFormat, NULL);
+        if (isDictionary(versionPlist)) {
+            CFStringRef versionKey = CFSTR("VersionNumber");
+            CFNumberRef versionNumber = (CFNumberRef)CFDictionaryGetValue(versionPlist, (const void *)versionKey);
+            if (NULL != versionNumber) {
+                CFNumberGetValue(versionNumber, kCFNumberSInt64Type, &assetNumber);
+                if (assetNumber < 0) { // Not valid
+                    assetNumber = 0;
+                }
+                trustStoreVersion = (uint64_t)assetNumber;
+            }
+        }
+        CFReleaseSafe(versionPlist);
+    }
+    return trustStoreVersion;
+}
+
+uint64_t SecOTAPKIGetSystemTrustStoreVersion(CFErrorRef* error) {
+    uint64_t result = GetSystemVersion(CFSTR("VersionNumber"));
+    if (0 == result) {
+        SecError(errSecInternal, error, CFSTR("Unable to get the system trust store version"));
+    }
+    return result;
+}
+
 uint64_t SecOTAPKIGetCurrentTrustStoreVersion(CFErrorRef* error){
     SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
     if (NULL == otapkiref) {
@@ -2380,4 +2606,121 @@ CFDictionaryRef SecOTASecExperimentCopyAsset(CFErrorRef* error) {
         }
     });
     return asset;
+}
+
+/* MARK: - */
+/* MARK: Asset Trust Store */
+
+static CFStringRef SecAssetTrustStoreCopyContentDigest(SecOTAPKIRef otapkiref) {
+    CFStringRef assetContentDigestString = NULL;
+    if (NULL == otapkiref) {
+        secerror("SecAssetTrustStoreCopyContentDigest: no SecOTAPKIRef");
+        return NULL;
+    }
+    // Currently this digest only covers the set of trust anchors;
+    // may need additional digests or extend this one as files as added to the asset.
+    CFDataRef digest = SecSHA256DigestCreate(NULL, (const UInt8 *)otapkiref->_anchorTable, (CFIndex)otapkiref->_anchorTableSize);
+    assetContentDigestString = (digest) ? CFDataCopyHexString(digest) : NULL;
+    CFReleaseNull(digest);
+    return assetContentDigestString;
+}
+
+static CFStringRef SecAssetTrustStoreCopyPath(SecOTAPKIRef otapkiref) {
+    if (!TrustdVariantAllowsMobileAsset()) {
+        return NULL;
+    }
+    CFStringRef assetPathString = NULL;
+    if (NULL == otapkiref) {
+        secerror("SecAssetTrustStoreCopyPath: no SecOTAPKIRef");
+        return NULL;
+    }
+    if (NULL == otapkiref->_autoAssetClient) {
+        secerror("SecAssetTrustStoreCopyPath: no autoAssetClient");
+        return NULL;
+    }
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // This is the first time we are using the asset in this process.
+        NSString *assetPath = [otapkiref->_autoAssetClient startUsingLocalAsset];
+        if (assetPath) {
+            otapkiref->_autoAssetPath = CFBridgingRetain(assetPath);
+        }
+        secnotice("OTATrust", "Using asset path: %@", assetPath);
+    });
+    assetPathString = otapkiref->_autoAssetPath;
+    CFRetainSafe(assetPathString);
+    return assetPathString;
+}
+
+static CFURLRef SecAssetTrustStoreCopyResourceURL(SecOTAPKIRef otapkiref,
+                                                  CFStringRef resourceName,
+                                                  CFStringRef resourceType,
+                                                  CFStringRef subDirName) {
+    CFURLRef result = NULL;
+    CFStringRef assetPath = SecAssetTrustStoreCopyPath(otapkiref);
+    if (!assetPath) {
+        return result;
+    }
+    NSString *pathString = [NSString stringWithFormat:@"%@/%@", (__bridge NSString*)assetPath, resourceName];
+    if (resourceType) {
+        pathString = [NSString stringWithFormat:@"%@.%@", pathString, (__bridge NSString*)resourceType];
+    }
+    NSURL *fileURL = [NSURL fileURLWithPath:pathString isDirectory:NO];
+    if (!fileURL) {
+        secwarning("resource: %@.%@ in %@ not found", resourceName,
+                   resourceType, subDirName);
+    } else {
+        result = CFBridgingRetain(fileURL);
+    }
+    CFReleaseNull(assetPath);
+    return result;
+}
+
+static CFDataRef SecAssetTrustStoreCopyResourceContents(SecOTAPKIRef otapkiref,
+                                                        CFStringRef resourceName,
+                                                        CFStringRef resourceType,
+                                                        CFStringRef subDirName) {
+    CFDataRef result = NULL;
+    CFURLRef url = SecAssetTrustStoreCopyResourceURL(otapkiref, resourceName, resourceType, subDirName);
+    if (url) {
+        NSData *fileData = [NSData dataWithContentsOfURL:(__bridge NSURL*)url];
+        if (!fileData) {
+            const char *urlStr = [(__bridge NSURL*)url fileSystemRepresentation];
+            secwarning("Unable to get data from \"%s\"", (urlStr) ? urlStr : "");
+        } else {
+            result = CFBridgingRetain(fileData);
+        }
+        CFReleaseNull(url);
+    }
+    return result;
+}
+
+static CFDataRef SecAssetTrustStoreMetadataCopyResourceContents(SecOTAPKIRef otapkiref,
+                                                                CFStringRef resourceName,
+                                                                CFStringRef resourceType,
+                                                                CFStringRef subDirName) {
+    CFDataRef result = NULL;
+    CFStringRef assetPath = SecAssetTrustStoreCopyPath(otapkiref);
+    if (!assetPath) {
+        return result;
+    }
+    NSString *pathString = [NSString stringWithFormat:@"%@/../%@", (__bridge NSString*)assetPath, resourceName];
+    CFReleaseNull(assetPath);
+    if (resourceType) {
+        pathString = [NSString stringWithFormat:@"%@.%@", pathString, (__bridge NSString*)resourceType];
+    }
+    NSURL *fileURL = [NSURL fileURLWithPath:pathString isDirectory:NO];
+    if (!fileURL) {
+        secwarning("resource: %@.%@ in %@ not found", resourceName,
+                   resourceType, subDirName);
+    } else {
+        NSData *fileData = [NSData dataWithContentsOfURL:fileURL];
+        if (!fileData) {
+            const char *urlStr = [fileURL fileSystemRepresentation];
+            secwarning("Unable to get data from \"%s\"", (urlStr) ? urlStr : "");
+        } else {
+            result = CFBridgingRetain(fileData);
+        }
+    }
+    return result;
 }

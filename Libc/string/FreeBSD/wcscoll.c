@@ -45,17 +45,17 @@ wcscoll_l(const wchar_t *ws1, const wchar_t *ws2, locale_t loc)
 	const wchar_t *t, *t2;
 	wchar_t *tt = NULL, *tt2 = NULL;
 	wchar_t *tr = NULL, *tr2 = NULL;
-	struct __collate_st_info *info;
+	collate_info_t *info;
 
 	NORMALIZE_LOCALE(loc);
-	if (loc->__collate_load_error)
+	if (XLOCALE_COLLATE(loc)->__collate_load_error)
 		/*
 		 * Locale has no special collating order or could not be
 		 * loaded, do a fast binary comparison.
 		 */
 		return (wcscmp(ws1, ws2));
 
-	info = &loc->__lc_collate->__info;
+	info = XLOCALE_COLLATE(loc)->info;
 	len = len2 = 1;
 	ret = ret2 = 0;
 

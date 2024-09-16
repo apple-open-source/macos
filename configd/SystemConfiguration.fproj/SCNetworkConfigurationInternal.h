@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -354,10 +354,6 @@ __SCNetworkInterfaceIsValidExtendedConfigurationType
 						(SCNetworkInterfaceRef	interface,
 						 CFStringRef		extendedType,
 						 Boolean		requirePerInterface);
-
-CFPropertyListRef
-__SCNetworkInterfaceGetTemplateOverrides	(SCNetworkInterfaceRef	interface,
-						 CFStringRef		overrideType);
 
 int
 __SCNetworkInterfaceOrder			(SCNetworkInterfaceRef	interface);

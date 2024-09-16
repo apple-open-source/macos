@@ -159,7 +159,7 @@ dialog::backdrop {
 
 /* media elements */
 
-body:-webkit-full-page-media {
+body:-internal-media-document {
     background-color: rgb(38, 38, 38);
 }
 
@@ -433,6 +433,10 @@ button {
     appearance: auto;
 }
 
+::-internal-writing-suggestions {
+    color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
 input, textarea, select, button {
     margin: 0__qem;
 #if !(defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY)
@@ -484,8 +488,8 @@ input {
     input {
         background-color: transparent;
     }
-    
-    input::-webkit-loading-auto-fill-button {
+
+    input::-internal-loading-auto-fill-button {
         background-image: url('data:image/svg+xml,<svg width="22" height="12" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xml:space="preserve"><path fill="rgb(55,55,55)" d="M19.36,12.64L19.36,12.64c-0.88-0.88-0.88-2.3,0-3.18l4.6-4.6c0.88-0.88,2.3-0.88,3.18,0l0,0c0.88,0.88,0.88,2.3,0,3.18l-4.6,4.6C21.66,13.52,20.24,13.52,19.36,12.64z"><animate attributeName="fill" begin="0s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(76,76,76)" d="M20.75,16L20.75,16c0-1.24,1.01-2.25,2.25-2.25l6.5,0c1.24,0,2.25,1.01,2.25,2.25v0c0,1.24-1.01,2.25-2.25,2.25l-6.5,0C21.76,18.25,20.75,17.24,20.75,16z"><animate attributeName="fill" begin="0.125s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(97,97,97)" d="M27.14,27.14L27.14,27.14c-0.88,0.88-2.3,0.88-3.18,0l-4.6-4.6c-0.88-0.88-0.88-2.3,0-3.18l0,0c0.88-0.88,2.3-0.88,3.18,0l4.6,4.6C28.02,24.83,28.02,26.26,27.14,27.14z"><animate attributeName="fill" begin="0.25s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(118,118,118)" d="M16,31.75L16,31.75c-1.24,0-2.25-1.01-2.25-2.25l0-6.5c0-1.24,1.01-2.25,2.25-2.25h0c1.24,0,2.25,1.01,2.25,2.25l0,6.5C18.25,30.74,17.24,31.75,16,31.75z"><animate attributeName="fill" begin="0.375s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(138,138,138)" d="M4.86,27.14L4.86,27.14c-0.88-0.88-0.88-2.3,0-3.18l4.6-4.6c0.88-0.88,2.3-0.88,3.18,0l0,0c0.88,0.88,0.88,2.3,0,3.18l-4.6,4.6C7.17,28.02,5.74,28.02,4.86,27.14z"><animate attributeName="fill" begin="0.5s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(159,159,159)" d="M0.25,16L0.25,16c0-1.24,1.01-2.25,2.25-2.25l6.5,0c1.24,0,2.25,1.01,2.25,2.25v0c0,1.24-1.01,2.25-2.25,2.25l-6.5,0C1.26,18.25,0.25,17.24,0.25,16z"><animate attributeName="fill" begin="0.625s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(180,180,180)" d="M12.64,12.64L12.64,12.64c-0.88,0.88-2.3,0.88-3.18,0l-4.6-4.6c-0.88-0.88-0.88-2.3,0-3.18l0,0c0.88-0.88,2.3-0.88,3.18,0l4.6,4.6C13.52,10.34,13.52,11.76,12.64,12.64z"><animate attributeName="fill" begin="0.75s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(201,201,201)" d="M16,11.25L16,11.25c-1.24,0-2.25-1.01-2.25-2.25l0-6.5c0-1.24,1.01-2.25,2.25-2.25h0c1.24,0,2.25,1.01,2.25,2.25l0,6.5C18.25,10.24,17.24,11.25,16,11.25z"><animate attributeName="fill" begin="0.875s" dur="1s" values="rgb(201,201,201);rgb(55,55,55)" calcMode="linear" repeatCount="indefinite" /></path></svg>');
     }
 }
@@ -745,7 +749,7 @@ input::-webkit-credit-card-auto-fill-button:active {
     background-color: rgb(0, 60, 219);
 }
 
-input::-webkit-loading-auto-fill-button {
+input::-internal-loading-auto-fill-button {
     background-image: url('data:image/svg+xml,<svg width="22" height="12" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xml:space="preserve"><path fill="rgb(55,55,55)" d="M19.36,12.64L19.36,12.64c-0.88-0.88-0.88-2.3,0-3.18l4.6-4.6c0.88-0.88,2.3-0.88,3.18,0l0,0c0.88,0.88,0.88,2.3,0,3.18l-4.6,4.6C21.66,13.52,20.24,13.52,19.36,12.64z"><animate attributeName="fill" begin="0s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(76,76,76)" d="M20.75,16L20.75,16c0-1.24,1.01-2.25,2.25-2.25l6.5,0c1.24,0,2.25,1.01,2.25,2.25v0c0,1.24-1.01,2.25-2.25,2.25l-6.5,0C21.76,18.25,20.75,17.24,20.75,16z"><animate attributeName="fill" begin="0.125s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(97,97,97)" d="M27.14,27.14L27.14,27.14c-0.88,0.88-2.3,0.88-3.18,0l-4.6-4.6c-0.88-0.88-0.88-2.3,0-3.18l0,0c0.88-0.88,2.3-0.88,3.18,0l4.6,4.6C28.02,24.83,28.02,26.26,27.14,27.14z"><animate attributeName="fill" begin="0.25s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(118,118,118)" d="M16,31.75L16,31.75c-1.24,0-2.25-1.01-2.25-2.25l0-6.5c0-1.24,1.01-2.25,2.25-2.25h0c1.24,0,2.25,1.01,2.25,2.25l0,6.5C18.25,30.74,17.24,31.75,16,31.75z"><animate attributeName="fill" begin="0.375s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(138,138,138)" d="M4.86,27.14L4.86,27.14c-0.88-0.88-0.88-2.3,0-3.18l4.6-4.6c0.88-0.88,2.3-0.88,3.18,0l0,0c0.88,0.88,0.88,2.3,0,3.18l-4.6,4.6C7.17,28.02,5.74,28.02,4.86,27.14z"><animate attributeName="fill" begin="0.5s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(159,159,159)" d="M0.25,16L0.25,16c0-1.24,1.01-2.25,2.25-2.25l6.5,0c1.24,0,2.25,1.01,2.25,2.25v0c0,1.24-1.01,2.25-2.25,2.25l-6.5,0C1.26,18.25,0.25,17.24,0.25,16z"><animate attributeName="fill" begin="0.625s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(180,180,180)" d="M12.64,12.64L12.64,12.64c-0.88,0.88-2.3,0.88-3.18,0l-4.6-4.6c-0.88-0.88-0.88-2.3,0-3.18l0,0c0.88-0.88,2.3-0.88,3.18,0l4.6,4.6C13.52,10.34,13.52,11.76,12.64,12.64z"><animate attributeName="fill" begin="0.75s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path><path fill="rgb(201,201,201)" d="M16,11.25L16,11.25c-1.24,0-2.25-1.01-2.25-2.25l0-6.5c0-1.24,1.01-2.25,2.25-2.25h0c1.24,0,2.25,1.01,2.25,2.25l0,6.5C18.25,10.24,17.24,11.25,16,11.25z"><animate attributeName="fill" begin="0.875s" dur="1s" values="rgb(86,86,86);rgb(207,207,207)" calcMode="linear" repeatCount="indefinite" /></path></svg>');
     width: 22px;
     height: 12px;
@@ -756,7 +760,6 @@ input::-webkit-loading-auto-fill-button {
 }
 
 input::-webkit-caps-lock-indicator {
-    appearance: auto;
     content: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"><path fill="black" fill-opacity="0.4" d="M12.5 0.5A 4 4 0 0 1 16.5 4.5L 16.5 12.5A 4 4 0 0 1 12.5 16.5L 4.5 16.5A 4 4 0 0 1 0.5 12.5L 0.5 4.5A 4 4 0 0 1 4.5 0.5L 12.5 0.5M 8.5 2L 4 7L 6.25 7L 6.25 10.25L 10.75 10.25L 10.75 7L 13 7L 8.5 2M 10.75 12L 6.25 12L 6.25 14.25L 10.75 14.25L 10.75 12"/></svg>');
     max-width: 17px;
     align-self: stretch;
@@ -808,7 +811,7 @@ textarea {
     padding-block: 2px;
 #endif
     flex-direction: column;
-    resize: auto;
+    resize: -internal-textarea-auto;
     cursor: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -1333,7 +1336,7 @@ nobr {
 }
 
 /* Read-only text fields do not show a focus ring but do still receive focus */
-html:focus, body:focus, input[readonly]:focus, applet:focus, embed:focus, iframe:focus, object:focus {
+html:focus, body:focus, input[readonly]:focus, embed:focus, iframe:focus, object:focus {
     outline: none;
 }
 
@@ -1363,24 +1366,30 @@ area:any-link {
 }
 
 /* HTML5 ruby elements */
-
-ruby, rt {
-    text-indent: 0; /* blocks used for ruby rendering should not trigger this */
+/* Note that text-tracks.css contains a subset of this ruby styling for WebVTT elements. It should be kept in sync. */
+ruby {
+    display: ruby;
 }
 
-rt {
+ruby, rt {
+    text-indent: 0;
+}
+
+ruby > rt {
+    display: ruby-text;
+    font-size: -webkit-ruby-text;
+    text-align: start;
     line-height: normal;
     text-emphasis: none;
 }
 
-ruby > rt {
-    display: block;
-    font-size: -webkit-ruby-text;
-    text-align: start;
-}
-
 ruby > rp {
     display: none;
+}
+
+/* Avoid wrapping children of implicit ruby bases. We don't support <rb> or <rbc>, avoid giving them any behaviors. */
+ruby > :not(rb, rbc, ruby) {
+    white-space: nowrap;
 }
 
 /* other elements */
@@ -1427,7 +1436,7 @@ slot {
 }
 
 #if defined(WTF_PLATFORM_IOS_FAMILY) && WTF_PLATFORM_IOS_FAMILY
-applet, embed, object, img {
+embed, object, img {
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
 :any-link img {

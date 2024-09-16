@@ -172,13 +172,30 @@ _dwarf_make_CU_Context(Dwarf_Debug dbg,
     READ_UNALIGNED(dbg, cu_context->cc_version_stamp, Dwarf_Half,
 		   cu_ptr, sizeof(Dwarf_Half));
     cu_ptr += sizeof(Dwarf_Half);
-
-    READ_UNALIGNED(dbg, abbrev_offset, Dwarf_Signed,
-		   cu_ptr, local_length_size);
-    cu_ptr += local_length_size;
-    cu_context->cc_abbrev_offset = (Dwarf_Sword) abbrev_offset;
-
-    cu_context->cc_address_size = *(Dwarf_Small *) cu_ptr;
+    
+	/* DWARF 5 CU header. */
+	if (cu_context->cc_version_stamp >= 5) {
+		READ_UNALIGNED(dbg, cu_context->cc_unit_type, Dwarf_Small,
+					   cu_ptr, sizeof(Dwarf_Small));
+		cu_ptr += sizeof(Dwarf_Small);
+		
+		READ_UNALIGNED(dbg, cu_context->cc_address_size, Dwarf_Small,
+					   cu_ptr, sizeof(Dwarf_Small));
+		cu_ptr += sizeof(Dwarf_Small);
+		
+		READ_UNALIGNED(dbg, abbrev_offset, Dwarf_Signed,
+					   cu_ptr, local_length_size);
+		cu_ptr += local_length_size;
+		cu_context->cc_abbrev_offset = (Dwarf_Sword) abbrev_offset;
+    }
+	/* DWARF 2-4 CU header. */
+	else {
+		READ_UNALIGNED(dbg, abbrev_offset, Dwarf_Signed,
+					   cu_ptr, local_length_size);
+		cu_ptr += local_length_size;
+		cu_context->cc_abbrev_offset = (Dwarf_Sword) abbrev_offset;
+		cu_context->cc_address_size = *(Dwarf_Small *) cu_ptr;
+    }
 
     if ((length < CU_VERSION_STAMP_SIZE + local_length_size +
 	 CU_ADDRESS_SIZE_SIZE) ||
@@ -198,7 +215,8 @@ _dwarf_make_CU_Context(Dwarf_Debug dbg,
 
     if (cu_context->cc_version_stamp != CURRENT_VERSION_STAMP
 	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP3
-	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP4) {
+	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP4
+	&& cu_context->cc_version_stamp != CURRENT_VERSION_STAMP5) {
 	dwarf_dealloc(dbg, cu_context, DW_DLA_CU_CONTEXT);
 	_dwarf_error(dbg, error, DW_DLE_VERSION_STAMP_ERROR);
 	return (NULL);
@@ -328,6 +346,72 @@ dwarf_next_cu_header(Dwarf_Debug dbg,
     return (DW_DLV_OK);
 }
 
+/*
+ Sets the size of the header for the debug_str_offset
+ section if it exists, also warns if there are multiple
+ compile unit contributions into the debug_str_offset
+ section. Multiple debug_str_offsets contributions
+ are not (yet) supported.
+ */
+
+int dwarf_check_str_offset(Dwarf_Debug dbg)
+{
+	Dwarf_Unsigned length;
+	Dwarf_Half version;
+	Dwarf_Half padding;
+	Dwarf_Small headersize = 0;
+	Dwarf_Small entrysize = 4;
+	Dwarf_Word stringoff;
+	Dwarf_Error error = NULL;
+	int res;
+	
+	res =
+	_dwarf_load_section(dbg,
+						dbg->de_debug_str_offset_index,
+						&dbg->de_debug_str_offset, &error);
+	
+	if (res != DW_DLV_OK) {
+		dbg->de_debug_str_offset_header_size = 0;
+		return res;
+	}
+	
+	// Read the .debug_str_offset section size.
+	READ_UNALIGNED(dbg, length, Dwarf_Unsigned,
+				   dbg->de_debug_str_offset,
+				   ORIGINAL_DWARF_OFFSET_SIZE);
+	
+	headersize += ORIGINAL_DWARF_OFFSET_SIZE;
+	
+	if (length == DISTINGUISHED_VALUE) {
+		READ_UNALIGNED(dbg, length, Dwarf_Unsigned,
+					   dbg->de_debug_str_offset + headersize,
+					   DISTINGUISHED_VALUE_OFFSET_SIZE);
+		headersize += DISTINGUISHED_VALUE_OFFSET_SIZE;
+		entrysize = 8;
+	}
+	
+	// Read the .debug_str_offset section DWARF version.
+	READ_UNALIGNED(dbg, version, Dwarf_Half,
+				   dbg->de_debug_str_offset + headersize,
+				   sizeof(Dwarf_Half));
+	headersize += sizeof(Dwarf_Half);
+	
+	// Read .debug_str_offset padding value.
+	READ_UNALIGNED(dbg, padding, Dwarf_Half,
+				   dbg->de_debug_str_offset + headersize,
+				   sizeof(Dwarf_Half));
+	headersize += sizeof(Dwarf_Half);
+	
+	dbg->de_debug_str_offset_header_size = headersize;
+	dbg->de_debug_str_offset_entry_size = entrysize;
+	
+	if (length + entrysize < dbg->de_debug_str_offset_size) {
+		fprintf(stderr, "Warning: unsupported, multiple debug_str_offset contributions found");
+		return DW_DLV_ERROR;
+	}
+	
+	return DW_DLV_OK;
+}
 
 /* 
     This function does two slightly different things
@@ -408,6 +492,9 @@ _dwarf_next_die_info_ptr(Dwarf_Byte_Ptr die_info_ptr,
 		attr_form = (Dwarf_Half) utmp6;
 
 	}
+    
+	if (attr_form == DW_FORM_implicit_const)
+		DECODE_LEB128_UWORD(abbrev_ptr, utmp2)
 
 	if (want_AT_sibling && attr == DW_AT_sibling) {
 	    switch (attr_form) {
@@ -526,7 +613,8 @@ dwarf_siblingof(Dwarf_Debug dbg,
 
 	off2 = dbg->de_cu_context->cc_debug_info_offset;
 	die_info_ptr = dbg->de_debug_info +
-	    off2 + _dwarf_length_of_cu_header(dbg, off2);
+		off2 + _dwarf_length_of_cu_header(dbg, off2,
+									  dbg->de_cu_context->cc_version_stamp);
 
 	cu_info_start = dbg->de_debug_info +
 	    dbg->de_cu_context->cc_debug_info_offset;

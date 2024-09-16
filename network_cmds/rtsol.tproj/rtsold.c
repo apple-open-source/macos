@@ -60,7 +60,7 @@ int dflag = 0;
 static int log_upto = 999;
 static int fflag = 0;
 
-/* protocol constatns */
+/* protocol constants */
 #define MAX_RTR_SOLICITATION_DELAY	1 /* second */
 #define RTR_SOLICITATION_INTERVAL	4 /* seconds */
 #define MAX_RTR_SOLICITATIONS		3 /* times */
@@ -197,7 +197,7 @@ main(argc, argv)
 	}
 
 #ifndef HAVE_ARC4RANDOM
-	/* random value initilization */
+	/* random value initialization */
 	srandom((u_long)time(NULL));
 #endif
 
@@ -242,12 +242,6 @@ main(argc, argv)
 			/*NOTREACHED*/
 		}
 		argv++;
-	}
-
-	/* setup for probing default routers */
-	if (probe_init()) {
-		errx(1, "failed to setup for probing routers");
-		/*NOTREACHED*/
 	}
 
 	if (!fflag)
@@ -331,7 +325,7 @@ ifconfig(char *ifname)
 	}
 	if (find_ifinfo(sdl->sdl_index)) {
 		warnmsg(LOG_ERR, __FUNCTION__,
-			"interface %s was already cofigured", ifname);
+			"interface %s was already configured", ifname);
 		free(sdl);
 		return(-1);
 	}
@@ -524,8 +518,9 @@ rtsol_check_timer()
 					ifinfo->state = IFS_PROBE;
 				}
 
-				if (probe && mobile_node)
-					defrouter_probe(ifinfo->sdl->sdl_index);
+				if (probe && mobile_node) {
+					defrouter_probe(ifinfo->sdl->sdl_index, 0);
+				}
 				break;
 			}
 			case IFS_DELAY:

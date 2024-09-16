@@ -28,7 +28,6 @@
 
 #include "BlobRegistryProxy.h"
 #include "BlockingResponseMap.h"
-#include "DataReference.h"
 #include "HangDetectionDisabler.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
@@ -65,10 +64,6 @@
 #include <WebCore/SubframeLoader.h>
 #include <wtf/Atomics.h>
 #include <wtf/URL.h>
-
-#if PLATFORM(MAC)
-#include "StringUtilities.h"
-#endif
 
 #if PLATFORM(GTK)
 #include <WebCore/SelectionData.h>

@@ -1,4 +1,5 @@
-/*  Copyright © 2017-2018 Apple Inc. All rights reserved.
+/*
+ * Copyright © 2017-2023 Apple Inc. All rights reserved.
  *
  *  lf_hfs.h
  *  livefiles_hfs
@@ -408,6 +409,8 @@ enum privdirtype {
 //#define HFS_CS_METADATA_PIN     0x2000000
 #define HFS_FEATURE_BARRIER     0x8000000    /* device supports barrier-only flush */
 //#define HFS_CS_SWAPFILE_PIN    0x10000000
+//#define HFS_RUN_SYNCER         0x20000000 /* not-in-use for LF */
+#define HFS_EXPANDED_TIMES       0x40000000
 
 /* Macro to update next allocation block in the HFS mount structure.  If
  * the HFS_SKIP_UPDATE_NEXT_ALLOCATION is set, do not update

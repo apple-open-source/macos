@@ -34,6 +34,8 @@
 #include <wtf/FileSystem.h>
 #include <wtf/HexNumber.h>
 #include <wtf/RunLoop.h>
+#include <wtf/StdLibExtras.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 
@@ -67,7 +69,7 @@ void DeviceIdHashSaltStorage::completePendingHandler(CompletionHandler<void(Hash
 }
 
 DeviceIdHashSaltStorage::DeviceIdHashSaltStorage(const String& deviceIdHashSaltStorageDirectory)
-    : m_queue(WorkQueue::create("com.apple.WebKit.DeviceIdHashSaltStorage"))
+    : m_queue(WorkQueue::create("com.apple.WebKit.DeviceIdHashSaltStorage"_s))
     , m_deviceIdHashSaltStorageDirectory(!deviceIdHashSaltStorageDirectory.isEmpty() ? FileSystem::pathByAppendingComponent(deviceIdHashSaltStorageDirectory, String::number(deviceIdHashSaltStorageVersion)) : String())
 {
     if (m_deviceIdHashSaltStorageDirectory.isEmpty()) {
@@ -208,13 +210,13 @@ void DeviceIdHashSaltStorage::completeDeviceIdHashSaltForOriginCall(SecurityOrig
 {
     auto origins = makeString(documentOrigin.toString(), parentOrigin.toString());
     auto& deviceIdHashSalt = m_deviceIdHashSaltForOrigins.ensure(origins, [documentOrigin = WTFMove(documentOrigin), parentOrigin = WTFMove(parentOrigin)] () mutable {
-        uint64_t randomData[randomDataSize];
-        cryptographicallyRandomValues(randomData, sizeof(randomData));
+        std::array<uint64_t, randomDataSize> randomData;
+        cryptographicallyRandomValues(asWritableBytes(std::span<uint64_t> { randomData }));
 
         StringBuilder builder;
         builder.reserveCapacity(hashSaltSize);
-        for (unsigned i = 0; i < randomDataSize; i++)
-            builder.append(hex(randomData[i]));
+        for (uint64_t number : randomData)
+            builder.append(hex(number));
 
         String deviceIdHashSalt = builder.toString();
 

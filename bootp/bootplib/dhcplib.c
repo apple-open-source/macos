@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,9 +60,9 @@ dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
 				     struct dhcp * dp, int pkt_len,
 				     dhcpol_t * options)
 {
-    int 		i;
-    int			j;
-    int			len;
+    int			hlen;
+    boolean_t		invalid_hlen = FALSE;
+    char		ntopbuf[INET_ADDRSTRLEN];
 
     STRING_APPEND(str, "op = ");
     if (dp->dp_op == BOOTREQUEST) {
@@ -72,40 +72,43 @@ dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
 	STRING_APPEND(str, "BOOTREPLY\n");
     }
     else {
-	i = dp->dp_op;
-	STRING_APPEND(str, "OP(%d)\n", i);
+	STRING_APPEND(str, "OP(%d)\n", (int)dp->dp_op);
     }
-    
-    i = dp->dp_htype;
-    STRING_APPEND(str, "htype = %d\n", i);
-    
-    STRING_APPEND(str, "flags = %x\n", ntohs(dp->dp_flags));
-    len = dp->dp_hlen;
-    STRING_APPEND(str, "hlen = %d\n", len);
-    
-    i = dp->dp_hops;
-    STRING_APPEND(str, "hops = %d\n", i);
-    
+    STRING_APPEND(str, "htype = %d\n", (int)dp->dp_htype);
+    STRING_APPEND(str, "flags = 0x%x\n", ntohs(dp->dp_flags));
+    hlen = dp->dp_hlen;
+    if (hlen > sizeof(dp->dp_chaddr)) {
+	STRING_APPEND(str, "hlen = %d (invalid > %lu)\n",
+		      hlen, sizeof(dp->dp_chaddr));
+	hlen = sizeof(dp->dp_chaddr);
+	invalid_hlen = TRUE;
+    }
+    else {
+	STRING_APPEND(str, "hlen = %d\n", hlen);
+    }
+    STRING_APPEND(str, "hops = %d\n", (int)dp->dp_hops);
     STRING_APPEND(str, "xid = 0x%lx\n", (u_long)ntohl(dp->dp_xid));
-    
     STRING_APPEND(str, "secs = %hu\n", ntohs(dp->dp_secs));
-    
-    STRING_APPEND(str, "ciaddr = %s\n", inet_ntoa(dp->dp_ciaddr));
-    STRING_APPEND(str, "yiaddr = %s\n", inet_ntoa(dp->dp_yiaddr));
-    STRING_APPEND(str, "siaddr = %s\n", inet_ntoa(dp->dp_siaddr));
-    STRING_APPEND(str, "giaddr = %s\n", inet_ntoa(dp->dp_giaddr));
-    
-    STRING_APPEND(str, "chaddr = ");
-    for (j = 0; j < len; j++) {
-	i = dp->dp_chaddr[j];
-	STRING_APPEND(str, "%0x", i);
-	if (j < (len - 1)) STRING_APPEND(str, ":");
+    STRING_APPEND(str, "ciaddr = %s\n",
+		  inet_ntop(AF_INET, &dp->dp_ciaddr, ntopbuf, sizeof(ntopbuf)));
+    STRING_APPEND(str, "yiaddr = %s\n",
+		  inet_ntop(AF_INET, &dp->dp_yiaddr, ntopbuf, sizeof(ntopbuf)));
+    STRING_APPEND(str, "siaddr = %s\n",
+		  inet_ntop(AF_INET, &dp->dp_siaddr, ntopbuf, sizeof(ntopbuf)));
+    STRING_APPEND(str, "giaddr = %s\n",
+		  inet_ntop(AF_INET, &dp->dp_giaddr, ntopbuf, sizeof(ntopbuf)));
+    STRING_APPEND(str, "chaddr = %s", invalid_hlen ? "[truncated] " : "");
+    for (int i = 0; i < hlen; i++) {
+	if (i != 0) {
+	    STRING_APPEND(str, ":");
+	}
+	STRING_APPEND(str, "%0x", (int)dp->dp_chaddr[i]);
     }
     STRING_APPEND(str, "\n");
-    
-    STRING_APPEND(str, "sname = %s\n", dp->dp_sname);
-    STRING_APPEND(str, "file = %s\n", dp->dp_file);
-
+    STRING_APPEND(str, "sname = %.*s\n", (int)sizeof(dp->dp_sname),
+		  dp->dp_sname);
+    STRING_APPEND(str, "file = %.*s\n", (int)sizeof(dp->dp_file),
+		  dp->dp_file);
     if (options != NULL && dhcpol_count(options) > 0) {
 	STRING_APPEND(str, "options:\n");
 	dhcpol_print_cfstr(str, options);

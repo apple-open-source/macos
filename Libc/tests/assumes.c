@@ -3,11 +3,11 @@
 
 #include <darwintest.h>
 
-void os_crash_function(const char *message);
-
 static const char *__unsafe_indexable expected_message = NULL;
 
-void os_crash_function(const char *message) {
+static void
+os_crash_function(const char *message)
+{
 	if (expected_message) {
 		T_ASSERT_EQ_STR(__terminated_by_to_indexable(message), __unsafe_forge_single(const char *, expected_message), NULL);
 		T_END;
@@ -16,6 +16,7 @@ void os_crash_function(const char *message) {
 		T_END;
 	}
 }
+os_crash_redirect(os_crash_function);
 
 #if __has_feature(bounds_attributes)
 T_DECL(os_crash_sanity_fbounds_safety, "sanity check for os_crash")

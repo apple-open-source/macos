@@ -58,8 +58,6 @@
 #include "RenderStyleSetters.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
-#include "RubyElement.h"
-#include "RubyTextElement.h"
 #include "SVGElement.h"
 #include "SVGGraphicsElement.h"
 #include "SVGNames.h"
@@ -69,10 +67,12 @@
 #include "ShadowRoot.h"
 #include "StyleSelfAlignmentData.h"
 #include "StyleUpdate.h"
+#include "Styleable.h"
 #include "Text.h"
 #include "TouchAction.h"
 #include "TypedElementDescendantIterator.h"
 #include "TypedElementDescendantIteratorInlines.h"
+#include "VisibilityAdjustment.h"
 #include "WebAnimationTypes.h"
 #include <wtf/RobinHoodHashSet.h>
 
@@ -89,7 +89,7 @@ namespace Style {
 
 using namespace HTMLNames;
 
-Adjuster::Adjuster(const Document& document, const RenderStyle& parentStyle, const RenderStyle* parentBoxStyle, const Element* element)
+Adjuster::Adjuster(const Document& document, const RenderStyle& parentStyle, const RenderStyle* parentBoxStyle, Element* element)
     : m_document(document)
     , m_parentStyle(parentStyle)
     , m_parentBoxStyle(parentBoxStyle ? *parentBoxStyle : m_parentStyle)
@@ -101,7 +101,7 @@ Adjuster::Adjuster(const Document& document, const RenderStyle& parentStyle, con
 static void addIntrinsicMargins(RenderStyle& style)
 {
     // Intrinsic margin value.
-    const int intrinsicMargin = clampToInteger(2 * style.effectiveZoom());
+    const int intrinsicMargin = clampToInteger(2 * style.usedZoom());
 
     // FIXME: Using width/height alone and not also dealing with min-width/max-width is flawed.
     // FIXME: Using "hasQuirk" to decide the margin wasn't set is kind of lame.
@@ -266,7 +266,7 @@ static bool isScrollableOverflow(Overflow overflow)
     return overflow == Overflow::Scroll || overflow == Overflow::Auto;
 }
 
-static OptionSet<TouchAction> computeEffectiveTouchActions(const RenderStyle& style, OptionSet<TouchAction> effectiveTouchActions)
+static OptionSet<TouchAction> computeUsedTouchActions(const RenderStyle& style, OptionSet<TouchAction> usedTouchActions)
 {
     // https://w3c.github.io/pointerevents/#determining-supported-touch-behavior
     // "A touch behavior is supported if it conforms to the touch-action property of each element between
@@ -275,22 +275,22 @@ static OptionSet<TouchAction> computeEffectiveTouchActions(const RenderStyle& st
 
     bool hasDefaultTouchBehavior = isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY());
     if (hasDefaultTouchBehavior)
-        effectiveTouchActions = RenderStyle::initialTouchActions();
+        usedTouchActions = RenderStyle::initialTouchActions();
 
     auto touchActions = style.touchActions();
     if (touchActions == RenderStyle::initialTouchActions())
-        return effectiveTouchActions;
+        return usedTouchActions;
 
-    if (effectiveTouchActions.contains(TouchAction::None))
+    if (usedTouchActions.contains(TouchAction::None))
         return { TouchAction::None };
 
-    if (effectiveTouchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation }))
+    if (usedTouchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation }))
         return touchActions;
 
     if (touchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation }))
-        return effectiveTouchActions;
+        return usedTouchActions;
 
-    auto sharedTouchActions = effectiveTouchActions & touchActions;
+    auto sharedTouchActions = usedTouchActions & touchActions;
     if (sharedTouchActions.isEmpty())
         return { TouchAction::None };
 
@@ -387,9 +387,10 @@ static bool hasUnsupportedRubyDisplay(DisplayType display, const Element* elemen
     switch (display) {
     case DisplayType::Ruby:
     case DisplayType::RubyBlock:
-        return !element || !element->hasTagName(rubyTag);
+        // Test for localName so this also allows WebVTT ruby elements.
+        return !element || !element->hasLocalName(rubyTag->localName());
     case DisplayType::RubyAnnotation:
-        return !element || !element->hasTagName(rtTag);
+        return !element || !element->hasLocalName(rtTag->localName());
     case DisplayType::RubyBase:
         ASSERT_NOT_REACHED();
         return false;
@@ -421,18 +422,17 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     if (style.display() == DisplayType::Contents)
         adjustDisplayContentsStyle(style);
 
+    if (m_element && (m_element->hasTagName(frameTag) || m_element->hasTagName(framesetTag))) {
+        // Framesets ignore display and position properties.
+        style.setPosition(PositionType::Static);
+        style.setEffectiveDisplay(DisplayType::Block);
+    }
+
     if (style.display() != DisplayType::None && style.display() != DisplayType::Contents) {
         if (m_element) {
             // Tables never support the -webkit-* values for text-align and will reset back to the default.
             if (is<HTMLTableElement>(*m_element) && (style.textAlign() == TextAlignMode::WebKitLeft || style.textAlign() == TextAlignMode::WebKitCenter || style.textAlign() == TextAlignMode::WebKitRight))
                 style.setTextAlign(TextAlignMode::Start);
-
-            // Frames and framesets never honor position:relative or position:absolute. This is necessary to
-            // fix a crash where a site tries to position these objects. They also never honor display.
-            if (m_element->hasTagName(frameTag) || m_element->hasTagName(framesetTag)) {
-                style.setPosition(PositionType::Static);
-                style.setEffectiveDisplay(DisplayType::Block);
-            }
 
             // Ruby text does not support float or position. This might change with evolution of the specification.
             if (m_element->hasTagName(rtTag)) {
@@ -458,7 +458,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
 
         // FIXME: Don't support this mutation for pseudo styles like first-letter or first-line, since it's not completely
         // clear how that should work.
-        if (style.display() == DisplayType::Inline && style.styleType() == PseudoId::None && style.writingMode() != m_parentStyle.writingMode())
+        if (style.display() == DisplayType::Inline && style.pseudoElementType() == PseudoId::None && style.writingMode() != m_parentStyle.writingMode())
             style.setEffectiveDisplay(DisplayType::InlineBlock);
 
         // After performing the display mutation, check table rows. We do not honor position:relative or position:sticky on
@@ -505,7 +505,6 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
         if (style.hasAutoSpecifiedZIndex())
             return true;
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
         // SVG2: Contrary to the rules in CSS 2.1, the z-index property applies to all SVG elements regardless
         // of the value of the position property, with one exception: as for boxes in CSS 2.1, outer ‘svg’ elements
         // must be positioned for z-index to apply to them.
@@ -515,9 +514,6 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
 
             return false;
         }
-#else
-        UNUSED_PARAM(element);
-#endif
 
         // Make sure our z-index value is only applied if the object is positioned.
         return style.position() == PositionType::Static && !parentBoxStyle.isDisplayFlexibleOrGridBox();
@@ -540,14 +536,10 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
         if (style.hasTransformRelatedProperty())
             return true;
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
         if (element && element->document().settings().layerBasedSVGEngineEnabled()) {
             if (auto* graphicsElement = dynamicDowncast<SVGGraphicsElement>(element); graphicsElement && graphicsElement->hasTransformRelatedAttributes())
                 return true;
         }
-#else
-        UNUSED_PARAM(element);
-#endif
 
         return false;
     };
@@ -584,7 +576,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             style.setTextSecurity(style.inputSecurity() == InputSecurity::Auto ? TextSecurity::Disc : TextSecurity::None);
 
         // Disallow -webkit-user-modify on :pseudo and ::pseudo elements.
-        if (!m_element->shadowPseudoId().isNull())
+        if (m_element->isInUserAgentShadowTree() && !m_element->userAgentPart().isNull())
             style.setUserModify(UserModify::ReadOnly);
 
         if (is<HTMLMarqueeElement>(*m_element)) {
@@ -603,6 +595,9 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             if (isVertical && style.height().isAuto())
                 style.setHeight(Length(200, LengthType::Fixed));
         }
+
+        if (UNLIKELY(m_element->visibilityAdjustment().contains(VisibilityAdjustment::Subtree) || m_parentStyle.isInVisibilityAdjustmentSubtree()))
+            style.setIsInVisibilityAdjustmentSubtree();
     }
 
     if (shouldInheritTextDecorationsInEffect(style, m_element))
@@ -692,6 +687,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     if (style.hasPseudoStyle(PseudoId::FirstLetter))
         style.setUnique();
 
+    // This should be kept in sync with requiresRenderingConsolidationForViewTransition
     if (style.preserves3D()) {
         bool forceToFlat = style.overflowX() != Overflow::Visible
             || style.hasOpacity()
@@ -702,7 +698,12 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             || style.hasIsolation()
             || style.hasMask()
             || style.hasBackdropFilter()
-            || style.hasBlendMode();
+            || style.hasBlendMode()
+            || style.viewTransitionName();
+        if (m_element) {
+            auto styleable = Styleable::fromElement(*m_element);
+            forceToFlat |= styleable.capturedInViewTransition();
+        }
         style.setTransformStyleForcedToFlat(forceToFlat);
     }
 
@@ -714,7 +715,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     if (m_parentBoxStyle.justifyItems().positionType() == ItemPositionType::Legacy && style.justifyItems().position() == ItemPosition::Legacy)
         style.setJustifyItems(m_parentBoxStyle.justifyItems());
 
-    style.setEffectiveTouchActions(computeEffectiveTouchActions(style, m_parentStyle.effectiveTouchActions()));
+    style.setUsedTouchActions(computeUsedTouchActions(style, m_parentStyle.usedTouchActions()));
 
     // Counterparts in Element::addToTopLayer/removeFromTopLayer & SharingResolver::canShareStyleWithElement need to match!
     auto hasInertAttribute = [] (const Element* element) -> bool {
@@ -758,7 +759,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
 #endif
     }
     if (isSkippedContentRoot(style, m_element) && m_parentStyle.contentVisibility() != ContentVisibility::Hidden)
-        style.setSkippedContentReason(style.contentVisibility());
+        style.setUsedContentVisibility(style.contentVisibility());
 
     if (style.contentVisibility() == ContentVisibility::Auto) {
         style.containIntrinsicWidthAddAuto();
@@ -819,7 +820,7 @@ void Adjuster::adjustDisplayContentsStyle(RenderStyle& style) const
         return;
     }
 
-    if (!m_element && style.styleType() != PseudoId::Before && style.styleType() != PseudoId::After) {
+    if (!m_element && style.pseudoElementType() != PseudoId::Before && style.pseudoElementType() != PseudoId::After) {
         style.setEffectiveDisplay(DisplayType::None);
         return;
     }
@@ -834,7 +835,6 @@ void Adjuster::adjustSVGElementStyle(RenderStyle& style, const SVGElement& svgEl
     if (!svgElement.isOutermostSVGSVGElement())
         style.setPosition(RenderStyle::initialPosition());
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     // SVG2: A new stacking context must be established at an SVG element for its descendants if:
     // - it is the root element
     // - the "z-index" property applies to the element and its computed value is an integer
@@ -865,12 +865,11 @@ void Adjuster::adjustSVGElementStyle(RenderStyle& style, const SVGElement& svgEl
             || style.hasPositionedMask())
         style.setUsedZIndex(0);
     }
-#endif
 
     // (Legacy)RenderSVGRoot handles zooming for the whole SVG subtree, so foreignObject content should
     // not be scaled again.
     if (svgElement.hasTagName(SVGNames::foreignObjectTag))
-        style.setEffectiveZoom(RenderStyle::initialZoom());
+        style.setUsedZoom(RenderStyle::initialZoom());
 
     // SVG text layout code expects us to be a block-level style element.
     if ((svgElement.hasTagName(SVGNames::foreignObjectTag) || svgElement.hasTagName(SVGNames::textTag)) && style.isDisplayInlineType())
@@ -955,7 +954,7 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
             static MainThreadNeverDestroyed<const AtomString> instreamNativeVideoDivClass("instream-native-video--mobile"_s);
             static MainThreadNeverDestroyed<const AtomString> videoElementID("vjs_video_3_html5_api"_s);
 
-            if (div->hasClass() && div->classNames().contains(instreamNativeVideoDivClass)) {
+            if (div->hasClassName(instreamNativeVideoDivClass)) {
                 RefPtr video = dynamicDowncast<HTMLVideoElement>(div->treeScope().getElementById(videoElementID));
                 if (video && video->isFullscreen())
                     style.setEffectiveDisplay(DisplayType::Block);
@@ -967,7 +966,7 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         static MainThreadNeverDestroyed<const AtomString> playerClassName("top-player-video-element"_s);
         bool isFullscreen = fullscreenManager->isFullscreen();
         RefPtr video = dynamicDowncast<HTMLVideoElement>(m_element);
-        if (video && isFullscreen && video->hasClass() && video->classNames().contains(playerClassName) && style.objectFit() == ObjectFit::Fill)
+        if (video && isFullscreen && video->hasClassName(playerClassName) && style.objectFit() == ObjectFit::Fill)
             style.setObjectFit(ObjectFit::Contain);
     }
 #endif
@@ -987,9 +986,9 @@ void Adjuster::propagateToDocumentElementAndInitialContainingBlock(Update& updat
     // "Additionally, when any containments are active on either the HTML html or body elements, propagation of
     // properties from the body element to the initial containing block, the viewport, or the canvas background, is disabled."
     auto shouldPropagateFromBody = [&] {
-        if (bodyStyle && !bodyStyle->effectiveContainment().isEmpty())
+        if (bodyStyle && !bodyStyle->usedContain().isEmpty())
             return false;
-        return documentElementStyle->effectiveContainment().isEmpty();
+        return documentElementStyle->usedContain().isEmpty();
     }();
 
     auto writingMode = [&] {
@@ -1137,6 +1136,13 @@ bool Adjuster::adjustForTextAutosizing(RenderStyle& style, const Element& elemen
     return adjustForTextAutosizing(style, element, adjustmentForTextAutosizing(style, element));
 }
 #endif
+
+void Adjuster::adjustVisibilityForPseudoElement(RenderStyle& style, const Element& host)
+{
+    if ((style.pseudoElementType() == PseudoId::After && host.visibilityAdjustment().contains(VisibilityAdjustment::AfterPseudo))
+        || (style.pseudoElementType() == PseudoId::Before && host.visibilityAdjustment().contains(VisibilityAdjustment::BeforePseudo)))
+        style.setIsInVisibilityAdjustmentSubtree();
+}
 
 }
 }

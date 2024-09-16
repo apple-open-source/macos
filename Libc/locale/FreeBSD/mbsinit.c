@@ -37,7 +37,7 @@ mbsinit_l(const mbstate_t *ps, locale_t loc)
 {
 
 	NORMALIZE_LOCALE(loc);
-	return (loc->__lc_ctype->__mbsinit(ps, loc));
+	return (XLOCALE_CTYPE(loc)->__mbsinit(ps, loc));
 }
 
 int

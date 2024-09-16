@@ -1,20 +1,22 @@
-//
-//  msdosFileSystem.h
-//  fsmodule
-//
-//  Created by Noa Osherovich on 27/07/2022.
-//
+/*
+ * Copyright (c) 2023 Apple Inc. All rights reserved.
+ */
 
 #import <Foundation/Foundation.h>
 #import <FSKit/FSKit.h>
 
+#include "lib_newfs_msdos.h"
+#import "msdosVolume.h"
+#import "FATVolume.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
-#define PRE_DEFINED_SECTOR_SIZE (512)
-#define EXFAT_SIGNITURE_LENGTH (11)
-#define MAX_DOS_BLOCKSIZE (4096)
+int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps);
 
-@interface msdosFileSystem : FSSimpleFileSystem <FSSimpleFileSystemOperations, FSBlockDeviceOperations>
+@interface msdosFileSystem : FSUnaryFileSystem <FSUnaryFileSystemOperations, FSBlockDeviceOperations, FSManageableResourceMaintenanceOperations>
+
+@property msdosVolume            * _Nullable volume;
+@property FSBlockDeviceResource  * _Nullable resource;
 
 @end
 

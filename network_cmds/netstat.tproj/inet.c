@@ -221,9 +221,6 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	struct xsockbuf_n *so_snd = NULL;
 	struct xsockstat_n *so_stat = NULL;
 	int which = 0;
-#ifdef XSOFF_SO_FILT
-	static bool has_vlag_extended = false;
-#endif /* XSOFF_SO_FILT */
 
 	istcp = 0;
 	switch (proto) {
@@ -386,20 +383,15 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				}
 				printf("%-11.11s",
 				       "(state)");
-				if (bflag > 0)
+				if (bflag > 0 || vflag > 0)
 					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
 				if (prioflag >= 0)
 					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
 				if (vflag > 0) {
 					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
 					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
-#ifdef XSOFF_SO_FILT
-					if (so->xso_len >= offsetof(struct xsocket_n, xso_filter_flags) + sizeof(so->xso_filter_flags)) {
-						has_vlag_extended = true;
-						printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
-						       "gencnt", "flags", "flags1", "usscnt", "rtncnt", "fltrs");
-					}
-#endif /* XSOFF_SO_FILT */
+					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
+					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
 				}
 				printf("\n");
 			}
@@ -500,7 +492,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		}
 		if (!istcp)
 			printf("%-11s", "           ");
-		if (bflag > 0) {
+		if (bflag > 0 || vflag > 0) {
 			int i;
 			u_int64_t rxbytes = 0;
 			u_int64_t txbytes = 0;
@@ -525,17 +517,13 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			       so->so_e_pid,
 			       so->so_state,
 			       so->so_options);
-#ifdef XSOFF_SO_FILT
-			if (has_vlag_extended) {
-				printf(" %016llx %08x %08x %6d %6d %06x",
-				       so->so_gencnt,
-				       so->so_flags,
-				       so->so_flags1,
-				       so->so_usecount,
-				       so->so_retaincnt,
-				       so->xso_filter_flags);
-			}
-#endif /* XSOFF_SO_FILT */
+			printf(" %016llx %08x %08x %6d %6d %06x",
+			       so->so_gencnt,
+			       so->so_flags,
+			       so->so_flags1,
+			       so->so_usecount,
+			       so->so_retaincnt,
+			       so->xso_filter_flags);
 		}
 		putchar('\n');
 	}
@@ -565,6 +553,7 @@ tcp_stats(uint32_t off , char *name, int af)
 	size_t len = sizeof tcpstat;
 	static uint32_t r_swcsum, pr_swcsum;
 	static uint32_t t_swcsum, pt_swcsum;
+	u_int pcbcount;
 
 	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.tcp.stats");
@@ -696,6 +685,10 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 	p(tcps_sack_send_blocks, "\t%u SACK option%s (SACK blocks) sent\n");
 	p1a(tcps_sack_sboverflow, "\t%u SACK scoreboard overflow\n");
 #endif /* TCP_MAX_SACK */
+	p(tcps_rack_rexmits,
+	  "\t%u segment%s retransmitted in RACK recovery episodes\n");
+	p(tcps_rack_recovery_episode, "\t%u RACK recovery episode%s\n");
+	p(tcps_rack_reordering_timeout_recovery_episode, "\t%u RACK recovery episode%s due to reordering timeout\n");
 	p(tcps_limited_txt, "\t%u limited transmit%s done\n");
 	p(tcps_early_rexmt, "\t%u early retransmit%s done\n");
 	p(tcps_sack_ackadv, "\t%u time%s cumulative ack advanced along with SACK\n");
@@ -773,6 +766,8 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 	p(tcps_timer_drift_le_1000_ms,"\t%u timer drift%s less or equal to 1000 ms\n");
 	p(tcps_timer_drift_gt_1000_ms,"\t%u timer drift%s greater than to 1000 ms\n");
 
+	p(tcps_fin_timeout_drops,"\t%u FIN_WAIT timeout drop%s\n");
+
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 		pr_swcsum = r_swcsum;
@@ -785,6 +780,14 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 #undef p2
 #undef p2a
 #undef p3
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.inet.tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open TCP socket%s\n", pcbcount, plural(pcbcount));
+	}
 }
 
 /*
@@ -796,6 +799,7 @@ mptcp_stats(uint32_t off , char *name, int af)
 	static struct tcpstat ptcpstat;
 	struct tcpstat tcpstat;
 	size_t len = sizeof tcpstat;
+	u_int pcbcount;
 
 	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.tcp.stats");
@@ -858,6 +862,14 @@ printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
 #undef p2
 #undef p2a
 #undef p3
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.inet.m[tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open MPTCP socket%s\n", pcbcount, plural(pcbcount));
+	}
 }
 
 /*
@@ -872,6 +884,7 @@ udp_stats(uint32_t off , char *name, int af )
 	uint32_t delivered;
 	static uint32_t r_swcsum, pr_swcsum;
 	static uint32_t t_swcsum, pt_swcsum;
+	u_int pcbcount;
 
 	if (sysctlbyname("net.inet.udp.stats", &udpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.udp.stats");
@@ -913,6 +926,10 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p1a(udps_noport, "\t\t%u dropped due to no socket\n");
 	p(udps_noportbcast,
 	  "\t\t%u broadcast/multicast datagram%s undelivered\n");
+#if INET6
+	p(udps_noportmcast,
+	  "\t\t%u IPv6 multicast datagram%s undelivered\n");
+#endif /* INET6 */
 	/* the next statistic is cumulative in udps_noportbcast */
 	p(udps_filtermcast,
 	  "\t\t%u time%s multicast source filter matched\n");
@@ -948,6 +965,14 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 #undef p
 #undef p1a
 #undef p2
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.inet.udp.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open UDP socket%s\n", pcbcount, plural(pcbcount));
+	}
 }
 
 /*
@@ -958,9 +983,10 @@ ip_stats(uint32_t off , char *name, int af )
 {
 	static struct ipstat pipstat;
 	struct ipstat ipstat;
-	size_t ipstat_len = sizeof ipstat;
+	size_t len = sizeof ipstat;
+	u_int pcbcount;
 
-	if (sysctlbyname("net.inet.ip.stats", &ipstat, &ipstat_len, 0, 0) < 0) {
+	if (sysctlbyname("net.inet.ip.stats", &ipstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.stats");
 		return;
 	}
@@ -1037,13 +1063,21 @@ printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 	   "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
 	if (interval > 0) {
-		bcopy(&ipstat, &pipstat, ipstat_len);
+		bcopy(&ipstat, &pipstat, len);
 	}
 
 #undef IPDIFF
 #undef p
 #undef p1a
 #undef p2
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.inet.raw.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open raw IP socket%s\n", pcbcount, plural((pcbcount)));
+	}
 }
 
 /*

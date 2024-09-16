@@ -99,7 +99,7 @@ struct ReadTextAsyncData {
     CompletionHandler<void(String&&)> completionHandler;
 };
 
-void Clipboard::readText(CompletionHandler<void(String&&)>&& completionHandler)
+void Clipboard::readText(CompletionHandler<void(String&&)>&& completionHandler, ReadMode)
 {
     gtk_clipboard_request_text(m_clipboard, [](GtkClipboard*, const char* text, gpointer userData) {
         std::unique_ptr<ReadTextAsyncData> data(static_cast<ReadTextAsyncData*>(userData));
@@ -118,7 +118,7 @@ struct ReadFilePathsAsyncData {
     CompletionHandler<void(Vector<String>&&)> completionHandler;
 };
 
-void Clipboard::readFilePaths(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+void Clipboard::readFilePaths(CompletionHandler<void(Vector<String>&&)>&& completionHandler, ReadMode)
 {
     gtk_clipboard_request_uris(m_clipboard, [](GtkClipboard*, char** uris, gpointer userData) {
         std::unique_ptr<ReadFilePathsAsyncData> data(static_cast<ReadFilePathsAsyncData*>(userData));
@@ -154,7 +154,7 @@ struct ReadURLAsyncData {
     CompletionHandler<void(String&& url, String&& title)> completionHandler;
 };
 
-void Clipboard::readURL(CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
+void Clipboard::readURL(CompletionHandler<void(String&& url, String&& title)>&& completionHandler, ReadMode)
 {
     gtk_clipboard_request_uris(m_clipboard, [](GtkClipboard*, char** uris, gpointer userData) {
         std::unique_ptr<ReadURLAsyncData> data(static_cast<ReadURLAsyncData*>(userData));
@@ -162,13 +162,13 @@ void Clipboard::readURL(CompletionHandler<void(String&& url, String&& title)>&& 
     }, new ReadURLAsyncData(WTFMove(completionHandler)));
 }
 
-void Clipboard::readBuffer(const char* format, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&)>&& completionHandler)
+void Clipboard::readBuffer(const char* format, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&)>&& completionHandler, ReadMode)
 {
     gtk_clipboard_request_contents(m_clipboard, gdk_atom_intern(format, TRUE), [](GtkClipboard*, GtkSelectionData* selection, gpointer userData) {
         std::unique_ptr<ReadBufferAsyncData> data(static_cast<ReadBufferAsyncData*>(userData));
         int contentsLength;
         const auto* contents = gtk_selection_data_get_data_with_length(selection, &contentsLength);
-        data->completionHandler(WebCore::SharedBuffer::create(contents, contentsLength > 0 ? static_cast<size_t>(contentsLength) : 0));
+        data->completionHandler(WebCore::SharedBuffer::create(std::span { contents, static_cast<size_t>(std::max(0, contentsLength)) }));
     }, new ReadBufferAsyncData(WTFMove(completionHandler)));
 }
 
@@ -230,7 +230,7 @@ void Clipboard::write(WebCore::SelectionData&& selectionData, CompletionHandler<
                 break;
             case ClipboardTargetType::Image: {
                 if (data.selectionData.hasImage()) {
-                    auto pixbuf = data.selectionData.image()->gdkPixbuf();
+                    auto pixbuf = data.selectionData.image()->adapter().gdkPixbuf();
                     gtk_selection_data_set_pixbuf(selection, pixbuf.get());
                 }
                 break;
@@ -245,15 +245,17 @@ void Clipboard::write(WebCore::SelectionData&& selectionData, CompletionHandler<
                 break;
             case ClipboardTargetType::Custom:
                 if (data.selectionData.hasCustomData()) {
-                    auto* buffer = data.selectionData.customData();
-                    gtk_selection_data_set(selection, gdk_atom_intern_static_string(WebCore::PasteboardCustomData::gtkType().characters()), 8, reinterpret_cast<const guchar*>(buffer->data()), buffer->size());
+                    auto buffer = data.selectionData.customData()->span();
+                    gtk_selection_data_set(selection, gdk_atom_intern_static_string(WebCore::PasteboardCustomData::gtkType().characters()), 8, reinterpret_cast<const guchar*>(buffer.data()), buffer.size());
                 }
                 break;
             case ClipboardTargetType::Buffer: {
                 auto* atom = gtk_selection_data_get_target(selection);
                 GUniquePtr<char> type(gdk_atom_name(atom));
-                if (auto* buffer = data.selectionData.buffer(String::fromUTF8(type.get())))
-                    gtk_selection_data_set(selection, atom, 8, reinterpret_cast<const guchar*>(buffer->data()), buffer->size());
+                if (auto* buffer = data.selectionData.buffer(String::fromUTF8(type.get()))) {
+                    auto span = buffer->span();
+                    gtk_selection_data_set(selection, atom, 8, reinterpret_cast<const guchar*>(span.data()), span.size());
+                }
                 break;
             }
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,14 @@
 
 #define APP_CLIP_ENTITLEMENT				\
 	"com.apple.security.on-demand-install-capable"
+
+// ********************************************************************************************************* //
+// *********************************** ATTENTION CODE SEARCH USERS ***************************************** //
+// **      DO NOT USE THIS ENTITLEMENT, EVEN INTERNALLY, WITHOUT GOING THROUGH PRIVACY REVIEW!            ** //
+// **                                                                                                     ** //
+// ** For 1st and 2nd party apps, reach out to privacy-entitlement@group.apple.com for approval.          ** //
+// ** For 3rd party apps, see https://at.apple.com/device-name-entitlement-public for the review process. ** //
+// ********************************************************************************************************* //
 #define DEVICE_NAME_PUBLIC_ENTITLEMENT			\
 	"com.apple.developer.device-information.user-assigned-device-name"
 

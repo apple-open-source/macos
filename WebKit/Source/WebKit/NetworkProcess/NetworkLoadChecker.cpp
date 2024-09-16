@@ -39,9 +39,11 @@
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/CrossOriginEmbedderPolicy.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
+#include <WebCore/HTTPStatusCodes.h>
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/OriginAccessPatterns.h>
 #include <wtf/Scope.h>
+#include <wtf/text/MakeString.h>
 
 #define LOAD_CHECKER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - NetworkLoadChecker::" fmt, this, ##__VA_ARGS__)
 
@@ -69,6 +71,9 @@ NetworkLoadChecker::NetworkLoadChecker(NetworkProcess& networkProcess, NetworkRe
     , m_schemeRegistry(schemeRegistry)
     , m_networkResourceLoader(networkResourceLoader)
 {
+    if (m_requestLoadType == LoadType::MainFrame)
+        m_origin = m_topOrigin;
+
     m_isSameOriginRequest = isSameOrigin(m_url, m_origin.get());
     switch (options.credentials) {
     case FetchOptions::Credentials::Include:
@@ -122,12 +127,12 @@ void NetworkLoadChecker::checkRedirection(ResourceRequest&& request, ResourceReq
 
     auto error = validateResponse(request, redirectResponse);
     if (!error.isNull()) {
-        handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to ", redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: ", error.localizedDescription())));
+        handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to "_s, redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: "_s, error.localizedDescription())));
         return;
     }
 
     if (m_options.redirect == FetchOptions::Redirect::Error) {
-        handler(redirectionError(redirectResponse, makeString("Not allowed to follow a redirection while loading ", redirectResponse.url().string())));
+        handler(redirectionError(redirectResponse, makeString("Not allowed to follow a redirection while loading "_s, redirectResponse.url().string())));
         return;
     }
     if (m_options.redirect == FetchOptions::Redirect::Manual) {
@@ -141,11 +146,11 @@ void NetworkLoadChecker::checkRedirection(ResourceRequest&& request, ResourceReq
     if (m_options.mode == FetchOptions::Mode::Cors && (!m_isSameOriginRequest || !isSameOrigin(request.url(), m_origin.get()))) {
         auto location = URL(redirectResponse.url(), redirectResponse.httpHeaderField(HTTPHeaderName::Location));
         if (m_schemeRegistry && !m_schemeRegistry->shouldTreatURLSchemeAsCORSEnabled(location.protocol())) {
-            handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to ", redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: not allowed to follow a cross-origin CORS redirection with non CORS scheme")));
+            handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to "_s, redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: not allowed to follow a cross-origin CORS redirection with non CORS scheme"_s)));
             return;
         }
         if (location.hasCredentials()) {
-            handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to ", redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: redirection URL ", location.string(), " has credentials")));
+            handler(redirectionError(redirectResponse, makeString("Cross-origin redirection to "_s, redirectRequest.url().string(), " denied by Cross-Origin Resource Sharing policy: redirection URL "_s, location.string(), " has credentials"_s)));
             return;
         }
     }
@@ -203,6 +208,18 @@ static std::optional<ResourceError> performCORPCheck(const CrossOriginEmbedderPo
 
 ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& request, ResourceResponse& response)
 {
+    if (response.containsInvalidHTTPHeaders())
+        return badResponseHeadersError(request.url());
+
+    auto scope = makeScopeExit([&] {
+        if (!checkTAO(response)) {
+            if (auto metrics = response.takeNetworkLoadMetrics()) {
+                metrics->failsTAOCheck = true;
+                response.setDeprecatedNetworkLoadMetrics(WTFMove(metrics));
+            }
+        }
+    });
+
     if (m_redirectCount)
         response.setRedirected(true);
 
@@ -234,8 +251,10 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
     ASSERT(m_options.mode == FetchOptions::Mode::Cors);
 
     // If we have a 304, the cached response is in WebProcess so we let WebProcess do the CORS check on the cached response.
-    if (response.httpStatusCode() == 304)
+    if (response.httpStatusCode() == httpStatus304NotModified) {
+        response.setTainting(ResourceResponse::Tainting::Cors);
         return { };
+    }
 
     auto result = passesAccessControlCheck(response, m_storedCredentialsPolicy, *origin(), m_networkResourceLoader.get());
     if (!result)
@@ -243,6 +262,30 @@ ResourceError NetworkLoadChecker::validateResponse(const ResourceRequest& reques
 
     response.setTainting(ResourceResponse::Tainting::Cors);
     return { };
+}
+
+// https://fetch.spec.whatwg.org/#concept-tao-check
+bool NetworkLoadChecker::checkTAO(const ResourceResponse& response)
+{
+    if (m_timingAllowFailedFlag)
+        return false;
+
+    if (m_origin) {
+        const auto& timingAllowOriginString = response.httpHeaderField(HTTPHeaderName::TimingAllowOrigin);
+        for (auto originWithSpace : StringView(timingAllowOriginString).split(',')) {
+            auto origin = originWithSpace.trim(isASCIIWhitespaceWithoutFF<UChar>);
+            if (origin == "*"_s || origin == m_origin->toString())
+                return true;
+        }
+    }
+
+    if (m_options.mode == FetchOptions::Mode::Navigate && !m_isSameOriginRequest) {
+        m_timingAllowFailedFlag = true;
+        return false;
+    }
+
+    m_timingAllowFailedFlag = response.tainting() != ResourceResponse::Tainting::Basic;
+    return !m_timingAllowFailedFlag;
 }
 
 auto NetworkLoadChecker::accessControlErrorForValidationHandler(String&& message) -> RequestOrRedirectionTripletOrError
@@ -355,7 +398,7 @@ void NetworkLoadChecker::continueCheckingRequest(ResourceRequest&& request, Vali
     }
 
     if (m_options.mode == FetchOptions::Mode::SameOrigin) {
-        handler(accessControlErrorForValidationHandler(makeString("Unsafe attempt to load URL ", request.url().stringCenterEllipsizedToLength(), " from origin ", m_origin->toString(), ". Domains, protocols and ports must match.\n")));
+        handler(accessControlErrorForValidationHandler(makeString("Unsafe attempt to load URL "_s, request.url().stringCenterEllipsizedToLength(), " from origin "_s, m_origin->toString(), ". Domains, protocols and ports must match.\n"_s)));
         return;
     }
 

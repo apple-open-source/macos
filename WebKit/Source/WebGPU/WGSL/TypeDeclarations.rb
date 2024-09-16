@@ -52,10 +52,6 @@ operator :'&', {
     must_use: true,
     const: 'constantBitwiseAnd',
 
-    # unary
-    # FIXME: move this out of here
-    [AS, T, AM].(ref[AS, T, AM]) => ptr[AS, T, AM],
-
     # binary
     [].(bool, bool) => bool,
     [N].(vec[N][bool], vec[N][bool]) => vec[N][bool],
@@ -97,10 +93,6 @@ operator :+, {
 operator :*, {
     must_use: true,
     const: "constantMultiply",
-
-    # unary
-    # FIXME: move this out of here
-    [AS, T, AM].(ptr[AS, T, AM]) => ref[AS, T, AM],
 
     # binary
     [T < Number].(T, T) => T,
@@ -297,7 +289,7 @@ constructor :bool, {
     must_use: true,
     const: true,
 
-    [T < ConcreteScalar].(T) => bool,
+    [T < Scalar].(T) => bool,
 }
 
 # 16.1.2.3.
@@ -305,7 +297,7 @@ constructor :f16, {
     must_use: true,
     const: true,
 
-    [T < ConcreteScalar].(T) => f16,
+    [T < Scalar].(T) => f16,
 }
 
 # 16.1.2.4.
@@ -313,7 +305,7 @@ constructor :f32, {
     must_use: true,
     const: true,
 
-    [T < ConcreteScalar].(T) => f32,
+    [T < Scalar].(T) => f32,
 }
 
 # 16.1.2.5.
@@ -321,7 +313,7 @@ constructor :i32, {
     must_use: true,
     const: true,
 
-    [T < ConcreteScalar].(T) => i32,
+    [T < Scalar].(T) => i32,
 }
 
 # 16.1.2.6 - 14: matCxR
@@ -347,7 +339,7 @@ constructor :u32, {
     must_use: true,
     const: true,
 
-    [T < ConcreteScalar].(T) => u32,
+    [T < Scalar].(T) => u32,
 }
 
 # 16.1.2.17.
@@ -547,6 +539,23 @@ function :dot, {
     const: true,
 
     [T < Number, N].(vec[N][T], vec[N][T]) => T
+}
+
+# FIXME: new functions were added so the spec numbers changed
+# 16.5.21
+function :dot4U8Packed, {
+    must_use: true,
+    const: true,
+
+    [].(u32, u32) => u32
+}
+
+# 16.5.22
+function :dot4I8Packed, {
+    must_use: true,
+    const: true,
+
+    [].(u32, u32) => i32
 }
 
 # 16.5.21 & 16.5.22
@@ -1058,9 +1067,17 @@ function :textureLoad, {
     must_use: true,
 
     [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_1d[S], T, U) => vec4[S],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_1d[F, read], T) => vec4[ChannelFormat[F]],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_1d[F, read_write], T) => vec4[ChannelFormat[F]],
     [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_2d[S], vec2[T], U) => vec4[S],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_2d[F, read], T) => vec4[ChannelFormat[F]],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_2d[F, read_write], T) => vec4[ChannelFormat[F]],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_2d_array[F, read], T) => vec4[ChannelFormat[F]],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_2d_array[F, read_write], T) => vec4[ChannelFormat[F]],
     [T < ConcreteInteger, V < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_2d_array[S], vec2[T], V, U) => vec4[S],
     [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_3d[S], vec3[T], U) => vec4[S],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_3d[F, read], T) => vec4[ChannelFormat[F]],
+    [F, T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_storage_3d[F, read_write], T) => vec4[ChannelFormat[F]],
     [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(texture_multisampled_2d[S], vec2[T], U) => vec4[S],
 
 
@@ -1081,6 +1098,28 @@ function :textureLoad, {
     [T < ConcreteInteger, U < ConcreteInteger].(texture_depth_multisampled_2d, vec2[T], U) => f32,
 
     [T < ConcreteInteger].(texture_external, vec2[T]) => vec4[f32],
+
+    # F is a texel format
+    # AM is the access mode
+    # C is i32, or u32
+    # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
+    # fn textureLoad(t: texture_storage_2d<F,AM>, coords: vec2<C>) -> vec4<CF>
+    [F, AM, T < ConcreteInteger].(texture_storage_2d[F, AM], vec2[T]) => vec4[ChannelFormat[F]],
+
+    # F is a texel format
+    # AM is the access mode
+    # C is i32, or u32
+    # A is i32, or u32
+    # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
+    # fn textureLoad(t: texture_storage_2d_array<F,AM>, coords: vec2<C>, array_index: A) -> vec4<CF>
+    [F, AM, T < ConcreteInteger, S < ConcreteInteger].(texture_storage_2d_array[F, AM], vec2[T], S) => vec4[ChannelFormat[F]],
+
+    # F is a texel format
+    # AM is the access mode
+    # C is i32, or u32
+    # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
+    # fn textureLoad(t: texture_storage_3d<F,AM>, coords: vec2<C>) -> vec4<CF>
+    [F, AM, T < ConcreteInteger].(texture_storage_3d[F, AM], vec3[T]) => vec4[ChannelFormat[F]],
 }
 
 # 16.7.5
@@ -1329,12 +1368,14 @@ function :textureStore, {
     # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
     # fn textureStore(t: texture_storage_1d<F,write>, coords: C, value: vec4<CF>)
     [F, T < ConcreteInteger].(texture_storage_1d[F, write], T, vec4[ChannelFormat[F]]) => void,
+    [F, T < ConcreteInteger].(texture_storage_1d[F, read_write], T, vec4[ChannelFormat[F]]) => void,
 
     # F is a texel format
     # C is i32, or u32
     # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
     # fn textureStore(t: texture_storage_2d<F,write>, coords: vec2<C>, value: vec4<CF>)
     [F, T < ConcreteInteger].(texture_storage_2d[F, write], vec2[T], vec4[ChannelFormat[F]]) => void,
+    [F, T < ConcreteInteger].(texture_storage_2d[F, read_write], vec2[T], vec4[ChannelFormat[F]]) => void,
 
     # F is a texel format
     # C is i32, or u32
@@ -1342,12 +1383,14 @@ function :textureStore, {
     # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
     # fn textureStore(t: texture_storage_2d_array<F,write>, coords: vec2<C>, array_index: A, value: vec4<CF>)
     [F, T < ConcreteInteger, S < ConcreteInteger].(texture_storage_2d_array[F, write], vec2[T], S, vec4[ChannelFormat[F]]) => void,
+    [F, T < ConcreteInteger, S < ConcreteInteger].(texture_storage_2d_array[F, read_write], vec2[T], S, vec4[ChannelFormat[F]]) => void,
 
     # F is a texel format
     # C is i32, or u32
     # CF depends on the storage texel format F. See the texel format table for the mapping of texel format to channel format.
     # fn textureStore(t: texture_storage_3d<F,write>, coords: vec3<C>, value: vec4<CF>)
     [F, T < ConcreteInteger].(texture_storage_3d[F, write], vec3[T], vec4[ChannelFormat[F]]) => void,
+    [F, T < ConcreteInteger].(texture_storage_3d[F, read_write], vec3[T], vec4[ChannelFormat[F]]) => void,
 }
 
 # 16.8. Atomic Built-in Functions (https://www.w3.org/TR/WGSL/#atomic-builtin-functions)
@@ -1388,14 +1431,142 @@ function :atomicStore, {
     }
 end
 
-# FIXME: Implement atomicCompareExchangeWeak (which depends on the result struct that is not currently supported)
-# fn atomicCompareExchangeWeak(atomic_ptr: ptr<AS, atomic<T>, read_write>, cmp: T, v: T) -> __atomic_compare_exchange_result<T>
+function :atomicCompareExchangeWeak, {
+    [AS].(ptr[AS, atomic[i32], read_write], i32, i32) => __atomic_compare_exchange_result_i32,
+    [AS].(ptr[AS, atomic[u32], read_write], u32, u32) => __atomic_compare_exchange_result_u32,
+}
 
 # 16.9. Data Packing Built-in Functions (https://www.w3.org/TR/WGSL/#pack-builtin-functions)
-# FIXME: implement
+
+# 16.9.1
+function :pack4x8snorm, {
+    # @const @must_use fn pack4x8snorm(e: vec4<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[f32]) => u32,
+}
+
+# 16.9.2
+function :pack4x8unorm, {
+    # @const @must_use fn pack4x8unorm(e: vec4<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[f32]) => u32,
+}
+
+# 16.9.3
+function :pack4xI8, {
+    # @const @must_use fn pack4xI8(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[i32]) => u32,
+}
+
+# 16.9.4
+function :pack4xU8, {
+    # @const @must_use fn pack4xu8(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[u32]) => u32,
+}
+
+# 16.9.5
+function :pack4xI8Clamp, {
+    # @const @must_use fn pack4xI8Clamp(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[i32]) => u32,
+}
+
+# 16.9.6
+function :pack4xU8Clamp, {
+    # @const @must_use fn pack4xU8Clamp(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[u32]) => u32,
+}
+
+# 16.9.7
+function :pack2x16snorm, {
+    # @const @must_use fn pack2x16snorm(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
+
+# 16.9.8
+function :pack2x16unorm, {
+    # @const @must_use fn pack2x16unorm(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
+
+# 16.9.9
+function :pack2x16float, {
+    # @const @must_use fn pack2x16float(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
 
 # 16.10. Data Unpacking Built-in Functions (https://www.w3.org/TR/WGSL/#unpack-builtin-functions)
-# FIXME: implement
+
+# 16.10.1
+function :unpack4x8snorm, {
+    # @const @must_use fn unpack4x8snorm(e: u32) -> vec4<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[f32],
+}
+
+# 16.10.2
+function :unpack4x8unorm, {
+    # @const @must_use fn unpack4x8unorm(e: u32) -> vec4<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[f32],
+}
+
+# 16.10.3
+function :unpack4xI8, {
+    # @const @must_use fn unpack4xI8(e: u32) -> vec4<i32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[i32],
+}
+
+# 16.10.4
+function :unpack4xU8, {
+    # @const @must_use fn unpack4xU8(e: u32) -> vec4<u32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[u32],
+}
+
+# 16.10.5
+function :unpack2x16snorm, {
+    # @const @must_use fn unpack2x16snorm(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
+
+# 16.10.6
+function :unpack2x16unorm, {
+    # @const @must_use fn unpack2x16unorm(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
+
+# 16.10.7
+function :unpack2x16float, {
+    # @const @must_use fn unpack2x16float(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
 
 # 16.11. Synchronization Built-in Functions (https://www.w3.org/TR/WGSL/#sync-builtin-functions)
 
@@ -1408,6 +1579,14 @@ function :storageBarrier, {
 }
 
 # 16.11.2.
+function :textureBarrier, {
+    stage: :compute,
+
+    # fn textureBarrier()
+    [].() => void,
+}
+
+# 16.11.3.
 function :workgroupBarrier, {
     stage: :compute,
 
@@ -1415,11 +1594,11 @@ function :workgroupBarrier, {
     [].() => void,
 }
 
-# 16.11.3.
+# 16.11.4.
 function :workgroupUniformLoad, {
     must_use: true,
     stage: :compute,
 
     # @must_use fn workgroupUniformLoad(p : ptr<workgroup, T>) -> T
-    [T].(ptr[workgroup, T]) => void,
+    [T].(ptr[workgroup, T]) => T,
 }

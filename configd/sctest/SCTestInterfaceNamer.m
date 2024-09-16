@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -236,8 +236,54 @@ copy_interface_mac(IOEthernetControllerRef controller)
 	return macAddress;
 }
 
+static CFDictionaryRef
+copyDictionaryWithKeyValue(CFStringRef key, CFTypeRef value)
+{
+	return CFDictionaryCreate(NULL,
+				  (const void * *)&key, (const void * *)&value,
+				  1,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+}
+
+static CFDictionaryRef
+copyOverridesDictionary(void)
+{
+	int		i;
+	CFDictionaryRef	ipv4;
+	CFDictionaryRef	ipv6;
+	const void * 	keys[3];
+	const void * 	values[3];
+
+	ipv4 = copyDictionaryWithKeyValue(kSCPropNetIPv4ConfigMethod,
+					  kSCValNetIPv4ConfigMethodDHCP);
+	ipv6 = copyDictionaryWithKeyValue(kSCPropNetIPv6ConfigMethod,
+					  kSCValNetIPv6ConfigMethodAutomatic);
+	i = 0;
+
+	keys[i] = kSCEntNetIPv4;
+	values[i] = ipv4;
+	i++;
+
+	keys[i] = kSCEntNetIPv6;
+	values[i] = ipv6;
+	i++;
+
+	keys[i] = kSCPropNetServicePrimaryRank;
+	values[i] = CFSTR("Never");
+	i++;
+
+	return CFDictionaryCreate(NULL,
+				  keys,
+				  values,
+				  i,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+}
+
+
 static IOEthernetControllerRef
-create_hidden_interface(u_char ea_unique)
+create_hidden_interface(u_char ea_unique, Boolean add_overrides)
 {
 	IOEthernetControllerRef	controller;
 	CFDataRef 		data;
@@ -258,12 +304,25 @@ create_hidden_interface(u_char ea_unique)
 	merge = CFDictionaryCreateMutable(NULL, 0,
 					  &kCFTypeDictionaryKeyCallBacks,
 					  &kCFTypeDictionaryValueCallBacks);
+#define kIOUserEthernetNamePrefix           "NamePrefix"
+	CFDictionarySetValue(props,
+			     CFSTR(kIOUserEthernetNamePrefix),
+			     CFSTR("tst"));
+	CFDictionarySetValue(merge, CFSTR("IsEphemeral"), kCFBooleanTrue);
 	CFDictionarySetValue(merge, CFSTR(kIOPropertyProductNameKey),		CFSTR("Hidden Ethernet"));
 	CFDictionarySetValue(merge, kIOUserEthernetInterfaceRole,		CFSTR("hidden-ethernet"));
 	CFDictionarySetValue(merge, kSCNetworkInterfaceHiddenConfigurationKey,	kCFBooleanTrue);
 	num = CFNumberCreate(NULL, kCFNumberIntType, &usb_vid_apple);
 	CFDictionarySetValue(merge, CFSTR(kUSBVendorID),			num);
 	CFRelease(num);
+	if (add_overrides) {
+		CFDictionaryRef	overrides;
+		overrides = copyOverridesDictionary();
+		CFDictionarySetValue(merge,
+			     kSCNetworkInterfaceNetworkConfigurationOverridesKey,
+			     overrides);
+		CFRelease(overrides);
+	}
 	CFDictionarySetValue(props, kIOUserEthernetInterfaceMergeProperties,	merge);
 	CFRelease(merge);
 
@@ -287,7 +346,7 @@ create_hidden_interface(u_char ea_unique)
 		long		status;
 
 		// add an interface
-		*newController = create_hidden_interface(ea_unique);
+		*newController = create_hidden_interface(ea_unique, TRUE);
 		if (*newController == NULL) {
 			SCTestLog("*** could not create controller");
 			break;
@@ -401,7 +460,7 @@ create_hidden_interface(u_char ea_unique)
 		NSString		*bsdName;
 		IOEthernetControllerRef	controller;
 
-		SCTestLog("Interface #%zd", i + 1);
+		SCTestLog("Interface #%zu", i + 1);
 
 		// add an interface
 		ok = [test interfaceAdd:i controller:&controller];
@@ -492,7 +551,7 @@ create_hidden_interface(u_char ea_unique)
 			bsdName = (__bridge_transfer NSString *)copy_interface_name(controller);
 			ok = [bsdName isEqualTo:interfaces[i].bsdName];
 			if (!ok) {
-				SCTestLog("*** interface %zd not assigned the same name, expected \"%@\", assigned \"%@\"",
+				SCTestLog("*** interface %zu not assigned the same name, expected \"%@\", assigned \"%@\"",
 					  i,
 					  interfaces[i].bsdName,
 					  bsdName);

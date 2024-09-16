@@ -127,6 +127,8 @@ namespace JSC {
     macro(IMulIntrinsic) \
     macro(RandomIntrinsic) \
     macro(FRoundIntrinsic) \
+    macro(ToIntegerOrInfinityIntrinsic) \
+    macro(ToLengthIntrinsic) \
     macro(TruncIntrinsic) \
     macro(TypedArrayValuesIntrinsic) \
     macro(TypedArrayKeysIntrinsic) \
@@ -141,18 +143,25 @@ namespace JSC {
     macro(JSMapValuesIntrinsic) \
     macro(JSMapKeysIntrinsic) \
     macro(JSMapEntriesIntrinsic) \
-    macro(JSMapBucketHeadIntrinsic) \
-    macro(JSMapBucketNextIntrinsic) \
-    macro(JSMapBucketKeyIntrinsic) \
-    macro(JSMapBucketValueIntrinsic) \
+    macro(JSMapStorageIntrinsic) \
+    macro(JSMapIterationNextIntrinsic) \
+    macro(JSMapIterationEntryIntrinsic) \
+    macro(JSMapIterationEntryKeyIntrinsic) \
+    macro(JSMapIterationEntryValueIntrinsic) \
+    macro(JSSetStorageIntrinsic) \
+    macro(JSSetIterationNextIntrinsic) \
+    macro(JSSetIterationEntryIntrinsic) \
+    macro(JSSetIterationEntryKeyIntrinsic) \
+    macro(JSMapIteratorNextIntrinsic) \
+    macro(JSMapIteratorKeyIntrinsic) \
+    macro(JSMapIteratorValueIntrinsic) \
+    macro(JSSetIteratorNextIntrinsic) \
+    macro(JSSetIteratorKeyIntrinsic) \
     macro(JSSetHasIntrinsic) \
     macro(JSSetAddIntrinsic) \
     macro(JSSetDeleteIntrinsic) \
     macro(JSSetValuesIntrinsic) \
     macro(JSSetEntriesIntrinsic) \
-    macro(JSSetBucketHeadIntrinsic) \
-    macro(JSSetBucketNextIntrinsic) \
-    macro(JSSetBucketKeyIntrinsic) \
     macro(JSWeakMapGetIntrinsic) \
     macro(JSWeakMapHasIntrinsic) \
     macro(JSWeakMapSetIntrinsic) \
@@ -181,6 +190,7 @@ namespace JSC {
     macro(TypedArrayByteLengthIntrinsic) \
     macro(TypedArrayByteOffsetIntrinsic) \
     macro(UnderscoreProtoIntrinsic) \
+    macro(SpeciesGetterIntrinsic) \
     macro(WebAssemblyInstanceExportsIntrinsic) \
     \
     /* Debugging intrinsics. These are meant to be used as testing hacks within jsc.cpp and should never be exposed to users.*/ \

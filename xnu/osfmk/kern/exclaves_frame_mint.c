@@ -55,9 +55,7 @@ exclaves_frame_mint_init(void)
 {
 	exclaves_id_t id = exclaves_service_lookup(EXCLAVES_DOMAIN_KERNEL,
 	    EXCLAVES_FRAME_MINT);
-	if (id == UINT64_C(~0)) {
-		exclaves_debug_printf(show_errors,
-		    "frame mint init: no frame mint service found \n");
+	if (id == EXCLAVES_INVALID_ID) {
 		return KERN_NOT_FOUND;
 	}
 

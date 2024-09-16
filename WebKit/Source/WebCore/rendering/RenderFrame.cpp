@@ -40,6 +40,8 @@ RenderFrame::RenderFrame(HTMLFrameElement& frame, RenderStyle&& style)
     ASSERT(isRenderFrame());
 }
 
+RenderFrame::~RenderFrame() = default;
+
 HTMLFrameElement& RenderFrame::frameElement() const
 {
     return downcast<HTMLFrameElement>(RenderFrameBase::frameOwnerElement());
@@ -52,8 +54,8 @@ FrameEdgeInfo RenderFrame::edgeInfo() const
 
 void RenderFrame::updateFromElement()
 {
-    if (is<RenderFrameSet>(parent()))
-        downcast<RenderFrameSet>(*parent()).notifyFrameEdgeInfoChanged();
+    if (CheckedPtr frameSet = dynamicDowncast<RenderFrameSet>(parent()))
+        frameSet->notifyFrameEdgeInfoChanged();
 }
 
 } // namespace WebCore

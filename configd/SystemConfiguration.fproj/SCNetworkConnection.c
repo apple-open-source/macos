@@ -348,7 +348,13 @@ static const CFRuntimeClass __SCNetworkConnectionClass = {
 	NULL,					// equal
 	NULL,					// hash
 	NULL,					// copyFormattingDesc
-	__SCNetworkConnectionCopyDescription	// copyDebugDesc
+	__SCNetworkConnectionCopyDescription,	// copyDebugDesc
+#ifdef CF_RECLAIM_AVAILABLE
+	NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+	NULL
+#endif
 };
 
 
@@ -2406,7 +2412,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					      MACH_MSG_TIMEOUT_NONE,	// timeout
 					      MACH_PORT_NULL);		// notify
 				if (kr != KERN_SUCCESS) {
-					SC_log(LOG_NOTICE, "SCNetworkConnection notification handler, kr=0x%x", kr);
+					SC_log(LOG_NOTICE, "SCNetworkConnection notification handler, kr=%d", kr);
 					free(notify_msg);
 					return;
 				}

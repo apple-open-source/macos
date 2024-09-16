@@ -30,13 +30,13 @@
 #include "RenderLineBoxList.h"
 
 #include "HitTestResult.h"
-#include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
 #include "LegacyRootInlineBox.h"
 #include "PaintInfo.h"
 #include "RenderBlockFlow.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
+#include "RenderSVGInline.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
 
@@ -163,8 +163,8 @@ bool RenderLineBoxList::rangeIntersectsRect(RenderBoxModelObject* renderer, Layo
     LayoutUnit physicalEnd = logicalBottom;
     if (renderer->view().frameView().hasFlippedBlockRenderers()) {
         RenderBox* block;
-        if (is<RenderBox>(*renderer))
-            block = downcast<RenderBox>(renderer);
+        if (auto* box = dynamicDowncast<RenderBox>(*renderer))
+            block = box;
         else
             block = renderer->containingBlock();
         physicalStart = block->flipForWritingMode(logicalTop);
@@ -311,82 +311,24 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     return false;
 }
 
-void RenderLineBoxList::dirtyLinesFromChangedChild(RenderBoxModelObject& container, RenderObject& child)
+void RenderLineBoxList::dirtyLinesFromChangedChild(RenderBoxModelObject& container, RenderObject&)
 {
     ASSERT(is<RenderInline>(container) || is<RenderBlockFlow>(container));
+    if (!container.isSVGRenderer())
+        return;
+
     if (!container.parent() || (is<RenderBlockFlow>(container) && container.selfNeedsLayout()))
         return;
 
-    auto* inlineContainer = dynamicDowncast<RenderInline>(container);
-    LegacyInlineBox* firstBox = inlineContainer ? inlineContainer->firstLineBox() : firstLineBox();
-
-    // If we have no first line box, then just bail early.
-    if (!firstBox) {
-        // For an empty inline, propagate the check up to our parent, unless the parent is already dirty.
-        if (container.isInline() && !container.ancestorLineBoxDirty()) {
-            container.parent()->dirtyLinesFromChangedChild(container);
-            container.setAncestorLineBoxDirty(); // Mark the container to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
-        }
+    auto* inlineContainer = dynamicDowncast<RenderSVGInline>(container);
+    if (auto* firstBox = inlineContainer ? inlineContainer->firstLineBox() : firstLineBox()) {
+        firstBox->root().markDirty();
         return;
     }
-
-    // Try to figure out which line box we belong in. First try to find a previous
-    // line box by examining our siblings. If we didn't find a line box, then use our
-    // parent's first line box.
-    LegacyRootInlineBox* box = nullptr;
-    RenderObject* current;
-    for (current = child.previousSibling(); current; current = current->previousSibling()) {
-        if (current->isFloatingOrOutOfFlowPositioned())
-            continue;
-
-        if (current->isReplacedOrInlineBlock()) {
-            if (auto wrapper = downcast<RenderBox>(*current).inlineBoxWrapper())
-                box = &wrapper->root();
-        } if (is<RenderLineBreak>(*current)) {
-            if (auto wrapper = downcast<RenderLineBreak>(*current).inlineBoxWrapper())
-                box = &wrapper->root();
-        } else if (is<RenderText>(*current)) {
-            if (LegacyInlineTextBox* textBox = downcast<RenderText>(*current).lastTextBox())
-                box = &textBox->root();
-        } else if (is<RenderInline>(*current)) {
-            LegacyInlineBox* lastSiblingBox = downcast<RenderInline>(*current).lastLineBox();
-            if (lastSiblingBox)
-                box = &lastSiblingBox->root();
-        }
-
-        if (box)
-            break;
-    }
-    if (!box)
-        box = &firstBox->root();
-
-    // If we found a line box, then dirty it.
-    if (box) {
-        box->markDirty();
-
-        // Dirty the adjacent lines that might be affected.
-        // NOTE: we dirty the previous line because RootInlineBox objects cache
-        // the address of the first object on the next line after a BR, which we may be
-        // invalidating here. For more info, see how RenderBlock::layoutInlineChildren
-        // calls setLineBreakInfo with the result of findNextLineBreak. findNextLineBreak,
-        // despite the name, actually returns the first RenderObject after the BR.
-        // <rdar://problem/3849947> "Typing after pasting line does not appear until after window resize."
-        if (LegacyRootInlineBox* prevBox = box->prevRootBox())
-            prevBox->markDirty();
-
-        // FIXME: We shouldn't need to always dirty the next line. This is only strictly 
-        // necessary some of the time, in situations involving BRs.
-        if (LegacyRootInlineBox* nextBox = box->nextRootBox()) {
-            nextBox->markDirty();
-            // Dedicated linebox for floats may be added as the last rootbox. If this occurs with BRs inside inlines that propagte their lineboxes to
-            // the parent flow, we need to invalidate it explicitly.
-            // FIXME: We should be able to figure out the actual "changed child" even when we are calling through empty inlines recursively.
-            if (is<RenderInline>(child) && !downcast<RenderInline>(child).firstLineBox()) {
-                auto* lastRootBox = nextBox->blockFlow().lastRootBox();
-                if (lastRootBox->isForTrailingFloats() && !lastRootBox->isDirty())
-                    lastRootBox->markDirty();
-            }
-        }
+    // For an empty inline, propagate the check up to our parent, unless the parent is already dirty.
+    if (container.isInline() && !container.ancestorLineBoxDirty()) {
+        container.parent()->dirtyLinesFromChangedChild(container);
+        container.setAncestorLineBoxDirty(); // Mark the container to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
     }
 }
 

@@ -28,12 +28,22 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "IDLTypes.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebAuthn {
 enum class Scope;
+}
+
+namespace WebCore {
+class AuthenticatorCoordinator;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::AuthenticatorCoordinator> : std::true_type { };
 }
 
 namespace WebCore {
@@ -74,6 +84,8 @@ private:
     AuthenticatorCoordinator() = default;
 
     std::unique_ptr<AuthenticatorCoordinatorClient> m_client;
+    bool m_isCancelling = false;
+    CompletionHandler<void()> m_queuedRequest;
 };
 
 } // namespace WebCore

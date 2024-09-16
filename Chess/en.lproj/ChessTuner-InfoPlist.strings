@@ -2,6 +2,6 @@
 
 CFBundleName = "Chess";
 CFBundleDisplayName = "Chess";
-NSHumanReadableCopyright = "Copyright 2003–2023 Apple Inc.";
+NSHumanReadableCopyright = "Copyright 2003–2024 Apple Inc.";
 game = "Chess Game";
 moves= "Moves (PGN)";

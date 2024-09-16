@@ -25,9 +25,8 @@
 
 #pragma once
 
-#if USE(GBM)
-
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
 
 namespace WebKit {
 
@@ -38,12 +37,15 @@ enum class DMABufRendererBufferFormatUsage : uint8_t {
 };
 
 struct DMABufRendererBufferFormat {
+    struct Format {
+        uint32_t fourcc { 0 };
+        Vector<uint64_t, 1> modifiers;
+    };
+
     using Usage = DMABufRendererBufferFormatUsage;
     Usage usage { Usage::Rendering };
-    uint32_t fourcc { 0 };
-    Vector<uint64_t, 1> modifiers;
+    CString drmDevice;
+    Vector<Format> formats;
 };
 
 } // namespace WebKit
-
-#endif // USE(GBM)

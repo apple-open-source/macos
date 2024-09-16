@@ -34,6 +34,7 @@
 namespace WebCore {
 
 class Shape;
+class RenderObject;
 
 namespace Layout {
 
@@ -43,8 +44,9 @@ class InitialContainingBlock;
 class LayoutState;
 class TreeBuilder;
 
-class Box : public CanMakeCheckedPtr {
+class Box : public CanMakeCheckedPtr<Box> {
     WTF_MAKE_ISO_ALLOCATED(Box);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Box);
 public:
     enum class NodeType : uint8_t {
         Text,
@@ -189,20 +191,17 @@ public:
 
     const ElementBox* associatedRubyAnnotationBox() const;
 
-    bool canCacheForLayoutState(const LayoutState&) const;
-    BoxGeometry* cachedGeometryForLayoutState(const LayoutState&) const;
-    void setCachedGeometryForLayoutState(LayoutState&, std::unique_ptr<BoxGeometry>) const;
+    RenderObject* rendererForIntegration() const { return m_renderer.get(); }
+    void setRendererForIntegration(RenderObject* renderer) { m_renderer = renderer; }
 
     UniqueRef<Box> removeFromParent();
-
-    void incrementPtrCount() const { CanMakeCheckedPtr::incrementPtrCount(); }
-    void decrementPtrCount() const { CanMakeCheckedPtr::decrementPtrCount(); }
 
 protected:
     Box(ElementAttributes&&, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag>);
 
 private:
     friend class ElementBox;
+    friend class LayoutState;
 
     class BoxRareData {
         WTF_MAKE_FAST_ALLOCATED;
@@ -238,14 +237,17 @@ private:
     RenderStyle m_style;
 
     CheckedPtr<ElementBox> m_parent;
-    
+
     std::unique_ptr<Box> m_nextSibling;
     CheckedPtr<Box> m_previousSibling;
 
-    // First LayoutState gets a direct cache.
-    mutable WeakPtr<LayoutState> m_cachedLayoutState;
-    mutable std::unique_ptr<BoxGeometry> m_cachedGeometryForLayoutState;
+    // Primary LayoutState gets a direct cache.
+#if ASSERT_ENABLED
+    mutable WeakPtr<LayoutState> m_primaryLayoutState;
+#endif
+    mutable std::unique_ptr<BoxGeometry> m_cachedGeometryForPrimaryLayoutState;
 
+    CheckedPtr<RenderObject> m_renderer;
 };
 
 inline bool Box::isContainingBlockForInFlow() const

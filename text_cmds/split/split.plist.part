@@ -1,12 +1,18 @@
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2021-06-29</string>
+	<string>2023-09-28</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceProject</key>
 	<string>split</string>
 	<key>OpenSourceVersion</key>
-	<string>2020-06-18</string>
+	<string>2023-09-28</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>https://cgit.freebsd.org/src/tree/usr.bin/split?id=e48cafb55ddaa7ac3ed73ddf25b8019531c83d71</string>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/split?id=d9d69a6f6fc1f8d80df9ce6493e8ab9388781615</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>split.c: disable autoextend (116185404)</string>
+		<string>split.1: remove mention of autoextend (116185404)</string>
+		<string>tests/split_test.sh: disable autoextend test cases (116185404)</string>
+	</array>
 </dict>

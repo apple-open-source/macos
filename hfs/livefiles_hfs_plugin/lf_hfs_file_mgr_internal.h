@@ -2,6 +2,8 @@
 //  lf_hfs_file_mgr_internal.h
 //  livefiles_hfs
 //
+//  Copyright Apple Inc. 2018-2023
+//  All Rights Reserved.
 //  Created by Yakov Ben Zaken on 22/03/2018.
 //
 
@@ -241,9 +243,7 @@ void hfs_free_tentative( hfsmount_t *hfsmp, struct rl_entry **reservation );
 void hfs_free_locked( hfsmount_t *hfsmp, struct rl_entry **reservation );
 
 /*    Get the current time in UTC (GMT)*/
-u_int32_t GetTimeUTC( void );
-
-u_int32_t LocalToUTC( u_int32_t localTime );
+u_int32_t GetTimeUTC( bool expanded );
 
 u_int32_t UTCToLocal( u_int32_t utcTime );
 

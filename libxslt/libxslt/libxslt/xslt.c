@@ -1371,7 +1371,8 @@ xsltParseStylesheetOutput(xsltStylesheetPtr style, xmlNodePtr cur)
             end = element;
             while ((*end != 0) && (!IS_BLANK(*end)))
                 end++;
-            element = xmlStrndup(element, end - element);
+            long element_len = end - element;
+            element = xmlStrndup(element, CLAMP_TO_INT_MAX(element_len));
             if (element) {
 #ifdef WITH_XSLT_DEBUG_PARSING
                 xsltGenericDebug(xsltGenericDebugContext,
@@ -1608,7 +1609,8 @@ xsltParseStylesheetPreserveSpace(xsltStylesheetPtr style, xmlNodePtr cur) {
 	    break;
         end = element;
 	while ((*end != 0) && (!IS_BLANK(*end))) end++;
-	element = xmlStrndup(element, end - element);
+	long element_len = end - element;
+	element = xmlStrndup(element, CLAMP_TO_INT_MAX(element_len));
 	if (element) {
 #ifdef WITH_XSLT_DEBUG_PARSING
 	    xsltGenericDebug(xsltGenericDebugContext,
@@ -1682,7 +1684,8 @@ xsltParseStylesheetExtPrefix(xsltStylesheetPtr style, xmlNodePtr cur,
 	    break;
         end = prefix;
 	while ((*end != 0) && (!IS_BLANK(*end))) end++;
-	prefix = xmlStrndup(prefix, end - prefix);
+	long prefix_len = end - prefix;
+	prefix = xmlStrndup(prefix, CLAMP_TO_INT_MAX(prefix_len));
 	if (prefix) {
 	    xmlNsPtr ns;
 
@@ -1747,7 +1750,8 @@ xsltParseStylesheetStripSpace(xsltStylesheetPtr style, xmlNodePtr cur) {
 	    break;
         end = element;
 	while ((*end != 0) && (!IS_BLANK(*end))) end++;
-	element = xmlStrndup(element, end - element);
+	long element_len = end - element;
+	element = xmlStrndup(element, CLAMP_TO_INT_MAX(element_len));
 	if (element) {
 #ifdef WITH_XSLT_DEBUG_PARSING
 	    xsltGenericDebug(xsltGenericDebugContext,
@@ -1818,7 +1822,8 @@ xsltParseStylesheetExcludePrefix(xsltStylesheetPtr style, xmlNodePtr cur,
 	    break;
         end = prefix;
 	while ((*end != 0) && (!IS_BLANK(*end))) end++;
-	prefix = xmlStrndup(prefix, end - prefix);
+	long prefix_len = end - prefix;
+	prefix = xmlStrndup(prefix, CLAMP_TO_INT_MAX(prefix_len));
 	if (prefix) {
 	    xmlNsPtr ns;
 
@@ -6868,7 +6873,8 @@ xsltParseStylesheetPI(const xmlChar *value) {
 		NEXT;
 	    if (CUR != tmp)
 		continue;
-	    val = xmlStrndup(start, cur - start);
+	    long start_len = cur - start;
+	    val = xmlStrndup(start, CLAMP_TO_INT_MAX(start_len));
 	    NEXT;
 	    if (val == NULL)
 		return(NULL);
@@ -6895,8 +6901,10 @@ xsltParseStylesheetPI(const xmlChar *value) {
 		NEXT;
 	    if (CUR != tmp)
 		continue;
-	    if (href == NULL)
-		href = xmlStrndup(start, cur - start);
+	    if (href == NULL) {
+		long start_len = cur - start;
+		href = xmlStrndup(start, CLAMP_TO_INT_MAX(start_len));
+	    }
 	    NEXT;
 	} else {
 	    while ((CUR != 0) && (!IS_BLANK(CUR)))

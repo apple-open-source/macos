@@ -24,8 +24,6 @@
 #ifndef __COMPAT_SYS__TYPES_H_
 #define __COMPAT_SYS__TYPES_H_
 
-#if defined(ENABLE_EXCLAVE_STORAGE)
-
 #include <stdint.h>
 
 typedef int64_t       blkcnt_t;      /* total blocks */
@@ -39,7 +37,5 @@ typedef uint64_t      ino64_t;       /* [???] Used for 64 bit inodes */
 typedef ino64_t       ino_t;         /* [???] Used for inodes */
 typedef uint16_t      mode_t;        /* [???] Some file attributes */
 typedef uint16_t      nlink_t;       /* link count */
-
-#endif /* ENABLE_EXCLAVE_STORAGE */
 
 #endif /* __COMPAT_SYS__TYPES_H_ */

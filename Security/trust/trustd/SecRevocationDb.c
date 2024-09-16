@@ -236,8 +236,8 @@ static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
 static CFStringRef kUpdateGenerationKey     = CFSTR("ValidUpdateGeneration");
 static CFStringRef kBoolTrueKey             = CFSTR("1");
 static CFStringRef kBoolFalseKey            = CFSTR("0");
-CFIndex kValidUpdateCurrentGeneration = 5;
-CFIndex kValidUpdateOldGeneration = 4;
+CFIndex kValidUpdateCurrentGeneration = 6;  /* generation value which we request from network */
+CFIndex kValidUpdateOldGeneration = 4;      /* assumed value if no generation key found in db */
 
 /* constant length of boolean string keys */
 #define BOOL_STRING_KEY_LENGTH          1

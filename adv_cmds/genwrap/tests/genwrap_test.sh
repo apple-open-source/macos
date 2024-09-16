@@ -28,7 +28,6 @@ atf_test_case analytics
 analytics_body()
 {
 	asimple=$(atf_get_srcdir)/analytics_simple
-	aredacted=$(atf_get_srcdir)/analytics_redacted
 
 	atf_check -o file:$(atf_get_srcdir)/analytics_simple_a.out \
 	    ${asimple} -a
@@ -42,25 +41,37 @@ analytics_body()
 	    ${asimple} -a --count=3
 	atf_check -o file:$(atf_get_srcdir)/analytics_simple_f.out \
 	    ${asimple} -a --count=3 arg
+	atf_check -o file:$(atf_get_srcdir)/analytics_simple_g.out \
+	    ${asimple} -a --count=3 -d -a --count=6 -a
 
-	# Now try with *REDACTED*
-	atf_check -o file:$(atf_get_srcdir)/analytics_simple_a.out \
-	    ${aredacted} -a
-	atf_check -o file:$(atf_get_srcdir)/analytics_simple_b.out \
-	    ${aredacted} -ad
-	atf_check -o file:$(atf_get_srcdir)/analytics_simple_c.out \
-	    ${aredacted} -a -d
-	atf_check -o file:$(atf_get_srcdir)/analytics_redacted_a.out \
-	    ${aredacted} -ab3
-	atf_check -o file:$(atf_get_srcdir)/analytics_redacted_b.out \
-	    ${aredacted} -a --count=3
-	atf_check -o file:$(atf_get_srcdir)/analytics_redacted_c.out \
-	    ${aredacted} -a --count=3 arg
-	atf_check -o file:$(atf_get_srcdir)/analytics_redacted_d.out \
-	    ${aredacted} -a --count 3
+	# Most of the basics checked, just run a couple of argument tests.
+	atf_check -o match:"--type__00 dog" ${asimple} --type dog
+	atf_check -o match:"--type dog" ${asimple} --type dog
+	atf_check -o match:"-t__00 dog" ${asimple} -t dog
+	atf_check -o match:"-t dog" ${asimple} -t dog
 
-	atf_check -o file:$(atf_get_srcdir)/analytics_redacted_e.out \
-	    ${aredacted} -ax -y 3 -z
+	# Also test our repetition capabilities
+	atf_check -o match:"-C 1" ${asimple} -C
+	atf_check -o match:"-C 23" ${asimple} -C23
+	atf_check -o match:"-C 234" ${asimple} -C234
+	atf_check -o match:"-C 1" ${asimple} -C2345
+
+	# Must be a complete match, no off-by-one.
+	atf_check -o match:"--type__00 1" ${asimple} --type sdog
+	atf_check -o match:"--type__00 1" ${asimple} --type dogs
+	atf_check -o match:"--type__00 1" ${asimple} --type sdogs
+
+	# Multiple appearances, last one doesn't match should just set the
+	# overall option to the # found.
+	atf_check -o match:"--type 2" ${asimple} --type dogs --type sdogs
+
+	# Finally, make sure we preserve multiple uses
+	atf_check -o save:analytics_simple_multiarg.out \
+	    ${asimple} --type dog --type fish
+
+	atf_check -o match:"--type__00 dog" cat analytics_simple_multiarg.out
+	atf_check -o match:"--type__01 fish" cat analytics_simple_multiarg.out
+	atf_check -o match:"--type fish" cat analytics_simple_multiarg.out
 }
 
 atf_test_case arg_selector_simple
@@ -104,6 +115,27 @@ arg_selector_simple_body()
 	atf_check -o match:"new" $(atf_get_srcdir)/arg_selector_simple_b -- -x
 }
 
+atf_test_case arg_selector_simple_varsel
+arg_selector_simple_varsel_body()
+{
+	mkdir -p bin
+
+	printf "#!/bin/sh\necho old" > bin/foo
+	printf "#!/bin/sh\necho new" > bin/newfoo
+
+	chmod 755 bin/foo bin/newfoo
+
+	# -a normally matches newfoo, since it's first...
+	atf_check -o match:"new" $(atf_get_srcdir)/arg_selector_simple_a -a
+
+	# ... but /var/select/arg_selector_simple_a should be able to promote
+	# foo to the default.
+
+	atf_check sudo ln -sf foo /var/select/arg_selector_simple_a
+	atf_check -o match:"old" $(atf_get_srcdir)/arg_selector_simple_a -a
+	atf_check sudo rm -f /var/select/arg_selector_simple_a
+}
+
 atf_test_case arg_selector_complex
 arg_selector_complex_body()
 {
@@ -133,6 +165,44 @@ arg_selector_complex_body()
 	atf_check -o match:"new" $(atf_get_srcdir)/arg_selector_complex_logonly --count=3
 }
 
+atf_test_case arg_selector_complex_logonly_args
+arg_selector_complex_logonly_args_body()
+{
+	mkdir -p bin
+
+	# newfoo supports the the -z flag, but -x and -y and marked logonly.
+	# foo is in logonly argmode, so it should be the fallback for pretty
+	# much any option not enumerated in the newfoo set.
+	printf "#!/bin/sh\necho old" > bin/foo
+	printf "#!/bin/sh\necho new" > bin/newfoo
+
+	chmod 755 bin/foo bin/newfoo
+
+	# No args and -z should go to newfoo.
+	atf_check -o match:"new" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args
+	atf_check -o match:"new" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -z
+
+	# -n should trigger a fallback to foo, along with -x and -y.
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -z -n
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -n
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -y
+	# Long and short forms, to be sure.
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args --exit
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -x
+	# Valid -z on either side doesn't save it.
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -z -x
+	atf_check -o match:"old" \
+	    $(atf_get_srcdir)/arg_selector_complex_logonly_args -x -z
+}
+
 atf_test_case env_selector
 env_selector_body()
 {
@@ -150,6 +220,24 @@ env_selector_body()
 	# Should use the default application if the env var is set to a bogus
 	# value.
 	atf_check -o match:"old" env FOO_COMMAND="invalid" $(atf_get_srcdir)/env_selector
+
+	# foo is the default, but make sure we can select "newfoo" with
+	# /var/select/env_selector
+	atf_check sudo ln -sf newfoo /var/select/env_selector
+	atf_check -o match:"new" $(atf_get_srcdir)/env_selector
+
+	# Unknown options should just fall back; we'll use on that is overly
+	# long, one that fits but isn't known.
+	atf_check sudo ln -sf undefinedfoo /var/select/env_selector
+	atf_check -o match:"old" $(atf_get_srcdir)/env_selector
+	atf_check sudo ln -sf app /var/select/env_selector
+	atf_check -o match:"old" $(atf_get_srcdir)/env_selector
+
+	# This is more appropriate for a cleanup() routine, but we don't
+	# currently run atf cleanup routines on failure.  As a result, we may
+	# see some collateral damage in later tests if the above env_selector
+	# invocations failed for some reason.
+	atf_check sudo rm /var/select/env_selector
 }
 
 atf_test_case env_selector_addarg
@@ -182,6 +270,35 @@ env_selector_addarg_body()
 	    env FOO_COMMAND="worstfoo" $(atf_get_srcdir)/env_selector_addarg -0
 }
 
+atf_test_case env_selector_varsel
+env_selector_varsel_body()
+{
+	mkdir -p bin
+
+	printf "#!/bin/sh\necho old" > bin/foo
+	printf "#!/bin/sh\necho new" > bin/newfoo
+
+	chmod 755 bin/foo bin/newfoo
+
+	# foo is the default, but make sure we can select "newfoo" with
+	# /var/select/env_selector
+	atf_check sudo ln -sf newfoo /var/select/env_selector
+	atf_check -o match:"new" $(atf_get_srcdir)/env_selector
+
+	# Unknown options should just fall back; we'll use on that is overly
+	# long, one that fits but isn't known.
+	atf_check sudo ln -sf undefinedfoo /var/select/env_selector
+	atf_check -o match:"old" $(atf_get_srcdir)/env_selector
+	atf_check sudo ln -sf app /var/select/env_selector
+	atf_check -o match:"old" $(atf_get_srcdir)/env_selector
+
+	# This is more appropriate for a cleanup() routine, but we don't
+	# currently run atf cleanup routines on failure.  As a result, we may
+	# see some collateral damage in later tests if the above env_selector
+	# invocations failed for some reason.
+	atf_check sudo rm /var/select/env_selector
+}
+
 
 atf_test_case simple_shim
 simple_shim_body()
@@ -204,7 +321,7 @@ ui_infile_stdin_body()
 	atf_check $GENWRAP -o out.c $spec
 	atf_check test -s out.c
 
-	atf_check -o file:out.c -x "cat $spec | $GENWRAP -o /dev/stdout -"
+	atf_check -o file:out.c -x "cat $spec | $GENWRAP -n simple_shim -o /dev/stdout -"
 }
 
 atf_test_case ui_outfile_stdout
@@ -217,7 +334,7 @@ ui_outfile_stdout_body()
 	atf_check $GENWRAP -o out.c $spec
 	atf_check test -s out.c
 
-	atf_check -o file:out.c -x "cat $spec | $GENWRAP -o - /dev/stdin"
+	atf_check -o file:out.c -x "cat $spec | $GENWRAP -n simple_shim -o - /dev/stdin"
 }
 
 atf_init_test_cases()
@@ -225,9 +342,12 @@ atf_init_test_cases()
 
 	atf_add_test_case analytics
 	atf_add_test_case arg_selector_simple
+	atf_add_test_case arg_selector_simple_varsel
 	atf_add_test_case arg_selector_complex
+	atf_add_test_case arg_selector_complex_logonly_args
 	atf_add_test_case env_selector
 	atf_add_test_case env_selector_addarg
+	atf_add_test_case env_selector_varsel
 	atf_add_test_case simple_shim
 	atf_add_test_case ui_infile_stdin
 	atf_add_test_case ui_outfile_stdout

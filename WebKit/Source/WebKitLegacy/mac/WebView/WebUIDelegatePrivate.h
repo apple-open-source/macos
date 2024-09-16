@@ -40,7 +40,7 @@
 #endif
 #endif
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || (defined(TARGET_OS_VISION) && TARGET_OS_VISION)
 @protocol UIDropSession;
 #endif
 
@@ -102,6 +102,7 @@ enum {
     WebMenuItemTagToggleVideoFullscreen,
     WebMenuItemTagShareMenu,
     WebMenuItemTagToggleVideoEnhancedFullscreen,
+    WebMenuItemTagToggleVideoViewer,
     WebMenuItemTagAddHighlightToCurrentQuickNote,
     WebMenuItemTagAddHighlightToNewQuickNote,
     WebMenuItemTagRevealImage,
@@ -110,6 +111,7 @@ enum {
     WebMenuItemTagPauseAllAnimations,
     WebMenuItemTagPlayAnimation,
     WebMenuItemTagPauseAnimation,
+    WebMenuItemTagWritingTools,
 };
 
 // Deprecated; remove when there are no more clients.
@@ -301,7 +303,7 @@ extern NSString *WebConsoleMessageErrorMessageLevel;
 - (BOOL)webViewCanCheckGeolocationAuthorizationStatus:(WebView *)sender;
 #endif
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS || (defined(TARGET_OS_VISION) && TARGET_OS_VISION)
 /*!
  @method webView:dragDestinationActionMaskForSession:
  @param sender The WebView sending the delegate method

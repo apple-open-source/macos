@@ -178,6 +178,64 @@ typedef @cf_cv_typeof_mmask_t@ mmask_t;
 #endif
 #endif /* NCURSES_WIDECHAR */
 
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+
+#define	_NCURSES_STRING(x) #x
+
+#define NCURSES_SUF_ABI60	"$NCURSES60"
+
+#define _NCURSES_EXPORT_ABI(sym) \
+    __asm("_" _NCURSES_STRING(sym))
+#define _NCURSES_EXPORT_ABI60(sym) \
+    __asm("_" _NCURSES_STRING(sym) NCURSES_SUF_ABI60)
+
+#ifndef NCURSES_WANT_BASEABI
+
+/*
+ * As a general rule, for all ABIs we added, this pattern needs to be followed.
+ * The NCURSES_EXPORT_ABI* declaration should be a nop if we're not targeting a
+ * relevant version so that we can still use the newer SDK to build applications
+ * that target older macOS.
+ *
+ * All of the declarations below with NCURSES_EXPORT_ABI tags will have a
+ * descending chain of ABI versions, and the first version at or under our
+ * deployment version will expand to just the appropriate __asm tag and ignore
+ * their varargs. Versions higher than it will expand to just its varargs so
+ * that the chaining works as intended.
+ */
+#if defined(MAC_OS_VERSION_15_0) && \
+    MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_15_0
+
+#define NCURSES_EXPORT_ABI60(sym, ...)	_NCURSES_EXPORT_ABI60(sym) \
+__OSX_AVAILABLE(15.0) __IOS_AVAILABLE(18.0) __WATCHOS_AVAILABLE(11.0) \
+__TVOS_AVAILABLE(18.0)
+
+#else
+
+#define	NCURSES_EXPORT_ABI60(sym, ...)	__VA_ARGS__
+
+#endif	/* MAC_OS_VERSION_15_0 */
+
+#else /* NCURSES_WANT_BASEABI */
+
+/*
+ * nc_abi.c will #define NCURSES_WANT_BASEABI so that it gets the declarations
+ * for the unsuffixed symbols.  It will use those to call into the actual
+ * implementation, escalating the ABI version around the call to let the
+ * internal bits know that it's safe to access later offsets.
+ */
+#define NCURSES_EXPORT_ABI60(sym, ...)	__VA_ARGS__
+
+#endif /* !NCURSES_WANT_BASEABI */
+
+#ifdef TAPI
+#define ifTAPI(stmt) stmt
+#else
+#define ifTAPI(stmt)
+#endif
+#endif /* __APPLE__ */
+
 #include <stdarg.h>	/* we need va_list */
 #if NCURSES_WIDECHAR
 #include <stddef.h>	/* we want wchar_t */
@@ -803,15 +861,15 @@ extern NCURSES_EXPORT(int) vw_printw (WINDOW *, const char *,va_list);	/* genera
  */
 extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list)	/* implemented */
 		GCC_SCANFLIKE(2,0);
+extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)	/* generated */
+		GCC_SCANFLIKE(2,0);
+#else
 /*
  * Comment annotation on the declaration line dropped to avoid script picking
  * this up and generating a second definition.
  */
-extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)
-		GCC_SCANFLIKE(2,0);
-#else
-extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list);	/* implemented */
-extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list);	/* generated */
+extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list);
+extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list);
 #endif
 extern NCURSES_EXPORT(int) waddch (WINDOW *, const chtype);		/* implemented */
 extern NCURSES_EXPORT(int) waddchnstr (WINDOW *,const chtype *,int);	/* implemented */
@@ -1150,6 +1208,10 @@ extern NCURSES_EXPORT(int) NCURSES_SP_NAME(use_legacy_coding) (SCREEN*, int);	/*
 			    } \
 			} \
 		    } while(0)
+
+#ifdef __APPLE__
+@@ABIDECLS@@
+#endif /* __APPLE__ */
 
 #ifndef NCURSES_NOMACROS
 

@@ -1,0 +1,46 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+generate_tree_1
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+generate_tree_1
+# the tree we want to rsync over
+mkdir ../dir3
+cd ../dir3
+generate_tree_1
+cd ..
+
+# Now - in the source tree replace a whole directory with a symlink.
+# We want to test whether rsync nukes the dir to make space for the symlink.
+# At the time of this writing the --force-delete flag for GNU rsync will
+# do that and openrsync doesn't have that flag.
+
+rm -rf dir1/foo/bar
+(
+    cd dir1/foo
+    ln -s ../foo/five bar
+    # remove unrelated symlink that will be broken
+    rm baz/three.txt
+)
+
+# Do the same in the to-compare tree.
+rm -rf dir2/foo/bar
+(
+    cd dir2/foo
+    ln -s ../foo/five bar
+    # remove unrelated symlink that will be broken
+    rm baz/three.txt
+)
+# remove unrelated symlink that will be broken
+rm dir3/foo/baz/three.txt
+
+rsync -a --force-delete -- dir1/ dir3
+compare_trees dir2 dir3

@@ -444,12 +444,10 @@ int32_t xar_attrcopy_to_heap(xar_t x, xar_file_t f, xar_prop_t p, read_callback 
 int32_t xar_attrcopy_from_heap(xar_t x, xar_file_t f, xar_prop_t p, write_callback wcb, void *context) {
 	int modulecount = (sizeof(xar_datamods)/sizeof(struct datamod));
 	void	*modulecontext[modulecount];
-	int r, i;
+	size_t r, i;
 	size_t bsize, def_bsize;
 	int64_t fsize, inc = 0, seekoff, readsofar = 0;
 	void *inbuf;
-	const char *opt;
-	xar_prop_t tmpp;
 
 	memset(modulecontext, 0, sizeof(void*)*modulecount);
 
@@ -733,7 +731,7 @@ int32_t xar_attrcopy_from_heap_to_stream_init(xar_t x, xar_file_t f, xar_prop_t 
 int32_t xar_attrcopy_from_heap_to_stream(xar_stream *stream) {
 	xar_stream_state_t *state = stream->state;
 
-	int r, i;
+	size_t r, i;
 	size_t bsize;
 	void *inbuf; 
 

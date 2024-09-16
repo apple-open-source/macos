@@ -27,6 +27,7 @@
 
 #if ENABLE(GAMEPAD)
 
+#include "GameControllerHapticEngines.h"
 #include "PlatformGamepad.h"
 #include <wtf/RetainPtr.h>
 
@@ -49,7 +50,7 @@ public:
     void playEffect(GamepadHapticEffectType, const GamepadEffectParameters&, CompletionHandler<void(bool)>&&) final;
     void stopEffects(CompletionHandler<void()>&&) final;
 
-    const char* source() const final { return "GameController"_s; }
+    ASCIILiteral source() const final { return "GameController"_s; }
 
     void noLongerHasAnyClient();
 

@@ -25,11 +25,14 @@
 
 #pragma once
 
-#include <wtf/HashSet.h>
-
 #if ENABLE(DFG_JIT)
 
-namespace JSC { 
+#include "StructureID.h"
+#include "WriteBarrier.h"
+#include <wtf/FixedVector.h>
+#include <wtf/HashSet.h>
+
+namespace JSC {
 
 class CodeBlock;
 class JSCell;
@@ -49,14 +52,19 @@ public:
     void addLazily(JSCell*);
     void addLazily(JSValue);
     bool contains(JSCell*);
-    
+
     void reallyAdd(VM&, CommonData*);
+
+    void finalize();
 
     template<typename Visitor> void visitChildren(Visitor&);
 
 private:
     CodeBlock* m_codeBlock;
-    HashSet<JSCell*> m_references;
+    HashSet<JSCell*> m_cells;
+    HashSet<StructureID> m_structures;
+    FixedVector<WriteBarrier<JSCell>> m_finalizedCells;
+    FixedVector<StructureID> m_finalizedStructures;
 };
 
 } } // namespace JSC::DFG

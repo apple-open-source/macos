@@ -20,6 +20,7 @@
 #import "authutilities.h"
 #import <os/boot_mode_private.h>
 #import <sys/sysctl.h>
+#import <PlatformSSOCore/POCoreConfigurationUtil.h>
 
 AUTHD_DEFINE_LOG
 
@@ -181,8 +182,8 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     NSUUID *uuid = [self currentRecoveryVolumeUUID];
     os_log_info(AUTHD_LOG, "Current Recovery Volume UUID: %{public}@", uuid);
     
-    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
-        [self processVolumeData:volumeUuid mountPoint:mountPoint];
+    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) {
+        [self processVolumeData:volumeUuid mountPoint:mountPoint preboot:prebootNode];
         return noErr;
     };
 
@@ -339,7 +340,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     NSArray *prebootVolumes = [self prebootVolumesForUuid:uuid.UUIDString];
     __block OSStatus retval = errAuthorizationInternal;
     
-    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint) {
+    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, id preboot) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, id preboot) {
 
         if (uuid && [volumeUuid isNotEqualTo:uuid]) {
             os_log_info(AUTHD_LOG, "The preboot volume skipped: %{public}@ (not the expected %{public}@)", volumeUuid, uuid);
@@ -430,27 +431,49 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return result;
 }
 
-- (void)processPrebootVolumes:(NSArray*)prebootVolumes worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint))workerBlock canMount:(BOOL)canMount
+- (NSString *)getMountedVolume:(id)prebootVolume canMount:(BOOL)canMount weMountedPreboot:(BOOL *)weMountedPreboot
+{
+    DAReturn mountResult = kDAReturnUnsupported;
+    NSString *retval;
+    BOOL mounted = NO;
+    
+    for (UInt8 try = 0; try < 2; ++try) {
+        retval = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
+        if (!retval) {
+            if (!canMount) {
+                os_log_error(AUTHD_LOG, "Volume not mounted %{public}@, skipping", prebootVolume);
+                return nil;
+            }
+            mountResult = [self mountPrebootVolume:prebootVolume];
+            if (mountResult == kDAReturnBusy) {  
+                os_log_info(AUTHD_LOG, "Volume %{public}@, busy, retrying mount", prebootVolume);
+                continue;
+            }
+        }
+        break;
+    }
+    mounted = (mountResult == kDAReturnSuccess);
+    DMDiskErrorType mountPointError = kDiskErrorNoError;
+    if (mounted) {
+        retval = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:&mountPointError];
+        if (!retval) {
+            os_log_error(AUTHD_LOG, "Unable to mount %{public}@: %{public}@", prebootVolume, weMountedPreboot ? soft_DMUnlocalizedTechnicalErrorString(mountPointError) : @"not mounted by authd");
+        }
+    }
+    if (weMountedPreboot) {
+        *weMountedPreboot = mounted;
+    }
+    return retval;
+}
+
+- (void)processPrebootVolumes:(NSArray *)prebootVolumes worker:(OSStatus (^)(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode))workerBlock canMount:(BOOL)canMount
 {
     // process each preboot volume
     for (id prebootVolume in prebootVolumes) {
-
         BOOL weMountedPreboot = NO;
-        NSString *mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
+        NSString *mountPoint = [self getMountedVolume:prebootVolume canMount:canMount weMountedPreboot:&weMountedPreboot];
         if (!mountPoint) {
-            if (!canMount) {
-                os_log_error(AUTHD_LOG, "Volume not mounted %{public}@, skipping", prebootVolume);
-                continue;
-            }
-            weMountedPreboot = [self mountPrebootVolume:prebootVolume];
-            DMDiskErrorType mountPointError = kDiskErrorNoError;
-            if (weMountedPreboot) {
-                mountPoint = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:&mountPointError];
-            }
-            if (!mountPoint) {
-                os_log_error(AUTHD_LOG, "Unable to mount %{public}@: %{public}@", prebootVolume, weMountedPreboot ? soft_DMUnlocalizedTechnicalErrorString(mountPointError) : @"not mounted by authd");
-                continue;
-            }
+            continue;
         }
         os_log_info(AUTHD_LOG, "Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
 
@@ -471,7 +494,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             }
 
             if (workerBlock) {
-                workerBlock(volumeUUID, mountPoint);
+                workerBlock(volumeUUID, mountPoint, [self deviceNodeForDisk:(__bridge DADiskRef)(prebootVolume)]);
             }
         }
 
@@ -494,22 +517,24 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 - (NSArray *)prebootVolumesForUuid:(NSString *)uuid
 {
     DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
-    DADiskRef diskRef = NULL;
-    [dmAPFS volumeForVolumeUUID:uuid volume:&diskRef];
+    DADiskRef cfDiskRef = NULL;
+    [dmAPFS volumeForVolumeUUID:uuid volume:&cfDiskRef];
+    id diskRef = CFBridgingRelease(cfDiskRef);
     if (!diskRef) {
         os_log_error(AUTHD_LOG, "Failed to determine disk for UUID %{public}@", uuid);
         return nil;
     }
     
-    DADiskRef container = NULL;
-    DMDiskErrorType diskErr = [dmAPFS containerForVolume:diskRef container:&container];
+    DADiskRef cfContainer = NULL;
+    DMDiskErrorType diskErr = [dmAPFS containerForVolume:(__bridge DADiskRef _Nonnull)(diskRef) container:&cfContainer];
+    id container = CFBridgingRelease(cfContainer);
     if (!container) {
         os_log_error(AUTHD_LOG, "Failed to determine container for UUID %{public}@: %{public}@", uuid, soft_DMUnlocalizedTechnicalErrorString(diskErr));
         return nil;
     }
     NSArray *volumes = nil;
     NSMutableArray *result = @[].mutableCopy;
-    [dmAPFS volumesForContainer:container volumes:&volumes];
+    [dmAPFS volumesForContainer:(__bridge DADiskRef _Nonnull)(container) volumes:&volumes];
     
     for (id disk in volumes) {
         BOOL preboot;
@@ -635,22 +660,24 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return result;
 }
 
-- (BOOL)mountPrebootVolume:(id)preboot
+- (DAReturn)mountPrebootVolume:(id)preboot
 {
-    __block BOOL success = NO;
+    __block DAReturn retval = kDAReturnError;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     AIRDBDACommonCompletionHandler completionHandler = ^(DADissenterRef dissenter) {
-        success = (dissenter == NULL);
         if (dissenter != NULL) {
-            os_log_error(AUTHD_LOG, "Failed to mount preboot volume %{public}@ (status: 0x%x, reason: \"%{public}@\").", preboot, soft_DADissenterGetStatus(dissenter), soft_DADissenterGetStatusString(dissenter));
+            retval = soft_DADissenterGetStatus(dissenter);
+            os_log_error(AUTHD_LOG, "Failed to mount preboot volume %{public}@ (status: 0x%x, reason: \"%{public}@\").", preboot, retval, soft_DADissenterGetStatusString(dissenter));
+        } else {
+            retval = kDAReturnSuccess;
         }
         dispatch_semaphore_signal(sem);
     };
     soft_DADiskMount((__bridge DADiskRef _Nonnull)(preboot), NULL, kDADiskMountOptionDefault, _commonDACompletionCallback, (__bridge void * _Nullable)(completionHandler));
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
-    os_log_info(AUTHD_LOG, "Mount preboot volume %{public}@ result: %d", preboot, success);
+    os_log_info(AUTHD_LOG, "Mount preboot volume %{public}@ result: %d", preboot, retval);
 
-    return success;
+    return retval;
 }
 
 - (void)unmountPrebootVolume:(id)preboot
@@ -732,7 +759,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return users;
 }
 
-- (void)processVolumeData:(NSUUID *)volumeUuid mountPoint:(NSString *)mountPoint
+- (void)processVolumeData:(NSUUID *)volumeUuid mountPoint:(NSString *)mountPoint preboot:(NSString *)preboot
 {
     // volumeUuid is the name of the folder on a Preboot volume
     // we need to find out what kind of UUID this is
@@ -838,6 +865,9 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         dict[@PLUDB_VEK] = vek;
         dict[@PLUDB_DNODE] = deviceNode;
         dict[@PLUDB_OWNER] = @(owner);
+        if (preboot) {
+            dict[@PLUDB_PREBOOT] = preboot;
+        }
 
         if ([userData.allKeys containsObject:kSCUnlockDataItemName]) {
             dict[@PLUDB_SCUNLOCK_DATA] = userData[kSCUnlockDataItemName];
@@ -1115,4 +1145,30 @@ Boolean prelogin_reset_db_wanted(void)
     }
     os_log(AUTHD_LOG, "prelogin_reset_db_wanted returns %d", database.resetDb);
     return database.resetDb;
+}
+
+/* PSSO related stuff which requires ObjC */
+
+Boolean pssoEnabled()
+{
+    if ([POCoreConfigurationUtil class] != Nil) {
+        return [POCoreConfigurationUtil platformSSOEnabled];
+    }
+    return NO;
+}
+
+CFDateRef dateFromUnixTimestamp(__darwin_time_t seconds)
+{
+    return CFBridgingRetain([NSDate dateWithTimeIntervalSince1970:seconds]);
+}
+
+CFDictionaryRef readDatabasePlist(CFStringRef path, CFErrorRef *error)
+{
+    NSError *nsErr;
+    id url = (__bridge id)(path);
+    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfURL:url error:&nsErr];
+    if (error) {
+        *error = (__bridge_retained CFErrorRef)(nsErr);
+    }
+    return CFBridgingRetain(dict);
 }

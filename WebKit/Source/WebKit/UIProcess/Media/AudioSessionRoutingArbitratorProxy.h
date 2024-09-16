@@ -38,6 +38,15 @@
 #endif
 
 namespace WebKit {
+class AudioSessionRoutingArbitratorProxy;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::AudioSessionRoutingArbitratorProxy> : std::true_type { };
+}
+
+namespace WebKit {
 
 class WebProcessProxy;
 
@@ -69,7 +78,7 @@ public:
 protected:
     Logger& logger();
     const void* logIdentifier() const { return m_logIdentifier; }
-    const char* logClassName() const { return "AudioSessionRoutingArbitrator"; }
+    ASCIILiteral logClassName() const { return "AudioSessionRoutingArbitrator"_s; }
     WTFLogChannel& logChannel() const;
 
 private:
@@ -89,7 +98,7 @@ private:
     const void* m_logIdentifier;
 
 #if HAVE(AVAUDIO_ROUTING_ARBITER)
-    UniqueRef<WebCore::SharedRoutingArbitrator::Token> m_token;
+    UniqueRef<WebCore::SharedRoutingArbitratorToken> m_token;
 #endif
 };
 

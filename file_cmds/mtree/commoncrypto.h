@@ -34,5 +34,6 @@ xattr_info *get_xdstream_privateid(char *path, char *buf);
 char *SHA256_Path_ACL(char *path, char *buf);
 uint64_t get_sibling_id(const char *path);
 uint64_t get_xattr_count(const char *path);
+uint32_t get_protection_class(const char *path);
 
 #endif /* _COMMON_CRYPTO_H_ */

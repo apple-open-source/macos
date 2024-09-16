@@ -171,9 +171,6 @@ void
 link_addr_to_string(char * string_buffer, int string_buffer_length,
 		    const uint8_t * hwaddr, int hwaddr_len);
 
-void
-fill_with_random(void * buf, uint32_t len);
-
 int
 rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
 

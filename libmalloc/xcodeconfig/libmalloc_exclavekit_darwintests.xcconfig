@@ -1,0 +1,3 @@
+BUNDLE_INSTALL_PATH = /AppleInternal/Tests/libmalloc_exclavekit/
+SDKROOT = exclavecore.iphoneos.internal
+SUPPORTED_PLATFORMS = exclavecore.iphoneos exclavecore.macosx exclavecore.appletvos

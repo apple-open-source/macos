@@ -45,7 +45,7 @@ mblen_l(const char *s, size_t n, locale_t loc)
 		loc->__mbs_mblen = initial;
 		return (0);
 	}
-	rval = loc->__lc_ctype->__mbrtowc(NULL, s, n, &loc->__mbs_mblen, loc);
+	rval = XLOCALE_CTYPE(loc)->__mbrtowc(NULL, s, n, &loc->__mbs_mblen, loc);
 	if (rval == (size_t)-1 || rval == (size_t)-2)
 		return (-1);
 	return ((int)rval);

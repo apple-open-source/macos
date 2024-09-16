@@ -57,11 +57,11 @@ getty/ttys.5	freebsd	libexec/getty/ttys.5	33764e3fd080be9dc482b46403c7d0efb3402b
 
 iostat/iostat.8	freebsd	usr.sbin/iostat/iostat.8	a4671335c5db0e95ba6cc593dafb270918a0b304
 
-login/login.1	freebsd	usr.bin/login/login.1	2826da432cfda62b5512dfa72641c77fc10373d0
-login/login.c	freebsd	usr.bin/login/login.c	4d552825ecebecd6c95a995c0b314b09936121b5
-login/login.h	freebsd	usr.bin/login/login.h	1de7b4b805ddbf2429da511c053686ac4591ed89
-login/login_audit.c	freebsd	usr.bin/login/login_audit.c	7f4bb501768b9b3f856f91fbc8b9c80a2a4aaa04
-login/pathnames.h	freebsd	usr.bin/login/pathnames.h	2826da432cfda62b5512dfa72641c77fc10373d0
+login/login.1	freebsd	usr.bin/login/login.1	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+login/login.c	freebsd	usr.bin/login/login.c	1e25eb287f3fdd763df98065dbf2e1eb201e4000
+login/login.h	freebsd	usr.bin/login/login.h	b3e7694832e81d7a904a10f525f8797b753bf0d3
+login/login_audit.c	freebsd	usr.bin/login/login_audit.c	5e3934b15a2741b2de6b217e77dc9d798d740804
+login/pathnames.h	freebsd	usr.bin/login/pathnames.h	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
 
 newgrp/newgrp.1	freebsd	usr.bin/newgrp/newgrp.1	30c4fc7cf9350cb561bc93e3068b046a6c06120e
 newgrp/newgrp.c	freebsd	usr.bin/newgrp/newgrp.c	1de7b4b805ddbf2429da511c053686ac4591ed89
@@ -72,6 +72,11 @@ nologin/nologin.c	freebsd	usr.sbin/nologin/nologin.c	51c86fb5836035e374a05bac6bc
 
 pagesize/pagesize.1	freebsd	usr.bin/pagesize/pagesize.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 pagesize/pagesize.sh	freebsd	usr.bin/pagesize/pagesize.sh	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+pwd_mkdb/pwd_mkdb.8	freebsd	usr.sbin/pwd_mkdb/pwd_mkdb.8	8a7b61203704d362cfbc66c00619f51b24106b55
+pwd_mkdb/pwd_mkdb.c	freebsd	usr.sbin/pwd_mkdb/pwd_mkdb.c	fcaae06579bfedbaadddb98c34985168e32cbc8e
+pwd_mkdb/pw_scan.c	freebsd	lib/libc/gen/pw_scan.c	dc36d6f9bb1753f3808552f3afd30eda9a7b206a
+pwd_mkdb/pw_scan.h	freebsd	lib/libc/gen/pw_scan.h	dc36d6f9bb1753f3808552f3afd30eda9a7b206a
 
 reboot/reboot.8	freebsd	sbin/reboot/reboot.8	8c0fa2cc56c74b96dc043bc7d9d8e3db005b33a8
 reboot/reboot.c	freebsd	sbin/reboot/reboot.c	6760585add4d5f21bf9059176afdafe477d821bb
@@ -98,12 +103,12 @@ vipw/pw_util.c	freebsd	lib/libutil/pw_util.c	830efe55395a27f0a72812b5a028e323ee3
 vipw/vipw.8	freebsd	usr.sbin/vipw/vipw.8	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 vipw/vipw.c	freebsd	usr.sbin/vipw/vipw.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-zdump/zdump.8	freebsd	contrib/tzcode/zdump.8	bc42155199b5b0b479311e05b07aee7f6f9c5172
-zdump/zdump.c	freebsd	contrib/tzcode/zdump.c	d5c85ac6526dcd0ac25ebdb71969c8c788d5e13b
+zdump/zdump.8	freebsd	contrib/tzcode/zdump.8	75411d157232ee3b4789b92c9205453e7d59a3d2
+zdump/zdump.c	freebsd	contrib/tzcode/zdump.c	75411d157232ee3b4789b92c9205453e7d59a3d2
 
-zic/private.h	freebsd	contrib/tzcode/private.h	394cf6719a3c665eabe24d96669409e0c5a78076
+zic/private.h	freebsd	contrib/tzcode/private.h	75411d157232ee3b4789b92c9205453e7d59a3d2
 zic/tzconfig.h	freebsd	contrib/tzcode/tzconfig.h	394cf6719a3c665eabe24d96669409e0c5a78076
-zic/tzfile.h	freebsd	contrib/tzcode/tzfile.h	bc42155199b5b0b479311e05b07aee7f6f9c5172
+zic/tzfile.h	freebsd	contrib/tzcode/tzfile.h	75411d157232ee3b4789b92c9205453e7d59a3d2
 zic/version.h	freebsd	contrib/tzcode/version.h	bc42155199b5b0b479311e05b07aee7f6f9c5172
-zic/zic.8	freebsd	contrib/tzcode/zic.8	a7b1b73935f21a3dcd6fc8d86a37b92f0c9ba93f
-zic/zic.c	freebsd	contrib/tzcode/zic.c	2aad7570f4e11ac94bb06c44cdc83ad1962fb97e
+zic/zic.8	freebsd	contrib/tzcode/zic.8	75411d157232ee3b4789b92c9205453e7d59a3d2
+zic/zic.c	freebsd	contrib/tzcode/zic.c	75411d157232ee3b4789b92c9205453e7d59a3d2

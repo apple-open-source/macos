@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.accounts.idms.fullaccess</key>
+	<true/>
 	<key>com.apple.authkit.devicelist.server-only</key>
 	<true/>
 	<key>com.apple.usermanagerd.persona.fetch</key>
@@ -135,6 +137,7 @@
 	<true/>
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
+		<string>com.apple.accountsd.accountmanager</string>
 		<string>com.apple.keychainsharingmessagingd</string>
 		<string>com.apple.AuthenticationServices.CredentialSharingGroups</string>
 		<string>com.apple.security.KeychainDBMover</string>

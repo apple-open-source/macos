@@ -41,6 +41,8 @@
 
 #if OCTAGON
 
+#define BATCH_SIZE (SecCKKSTestsEnabled() ? 10 : 1000)
+
 @interface CKKSHealKeyHierarchyOperation ()
 @property BOOL allowFullRefetchResult;
 @property BOOL newCloudKitRecordsWritten;
@@ -135,7 +137,8 @@
                                                                                testsAreEnabled:SecCKKSTestsEnabled()
                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                     sendMetric:self.deps.sendMetric];
-    __block BOOL didSucceed = NO;
+    __block BOOL didSucceed = YES;
+    __block NSMutableArray<CKModifyRecordsOperation*>* tlkUploadOperations = [[NSMutableArray alloc] init];
 
     [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult {
         ckksnotice("ckksheal", viewState.zoneID, "Attempting to heal %@", viewState);
@@ -244,7 +247,6 @@
             CKKSKey* newClassCKey = nil;
 
             NSMutableArray<CKRecord *>* recordsToSave = [[NSMutableArray alloc] init];
-            NSMutableArray<CKRecordID *>* recordIDsToDelete = [[NSMutableArray alloc] init];
 
             // Find the current top local key. That's our new TLK.
             for(CKKSKey* key in keys) {
@@ -420,133 +422,149 @@
                 [recordsToSave addObject: record];
             }
 
-            // Kick off the CKOperation
+            // Kick off CKOperation(s).
+            __block BOOL uploadSucceeded = YES;
             AAFAnalyticsEventSecurity *uploadHealedTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldTotalCKRecords: @(recordsToSave.count), kSecurityRTCFieldIsPrioritized: @(NO)}
                                                                                                                               altDSID:self.deps.activeAccount.altDSID
                                                                                                                             eventName:kSecurityRTCEventNameUploadHealedTLKShares
                                                                                                                       testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                                              category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                                                  sendMetric:self.deps.sendMetric];
+            [uploadHealedTLKSharesEventS addMetrics:@{kSecurityRTCFieldIsPrioritized : @(YES)}];
+            
             ckksnotice("ckksheal", viewState.zoneID, "Saving new records %@", recordsToSave);
 
-            // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
-            NSBlockOperation* cloudKitModifyOperationFinished = [NSBlockOperation named:[NSString stringWithFormat:@"heal-cloudkit-modify-operation-finished-%@", viewState.zoneName]
-                                                                              withBlock:^{}];
-            [self dependOnBeforeGroupFinished:cloudKitModifyOperationFinished];
+            // Batch our uploads.
+            for (NSUInteger batchNumber = 0; batchNumber*BATCH_SIZE < recordsToSave.count; batchNumber++) {
+                NSUInteger startIndx = batchNumber*BATCH_SIZE;
+                // Use the spare operation trick to wait for the CKModifyRecordsOperation to complete
+                NSBlockOperation* cloudKitModifyOperationFinished = [NSBlockOperation named:[NSString stringWithFormat:@"heal-cloudkit-modify-operation-finished-%@", viewState.zoneName]
+                                                                                  withBlock:^{
+                    // If this is the last batch of uploads, send healKeyHierarchy events.
+                    if ((recordsToSave.count - startIndx) <= BATCH_SIZE) {
+                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:uploadSucceeded error:nil];
+                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
+                    }
+                }];
+                [self dependOnBeforeGroupFinished:cloudKitModifyOperationFinished];
 
-            CKModifyRecordsOperation* modifyRecordsOp = nil;
+                // Gather this operation's records to upload
+                NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
+                NSArray<CKRecord*>* batchedRecords = [recordsToSave subarrayWithRange:NSMakeRange(startIndx, MIN(BATCH_SIZE, recordsToSave.count - startIndx))];
+                
+                for (CKRecord* attemptedRecord in batchedRecords) {
+                    attemptedRecords[attemptedRecord.recordID] = attemptedRecord;
+                }
+                
+                // Get the CloudKit operation ready...
+                CKModifyRecordsOperation* modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:batchedRecords recordIDsToDelete:nil];
+                modifyRecordsOp.atomic = YES;
+                modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
 
-            NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
-            for(CKRecord* record in recordsToSave) {
-                attemptedRecords[record.recordID] = record;
-            }
+                // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
+                modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
-            // Get the CloudKit operation ready...
-            modifyRecordsOp = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:recordsToSave recordIDsToDelete:recordIDsToDelete];
-            modifyRecordsOp.atomic = YES;
-            modifyRecordsOp.longLived = NO; // The keys are only in memory; mark this explicitly not long-lived
-
-            // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
-            modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
-
-            if(SecCKKSHighPriorityOperations()) {
+                // CKKSSetHighPriorityOperations is default enabled
                 // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.
                 modifyRecordsOp.qualityOfService = NSQualityOfServiceUserInitiated;
-                [uploadHealedTLKSharesEventS addMetrics:@{kSecurityRTCFieldIsPrioritized : @(YES)}];
+            
+                modifyRecordsOp.group = self.deps.ckoperationGroup;
+                ckksnotice("ckksheal", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
+
+                modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
+                    // These should all fail or succeed as one. Do the hard work in the records completion block.
+                    if(!error) {
+                        ckksnotice("ckksheal", viewState.zoneID, "Successfully completed upload for %@", recordID.recordName);
+                    } else {
+                        uploadSucceeded = NO;
+                        didSucceed = NO;
+                        ckkserror("ckksheal", viewState.zoneID, "error on row: %@ %@", error, recordID);
+                    }
+                };
+                
+                modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
+                    STRONGIFY(self);
+
+                    ckksnotice("ckksheal", viewState.zoneID, "Completed Key Heal CloudKit operation with error: %@", error);
+
+                    [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                        if(error == nil) {
+                            [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName];
+                            // Success. Persist the keys to the CKKS database.
+
+                            // Save the new CKRecords to the before persisting to database
+                            for(CKRecord* record in savedRecords) {
+                                if([newTLK matchesCKRecord: record]) {
+                                    newTLK.storedCKRecord = record;
+                                } else if([newClassAKey matchesCKRecord: record]) {
+                                    newClassAKey.storedCKRecord = record;
+                                } else if([newClassCKey matchesCKRecord: record]) {
+                                    newClassCKey.storedCKRecord = record;
+
+                                } else if([keyset.currentTLKPointer matchesCKRecord: record]) {
+                                    keyset.currentTLKPointer.storedCKRecord = record;
+                                } else if([keyset.currentClassAPointer matchesCKRecord: record]) {
+                                    keyset.currentClassAPointer.storedCKRecord = record;
+                                } else if([keyset.currentClassCPointer matchesCKRecord: record]) {
+                                    keyset.currentClassCPointer.storedCKRecord = record;
+                                }
+                            }
+
+                            NSError* localerror = nil;
+
+                            [newTLK       saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
+                            [newClassAKey saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
+                            [newClassCKey saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
+
+                            [keyset.currentTLKPointer    saveToDatabase: &localerror];
+                            [keyset.currentClassAPointer saveToDatabase: &localerror];
+                            [keyset.currentClassCPointer saveToDatabase: &localerror];
+
+                            // save all the TLKShares, too
+                            for(CKKSTLKShareRecord* share in tlkShares) {
+                                [share saveToDatabase:&localerror];
+                            }
+
+                            if(localerror != nil) {
+                                ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to database; this is very bad: %@", localerror);
+                                [healBrokenRecordsEventS populateUnderlyingErrorsStartingWithRootError:localerror];
+                                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
+                                didSucceed = NO;
+                                return CKKSDatabaseTransactionRollback;
+                            } else {
+                                // Everything is groovy. HOWEVER, we might still not have processed the keys. Ask for that!
+                                viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateProcess;
+                                self.newCloudKitRecordsWritten = YES;
+                            }
+
+                        } else {
+                            // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
+                            [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName withAttributes:NULL];
+                            ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to CloudKit: %@", error);
+                            uploadSucceeded = NO;
+                            [uploadHealedTLKSharesEventS populateUnderlyingErrorsStartingWithRootError:error];
+                            didSucceed = NO;
+                            [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
+
+                            self.cloudkitWriteFailures = YES;
+                        }
+                        return CKKSDatabaseTransactionCommit;
+                    }];
+
+                    // Notify that this operation is done
+                    [self.operationQueue addOperation:cloudKitModifyOperationFinished];
+                };
+                
+                [self.setResultStateOperation addDependency:cloudKitModifyOperationFinished];
+                [modifyRecordsOp linearDependencies:self.ckOperations];
+                // If we add this operation to the ckdatabase now, we could face a double SQL transaction! Save for scheduling later.
+                [tlkUploadOperations addObject:modifyRecordsOp];
             }
 
-            modifyRecordsOp.group = self.deps.ckoperationGroup;
-            ckksnotice("ckksheal", viewState.zoneID, "Operation group is %@", self.deps.ckoperationGroup);
-
-            modifyRecordsOp.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
-                // These should all fail or succeed as one. Do the hard work in the records completion block.
-                if(!error) {
-                    ckksnotice("ckksheal", viewState.zoneID, "Successfully completed upload for %@", recordID.recordName);
-                } else {
-                    ckkserror("ckksheal", viewState.zoneID, "error on row: %@ %@", error, recordID);
-                }
-            };
-
-            modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
-                STRONGIFY(self);
-
-                ckksnotice("ckksheal", viewState.zoneID, "Completed Key Heal CloudKit operation with error: %@", error);
-
-                [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
-                    if(error == nil) {
-                        [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName];
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:YES error:nil];
-                        // Success. Persist the keys to the CKKS database.
-
-                        // Save the new CKRecords to the before persisting to database
-                        for(CKRecord* record in savedRecords) {
-                            if([newTLK matchesCKRecord: record]) {
-                                newTLK.storedCKRecord = record;
-                            } else if([newClassAKey matchesCKRecord: record]) {
-                                newClassAKey.storedCKRecord = record;
-                            } else if([newClassCKey matchesCKRecord: record]) {
-                                newClassCKey.storedCKRecord = record;
-
-                            } else if([keyset.currentTLKPointer matchesCKRecord: record]) {
-                                keyset.currentTLKPointer.storedCKRecord = record;
-                            } else if([keyset.currentClassAPointer matchesCKRecord: record]) {
-                                keyset.currentClassAPointer.storedCKRecord = record;
-                            } else if([keyset.currentClassCPointer matchesCKRecord: record]) {
-                                keyset.currentClassCPointer.storedCKRecord = record;
-                            }
-                        }
-
-                        NSError* localerror = nil;
-
-                        [newTLK       saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
-                        [newClassAKey saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
-                        [newClassCKey saveToDatabaseAsOnlyCurrentKeyForClassAndState: &localerror];
-
-                        [keyset.currentTLKPointer    saveToDatabase: &localerror];
-                        [keyset.currentClassAPointer saveToDatabase: &localerror];
-                        [keyset.currentClassCPointer saveToDatabase: &localerror];
-
-                        // save all the TLKShares, too
-                        for(CKKSTLKShareRecord* share in tlkShares) {
-                            [share saveToDatabase:&localerror];
-                        }
-
-                        if(localerror != nil) {
-                            ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to database; this is very bad: %@", localerror);
-                            viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
-
-                            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
-                            return CKKSDatabaseTransactionRollback;
-                        } else {
-                            // Everything is groovy. HOWEVER, we might still not have processed the keys. Ask for that!
-                            viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateProcess;
-                            self.newCloudKitRecordsWritten = YES;
-                        }
-
-                    } else {
-                        // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
-                        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy zoneName:viewState.zoneID.zoneName withAttributes:NULL];
-                        ckkserror("ckksheal", viewState.zoneID, "couldn't save new key hierarchy to CloudKit: %@", error);
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:NO error:error];
-                        [self.deps intransactionCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
-
-                        self.cloudkitWriteFailures = YES;
-                    }
-                    return CKKSDatabaseTransactionCommit;
-                }];
-
-                // Notify when we're done
-                [self.operationQueue addOperation:cloudKitModifyOperationFinished];
-            };
-
-            [self.setResultStateOperation addDependency:cloudKitModifyOperationFinished];
-            [modifyRecordsOp linearDependencies:self.ckOperations];
-            [self.deps.ckdatabase addOperation:modifyRecordsOp];
             return true;
         }
 
         // Check if CKKS can recover this TLK.
-
         if(![keyset.tlk validTLK:&error]) {
             // Something has gone horribly wrong. Enter error state.
             NSError* logError = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
@@ -554,7 +572,7 @@
             viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
 
             [eventS populateUnderlyingErrorsStartingWithRootError:error];
-            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+            didSucceed = NO;
             return CKKSDatabaseTransactionCommit;
         }
 
@@ -572,34 +590,33 @@
             }
             
             [eventS populateUnderlyingErrorsStartingWithRootError:error];
-            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+            didSucceed = NO;
             return CKKSDatabaseTransactionCommit;
         }
 
         if(![self ensureKeyPresent:keyset.tlk viewState:viewState]) {
-            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+            didSucceed = NO;
             return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classA viewState:viewState]) {
-            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+            didSucceed = NO;
             return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classC viewState:viewState]) {
-            [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(NO)}];
+            didSucceed = NO;
             return CKKSDatabaseTransactionRollback;
         }
 
         viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateReady;
-        [eventS addMetrics:@{kSecurityRTCFieldDidSucceed : @(YES)}];
-        didSucceed = YES;
         return CKKSDatabaseTransactionCommit;
     }];
-    
-    // passing a nil to error: will not impact any previously set errors.
-    // AAAFoundation ignores incoming errors that are nil when populating error chains
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
+
+    for (CKModifyRecordsOperation* op in tlkUploadOperations) {
+        [self.deps.ckdatabase addOperation:op];
+    }
+
 }
 
 - (BOOL)ensureKeyPresent:(CKKSKey*)key viewState:(CKKSKeychainViewState*)viewState

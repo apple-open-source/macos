@@ -1,5 +1,8 @@
 set_property(DIRECTORY . PROPERTY FOLDER "WPEPlatform")
 
+set(WPE_PLATFORM_MODULE_DIR ${LIB_INSTALL_DIR}/wpe-platform-${WPE_API_VERSION}/modules)
+add_definitions(-DWPE_PLATFORM_MODULE_DIR="${WPE_PLATFORM_MODULE_DIR}")
+
 file(MAKE_DIRECTORY ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe)
 
 configure_file(wpe-platform.pc.in ${CMAKE_BINARY_DIR}/wpe-platform-${WPE_API_VERSION}.pc @ONLY)
@@ -11,15 +14,24 @@ set(WPEPlatform_SOURCES
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEvent.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBuffer.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABuf.cpp
-    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormat.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormats.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferSHM.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEColor.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPECursorTheme.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDisplay.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEGLError.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEExtensions.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEInputMethodContext.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEInputMethodContextNone.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeyUnicode.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeymap.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeymapXKB.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEGestureController.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEGestureControllerImpl.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEGestureDetector.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEMonitor.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPERectangle.cpp
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEToplevel.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEVersion.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEView.cpp
     ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe/WPEEnumTypes.cpp
@@ -29,15 +41,21 @@ set(WPEPlatform_INSTALLED_HEADERS
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEvent.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBuffer.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABuf.h
-    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormat.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferDMABufFormats.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEBufferSHM.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEColor.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDefines.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEDisplay.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEEGLError.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEInputMethodContext.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeyUnicode.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeymap.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeymapXKB.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEKeysyms.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEGestureController.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEMonitor.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPERectangle.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/WPEToplevel.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/WPEView.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/wpe-platform.h
     ${WPEPlatform_DERIVED_SOURCES_DIR}/wpe/WPEConfig.h
@@ -74,26 +92,21 @@ set(WPEPlatform_PRIVATE_INCLUDE_DIRECTORIES
 
 set(WPEPlatform_SYSTEM_INCLUDE_DIRECTORIES
     ${GLIB_INCLUDE_DIRS}
-    ${LIBEPOXY_INCLUDE_DIRS}
 )
 
 set(WPEPlatform_LIBRARIES
+    Epoxy::Epoxy
     WTF
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
-    ${LIBEPOXY_LIBRARIES}
     ${LIBXKBCOMMON_LIBRARIES}
 )
 
 if (USE_GBM)
-    list(APPEND WPEPlatform_SYSTEM_INCLUDE_DIRECTORIES
-        ${LIBDRM_INCLUDE_DIR}
-    )
-    list(APPEND WPEPlatform_LIBRARIES
-        GBM::GBM
-        ${LIBDRM_LIBRARIES}
-    )
+    list(APPEND WPEPlatform_LIBRARIES GBM::GBM)
+elseif (USE_LIBDRM)
+    list(APPEND WPEPlatform_LIBRARIES LibDRM::LibDRM)
 endif ()
 
 if (NOT USE_SYSTEM_MALLOC)
@@ -149,7 +162,6 @@ if (ENABLE_WPE_PLATFORM_DRM)
         OPTIONS
             -I${WEBKIT_DIR}/WPEPlatform
             -I${WPEPlatform_DERIVED_SOURCES_DIR}
-            -I${LIBDRM_INCLUDE_DIR}
         SOURCES
             ${WPEPlatformDRM_SOURCES_FOR_INTROSPECTION}
         NO_IMPLICIT_SOURCES

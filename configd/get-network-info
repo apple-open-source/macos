@@ -172,6 +172,11 @@ run_netstat () {
 		for if in ${IF_LIST}
 		do
 			echo "#"					>> netstat.txt
+			echo "# netstat -n -I ${if}"			>> netstat.txt
+			echo "#"					>> netstat.txt
+			/usr/sbin/netstat -n -I ${if}			>> netstat.txt		2>&1
+
+			echo "#"					>> netstat.txt
 			echo "# netstat -n -s -I ${if}"			>> netstat.txt
 			echo "#"					>> netstat.txt
 			/usr/sbin/netstat -n -s -I ${if}		>> netstat.txt		2>&1

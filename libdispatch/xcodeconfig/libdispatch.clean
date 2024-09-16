@@ -23,8 +23,8 @@ __dispatch_bug.last_seen
 __dispatch_bug_deprecated.last_seen
 __dispatch_bug_kevent_client.last_seen
 #if defined(__x86_64__)
-__dispatch_bug_kevent_client.last_seen.44
-__dispatch_bug_kevent_client.last_seen.46
+__dispatch_bug_kevent_client.last_seen.45
+__dispatch_bug_kevent_client.last_seen.47
 #else
 __dispatch_bug_kevent_client.last_seen.38
 __dispatch_bug_kevent_client.last_seen.40
@@ -38,6 +38,7 @@ __dispatch_build
 __dispatch_child_of_unsafe_fork
 __dispatch_continuation_cache_limit
 __dispatch_custom_workloop_root_queue
+__dispatch_custom_workloop_overcommit_root_queue
 __dispatch_data_empty
 __dispatch_host_time_data.0
 __dispatch_host_time_data.1

@@ -30,23 +30,37 @@
 #include "InbandTextTrackPrivateGStreamer.h"
 
 #include <wtf/Lock.h>
-
-GST_DEBUG_CATEGORY_EXTERN(webkit_media_player_debug);
-#define GST_CAT_DEFAULT webkit_media_player_debug
+#include <wtf/text/StringToIntegerConversion.h>
 
 namespace WebCore {
+
+GST_DEBUG_CATEGORY(webkit_text_track_debug);
+#define GST_CAT_DEFAULT webkit_text_track_debug
+
+static void ensureTextTrackDebugCategoryInitialized()
+{
+    static std::once_flag debugRegisteredFlag;
+    std::call_once(debugRegisteredFlag, [] {
+        GST_DEBUG_CATEGORY_INIT(webkit_text_track_debug, "webkittexttrack", 0, "WebKit Text Track");
+    });
+}
 
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index, GRefPtr<GstPad>&& pad, bool shouldHandleStreamStartEvent)
     : InbandTextTrackPrivate(CueFormat::WebVTT)
     , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, WTFMove(pad), shouldHandleStreamStartEvent)
     , m_kind(Kind::Subtitles)
 {
+    ensureTextTrackDebugCategoryInitialized();
+    installUpdateConfigurationHandlers();
 }
 
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index, GstStream* stream)
     : InbandTextTrackPrivate(CueFormat::WebVTT)
     , TrackPrivateBaseGStreamer(TrackPrivateBaseGStreamer::TrackType::Text, this, index, stream)
 {
+    ensureTextTrackDebugCategoryInitialized();
+    installUpdateConfigurationHandlers();
+
     GST_INFO("Track %d got stream start for stream %s.", m_index, m_stringId.string().utf8().data());
 
     GST_DEBUG("Stream %" GST_PTR_FORMAT, m_stream.get());
@@ -55,11 +69,25 @@ InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(unsigned index,
     m_kind = g_str_has_prefix(mediaType, "closedcaption/") ? Kind::Captions : Kind::Subtitles;
 }
 
-void InbandTextTrackPrivateGStreamer::handleSample(GRefPtr<GstSample> sample)
+void InbandTextTrackPrivateGStreamer::tagsChanged(GRefPtr<GstTagList>&& tags)
+{
+    if (!tags)
+        return;
+
+    if (!updateTrackIDFromTags(tags))
+        return;
+
+    GST_DEBUG_OBJECT(objectForLogging(), "Text track ID set from container-specific-track-id tag %" G_GUINT64_FORMAT, *m_trackID);
+    notifyClients([trackID = *m_trackID](auto& client) {
+        client.idChanged(trackID);
+    });
+}
+
+void InbandTextTrackPrivateGStreamer::handleSample(GRefPtr<GstSample>&& sample)
 {
     {
         Locker locker { m_sampleMutex };
-        m_pendingSamples.append(sample);
+        m_pendingSamples.append(WTFMove(sample));
     }
 
     RefPtr<InbandTextTrackPrivateGStreamer> protectedThis(this);
@@ -70,14 +98,13 @@ void InbandTextTrackPrivateGStreamer::handleSample(GRefPtr<GstSample> sample)
 
 void InbandTextTrackPrivateGStreamer::notifyTrackOfSample()
 {
-    Vector<GRefPtr<GstSample> > samples;
+    Vector<GRefPtr<GstSample>> samples;
     {
         Locker locker { m_sampleMutex };
         m_pendingSamples.swap(samples);
     }
 
-    for (size_t i = 0; i < samples.size(); ++i) {
-        GRefPtr<GstSample> sample = samples[i];
+    for (auto& sample : samples) {
         GstBuffer* buffer = gst_sample_get_buffer(sample.get());
         if (!buffer) {
             GST_WARNING("Track %d got sample with no buffer.", m_index);
@@ -92,7 +119,11 @@ void InbandTextTrackPrivateGStreamer::notifyTrackOfSample()
 
         GST_INFO("Track %d parsing sample: %.*s", m_index, static_cast<int>(mappedBuffer.size()),
             reinterpret_cast<char*>(mappedBuffer.data()));
-        client()->parseWebVTTCueData(mappedBuffer.data(), mappedBuffer.size());
+        ASSERT(isMainThread());
+        ASSERT(!hasClients() || hasOneClient());
+        notifyMainThreadClient([&](auto& client) {
+            downcast<InbandTextTrackPrivateClient>(client).parseWebVTTCueData(std::span { mappedBuffer.data(), mappedBuffer.size() });
+        });
     }
 }
 

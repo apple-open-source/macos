@@ -1,0 +1,20 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+sjd{
+    AuxExemplarCharacters{
+        "[{а\u0301} {е\u0301} {и\u0301} {о\u0301} {у\u0301} {ы\u0301} {э\u0301} {ю"
+        "\u0301} {я\u0301} {а\u0304} {e\u0304} {o\u0304} {э\u0304} {ю\u0304} {я"
+        "\u0304}]]"
+    }
+    ExemplarCharacters{
+        "[а ӓ б в г д е ё ж з и й ӣ к л м н ӈ о п р с т у ӯ ф х ц ч ш щ ъ ы ь э ӭ ю я"
+        " ӏ]"
+    }
+    ExemplarCharactersIndex{"[А Б В Г Д Е Ё Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ы Э Ю Я Ӏ]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ‚ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * "
+        "/ \\& #]"
+    }
+}

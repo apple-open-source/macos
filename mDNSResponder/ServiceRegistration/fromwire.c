@@ -354,6 +354,16 @@ dns_rdata_dump_to_buf(dns_rr_t *rr, char *outbuf, size_t bufsize)
         ADVANCE(obp, outbuf, bufsize);
         break;
 
+    case dns_rrtype_soa:
+        dns_name_print(rr->data.soa.mname, buf, sizeof(buf));
+        snprintf(outbuf, bufsize, "SOA %s", buf);
+        ADVANCE(obp, outbuf, bufsize);
+        dns_name_print(rr->data.soa.rname, buf, sizeof(buf));
+        snprintf(outbuf, bufsize, "%s %u %d %d %d %d", buf, rr->data.soa.serial, rr->data.soa.refresh,
+                 rr->data.soa.retry, rr->data.soa.expire, rr->data.soa.minimum);
+        ADVANCE(obp, outbuf, bufsize);
+        break;
+
     case dns_rrtype_a:
         inet_ntop(AF_INET, &rr->data.a, nbuf, sizeof(nbuf));
         snprintf(outbuf, bufsize, "A %s", nbuf);
@@ -456,7 +466,8 @@ dns_rdata_parse_data_(dns_rr_t *NONNULL rr, const uint8_t *buf, unsigned *NONNUL
     case dns_rrtype_srv:
         if (!dns_u16_parse(buf, target, offp, &rr->data.srv.priority) ||
             !dns_u16_parse(buf, target, offp, &rr->data.srv.weight) ||
-            !dns_u16_parse(buf, target, offp, &rr->data.srv.port)) {
+            !dns_u16_parse(buf, target, offp, &rr->data.srv.port))
+        {
             return false;
         }
         // This fallthrough assumes that the first element in the srv, ptr and cname structs is
@@ -466,6 +477,23 @@ dns_rdata_parse_data_(dns_rr_t *NONNULL rr, const uint8_t *buf, unsigned *NONNUL
     case dns_rrtype_ptr:
     case dns_rrtype_cname:
         if (!dns_name_parse_(&rr->data.ptr.name, buf, target, offp, *offp, file, line)) {
+            return false;
+        }
+        break;
+
+    case dns_rrtype_soa:
+        if (!dns_name_parse_(&rr->data.soa.mname, buf, target, offp, *offp, file, line)) {
+            return false;
+        }
+        if (!dns_name_parse_(&rr->data.soa.rname, buf, target, offp, *offp, file, line)) {
+            return false;
+        }
+        if (!dns_u32_parse(buf, target, offp, &rr->data.soa.serial) ||
+            !dns_u32_parse(buf, target, offp, &rr->data.soa.refresh) ||
+            !dns_u32_parse(buf, target, offp, &rr->data.soa.retry) ||
+            !dns_u32_parse(buf, target, offp, &rr->data.soa.expire) ||
+            !dns_u32_parse(buf, target, offp, &rr->data.soa.minimum))
+        {
             return false;
         }
         break;
@@ -623,6 +651,15 @@ dns_rrdata_free(dns_rr_t *rr)
         rr->data.ptr.name = NULL;
 #endif
             break;
+
+    case dns_rrtype_soa:
+        if (rr->data.soa.mname != NULL) {
+            dns_name_free(rr->data.soa.mname);
+        }
+        if (rr->data.soa.rname != NULL) {
+            dns_name_free(rr->data.soa.rname);
+        }
+        break;
 
     case dns_rrtype_txt:
         free(rr->data.txt.data);

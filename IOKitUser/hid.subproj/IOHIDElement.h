@@ -337,7 +337,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function   IOHIDElementGetUnitExponent
-	@abstract   Returns the unit exponenet in base 10 for the element.
+	@abstract   Returns the code associated with the unit exponent as outlined in the HID spec
     @discussion The unit exponent property is described in more detail in Section 6.2.2.7 of the 
                 "Device Class Definition for Human Interface Devices(HID)" Specification, Version 1.11.
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.

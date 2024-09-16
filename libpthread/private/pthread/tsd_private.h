@@ -252,6 +252,10 @@
 /* objc_trace */
 #define __PTK_PERF_UTILS_KEY0   	230
 
+/* libsanitizers */
+#define __PTK_LIBSANITIZERS_KEY0		231
+#define __PTK_LIBSANITIZERS_KEY1		232
+
 __BEGIN_DECLS
 
 extern void *pthread_getspecific(unsigned long);

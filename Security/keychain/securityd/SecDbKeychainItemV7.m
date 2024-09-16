@@ -637,14 +637,13 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     uint8_t *persona_uuid = NULL;
     size_t persona_uuid_length = 0;
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
-    if (ks_is_key_diversification_enabled()){
-        NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
-        if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
-            persona_uuid = (uint8_t*)musr.bytes;
-            persona_uuid_length = musr.length;
-            secinfo("KeyDiversify", "wrapToAKS: Key diversification feature persona(musr) %@ is data separated", musr);
-        }
+    NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
+    if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+        persona_uuid = (uint8_t*)musr.bytes;
+        persona_uuid_length = musr.length;
+        secinfo("KeyDiversify", "wrapToAKS: Key diversification feature persona(musr) %@ is data separated", musr);
     }
+    
 #endif
     bool forceNoConstraints = false;
 #if TARGET_OS_SIMULATOR
@@ -742,14 +741,12 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 
     if (keyDiversify) {
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
-        if (ks_is_key_diversification_enabled()){
-            NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
-            if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
-                persona_uuid = (uint8_t*)musr.bytes;
-                persona_uuid_length = musr.length;
-                secinfo("KeyDiversify", "unwrapFromAKS: Key diversification feature persona(musr) %@ is data separated", musr);
-            }
-        }
+    NSData *musr = _metadataAttributes[(__bridge NSString *)kSecAttrMultiUser];
+    if (SecMUSRIsMultiuserKeyDiversified((__bridge CFDataRef)(musr))) {
+        persona_uuid = (uint8_t*)musr.bytes;
+        persona_uuid_length = musr.length;
+        secinfo("KeyDiversify", "unwrapFromAKS: Key diversification feature persona(musr) %@ is data separated", musr);
+    }
 #endif
     }
 

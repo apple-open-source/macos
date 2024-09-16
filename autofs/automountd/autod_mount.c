@@ -64,18 +64,19 @@ static int run_mount_cmd(char *, char **, uid_t, au_asid_t);
 static void remove_browse_options(char *);
 static int inherit_options(const char *, char **);
 
-#define ROUND_UP(a, b)	((((a) + (b) - 1)/(b)) * (b))
+#define ROUND_UP(a, b)  ((((a) + (b) - 1)/(b)) * (b))
 
 static uint32_t
 countstring(char *string)
 {
 	uint32_t stringlen;
 
-	if (string != NULL)
+	if (string != NULL) {
 		stringlen = (uint32_t)strlen(string);
-	else
+	} else {
 		stringlen = 0;
-	return ((uint32_t)sizeof (uint32_t) + stringlen);
+	}
+	return (uint32_t)sizeof(uint32_t) + stringlen;
 }
 
 static uint8_t *
@@ -85,32 +86,32 @@ putstring(uint8_t *outbuf, char *string)
 
 	if (string != NULL) {
 		stringlen = (uint32_t)strlen(string);
-		memcpy(outbuf, &stringlen, sizeof (uint32_t));
-		outbuf += sizeof (uint32_t);
+		memcpy(outbuf, &stringlen, sizeof(uint32_t));
+		outbuf += sizeof(uint32_t);
 		memcpy(outbuf, string, stringlen);
 		outbuf += stringlen;
 	} else {
 		stringlen = 0xFFFFFFFF;
-		memcpy(outbuf, &stringlen, sizeof (uint32_t));
-		outbuf += sizeof (uint32_t);
+		memcpy(outbuf, &stringlen, sizeof(uint32_t));
+		outbuf += sizeof(uint32_t);
 	}
-	return (outbuf);
+	return outbuf;
 }
 
 static uint8_t *
 putint(uint8_t *outbuf, int val)
 {
-	memcpy(outbuf, &val, sizeof (int));
-	outbuf += sizeof (int);
-	return (outbuf);
+	memcpy(outbuf, &val, sizeof(int));
+	outbuf += sizeof(int);
+	return outbuf;
 }
 
 static uint8_t *
 putuint32(uint8_t *outbuf, uint32_t val)
 {
-	memcpy(outbuf, &val, sizeof (uint32_t));
-	outbuf += sizeof (uint32_t);
-	return (outbuf);
+	memcpy(outbuf, &val, sizeof(uint32_t));
+	outbuf += sizeof(uint32_t);
+	return outbuf;
 }
 
 int
@@ -125,7 +126,7 @@ do_mount1(const autofs_pathname mapname, const char *key,
 	char mntpnt[MAXPATHLEN];
 	char spec_mntpnt[MAXPATHLEN];
 	int err;
-	char *private;	/* fs specific data. eg prevhost in case of nfs */
+	char *private;  /* fs specific data. eg prevhost in case of nfs */
 	ssize_t len;
 	action_list *alp, *alphead, *prev, *tmp;
 	char root[MAXPATHLEN];
@@ -139,10 +140,10 @@ do_mount1(const autofs_pathname mapname, const char *key,
 
 retry:
 	mapents = parse_entry(key, mapname, mapopts, subdir, isdirect,
-		NULL, isrestricted, mount_access, &err);
+	    NULL, isrestricted, mount_access, &err);
 	if (mapents == NULL) {
 		/* Return the error parse_entry handed back. */
-		return (err);
+		return err;
 	}
 
 	if (trace > 1) {
@@ -150,18 +151,19 @@ retry:
 		trace_prt(1, "  do_mount1:\n");
 		for (me = mapents; me; me = me->map_next) {
 			trace_prt(1, "  (%s,%s)\t%s%s%s -%s\n",
-				me->map_fstype,
-				me->map_mounter ? me->map_mounter : "",
-				path,
-				me->map_root  ? me->map_root : "",
-				me->map_mntpnt ? me->map_mntpnt : "",
-				me->map_mntopts ? me->map_mntopts : "");
+			    me->map_fstype,
+			    me->map_mounter ? me->map_mounter : "",
+			    path,
+			    me->map_root  ? me->map_root : "",
+			    me->map_mntpnt ? me->map_mntpnt : "",
+			    me->map_mntopts ? me->map_mntopts : "");
 
-			for (mfs = me->map_fs; mfs; mfs = mfs->mfs_next)
+			for (mfs = me->map_fs; mfs; mfs = mfs->mfs_next) {
 				trace_prt(1, "\t\t%s:%s\tpenalty=%d\n",
-					mfs->mfs_host ? mfs->mfs_host: "",
-					mfs->mfs_dir ? mfs->mfs_dir : "",
-					mfs->mfs_penalty);
+				    mfs->mfs_host ? mfs->mfs_host: "",
+				    mfs->mfs_dir ? mfs->mfs_dir : "",
+				    mfs->mfs_penalty);
+			}
 		}
 	}
 
@@ -193,21 +195,21 @@ retry:
 		 * it tell us what triggers need to be planted.)
 		 */
 		if (isdirect) {
-			len = snprintf(mntpnt, sizeof (mntpnt), "%s%s%s",
+			len = snprintf(mntpnt, sizeof(mntpnt), "%s%s%s",
 			    path, issubtrigger ? "" : subdir, me->map_mntpnt);
 		} else {
-			len = snprintf(mntpnt, sizeof (mntpnt), "%s%s%s%s",
+			len = snprintf(mntpnt, sizeof(mntpnt), "%s%s%s%s",
 			    path, mapents->map_root,
 			    issubtrigger ? "" : subdir, me->map_mntpnt);
 		}
 
 		if (len < 0) {
 			free_mapent(mapents);
-			return (EINVAL);
+			return EINVAL;
 		}
-		if ((size_t)len >= sizeof (mntpnt)) {
+		if ((size_t)len >= sizeof(mntpnt)) {
 			free_mapent(mapents);
-			return (ENAMETOOLONG);
+			return ENAMETOOLONG;
 		}
 		/*
 		 * remove trailing /'s from mountpoint to avoid problems
@@ -216,8 +218,9 @@ retry:
 		 * which export with two or more slashes (apollo for instance).
 		 */
 		len -= 1;
-		while (mntpnt[len] == '/')
+		while (mntpnt[len] == '/') {
 			mntpnt[len--] = '\0';
+		}
 
 		(void) strlcpy(spec_mntpnt, mntpnt, sizeof(spec_mntpnt));
 
@@ -225,14 +228,14 @@ retry:
 		    inherit_options(mapopts, &me->map_mntopts) != 0) {
 			syslog(LOG_ERR, "malloc of options failed");
 			free_mapent(mapents);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 
 		if (strcmp(me->map_fstype, MNTTYPE_NFS) == 0) {
 			remove_browse_options(me->map_mntopts);
 			err =
 			    mount_nfs(me, spec_mntpnt, private, isdirect,
-				mntpnt_fsid, asid, fsidp, retflags);
+			    mntpnt_fsid, asid, fsidp, retflags);
 			/*
 			 * We must retry if we don't have access to the
 			 * root file system and there are other
@@ -254,34 +257,35 @@ retry:
 			}
 		} else if (strcmp(me->map_fstype, MNTTYPE_AUTOFS) == 0) {
 			if (isdirect) {
-				len = strlcpy(root, path, sizeof (root));
+				len = strlcpy(root, path, sizeof(root));
 			} else {
-				len = snprintf(root, sizeof (root), "%s/%s",
+				len = snprintf(root, sizeof(root), "%s/%s",
 				    path, key);
 			}
 			if (len < 0) {
 				free_mapent(mapents);
-				return (EINVAL);
+				return EINVAL;
 			}
-			if ((size_t)len >= sizeof (root)) {
+			if ((size_t)len >= sizeof(root)) {
 				free_mapent(mapents);
-				return (ENAMETOOLONG);
+				return ENAMETOOLONG;
 			}
 
 			/*
 			 * get the next subdir
 			 */
-			len = snprintf(next_subdir, sizeof (next_subdir),
-				"%s%s", subdir, me->map_mntpnt);
+			len = snprintf(next_subdir, sizeof(next_subdir),
+			    "%s%s", subdir, me->map_mntpnt);
 
-			if (trace > 2)
+			if (trace > 2) {
 				trace_prt(1, "  root=%s\t next_subdir=%s\n", root, next_subdir);
+			}
 			if (len < 0) {
 				err = EINVAL;
-			} else if ((size_t)len < sizeof (next_subdir)) {
+			} else if ((size_t)len < sizeof(next_subdir)) {
 				err = mount_autofs(mapname, me, spec_mntpnt,
-					mntpnt_fsid, &alp, root,
-					next_subdir, key, fsidp, retflags);
+				    mntpnt_fsid, &alp, root,
+				    next_subdir, key, fsidp, retflags);
 			} else {
 				err = ENAMETOOLONG;
 			}
@@ -290,12 +294,13 @@ retry:
 				 * We were given an action list entry to
 				 * append to the action list; do so.
 				 */
-				if (alphead == NULL)
+				if (alphead == NULL) {
 					alphead = alp;
-				else {
+				} else {
 					prev = NULL;
-					for (tmp = alphead; tmp != NULL; tmp = tmp->next)
+					for (tmp = alphead; tmp != NULL; tmp = tmp->next) {
 						prev = tmp;
+					}
 					prev->next = alp;
 				}
 			}
@@ -303,20 +308,25 @@ retry:
 		} else if (strcmp(me->map_fstype, MNTTYPE_LOFS) == 0) {
 			remove_browse_options(me->map_mntopts);
 			err = loopbackmount(me->map_fs->mfs_dir, spec_mntpnt,
-					    me->map_mntopts);
+			    me->map_mntopts);
 #endif
 		} else {
 			remove_browse_options(me->map_mntopts);
+			if (me->map_fs == NULL) {
+				free_mapent(mapents);
+				return EINVAL;
+			}
 			err = mount_generic(me->map_fs->mfs_dir,
-					    me->map_fstype, me->map_mntopts, 0,
-					    spec_mntpnt, isdirect, FALSE,
-					    me->map_quarantine,
-					    mntpnt_fsid, sendereuid, asid,
-					    fsidp, retflags);
+			    me->map_fstype, me->map_mntopts, 0,
+			    spec_mntpnt, isdirect, FALSE,
+			    me->map_quarantine,
+			    mntpnt_fsid, sendereuid, asid,
+			    fsidp, retflags);
 		}
 	}
-	if (mapents)
+	if (mapents) {
 		free_mapent(mapents);
+	}
 
 	if (!err) {
 		/*
@@ -331,10 +341,10 @@ retry:
 			bufsize += countstring(tmp->mounta.map);
 			bufsize += countstring(tmp->mounta.subdir);
 			bufsize += countstring(tmp->mounta.trig_mntpnt);
-			bufsize += sizeof (int);	/* tmp->mounta.flags */
-			bufsize += sizeof (int);	/* tmp->mounta.mntflags */
-			bufsize += sizeof (uint32_t);	/* tmp->mounta.isdirect */
-			bufsize += sizeof (uint32_t);	/* tmp->mounta.needs_subtrigger */
+			bufsize += sizeof(int);         /* tmp->mounta.flags */
+			bufsize += sizeof(int);         /* tmp->mounta.mntflags */
+			bufsize += sizeof(uint32_t);    /* tmp->mounta.isdirect */
+			bufsize += sizeof(uint32_t);    /* tmp->mounta.needs_subtrigger */
 			bufsize += countstring(tmp->mounta.key);
 		}
 		if (bufsize != 0) {
@@ -344,7 +354,7 @@ retry:
 				syslog(LOG_ERR, "memory allocation error: %s",
 				    mach_error_string(ret));
 				free_action_list(alphead);
-				return (ENOMEM);
+				return ENOMEM;
 			}
 			outbuf = (uint8_t *)buffer_vm_address;
 			*actions = outbuf;
@@ -365,7 +375,7 @@ retry:
 		}
 		*actionsCnt = (mach_msg_type_number_t)bufsize;
 	}
-	return (err);
+	return err;
 }
 
 static void
@@ -380,22 +390,22 @@ free_action_list(action_list *alp)
 	}
 }
 
-#define	ARGV_MAX	23
-#define	VFS_PATH	"/sbin"
-#define MOUNT_PATH	"/sbin/mount"
-#define MOUNT_URL_PATH	"/usr/libexec/mount_url"
+#define ARGV_MAX        23
+#define VFS_PATH        "/sbin"
+#define MOUNT_PATH      "/sbin/mount"
+#define MOUNT_URL_PATH  "/usr/libexec/mount_url"
 
 struct attr_buffer {
-	uint32_t		length;
-	fsid_t			fsid;
-	uint32_t		mountflags;
-	vol_capabilities_attr_t	capabilities;
+	uint32_t                length;
+	fsid_t                  fsid;
+	uint32_t                mountflags;
+	vol_capabilities_attr_t capabilities;
 };
 
 /*
  * TRUE if two fsids are equal.
  */
-#define FSIDS_EQUAL(fsid1, fsid2)	\
+#define FSIDS_EQUAL(fsid1, fsid2)       \
 	((fsid1).val[0] == (fsid2).val[0] && \
 	 (fsid1).val[1] == (fsid2).val[1])
 
@@ -434,7 +444,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	 */
 	if (!isdirect && stat(mntpnt, &stbuf) < 0) {
 		syslog(LOG_ERR, "Couldn't stat %s: %m", mntpnt);
-		return (ENOENT);
+		return ENOENT;
 	}
 
 	i = 1;
@@ -450,8 +460,9 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	/*
 	 * If this should go through the NetAuth agent, say so.
 	 */
-	if (usenetauth)
+	if (usenetauth) {
 		newargv[i++] = "-n";
+	}
 
 	/*
 	 * Flag it as not to show up as a "mounted volume" in the
@@ -471,7 +482,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		if (mp == NULL) {
 			syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
 			    opts);
-			return (ENOENT);
+			return ENOENT;
 		}
 		freemntopts(mp);
 		if (!altflags) {
@@ -517,7 +528,6 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		 * Specify the NFS version, if a version was given.
 		 */
 		switch (nfsvers) {
-
 		case NFS_VER4:
 			newargv[i++] = "-o";
 			newargv[i++] = "vers=4";
@@ -563,40 +573,42 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		if (opts_copy == NULL) {
 			syslog(LOG_ERR, "Can't mount \"%s\" - out of memory",
 			    special);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		mapped_opts_buflen = strlen(opts_copy) + 1;
 		mapped_opts = malloc(mapped_opts_buflen);
 		if (mapped_opts == NULL) {
 			syslog(LOG_ERR, "Can't mount \"%s\" - out of memory",
-			       special);
+			    special);
 			free(opts_copy);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		*mapped_opts = '\0';
 
 		opts = opts_copy;
 		while ((p = strsep(&opts, ",")) != NULL) {
-
 			/*
 			 * Edit out any automounter specific options
 			 * or commonly encountered but unsupported options
 			 * that the mount command might warn about.
 			 */
 			if (strcmp(p, MNTOPT_HIDEFROMFINDER) == 0 ||
-				strcmp(p, "grpid") == 0)
+			    strcmp(p, "grpid") == 0) {
 				continue;
-			if (automountd_nosuid && strcmp(p, "suid") == 0)
+			}
+			if (automountd_nosuid && strcmp(p, "suid") == 0) {
 				continue;
+			}
 			/*
 			 * Now handle mappings
 			 */
-			if (strcmp(p, "findervol") == 0)
+			if (strcmp(p, "findervol") == 0) {
 				optp = "browse";
-			else if (strcmp(p, "nofindervol") == 0)
+			} else if (strcmp(p, "nofindervol") == 0) {
 				optp = "nobrowse";
-			else
+			} else {
 				optp = p;
+			}
 
 			/*
 			 * "findervol" is longer than "browse", and
@@ -643,9 +655,10 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		syslog(LOG_ERR,
 		    "Can't mount \"%s\", as its name begins with \"-\"\n",
 		    special);
-		if (mapped_opts != NULL)
+		if (mapped_opts != NULL) {
 			free(mapped_opts);
-		return (ENOENT);
+		}
+		return ENOENT;
 	}
 	newargv[i++] = special;
 	newargv[i++] = mntpnt;
@@ -663,15 +676,16 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		if (trace > 1) {
 			if (stat(mntpnt, &stbuf) == 0) {
 				trace_prt(1, "  mount of %s dev=%x rdev=%x OK\n",
-					mntpnt, stbuf.st_dev, stbuf.st_rdev);
+				    mntpnt, stbuf.st_dev, stbuf.st_rdev);
 			} else {
 				trace_prt(1, "  failed to stat %s\n", mntpnt);
 			}
 		}
 	}
-	if (mapped_opts != NULL)
+	if (mapped_opts != NULL) {
 		free(mapped_opts);
-	return (res);
+	}
+	return res;
 }
 
 int
@@ -681,11 +695,11 @@ get_triggered_mount_info(const char *mntpnt, fsid_t mntpnt_fsid,
 	struct attrlist attrs;
 	struct attr_buffer attrbuf;
 
-	memset(&attrs, 0, sizeof (attrs));
+	memset(&attrs, 0, sizeof(attrs));
 	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
 	attrs.commonattr = ATTR_CMN_FSID;
-	attrs.volattr = ATTR_VOL_INFO|ATTR_VOL_MOUNTFLAGS|ATTR_VOL_CAPABILITIES;
-	if (getattrlist(mntpnt, &attrs, &attrbuf, sizeof (attrbuf), 0) == -1) {
+	attrs.volattr = ATTR_VOL_INFO | ATTR_VOL_MOUNTFLAGS | ATTR_VOL_CAPABILITIES;
+	if (getattrlist(mntpnt, &attrs, &attrbuf, sizeof(attrbuf), 0) == -1) {
 		/* Failed. */
 		return errno;
 	}
@@ -720,10 +734,11 @@ get_triggered_mount_info(const char *mntpnt, fsid_t mntpnt_fsid,
 	 * or the MNT_DOVOLFS flag is set, it's a VolFS file system.
 	 */
 	if ((attrbuf.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PATH_FROM_ID) &&
-	    (attrbuf.capabilities.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PATH_FROM_ID))
+	    (attrbuf.capabilities.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PATH_FROM_ID)) {
 		*retflags |= MOUNT_RETF_DONTUNMOUNT;
-	else if (attrbuf.mountflags & MNT_DOVOLFS)
+	} else if (attrbuf.mountflags & MNT_DOVOLFS) {
 		*retflags |= MOUNT_RETF_DONTUNMOUNT;
+	}
 	return 0;
 }
 
@@ -741,24 +756,24 @@ join_session(au_asid_t asid)
 	err = audit_session_port(asid, &session_port);
 	if (err) {
 		syslog(LOG_ERR, "Could not get audit session port %d for %m", asid);
-		return (-1);
+		return -1;
 	}
 	asid2 = audit_session_join(session_port);
 	(void) mach_port_deallocate(current_task(), session_port);
 
 	if (asid2 < 0) {
 		syslog(LOG_ERR, "Could not join audit session %d", asid);
-		return (-1);
+		return -1;
 	}
 
 	if (asid2 != asid) {
 		syslog(LOG_ERR, "Joined session %d but wound up in session %d", asid, asid2);
-		return (-1);
+		return -1;
 	}
-	return (0);
+	return 0;
 }
-#define CFENVFORMATSTRING	"0x%X:0:0"
-#define CFENVVAR		"__CF_USER_TEXT_ENCODING"
+#define CFENVFORMATSTRING       "0x%X:0:0"
+#define CFENVVAR                "__CF_USER_TEXT_ENCODING"
 
 extern char **environ;
 
@@ -767,8 +782,9 @@ count_environ(void)
 {
 	int i;
 
-	for (i = 0; environ[i] != NULL; i++)
+	for (i = 0; environ[i] != NULL; i++) {
 		/* count */;
+	}
 
 	return i;
 }
@@ -781,11 +797,11 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	volatile int path_is_allocated;
 	posix_spawnattr_t spawn_attr;
 	struct stat stbuf;
-					  /* accounts for '=' */
+	/* accounts for '=' */
 	char CFUserTextEncodingEnvSetting[sizeof(CFENVVAR) +
-					  sizeof(CFENVFORMATSTRING) +
-					  /* accounts for %X expansion of UID */
-					  20];
+	sizeof(CFENVFORMATSTRING) +
+	/* accounts for %X expansion of UID */
+	20];
 	char **spawn_environ = NULL;
 	int child_pid = -1;
 	int stat_loc;
@@ -807,12 +823,13 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		path = MOUNT_PATH;
 		path_is_allocated = 0;
 	} else {
-		if (strcmp(fstype, "smb") == 0)
-			fstype = "smbfs";	/* mount_smbfs, not mount_smb */
+		if (strcmp(fstype, "smb") == 0) {
+			fstype = "smbfs";       /* mount_smbfs, not mount_smb */
+		}
 		if (asprintf(&path, "%s/mount_%s", VFS_PATH, fstype) == -1) {
 			res = errno;
 			syslog(LOG_ERR, "Can't construct pathname of mount program: %m");
-			return (res);
+			return res;
 		}
 		path_is_allocated = 1;
 	}
@@ -827,8 +844,9 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 		char *bufp;
 		int c = 0;
 
-		for (i = 1; newargv[i]; i++) // sum arg length + space
+		for (i = 1; newargv[i]; i++) { // sum arg length + space
 			c += strlen(newargv[i]) + 1;
+		}
 		bufp = malloc(c + 1);
 		if (bufp) {
 			char *p = bufp;
@@ -915,9 +933,9 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 * this when deciding whether to look in the home directory.
 	 */
 	snprintf(CFUserTextEncodingEnvSetting,
-		 sizeof(CFUserTextEncodingEnvSetting),
-		 CFENVVAR "=" CFENVFORMATSTRING,
-		 sendereuid);
+	    sizeof(CFUserTextEncodingEnvSetting),
+	    CFENVVAR "=" CFENVFORMATSTRING,
+	    sendereuid);
 
 	nenviron = count_environ();
 	if (trace > 1) {
@@ -975,39 +993,41 @@ run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	 * Now wait for the child to finish.
 	 */
 	while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
-		if ((res = errno) == EINTR)
+		if ((res = errno) == EINTR) {
 			continue;
+		}
 		syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
-		goto done_attrs;
+		goto done_dealloc;
 	}
 
 	if (WIFEXITED(stat_loc)) {
 		if (trace > 1) {
 			trace_prt(1,
-				"  run_mount_cmd: returns exit status %d\n",
-				WEXITSTATUS(stat_loc));
+			    "  run_mount_cmd: returns exit status %d\n",
+			    WEXITSTATUS(stat_loc));
 		}
 
 		res = WEXITSTATUS(stat_loc);
 	} else if (WIFSIGNALED(stat_loc)) {
 		syslog(LOG_ERR, "Mount subprocess terminated with %s",
-			strsignal(WTERMSIG(stat_loc)));
+		    strsignal(WTERMSIG(stat_loc)));
 		if (trace > 1) {
 			trace_prt(1,
-				"  run_mount_cmd: returns signal status %d\n",
-				WTERMSIG(stat_loc));
+			    "  run_mount_cmd: returns signal status %d\n",
+			    WTERMSIG(stat_loc));
 		}
 		res = EIO;
 	} else if (WIFSTOPPED(stat_loc)) {
 		syslog(LOG_ERR, "Mount subprocess stopped with %s",
-			strsignal(WSTOPSIG(stat_loc)));
+		    strsignal(WSTOPSIG(stat_loc)));
 		res = EIO;
 	} else {
 		syslog(LOG_ERR, "Mount subprocess got unknown status 0x%08x",
-			stat_loc);
-		if (trace > 1)
+		    stat_loc);
+		if (trace > 1) {
 			trace_prt(1,
-				"  run_mount_cmd: returns unknown status\n");
+			    "  run_mount_cmd: returns unknown status\n");
+		}
 		res = EIO;
 	}
 
@@ -1019,9 +1039,10 @@ done_attrs:
 	 */
 	posix_spawnattr_destroy(&spawn_attr);
 done:
-	if (path_is_allocated)
+	if (path_is_allocated) {
 		free(path);
-	return (res);
+	}
+	return res;
 }
 
 static const struct mntopt mopts_nfs[] = {
@@ -1032,7 +1053,6 @@ int
 do_unmount1(fsid_t mntpnt_fsid, autofs_pathname mntresource,
     autofs_pathname mntpnt, autofs_component fstype, autofs_opts mntopts)
 {
-
 	struct mnttab m;
 	int res = 0;
 	mntoptparse_t mp;
@@ -1067,15 +1087,16 @@ do_unmount1(fsid_t mntpnt_fsid, autofs_pathname mntresource,
 		if (mp != NULL) {
 			if (altflags & NFS_MNT_PORT) {
 				nfs_port = getmntoptnum(mp, "port");
-				if (nfs_port != -1)
+				if (nfs_port != -1) {
 					nfs_port &= USHRT_MAX;
-				else {
+				} else {
 					syslog(LOG_ERR, "Couldn't parse port= option in \"%s\": %m",
 					    mntopts);
-					nfs_port = 0;	/* error */
+					nfs_port = 0;   /* error */
 				}
-			} else
-				nfs_port = 0;	/* option not present */
+			} else {
+				nfs_port = 0;   /* option not present */
+			}
 			freemntopts(mp);
 		} else {
 			syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
@@ -1085,8 +1106,9 @@ do_unmount1(fsid_t mntpnt_fsid, autofs_pathname mntresource,
 
 		list = parse_replica(mntresource, &n);
 		if (list == NULL) {
-			if (n >= 0)
+			if (n >= 0) {
 				syslog(LOG_ERR, "Memory allocation failed: %m");
+			}
 			res = 1;
 			goto done;
 		}
@@ -1104,7 +1126,7 @@ do_unmount1(fsid_t mntpnt_fsid, autofs_pathname mntresource,
 
 	res = unmount_mntpnt(mntpnt_fsid, &m);
 
-done:	return (res);
+done:   return res;
 }
 
 static int
@@ -1112,13 +1134,15 @@ unmount_mntpnt(fsid_t mntpnt_fsid, struct mnttab *mnt)
 {
 	int res = 0;
 
-	if (umount_by_fsid(&mntpnt_fsid, 0) < 0)
+	if (umount_by_fsid(&mntpnt_fsid, 0) < 0) {
 		res = errno;
+	}
 
-	if (trace > 1)
+	if (trace > 1) {
 		trace_prt(1, "  unmount %s %s\n",
-			mnt->mnt_mountp, res ? "failed" : "OK");
-	return (res);
+		    mnt->mnt_mountp, res ? "failed" : "OK");
+	}
+	return res;
 }
 
 /*
@@ -1145,8 +1169,9 @@ remove_browse_options(char *opts)
 		if (strcmp(p, "nobrowse") != 0 &&
 		    strcmp(p, "browse") != 0 &&
 		    strcmp(p, MNTOPT_RESTRICT) != 0) {
-			if (new[0] != '\0')
+			if (new[0] != '\0') {
 				(void) strlcat(new, ",", sizeof(new));
+			}
 			(void) strlcat(new, p, sizeof(new));
 		}
 	}
@@ -1162,7 +1187,7 @@ remove_browse_options(char *opts)
 static const struct mntopt mopts_restrict[] = {
 	RESTRICTED_MNTOPTS
 };
-#define	NROPTS	((sizeof (mopts_restrict)/sizeof (mopts_restrict[0])) - 1)
+#define NROPTS  ((sizeof (mopts_restrict)/sizeof (mopts_restrict[0])) - 1)
 
 static int
 inherit_options(const char *opts, char **mapentopts)
@@ -1175,7 +1200,7 @@ inherit_options(const char *opts, char **mapentopts)
 	int mtoptflags, mtoptaltflags;
 	bool_t addopt;
 	size_t len;
-        int error = 0;
+	int error = 0;
 
 	len = strlen(*mapentopts);
 
@@ -1193,20 +1218,22 @@ inherit_options(const char *opts, char **mapentopts)
 		 * If this is a negative option, and the option should be
 		 * set, the name will be preceded with "no".
 		 */
-		if (mopts_restrict[i].m_inverse)
+		if (mopts_restrict[i].m_inverse) {
 			len += 2;
+		}
 	}
 
 	/* "," for each new option plus the trailing NUL */
 	len += NROPTS + 1;
 
 	new = malloc(len);
-	if (new == 0)
-		return (-1);
+	if (new == 0) {
+		return -1;
+	}
 
 	if ((error = CHECK_STRCPY(new, *mapentopts, len))) {
-                goto DONE;
-        }
+		goto DONE;
+	}
 
 	mtmapflags = mtmapaltflags = 0;
 	getmnt_silent = 1;
@@ -1214,7 +1241,7 @@ inherit_options(const char *opts, char **mapentopts)
 	if (mtmap == NULL) {
 		syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
 		    opts);
-		return (-1);
+		return -1;
 	}
 	freemntopts(mtmap);
 
@@ -1224,42 +1251,42 @@ inherit_options(const char *opts, char **mapentopts)
 	if (mtopt == NULL) {
 		syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
 		    opts);
-		return (-1);
+		return -1;
 	}
 	freemntopts(mtopt);
 
 	for (i = 0; i < NROPTS; i++) {
 		if (mopts_restrict[i].m_altloc) {
 			addopt = ((mtoptaltflags & mopts_restrict[i].m_flag) &&
-				 !(mtmapaltflags & mopts_restrict[i].m_flag));
+			    !(mtmapaltflags & mopts_restrict[i].m_flag));
 		} else {
 			addopt = ((mtoptflags & mopts_restrict[i].m_flag) &&
-				 !(mtmapflags & mopts_restrict[i].m_flag));
+			    !(mtmapflags & mopts_restrict[i].m_flag));
 		}
 		if (addopt) {
 			if (*new != '\0') {
 				if ((error = CHECK_STRCAT(new, ",", len))) {
-                                        goto DONE;
-                                }
-                        }
+					goto DONE;
+				}
+			}
 			if (mopts_restrict[i].m_inverse) {
 				if ((error = CHECK_STRCAT(new, "no", len))) {
-                                        goto DONE;
-                                }
-                        }
+					goto DONE;
+				}
+			}
 			error = CHECK_STRCAT(new, mopts_restrict[i].m_option, len);
 		}
 	}
 DONE:
-        free(*mapentopts);
-        if (error) {
-        	if (new) {
-                	free(new);
-                }
-                new = NULL;
-        }
-        *mapentopts = new;
-        
+	free(*mapentopts);
+	if (error) {
+		if (new) {
+			free(new);
+		}
+		new = NULL;
+	}
+	*mapentopts = new;
+
 	return error;
 }
 
@@ -1272,8 +1299,9 @@ hasrestrictopt(const char *opts)
 	flags = altflags = 0;
 	getmnt_silent = 1;
 	mp = getmntopts(opts, mopts_restrict, &flags, &altflags);
-	if (mp == NULL)
-		return (FALSE);
+	if (mp == NULL) {
+		return FALSE;
+	}
 	freemntopts(mp);
-	return ((altflags & AUTOFS_MNT_RESTRICT) != 0);
+	return (altflags & AUTOFS_MNT_RESTRICT) != 0;
 }

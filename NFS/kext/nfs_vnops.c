@@ -482,7 +482,7 @@ nfs_rdirplus_update_node_attrs(nfsnode_t dnp, struct direntry *dp, fhandle_t *fh
 		xid = nvattrp->nva_fileid;
 		nvattrp->nva_fileid = dp->d_fileno;
 	}
-	nfs_nget(NFSTOMP(dnp), dnp, &cn, fhp->fh_data, fhp->fh_len, nvattrp, savedxidp, RPCAUTH_UNKNOWN, NG_NOCREATE, &np);
+	nfs_nget(NFSTOMP(dnp), dnp, &cn, fhp->fh_data, fhp->fh_len, nvattrp, savedxidp, RPCAUTH_UNKNOWN, NG_NOCREATE | NG_REALNAME, &np);
 	if (should_update_fileid) {
 		nvattrp->nva_fileid = xid;
 	}
@@ -502,17 +502,20 @@ nfs_node_access_slot(nfsnode_t np, uid_t uid, int add)
 {
 	int slot;
 
-	for (slot = 0; slot < NFS_ACCESS_CACHE_SIZE; slot++) {
-		if (np->n_accessuid[slot] == uid) {
+	if (np->n_accesscachesize <= 0) {
+		panic("access cache size must be positive");
+	}
+	for (slot = 0; slot < np->n_accesscachesize; slot++) {
+		if (np->n_accessuid(slot) == uid) {
 			break;
 		}
 	}
-	if (slot == NFS_ACCESS_CACHE_SIZE) {
+	if (slot == np->n_accesscachesize) {
 		if (!add) {
 			return -1;
 		}
-		slot = np->n_access[NFS_ACCESS_CACHE_SIZE];
-		np->n_access[NFS_ACCESS_CACHE_SIZE] = (slot + 1) % NFS_ACCESS_CACHE_SIZE;
+		slot = np->n_access_cache.next_slot;
+		np->n_access_cache.next_slot = (slot + 1) % np->n_accesscachesize;
 	}
 	return slot;
 }
@@ -566,10 +569,10 @@ nfs3_access_rpc(nfsnode_t np, u_int32_t *access, int rpcflags, vfs_context_t ctx
 	uid = kauth_cred_getuid(vfs_context_ucred(ctx));
 #endif /* CONFIG_NFS_GSS */
 	slot = nfs_node_access_slot(np, uid, 1);
-	np->n_accessuid[slot] = uid;
+	np->n_accessuid(slot) = uid;
 	microuptime(&now);
-	np->n_accessstamp[slot] = now.tv_sec;
-	np->n_access[slot] = access_result;
+	np->n_accessstamp(slot) = now.tv_sec;
+	np->n_access(slot) = access_result;
 
 	/*
 	 * If we asked for DELETE but didn't get it, the server
@@ -579,15 +582,15 @@ nfs3_access_rpc(nfsnode_t np, u_int32_t *access, int rpcflags, vfs_context_t ctx
 	 * really isn't deletable.
 	 */
 	if ((*access & NFS_ACCESS_DELETE) &&
-	    !(np->n_access[slot] & NFS_ACCESS_DELETE)) {
-		np->n_access[slot] |= NFS_ACCESS_DELETE;
+	    !(np->n_access(slot) & NFS_ACCESS_DELETE)) {
+		np->n_access(slot) |= NFS_ACCESS_DELETE;
 	}
 	/* ".zfs" subdirectories may erroneously give a denied answer for add/remove */
 	if (nfs_access_dotzfs && (np->n_flag & NISDOTZFSCHILD)) {
-		np->n_access[slot] |= (NFS_ACCESS_MODIFY | NFS_ACCESS_EXTEND | NFS_ACCESS_DELETE);
+		np->n_access(slot) |= (NFS_ACCESS_MODIFY | NFS_ACCESS_EXTEND | NFS_ACCESS_DELETE);
 	}
 	/* pass back the access returned with this request */
-	*access = np->n_access[slot];
+	*access = np->n_access(slot);
 nfsmout:
 	if (!lockerror) {
 		nfs_node_unlock(np);
@@ -734,11 +737,11 @@ nfs_vnop_access(
 	dorpc = 1;
 	if (NACCESSVALID(np, slot)) {
 		microuptime(&now);
-		if (((now.tv_sec < (np->n_accessstamp[slot] + nfs_access_cache_timeout)) &&
-		    ((np->n_access[slot] & access) == access)) || nfs_use_cache(nmp)) {
+		if (((now.tv_sec < (np->n_accessstamp(slot) + nfs_access_cache_timeout)) &&
+		    ((np->n_access(slot) & access) == access)) || nfs_use_cache(nmp)) {
 			OSAddAtomic(1, &nfsclntstats.accesscache_hits);
 			dorpc = 0;
-			waccess = np->n_access[slot];
+			waccess = np->n_access(slot);
 		}
 	}
 	nfs_node_unlock(np);
@@ -761,7 +764,7 @@ nfs_vnop_access(
 		 */
 		if ((error == ETIMEDOUT) && (rpcflags & R_SOFT)) {
 			error = 0;
-			waccess = np->n_access[slot];
+			waccess = np->n_access(slot);
 		}
 	}
 	if (!error && ((waccess & access) != access)) {
@@ -1204,7 +1207,7 @@ nfs_vnop_close(
 			lck_mtx_lock(&nmp->nm_lock);
 			if (writers > nmp->nm_writers) {
 				NP(np, "nfs_vnop_close: number of write opens for mount underrun. Node has %d"
-				    " opens for write. Mount has total of %d opens for write\n",
+				    " opens for write. Mount has total of %d opens for write",
 				    writers, nmp->nm_writers);
 				nmp->nm_writers = 0;
 			} else {
@@ -1373,7 +1376,7 @@ retry:
 				/* Erase state generation ID to force future LOCK operations to request new lock owner */
 				nlop->nlo_stategenid = 0;
 				lck_mtx_unlock(&nlop->nlo_lock);
-				NP(np, "nfs_release_locks_for_open_owner: was not able to destroy lock owner %p", nlop);
+				NP(np, "nfs_release_locks_for_open_owner: was not able to destroy lock owner 0x%lx", nfs_kernel_hideaddr(nlop));
 			}
 		}
 	}
@@ -1457,7 +1460,7 @@ nfs_close(
 		if (!delegated && !(nofp->nof_flags & NFS_OPEN_FILE_LOST)) {
 			error = nfs_release_locks_for_open_owner(ctx, np, nofp);
 			if (error) {
-				NP(np, "nfs_close: nfs_release_locks_for_open_owner for np %p and nofp %p returned %d", np, nofp, error);
+				NP(np, "nfs_close: nfs_release_locks_for_open_owner for nofp 0x%lx returned %d", nfs_kernel_hideaddr(nofp), error);
 			}
 			error = nfs4_close_rpc(np, nofp, vfs_context_thread(ctx), vfs_context_ucred(ctx), 0, 0);
 		}
@@ -2339,15 +2342,17 @@ restart:
 						 */
 						NATTRINVALIDATE(np);
 						nfs_node_unlock(np);
-						nfs_data_unlock(np);
+						nfs_data_exclusive_to_shared(np);
 						nfs_vinvalbuf1(vp, V_SAVE | V_IGNORE_WRITEERR, ctx, 1);
-						nfs_data_lock(np, NFS_DATA_LOCK_EXCLUSIVE);
+						nfs_data_shared_to_exclusive(np);
 						error = 0;
 					}
 				}
 			}
 			if (vap->va_data_size != np->n_size) {
+				nfs_data_exclusive_to_shared(np);
 				ubc_setsize(vp, (off_t)vap->va_data_size); /* XXX error? */
+				nfs_data_shared_to_exclusive(np);
 			}
 			origsize = np->n_size;
 			np->n_size = np->n_vattr.nva_size = vap->va_data_size;
@@ -2440,7 +2445,9 @@ restart:
 			CLR(np->n_flag, NUPDATESIZE);
 			nfs_node_unlock(np);
 			NFS_KDBG_INFO(NFSDBG_VN_SETATTR, 0xabc008, np, np->n_size, np->n_vattr.nva_size);
+			nfs_data_exclusive_to_shared(np);
 			ubc_setsize(vp, (off_t)np->n_size); /* XXX check error */
+			nfs_data_shared_to_exclusive(np);
 			vapsize = vap->va_data_size;
 			vap->va_data_size = origsize;
 			err = nmp->nm_funcs->nf_setattr_rpc(np, vap, ctx);
@@ -2721,7 +2728,7 @@ nfs_vnop_lookup(
 	nfsvers = nmp->nm_vers;
 	negnamecache = !NMFLAG(nmp, NONEGNAMECACHE);
 
-	if ((error = busyerror = nfs_node_set_busy(dnp, vfs_context_thread(ctx)))) {
+	if ((error = busyerror = nfs_node_set_busy_shared(dnp, vfs_context_thread(ctx)))) {
 		goto error_return;
 	}
 	/* nfs_getattr() will check changed and purge caches */
@@ -2729,10 +2736,13 @@ nfs_vnop_lookup(
 		goto error_return;
 	}
 
-	error = cache_lookup(dvp, vpp, cnp);
+	error = cache_lookup_ext(dvp, vpp, cnp, CACHE_LOOKUP_ALLHITS);
 	switch (error) {
 	case ENOENT:
 		/* negative cache entry */
+		if ((cnp->cn_flags & ISLASTCN) && (cnp->cn_nameiop == CREATE || cnp->cn_nameiop == RENAME)) {
+			error = EJUSTRETURN;
+		}
 		goto error_return;
 	case 0:
 		/* cache miss */
@@ -2757,7 +2767,7 @@ nfs_vnop_lookup(
 		/* cache hit, not really an error */
 		OSAddAtomic64(1, &nfsclntstats.lookupcache_hits);
 
-		nfs_node_clear_busy(dnp);
+		nfs_node_clear_busy_shared(dnp);
 		busyerror = ENOENT;
 
 		/* check for directory access */
@@ -2894,7 +2904,7 @@ error_return:
 	NFS_ZFREE(get_zone(NFS_REQUEST_ZONE), req);
 	NFS_ZFREE(get_zone(NFS_VATTR), nvattr);
 	if (!busyerror) {
-		nfs_node_clear_busy(dnp);
+		nfs_node_clear_busy_shared(dnp);
 	}
 	if (error && *vpp) {
 		vnode_put(*vpp);
@@ -3126,10 +3136,12 @@ nfs_read_rpc(nfsnode_t np, uio_t uio, vfs_context_t ctx)
 			stategenid = nmp->nm_stategenid;
 		}
 #endif
+		nfs_kdebug_io_start(np->n_mount, &req, txoffset / nmrsize, NB_READ, len);
 		error = nmp->nm_funcs->nf_read_rpc_async(np, txoffset, len,
 		    vfs_context_thread(ctx), vfs_context_ucred(ctx), NULL, &req);
 		if (!error) {
 			error = nmp->nm_funcs->nf_read_rpc_async_finish(np, req, uio, &retlen, &eof);
+			nfs_kdebug_io_end(np->n_vnode, &req, len - retlen, error);
 		}
 #if CONFIG_NFS4
 		if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error) &&
@@ -3930,6 +3942,7 @@ nfs_write_rpc(
 #endif
 	uint32_t vrestart = 0;
 	uio_t uio_write = NULL;
+	off_t txoffset;
 
 #if DIAGNOSTIC
 	/* XXX limitation based on need to back up uio on short write */
@@ -3972,9 +3985,12 @@ nfs_write_rpc(
 			stategenid = nmp->nm_stategenid;
 		}
 #endif
+		txoffset = uio_offset(uio_write);
+		nfs_kdebug_io_start(np->n_mount, &req, txoffset / nmwsize, 0, len);
 		error = nmp->nm_funcs->nf_write_rpc_async(np, uio_write, len, thd, cred, *iomodep, NULL, &req);
 		if (!error) {
 			error = nmp->nm_funcs->nf_write_rpc_async_finish(np, req, &commit, &rlen, &wverf2);
+			nfs_kdebug_io_end(np->n_vnode, &req, len - rlen, error);
 		}
 		nmp = NFSTONMP(np);
 		if (nfs_mount_gone(nmp)) {
@@ -4779,7 +4795,7 @@ again:
 			/* clear all flags other than these */
 			nfs_node_lock_force(np);
 			nfs_negative_cache_purge(np);
-			np->n_flag &= (NMODIFIED);
+			np->n_flag &= (NMODIFIED | NBUSY | NBUSYWANT);
 			NATTRINVALIDATE(np);
 			nfs_node_unlock(np);
 			cleanup = 1;
@@ -5067,7 +5083,7 @@ nfs_vnop_rename(
 			/* clear all flags other than these */
 			nfs_node_lock_force(tnp);
 			nfs_negative_cache_purge(tnp);
-			tnp->n_flag &= (NMODIFIED);
+			tnp->n_flag &= (NMODIFIED | NBUSY | NBUSYWANT);
 			nfs_node_unlock(tnp);
 			vnode_recycle(tvp);
 		}
@@ -7301,7 +7317,7 @@ nfs_dulookup_init(struct nfs_dulookup *dulp, nfsnode_t dnp, const char *name, in
 	dulp->du_cn.cn_nameiop = LOOKUP;
 	dulp->du_cn.cn_flags = MAKEENTRY;
 
-	error = cache_lookup(NFSTOV(dnp), &du_vp, &dulp->du_cn);
+	error = cache_lookup_ext(NFSTOV(dnp), &du_vp, &dulp->du_cn, CACHE_LOOKUP_ALLHITS);
 	if (error == -1) {
 		vnode_put(du_vp);
 	} else if (!error) {
@@ -8196,6 +8212,12 @@ nfs_vnop_select(
 }
 
 int nfsclnt_nointr_pagein = 0;
+
+typedef struct req_data {
+	off_t   offset;
+	size_t  iosize;
+} req_data;
+
 /*
  * vnode OP for pagein using UPL
  *
@@ -8233,6 +8255,7 @@ nfs_vnop_pagein(
 	upl_page_info_t *plinfo;
 #define MAXPAGINGREQS   16      /* max outstanding RPCs for pagein/pageout */
 	struct nfsreq *req[MAXPAGINGREQS];
+	req_data reqd[MAXPAGINGREQS] = {};
 	int nextsend, nextwait;
 #if CONFIG_NFS4
 	uint32_t stategenid = 0;
@@ -8316,6 +8339,9 @@ tryagain:
 		/* send requests while we need to and have available slots */
 		while ((txsize > 0) && (req[nextsend] == NULL)) {
 			iosize = MIN(nmrsize, txsize);
+			reqd[nextsend].iosize = iosize;
+			reqd[nextsend].offset = txoffset;
+			nfs_kdebug_io_start(np->n_mount, &req[nextsend], txoffset / nmrsize, NB_READ | NB_ASYNC | NB_PAGING, iosize);
 			if ((error = nmp->nm_funcs->nf_read_rpc_async(np, txoffset, iosize, thd, cred, NULL, &req[nextsend]))) {
 				NP(np, "nfs_vnop_pagein: read_rpc_async error: %d", error);
 				req[nextsend] = NULL;
@@ -8337,6 +8363,7 @@ tryagain:
 #endif /* UPL_DEBUG */
 			OSAddAtomic64(1, &nfsclntstats.pageins);
 			error = nmp->nm_funcs->nf_read_rpc_async_finish(np, req[nextwait], uio, &retsize, &eof);
+			nfs_kdebug_io_end(np->n_vnode, &req[nextwait], reqd[nextwait].iosize - retsize, error);
 			req[nextwait] = NULL;
 			nextwait = (nextwait + 1) % MAXPAGINGREQS;
 partial_read:
@@ -8379,12 +8406,14 @@ partial_read:
 				off_t ttxoffset = f_offset + rxaddr - ioaddr;
 				retsize = iosize;
 
+				nfs_kdebug_io_start(np->n_mount, &treq, ttxoffset / nmrsize, NB_READ | NB_PAGING, iosize);
 				error = nmp->nm_funcs->nf_read_rpc_async(np, ttxoffset, iosize, thd, cred, NULL, &treq);
 				if (error) {
 					NP(np, "nfs_vnop_pagein: partial read[%zu]: read_rpc_async error: %d", iosize, error);
 					break;
 				}
 				error = nmp->nm_funcs->nf_read_rpc_async_finish(np, treq, uio, &retsize, &eof);
+				nfs_kdebug_io_end(np->n_vnode, &treq, iosize - retsize, error);
 				if (error) {
 					NP(np, "nfs_vnop_pagein: partial read[%zu]: read_rpc_async_finish error: %d", iosize, error);
 				}
@@ -8613,6 +8642,7 @@ nfs_vnop_pageout(
 	int nofreeupl = flags & UPL_NOCOMMIT;
 	size_t nmwsize, biosize, iosize, remsize;
 	struct nfsreq *req[MAXPAGINGREQS];
+	req_data reqd[MAXPAGINGREQS] = {};
 	int nextsend, nextwait, wverfset, commit;
 	uint64_t wverf, wverf2, xsize, txsize, rxsize;
 #if CONFIG_NFS4
@@ -8866,6 +8896,9 @@ tryagain:
 			nfs_node_unlock(np);
 			vnode_startwrite(vp);
 			iomode = NFS_WRITE_UNSTABLE;
+			reqd[nextsend].iosize = iosize;
+			reqd[nextsend].offset = uio_offset(auio);
+			nfs_kdebug_io_start(np->n_mount, &req[nextsend], uio_offset(auio) / nmwsize, NB_ASYNC | NB_PAGING, iosize);
 			if ((error = nmp->nm_funcs->nf_write_rpc_async(np, auio, iosize, thd, cred, iomode, NULL, &req[nextsend]))) {
 				req[nextsend] = NULL;
 				vnode_writedone(vp);
@@ -8883,6 +8916,7 @@ tryagain:
 		while ((rxsize > 0) && req[nextwait]) {
 			iosize = remsize = (size_t)MIN(nmwsize, rxsize);
 			error = nmp->nm_funcs->nf_write_rpc_async_finish(np, req[nextwait], &iomode, &iosize, &wverf2);
+			nfs_kdebug_io_end(np->n_vnode, &req[nextwait], reqd[nextwait].iosize - iosize, error);
 			req[nextwait] = NULL;
 			nextwait = (nextwait + 1) % MAXPAGINGREQS;
 			vnode_writedone(vp);

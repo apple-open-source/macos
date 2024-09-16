@@ -28,6 +28,7 @@
 
 #if ENABLE(VIDEO)
 
+#include "ContextDestructionObserverInlines.h"
 #include "ScriptExecutionContext.h"
 #include "VideoTrack.h"
 
@@ -99,14 +100,18 @@ int VideoTrackList::selectedIndex() const
     return -1;
 }
 
-EventTargetInterface VideoTrackList::eventTargetInterface() const
+VideoTrack* VideoTrackList::selectedItem() const
 {
-    return VideoTrackListEventTargetInterfaceType;
+    auto selectedIndex = this->selectedIndex();
+    if (selectedIndex < 0)
+        return nullptr;
+
+    return item(selectedIndex);
 }
 
-const char* VideoTrackList::activeDOMObjectName() const
+enum EventTargetInterfaceType VideoTrackList::eventTargetInterface() const
 {
-    return "VideoTrackList";
+    return EventTargetInterfaceType::VideoTrackList;
 }
 
 } // namespace WebCore

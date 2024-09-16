@@ -2,11 +2,11 @@
 	<key>OpenSourceProject</key>
 	<string>tail</string>
 	<key>OpenSourceVersion</key>
-	<string>2023-03-16</string>
+	<string>2023-11-29</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>https://cgit.freebsd.org/src/tree/usr.bin/tail?id=fa3af3ce5010740f28faed22e0a1e819491f26b4</string>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/tail?id=b70e57be2cfe83ec9f410e2f317ea38aaac61a98</string>
 	<key>OpenSourceImportDate</key>
-	<string>2023-03-16</string>
+	<string>2023-11-29</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceModifications</key>

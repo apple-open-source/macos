@@ -177,6 +177,8 @@ const SecKeyAlgorithm kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512 = CF
 
 const SecKeyAlgorithm kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256 = CFSTR("algid:sign:EdDSA:message-Curve448:SHAKE256");
 
+const SecKeyAlgorithm kSecKeyAlgorithmKEMKyber = CFSTR("algid:kem:kyber");
+
 void SecKeyOperationContextDestroy(SecKeyOperationContext *context) {
     CFReleaseNull(context->algorithm);
 }
@@ -1674,8 +1676,24 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
         check_compile_time(array_size(keyExchangeKeys) == array_size(keyExchangeValues));
         adaptors[kSecKeyOperationTypeKeyExchange] = CFDictionaryCreate(kCFAllocatorDefault, keyExchangeKeys, keyExchangeValues,
                                                                        array_size(keyExchangeKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
+
+        const void *keyEncapsulateKeys[] = {
+        };
+        const void *keyEncapsulateValues[] = {
+        };
+        check_compile_time(array_size(keyEncapsulateKeys) == array_size(keyEncapsulateValues));
+        adaptors[kSecKeyOperationTypeEncapsulate] = CFDictionaryCreate(kCFAllocatorDefault, keyEncapsulateKeys, keyEncapsulateValues,
+                                                                       array_size(keyEncapsulateKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
+
+        const void *keyDecapsulateKeys[] = {
+        };
+        const void *keyDecapsulateValues[] = {
+        };
+        check_compile_time(array_size(keyDecapsulateKeys) == array_size(keyDecapsulateValues));
+        adaptors[kSecKeyOperationTypeDecapsulate] = CFDictionaryCreate(kCFAllocatorDefault, keyDecapsulateKeys, keyDecapsulateValues,
+                                                                       array_size(keyDecapsulateKeys), &kCFTypeDictionaryKeyCallBacks, NULL);
     });
-    
+
     SecKeyAlgorithmAdaptor result = CFDictionaryGetValue(adaptors[operation], algorithm);
     if (result == NULL) {
         os_log_debug(SECKEY_LOG, "failed to find adaptor: operation=%d, algorithm=%{public}@ (adaptors:%d)", (int)operation, algorithm, (int)CFDictionaryGetCount(adaptors[operation]));

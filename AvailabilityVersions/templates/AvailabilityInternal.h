@@ -30,9 +30,7 @@
 #ifndef __AVAILABILITY_INTERNAL__
 #define __AVAILABILITY_INTERNAL__
 
-#if __has_include(<AvailabilityInternalPrivate.h>)
-  #include <AvailabilityInternalPrivate.h>
-#endif
+#include <AvailabilityVersions.h>
 
 // @@AVAILABILITY_MIN_MAX_DEFINES()@@
 
@@ -83,8 +81,6 @@
 #define __AVAILABILITY_INTERNAL_UNAVAILABLE           __attribute__((unavailable))
 #define __AVAILABILITY_INTERNAL_WEAK_IMPORT           __attribute__((weak_import))
 #define __AVAILABILITY_INTERNAL_REGULAR            
-
-#include <AvailabilityInternalLegacy.h>
 
 // @@AVAILABILITY_PLATFORM_DEFINES()@@
 
@@ -166,7 +162,7 @@
         #define __API_R_BEGIN(rep,x) _Pragma(__API_RANGE_STRINGIFY (clang attribute (__attribute__((availability(__API_DEPRECATED_PLATFORM_##x))), apply_to = __API_APPLY_TO)))    
     #endif
 
-// @@AVAILABILITY_MACRO_IMPL(__API_DEPRECATED_BEGIN_REP,__API_R_BEGIN,args=msg)@@
+// @@AVAILABILITY_MACRO_IMPL(__API_DEPRECATED_WITH_REPLACEMENT_BEGIN,__API_R_BEGIN,args=msg)@@
 
     /*
      * API Unavailability
@@ -206,22 +202,6 @@
     #define __swift_compiler_version_at_least(...) __swift_compiler_version_at_least_impl(__VA_ARGS__, 0, 0, 0, 0)
 #else
     #define __swift_compiler_version_at_least(...) 1
-#endif
-
-/*
- * If __SPI_AVAILABLE has not been defined elsewhere, disable it.
- */
- 
-#ifndef __SPI_AVAILABLE
-  #define __SPI_AVAILABLE(...)
-#endif
-
-#ifndef __SPI_AVAILABLE_BEGIN
-  #define __SPI_AVAILABLE_BEGIN(...)
-#endif
-
-#ifndef __SPI_AVAILABLE_END
-  #define __SPI_AVAILABLE_END(...)
 #endif
 
 #endif /* __AVAILABILITY_INTERNAL__ */

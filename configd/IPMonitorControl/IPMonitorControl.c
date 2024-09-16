@@ -82,7 +82,13 @@ STATIC const CFRuntimeClass __IPMonitorControlClass = {
     NULL,				/* equal */
     NULL,				/* hash */
     NULL,				/* copyFormattingDesc */
-    __IPMonitorControlCopyDebugDesc	/* copyDebugDesc */
+    __IPMonitorControlCopyDebugDesc,	/* copyDebugDesc */
+#ifdef CF_RECLAIM_AVAILABLE
+    NULL,
+#endif
+#ifdef CF_REFCOUNT_AVAILABLE
+    NULL
+#endif
 };
 
 STATIC CFStringRef

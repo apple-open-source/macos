@@ -36,6 +36,12 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/timelocal.c,v 1.25 2003/06/13 00:14:07 
 #include "ldpart.h"
 #include "timelocal.h"
 
+struct xlocale_time {
+	struct xlocale_component header;
+	char *buffer;
+	struct lc_time_T locale;
+};
+
 #define LCTIME_SIZE (sizeof(struct lc_time_T) / sizeof(char *))
 
 static const struct lc_time_T	_C_time_locale = {
@@ -102,7 +108,7 @@ __private_extern__ struct lc_time_T *
 __get_current_time_locale(locale_t loc)
 {
 	return (loc->_time_using_locale
-		? &loc->__lc_time->_time_locale
+		? &XLOCALE_TIME(loc)->locale
 		: (struct lc_time_T *)&_C_time_locale);
 }
 
@@ -110,43 +116,44 @@ __private_extern__ int
 __time_load_locale(const char *name, locale_t loc)
 {
 	int ret;
-	struct __xlocale_st_time *xp;
-	static struct __xlocale_st_time *cache = NULL;
+	struct xlocale_time *xp;
+	static struct xlocale_time *cache = NULL;
 
 	/* 'name' must be already checked. */
-	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0) {
+	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0 ||
+	    strncmp(name, "C.", 2) == 0) {
 		loc->_time_using_locale = 0;
-		XL_RELEASE(loc->__lc_time);
-		loc->__lc_time = NULL;
+		xlocale_release(loc->components[XLC_TIME]);
+		loc->components[XLC_TIME] = NULL;
 		return (_LDP_CACHE);
 	}
 
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
-	if (cache && cache->_time_locale_buf && strcmp(name, cache->_time_locale_buf) == 0) {
+	if (cache && cache->buffer && strcmp(name, cache->buffer) == 0) {
 		loc->_time_using_locale = 1;
-		XL_RELEASE(loc->__lc_time);
-		loc->__lc_time = cache;
-		XL_RETAIN(loc->__lc_time);
+		xlocale_release(loc->components[XLC_TIME]);
+		loc->components[XLC_TIME] = (void *)cache;
+		xlocale_retain(cache);
 		return (_LDP_CACHE);
 	}
-	if ((xp = (struct __xlocale_st_time *)malloc(sizeof(*xp))) == NULL)
+	if ((xp = (struct xlocale_time *)malloc(sizeof(*xp))) == NULL)
 		return _LDP_ERROR;
-	xp->__refcount = 1;
-	xp->__free_extra = (__free_extra_t)__ldpart_free_extra;
-	xp->_time_locale_buf = NULL;
+	xp->header.header.retain_count = 1;
+	xp->header.header.destructor = destruct_ldpart;
+	xp->buffer = NULL;
 
 	ret = __part_load_locale(name, &loc->_time_using_locale,
-			&xp->_time_locale_buf, "LC_TIME",
+			&xp->buffer, "LC_TIME",
 			LCTIME_SIZE, LCTIME_SIZE,
-			(const char **)&xp->_time_locale);
+			(const char **)&xp->locale);
 	if (ret == _LDP_LOADED) {
-		XL_RELEASE(loc->__lc_time);
-		loc->__lc_time = xp;
-		XL_RELEASE(cache);
+		xlocale_release(loc->components[XLC_TIME]);
+		loc->components[XLC_TIME] = (void *)xp;
+		xlocale_release(cache);
 		cache = xp;
-		XL_RETAIN(cache);
+		xlocale_retain(cache);
 	} else if (ret == _LDP_ERROR)
 		free(xp);
 

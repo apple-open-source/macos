@@ -59,7 +59,7 @@ nwi_state_fix_af_aliases(nwi_state_t state, uint32_t old_max_if_count)
 
 	offset = state->max_if_count - old_max_if_count;
 	if (offset < 0) {
-		syslog(LOG_ERR, "new count %d < old count %d",
+		syslog(LOG_ERR, "new count %d < old count %u",
 		       state->max_if_count, old_max_if_count);
 		return;
 	}

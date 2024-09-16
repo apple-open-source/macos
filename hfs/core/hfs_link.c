@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -1011,6 +1011,11 @@ hfs_privatedir_init(struct hfsmount * hfsmp, enum privdirtype type)
 	priv_attrp->ca_itime = hfsmp->hfs_itime;
 	priv_attrp->ca_recflags = kHFSHasFolderCountMask;
 	
+	/* init expanded times if the volume supports it */
+	if (hfsmp->hfs_flags & HFS_EXPANDED_TIMES) {
+		priv_attrp->ca_recflags |= kHFSCatExpandedTimesMask;
+	}
+
 	fndrinfo = (struct FndrDirInfo *)&priv_attrp->ca_finderinfo;
 	fndrinfo->frLocation.v = SWAP_BE16(16384);
 	fndrinfo->frLocation.h = SWAP_BE16(16384);

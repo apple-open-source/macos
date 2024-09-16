@@ -1,0 +1,7540 @@
+{
+ "latest_version": 6.0,
+ "symbol_versions": {
+  "addch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attroff": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attron": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attrset": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_ATTR_T"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attr_get": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t *",
+     "NCURSES_PAIRS_T *",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t *",
+     "NCURSES_PAIRS_T *",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attr_off": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attr_on": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "attr_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "baudrate": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "beep": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "bkgd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "bkgdset": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "void",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "border": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "box": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "can_change_color": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "cbreak": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "chgat": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "clear": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "clearok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "clrtobot": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "clrtoeol": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "color_content": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "color_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "COLOR_PAIR": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "copywin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW*",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW*",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "curs_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "def_prog_mode": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "def_shell_mode": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "delay_output": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "delch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "delscreen": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "SCREEN *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "delwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "deleteln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "derwin": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "doupdate": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "dupwin": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "echo": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "echochar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "erase": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "endwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "erasechar": {
+   "5.4": {
+    "ret": "char",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "filter": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "flash": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "flushinp": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "getbkgd": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getwin": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "halfdelay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "has_colors": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "has_ic": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "has_il": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "hline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "idcok": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "idlok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "immedok": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "inch": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "chtype",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "inchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "inchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "initscr": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "init_color": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "init_pair": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "NCURSES_COLOR_T",
+     "NCURSES_COLOR_T"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "innstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "insch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "insdelln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "insertln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "insnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "insstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "instr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "intrflush": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "isendwin": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_linetouched": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_wintouched": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "keyname": {
+   "5.4": {
+    "ret": "NCURSES_CONST char *",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "keypad": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "killchar": {
+   "5.4": {
+    "ret": "char",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "leaveok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "longname": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "meta": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "move": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvchgat": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvcur": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvdelch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvderwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvgetch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvgetnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvgetstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvhline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinch": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "chtype",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinsch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinsnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinsstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvprintw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvscanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvvline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwchgat": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwdelch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwgetch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwgetnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwgetstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwhline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvwinch": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinsch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinsnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinsstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwprintw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "int",
+     "int",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "int",
+     "int",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvwscanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvwvline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "napms": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "newpad": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "newterm": {
+   "5.4": {
+    "ret": "SCREEN *",
+    "args": [
+     "NCURSES_CONST char *",
+     "FILE *",
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "SCREEN *",
+    "args": [
+     "NCURSES_CONST char *",
+     "FILE *",
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "newwin": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "nl": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "nocbreak": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "nodelay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "noecho": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "nonl": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "noqiflush": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "noraw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "notimeout": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "overlay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "overwrite": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const WINDOW*",
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "pair_content": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T",
+     "NCURSES_COLOR_T*",
+     "NCURSES_COLOR_T*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "PAIR_NUMBER": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "pechochar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "pnoutrefresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "prefresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "printw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "putwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "FILE *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "qiflush": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "raw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "redrawwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "refresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "resetty": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "reset_prog_mode": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "reset_shell_mode": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "ripoffline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int (*)(WINDOW *, int)"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "savetty": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scr_dump": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scr_init": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scrl": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "scroll": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "scrollok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scr_restore": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "scr_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "setscrreg": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "set_term": {
+   "5.4": {
+    "ret": "SCREEN *",
+    "args": [
+     "SCREEN *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "SCREEN *",
+    "args": [
+     "SCREEN *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_attroff": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_attr_off": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const attr_t",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "slk_attron": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_attr_on": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void*"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "void*"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "slk_attrset": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_attr": {
+   "5.4": {
+    "ret": "attr_t",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "attr_t",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_attr_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const attr_t",
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const attr_t",
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_clear": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_color": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "NCURSES_PAIRS_T"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_init": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_label": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "char *",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_noutrefresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_refresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_restore": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_touch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "standout": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "standend": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "start_color": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "subpad": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "subwin": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "syncok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "termattrs": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "termname": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "timeout": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "touchline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "touchwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "typeahead": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "ungetch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "untouchwin": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "use_env": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_tioctl": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vidattr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vidputs": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "NCURSES_OUTC"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "NCURSES_OUTC"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "chtype",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "vwprintw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "va_list"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "va_list"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vw_printw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "va_list"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "va_list"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "vwscanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "va_list"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "va_list"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vw_scanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "va_list"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "va_list"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "waddch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "waddchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "waddchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "waddnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "waddstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wattron": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wattroff": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wattrset": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wattr_get": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t *",
+     "NCURSES_PAIRS_T *",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t *",
+     "NCURSES_PAIRS_T *",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wattr_on": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wattr_off": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wattr_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wbkgd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wbkgdset": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wborder": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wchgat": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wclear": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wclrtobot": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wclrtoeol": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wcolor_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW*",
+     "NCURSES_PAIRS_T",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wcursyncup": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wdelch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wdeleteln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wechochar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "werase": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "whline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winch": {
+   "5.4": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "chtype",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "winnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winsch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winsdelln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winsertln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "winsnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "winsstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "winstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "char *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wmove": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wnoutrefresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wprintw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wredrawln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wrefresh": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wscanw": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_CONST char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wscrl": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wsetscrreg": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wstandout": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wstandend": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wsyncdown": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wsyncup": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wtimeout": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wtouchln": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wvline": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "chtype",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "_nc_tiparm": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "int",
+     "const char *",
+     "..."
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "tigetflag": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_CONST char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "tigetnum": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "NCURSES_CONST char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "tigetstr": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "NCURSES_CONST char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "putp": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "getattrs": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getcurx": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getcury": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getbegx": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getbegy": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getmaxx": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getmaxy": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getparx": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getpary": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "is_term_resized": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "keybound": {
+   "5.4": {
+    "ret": "char *",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "curses_version": {
+   "5.4": {
+    "ret": "const char *",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "assume_default_colors": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "define_key": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "get_escdelay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "key_defined": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const char *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "keyok": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "resize_term": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "resizeterm": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "set_escdelay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "set_tabsize": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_default_colors": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_extended_names": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "bool"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_legacy_coding": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_screen": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "SCREEN *",
+     "NCURSES_SCREEN_CB",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "SCREEN *",
+     "NCURSES_SCREEN_CB",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "use_window": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_WINDOW_CB",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "NCURSES_WINDOW_CB",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wresize": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "nofilter": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetparent": {
+   "5.4": {
+    "ret": "WINDOW *",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "WINDOW *",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_cleared": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_idcok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_idlok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_immedok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_keypad": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_leaveok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_nodelay": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_notimeout": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_pad": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_scrollok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_subwin": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "is_syncok": {
+   "5.4": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "bool",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetdelay": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wgetscrreg": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *",
+     "int *",
+     "int *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const WINDOW *",
+     "int *",
+     "int *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "add_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "add_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "add_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "addwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "bkgrnd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "bkgrndset": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "void",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "border_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "box_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "echo_wchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "erasewchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wchar_t*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wchar_t*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "get_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "get_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getbkgrnd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "getcchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "wchar_t*",
+     "attr_t*",
+     "NCURSES_PAIRS_T*",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "wchar_t*",
+     "attr_t*",
+     "NCURSES_PAIRS_T*",
+     "void*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "getn_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "hline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "in_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "in_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "in_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "innwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "ins_nwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "ins_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "ins_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "inwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "key_name": {
+   "5.4": {
+    "ret": "NCURSES_CONST char*",
+    "args": [
+     "wchar_t"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "NCURSES_CONST char*",
+    "args": [
+     "wchar_t"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "killwchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "wchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "wchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "mvadd_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvadd_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvadd_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvaddwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvget_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvget_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvgetn_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvhline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvin_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvin_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvin_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvins_nwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvins_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvins_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvinwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvvline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwadd_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwadd_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwadd_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwaddwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwget_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwget_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwgetn_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wint_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwhline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwin_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwin_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwin_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwins_nwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwins_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwins_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwinwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "mvwvline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "int",
+     "int",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "pecho_wchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "setcchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "cchar_t *",
+     "const wchar_t *",
+     "const attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "cchar_t *",
+     "const wchar_t *",
+     "const attr_t",
+     "NCURSES_PAIRS_T",
+     "const void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "slk_wset": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "int",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "term_attrs": {
+   "5.4": {
+    "ret": "attr_t",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "attr_t",
+    "args": [
+     "void"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "unget_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const wchar_t"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const wchar_t"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vid_attr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vid_puts": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *",
+     "NCURSES_OUTC"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "attr_t",
+     "NCURSES_PAIRS_T",
+     "void *",
+     "NCURSES_OUTC"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "vline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wadd_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wadd_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wadd_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "waddnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "waddwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wbkgrnd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wbkgrndset": {
+   "5.4": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "void",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wborder_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*",
+     "const cchar_t*"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wecho_wchar": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wget_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wget_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wgetbkgrnd": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "wgetn_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wint_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "whline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "win_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "win_wchnstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "win_wchstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "cchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "winnwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wins_nwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wins_wch": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wins_wstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const wchar_t *"
+    ],
+    "generated": true,
+    "special": false
+   }
+  },
+  "winwstr": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "wchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wunctrl": {
+   "5.4": {
+    "ret": "wchar_t*",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "wchar_t*",
+    "args": [
+     "cchar_t *"
+    ],
+    "generated": false,
+    "special": false
+   }
+  },
+  "wvline_set": {
+   "5.4": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   },
+   "6.0": {
+    "ret": "int",
+    "args": [
+     "WINDOW *",
+     "const cchar_t *",
+     "int"
+    ],
+    "generated": false,
+    "special": false
+   }
+  }
+ }
+}

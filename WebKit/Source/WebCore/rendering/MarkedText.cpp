@@ -213,6 +213,10 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
             return MarkedText::Type::GrammarError;
         case DocumentMarker::Type::CorrectionIndicator:
             return MarkedText::Type::Correction;
+#if ENABLE(WRITING_TOOLS)
+        case DocumentMarker::Type::WritingToolsTextSuggestion:
+            return MarkedText::Type::WritingToolsTextSuggestion;
+#endif
         case DocumentMarker::Type::TextMatch:
             return MarkedText::Type::TextMatch;
         case DocumentMarker::Type::DictationAlternatives:
@@ -240,6 +244,9 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
                 break;
             FALLTHROUGH;
         case DocumentMarker::Type::CorrectionIndicator:
+#if ENABLE(WRITING_TOOLS)
+        case DocumentMarker::Type::WritingToolsTextSuggestion:
+#endif
         case DocumentMarker::Type::Replacement:
         case DocumentMarker::Type::DictationAlternatives:
 #if PLATFORM(IOS_FAMILY)
@@ -282,6 +289,13 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
         switch (marker->type()) {
         case DocumentMarker::Type::Spelling:
         case DocumentMarker::Type::CorrectionIndicator:
+#if ENABLE(WRITING_TOOLS)
+        case DocumentMarker::Type::WritingToolsTextSuggestion:
+            if (marker->type() == DocumentMarker::Type::WritingToolsTextSuggestion && std::get<DocumentMarker::WritingToolsTextSuggestionData>(marker->data()).state != DocumentMarker::WritingToolsTextSuggestionData::State::Accepted)
+                break;
+
+            BFALLTHROUGH;
+#endif
         case DocumentMarker::Type::DictationAlternatives:
         case DocumentMarker::Type::Grammar:
 #if PLATFORM(IOS_FAMILY)
@@ -290,7 +304,9 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
 #endif
         case DocumentMarker::Type::TextMatch: {
             auto [clampedStart, clampedEnd] = selectableRange.clamp(marker->startOffset(), marker->endOffset());
-            markedTexts.append({ clampedStart, clampedEnd, markedTextTypeForMarkerType(marker->type()), marker.get() });
+
+            auto markedTextType = markedTextTypeForMarkerType(marker->type());
+            markedTexts.append({ clampedStart, clampedEnd, markedTextType, marker.get() });
             break;
         }
         case DocumentMarker::Type::Replacement:
@@ -306,12 +322,27 @@ Vector<MarkedText> MarkedText::collectForDocumentMarkers(const RenderText& rende
     return markedTexts;
 }
 
-Vector<MarkedText> MarkedText::collectForDraggedContent(const RenderText& renderer, const TextBoxSelectableRange& selectableRange)
+Vector<MarkedText> MarkedText::collectForDraggedAndTransparentContent(const DocumentMarker::Type type, const RenderText& renderer, const TextBoxSelectableRange& selectableRange)
 {
-    auto draggedContentRanges = renderer.draggedContentRangesBetweenOffsets(selectableRange.start, selectableRange.start + selectableRange.length);
+    auto markerTypeForDocumentMarker = [] (DocumentMarker::Type type) {
+        switch (type) {
+        case DocumentMarker::Type::DraggedContent:
+            return MarkedText::Type::DraggedContent;
+        case DocumentMarker::Type::TransparentContent:
+            return MarkedText::Type::TransparentContent;
+        default:
+            return MarkedText::Type::Unmarked;
+        }
+    };
+    Type markerType = markerTypeForDocumentMarker(type);
+    if (markerType == MarkedText::Type::Unmarked) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+    auto contentRanges = renderer.contentRangesBetweenOffsetsForType(type, selectableRange.start, selectableRange.start + selectableRange.length);
 
-    return draggedContentRanges.map([&](const auto& range) -> MarkedText {
-        return { selectableRange.clamp(range.first), selectableRange.clamp(range.second), MarkedText::Type::DraggedContent };
+    return contentRanges.map([&](const auto& range) -> MarkedText {
+        return { selectableRange.clamp(range.first), selectableRange.clamp(range.second), markerType };
     });
 }
 

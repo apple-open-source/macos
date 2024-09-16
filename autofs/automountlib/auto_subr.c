@@ -54,6 +54,7 @@
 #include "autofs.h"
 #include "automount.h"
 #include <dispatch/dispatch.h>
+#include <os/log.h>
 
 static char *check_hier(char *);
 static int natisa(char *, size_t);
@@ -72,7 +73,7 @@ rosv_data_volume_prefix(size_t *lenp)
 
 	if (data_path_len == 0) {
 		fakelink_get_property(FAKELINK_PROPERTY_DATA_VOLUME_MOUNT_POINT,
-				      data_path);
+		    data_path);
 		data_path_len = strlen(data_path);
 		/*
 		 * Make sure there's no trailing '/', because we assume that
@@ -83,8 +84,9 @@ rosv_data_volume_prefix(size_t *lenp)
 			data_path_len--;
 		}
 	}
-	if (lenp)
+	if (lenp) {
 		*lenp = data_path_len;
+	}
 	return data_path;
 }
 
@@ -96,8 +98,9 @@ has_rosv_data_volume_prefix(const char *path, size_t *lenp)
 	bool_t rv;
 
 	rv = strncmp(path, prefix, prefix_len) == 0;
-	if (lenp)
+	if (lenp) {
 		*lenp = prefix_len;
+	}
 	return rv;
 }
 
@@ -119,9 +122,11 @@ automount_realpath(const char *file_name, char *resolved_name)
 	int rv;
 
 	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
-			 FSOPT_ATTR_CMN_EXTENDED);
-	if (rv == -1)
+	    FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1) {
+		os_log_error(OS_LOG_DEFAULT, "automount_realpath:getattrlist:fail:%d", errno);
 		return NULL;
+	}
 
 	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
 	if (resolved_name != NULL) {
@@ -131,6 +136,7 @@ automount_realpath(const char *file_name, char *resolved_name)
 		result = strdup(result);
 	}
 
+	os_log_debug(OS_LOG_DEFAULT, "automount_realpath:getattrlist:success:%s->%s", file_name, result);
 	return result;
 }
 
@@ -164,13 +170,14 @@ synthetic_symlink(const char *link_name, const char *target, bool_t hidden)
 	 * The synthetic links are always in "/", and they cannot have the
 	 * leading '/' character in their name.
 	 */
-	if (*link_name == '/')
+	if (*link_name == '/') {
 		link_name++;
+	}
 
 	strlcpy(arg.synth_link_name, link_name, sizeof(arg.synth_link_name));
 	strlcpy(arg.synth_target_path, target, sizeof(arg.synth_target_path));
 	return fsctl("/", hidden ? APFSIOC_CREATE_HIDDEN_SYNTHETIC_SYMLINK
-				 : APFSIOC_CREATE_SYNTHETIC_SYMLINK, &arg, 0);
+	           : APFSIOC_CREATE_SYNTHETIC_SYMLINK, &arg, 0);
 }
 
 bool_t
@@ -183,8 +190,9 @@ is_toplevel_dir(const char *dir)
 	 * ==> It's any one of the special legacy locations.
 	 *     (We don't have any of these yet...)
 	 */
-	if (strcmp(dir, rosv_data_volume_prefix(NULL)) == 0)
+	if (strcmp(dir, rosv_data_volume_prefix(NULL)) == 0) {
 		return TRUE;
+	}
 
 	return FALSE;
 }
@@ -213,8 +221,9 @@ is_reserved_mountpoint(const char *dir)
 	dir = skip_rosv_data_prefix(dir);
 
 	for (rsp = reserved_mountpoints; *rsp != NULL; rsp++) {
-		if (strncmp(dir, *rsp, strlen(*rsp)) == 0)
+		if (strncmp(dir, *rsp, strlen(*rsp)) == 0) {
 			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -226,12 +235,12 @@ is_slash_network(const char *dir)
 
 	dir = skip_rosv_data_prefix(dir);
 
-	return (strncmp(dir, slashnetwork, strlen(slashnetwork)) == 0);
+	return strncmp(dir, slashnetwork, strlen(slashnetwork)) == 0;
 }
 
 void
 dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
-	char ***stkptr)
+    char ***stkptr)
 {
 	struct autodir *dir;
 	size_t mntpntlen;
@@ -275,8 +284,9 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	}
 
 	if (strcmp(map, "-null") == 0) {
-		if (is_direct_map)
+		if (is_direct_map) {
 			nodirect_map = TRUE;
+		}
 		goto enter;
 	}
 
@@ -287,13 +297,13 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	 * Trim off any trailing '/' characters.
 	 */
 	for (p = mntpnt + (mntpntlen - 1); *p == '/' && p != mntpnt;
-	     p--, mntpntlen--) {
+	    p--, mntpntlen--) {
 		*p = '\0';
 	}
 
 	if ((p = check_hier(mntpnt)) != NULL) {
 		pr_msg(LOG_WARNING, "hierarchical mountpoint: %s and %s",
-			p, mntpnt);
+		    p, mntpnt);
 		return;
 	}
 
@@ -307,9 +317,10 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	}
 
 enter:
-	dir = (struct autodir *)calloc(1, sizeof (*dir));
-	if (dir == NULL)
+	dir = (struct autodir *)calloc(1, sizeof(*dir));
+	if (dir == NULL) {
 		goto alloc_failed;
+	}
 	dir->dir_name = strdup(mntpnt);
 	if (dir->dir_name == NULL) {
 		goto alloc_failed;
@@ -319,8 +330,9 @@ enter:
 		goto alloc_failed;
 	}
 	dir->dir_opts = strdup(opts);
-	if (dir->dir_opts == NULL)
+	if (dir->dir_opts == NULL) {
 		goto alloc_failed;
+	}
 	dir->dir_direct = direct;
 
 	/*
@@ -342,20 +354,23 @@ enter:
 		 * Find any subsequent '/'.
 		 */
 		dir->dir_linkname = strdup(orig_mntpnt);
-		if (dir->dir_linkname == NULL)
+		if (dir->dir_linkname == NULL) {
 			goto alloc_failed;
+		}
 		char *cp = strchr(dir->dir_linkname + 1, '/');
-		if (cp != NULL)
+		if (cp != NULL) {
 			*cp = '\0';
+		}
 	}
 
 	/*
 	 * Append to dir chain
 	 */
-	if (dir_head == NULL)
+	if (dir_head == NULL) {
 		dir_head = dir;
-	else
+	} else {
 		dir_tail->dir_next = dir;
+	}
 
 	dir->dir_prev = dir_tail;
 	dir_tail = dir;
@@ -364,14 +379,18 @@ enter:
 
 alloc_failed:
 	if (dir != NULL) {
-		if (dir->dir_opts)
+		if (dir->dir_opts) {
 			free(dir->dir_opts);
-		if (dir->dir_map)
+		}
+		if (dir->dir_map) {
 			free(dir->dir_map);
-		if (dir->dir_linkname)
+		}
+		if (dir->dir_linkname) {
 			free(dir->dir_linkname);
-		if (dir->dir_name)
+		}
+		if (dir->dir_name) {
 			free(dir->dir_name);
+		}
 		free(dir);
 	}
 	pr_msg(LOG_ERR, "dirinit: memory allocation failed");
@@ -384,8 +403,7 @@ alloc_failed:
  *  mount point.
  */
 static char *
-check_hier(mntpnt)
-	char *mntpnt;
+check_hier(char *mntpnt)
 {
 	register struct autodir *dir;
 	register char *p, *q;
@@ -393,17 +411,22 @@ check_hier(mntpnt)
 	for (dir = dir_head; dir; dir = dir->dir_next) {
 		p = dir->dir_name;
 		q = mntpnt;
-		for (; *p == *q; p++, q++)
-			if (*p == '\0')
+		for (; *p == *q; p++, q++) {
+			if (*p == '\0') {
 				break;
-		if (*p == '/' && *q == '\0')
-			return (dir->dir_name);
-		if (*p == '\0' && *q == '/')
-			return (dir->dir_name);
-		if (*p == '\0' && *q == '\0')
-			return (NULL);
+			}
+		}
+		if (*p == '/' && *q == '\0') {
+			return dir->dir_name;
+		}
+		if (*p == '\0' && *q == '/') {
+			return dir->dir_name;
+		}
+		if (*p == '\0' && *q == '\0') {
+			return NULL;
+		}
 	}
-	return (NULL);	/* it's not a subdir or parent */
+	return NULL;  /* it's not a subdir or parent */
 }
 
 /*
@@ -424,26 +447,27 @@ getword(char *w, char *wq, char **p, char **pq, char delim, int wordsz)
 	int count = wordsz;
 
 	if (wordsz <= 0) {
-		if (verbose)
+		if (verbose) {
 			syslog(LOG_ERR,
-			"getword: input word size %d must be > 0", wordsz);
-		return (-1);
+			    "getword: input word size %d must be > 0", wordsz);
+		}
+		return -1;
 	}
 
 	while ((delim == ' ' ? isspace(**p) : **p == delim) && **pq == ' ') {
 		(*p)++;
 		(*pq)++;
 	}
-		
+
 	while (**p &&
-		!((delim == ' ' ? isspace(**p) : **p == delim) &&
-			**pq == ' ')) {
+	    !((delim == ' ' ? isspace(**p) : **p == delim) &&
+	    **pq == ' ')) {
 		if (--count <= 0) {
 			*tmp = '\0';
 			*tmpq = '\0';
 			syslog(LOG_ERR,
-			"maximum word length (%d) exceeded", wordsz);
-			return (-1);
+			    "maximum word length (%d) exceeded", wordsz);
+			return -1;
 		}
 		*w++  = *(*p)++;
 		*wq++ = *(*pq)++;
@@ -451,7 +475,7 @@ getword(char *w, char *wq, char **p, char **pq, char delim, int wordsz)
 	*w  = '\0';
 	*wq = '\0';
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -466,12 +490,17 @@ get_line(FILE *fp, char *map, char *line, int linesz)
 	register char *p = line;
 	register size_t len;
 	int excess = 0;
+	int max_read_len = 0;
 
 	*p = '\0';
 
 	for (;;) {
-		if (fgets(p, linesz - (int)(p-line), fp) == NULL) {
-			return (*line ? line : NULL);	/* EOF or error */
+		/*
+		 * fgets() reads max_read_len - 1 chars at most
+		 */
+		max_read_len = linesz - (int)(p - line);
+		if (fgets(p, max_read_len, fp) == NULL) {
+			return *line ? line : NULL;   /* EOF or error */
 		}
 
 		len = strlen(line);
@@ -482,9 +511,10 @@ get_line(FILE *fp, char *map, char *line, int linesz)
 		p = &line[len - 1];
 
 		/*
-		 * Is input line too long?
+		 * Did fgets() fill the entire buffer and the last char isn't a new line?
+		 * If so, the line is too long
 		 */
-		if (*p != '\n') {
+		if ((len >= max_read_len - 1) && (*p != '\n')) {
 			excess = 1;
 			/*
 			 * Perhaps last char read was '\'. Reinsert it
@@ -496,14 +526,15 @@ get_line(FILE *fp, char *map, char *line, int linesz)
 		}
 trim:
 		/* trim trailing white space */
-		while (p >= line && isspace(*(uchar_t *)p))
+		while (p >= line && isspace(*(uchar_t *)p)) {
 			*p-- = '\0';
-		if (p < line) {			/* empty line */
+		}
+		if (p < line) {                 /* empty line */
 			p = line;
 			continue;
 		}
 
-		if (*p == '\\') {		/* continuation */
+		if (*p == '\\') {               /* continuation */
 			*p = '\0';
 			continue;
 		}
@@ -515,7 +546,7 @@ trim:
 		 */
 		p = line;
 		while ((p = strchr(p, '#')) != NULL) {
-			if (p == line || isspace(*(p-1))) {
+			if (p == line || isspace(*(p - 1))) {
 				*p-- = '\0';
 				goto trim;
 			}
@@ -533,20 +564,21 @@ trim:
 		 */
 		while ((c = getc(fp)) != EOF) {
 			*p = c;
-			if (*p == '\n')		/* end of the long line */
+			if (*p == '\n') {       /* end of the long line */
 				break;
-			else if (*p == '\\') {		/* continuation */
-				if (getc(fp) == EOF)	/* ignore next char */
+			} else if (*p == '\\') {        /* continuation */
+				if (getc(fp) == EOF) {  /* ignore next char */
 					break;
+				}
 			}
 		}
 		syslog(LOG_ERR,
-			"map %s: line too long (max %d chars)",
-			map, linesz-1);
+		    "map %s: line too long (max %d chars)",
+		    map, linesz - 1);
 		*line = '\0';
 	}
 
-	return (line);
+	return line;
 }
 
 /*
@@ -561,19 +593,21 @@ get_retry(const char *opts)
 	char buf[MAXOPTSLEN];
 	char *p, *pb, *lasts;
 
-	if (opts == NULL)
-		return (retry);
+	if (opts == NULL) {
+		return retry;
+	}
 
-	if (CHECK_STRCPY(buf, opts, sizeof (buf))) {
-                return (retry);
-        }
+	if (CHECK_STRCPY(buf, opts, sizeof(buf))) {
+		return retry;
+	}
 	pb = buf;
 	while ((p = (char *)strtok_r(pb, ",", &lasts)) != NULL) {
 		pb = NULL;
-		if (strncmp(p, "retry=", 6) == 0)
-			retry = atoi(p+6);
+		if (strncmp(p, "retry=", 6) == 0) {
+			retry = atoi(p + 6);
+		}
 	}
-	return (retry > 0 ? retry : 0);
+	return retry > 0 ? retry : 0;
 }
 
 #if 0
@@ -601,20 +635,24 @@ str_opt(struct mnttab *mnt, char *opt, char **sval)
 		if (*str++ != '=' ||
 		    (*str == ',' || *str == '\0')) {
 			syslog(LOG_ERR, "Bad option field");
-			return (-1);
+			return -1;
 		}
 		comma = strchr(str, ',');
-		if (comma != NULL)
+		if (comma != NULL) {
 			*comma = '\0';
+		}
 		*sval = strdup(str);
-		if (comma != NULL)
+		if (comma != NULL) {
 			*comma = ',';
-		if (*sval == NULL)
-			return (-1);
-	} else
+		}
+		if (*sval == NULL) {
+			return -1;
+		}
+	} else {
 		*sval = NULL;
+	}
 
-	return (0);
+	return 0;
 }
 #endif
 
@@ -632,27 +670,24 @@ str_opt(struct mnttab *mnt, char *opt, char **sval)
  * the end of the variable name buffer.
  * Both pline and plineq are left untouched in such error case.
  */
-#define MAXVARNAMELEN	64		/* maximum variable name length */
+#define MAXVARNAMELEN   64              /* maximum variable name length */
 macro_expand_status
-macro_expand(key, pline, plineq, size)
-	const char *key;
-	char *pline, *plineq;
-	int size;
+macro_expand(const char *key, char *pline, char *plineq, int size)
 {
-	register char *p,  *q;
+	register char *p, *q;
 	register char *bp, *bq;
 	register const char *s;
 	char buffp[LINESZ], buffq[LINESZ];
-	char namebuf[MAXVARNAMELEN+1], *pn;
+	char namebuf[MAXVARNAMELEN + 1], *pn;
 	int expand = 0;
 	struct utsname name;
 	char isaname[64];
 
-	p = pline;  q = plineq;
+	p = pline; q = plineq;
 	bp = buffp; bq = buffq;
 
 	while (*p) {
-		if (*p == '&' && *q == ' ') {	/* insert key */
+		if (*p == '&' && *q == ' ') {   /* insert key */
 			/*
 			 * make sure we don't overflow buffer
 			 */
@@ -668,18 +703,19 @@ macro_expand(key, pline, plineq, size)
 				/*
 				 * line too long...
 				 */
-				return (MEXPAND_LINE_TOO_LONG);
+				return MEXPAND_LINE_TOO_LONG;
 			}
 		}
 
-		if (*p == '$' && *q == ' ') {	/* insert env var */
+		if (*p == '$' && *q == ' ') {   /* insert env var */
 			p++; q++;
 			pn = namebuf;
 			if (*p == '{') {
 				p++; q++;
 				while (*p && *p != '}') {
-					if (pn >= &namebuf[MAXVARNAMELEN])
-						return (MEXPAND_VARNAME_TOO_LONG);
+					if (pn >= &namebuf[MAXVARNAMELEN]) {
+						return MEXPAND_VARNAME_TOO_LONG;
+					}
 					*pn++ = *p++;
 					q++;
 				}
@@ -688,8 +724,9 @@ macro_expand(key, pline, plineq, size)
 				}
 			} else {
 				while (*p && (*p == '_' || isalnum(*p))) {
-					if (pn >= &namebuf[MAXVARNAMELEN])
-						return (MEXPAND_VARNAME_TOO_LONG);
+					if (pn >= &namebuf[MAXVARNAMELEN]) {
+						return MEXPAND_VARNAME_TOO_LONG;
+					}
 					*pn++ = *p++;
 					q++;
 				}
@@ -722,8 +759,9 @@ macro_expand(key, pline, plineq, size)
 					 */
 					s = "unknown";
 				} else if (strcmp(namebuf, "NATISA") == 0) {
-					if (natisa(isaname, sizeof (isaname)))
+					if (natisa(isaname, sizeof(isaname))) {
 						s = isaname;
+					}
 				}
 			}
 
@@ -737,7 +775,7 @@ macro_expand(key, pline, plineq, size)
 					/*
 					 * line too long...
 					 */
-					return (MEXPAND_LINE_TOO_LONG);
+					return MEXPAND_LINE_TOO_LONG;
 				}
 			}
 			expand++;
@@ -754,7 +792,7 @@ macro_expand(key, pline, plineq, size)
 			 * There was not enough room for at least two more
 			 * characters, return with an error.
 			 */
-			return (MEXPAND_LINE_TOO_LONG);
+			return MEXPAND_LINE_TOO_LONG;
 		}
 		/*
 		 * The total number of characters so far better be less
@@ -762,10 +800,10 @@ macro_expand(key, pline, plineq, size)
 		 */
 		*bp++ = *p++;
 		*bq++ = *q++;
-
 	}
-	if (!expand)
-		return (MEXPAND_OK);
+	if (!expand) {
+		return MEXPAND_OK;
+	}
 	*bp = '\0';
 	*bq = '\0';
 	/*
@@ -775,7 +813,7 @@ macro_expand(key, pline, plineq, size)
 	(void) strcpy(pline, buffp);
 	(void) strcpy(plineq, buffq);
 
-	return (MEXPAND_OK);
+	return MEXPAND_OK;
 }
 
 /*
@@ -786,8 +824,7 @@ macro_expand(key, pline, plineq, size)
  * and the qbuf: '    ^^^^^^^^^^^  ^ '
  */
 void
-unquote(str, qbuf)
-	char *str, *qbuf;
+unquote(char *str, char *qbuf)
 {
 	register int escaped, inquote, quoted;
 	register char *ip, *bp, *qp;
@@ -801,8 +838,7 @@ unquote(str, qbuf)
 				escaped = 1;
 				quoted++;
 				continue;
-			} else
-			if (*ip == '"') {
+			} else if (*ip == '"') {
 				inquote = !inquote;
 				quoted++;
 				continue;
@@ -815,27 +851,29 @@ unquote(str, qbuf)
 	}
 	*bp = '\0';
 	*qp = '\0';
-	if (quoted)
+	if (quoted) {
 		(void) strcpy(str, buf);
+	}
 }
 
 /*
  * Removes trailing spaces from string "s".
  */
 void
-trim(s)
-	char *s;
+trim(char *s)
 {
 	size_t slen;
 	char *p;
-	
+
 	slen = strlen(s);
-	if (slen == 0)
-		return;	/* nothing to trim */
+	if (slen == 0) {
+		return; /* nothing to trim */
+	}
 	p = &s[slen - 1];
 
-	while (p >= s && isspace(*(uchar_t *)p))
+	while (p >= s && isspace(*(uchar_t *)p)) {
 		*p-- = '\0';
+	}
 }
 
 /*
@@ -865,10 +903,11 @@ auto_rddir_malloc(unsigned nbytes)
 		}
 	}
 
-	if (again)
+	if (again) {
 		p = malloc(nbytes);
+	}
 
-	return (p);
+	return p;
 }
 
 /*
@@ -896,10 +935,11 @@ auto_rddir_strdup(const char *s1)
 		}
 	}
 
-	if (again)
+	if (again) {
 		s2 = strdup(s1);
+	}
 
-	return (s2);
+	return s2;
 }
 
 /*
@@ -912,15 +952,18 @@ btree_lookup(struct dir_entry *head, const char *name)
 	register struct dir_entry *p;
 	register int direction;
 
-	for (p = head; p != NULL; ) {
+	for (p = head; p != NULL;) {
 		direction = strcmp(name, p->name);
-		if (direction == 0)
-			return (p);
-		if (direction > 0)
+		if (direction == 0) {
+			return p;
+		}
+		if (direction > 0) {
 			p = p->right;
-		else p = p->left;
+		} else {
+			p = p->left;
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -939,7 +982,7 @@ btree_enter(struct dir_entry **head, struct dir_entry *ent)
 		return;
 	}
 
-	for (p = *head; p != NULL; ) {
+	for (p = *head; p != NULL;) {
 		prev = p;
 		direction = strcmp(ent->name, p->name);
 		if (direction == 0) {
@@ -948,14 +991,18 @@ btree_enter(struct dir_entry **head, struct dir_entry *ent)
 			 */
 			return;
 		}
-		if (direction > 0)
+		if (direction > 0) {
 			p = p->right;
-		else p = p->left;
+		} else {
+			p = p->left;
+		}
 	}
 	assert(prev != NULL);
-	if (direction > 0)
+	if (direction > 0) {
 		prev->right = ent;
-	else prev->left = ent;
+	} else {
+		prev->left = ent;
+	}
 }
 
 /*
@@ -977,22 +1024,26 @@ add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
 	const char *p;
 
 	if (name[0] == '.') {
-		if (name[1] == '\0')
-			return (-1);	/* "." */
-		if (name[1] == '.' && name[2] == '\0')
-			return (-1);	/* ".." */
+		if (name[1] == '\0') {
+			return -1;    /* "." */
+		}
+		if (name[1] == '.' && name[2] == '\0') {
+			return -1;    /* ".." */
+		}
 	}
 	for (p = name; *p != '\0'; p++) {
-		if (*p == '/')
-			return (-1);
+		if (*p == '/') {
+			return -1;
+		}
 	}
 
 	if ((*list != NULL) && (*last == NULL)) {
 		/*
 		 * walk the list to find last element
 		 */
-		for (l = *list; l != NULL; l = l->next)
+		for (l = *list; l != NULL; l = l->next) {
 			*last = l;
+		}
 	}
 
 	if (btree_lookup(*list, name) == NULL) {
@@ -1001,14 +1052,15 @@ add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
 		 */
 		/* LINTED pointer alignment */
 		e = (struct dir_entry *)
-			auto_rddir_malloc(sizeof (struct dir_entry));
-		if (e == NULL)
-			return (ENOMEM);
-		(void) memset((char *)e, 0, sizeof (*e));
+		    auto_rddir_malloc(sizeof(struct dir_entry));
+		if (e == NULL) {
+			return ENOMEM;
+		}
+		(void) memset((char *)e, 0, sizeof(*e));
 		e->name = auto_rddir_strdup(name);
 		if (e->name == NULL) {
 			free(e);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		if (linebuf != NULL) {
 			/*
@@ -1019,14 +1071,14 @@ add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
 			if (e->line == NULL) {
 				free(e->name);
 				free(e);
-				return (ENOMEM);
+				return ENOMEM;
 			}
 			e->lineq = auto_rddir_strdup(lineqbuf);
 			if (e->lineq == NULL) {
 				free(e->line);
 				free(e->name);
 				free(e);
-				return (ENOMEM);
+				return ENOMEM;
 			}
 		} else {
 			e->line = NULL;
@@ -1051,7 +1103,7 @@ add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
 		 */
 		btree_enter(list, e);
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -1085,5 +1137,5 @@ natisa(char *buf, size_t bufsize)
 #else
 #error "can't determine native ISA"
 #endif
-	return (1);
+	return 1;
 }

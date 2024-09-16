@@ -636,7 +636,7 @@ DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
 	if (start_time_threshold_p != NULL
 	    && lease_p->lease_start < *start_time_threshold_p) {
 	    my_log(LOG_INFO,
-		   "start time on lease " IP_FORMAT " too old (%ld < %ld)",
+		   "start time on lease " IP_FORMAT " too old (%g < %g)",
 		   IP_LIST(&lease_p->our_ip),
 		   lease_p->lease_start, *start_time_threshold_p);
 	    continue;

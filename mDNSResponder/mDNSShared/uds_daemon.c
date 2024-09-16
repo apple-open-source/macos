@@ -47,6 +47,7 @@
 #endif
 
 #if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
+#include "cf_support.h"
 #include "mDNSMacOSX.h"
 #include <os/feature_private.h>
 #endif
@@ -110,6 +111,9 @@ static char* boundPath = MDNS_UDS_SERVERPATH;
 static dnssd_sock_t listenfd = dnssd_InvalidSocket;
 static request_state *all_requests = NULL;
 mDNSlocal void set_peer_pid(request_state *request);
+mDNSlocal mDNSu32 request_state_get_duration(const request_state *request);
+mDNSlocal mDNSBool requestShouldLogName(request_state *request);
+mDNSlocal mDNSBool requestShouldLogFullRequestInfo(request_state *request);
 mDNSlocal void LogMcastClientInfo(request_state *req);
 mDNSlocal void GetMcastClients(request_state *req);
 mDNSlocal mStatus update_record(AuthRecord *ar, mDNSu16 rdlen, const mDNSu8 *rdata, mDNSu32 ttl,
@@ -153,6 +157,141 @@ mDNSexport DNameListElem *AutoBrowseDomains;        // List created from those l
 #define NORETURN_ATTRIBUTE
 #endif
 #endif
+
+//======================================================================================================================
+// MARK: - Log macro for request state logging.
+
+#define UDS_LOG_CLIENT_REQUEST_WITH_DURATION(CATEGORY, LEVEL, REQUEST, LOG_DURATION, FORMAT, ...)   \
+    do                                                                                              \
+    {                                                                                               \
+        if (LOG_DURATION)                                                                           \
+        {                                                                                           \
+            LogRedact(CATEGORY, LEVEL, FORMAT ", duration: " PUB_TIME_DUR,                          \
+                ##__VA_ARGS__, request_state_get_duration(REQUEST));                                \
+        }                                                                                           \
+        else                                                                                        \
+        {                                                                                           \
+            LogRedact(CATEGORY, LEVEL, FORMAT, ##__VA_ARGS__);                                      \
+        }                                                                                           \
+    }                                                                                               \
+    while(0)
+
+#define UDS_LOG_CLIENT_REQUEST_WITH_NAME_HASH_DURATION(CATEGORY, LEVEL, NAME_FOR_NAME_HASH, REQUEST,    \
+            LOG_DURATION, FORMAT, ...)                                                                  \
+    do                                                                                                  \
+    {                                                                                                   \
+        if ((void *)(NAME_FOR_NAME_HASH) != NULL)                                                       \
+        {                                                                                               \
+            UDS_LOG_CLIENT_REQUEST_WITH_DURATION(CATEGORY, LEVEL, (REQUEST), LOG_DURATION,              \
+                FORMAT "name hash: %x", ##__VA_ARGS__, mDNS_DomainNameFNV1aHash(NAME_FOR_NAME_HASH));   \
+        }                                                                                               \
+        else                                                                                            \
+        {                                                                                               \
+            UDS_LOG_CLIENT_REQUEST_WITH_DURATION(CATEGORY, LEVEL, (REQUEST), LOG_DURATION,              \
+                FORMAT, ##__VA_ARGS__);                                                                 \
+        }                                                                                               \
+    }                                                                                                   \
+    while(0)
+
+#define UDS_LOG_CLIENT_REQUEST(CATEGORY, LEVEL, OPERATION_STR, NAME_FOR_NAME_HASH, REQUEST, LOG_DURATION,   \
+            FORMAT, ...)                                                                                    \
+    do                                                                                                      \
+    {                                                                                                       \
+        if (requestShouldLogFullRequestInfo(REQUEST))                                                       \
+        {                                                                                                   \
+            UDS_LOG_CLIENT_REQUEST_WITH_NAME_HASH_DURATION(                                                 \
+                CATEGORY, LEVEL, (NAME_FOR_NAME_HASH), (REQUEST), (LOG_DURATION),                           \
+                "[R%u] " OPERATION_STR " -- "                                                               \
+                FORMAT ", flags: 0x%X, interface index: %d, client pid: %d (" PUB_S "), ",                  \
+                (REQUEST)->request_id, ##__VA_ARGS__, (REQUEST)->flags, (REQUEST)->interfaceIndex,          \
+                (REQUEST)->process_id, (REQUEST)->pid_name);                                                \
+        }                                                                                                   \
+        else                                                                                                \
+        {                                                                                                   \
+            UDS_LOG_CLIENT_REQUEST_WITH_NAME_HASH_DURATION(                                                 \
+                CATEGORY, LEVEL, (NAME_FOR_NAME_HASH), (REQUEST), (LOG_DURATION),                           \
+                "[R%u] " OPERATION_STR " -- ", (REQUEST)->request_id);                                      \
+        }                                                                                                   \
+    }                                                                                                       \
+    while(0)
+
+#define UDS_LOG_CLIENT_REQUEST_WITH_DNSSEC_INFO(CATEGORY, LEVEL, OPERATION_STR, NAME_FOR_NAME_HASH, REQUEST,    \
+            LOG_DURATION, DNSSEC_ENABLED, FORMAT, ...)                                                          \
+    do                                                                                                          \
+    {                                                                                                           \
+        if (DNSSEC_ENABLED)                                                                                     \
+        {                                                                                                       \
+            UDS_LOG_CLIENT_REQUEST(CATEGORY, LEVEL, OPERATION_STR, NAME_FOR_NAME_HASH, REQUEST, LOG_DURATION,   \
+                FORMAT ", DNSSEC enabled", ##__VA_ARGS__);                                                      \
+        }                                                                                                       \
+        else                                                                                                    \
+        {                                                                                                       \
+            UDS_LOG_CLIENT_REQUEST(CATEGORY, LEVEL, OPERATION_STR, NAME_FOR_NAME_HASH, REQUEST, LOG_DURATION,   \
+                FORMAT, ##__VA_ARGS__);                                                                         \
+        }                                                                                                       \
+    }                                                                                                           \
+    while (mDNSfalse)
+
+//======================================================================================================================
+// MARK: - Log macro for query record result event logging.
+
+#define UDS_LOG_RDATA_WITH_RID_QID(CATEGORY, LEVEL, RID, QID, RR_PTR, FORMAT, ...)                                  \
+    do                                                                                                              \
+    {                                                                                                               \
+        if ((QID) != 0)                                                                                             \
+        {                                                                                                           \
+            MDNS_CORE_LOG_RDATA(CATEGORY, LEVEL, RR_PTR, "[R%u->Q%u] " FORMAT ", ", (RID), (QID), ##__VA_ARGS__);   \
+        }                                                                                                           \
+        else                                                                                                        \
+        {                                                                                                           \
+            MDNS_CORE_LOG_RDATA(CATEGORY, LEVEL, RR_PTR, "[R%u->mDNSQ] " FORMAT ", ", (RID), ##__VA_ARGS__);        \
+        }                                                                                                           \
+    }                                                                                                               \
+    while(0)
+
+#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
+    #define UDS_LOG_RDATA_WITH_RID_QID_DNSSEC(CATEGORY, LEVEL, RID, QID, RR_PTR, FORMAT, ...)               \
+        do                                                                                                  \
+        {                                                                                                   \
+            const dnssec_result_t _dnssec_result = resource_record_get_validation_result(RR_PTR);           \
+            if (_dnssec_result == dnssec_indeterminate)                                                     \
+            {                                                                                               \
+                UDS_LOG_RDATA_WITH_RID_QID(CATEGORY, LEVEL, (RID), (QID), RR_PTR, FORMAT, ##__VA_ARGS__);   \
+            }                                                                                               \
+            else                                                                                            \
+            {                                                                                               \
+                UDS_LOG_RDATA_WITH_RID_QID(CATEGORY, LEVEL, (RID), (QID), RR_PTR,                           \
+                    FORMAT ", dnssec: " PUB_DNSSEC_RESULT, ##__VA_ARGS__, _dnssec_result);                  \
+            }                                                                                               \
+        }                                                                                                   \
+        while(0)
+#else
+    #define UDS_LOG_RDATA_WITH_RID_QID_DNSSEC UDS_LOG_RDATA_WITH_RID_QID
+#endif
+
+#define UDS_LOG_ANSWER_EVENT_WITH_FORMAT(CATEGORY, LEVEL, RID, QID, RR_PTR, EXPIRED, FORMAT, ...)       \
+    UDS_LOG_RDATA_WITH_RID_QID_DNSSEC(CATEGORY, LEVEL, RID, QID, RR_PTR, EXPIRED, FORMAT, ##__VA_ARGS__)
+
+#define UDS_LOG_ANSWER_EVENT(CATEGORY, LEVEL, REQUEST_PTR, Q_PTR, RR_PTR, EXPIRED, REQUEST_DESP, QC_RESULT)         \
+    do {                                                                                                            \
+        const mDNSu32 __ifIndex = mDNSPlatformInterfaceIndexfromInterfaceID(m, (RR_PTR)->InterfaceID, mDNSfalse);   \
+        const mDNSu32 __nameHash = mDNS_DomainNameFNV1aHash(&question->qname);                                      \
+        if (requestShouldLogName(REQUEST_PTR))                                                                      \
+        {                                                                                                           \
+            UDS_LOG_ANSWER_EVENT_WITH_FORMAT(CATEGORY, LEVEL,                                                       \
+                (REQUEST_PTR)->request_id, mDNSVal16((Q_PTR)->TargetQID), RR_PTR,                                   \
+                REQUEST_DESP " -- event: " PUB_ADD_RMV ", expired: " PUB_BOOL ", ifindex: %d, "                     \
+                "name: " PRI_DM_NAME " (%x)", ADD_RMV_U_PARAM(QC_RESULT), BOOL_PARAM(EXPIRED), __ifIndex,           \
+                DM_NAME_PARAM(&(Q_PTR)->qname), __nameHash);                                                        \
+        }                                                                                                           \
+        else                                                                                                        \
+        {                                                                                                           \
+            UDS_LOG_ANSWER_EVENT_WITH_FORMAT(CATEGORY, LEVEL,                                                       \
+                (REQUEST_PTR)->request_id, mDNSVal16((Q_PTR)->TargetQID), RR_PTR,                                   \
+                REQUEST_DESP " -- event: " PUB_ADD_RMV ", expired: " PUB_BOOL ", ifindex: %d, name hash: %x",       \
+                ADD_RMV_U_PARAM(QC_RESULT), BOOL_PARAM(EXPIRED), __ifIndex, __nameHash);                            \
+        }                                                                                                           \
+    } while (0)
 
 // ***************************************************************************
 // MARK: - General Utility Functions
@@ -410,6 +549,48 @@ mDNSexport int IsDebugSocketInUse(void)
 }
 #endif
 
+#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
+mDNSlocal dispatch_queue_t _get_trust_results_dispatch_queue(void)
+{
+    static dispatch_once_t  once    = 0;
+    static dispatch_queue_t queue   = NULL;
+
+    dispatch_once(&once, ^{
+        dispatch_queue_attr_t const attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
+        queue = dispatch_queue_create("com.apple.mDNSResponder.trust_results-queue", attr);
+    });
+    return queue;
+}
+
+mDNSlocal mDNSBool _prepare_trusts_for_request(request_state * const request)
+{
+    if (request->trusts == NULL)
+    {
+        request->trusts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &mdns_cfarray_callbacks);
+        if (!request->trusts)
+        {
+            return mDNSfalse;
+        }
+    }
+    return mDNStrue;
+}
+
+#define mdns_trusts_forget_with_invalidation(PTR) \
+    do                                            \
+    {                                             \
+        if (*(PTR))                               \
+        {                                         \
+            (void)mdns_cfarray_enumerate(*(PTR),  \
+            ^ bool (mdns_trust_t trust)           \
+            {                                     \
+                mdns_trust_invalidate(trust);     \
+                return true;                      \
+            });                                   \
+            mdns_cf_forget((PTR));                \
+        }                                         \
+    } while(0)
+#endif
+
 mDNSlocal void resolve_result_finalize(request_resolve *resolve);
 #define resolve_result_forget(PTR)              \
     do                                          \
@@ -439,7 +620,7 @@ mDNSlocal void request_state_forget(request_state **const ptr)
     mdns_forget(&req->peer_token);
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mdns_trust_forget(&req->trust);
+    mdns_trusts_forget_with_invalidation(&req->trusts);
 #endif
 #if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
     mdns_forget(&req->signed_obj);
@@ -759,26 +940,29 @@ mDNSlocal void GenerateBrowseReply(const domainname *const servicename, const mD
     put_string(domstr, &data);
 }
 
-// get IPC_TLV_TYPE_SERVICE_ATTR_TIMESTAMP value
-// if tlv type IPC_TLV_TYPE_SERVICE_ATTR_TIMESTAMP is present and found is not NULL, *found will be set to mDNStrue,
-// otherwise it will be set to mDNSfalse. The caller should check *found before using the returned value. The timestamp
-// is a number of seconds in the past, and is unsigned.
-mDNSlocal mDNSu32 get_service_attr_timestamp_value(const request_state *const request, mDNSBool *const outFound)
+// get IPC_TLV_TYPE_SERVICE_ATTR_TIMESTAMP & IPC_TLV_TYPE_SERVICE_ATTR_HOST_KEY_HASH values
+// The timestamp is a number of seconds in the past, and is unsigned.
+mDNSlocal mDNSBool get_service_attr_tsr_params(const request_state *const request, mDNSu32 *const outTimestamp,
+    mDNSu32 *const outHostkeyHash)
 {
-    mDNSu32 timestamp = 0;
-    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS))
+    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS) &&
+        outTimestamp && outHostkeyHash)
     {
         mDNSs32 error;
         const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
         const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-        timestamp = (mDNSu32)get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_TIMESTAMP, &error);
-        if (outFound)
-        {
-            *outFound = error ? mDNSfalse : mDNStrue;
-        }
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG, "found[" PUB_S "] timestamp %u", error ? "no" : "yes", timestamp);
+        mDNSu32 value = (mDNSu32)get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_TIMESTAMP, &error);
+        *outTimestamp = value;
+        if (error) return mDNSfalse;
+
+        value = (mDNSu32)get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_HOST_KEY_HASH, &error);
+        *outHostkeyHash = value;
+        if (error) return mDNSfalse;
+        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG,
+            "get_service_attr_tsr_params timestamp %u hostkeyHash %u", *outTimestamp, *outHostkeyHash);
+        return mDNStrue;
     }
-    return timestamp;
+    return mDNSfalse;
 }
 
 // Returns a resource record (allocated w/ malloc) containing the data found in an IPC message
@@ -998,20 +1182,6 @@ mDNSlocal void external_stop_advertising_helper(service_instance *const instance
 }
 #endif  // MDNSRESPONDER_SUPPORTS(APPLE, D2D)
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-mDNSlocal dispatch_queue_t _get_trust_results_dispatch_queue(void)
-{
-    static dispatch_once_t  once    = 0;
-    static dispatch_queue_t queue   = NULL;
-
-    dispatch_once(&once, ^{
-        dispatch_queue_attr_t const attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
-        queue = dispatch_queue_create("com.apple.mDNSResponder.trust_results-queue", attr);
-    });
-    return queue;
-}
-#endif
-
 // ***************************************************************************
 // MARK: - DNSServiceRegister
 
@@ -1158,7 +1328,7 @@ mDNSlocal void regservice_callback(mDNS *const m, ServiceRecordSet *const srs, m
             DomainNameLength(srs->RR_SRV.resrec.name));
 
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%u] DNSServiceRegister(" PRI_DM_NAME "(%x), %u) %s",
+            "[R%u] DNSServiceRegister(" PRI_DM_NAME " (%x), %u) %s",
             request_id, DM_NAME_PARAM(srs->RR_SRV.resrec.name), srv_name_hash,
             mDNSVal16(srs->RR_SRV.resrec.rdata->u.srv.port), result_description);
     }
@@ -1260,14 +1430,7 @@ mDNSlocal void regrecord_callback(mDNS *const m, AuthRecord *rr, mStatus result)
     {
         if (result == mStatus_NoError)
         {
-            if (rr->resrec.rrtype == kDNSType_TSR)    // TSR record does not have parent struct
-            {
-                LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "regrecord_callback: successful registration of record " PRI_S, ARDisplayString(m, rr));
-            }
-            else
-            {
-                LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "Error: regrecord_callback: successful registration of orphaned record " PRI_S, ARDisplayString(m, rr));
-            }
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "Error: regrecord_callback: successful registration of orphaned record " PRI_S, ARDisplayString(m, rr));
         }
         else
         {
@@ -1390,6 +1553,49 @@ mDNSlocal void set_peer_pid(request_state *request)
 #endif  // LOCAL_PEEREPID
 }
 
+mDNSlocal mDNSu32 request_state_get_duration(const request_state *const request)
+{
+    return (mDNSu32)(mDNSPlatformContinuousTimeSeconds() - request->request_start_time_secs);
+}
+
+#define kRequestLogNamePeriodSecs (5 * MDNS_SECONDS_PER_MINUTE)
+
+mDNSlocal mDNSBool requestShouldLogName(request_state *const request)
+{
+    const mDNSs32 lastFullLogTimeSecs = request->last_full_log_time_secs;
+    const mDNSs32 nowTimeSecs = mDNSPlatformContinuousTimeSeconds();
+    const mDNSBool logName =
+        ((lastFullLogTimeSecs == 0) || ((nowTimeSecs - lastFullLogTimeSecs) >= kRequestLogNamePeriodSecs));;
+    if (logName)
+    {
+        request->last_full_log_time_secs = nowTimeSecs;
+    }
+    return logName;
+}
+
+#define kRequestLogFullRequestInfoPeriodSecs (5 * MDNS_SECONDS_PER_MINUTE)
+
+mDNSlocal mDNSBool requestShouldLogFullRequestInfo(request_state *const request)
+{
+    const mDNSs32 lastFullQInfoTimeSecs = request->request_start_time_secs;
+    const mDNSs32 nowTimeSecs = mDNSPlatformContinuousTimeSeconds();
+    mDNSBool logFullRInfo;
+    if (lastFullQInfoTimeSecs == 0)
+    {
+        request->request_start_time_secs = mDNSPlatformContinuousTimeSeconds();
+        logFullRInfo = mDNStrue;
+    }
+    else
+    {
+        logFullRInfo = ((nowTimeSecs - lastFullQInfoTimeSecs) >= kRequestLogFullRequestInfoPeriodSecs);
+    }
+    if (logFullRInfo)
+    {
+        request->last_full_log_time_secs = nowTimeSecs;
+    }
+    return logFullRInfo;
+}
+
 mDNSlocal void connection_termination(request_state *request)
 {
     // When terminating a shared connection, we need to scan the all_requests list
@@ -1420,9 +1626,9 @@ mDNSlocal void connection_termination(request_state *request)
     {
         registered_record_entry *ptr = request->reg_recs;
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-               "[R%d] DNSServiceRegisterRecord(0x%X, %d, " PRI_S ") STOP PID[%d](" PUB_S ")",
+               "[R%d] DNSServiceRegisterRecord(0x%X, %d, " PRI_S ") STOP PID[%d](" PUB_S ") -- duration: " PUB_TIME_DUR,
                request->request_id, request->flags, request->interfaceIndex, RRDisplayString(&mDNSStorage, &ptr->rr->resrec), request->process_id,
-               request->pid_name);
+               request->pid_name, request_state_get_duration(request));
         request->reg_recs = request->reg_recs->next;
         ptr->rr->RecordContext = NULL;
         if (ptr->external_advertise)
@@ -1436,10 +1642,8 @@ mDNSlocal void connection_termination(request_state *request)
 #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
         if (ptr->powerlog_start_time != 0)
         {
-            const AuthRecord *const ar = ptr->rr;
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            mdns_powerlog_register_record_stop(ar->resrec.name->c, ar->resrec.rrtype, request->process_id,
-                request->request_id, ptr->powerlog_start_time, usesAWDL);
+            mdns_powerlog_register_record_stop(request->pid_name, ptr->powerlog_start_time, usesAWDL);
         }
 #endif
         mDNS_Deregister(&mDNSStorage, ptr->rr);     // Will free ptr->rr for us
@@ -1503,10 +1707,11 @@ mDNSlocal mStatus _handle_regrecord_request_start(request_state *request, AuthRe
     if (rr->resrec.rroriginalttl == 0)
         rr->resrec.rroriginalttl = DefaultTTLforRRType(rr->resrec.rrtype);
 
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-           "[R%d] DNSServiceRegisterRecord(0x%X, %d, " PRI_S ") START PID[%d](" PUB_S ")",
-           request->request_id, request->flags, request->interfaceIndex, RRDisplayString(&mDNSStorage, &rr->resrec), request->process_id,
-           request->pid_name);
+    const ResourceRecord *const record = &rr->resrec;
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+        "DNSServiceRegisterRecord START",
+        record->name, request, mDNSfalse, "name: " PRI_DM_NAME ", type: " PUB_DNS_TYPE,
+        DM_NAME_PARAM_NONNULL(record->name), DNS_TYPE_PARAM(record->rrtype));
 
     err = mDNS_Register(&mDNSStorage, rr);
     if (err)
@@ -1523,8 +1728,7 @@ mDNSlocal mStatus _handle_regrecord_request_start(request_state *request, AuthRe
         if ((rr->resrec.InterfaceID != mDNSInterface_LocalOnly) && IsLocalDomain(rr->resrec.name))
         {
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            re->powerlog_start_time = mdns_powerlog_register_record_start(rr->resrec.name->c, rr->resrec.rrtype,
-                request->process_id, request->request_id, usesAWDL);
+            re->powerlog_start_time = mdns_powerlog_register_record_start(request->pid_name, usesAWDL);
         }
 #endif
         LogMcastS(rr, request, reg_start);
@@ -1578,6 +1782,12 @@ mDNSlocal mStatus _handle_regrecord_request_with_trust(request_state *request, A
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    freeL("AuthRecord/_handle_regrecord_request_with_trust", rr);
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, service_ptr, flags);
                 if (!trust)
                 {
@@ -1614,7 +1824,8 @@ mDNSlocal mStatus _handle_regrecord_request_with_trust(request_state *request, A
                         KQueueUnlock("_handle_regrecord_request_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -1627,6 +1838,9 @@ mDNSlocal mStatus _handle_regrecord_request_with_trust(request_state *request, A
             case mdns_trust_status_granted:
                 err = _handle_regrecord_request_start(request, rr);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
      }
 exit:
@@ -1635,27 +1849,30 @@ exit:
 #endif // TRUST_ENFORCEMENT
 
 // Add a TSR record when DNSServiceRegisterRecordWithAttribute is called with timestamp set correctly
-mDNSlocal mStatus regRecordAddTSRRecord(request_state *const request, AuthRecord *const rr, const mDNSs32 tsrTimestamp)
+mDNSlocal mStatus regRecordAddTSRRecord(request_state *const request, AuthRecord *const rr, const mDNSs32 tsrTimestamp, 
+    const mDNSu32 tsrHostkeyHash)
 {
     mStatus err = mStatus_NoError;
-    AuthRecord *ar;
     size_t rdcapacity = sizeof(RDataBody2);
-
-    ar = (AuthRecord *) callocL("AuthRecord/regRecordAddTSRRecord", sizeof(*ar) - sizeof(RDataBody) + rdcapacity);
+    AuthRecord *ar = (AuthRecord *) callocL("AuthRecord/regRecordAddTSRRecord", sizeof(*ar) - sizeof(RDataBody) + rdcapacity);
     if (!ar)
     {
         FatalError("ERROR: calloc");
     }
-    mDNS_SetupResourceRecord(ar, mDNSNULL, rr->resrec.InterfaceID, kDNSType_TSR, kHostNameTTL, kDNSRecordTypeUnique, AuthRecordAny, mDNSNULL, mDNSNULL);
+    mDNS_SetupResourceRecord(ar, mDNSNULL, rr->resrec.InterfaceID, kDNSType_OPT, kHostNameTTL, kDNSRecordTypeUnique, AuthRecordAny, mDNSNULL, mDNSNULL);
     AssignDomainName(&ar->namestorage, rr->resrec.name);
-    ar->resrec.rdlength = (mDNSu16)sizeof(tsrTimestamp);
-    ar->resrec.rdata->MaxRDLength = (mDNSu16)rdcapacity;
-    // tsr timestamp in memory is time of receipt
-    ar->resrec.rdata->u.tsr_value = tsrTimestamp;
-    ar->resrec.namehash = DomainNameHashValue(ar->resrec.name);
-    ar->RecordCallback = regrecord_callback;
+    ar->resrec.rrclass          = NormalMaxDNSMessageData;
+    ar->resrec.namehash         = rr->resrec.namehash;
+    ar->resrec.rdlength         = DNSOpt_TSRData_Space;
+    ar->resrec.rdestimate       = DNSOpt_TSRData_Space;
+    rdataOPT * const rdata = &ar->resrec.rdata->u.opt[0];
+    rdata->opt                  = kDNSOpt_TSR;
+    rdata->optlen               = DNSOpt_TSRData_Space - 4;
+    rdata->u.tsr.timeStamp      = tsrTimestamp;
+    rdata->u.tsr.hostkeyHash    = tsrHostkeyHash;
+    rdata->u.tsr.recIndex       = 0;
+    ar->RecordCallback          = regrecord_callback;
     SetNewRData(&ar->resrec, mDNSNULL, 0);  // Sets ar->rdatahash for us
-
     ar->ForceMCast = ((request->flags & kDNSServiceFlagsForceMulticast) != 0);
     LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "[R%d] regRecordAddTSRRecord(0x%X, %d, " PRI_S ") START PID[%d](" PUB_S ")",
               request->request_id, request->flags, request->interfaceIndex, RRDisplayString(&mDNSStorage, &ar->resrec),
@@ -1676,41 +1893,28 @@ mDNSlocal mStatus regRecordAddTSRRecord(request_state *const request, AuthRecord
     return err;
 }
 
-mDNSlocal mStatus updateTSRRecord(const request_state *const request, AuthRecord *const tsr, const mDNSs32 tsrTimestamp)
+mDNSlocal mStatus updateTSRRecord(const request_state *const request, AuthRecord *const tsr, const mDNSs32 tsrTimestamp, 
+    const mDNSu32 tsrHostkeyHash)
 {
     mStatus err = mStatus_NoError;
-    const RDataBody2 *const rdb = (RDataBody2 *)tsr->resrec.rdata->u.data;
-    mDNSu32 unsignedTimestamp = (mDNSu32)tsrTimestamp;
+    RDataBody2 *const rdb = (RDataBody2 *)tsr->resrec.rdata->u.data;
     LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "TSR timestamp - name: " PRI_DM_NAME ", new: %d  old: %d",
               DM_NAME_PARAM(tsr->resrec.name), tsrTimestamp, rdb->tsr_value);
-    if (tsrTimestamp - rdb->tsr_value > 0)
+    if (tsrTimestamp - rdb->opt[0].u.tsr.timeStamp > 0)
     {
-        const mDNSu8 rdata[4] = { (unsignedTimestamp >> 24) & 0xFF, (unsignedTimestamp >> 16) & 0xFF,
-            (unsignedTimestamp >> 8) & 0xFF, unsignedTimestamp & 0xFF};
-        err = update_record(tsr, sizeof(rdata), rdata, kHostNameTTL, mDNSNULL, request->request_id);
+        mDNSu32 optlen = DNSOpt_TSRData_Space - 4;
+        mDNSu32 uTimestamp = (mDNSu32)tsrTimestamp;
+        const mDNSu8 rdataOpt[DNSOpt_TSRData_Space] = {
+            (kDNSOpt_TSR >> 8) & 0xFF,          kDNSOpt_TSR & 0xFF,
+            (optlen >> 8) & 0xFF,               optlen & 0xFF,
+            (uTimestamp >> 24) & 0xFF,          (uTimestamp >> 16) & 0xFF,
+            (uTimestamp >> 8) & 0xFF,           uTimestamp & 0xFF,
+            (tsrHostkeyHash >> 24) & 0xFF,      (tsrHostkeyHash >> 16) & 0xFF,
+            (tsrHostkeyHash >> 8) & 0xFF,       tsrHostkeyHash & 0xFF,
+            0,                                  0 };
+        err = update_record(tsr, sizeof(rdataOpt), rdataOpt, kHostNameTTL, mDNSNULL, request->request_id);
     }
     return err;
-}
-
-mDNSlocal mDNSBool validateTSRTimestamp(mDNSs32 *timestampContinuous, mDNSu32 tsrTimestamp, const AuthRecord *rr)
-{
-    if (tsrTimestamp > MaxTimeSinceReceived)
-    {
-        if (rr != NULL)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "tsrTimestamp[%u] out of range (%u) on TSR for " PRI_DM_NAME "",
-                      tsrTimestamp, MaxTimeSinceReceived, DM_NAME_PARAM(rr->resrec.name));
-        }
-        else
-        {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                      "tsrTimestamp[%u] out of range (%u) on TSR", tsrTimestamp, MaxTimeSinceReceived);
-        }
-
-        return mDNSfalse;
-    }
-    *timestampContinuous = mDNSPlatformContinuousTimeSeconds() - (mDNSs32)tsrTimestamp;
-    return mDNStrue;
 }
 
 mDNSlocal mDNSBool conflictWithAuthRecords(mDNS *const m, const AuthRecord *const rr)
@@ -1721,7 +1925,7 @@ mDNSlocal mDNSBool conflictWithAuthRecords(mDNS *const m, const AuthRecord *cons
     while (rp)
     {
         const uintptr_t s2 = rp->RRSet ? rp->RRSet : (uintptr_t)rp;
-        if (rp->resrec.rrtype != kDNSType_TSR && s1 != s2 &&
+        if (rp->resrec.rrtype != kDNSType_OPT && s1 != s2 &&
             SameResourceRecordNameClassInterface(rp, rr) &&
             !IdenticalSameNameRecord(&rp->resrec, &rr->resrec) &&
             (rr->resrec.RecordType & kDNSRecordTypeUniqueMask || rp->resrec.RecordType & kDNSRecordTypeUniqueMask))
@@ -1738,28 +1942,77 @@ mDNSlocal mDNSBool conflictWithAuthRecords(mDNS *const m, const AuthRecord *cons
     return mDNSfalse;
 }
 
+mDNSlocal mDNSBool conflictWithCacheRecordsOrFlush(mDNS *const m, const mDNSu32 namehash, const domainname *const name,
+    const mDNSs32 validatedTSRTimestamp, const mDNSu32 tsrHostkeyHash)
+{
+    // Check for a matching TSR in the record cache.
+    // If it is newer (eTSRCheckWin) then exit with true (conflict)
+    // Otherwise, always clear the matching record cache entries.
+    const CacheGroup *cg = CacheGroupForName(m, namehash, name);
+    if (cg)
+    {
+        CacheRecord *cacheTSR = mDNSGetTSRForCacheGroup(cg);
+        if (cacheTSR)
+        {
+            const TSROptData newTSR = {validatedTSRTimestamp, tsrHostkeyHash, 0};
+            eTSRCheckResult tsrResult = CheckTSRForResourceRecord(&newTSR, &cacheTSR->resrec);
+            if (tsrResult == eTSRCheckWin)
+            {
+                return mDNStrue; // Existing TSR in cache is newer
+            }
+        }
+        // Flush cache for name since a TSR is authoritive for all Interfaces
+        CacheRecord *cr;
+        for (cr = cg ? cg->members : mDNSNULL; cr; cr=cr->next)
+        {
+            mDNS_PurgeCacheResourceRecord(m, cr);
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEBUG,
+                "conflictWithCacheRecordsOrFlush - new TSR, flushing interface %d " PRI_S,
+                (int)IIDPrintable(cr->resrec.InterfaceID), CRDisplayString(m, cr));
+        }
+    }
+    return mDNSfalse;
+}
 
 mDNSlocal mStatus handle_regrecord_request(request_state *request)
 {
     mStatus err = mStatus_BadParamErr;
     AuthRecord *rr;
-    mDNSBool foundTimestampTLV = mDNSfalse;
 
     if (request->terminate != connection_termination)
     { LogMsg("%3d: DNSServiceRegisterRecord(not a shared connection ref)", request->sd); return(err); }
 
     rr = read_rr_from_ipc_msg(request, 1, 1);
-    const mDNSu32 tsrTimestamp = get_service_attr_timestamp_value(request, &foundTimestampTLV);
-    AuthRecord *currentTSR = mDNSGetTSRRecord(&mDNSStorage, rr);
+    mDNSu32 tsrTimestamp = 0, tsrHostkeyHash;
+    const mDNSBool foundTSRParams = get_service_attr_tsr_params(request, &tsrTimestamp, &tsrHostkeyHash);
+    mDNSs32 timestampContinuous = 0;
+    AuthRecord *currentTSR = mDNSNULL;
     if (rr)
     {
+        if (foundTSRParams && !getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
+        {
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "tsrTimestamp[%u] out of range (%u) on TSR for " PRI_DM_NAME "",
+                      tsrTimestamp, MaxTimeSinceReceived, DM_NAME_PARAM(rr->resrec.name));
+            return mStatus_BadParamErr;
+        }
+        currentTSR = mDNSGetTSRForAuthRecord(&mDNSStorage, rr);
         rr->RRSet = (uintptr_t)request->sd;
-        if ((currentTSR || foundTimestampTLV) && conflictWithAuthRecords(&mDNSStorage, rr))
+        if ((currentTSR || foundTSRParams) && conflictWithAuthRecords(&mDNSStorage, rr))
         {
             LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "handle_regrecord_request: Name conflict " PRI_S " (%p), InterfaceID %p",
                       ARDisplayString(&mDNSStorage, rr), rr, rr->resrec.InterfaceID);
             freeL("AuthRecord/handle_regrecord_request", rr);
             return mStatus_NameConflict;
+        }
+        const mDNSs32 validatedTSRTimestamp = (mDNSs32)tsrTimestamp;
+        if (foundTSRParams &&
+            conflictWithCacheRecordsOrFlush(&mDNSStorage, rr->resrec.namehash, rr->resrec.name, validatedTSRTimestamp, tsrHostkeyHash))
+        {
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+                "handle_regrecord_request: TSR Stale Data, record cache is newer " PRI_DM_NAME " InterfaceID %p",
+                DM_NAME_PARAM(rr->resrec.name), rr->resrec.InterfaceID);
+            freeL("AuthRecord/handle_regrecord_request", rr);
+            return mStatus_StaleData;
         }
 #if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
         if (os_feature_enabled(mDNSResponder, bonjour_privacy) &&
@@ -1775,29 +2028,21 @@ mDNSlocal mStatus handle_regrecord_request(request_state *request)
         err = _handle_regrecord_request_start(request, rr);
 #endif
     }
-    if (!err && foundTimestampTLV)
+    if (!err && foundTSRParams)
     {
-        mDNSs32 timestampContinuous;
-        if (!validateTSRTimestamp(&timestampContinuous, tsrTimestamp, rr))
+        if (currentTSR)
         {
-            err = mStatus_BadParamErr;
+            err = updateTSRRecord(request, currentTSR, timestampContinuous, tsrHostkeyHash);
         }
         else
         {
-            if (currentTSR)
-            {
-                err = updateTSRRecord(request, currentTSR, timestampContinuous);
-            }
-            else
-            {
-                err = regRecordAddTSRRecord(request, rr, timestampContinuous);
-            }
+            err = regRecordAddTSRRecord(request, rr, timestampContinuous, tsrHostkeyHash);
         }
         if (!err)
         {
             LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-                      "handle_regrecord_request: TSR record added with tsrTimestamp %d",
-                      timestampContinuous);
+                      "handle_regrecord_request: TSR record added with timestampContinuous %d tsrTimestamp %d tsrHostkeyHash %x",
+                      timestampContinuous, tsrTimestamp, tsrHostkeyHash);
         }
         else
         {
@@ -1842,10 +2087,17 @@ mDNSlocal void regservice_termination_callback(request_state *const request)
         service_instance *p = servicereg->instances;
         servicereg->instances = servicereg->instances->next;
         // only safe to free memory if registration is not valid, i.e. deregister fails (which invalidates p)
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "[R%d] DNSServiceRegister(" PRI_DM_NAME "(%x), %u) STOP PID[%d](" PUB_S ")",
+        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "[R%d] DNSServiceRegister(" PRI_DM_NAME " (%x), %u) STOP PID[%d](" PUB_S ") -- duration: " PUB_TIME_DUR,
                request->request_id, DM_NAME_PARAM(p->srs.RR_SRV.resrec.name),
                mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, p->srs.RR_SRV.resrec.name->c, DomainNameLength(p->srs.RR_SRV.resrec.name)),
-               mDNSVal16(p->srs.RR_SRV.resrec.rdata->u.srv.port), request->process_id, request->pid_name);
+               mDNSVal16(p->srs.RR_SRV.resrec.rdata->u.srv.port), request->process_id, request->pid_name,
+               request_state_get_duration(request));
+
+        const ResourceRecord *const srv_rr = &p->srs.RR_SRV.resrec;
+        UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceRegister STOP",
+            SkipLeadingLabels(srv_rr->name, 1), request, mDNStrue, "SRV name: " PRI_DM_NAME " (%x), port: %u",
+            DM_NAME_PARAM(srv_rr->name), mDNS_DomainNameFNV1aHash(srv_rr->name), mDNSVal16(srv_rr->rdata->u.srv.port));
+
 
 #if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
         external_stop_advertising_helper(p);
@@ -1867,8 +2119,7 @@ mDNSlocal void regservice_termination_callback(request_state *const request)
         if (request->powerlog_start_time != 0)
         {
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            mdns_powerlog_service_register_stop(servicereg->type.c, request->process_id, request->request_id,
-                request->powerlog_start_time, usesAWDL);
+            mdns_powerlog_service_register_stop(request->pid_name, request->powerlog_start_time, usesAWDL);
             request->powerlog_start_time = 0;
         }
     #endif
@@ -2066,19 +2317,22 @@ mDNSlocal mStatus update_record(AuthRecord *ar, mDNSu16 rdlen, const mDNSu8 *con
     return result;
 }
 
-mDNSlocal mStatus handle_tsr_update_request(const request_state *const request, const AuthRecord *const rr, const mDNSu32 tsrTimestamp)
+mDNSlocal mStatus handle_tsr_update_request(const request_state *const request, const AuthRecord *const rr, 
+    const mDNSu32 tsrTimestamp, const mDNSu32 tsrHostkeyHash)
 {
     mStatus result = mStatus_NoError;
-    AuthRecord *currentTSR = mDNSGetTSRRecord(&mDNSStorage, rr);
+    AuthRecord *currentTSR = mDNSGetTSRForAuthRecord(&mDNSStorage, rr);
     mDNSs32 timestampContinuous;
-    if (!validateTSRTimestamp(&timestampContinuous, tsrTimestamp, rr))
+    if (!getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
     {
+        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "tsrTimestamp[%u] out of range (%u) on TSR for " PRI_DM_NAME "",
+                  tsrTimestamp, MaxTimeSinceReceived, DM_NAME_PARAM(rr->resrec.name));
         result = mStatus_BadParamErr;
         goto end;
     }
     if (currentTSR)
     {
-        result = updateTSRRecord(request, currentTSR, timestampContinuous);
+        result = updateTSRRecord(request, currentTSR, timestampContinuous, tsrHostkeyHash);
     }
     else
     {
@@ -2097,7 +2351,6 @@ mDNSlocal mStatus handle_update_request(request_state *request)
     mStatus result = mStatus_BadReferenceErr;
     service_instance *i;
     AuthRecord *rr = NULL;
-    mDNSBool foundTimestampTLV = mDNSfalse;
 
     // get the message data
     DNSServiceFlags flags = get_flags (&request->msgptr, request->msgend);  // flags unused
@@ -2113,10 +2366,14 @@ mDNSlocal mStatus handle_update_request(request_state *request)
         return(mStatus_BadParamErr);
     }
 
-    const mDNSu32 tsrTimestamp = get_service_attr_timestamp_value(request, &foundTimestampTLV);
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%d] DNSServiceUpdateRecord foundTimestampTLV[%s], tsrTimestamp[%u]", request->request_id,
-            foundTimestampTLV ? "true" : "false", tsrTimestamp);
+    mDNSu32 tsrTimestamp, tsrHostkeyHash;
+    const mDNSBool foundTSRParams = get_service_attr_tsr_params(request, &tsrTimestamp, &tsrHostkeyHash);
+    if (foundTSRParams)
+    {
+        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+            "[R%u] DNSServiceUpdateRecord foundTSRParams tsrTimestamp[%u] hostkeyHash[%x]",
+            request->request_id, tsrTimestamp, tsrHostkeyHash);
+    }
 
     // If this is a shared connection, check if the operation actually applies to a subordinate request_state object
     if (request->terminate == connection_termination) request = LocateSubordinateRequest(request);
@@ -2128,19 +2385,19 @@ mDNSlocal mStatus handle_update_request(request_state *request)
         {
             if (reptr->key == hdr->reg_index)
             {
-                if (foundTimestampTLV)
+                if (foundTSRParams)
                 {
-                    result = handle_tsr_update_request(request, reptr->rr, tsrTimestamp);
+                    result = handle_tsr_update_request(request, reptr->rr, tsrTimestamp, tsrHostkeyHash);
                 }
                 else
                 {
                     result = update_record(reptr->rr, rdlen, rdata, ttl, &reptr->external_advertise, request->request_id);
                 }
                 LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-                       "[R%d] DNSServiceUpdateRecord(" PRI_DM_NAME ", " PUB_S ") PID[%d](" PUB_S ")",
-                       request->request_id, DM_NAME_PARAM(reptr->rr->resrec.name),
-                       reptr->rr ? foundTimestampTLV ? "TSR" : DNSTypeName(reptr->rr->resrec.rrtype) : "<NONE>",
-                       request->process_id, request->pid_name);
+                    "[R%u] DNSServiceUpdateRecord(" PRI_DM_NAME ", " PUB_S PUB_S ") PID[%d](" PUB_S ")",
+                    request->request_id, DM_NAME_PARAM(reptr->rr->resrec.name),
+                    reptr->rr ? DNSTypeName(reptr->rr->resrec.rrtype) : "<NONE>", foundTSRParams ? " & TSR" : "",
+                    request->process_id, request->pid_name);
                 goto end;
             }
         }
@@ -2165,7 +2422,7 @@ mDNSlocal mStatus handle_update_request(request_state *request)
     }
 
     // update the saved off TXT data for the service
-    if (!foundTimestampTLV && hdr->reg_index == TXT_RECORD_INDEX)
+    if (!foundTSRParams && hdr->reg_index == TXT_RECORD_INDEX)
     {
         if (servicereg->txtdata)
         { freeL("service_info txtdata", servicereg->txtdata); servicereg->txtdata = NULL; }
@@ -2190,9 +2447,9 @@ mDNSlocal mStatus handle_update_request(request_state *request)
         }
 
         if (!rr) { result = mStatus_BadReferenceErr; goto end; }
-        if (foundTimestampTLV)
+        if (foundTSRParams)
         {
-            result = handle_tsr_update_request(request, rr, tsrTimestamp);
+            result = handle_tsr_update_request(request, rr, tsrTimestamp, tsrHostkeyHash);
             goto end;
         }
         else
@@ -2213,7 +2470,7 @@ end:
             (srvName ? mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, srvName->c, DomainNameLength(srvName)) : 0);
         const uint16_t rrType = (rr ? rr->resrec.rrtype : 0);
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%u] DNSServiceUpdateRecord(" PRI_DM_NAME "(%x), " PUB_DNS_TYPE ") UPDATE PID[%d](%s)",
+            "[R%u] DNSServiceUpdateRecord(" PRI_DM_NAME " (%x), " PUB_DNS_TYPE ") UPDATE PID[%d](%s)",
             request->request_id, DM_NAME_PARAM(srvName), nameHash, DNS_TYPE_PARAM(rrType),
             request->process_id, request->pid_name);
     }
@@ -2245,10 +2502,8 @@ mDNSlocal mStatus remove_record(request_state *request)
 #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
     if (e->powerlog_start_time != 0)
     {
-        const AuthRecord *const ar = e->rr;
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_register_record_stop(ar->resrec.name->c, ar->resrec.rrtype, request->process_id, request->request_id,
-            e->powerlog_start_time, usesAWDL);
+        mdns_powerlog_register_record_stop(request->pid_name, e->powerlog_start_time, usesAWDL);
     }
 #endif
     err = mDNS_Deregister(&mDNSStorage, e->rr);     // Will free e->rr for us; we're responsible for freeing e
@@ -2400,14 +2655,14 @@ mDNSlocal mDNSs32 ChopSubTypes(char *regtype)
     return(NumSubTypes);
 }
 
-mDNSlocal AuthRecord *AllocateSubTypes(mDNSu32 NumSubTypes, char *p)
+mDNSlocal mStatus AllocateSubTypes(mDNSu32 NumSubTypes, char *p, AuthRecord **subtypes)
 {
     AuthRecord *st = mDNSNULL;
     if (NumSubTypes)
     {
         mDNSu32 i;
         st = (AuthRecord *) callocL("ServiceSubTypes", NumSubTypes * sizeof(AuthRecord));
-        if (!st) return(mDNSNULL);
+        if (!st) return(mStatus_NoMemoryErr);
         for (i = 0; i < NumSubTypes; i++)
         {
             mDNS_SetupResourceRecord(&st[i], mDNSNULL, mDNSInterface_Any, kDNSQType_ANY, kStandardTTL, 0, AuthRecordAny, mDNSNULL, mDNSNULL);
@@ -2416,11 +2671,12 @@ mDNSlocal AuthRecord *AllocateSubTypes(mDNSu32 NumSubTypes, char *p)
             if (!MakeDomainNameFromDNSNameString(&st[i].namestorage, p))
             {
                 freeL("ServiceSubTypes", st);
-                return(mDNSNULL);
+                return(mStatus_BadParamErr);
             }
         }
     }
-    return(st);
+    *subtypes = st;
+    return(mStatus_NoError);
 }
 
 mDNSlocal mStatus register_service_instance(request_state *const request, const domainname *const domain)
@@ -2431,15 +2687,31 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
     const mDNSBool DomainIsLocal = SameDomainName(domain, &localdomain);
     mStatus result;
     mDNSInterfaceID interfaceID = servicereg->InterfaceID;
-    mDNSBool foundTimestampTLV = mDNSfalse;
-    const mDNSu32 tsrTimestamp = get_service_attr_timestamp_value(request, &foundTimestampTLV);
+    mDNSu32 tsrTimestamp, tsrHostkeyHash;
+    const mDNSBool foundTSRParams = get_service_attr_tsr_params(request, &tsrTimestamp, &tsrHostkeyHash);
     mDNSs32 timestampContinuous = 0;
 
-    if (foundTimestampTLV)
+    if (foundTSRParams)
     {
-        if (!validateTSRTimestamp(&timestampContinuous, tsrTimestamp, NULL))
+        mDNSs32 validatedTSRTimestamp;
+        mDNSu32 namehash;
+        domainname full_hostname;
+
+        if(!getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
         {
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
+                "tsrTimestamp[%u] out of range (%u) on TSR", tsrTimestamp, MaxTimeSinceReceived);
             return mStatus_BadParamErr;
+        }
+        validatedTSRTimestamp = (mDNSs32)tsrTimestamp;
+        ConstructServiceName(&full_hostname, &servicereg->name, &servicereg->type, domain);
+        namehash = DomainNameHashValue(&full_hostname);
+        if (conflictWithCacheRecordsOrFlush(&mDNSStorage, namehash, &full_hostname, validatedTSRTimestamp, tsrHostkeyHash))
+        {
+            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+                "register_service_instance: TSR Stale Data, record cache is newer " PRI_DM_NAME " InterfaceID %p",
+                DM_NAME_PARAM(&full_hostname), interfaceID);
+            return mStatus_StaleData;
         }
     }
 
@@ -2471,13 +2743,20 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
     instance->external_advertise            = mDNSfalse;
     AssignDomainName(&instance->domain, domain);
 
-    instance->subtypes = AllocateSubTypes(servicereg->num_subtypes, servicereg->type_as_string);
+    result = AllocateSubTypes(servicereg->num_subtypes, servicereg->type_as_string, &instance->subtypes);
 
-    if (servicereg->num_subtypes && !instance->subtypes)
+    if (result)
     {
         unlink_and_free_service_instance(instance);
         instance = NULL;
-        FatalError("ERROR: malloc");
+        if (result == mStatus_NoMemoryErr)
+        {
+            FatalError("ERROR: malloc");
+        }
+        else
+        {
+            return result;
+        }
     }
 
     result = mDNS_RegisterService(&mDNSStorage, &instance->srs,
@@ -2491,25 +2770,31 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
     if (!result && (request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && DomainIsLocal)
     {
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        request->powerlog_start_time = mdns_powerlog_service_register_start(servicereg->type.c, request->process_id,
-            request->request_id, usesAWDL);
+        request->powerlog_start_time = mdns_powerlog_service_register_start(request->pid_name, usesAWDL);
     }
 #endif
-    if (!result && foundTimestampTLV)
+    if (!result && foundTSRParams)
     {
-        AuthRecord *currentTSR = mDNSGetTSRRecord(&mDNSStorage, &instance->srs.RR_SRV);
+        AuthRecord *currentTSR = mDNSGetTSRForAuthRecord(&mDNSStorage, &instance->srs.RR_SRV);
 
         if (currentTSR)
         {
-            result = updateTSRRecord(request, currentTSR, timestampContinuous);
+            result = updateTSRRecord(request, currentTSR, timestampContinuous, tsrHostkeyHash);
         }
         else
         {
             // tsr timestamp in memory is absolute time of receipt
+            mDNSu32 optlen = DNSOpt_TSRData_Space - 4;
             mDNSu32 uTimestamp = (mDNSu32)timestampContinuous;
-            const mDNSu8 rdata[4] = { (uTimestamp >> 24) & 0xFF, (uTimestamp >> 16) & 0xFF,
-                                      (uTimestamp >> 8)  & 0xFF,  uTimestamp        & 0xFF };
-            result = add_record_to_service(request, instance, kDNSType_TSR, sizeof(rdata), rdata, kHostNameTTL);
+            const mDNSu8 rdataOpt[DNSOpt_TSRData_Space] = {
+                (kDNSOpt_TSR >> 8) & 0xFF,          kDNSOpt_TSR & 0xFF,
+                (optlen >> 8) & 0xFF,               optlen & 0xFF,
+                (uTimestamp >> 24) & 0xFF,          (uTimestamp >> 16) & 0xFF,
+                (uTimestamp >> 8) & 0xFF,           uTimestamp & 0xFF,
+                (tsrHostkeyHash >> 24) & 0xFF,      (tsrHostkeyHash >> 16) & 0xFF,
+                (tsrHostkeyHash >> 8) & 0xFF,       tsrHostkeyHash & 0xFF,
+                0,                                  0 };
+            result = add_record_to_service(request, instance, kDNSType_OPT, sizeof(rdataOpt), rdataOpt, kHostNameTTL);
         }
         if (!result)
         {
@@ -2525,15 +2810,13 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
     if (!result)
     {
         *ptr = instance;        // Append this to the end of our servicereg->instances list
-        const mDNSu32 srv_name_hash = mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, instance->srs.RR_SRV.resrec.name->c,
-            DomainNameLength(instance->srs.RR_SRV.resrec.name));
-        const mDNSu32 ptr_name_hash = mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, instance->srs.RR_PTR.resrec.name->c,
-            DomainNameLength(instance->srs.RR_PTR.resrec.name));
 
+        // [R14] DNSServiceRegister result -- event: ADDED, SRV name: p001-ari0v37kf5o6d._dnssd-dp._tcp.local.(261cb2cf), port: 853, PTR name hash: 78e1c9c8
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%u] DNSServiceRegister(" PRI_DM_NAME "(%x), %u) ADDED "
-            "-- PTR name hash: %x", request->request_id, DM_NAME_PARAM(instance->srs.RR_SRV.resrec.name),
-            srv_name_hash, mDNSVal16(servicereg->port), ptr_name_hash);
+            "[R%u] DNSServiceRegister result -- event: ADDED, SRV name: " PRI_DM_NAME " (%x), port: %u, PTR name hash: %x",
+            request->request_id, DM_NAME_PARAM(instance->srs.RR_SRV.resrec.name),
+            mDNS_DomainNameFNV1aHash(instance->srs.RR_SRV.resrec.name), mDNSVal16(servicereg->port),
+            mDNS_DomainNameFNV1aHash(instance->srs.RR_PTR.resrec.name));
 
         LogMcastS(&instance->srs.RR_SRV, request, reg_start);
     }
@@ -2691,6 +2974,11 @@ mDNSlocal mStatus _handle_regservice_request_with_trust(request_state *const req
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, servicereg->type_as_string, flags);
                 if (!trust)
                 {
@@ -2734,7 +3022,8 @@ mDNSlocal mStatus _handle_regservice_request_with_trust(request_state *const req
                         KQueueUnlock("_register_service_instance_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -2747,6 +3036,9 @@ mDNSlocal mStatus _handle_regservice_request_with_trust(request_state *const req
             case mdns_trust_status_granted:
                 err = _handle_regservice_request_start(request, d);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
     }
 exit:
@@ -2901,18 +3193,11 @@ mDNSlocal mStatus handle_regservice_request(request_state *const request)
                    request->pid_name, count+1, srv.c, mDNSVal16(servicereg->port));
     }
 
-    // Construct the full service name.
-    mDNSu32 nameHash = mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, servicereg->name.c,
-        DomainLabelLength(&servicereg->name) + 1);
-    nameHash = mDNS_NonCryptoHashUpdateBytes(mDNSNonCryptoHash_FNV1a, nameHash, servicereg->type.c,
-        DomainNameLength(&servicereg->type) - 1);
-    nameHash = mDNS_NonCryptoHashUpdateBytes(mDNSNonCryptoHash_FNV1a, nameHash, d.c,
-        DomainNameLength(&d));
-
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-           "[R%d] DNSServiceRegister(%X, %d, \"" PRI_S "\", \"" PRI_S "\", \"" PRI_S "\", %x, \"" PRI_S "\", %u) START PID[%d](" PUB_S ")",
-           request->request_id, request->flags, interfaceIndex, name, servicereg->type_as_string, domain, nameHash, host,
-           mDNSVal16(servicereg->port), request->process_id, request->pid_name);
+    domainname ptr_name;
+    ConstructServiceName(&ptr_name, &servicereg->name, &servicereg->type, &d);
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceRegister START", &ptr_name, request,
+        mDNSfalse, "service type: " PRI_DM_NAME ", domain: " PRI_DM_NAME ", port: %u",
+        DM_NAME_PARAM(&servicereg->type), DM_NAME_PARAM(&d), mDNSVal16(servicereg->port));
 
     // We need to unconditionally set request->terminate, because even if we didn't successfully
     // start any registrations right now, subsequent configuration changes may cause successful
@@ -2958,6 +3243,7 @@ mDNSlocal void FoundInstance(mDNS *const m, DNSQuestion *question, const Resourc
     DNSServiceFlags flags = AddRecord ? kDNSServiceFlagsAdd : 0;
     request_state *req = question->QuestionContext;
     reply_state *rep;
+    const mDNSBool isMDNSQuestion = mDNSOpaque16IsZero(question->TargetQID);
     (void)m; // Unused
 
     if (answer->rrtype != kDNSType_PTR)
@@ -2991,14 +3277,8 @@ mDNSlocal void FoundInstance(mDNS *const m, DNSQuestion *question, const Resourc
     }
 
 validReply:
-
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-        "[R%d->Q%d] DNSServiceBrowse(" PRI_DM_NAME "(%x), " PUB_S ") RESULT " PUB_ADD_RMV_U " interface %d: " PRI_S,
-        req->request_id, mDNSVal16(question->TargetQID), DM_NAME_PARAM(&question->qname),
-        mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, question->qname.c, DomainNameLength(&question->qname)),
-        DNSTypeName(question->qtype), ADD_RMV_U_PARAM(AddRecord),
-        mDNSPlatformInterfaceIndexfromInterfaceID(m, answer->InterfaceID, mDNSfalse),
-        RRDisplayString(m, answer));
+    UDS_LOG_ANSWER_EVENT(isMDNSQuestion ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+        req, question, answer, mDNSfalse, "DNSServiceBrowse result", AddRecord);
 
     append_reply(req, rep);
 }
@@ -3112,7 +3392,7 @@ mDNSlocal mStatus add_domain_to_browser(request_state *info, const domainname *d
             mdns_cfarray_enumerate(definitions,
             ^ bool (const mdns_dns_service_definition_t definition)
             {
-                uint32_t ifIndex = mdns_dns_service_definition_get_interface_index(definition);
+                const uint32_t ifIndex = mdns_dns_service_definition_get_interface_index(definition);
                 mdns_address_t addr = mdns_dns_service_definition_get_first_address(definition);
                 if (!addr)
                 {
@@ -3174,8 +3454,7 @@ mDNSlocal mStatus add_domain_to_browser(request_state *info, const domainname *d
         if ((info->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && SameDomainName(d, &localdomain))
         {
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(info->interfaceIndex, info->flags);
-            info->powerlog_start_time = mdns_powerlog_browse_start(browse->regtype.c, info->process_id, info->request_id,
-                usesAWDL);
+            info->powerlog_start_time = mdns_powerlog_browse_start(info->pid_name, usesAWDL);
         }
 #endif
         LogMcastQ(&b->q, info, q_start);
@@ -3197,8 +3476,8 @@ mDNSlocal void browse_termination_callback(request_state *info)
     request_browse *const browse = info->browse;
     if (browse->default_domain)
     {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "[R%u] DNSServiceBrowse Cancel domain enumeration for WAB and mDNS "
-            "PID[%d](" PUB_S ")" , info->request_id, info->process_id, info->pid_name);
+        UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+            "DNSServiceBrowse Cancel domain enumeration for WAB and mDNS", mDNSNULL, info, mDNStrue, "");
         // Stop the domain enumeration queries to discover the WAB legacy browse domains
         uDNS_StopWABQueries(&mDNSStorage, UDNS_WAB_LBROWSE_QUERY);
 
@@ -3216,16 +3495,12 @@ mDNSlocal void browse_termination_callback(request_state *info)
         {
             domainname tmp;
             ConstructServiceName(&tmp, NULL, &browse->regtype, &ptr->domain);
-            LogInfo("browse_termination_callback: calling external_stop_browsing_for_service()");
             external_stop_browsing_for_service(ptr->q.InterfaceID, &tmp, kDNSType_PTR, ptr->q.flags, info->process_id);
         }
 #endif
 
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-               "[R%d] DNSServiceBrowse(%X, %d, \"" PRI_DM_NAME "\"(%x)) STOP PID[%d](" PUB_S ")",
-               info->request_id, info->flags, info->interfaceIndex, DM_NAME_PARAM(&ptr->q.qname),
-               mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, ptr->q.qname.c, DomainNameLength(&ptr->q.qname)),
-               info->process_id, info->pid_name);
+        UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceBrowse STOP", &ptr->q.qname,
+            info, mDNStrue, "service name: " PRI_DM_NAME, DM_NAME_PARAM(&ptr->q.qname));
 
         browse->browsers = ptr->next;
         mDNS_StopBrowse(&mDNSStorage, &ptr->q);  // no need to error-check result
@@ -3236,8 +3511,7 @@ mDNSlocal void browse_termination_callback(request_state *info)
     if (info->powerlog_start_time != 0)
     {
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(info->interfaceIndex, info->flags);
-        mdns_powerlog_browse_stop(browse->regtype.c, info->process_id, info->request_id, info->powerlog_start_time,
-            usesAWDL);
+        mdns_powerlog_browse_stop(info->pid_name, info->powerlog_start_time, usesAWDL);
         info->powerlog_start_time = 0;
     }
 #endif
@@ -3744,6 +4018,11 @@ mDNSlocal mStatus _handle_browse_request_with_trust(request_state *request, cons
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, typestr, flags);
                 if (!trust )
                 {
@@ -3789,7 +4068,8 @@ mDNSlocal mStatus _handle_browse_request_with_trust(request_state *request, cons
                         KQueueUnlock("_handle_browse_request_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -3802,6 +4082,9 @@ mDNSlocal mStatus _handle_browse_request_with_trust(request_state *request, cons
             case mdns_trust_status_granted:
                 err = _handle_browse_request_start(request, domain);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
     }
 exit:
@@ -3880,9 +4163,9 @@ mDNSlocal mStatus handle_browse_request(request_state *request)
     browse->default_domain = !domain[0];
     browse->browsers = NULL;
 
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "[R%d] DNSServiceBrowse(%X, %d, \"" PRI_DM_NAME "\", \"" PRI_S "\") START PID[%d](" PUB_S ")",
-           request->request_id, request->flags, interfaceIndex, DM_NAME_PARAM(&browse->regtype), domain,
-           request->process_id, request->pid_name);
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+        "DNSServiceBrowse START", mDNSNULL, request, mDNSfalse, "service type: " PRI_DM_NAME ", domain: " PRI_S,
+        DM_NAME_PARAM(&browse->regtype), domain);
 
     if (browse->default_domain)
     {
@@ -3928,11 +4211,11 @@ exit:
 mDNSlocal void resolve_termination_callback(request_state *request)
 {
     request_resolve *const resolve = request->resolve;
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-       "[R%d] DNSServiceResolve(%X, %d, \"" PRI_DM_NAME "\"(%x)) STOP PID[%d](" PUB_S ")",
-       request->request_id, request->flags, request->interfaceIndex, DM_NAME_PARAM(&resolve->qtxt.qname),
-       mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, resolve->qtxt.qname.c, DomainNameLength(&resolve->qtxt.qname)),
-       request->process_id, request->pid_name);
+
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+        "DNSServiceResolve STOP",
+        &resolve->qtxt.qname, request, mDNStrue, "SRV name: " PRI_DM_NAME, DM_NAME_PARAM_NONNULL(&resolve->qtxt.qname));
+
     mDNS_StopQuery(&mDNSStorage, &resolve->qtxt);
     mDNS_StopQuery(&mDNSStorage, &resolve->qsrv);
     LogMcastQ(&resolve->qsrv, request, q_stop);
@@ -3946,8 +4229,7 @@ mDNSlocal void resolve_termination_callback(request_state *request)
     if (request->powerlog_start_time != 0)
     {
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_resolve_stop(resolve->qsrv.qname.c, request->process_id, request->request_id,
-            request->powerlog_start_time, usesAWDL);
+        mdns_powerlog_resolve_stop(request->pid_name, request->powerlog_start_time, usesAWDL);
         request->powerlog_start_time = 0;
     }
 #endif
@@ -3980,8 +4262,7 @@ mDNSlocal mStatus _handle_resolve_request_start(request_state *const request, co
             if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(&params->fqdn))
             {
                 const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-                request->powerlog_start_time = mdns_powerlog_resolve_start(params->fqdn.c, request->process_id,
-                    request->request_id, usesAWDL);
+                request->powerlog_start_time = mdns_powerlog_resolve_start(request->pid_name, usesAWDL);
             }
         #endif
             LogMcastQ(&resolve->qsrv, request, q_start);
@@ -4090,9 +4371,13 @@ mDNSlocal void resolve_result_save_answer(request_resolve *const resolve, const 
             // Copy the rdata of TXT record directly.
             const mDNSu8 *const txt_rdata = answer->rdata->u.data;
             const mDNSu16 txt_rdlength = answer->rdlength;
-            mdns_require_return(txt_rdlength > 0);
 
-            resolve->txt_rdata = mDNSPlatformMemAllocateClear(txt_rdlength);
+            // MAX(1, txt_rdlength) ensures that resolve->txt_rdata is non-null, when the TXT record rdata length is 0,
+            // thus allowing the 0-length TXT to be identified as a positive record.
+            // In theory, TXT record should contain "One or more <character-string>s." according to:
+            // [TXT RDATA format](https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.14)
+            // Here we allow mDNSResponder to return TXT record with a 0 data length.
+            resolve->txt_rdata = mDNSPlatformMemAllocateClear(MAX(1, txt_rdlength));
             mdns_require_return(resolve->txt_rdata);
 
             mDNSPlatformMemCopy(resolve->txt_rdata, txt_rdata, txt_rdlength);
@@ -4111,13 +4396,11 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     (void)m; // Unused
 
     request_state *const req = question->QuestionContext;
-    const mDNSu32 name_hash = mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, question->qname.c,
-        DomainNameLength(&question->qname));
+    const mDNSu32 name_hash = mDNS_DomainNameFNV1aHash(&question->qname);
 
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-        "[R%u] DNSServiceResolve(" PRI_DM_NAME "(%x)) " PUB_ADD_RMV_U " interface %u: " PRI_S,
-        req->request_id, DM_NAME_PARAM(&question->qname), name_hash, ADD_RMV_U_PARAM(AddRecord),
-        mDNSPlatformInterfaceIndexfromInterfaceID(m, answer->InterfaceID, mDNSfalse), RRDisplayString(m, answer));
+    const mDNSBool isMDNSQuestion = mDNSOpaque16IsZero(question->TargetQID);
+    UDS_LOG_ANSWER_EVENT(isMDNSQuestion ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+        req, question, answer, mDNSfalse, "DNSServiceResolve result", AddRecord);
 
     const mDNSu16 rrtype = answer->rrtype;
     mdns_require_return((rrtype == kDNSType_SRV) || (rrtype == kDNSType_TXT));
@@ -4250,14 +4533,14 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     if (error == kDNSServiceErr_NoError)
     {
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%d->Q%d] DNSServiceResolve(" PRI_S "(%x)) RESULT   " PRI_S "(%x):%d",
+            "[R%d->Q%d] DNSServiceResolve(" PRI_S " (%x)) RESULT   " PRI_S " (%x):%d",
             req->request_id, mDNSVal16(question->TargetQID), fullname, name_hash, target, target_name_hash,
             mDNSVal16(srv_port));
     }
     else
     {
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-            "[R%d->Q%d] DNSServiceResolve(" PRI_S "(%x)) NoSuchRecord",
+            "[R%d->Q%d] DNSServiceResolve(" PRI_S " (%x)) NoSuchRecord",
             req->request_id, mDNSVal16(question->TargetQID), fullname, name_hash);
     }
     append_reply(req, rep);
@@ -4318,6 +4601,11 @@ mDNSlocal mStatus _handle_resolve_request_with_trust(request_state *request, con
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, params->regtype, flags);
                 if (!trust )
                 {
@@ -4362,7 +4650,8 @@ mDNSlocal mStatus _handle_resolve_request_with_trust(request_state *request, con
                         KQueueUnlock("_handle_resolve_request_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -4375,6 +4664,9 @@ mDNSlocal mStatus _handle_resolve_request_with_trust(request_state *request, con
             case mdns_trust_status_granted:
                 err = _handle_resolve_request_start(request, params);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
     }
 exit:
@@ -4494,12 +4786,8 @@ mDNSlocal mStatus handle_resolve_request(request_state *request)
     if (!AuthorizedDomain(request, &fqdn, AutoBrowseDomains)) return(mStatus_NoError);
 #endif
 
-    // ask the questions
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-        "[R%d] DNSServiceResolve(%X, %d, \"" PRI_DM_NAME "\"(%x)) START PID[%d](" PUB_S ")",
-        request->request_id, flags, interfaceIndex, DM_NAME_PARAM(&resolve->qsrv.qname),
-        mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, resolve->qsrv.qname.c, DomainNameLength(&resolve->qsrv.qname)),
-        request->process_id, request->pid_name);
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceResolve START",
+        &resolve->qsrv.qname, request, mDNSfalse, "SRV name: " PRI_DM_NAME, DM_NAME_PARAM(&resolve->qsrv.qname));
 
     request->terminate = NULL;
 #if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
@@ -4593,24 +4881,23 @@ mDNSlocal void queryrecord_result_reply(mDNS *const m, DNSQuestion *const questi
     ConvertDomainNameToCString(answer->name, name);
 
 #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    dnssec_result_t dnssec_result = dnssec_indeterminate;
     if (dns_question_is_dnssec_requestor(question))
     {
         flags |= dns_service_flags_init_with_dnssec_result(question, answer);
-        dnssec_result = resource_record_get_validation_result(answer);
     }
 #endif
 
-    const mDNSBool localDomain = IsLocalDomain(&question->qname);
-
-    LogRedact(localDomain ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-       "[R%u->Q%u] DNSService" PUB_S "(" PRI_DM_NAME "(%x), " PUB_DNS_TYPE ") RESULT " PUB_ADD_RMV_U " interface %d: (" PUB_MORTALITY ", " PUB_DNSSEC_RESULT ")" PRI_S,
-       req->request_id, mDNSVal16(question->TargetQID), req->hdr.op == query_request ? "QueryRecord" : "GetAddrInfo",
-       DM_NAME_PARAM(&question->qname),
-       mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, question->qname.c, DomainNameLength(&question->qname)),
-       DNS_TYPE_PARAM(question->qtype), ADD_RMV_U_PARAM(AddRecord),
-       mDNSPlatformInterfaceIndexfromInterfaceID(m, answer->InterfaceID, mDNSfalse),
-       MORTALITY_PARAM(answer->mortality), DNSSEC_RESULT_PARAM(dnssec_result), RRDisplayString(m, answer));
+    const mDNSBool isMDNSQuestion = mDNSOpaque16IsZero(question->TargetQID);
+    if (req->hdr.op == query_request)
+    {
+        UDS_LOG_ANSWER_EVENT(isMDNSQuestion ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+            req, question, answer, expired, "DNSServiceQueryRecord result", AddRecord);
+    }
+    else
+    {
+        UDS_LOG_ANSWER_EVENT(isMDNSQuestion ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+            req, question, answer, expired, "DNSServiceGetAddrInfo result", AddRecord);
+    }
 
     // Call mDNSPlatformInterfaceIndexfromInterfaceID, but suppressNetworkChange (last argument). Otherwise, if the
     // InterfaceID is not valid, then it simulates a "NetworkChanged" which in turn makes questions
@@ -4763,19 +5050,17 @@ mDNSlocal void queryrecord_termination_callback(request_state *request)
     const domainname *const qname = QueryRecordClientRequestGetQName(request->queryrecord);
     const mDNSBool localDomain = IsLocalDomain(qname);
 
-    LogRedact(localDomain ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-        "[R%u] DNSServiceQueryRecord(%X, %d, " PRI_DM_NAME "(%x), " PUB_DNS_TYPE ") STOP PID[%d](" PUB_S ")",
-        request->request_id, request->flags, request->interfaceIndex, DM_NAME_PARAM_NONNULL(qname),
-        mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, qname->c, DomainNameLength(qname)),
-        DNS_TYPE_PARAM(QueryRecordClientRequestGetType(request->queryrecord)), request->process_id, request->pid_name);
+    const mDNSu16 qtype = QueryRecordClientRequestGetType(request->queryrecord);
+    UDS_LOG_CLIENT_REQUEST(localDomain ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+        "DNSServiceQueryRecord STOP", qname, request, mDNStrue, "qname: " PRI_DM_NAME ", qtype: " PUB_DNS_TYPE,
+        DM_NAME_PARAM_NONNULL(qname), DNS_TYPE_PARAM(qtype));
 
     QueryRecordClientRequestStop(request->queryrecord);
 #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
     if (request->powerlog_start_time != 0)
     {
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_query_record_stop(qname->c, QueryRecordClientRequestGetType(request->queryrecord), request->process_id,
-            request->request_id, request->powerlog_start_time, usesAWDL);
+        mdns_powerlog_query_record_stop(request->pid_name, request->powerlog_start_time, usesAWDL);
         request->powerlog_start_time = 0;
     }
 #endif
@@ -4785,6 +5070,7 @@ typedef struct
 {
     QueryRecordClientRequestParams cr;
     char qname[MAX_ESCAPED_DOMAIN_NAME];
+    mDNSu8 resolverUUID[MDNS_UUID_SIZE];
 } uds_queryrecord_params_t;
 
 static void _uds_queryrecord_params_init(uds_queryrecord_params_t *const params)
@@ -4798,7 +5084,14 @@ static void _uds_queryrecord_params_init(uds_queryrecord_params_t *const params)
 static void _uds_queryrecord_params_copy(uds_queryrecord_params_t *const dst, const uds_queryrecord_params_t *const src)
 {
 	*dst = *src;
-    dst->cr.qnameStr = dst->qname; // Must point to own qname buffer.
+    // Be careful when copying pointers. Each parameters object should point to its own buffers.
+    dst->cr.qnameStr = dst->qname;
+#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+    if (src->cr.resolverUUID)
+    {
+        dst->cr.resolverUUID = dst->resolverUUID;
+    }
+#endif
 }
 #endif
 
@@ -4814,8 +5107,7 @@ mDNSlocal mStatus _handle_queryrecord_request_start(request_state *request, cons
         if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(qname))
         {
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            request->powerlog_start_time = mdns_powerlog_query_record_start(qname->c,
-                QueryRecordClientRequestGetType(queryrecord), request->process_id, request->request_id, usesAWDL);
+            request->powerlog_start_time = mdns_powerlog_query_record_start(request->pid_name, usesAWDL);
         }
     }
 #endif
@@ -4896,6 +5188,11 @@ mDNSlocal mStatus _handle_queryrecord_request_with_trust(request_state *request,
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, service_ptr, flags);
                 if (!trust )
                 {
@@ -4941,7 +5238,8 @@ mDNSlocal mStatus _handle_queryrecord_request_with_trust(request_state *request,
                         KQueueUnlock("_handle_queryrecord_request_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -4954,6 +5252,9 @@ mDNSlocal mStatus _handle_queryrecord_request_with_trust(request_state *request,
             case mdns_trust_status_granted:
                 err = _handle_queryrecord_request_start(request, params);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
     }
 exit:
@@ -4964,14 +5265,24 @@ exit:
 #if MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
 mDNSlocal void get_queryrecord_tlvs(request_state *const request, uds_queryrecord_params_t *const params)
 {
-    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS))
-    {
-        const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
-        const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-        const mDNSu32 aaaaPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_AAAA_POLICY, mDNSNULL);
-        params->cr.useAAAAFallback = (aaaaPolicy == kDNSServiceAAAAPolicyFallback);
-        const mDNSu32 failoverPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_FAILOVER_POLICY, mDNSNULL);
+    mdns_require_quiet(request->msgptr, exit);
+    mdns_require_quiet(request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS, exit);
+
+    const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
+    const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
+    const mDNSu32 aaaaPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_AAAA_POLICY, mDNSNULL);
+    params->cr.useAAAAFallback = (aaaaPolicy == kDNSServiceAAAAPolicyFallback);
 #if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
+    const mDNSu8 *const resolverOverride = get_tlv_uuid(start, end, IPC_TLV_TYPE_RESOLVER_OVERRIDE);
+    if (resolverOverride)
+    {
+        mDNSPlatformMemCopy(params->resolverUUID, resolverOverride, MDNS_UUID_SIZE);
+        params->cr.resolverUUID = params->resolverUUID;
+        params->cr.overrideDNSService = mDNStrue;
+    }
+    else
+    {
+        const mDNSu32 failoverPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_FAILOVER_POLICY, mDNSNULL);
         params->cr.useFailover = (failoverPolicy == kDNSServiceFailoverPolicyAllow);
         size_t len;
         const mDNSu8 *const data = get_tlv(start, end, IPC_TLV_TYPE_RESOLVER_CONFIG_PLIST_DATA, &len);
@@ -4981,8 +5292,11 @@ mDNSlocal void get_queryrecord_tlvs(request_state *const request, uds_queryrecor
             request->custom_service_id = params->cr.customID;
         }
         params->cr.needEncryption = (get_tlv_uint32(start, end, IPC_TLV_TYPE_REQUIRE_PRIVACY, mDNSNULL) != 0);
-#endif
     }
+#endif
+
+exit:
+    return;
 }
 #endif
 
@@ -5047,11 +5361,10 @@ mDNSlocal mStatus handle_queryrecord_request(request_state *request)
 
     const mDNSBool localDomain = IsLocalDomain(&query_name);
 
-    LogRedact(localDomain ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-        "[R%d] DNSServiceQueryRecord(%X, %d, " PRI_S "(%x), " PUB_DNS_TYPE PUB_S ") START PID[%d](" PUB_S ")",
-        request->request_id, request->flags, request->interfaceIndex, params.qname,
-        mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, query_name.c, DomainNameLength(&query_name)),
-        DNS_TYPE_PARAM(params.cr.qtype), enablesDNSSEC ? ", DNSSEC" : "", request->process_id, request->pid_name);
+    UDS_LOG_CLIENT_REQUEST_WITH_DNSSEC_INFO(localDomain ? MDNS_LOG_CATEGORY_MDNS : MDNS_LOG_CATEGORY_DEFAULT,
+        MDNS_LOG_DEFAULT, "DNSServiceQueryRecord START", &query_name, request, mDNSfalse, enablesDNSSEC,
+        "qname: " PRI_DM_NAME ", qtype: " PUB_DNS_TYPE,
+        DM_NAME_PARAM_NONNULL(&query_name), DNS_TYPE_PARAM(params.cr.qtype));
 
     request->terminate = NULL;
 
@@ -5260,20 +5573,17 @@ mDNSlocal mStatus handle_reconfirm_request(request_state *request)
 
         if (status == mStatus_NoError)
         {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-                "[R%d] DNSServiceReconfirmRecord(%X, %d, " PRI_DM_NAME "(%x), " PUB_DNS_TYPE ") START PID[%d](" PUB_S ")",
-                request->request_id, request->flags, request->interfaceIndex, DM_NAME_PARAM(rr->resrec.name),
-                mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, rr->resrec.name->c, DomainNameLength(rr->resrec.name)),
-                DNS_TYPE_PARAM(rr->resrec.rrtype), request->process_id, request->pid_name);
+            UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+                "DNSServiceReconfirmRecord START", rr->resrec.name, request, mDNSfalse,
+                "rr name: " PRI_DM_NAME ", rr type: " PUB_DNS_TYPE, DM_NAME_PARAM(rr->resrec.name),
+                DNS_TYPE_PARAM(rr->resrec.rrtype));
         }
         else
         {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-                "[R%d] DNSServiceReconfirmRecord(%X, %d, " PRI_DM_NAME "(%x), " PUB_DNS_TYPE ") FAILED PID[%d](" PUB_S ") -- "
-                "status: %d", request->request_id, request->flags, request->interfaceIndex,
-                DM_NAME_PARAM(rr->resrec.name),
-                mDNS_NonCryptoHash(mDNSNonCryptoHash_FNV1a, rr->resrec.name->c, DomainNameLength(rr->resrec.name)),
-                DNS_TYPE_PARAM(rr->resrec.rrtype), request->process_id, request->pid_name, status);
+            UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
+                "DNSServiceReconfirmRecord FAILED", rr->resrec.name, request, mDNSfalse,
+                "rr name: " PRI_DM_NAME ", rr type: " PUB_DNS_TYPE ", error: %d", DM_NAME_PARAM(rr->resrec.name),
+                DNS_TYPE_PARAM(rr->resrec.rrtype), status);
         }
 
         freeL("AuthRecord/handle_reconfirm_request", rr);
@@ -5349,10 +5659,11 @@ typedef packedstruct
 mDNSlocal void port_mapping_termination_callback(request_state *request)
 {
     request_port_mapping *const pm = request->pm;
-    LogRedact(MDNS_LOG_CATEGORY_NAT, MDNS_LOG_DEFAULT, "[R%d] DNSServiceNATPortMappingCreate(%X, %u, %u, %d) STOP PID[%d](" PUB_S ")",
+    LogRedact(MDNS_LOG_CATEGORY_NAT, MDNS_LOG_DEFAULT,
+        "[R%d] DNSServiceNATPortMappingCreate(%X, %u, %u, %d) STOP PID[%d](" PUB_S ") -- duration: " PUB_TIME_DUR,
         request->request_id, DNSServiceProtocol(pm->NATinfo.Protocol),
         mDNSVal16(pm->NATinfo.IntPort), mDNSVal16(pm->ReqExt), pm->NATinfo.NATLease,
-        request->process_id, request->pid_name);
+        request->process_id, request->pid_name, request_state_get_duration(request));
 
     mDNS_StopNATOperation(&mDNSStorage, &pm->NATinfo);
 }
@@ -5476,17 +5787,17 @@ exit:
 mDNSlocal void addrinfo_termination_callback(request_state *request)
 {
     GetAddrInfoClientRequest *const addrinfo = request->addrinfo;
-    LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-           "[R%u] DNSServiceGetAddrInfo(" PRI_DM_NAME ") STOP PID[%d](" PUB_S ")",
-           request->request_id, DM_NAME_PARAM(GetAddrInfoClientRequestGetQName(addrinfo)),
-           request->process_id, request->pid_name);
+
+    UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+        "DNSServiceGetAddrInfo STOP", GetAddrInfoClientRequestGetQName(addrinfo), request,
+        mDNStrue, "hostname: " PRI_DM_NAME, DM_NAME_PARAM(GetAddrInfoClientRequestGetQName(addrinfo)));
 
     GetAddrInfoClientRequestStop(addrinfo);
 #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
     if (request->powerlog_start_time != 0)
     {
         const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_getaddrinfo_stop(request->process_id, request->request_id, request->powerlog_start_time, usesAWDL);
+        mdns_powerlog_getaddrinfo_stop(request->pid_name, request->powerlog_start_time, usesAWDL);
         request->powerlog_start_time = 0;
     }
 #endif
@@ -5534,8 +5845,7 @@ mDNSlocal mStatus _handle_addrinfo_request_start(request_state *request, const _
         if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(qname))
         {
             const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            request->powerlog_start_time = mdns_powerlog_getaddrinfo_start(request->process_id, request->request_id,
-                usesAWDL);
+            request->powerlog_start_time = mdns_powerlog_getaddrinfo_start(request->pid_name, usesAWDL);
         }
     }
 #endif
@@ -5567,6 +5877,11 @@ mDNSlocal mStatus _handle_addrinfo_request_with_trust(request_state *request, co
             case mdns_trust_status_denied:
             case mdns_trust_status_pending:
             {
+                if (!_prepare_trusts_for_request(request))
+                {
+                    err = mStatus_NoMemoryErr;
+                    goto exit;
+                }
                 mdns_trust_t trust = mdns_trust_create(*token, NULL, flags);
                 if (!trust )
                 {
@@ -5611,7 +5926,8 @@ mDNSlocal mStatus _handle_addrinfo_request_with_trust(request_state *request, co
                         KQueueUnlock("_handle_addrinfo_request_with_trust");
                     }
                 });
-                request->trust = trust;
+                CFArrayAppendValue(request->trusts, trust);
+                mdns_release(trust);
                 mdns_trust_activate(trust);
                 err = mStatus_NoError;
                 break;
@@ -5624,6 +5940,9 @@ mDNSlocal mStatus _handle_addrinfo_request_with_trust(request_state *request, co
             case mdns_trust_status_granted:
                 err = _handle_addrinfo_request_start(request, params);
                 break;
+
+            MDNS_COVERED_SWITCH_DEFAULT:
+                err = mStatus_UnknownErr;
         }
     }
 exit:
@@ -5687,10 +6006,11 @@ mDNSlocal mStatus handle_addrinfo_request(request_state *request)
     enablesDNSSEC = dns_service_flags_enables_dnssec(request->flags);
 #endif
 
-    LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-        "[R%u] DNSServiceGetAddrInfo(%X, %d, %u, " PRI_S PUB_S ") START PID[%d](" PUB_S ")",
-        request->request_id, request->flags, request->interfaceIndex, params.protocols, params.hostname,
-        enablesDNSSEC ? ", DNSSEC" : "", request->process_id, request->pid_name);
+    domainname qname;
+    MakeDomainNameFromDNSNameString(&qname, params.hostname);
+    UDS_LOG_CLIENT_REQUEST_WITH_DNSSEC_INFO(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
+        "DNSServiceGetAddrInfo START", &qname, request, mDNSfalse, enablesDNSSEC,
+        "hostname: " PRI_DM_NAME ", protocols: %u", DM_NAME_PARAM_NONNULL(&qname), params.protocols);
 
     request->terminate = NULL;
 
@@ -6207,6 +6527,8 @@ mDNSlocal void request_callback(int fd, void *info)
             newreq->msgptr  = req->msgptr;
             newreq->msgend  = req->msgend;
             newreq->request_id = GetNewRequestID();
+            newreq->request_start_time_secs = 0;
+            newreq->last_full_log_time_secs = 0;
 #if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
             mdns_replace(&newreq->peer_token, req->peer_token);
 #endif
@@ -6323,6 +6645,8 @@ mDNSlocal void connect_callback(int fd, void *info)
         request->sd    = sd;
         request->errsd = sd;
         request->request_id = GetNewRequestID();
+        request->request_start_time_secs = 0;
+        request->last_full_log_time_secs = 0;
         set_peer_pid(request);
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG, "%3d: connect_callback: Adding FD for uid %u", request->sd, request->uid);
         udsSupportAddFDToEventLoop(sd, request_callback, request, &request->platform_data);
@@ -7212,8 +7536,7 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
                 mDNSu32 *const countPtr = InterfaceID ? &mcastRecordCount : &ucastRecordCount;
 #if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
                 const mdns_dns_service_t dnsservice = mdns_cache_metadata_get_dns_service(cr->resrec.metadata);
-                if (!InterfaceID && dnsservice &&
-                    (mdns_dns_service_get_scope(dnsservice) == mdns_dns_service_scope_interface))
+                if (!InterfaceID && dnsservice && mdns_dns_service_is_interface_scoped(dnsservice))
                 {
                     InterfaceID = (mDNSInterfaceID)(uintptr_t)mdns_dns_service_get_interface_index(dnsservice);
                 }
@@ -7599,66 +7922,6 @@ mDNSlocal transfer_state send_msg(request_state *const req)
     rep->nwritten += (mDNSu32)nwritten;
     return (rep->nwritten == rep->totallen) ? t_complete : t_morecoming;
 }
-
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-mDNSexport void udsserver_report_request_progress_to_powerlog(void)
-{
-    for (const request_state *req = all_requests; req; req = req->next)
-    {
-        const pid_t pid = req->process_id;
-        const uint32_t request_id = req->request_id;
-        if (req->terminate == connection_termination)
-        {
-            for (const registered_record_entry *re = req->reg_recs; re; re = re->next)
-            {
-                const uint64_t start_time = re->powerlog_start_time;
-                if (start_time == 0)
-                {
-                    continue;
-                }
-                const AuthRecord *const ar = re->rr;
-                const mDNSBool usesAWDL = ClientRequestUsesAWDL(req->interfaceIndex, req->flags);
-                mdns_powerlog_register_record_progress(ar->resrec.name->c, ar->resrec.rrtype, pid, request_id, start_time,
-                    usesAWDL);
-            }
-        }
-        else
-        {
-            const uint64_t start_time = req->powerlog_start_time;
-            if (start_time == 0)
-            {
-                continue;
-            }
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(req->interfaceIndex, req->flags);
-            if (req->terminate == browse_termination_callback)
-            {
-                const request_browse *const browse = req->browse;
-                mdns_powerlog_browse_progress(browse->regtype.c, pid, request_id, start_time, usesAWDL);
-            }
-            else if (req->terminate == addrinfo_termination_callback)
-            {
-                mdns_powerlog_getaddrinfo_progress(pid, request_id, start_time, usesAWDL);
-            }
-            else if (req->terminate == queryrecord_termination_callback)
-            {
-                const domainname *const qname = QueryRecordClientRequestGetQName(req->queryrecord);
-                const uint16_t qtype = QueryRecordClientRequestGetType(req->queryrecord);
-                mdns_powerlog_query_record_progress(qname->c, qtype, pid, request_id, start_time, usesAWDL);
-            }
-            else if (req->terminate == resolve_termination_callback)
-            {
-                const request_resolve *const resolve = req->resolve;
-                mdns_powerlog_resolve_progress(resolve->qsrv.qname.c, pid, request_id, start_time, usesAWDL);
-            }
-            else if (req->terminate == regservice_termination_callback)
-            {
-                const request_servicereg *const servicereg = req->servicereg;
-                mdns_powerlog_service_register_progress(servicereg->type.c, pid, request_id, start_time, usesAWDL);
-            }
-        }
-    }
-}
-#endif
 
 mDNSexport mDNSs32 udsserver_idle(mDNSs32 nextevent)
 {

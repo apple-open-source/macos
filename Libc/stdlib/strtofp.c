@@ -1524,6 +1524,7 @@ struct parseInfo {
 // ================================================================
 // ================================================================
 
+// Store a suitably-signed infinity to the destination
 static void infinity(struct parseInfo *info) {
   // 16/32/64-bit formats we can hardcode the full value
   // and memcpy() it.  This is endian-safe (assuming that
@@ -1573,10 +1574,78 @@ static void infinity(struct parseInfo *info) {
   }
 }
 
+// Store the max normal value to the destination, suitably signed.
+static void max_value(struct parseInfo *info) {
+  switch (info->bytes) {
+#if ENABLE_BINARY16_SUPPORT
+  case 2: { // binary16
+    uint16_t raw = info->negative ? 0xfbff : 0x7bff;
+    memcpy(info->dest, &raw, sizeof(raw));
+    return;
+  }
+#endif
+#if ENABLE_BINARY32_SUPPORT
+  case 4: { // binary32
+    uint32_t raw = info->negative ? 0xff7fffffUL : 0x7f7fffffUL;
+    memcpy(info->dest, &raw, sizeof(raw));
+    return;
+  }
+#endif
+#if ENABLE_BINARY64_SUPPORT
+  case 8: { // binary64
+    uint64_t raw = info->negative ? 0xffefffffffffffffULL : 0x7fefffffffffffffULL;
+    memcpy(info->dest, &raw, sizeof(raw));
+    return;
+  }
+#endif
+  default:
+    break;
+  }
+
+  // 80- and 128-bit formats we build up incrementally.
+  // TODO: Support big-endian.
+  memset(info->dest, 0xff, info->bytes);
+  switch(info->bytes) {
+#if ENABLE_FLOAT80_SUPPORT
+  case 10: // float80
+    info->dest[7] = 0xff;
+    info->dest[8] = 0xfe;
+    info->dest[9] = info->negative ? 0xff : 0x7f;
+#endif
+#if ENABLE_BINARY128_SUPPORT
+  case 16: // binary128
+    info->dest[14] = 0xfe;
+    info->dest[15] = info->negative ? 0xff : 0x7f;
+    break;
+#endif
+  }
+}
+
+// This gets invoked for inputs whose magnitude is greater
+// than the max normal value + 1 ulp.
+// Gdtoa returns signed INF for such values regardless of the
+// rounding mode.  Glibc rounds them correctly.
 static void overflow(struct parseInfo *info) {
   // Overflow is always an ERANGE error
   errno = ERANGE;
-  infinity(info);
+  int roundingMode = FENV_ROUNDING_MODE();
+  int negative = info->negative;
+
+  if (0
+#ifdef FE_TOWARDZERO
+      || roundingMode == FE_TOWARDZERO
+#endif
+#ifdef FE_DOWNWARD
+      || (roundingMode == FE_DOWNWARD && !negative)
+#endif
+#ifdef FE_UPWARD
+      || (roundingMode == FE_UPWARD && negative)
+#endif
+      ) {
+    max_value(info);
+  } else {
+    infinity(info);
+  }
 }
 
 // This gets invoked for inputs that are nonzero, but closer to zero
@@ -2212,7 +2281,7 @@ hexFloat(const unsigned char *start, struct parseInfo *info) {
         }
         base2Exponent += 1;
       } else if (base2Exponent == info->minBinaryExp // Subnormal
-		 && fraction != 0) { // Not exact
+                 && fraction != 0) { // Not exact
         errno = ERANGE;
       }
     }

@@ -59,15 +59,25 @@ public:
 
     bool operator==(const WebExtensionControllerProxy& other) const { return (this == &other); }
 
+    bool inTestingMode() { return m_testingMode; }
+
 #if PLATFORM(COCOA)
     void globalObjectIsAvailableForFrame(WebPage&, WebFrame&, WebCore::DOMWrapperWorld&);
     void serviceWorkerGlobalObjectIsAvailableForFrame(WebPage&, WebFrame&, WebCore::DOMWrapperWorld&);
+    void addBindingsToWebPageFrameIfNecessary(WebFrame&, WebCore::DOMWrapperWorld&);
 
     void didStartProvisionalLoadForFrame(WebPage&, WebFrame&, const URL&);
     void didCommitLoadForFrame(WebPage&, WebFrame&, const URL&);
     void didFinishLoadForFrame(WebPage&, WebFrame&, const URL&);
     // FIXME: Include the error here.
     void didFailLoadForFrame(WebPage&, WebFrame&, const URL&);
+
+    RefPtr<WebExtensionContextProxy> extensionContext(const String& uniqueIdentifier) const;
+    RefPtr<WebExtensionContextProxy> extensionContext(const URL&) const;
+    RefPtr<WebExtensionContextProxy> extensionContext(WebFrame&, WebCore::DOMWrapperWorld&) const;
+
+    bool hasLoadedContexts() const { return !m_extensionContexts.isEmpty(); }
+    const WebExtensionContextProxySet& extensionContexts() const { return m_extensionContexts; }
 #endif
 
 private:
@@ -79,15 +89,10 @@ private:
 #if PLATFORM(COCOA)
     void load(const WebExtensionContextParameters&);
     void unload(WebExtensionContextIdentifier);
-
-    RefPtr<WebExtensionContextProxy> extensionContext(const URL&) const;
-    RefPtr<WebExtensionContextProxy> extensionContext(const String& uniqueIdentifier) const;
-    RefPtr<WebExtensionContextProxy> extensionContext(WebFrame&, WebCore::DOMWrapperWorld&) const;
-
-    const WebExtensionContextProxySet& extensionContexts() const { return m_extensionContexts; }
 #endif
 
     WebExtensionControllerIdentifier m_identifier;
+    bool m_testingMode { false };
 
 #if PLATFORM(COCOA)
     WebExtensionContextProxySet m_extensionContexts;

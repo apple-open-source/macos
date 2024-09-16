@@ -50,6 +50,7 @@
  *	Thread management routines
  */
 
+#include <sys/kdebug.h>
 #include <mach/mach_types.h>
 #include <mach/kern_return.h>
 #include <mach/thread_act_server.h>
@@ -285,6 +286,10 @@ thread_terminate(
 		return KERN_INVALID_ARGUMENT;
 	}
 
+	if (thread->state & TH_IDLE) {
+		panic("idle thread calling thread_terminate!");
+	}
+
 	task = get_threadtask(thread);
 
 	/* Kernel threads can't be terminated without their own cooperation */
@@ -411,6 +416,7 @@ kern_return_t
 thread_suspend(thread_t thread)
 {
 	kern_return_t result = KERN_SUCCESS;
+	int32_t thread_user_stop_count;
 
 	if (thread == THREAD_NULL || get_threadtask(thread) == kernel_task) {
 		return KERN_INVALID_ARGUMENT;
@@ -425,8 +431,14 @@ thread_suspend(thread_t thread)
 	} else {
 		result = KERN_TERMINATED;
 	}
+	thread_user_stop_count = thread->user_stop_count;
 
 	thread_mtx_unlock(thread);
+
+	if (result == KERN_SUCCESS) {
+		KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_IPC, MACH_THREAD_SUSPEND) | DBG_FUNC_NONE,
+		    thread->thread_id, thread_user_stop_count);
+	}
 
 	if (thread != current_thread() && result == KERN_SUCCESS) {
 		thread_wait(thread, FALSE);
@@ -439,6 +451,7 @@ kern_return_t
 thread_resume(thread_t thread)
 {
 	kern_return_t result = KERN_SUCCESS;
+	int32_t thread_user_stop_count;
 
 	if (thread == THREAD_NULL || get_threadtask(thread) == kernel_task) {
 		return KERN_INVALID_ARGUMENT;
@@ -457,8 +470,12 @@ thread_resume(thread_t thread)
 	} else {
 		result = KERN_TERMINATED;
 	}
+	thread_user_stop_count = thread->user_stop_count;
 
 	thread_mtx_unlock(thread);
+
+	KDBG_RELEASE(MACHDBG_CODE(DBG_MACH_IPC, MACH_THREAD_RESUME) | DBG_FUNC_NONE,
+	    thread->thread_id, thread_user_stop_count, result);
 
 	return result;
 }
@@ -1265,6 +1282,10 @@ thread_debug_return_to_user_ast(
 	if ((thread->sched_flags & TH_SFLAG_FLOOR_PROMOTED) ||
 	    thread->priority_floor_count > 0) {
 		panic("Returning to userspace with floor boost set, thread %p sched_flag %u priority_floor_count %d", thread, thread->sched_flags, thread->priority_floor_count);
+	}
+
+	if (thread->th_vm_faults_disabled) {
+		panic("Returning to userspace with vm faults disabled, thread %p", thread);
 	}
 
 #if CONFIG_EXCLAVES

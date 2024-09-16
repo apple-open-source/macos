@@ -2,7 +2,7 @@
 .\"See Also:
 .\"man mdoc.samples for a complete listing of options
 .\"man mdoc for the short list of editing options
-.Dd March 15, 2017       \" DATE 
+.Dd January 17, 2024     \" DATE
 .Dt security 1           \" Program name and manual section number 
 .Os Darwin
 .Sh NAME                 \" Section Header - required - don't modify 
@@ -197,7 +197,7 @@ Display a descriptive message for the given error code(s).
 .Sh "COMMON COMMAND OPTIONS"
 This section describes the
 .Ar command_options
-that are available across all
+that are available across most
 .Nm
 commands.
 .Bl -tag -width -indent
@@ -214,7 +214,6 @@ commands and the options each accepts.
 .Bl -item
 .It
 .Nm help
-.Op Fl h
 .Bl -item -offset -indent
 Show all commands, or show usage for a command.
 .El
@@ -360,7 +359,6 @@ New keychain password (if not provided, will prompt)
 .El
 .It
 .Nm show-keychain-info
-.Op Fl h
 .Op Ar keychain
 .Bl -item -offset -indent
 Show the settings for
@@ -370,6 +368,7 @@ Show the settings for
 .It
 .Nm dump-keychain
 .Op Fl adhir
+.Op Ar keychain...
 .Bl -item -offset -indent
 Dump the contents of one or more keychains.
 .It
@@ -394,7 +393,7 @@ Dump raw (encrypted) data of items
 .Op Fl d Ar days
 .Op Fl k Ar keychain
 .Op Fl A Ns | Ns Fl T Ar appPath
-.Op Ar name
+.Op Ar description
 .Bl -item -offset -indent
 Create an asymmetric key pair.
 .It
@@ -428,6 +427,7 @@ Specify an application which may access this key (multiple
 .Op Fl s Ar service
 .Op Fl w Ar password
 .Op Ar options...
+.Op Fl A Ns | Ns Fl T Ar appPath
 .Op Ar keychain
 .Bl -item -offset -indent
 Add a generic password item.
@@ -480,6 +480,7 @@ By default, the application which creates an item is trusted to access its data 
 .Op Fl s Ar server
 .Op Fl w Ar password
 .Op Ar options...
+.Op Fl A Ns | Ns Fl T Ar appPath
 .Op Ar keychain
 .Bl -item -offset -indent
 Add an internet password item.
@@ -550,9 +551,9 @@ rather than the default keychain.
 .Op Fl h
 .Op Fl a Ar account
 .Op Fl s Ar service
-.Op Fl Ar options...
+.Op Ar options...
 .Op Fl g
-.Op Fl Ar keychain...
+.Op Ar keychain...
 .Bl -item -offset -indent
 Find a generic password item.
 .It
@@ -584,8 +585,8 @@ Display the password(only) for the item found
 .Op Fl h
 .Op Fl a Ar account
 .Op Fl s Ar service
-.Op Fl Ar options...
-.Op Fl Ar keychain...
+.Op Ar options...
+.Op Ar keychain...
 .Bl -item -offset -indent
 Delete a generic password item.
 .It
@@ -727,8 +728,8 @@ Match keys that can wrap
 .Nm set-generic-password-partition-list
 .Op Fl a Ar account
 .Op Fl s Ar service
-.Op Fl S Ar <partition list (comma separated)>
-.Op Fl k Ar <keychain password>
+.Op Fl S Ar partition-list
+.Op Fl k Ar password
 .Op Ar options...
 .Op Ar keychain
 .Bl -item -offset -indent
@@ -761,8 +762,8 @@ Match service string
 .Nm set-internet-password-partition-list
 .Op Fl a Ar account
 .Op Fl s Ar server
-.Op Fl S Ar <partition list (comma separated)>
-.Op Fl k Ar <keychain password>
+.Op Fl S Ar partition-list
+.Op Fl k Ar password
 .Op Ar options...
 .Op Ar keychain
 .Bl -item -offset -indent
@@ -801,8 +802,8 @@ Match authenticationType (four-character code)
 .El
 .It
 .Nm set-key-partition-list
-.Op Fl S Ar <partition list (comma separated)>
-.Op Fl k Ar <keychain password>
+.Op Fl S Ar partition-list
+.Op Fl k Ar password
 .Op Ar options...
 .Op Ar keychain
 .Bl -item -offset -indent
@@ -1104,7 +1105,7 @@ Force using version 0 openparams
 .Op Fl t Ar type
 .Op Fl f Ar format
 .Op Fl w
-.Op Fl p Ar format
+.Op Fl p
 .Op Fl P Ar passphrase
 .Op Fl o Ar outfile
 .Bl -item -offset -indent
@@ -1292,7 +1293,7 @@ Install (or re-install) the Module Directory Services (MDS) database. This is a 
 .Op Fl k Ar keychain
 .Op Fl i Ar settingsFileIn
 .Op Fl o Ar settingsFileOut
-certFile
+.Op Ar certFile
 .Bl -item -offset -indent
 Add certificate (in DER or PEM format) from  
 .Ar certFile Ns
@@ -1338,6 +1339,7 @@ Output trust settings file; default is user domain.
 .Dl security> add-trusted-cert -d .tmp/cert.der
 .El
 .\"marker.
+.El
 .It
 .Nm remove-trusted-cert
 .Op Fl d
@@ -1419,23 +1421,7 @@ Import admin Trust Settings; default is user.
 .El
 .It
 .Nm verify-cert
-.Op Fl c Ar certFile
-.Op Fl r Ar rootCertFile
-.Op Fl p Ar policy
-.Op Fl C
-.Op Fl d Ar date
-.Op Fl k Ar keychain
-.Op Fl n Ar name
-.Op Fl N
-.Op Fl L
-.Op Fl l
-.Op Fl e Ar emailAddress
-.Op Fl s Ar sslHost
-.Op Fl q
-.Op Fl R Ar revCheckOption
-.Op Fl P
-.Op Fl t
-.Op Fl v
+.Op Ar options...
 .Op Ar url
 .Bl -item -offset -indent
 Verify one or more certificates. If a direct URL argument is provided, a TLS connection is attempted and the certificate presented by that server is evaluated according to standard SSL server policy; other certificates or policy options will be ignored in this case.
@@ -1488,8 +1474,8 @@ Specify verbose output, including per-certificate trust results.
 .El
 .It
 .Nm authorize
-.Op Fl updPiew
-.Op Ar right...
+.Op Ar options...
+.Ar right...
 .Bl -item -offset -indent
 Authorize requested right(s).  The extend-rights flag will be passed by default.
 .It
@@ -1553,7 +1539,6 @@ On success stdin will be read and forwarded to the tool.
 .El
 .It
 .Nm leaks
-.Op Fl h
 .Op Fl cycles
 .Op Fl nocontext
 .Op Fl nostacks
@@ -1623,7 +1608,7 @@ s of available smartcards.
 .Nm export-smartcard
 .Ar token
 .Op Fl i Ar id
-.Op Fl t Ar certs Ns | Ns Ar privKeys Ns | Ns Ar identities Ns | Ns Ar all
+.Op Fl t Ar type
 .Op Fl e Ar exportPath
 .Bl -item -offset -indent
 Export/display items from a smartcard. If
@@ -1650,8 +1635,7 @@ Specify path to export certificates and public keys. If
 .El
 .It
 .Nm error
-.Op Fl h
-.Op Ar <error code(s)...>
+.Op Ar error-code...
 .Bl -item -offset -indent
 Display an error string for the given security-related error code.
 The error can be in decimal or hex, e.g. 1234 or 0x1234. Multiple

@@ -52,7 +52,7 @@ fputws_l(const wchar_t * __restrict ws, FILE * __restrict fp, locale_t loc)
 	    size_t, size_t, mbstate_t * __restrict, locale_t);
 
 	NORMALIZE_LOCALE(loc);
-	__wcsnrtombs = loc->__lc_ctype->__wcsnrtombs;
+	__wcsnrtombs = XLOCALE_CTYPE(loc)->__wcsnrtombs;
 	FLOCKFILE(fp);
 	ORIENT(fp, 1);
 	if (prepwrite(fp) != 0)

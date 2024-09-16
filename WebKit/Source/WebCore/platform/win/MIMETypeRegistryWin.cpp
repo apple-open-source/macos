@@ -30,12 +30,13 @@
 #include <wtf/HashMap.h>
 #include <wtf/MainThread.h>
 #include <wtf/WindowsExtras.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
 static String mimeTypeForExtensionFromRegistry(const String& extension)
 {
-    String ext = "." + extension;
+    auto ext = makeString('.', extension);
     WCHAR contentTypeStr[256];
     DWORD contentTypeStrLen = sizeof(contentTypeStr);
     DWORD keyType;
@@ -50,7 +51,7 @@ static String mimeTypeForExtensionFromRegistry(const String& extension)
 
 String MIMETypeRegistry::preferredExtensionForMIMEType(const String& type)
 {
-    String path = "MIME\\Database\\Content Type\\" + type;
+    auto path = makeString("MIME\\Database\\Content Type\\"_s, type);
     WCHAR extStr[MAX_PATH];
     DWORD extStrLen = sizeof(extStr);
     DWORD keyType;
@@ -87,6 +88,9 @@ String MIMETypeRegistry::mimeTypeForExtension(StringView string)
         mimetypeMap.add("xhtml"_s, "application/xhtml+xml"_s);
         mimetypeMap.add("rss"_s, "application/rss+xml"_s);
         mimetypeMap.add("webarchive"_s, "application/x-webarchive"_s);
+#if USE(AVIF)
+        mimetypeMap.add("avif"_s, "image/avif"_s);
+#endif
         mimetypeMap.add("svg"_s, "image/svg+xml"_s);
         mimetypeMap.add("svgz"_s, "image/svg+xml"_s);
         mimetypeMap.add("jpg"_s, "image/jpeg"_s);

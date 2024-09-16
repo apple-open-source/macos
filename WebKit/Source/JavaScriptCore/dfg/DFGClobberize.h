@@ -154,6 +154,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case EnumeratorHasOwnProperty:
         case GetIndexedPropertyStorage:
         case GetArrayLength:
+        case GetUndetachedTypeArrayLength:
         case GetTypedArrayLengthAsInt52:
         case GetTypedArrayByteOffset:
         case GetTypedArrayByteOffsetAsInt52:
@@ -773,6 +774,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case CallCustomAccessorSetter:
     case ToPrimitive:
     case ToPropertyKey:
+    case ToPropertyKeyOrNumber:
     case InByVal:
     case InByValMegamorphic:
     case EnumeratorInByVal:
@@ -1297,6 +1299,15 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         clobberTop();
         return;
 
+    case ToIntegerOrInfinity:
+    case ToLength: {
+        if (node->child1().useKind() == UntypedUse)
+            clobberTop();
+        else
+            def(PureValue(node));
+        return;
+    }
+
     case OverridesHasInstance:
         read(JSCell_typeInfoFlags);
         def(HeapLocation(OverridesHasInstanceLoc, JSCell_typeInfoFlags, node->child1()), LazyNode(node));
@@ -1586,6 +1597,14 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
                 def(HeapLocation(ArrayLengthLoc, MiscFields, node->child1()), LazyNode(node));
             return;
         }
+    }
+
+    case GetUndetachedTypeArrayLength: {
+        ArrayMode mode = node->arrayMode();
+        DFG_ASSERT(graph, node, mode.isSomeTypedArrayView());
+        DFG_ASSERT(graph, node, !mode.mayBeResizableOrGrowableSharedTypedArray());
+        def(PureValue(node, mode.asWord()));
+        return;
     }
 
     case GetTypedArrayLengthAsInt52: {
@@ -2023,6 +2042,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             // original String or StringObject structure. Therefore, we don't have an overridden
             // valueOf, etc.
 
+        case StringOrOtherUse:
         case Int32Use:
         case Int52RepUse:
         case DoubleRepUse:
@@ -2063,44 +2083,82 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         def(PureValue(node));
         return;
 
-    case GetMapBucket: {
+    case MapKeyIndex: {
         Edge& mapEdge = node->child1();
         Edge& keyEdge = node->child2();
+        Edge& hashEdge = node->child3();
         AbstractHeapKind heap = (mapEdge.useKind() == MapObjectUse) ? JSMapFields : JSSetFields;
         read(heap);
-        def(HeapLocation(MapBucketLoc, heap, mapEdge, keyEdge), LazyNode(node));
+        def(HeapLocation(MapEntryKeyLoc, heap, mapEdge, keyEdge, hashEdge), LazyNode(node));
+        return;
+    }
+    case MapValue: {
+        Edge& mapEdge = node->child1();
+        Edge& indexEdge = node->child2();
+        AbstractHeapKind heap = JSMapFields;
+        read(heap);
+        def(HeapLocation(MapValueLoc, heap, mapEdge, indexEdge), LazyNode(node));
         return;
     }
 
-    case GetMapBucketHead: {
+    case MapIteratorNext: {
+        Edge& mapIteratorEdge = node->child1();
+        AbstractHeapKind heap = (mapIteratorEdge.useKind() == MapIteratorObjectUse) ? JSMapIteratorFields : JSSetIteratorFields;
+        read(heap);
+        write(heap);
+        def(HeapLocation(MapIteratorNextLoc, heap, mapIteratorEdge), LazyNode(node));
+        return;
+    }
+    case MapIteratorKey: {
+        Edge& mapIteratorEdge = node->child1();
+        AbstractHeapKind heap = (mapIteratorEdge.useKind() == MapIteratorObjectUse) ? JSMapIteratorFields : JSSetIteratorFields;
+        read(heap);
+        def(HeapLocation(MapIteratorKeyLoc, heap, mapIteratorEdge), LazyNode(node));
+        return;
+    }
+    case MapIteratorValue: {
+        Edge& mapIteratorEdge = node->child1();
+        AbstractHeapKind heap = (mapIteratorEdge.useKind() == MapIteratorObjectUse) ? JSMapIteratorFields : JSSetIteratorFields;
+        read(heap);
+        def(HeapLocation(MapIteratorValueLoc, heap, mapIteratorEdge), LazyNode(node));
+        return;
+    }
+
+    case MapStorage: {
         Edge& mapEdge = node->child1();
         AbstractHeapKind heap = (mapEdge.useKind() == MapObjectUse) ? JSMapFields : JSSetFields;
         read(heap);
-        def(HeapLocation(MapBucketHeadLoc, heap, mapEdge), LazyNode(node));
+        def(HeapLocation(MapStorageLoc, heap, mapEdge), LazyNode(node));
         return;
     }
-
-    case GetMapBucketNext: {
+    case MapIterationNext: {
+        Edge& mapEdge = node->child1();
+        Edge& entryEdge = node->child2();
         AbstractHeapKind heap = (node->bucketOwnerType() == BucketOwnerType::Map) ? JSMapFields : JSSetFields;
         read(heap);
-        Edge& bucketEdge = node->child1();
-        def(HeapLocation(MapBucketNextLoc, heap, bucketEdge), LazyNode(node));
+        write(heap);
+        def(HeapLocation(MapIterationNextLoc, heap, mapEdge, entryEdge), LazyNode(node));
         return;
     }
-
-    case LoadKeyFromMapBucket: {
+    case MapIterationEntry: {
+        Edge& mapEdge = node->child1();
         AbstractHeapKind heap = (node->bucketOwnerType() == BucketOwnerType::Map) ? JSMapFields : JSSetFields;
         read(heap);
-        Edge& bucketEdge = node->child1();
-        def(HeapLocation(MapBucketKeyLoc, heap, bucketEdge), LazyNode(node));
+        def(HeapLocation(MapIterationEntryLoc, heap, mapEdge), LazyNode(node));
         return;
     }
-
-    case LoadValueFromMapBucket: {
+    case MapIterationEntryKey: {
+        Edge& mapEdge = node->child1();
         AbstractHeapKind heap = (node->bucketOwnerType() == BucketOwnerType::Map) ? JSMapFields : JSSetFields;
         read(heap);
-        Edge& bucketEdge = node->child1();
-        def(HeapLocation(MapBucketValueLoc, heap, bucketEdge), LazyNode(node));
+        def(HeapLocation(MapIterationEntryKeyLoc, heap, mapEdge), LazyNode(node));
+        return;
+    }
+    case MapIterationEntryValue: {
+        Edge& mapEdge = node->child1();
+        AbstractHeapKind heap = (node->bucketOwnerType() == BucketOwnerType::Map) ? JSMapFields : JSSetFields;
+        read(heap);
+        def(HeapLocation(MapIterationEntryValueLoc, heap, mapEdge), LazyNode(node));
         return;
     }
 
@@ -2117,7 +2175,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         Edge& mapEdge = node->child1();
         Edge& keyEdge = node->child2();
         write(JSSetFields);
-        def(HeapLocation(MapBucketLoc, JSSetFields, mapEdge, keyEdge), LazyNode(node));
+        def(HeapLocation(MapEntryValueLoc, JSSetFields, mapEdge, keyEdge), LazyNode(node));
         return;
     }
 
@@ -2125,7 +2183,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         Edge& mapEdge = graph.varArgChild(node, 0);
         Edge& keyEdge = graph.varArgChild(node, 1);
         write(JSMapFields);
-        def(HeapLocation(MapBucketLoc, JSMapFields, mapEdge, keyEdge), LazyNode(node));
+        def(HeapLocation(MapEntryValueLoc, JSMapFields, mapEdge, keyEdge), LazyNode(node));
         return;
     }
 

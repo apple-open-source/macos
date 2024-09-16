@@ -27,9 +27,11 @@ typedef enum thread_node_type {
     node_type_router,
     node_type_end_device,
     node_type_sleepy_end_device,
+    node_type_synchronized_sleepy_end_device,
     node_type_nest_lurker,
     node_type_commissioner,
     node_type_leader,
+    node_type_sleepy_router,
 } thread_node_type_t;
 
 RELEASE_RETAIN_DECLS(node_type_tracker);

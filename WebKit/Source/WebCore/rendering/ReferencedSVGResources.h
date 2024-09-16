@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "SVGNames.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/IsoMalloc.h>
 #include <wtf/RobinHoodHashMap.h>
@@ -57,8 +58,11 @@ public:
     ReferencedSVGResources(RenderElement&);
     ~ReferencedSVGResources();
 
-    static Vector<std::pair<AtomString, QualifiedName>> referencedSVGResourceIDs(const RenderStyle&, const Document&);
-    void updateReferencedResources(TreeScope&, const Vector<std::pair<AtomString, QualifiedName>>&);
+    using SVGQualifiedNames = Vector<SVGQualifiedName>;
+    using SVGElementIdentifierAndTagPairs = Vector<std::pair<AtomString, SVGQualifiedNames>>;
+
+    static SVGElementIdentifierAndTagPairs referencedSVGResourceIDs(const RenderStyle&, const Document&);
+    void updateReferencedResources(TreeScope&, const SVGElementIdentifierAndTagPairs&);
 
     // Legacy: Clipping needs a renderer, filters use an element.
     static LegacyRenderSVGResourceClipper* referencedClipperRenderer(TreeScope&, const ReferencePathOperation&);
@@ -66,15 +70,16 @@ public:
 
     static LegacyRenderSVGResourceContainer* referencedRenderResource(TreeScope&, const AtomString& fragment);
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     // LBSE: All element based.
     static RefPtr<SVGClipPathElement> referencedClipPathElement(TreeScope&, const ReferencePathOperation&);
     static RefPtr<SVGMarkerElement> referencedMarkerElement(TreeScope&, const String&);
     static RefPtr<SVGMaskElement> referencedMaskElement(TreeScope&, const StyleImage&);
-#endif
+    static RefPtr<SVGMaskElement> referencedMaskElement(TreeScope&, const AtomString&);
+    static RefPtr<SVGElement> referencedPaintServerElement(TreeScope&, const String&);
 
 private:
-    static RefPtr<SVGElement> elementForResourceID(TreeScope&, const AtomString& resourceID, const QualifiedName& tagName);
+    static RefPtr<SVGElement> elementForResourceID(TreeScope&, const AtomString& resourceID, const SVGQualifiedName& tagName);
+    static RefPtr<SVGElement> elementForResourceIDs(TreeScope&, const AtomString& resourceID, const SVGQualifiedNames& tagNames);
 
     void addClientForTarget(SVGElement& targetElement, const AtomString&);
     void removeClientForTarget(TreeScope&, const AtomString&);

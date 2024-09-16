@@ -1,0 +1,13 @@
+# CODEOWNERS
+# Maintainers, owners, and mandatory code reviewers for this repo
+#
+# Comments with a "Radar: " prefix indicate the radar component for all files
+# grouped before the first subsequent newline.
+#
+# The first element on each line is a file pattern, as accepted by git ls-files.
+# Subsequent elements are @stash_usernames for each owner.
+
+#Radar: network_cmds | all
+*                                           @vlubet @plakhera @cpaasch @vidhi_goel @rpaulo @randall_meyer
+
+CODEOWNERS                                  @vlubet @plakhera @cpaasch @vidhi_goel @rpaulo @randall_meyer

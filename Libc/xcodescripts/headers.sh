@@ -50,12 +50,27 @@ INSTHDRS=(
 )
 
 INC_INSTHDRS=(
+	___wctype.h
 	__wctype.h
+	__xlocale.h
+	_abort.h
+	_assert.h
 	_ctype.h
+	_inttypes.h
+	_langinfo.h
 	_locale.h
+	_mb_cur_max.h
+	_monetary.h
+	_printf.h
 	_regex.h
+	_static_assert.h
 	_stdio.h
+	_stdlib.h
+	_string.h
+	_strings.h
+	_time.h
 	_types.h
+	_wchar.h
 	_wctype.h
 	_xlocale.h
 	_ctermid.h
@@ -156,7 +171,11 @@ ARPA_INSTHDRS=( "${INC_ARPA_INSTHDRS[@]/#/${SRCROOT}/include/arpa/}" )
 
 if [ "x${FEATURE_THERM_NOTIFICATION_APIS}" == "x1" ]; then
 	INC_THERM_INSTHDRS=( OSThermalNotification.h )
-	THERM_INSTHDRS=( "${INC_THERM_INSTHDRS[@]/#/${SRCROOT}/include/libkern/}" )
+	if [ "${PLATFORM_NAME}" == "macosx" ]; then
+		THERM_INSTHDRS=( "${INC_THERM_INSTHDRS[@]/#/${SRCROOT}/include/libkern/}" )
+	else
+		THERM_LOCALHDRS=( "${INC_THERM_INSTHDRS[@]/#/${SRCROOT}/include/libkern/}" )
+	fi
 fi
 
 INC_PROTO_INSTHDRS=( routed.h rwhod.h talkd.h timed.h )
@@ -168,7 +187,7 @@ SECURE_INSTHDRS=( "${INC_SECURE_INSTHDRS[@]/#/${SRCROOT}/include/secure/}" )
 SYS_INSTHDRS=( ${SRCROOT}/include/sys/acl.h ${SRCROOT}/include/sys/statvfs.h )
 
 INC_XLOCALE_INSTHDRS=(
-	__wctype.h
+	___wctype.h
 	_ctype.h
 	_inttypes.h
 	_langinfo.h
@@ -184,13 +203,9 @@ INC_XLOCALE_INSTHDRS=(
 XLOCALE_INSTHDRS=( "${INC_XLOCALE_INSTHDRS[@]/#/${SRCROOT}/include/xlocale/}" )
 
 MODULEMAPS=(
-	${SRCROOT}/include/_types.modulemap
-	${SRCROOT}/include/darwin_c_xlocale.modulemap
-	${SRCROOT}/include/secure.modulemap
 )
 
 PRIV_MODULEMAPS=(
-	${SRCROOT}/osprivate_os_assumes.modulemap
 )
 
 TYPES_INSTHDRS=(
@@ -207,6 +222,7 @@ TYPES_INSTHDRS=(
 
 LOCALHDRS=(
 	${SRCROOT}/darwin/libc_private.h
+	${SRCROOT}/darwin/libc_hooks.h
 	${SRCROOT}/gen/utmpx_thread.h
 	${SRCROOT}/nls/FreeBSD/msgcat.h
 	${SRCROOT}/gen/thread_stack_pcs.h
@@ -244,11 +260,23 @@ else # DRIVERKITSDK
 UNIFDEFARGS="${UNIFDEFARGS} -U_USE_EXTENDED_LOCALES_"
 
 INC_INSTHDRS=(
+	___wctype.h
 	__wctype.h
+	_abort.h
+	_assert.h
 	_ctype.h
+	_inttypes.h
 	_locale.h
+	_mb_cur_max.h
+	_printf.h
+	_static_assert.h
 	_stdio.h
+	_stdlib.h
+	_string.h
+	_strings.h
+	_time.h
 	_types.h
+	_wchar.h
 	_wctype.h
 	alloca.h
 	assert.h
@@ -328,6 +356,10 @@ fi
 if [ -n "${LOCALHDRS}" ]; then
 ${MKDIR} ${LOCINCDIR}
 ${INSTALL} -m ${INSTALLMODE} ${LOCALHDRS[@]} ${LOCINCDIR}
+fi
+if [ -n "${THERM_LOCALHDRS}" ]; then
+${MKDIR} ${LOCINCDIR}/libkern
+${INSTALL} -m ${INSTALLMODE} ${THERM_LOCALHDRS[@]} ${LOCINCDIR}/libkern
 fi
 if [ -n "${OS_LOCALHDRS}" ]; then
 ${MKDIR} ${LOCINCDIR}/os

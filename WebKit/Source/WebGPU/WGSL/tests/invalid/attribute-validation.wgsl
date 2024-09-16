@@ -1,13 +1,13 @@
 // RUN: %not %wgslc | %check
 
 struct S {
-    // CHECK-L: @size value must be non-negative
-    @size(-1) x: i32,
-
     // CHECK-L: @size value must be at least the byte-size of the type of the member
-    @size(2) y: i32,
+    @size(2) x: i32,
 
-    // CHECK-L: @align value must be non-negative
+    // CHECK-L: @size value must be non-negative
+    @size(-1) y: i32,
+
+    // CHECK-L: @align value must be positive
     @align(-1) z: i32,
 
     // CHECK-L: @align value must be a power of two
@@ -20,12 +20,11 @@ struct S {
 // CHECK-L: @binding value must be non-negative
 @group(-1) @binding(-1) var<private> x: i32;
 
-// CHECK-L: @id attribute must only be applied to override variables of scalar type
-// CHECK-L: @id value must be non-negative
+// CHECK-L: @id attribute must only be applied to override variables
 @id(-1) var<private> y: i32;
 
-// CHECK-L: @id attribute must only be applied to override variables of scalar type
-@id(0) override z: array<i32, 1>;
+// CHECK-L: @id value must be non-negative
+@id(-1) override z: i32;
 
 // CHECK-L: @must_use can only be applied to functions that return a value
 @must_use
@@ -62,3 +61,12 @@ fn f8() { }
 // CHECK-L: @workgroup_size argument must be at least 1
 @workgroup_size(-1) @compute
 fn f9() { }
+
+struct S1 {
+  @size(16) x : f32
+};
+
+struct S2 {
+  // check that we don't crash by trying to read the size of S2, which won't have been computed
+  @size(32) x: array<S1, 2>,
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -126,8 +126,8 @@ static const dhcptag_info_t dhcptag_info_table[] = {
   /*  97 */ { dhcptype_opaque_e   , "option_97" },
   /*  98 */ { dhcptype_opaque_e   , "option_98" },
   /*  99 */ { dhcptype_opaque_e   , "option_99" },
-  /* 100 */ { dhcptype_opaque_e   , "option_100" },
-  /* 101 */ { dhcptype_opaque_e   , "option_101" },
+  /* 100 */ { dhcptype_string_e   , "posix_timezone" },
+  /* 101 */ { dhcptype_string_e   , "tzdb_timezone" },
   /* 102 */ { dhcptype_opaque_e   , "option_102" },
   /* 103 */ { dhcptype_opaque_e   , "option_103" },
   /* 104 */ { dhcptype_opaque_e   , "option_104" },

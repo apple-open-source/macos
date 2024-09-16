@@ -2,14 +2,15 @@
 		<key>OpenSourceProject</key>
 		<string>renice</string>
 		<key>OpenSourceVersion</key>
-		<string>2023-04-18</string>
+		<string>2023-12-19</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/renice?id=1bc6dcc287fa80af74768c4e2b2a1d7511ba1729</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/renice?id=afdce0837014fb7a41fced959c9457f89e878052</string>
 		<key>OpenSourceImportDate</key>
-		<string>2023-04-18</string>
+		<string>2023-12-19</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>renice.c: suppress output</string>
+			<string>renice_test.sh: work around BATS issue (112035113)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

@@ -1,4 +1,0 @@
-disabled_rules:
-    - force_cast
-    - force_try
-    - redundant_type_annotation

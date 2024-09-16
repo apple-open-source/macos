@@ -50,7 +50,7 @@ btowc_l(int c, locale_t loc)
 	 * counts.
 	 */
 	cc = (char)c;
-	if (loc->__lc_ctype->__mbrtowc(&wc, &cc, 1, &mbs, loc) > 1)
+	if (XLOCALE_CTYPE(loc)->__mbrtowc(&wc, &cc, 1, &mbs, loc) > 1)
 		return (WEOF);
 	return (wc);
 }

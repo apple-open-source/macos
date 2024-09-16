@@ -72,6 +72,7 @@ verify_cert(int argc, char * const *argv)
 	CFMutableArrayRef	policies = NULL;
 	CFMutableDictionaryRef	properties = NULL;
 	const CSSM_OID		*policy = &CSSMOID_APPLE_X509_BASIC;
+	CFStringRef		policyOidString = NULL;
 	SecKeychainRef		kcRef = NULL;
 	int					ourRtn = 0;
 	bool				quiet = false;
@@ -128,7 +129,11 @@ verify_cert(int argc, char * const *argv)
 				break;
 			case 'p':
 				policy = policyStringToOid(optarg, &useTLS);
-				if(policy == NULL) {
+				if(policy == NULL && optarg != NULL) {
+					policyOidString = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+				}
+				if(policy == NULL && policyOidString == NULL) {
+					fprintf(stderr, "***unknown policy spec (%s)\n", optarg);
 					ourRtn = 2;
 					goto errOut;
 				}
@@ -280,9 +285,15 @@ verify_cert(int argc, char * const *argv)
 			policyID = kSecPolicyAppleIDValidation;
 		} else if (compareOids(policy, &CSSMOID_APPLE_TP_SMIME)) {
 			policyID = kSecPolicyAppleSMIME;
+		} else {
+			policyID = policyOidString;
 		}
 		if (policyID) {
 			policyRef = SecPolicyCreateWithProperties(policyID, properties);
+			if(!policyRef) {
+				fprintf(stderr, "*** policy creation failed for ");
+				CFShow(policyID);
+			}
 		}
 	}
 	if (!policyRef) {
@@ -439,6 +450,7 @@ errOut:
 	CFRELEASE(keychains);
 	CFRELEASE(properties);
 	CFRELEASE(policies);
+	CFRELEASE(policyOidString);
 	CFRELEASE(revPolicyRef);
 	CFRELEASE(dateRef);
 	CFRELEASE(policyRef);

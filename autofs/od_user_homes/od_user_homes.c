@@ -2,14 +2,14 @@
  * Copyright (c) 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,8 +31,8 @@
 static inline CFIndex
 od_cfstrlen(CFStringRef cfstr)
 {
-	return (CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
-	    kCFStringEncodingUTF8));
+	return CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
+	           kCFStringEncodingUTF8);
 }
 
 /*
@@ -41,8 +41,8 @@ od_cfstrlen(CFStringRef cfstr)
 static inline Boolean
 od_cfstrlcpy(char *string, CFStringRef cfstr, size_t size)
 {
-	return (CFStringGetCString(cfstr, string, (CFIndex)size,
-	    kCFStringEncodingUTF8));
+	return CFStringGetCString(cfstr, string, (CFIndex)size,
+	           kCFStringEncodingUTF8);
 }
 
 /*
@@ -58,13 +58,14 @@ od_CFStringtoCString(CFStringRef cfstr)
 
 	length = od_cfstrlen(cfstr);
 	string = malloc(length + 1);
-	if (string == NULL)
-		return (NULL);
+	if (string == NULL) {
+		return NULL;
+	}
 	if (!od_cfstrlcpy(string, cfstr, length + 1)) {
 		free(string);
-		return (NULL);
+		return NULL;
 	}
-	return (string);
+	return string;
 }
 
 static char *
@@ -77,9 +78,10 @@ od_get_error_string(CFErrorRef err)
 		errstringref = CFErrorCopyDescription(err);
 		errstring = od_CFStringtoCString(errstringref);
 		CFRelease(errstringref);
-	} else
+	} else {
 		errstring = strdup("Unknown error");
-	return (errstring);
+	}
+	return errstring;
 }
 
 /*
@@ -107,16 +109,16 @@ copy_home_dir_url(CFStringRef homedir)
 	 * If so, fail.
 	 */
 	if (CFStringFindWithOptions(homedir, CFSTR("<path>"), homedir_range,
-				    kCFCompareCaseInsensitive, &item_start) &&
+	    kCFCompareCaseInsensitive, &item_start) &&
 	    CFStringFindWithOptions(homedir, CFSTR("</path>"), homedir_range,
-				    kCFCompareCaseInsensitive, &item_stop)) {
+	    kCFCompareCaseInsensitive, &item_stop)) {
 		item_actual = CFRangeMake(item_start.location + item_start.length,
-					  item_stop.location - (item_start.location + item_start.length));
+		    item_stop.location - (item_start.location + item_start.length));
 		substring = CFStringCreateWithSubstring(kCFAllocatorDefault,
-		   homedir, item_actual);
+		    homedir, item_actual);
 		if (substring == NULL) {
 			fprintf(stderr, "od_user_homes: CFStringCreateWithSubstring() failed for path\n");
-			return (NULL);
+			return NULL;
 		}
 		if (CFStringCompare(substring, CFSTR(""), 0) != kCFCompareEqualTo &&
 		    CFStringCompare(substring, CFSTR("/"), 0) != kCFCompareEqualTo) {
@@ -129,7 +131,7 @@ copy_home_dir_url(CFStringRef homedir)
 			 * with /home.
 			 */
 			CFRelease(substring);
-			return (NULL);
+			return NULL;
 		}
 		CFRelease(substring);
 	}
@@ -138,26 +140,26 @@ copy_home_dir_url(CFStringRef homedir)
 	 * Extract the URL.
 	 */
 	if (CFStringFindWithOptions(homedir, CFSTR("<url>"), homedir_range,
-				    kCFCompareCaseInsensitive, &item_start) &&
+	    kCFCompareCaseInsensitive, &item_start) &&
 	    CFStringFindWithOptions(homedir, CFSTR("</url>"), homedir_range,
-				    kCFCompareCaseInsensitive, &item_stop)) {
+	    kCFCompareCaseInsensitive, &item_stop)) {
 		item_actual = CFRangeMake(item_start.location + item_start.length,
-					  item_stop.location - (item_start.location + item_start.length));
+		    item_stop.location - (item_start.location + item_start.length));
 		substring = CFStringCreateWithSubstring(kCFAllocatorDefault,
 		    homedir, item_actual);
 		if (substring == NULL) {
 			fprintf(stderr, "od_user_homes: CFStringCreateWithSubstring() failed for URL\n");
-			return (NULL);
+			return NULL;
 		}
 		url = CFStringCreateMutableCopy(kCFAllocatorDefault, 0,
 		    substring);
 		CFRelease(substring);
-		return (url);
+		return url;
 	} else {
 		/*
 		 * URL not found.
 		 */
-		return (NULL);
+		return NULL;
 	}
 }
 
@@ -169,8 +171,8 @@ main(int argc, char **argv)
 	char *errstring;
 	ODNodeRef noderef;
 	CFTypeRef attrs[] = { kODAttributeTypeMetaNodeLocation,
-			      kODAttributeTypeHomeDirectory,
-			      kODAttributeTypeNFSHomeDirectory };
+		              kODAttributeTypeHomeDirectory,
+		              kODAttributeTypeNFSHomeDirectory };
 	CFArrayRef attributes;
 	ODQueryRef query;
 	CFArrayRef results;
@@ -209,7 +211,7 @@ main(int argc, char **argv)
 		return 2;
 	}
 	attributes = CFArrayCreate(kCFAllocatorDefault,
-	    attrs, sizeof(attrs)/sizeof(*attrs), &kCFTypeArrayCallBacks);
+	    attrs, sizeof(attrs) / sizeof(*attrs), &kCFTypeArrayCallBacks);
 	query = ODQueryCreateWithNodeType(kCFAllocatorDefault,
 	    kODNodeTypeAuthentication, kODRecordTypeUsers,
 	    kODAttributeTypeRecordName, kODMatchEqualTo, username, attributes,
@@ -244,7 +246,7 @@ main(int argc, char **argv)
 	/*
 	 * Scan the results until we find a URL or run out of results.
 	 */
-	status = 2;	/* assume failure */
+	status = 2;     /* assume failure */
 	for (i = 0; i < count && status != 0; i++) {
 		record = (ODRecordRef) CFArrayGetValueAtIndex(results, i);
 		values = ODRecordCopyValues(record,
@@ -293,7 +295,7 @@ main(int argc, char **argv)
 						printf("%s\n", urlstr);
 						free(urlstr);
 						CFRelease(url);
-						status = 0;	/* success */
+						status = 0;     /* success */
 					}
 				}
 			}
@@ -305,6 +307,6 @@ main(int argc, char **argv)
 	CFRelease(attributes);
 	CFRelease(noderef);
 	CFRelease(username);
-	
+
 	return status;
 }

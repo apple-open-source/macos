@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 import Foundation
 import os.log
 import SandboxPrivate
@@ -70,7 +69,7 @@ struct Sandbox {
             fatalError("_set_user_dir_suffix() failed!")
         }
 
-        guard ((Self._confstr(_CS_DARWIN_USER_TEMP_DIR)) != nil) else {
+        guard (Self._confstr(_CS_DARWIN_USER_TEMP_DIR)) != nil else {
             fatalError("Unable to read _CS_DARWIN_USER_TEMP_DIR!")
         }
     }
@@ -116,17 +115,18 @@ struct Sandbox {
         var directory = Data(repeating: 0, count: Int(PATH_MAX))
 
         return directory.withUnsafeMutableBytes { body -> String? in
-            let status = confstr(name, body.bindMemory(to: Int8.self).baseAddress, Int(PATH_MAX))
+            guard let ptr = body.bindMemory(to: Int8.self).baseAddress else {
+                logger.error("failed to bind memory")
+                return nil
+            }
+            errno = 0
+            let status = confstr(name, ptr, Int(PATH_MAX))
 
             guard status > 0 else {
+                logger.error("confstr \(name) failed: \(errno)")
                 return nil
             }
-
-            guard  let boundBuffer = body.bindMemory(to: Int8.self).baseAddress else {
-                return nil
-            }
-
-            return String(cString: boundBuffer)
+            return String(cString: ptr)
         }
     }
 }

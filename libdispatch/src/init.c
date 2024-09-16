@@ -145,6 +145,8 @@ pthread_key_t dispatch_voucher_key;
 pthread_key_t dispatch_deferred_items_key;
 pthread_key_t dispatch_enqueue_key;
 pthread_key_t dispatch_msgv_aux_key;
+pthread_key_t dispatch_set_threadname_key;
+pthread_key_t os_workgroup_join_token_key;
 pthread_key_t os_workgroup_key;
 #endif // !DISPATCH_USE_DIRECT_TSD && !DISPATCH_USE_THREAD_LOCAL_STORAGE
 
@@ -171,6 +173,10 @@ bool _dispatch_set_qos_class_enabled;
 #endif
 #if DISPATCH_USE_KEVENT_WORKQUEUE && DISPATCH_USE_MGR_THREAD
 bool _dispatch_kevent_workqueue_enabled = 1;
+#endif
+
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+bool _dispatch_thread_bound_kqwl_enabled = 0;
 #endif
 
 DISPATCH_HW_CONFIG();
@@ -439,6 +445,19 @@ const struct dispatch_queue_global_s _dispatch_custom_workloop_root_queue = {
 	.dq_label = "com.apple.root.workloop-custom",
 	.dq_atomic_flags = DQF_WIDTH(DISPATCH_QUEUE_WIDTH_POOL),
 	.dq_priority = _dispatch_priority_make_fallback(DISPATCH_QOS_DEFAULT) |
+			DISPATCH_PRIORITY_SATURATED_OVERRIDE,
+	.dq_serialnum = DISPATCH_QUEUE_SERIAL_NUMBER_WLF,
+	.dgq_thread_pool_size = 1,
+};
+
+const struct dispatch_queue_global_s _dispatch_custom_workloop_overcommit_root_queue = {
+	DISPATCH_GLOBAL_OBJECT_HEADER(queue_global),
+	.dq_state = DISPATCH_ROOT_QUEUE_STATE_INIT_VALUE,
+	.do_ctxt = NULL,
+	.dq_label = "com.apple.root.workloop-custom.overcommit",
+	.dq_atomic_flags = DQF_WIDTH(DISPATCH_QUEUE_WIDTH_POOL),
+	.dq_priority = DISPATCH_PRIORITY_FLAG_OVERCOMMIT |
+			_dispatch_priority_make_fallback(DISPATCH_QOS_DEFAULT) |
 			DISPATCH_PRIORITY_SATURATED_OVERRIDE,
 	.dq_serialnum = DISPATCH_QUEUE_SERIAL_NUMBER_WLF,
 	.dgq_thread_pool_size = 1,

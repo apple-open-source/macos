@@ -317,12 +317,14 @@ pfkey_stats(uint32_t off __unused, char *name, int af __unused)
 {
 	static struct pfkeystat ppfkeystat;
 	struct pfkeystat pfkeystat;
+	u_int pcbcount;
 	unsigned first, type;
 	size_t len;
 	
 	len = sizeof(struct pfkeystat);
 	if (sysctlbyname("net.key.pfkeystat", &pfkeystat, &len, 0, 0) == -1)
 		return;
+
     if (interval && vflag > 0)
         print_time();
 	printf ("%s:\n", name);
@@ -383,5 +385,13 @@ pfkey_stats(uint32_t off __unused, char *name, int af __unused)
 		bcopy(&pfkeystat, &ppfkeystat, len);
 #undef PFKEYDIFF
 #undef p
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.key.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open pfkey socket%s\n", pcbcount, plural(pcbcount));
+	}
 }
 #endif /*IPSEC*/

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 #include <stdbool.h>
 #include <CoreFoundation/CFString.h>
 #include <net/ethernet.h>
+#include <TargetConditionals.h>
 
 typedef struct WiFiInfo *WiFiInfoRef;
 
@@ -69,8 +70,8 @@ WiFiInfoGetSSID(WiFiInfoRef w);
 const struct ether_addr *
 WiFiInfoGetBSSID(WiFiInfoRef w);
 
-const struct ether_addr *
-WiFiInfoGetPrivateBSSID(WiFiInfoRef w);
+CFStringRef
+WiFiInfoGetBSSIDString(WiFiInfoRef w);
 
 WiFiAuthType
 WiFiInfoGetAuthType(WiFiInfoRef w);
@@ -80,5 +81,13 @@ WiFiInfoGetNetworkID(WiFiInfoRef w);
 
 WiFiInfoComparisonResult
 WiFiInfoCompare(WiFiInfoRef info1, WiFiInfoRef info2);
+
+bool
+WiFiInfoAllowSharingDeviceType(WiFiInfoRef info);
+
+#if TARGET_OS_OSX
+void
+WiFiInfoSetHideBSSID(bool hide);
+#endif /* TARGET_OS_OSX */
 
 #endif /* _S_WIRELESS_H */

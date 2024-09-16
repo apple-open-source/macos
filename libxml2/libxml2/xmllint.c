@@ -2346,8 +2346,8 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 	    }
 	    if (f != NULL) {
 		int ret;
-	        int res, size = 1024;
-	        char chars[1024];
+	        int res;
+	        char chars[4096];
                 xmlParserCtxtPtr ctxt;
 
 		/* if (repeat) size = 1024; */
@@ -2364,7 +2364,7 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 		    xmlCtxtUseOptions(ctxt, options);
                     if (push_structured_error_fatal_stop)
                         xmlSetStructuredErrorFunc(ctxt, pushStructuredErrorFunc);
-		    while ((res = fread(chars, 1, size, f)) > 0) {
+		    while ((res = fread(chars, 1, pushsize, f)) > 0) {
 			xmlParseChunk(ctxt, chars, res, 0);
 		    }
 		    xmlParseChunk(ctxt, chars, 0, 1);

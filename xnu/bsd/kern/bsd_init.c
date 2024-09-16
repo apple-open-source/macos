@@ -115,7 +115,7 @@
 #include <mach/vm_param.h>
 
 #include <vm/vm_map.h>
-#include <vm/vm_kern.h>
+#include <vm/vm_kern_xnu.h>
 
 #include <sys/reboot.h>
 #include <dev/busvar.h>                 /* for pseudo_inits */

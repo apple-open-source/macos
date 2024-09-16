@@ -31,7 +31,6 @@
 #include "ElementContext.h"
 #include "IntRect.h"
 #include "ProcessIdentifier.h"
-#include <wtf/EnumTraits.h>
 
 namespace WebCore {
 
@@ -73,9 +72,6 @@ enum class IsMetaRefresh : bool { No, Yes };
 enum class WillContinueLoading : bool { No, Yes };
 enum class WillInternallyHandleFailure : bool { No, Yes };
 
-struct PolicyCheckIdentifierType;
-using PolicyCheckIdentifier = ProcessQualified<ObjectIdentifier<PolicyCheckIdentifierType>>;
-
 enum class ShouldContinuePolicyCheck : bool { No, Yes };
 
 enum class NewFrameOpenerPolicy : uint8_t {
@@ -90,6 +86,12 @@ enum class NavigationType : uint8_t {
     Reload,
     FormResubmitted,
     Other
+};
+
+enum class NavigationHistoryBehavior : uint8_t {
+    Auto,
+    Push,
+    Replace
 };
 
 enum class ShouldOpenExternalURLsPolicy : uint8_t {

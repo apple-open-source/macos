@@ -72,7 +72,12 @@ class RenderStyle;
 class SVGQualifiedName;
 class ShadowRoot;
 class TouchEvent;
+class TrustedScript;
 class WebCoreOpaqueRoot;
+
+namespace Style {
+struct PseudoElementIdentifier;
+}
 
 }
 
@@ -86,7 +91,7 @@ enum class MutationObserverOptionType : uint8_t;
 using MutationObserverOptions = OptionSet<MutationObserverOptionType>;
 using MutationRecordDeliveryOptions = OptionSet<MutationObserverOptionType>;
 
-using NodeOrString = std::variant<RefPtr<Node>, String>;
+using NodeOrStringOrTrustedScript = std::variant<RefPtr<Node>, String, RefPtr<TrustedScript>>;
 
 const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
 typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
@@ -138,20 +143,25 @@ public:
     inline bool hasTagName(const SVGQualifiedName&) const;
     virtual String nodeName() const = 0;
     virtual String nodeValue() const;
-    virtual void setNodeValue(const String&);
+    virtual ExceptionOr<void> setNodeValue(const String&);
     NodeType nodeType() const { return nodeTypeFromBitFields(m_typeBitFields); }
     virtual size_t approximateMemoryCost() const { return sizeof(*this); }
     ContainerNode* parentNode() const;
     inline RefPtr<ContainerNode> protectedParentNode() const; // Defined in ContainerNode.h.
-    static ptrdiff_t parentNodeMemoryOffset() { return OBJECT_OFFSETOF(Node, m_parentNode); }
-    inline Element* parentElement() const;
-    Node* previousSibling() const { return m_previous; }
-    RefPtr<Node> protectedPreviousSibling() const { return m_previous; }
-
-    static ptrdiff_t previousSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_previous); }
+    static constexpr ptrdiff_t parentNodeMemoryOffset() { return OBJECT_OFFSETOF(Node, m_parentNode); }
+    inline Element* parentElement() const; // Defined in ElementInlines.h.
+    inline RefPtr<Element> protectedParentElement() const; // Defined in ElementInlines.h.
+    Node* previousSibling() const { return m_previous.pointer(); }
+    RefPtr<Node> protectedPreviousSibling() const { return m_previous.pointer(); }
+    static constexpr ptrdiff_t previousSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_previous); }
+#if CPU(ADDRESS64)
+    static uintptr_t previousSiblingPointerMask() { return CompactPointerTuple<Node*, uint16_t>::pointerMask; }
+#else
+    static uintptr_t previousSiblingPointerMask() { return -1; }
+#endif
     Node* nextSibling() const { return m_next; }
     RefPtr<Node> protectedNextSibling() const { return m_next; }
-    static ptrdiff_t nextSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_next); }
+    static constexpr ptrdiff_t nextSiblingMemoryOffset() { return OBJECT_OFFSETOF(Node, m_next); }
     WEBCORE_EXPORT RefPtr<NodeList> childNodes();
     Node* firstChild() const;
     RefPtr<Node> protectedFirstChild() const { return firstChild(); }
@@ -198,7 +208,7 @@ public:
     WEBCORE_EXPORT const AtomString& lookupNamespaceURI(const AtomString& prefix) const;
 
     WEBCORE_EXPORT String textContent(bool convertBRsToNewlines = false) const;
-    WEBCORE_EXPORT void setTextContent(String&&);
+    WEBCORE_EXPORT ExceptionOr<void> setTextContent(String&&);
     
     Node* lastDescendant() const;
     Node* firstDescendant() const;
@@ -208,16 +218,16 @@ public:
     WEBCORE_EXPORT Element* nextElementSibling() const;
 
     // From the ChildNode - https://dom.spec.whatwg.org/#childnode
-    ExceptionOr<void> before(FixedVector<NodeOrString>&&);
-    ExceptionOr<void> after(FixedVector<NodeOrString>&&);
-    ExceptionOr<void> replaceWith(FixedVector<NodeOrString>&&);
+    ExceptionOr<void> before(FixedVector<NodeOrStringOrTrustedScript>&&);
+    ExceptionOr<void> after(FixedVector<NodeOrStringOrTrustedScript>&&);
+    ExceptionOr<void> replaceWith(FixedVector<NodeOrStringOrTrustedScript>&&);
     WEBCORE_EXPORT ExceptionOr<void> remove();
 
     // Other methods (not part of DOM)
 
     bool isElementNode() const { return hasTypeFlag(TypeFlag::IsElement); }
     bool isContainerNode() const { return hasTypeFlag(TypeFlag::IsContainerNode); }
-    bool isCharacterData() const { return hasTypeFlag(TypeFlag::IsCharacterData); }
+    bool isCharacterDataNode() const { return hasTypeFlag(TypeFlag::IsCharacterData); }
     bool isTextNode() const { return hasTypeFlag(TypeFlag::IsText); }
     bool isHTMLElement() const { return hasTypeFlag(TypeFlag::IsHTMLElement); }
     bool isSVGElement() const { return hasTypeFlag(TypeFlag::IsSVGElement); }
@@ -235,13 +245,10 @@ public:
 
 #if ENABLE(VIDEO)
     virtual bool isWebVTTElement() const { return false; }
-    virtual bool isWebVTTRubyElement() const { return false; }
-    virtual bool isWebVTTRubyTextElement() const { return false; }
 #endif
     bool isStyledElement() const { return hasTypeFlag(TypeFlag::IsHTMLElement) || hasTypeFlag(TypeFlag::IsSVGElement) || hasTypeFlag(TypeFlag::IsMathMLElement); }
     virtual bool isAttributeNode() const { return false; }
-    bool isCharacterDataNode() const { return hasTypeFlag(TypeFlag::IsCharacterData); }
-    virtual bool isFrameOwnerElement() const { return false; }
+    virtual bool isHTMLFrameOwnerElement() const { return false; }
     virtual bool isPluginElement() const { return false; }
 
     bool isDocumentNode() const { return nodeType() == DOCUMENT_NODE; }
@@ -258,12 +265,13 @@ public:
     bool hasShadowRootContainingSlots() const { return hasEventTargetFlag(EventTargetFlag::HasShadowRootContainingSlots); }
     void setHasShadowRootContainingSlots(bool flag) { setEventTargetFlag(EventTargetFlag::HasShadowRootContainingSlots, flag); }
 
-    bool needsSVGRendererUpdate() const { return hasStateFlag(StateFlag::NeedsSVGRendererUpdate); }
-    void setNeedsSVGRendererUpdate(bool flag) { setStateFlag(StateFlag::NeedsSVGRendererUpdate, flag); }
+    bool needsSVGRendererUpdate() const { return hasElementStateFlag(ElementStateFlag::NeedsSVGRendererUpdate); }
+    void setNeedsSVGRendererUpdate(bool flag) { setElementStateFlag(ElementStateFlag::NeedsSVGRendererUpdate, flag); }
 
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* shadowHost() const;
     ShadowRoot* containingShadowRoot() const;
+    RefPtr<ShadowRoot> protectedContainingShadowRoot() const;
     inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     bool isClosedShadowHidden(const Node&) const;
 
@@ -283,9 +291,9 @@ public:
     bool isPrecustomizedCustomElement() const { return customElementState() == CustomElementState::FailedOrPrecustomized && !isUnknownElement(); }
     bool isPrecustomizedOrDefinedCustomElement() const { return isPrecustomizedCustomElement() || isDefinedCustomElement(); }
 
-    bool isInCustomElementReactionQueue() const { return hasStateFlag(StateFlag::IsInCustomElementReactionQueue); }
-    void setIsInCustomElementReactionQueue() { setStateFlag(StateFlag::IsInCustomElementReactionQueue); }
-    void clearIsInCustomElementReactionQueue() { clearStateFlag(StateFlag::IsInCustomElementReactionQueue); }
+    bool isInCustomElementReactionQueue() const { return hasElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
+    void setIsInCustomElementReactionQueue() { setElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
+    void clearIsInCustomElementReactionQueue() { clearElementStateFlag(ElementStateFlag::IsInCustomElementReactionQueue); }
 
     // Returns null, a child of ShadowRoot, or a legacy shadow root.
     Node* nonBoundaryShadowTreeRootNode();
@@ -330,7 +338,7 @@ public:
     WEBCORE_EXPORT Element* enclosingLinkEventParentOrSelf();
 
     // These low-level calls give the caller responsibility for maintaining the integrity of the tree.
-    void setPreviousSibling(Node* previous) { m_previous = previous; }
+    void setPreviousSibling(Node* previous) { m_previous.setPointer(previous); }
     void setNextSibling(Node* next) { m_next = next; }
 
     virtual bool canContainRangeEndPoint() const { return false; }
@@ -343,14 +351,14 @@ public:
     virtual void notifyLoadedSheetAndAllCriticalSubresources(bool /* error loading subresource */) { }
     virtual void startLoadingDynamicSheet() { ASSERT_NOT_REACHED(); }
 
-    bool isUserActionElement() const { return hasStateFlag(StateFlag::IsUserActionElement); }
-    void setUserActionElement(bool flag) { setStateFlag(StateFlag::IsUserActionElement, flag); }
+    bool isUserActionElement() const { return hasElementStateFlag(ElementStateFlag::IsUserActionElement); }
+    void setUserActionElement(bool flag) { setElementStateFlag(ElementStateFlag::IsUserActionElement, flag); }
 
     bool inRenderedDocument() const;
     bool needsStyleRecalc() const { return styleValidity() != Style::Validity::Valid || hasInvalidRenderer(); }
     Style::Validity styleValidity() const { return styleBitfields().styleValidity(); }
     bool hasInvalidRenderer() const { return hasStateFlag(StateFlag::HasInvalidRenderer); }
-    bool styleResolutionShouldRecompositeLayer() const { return hasStyleFlag(NodeStyleFlag::StyleResolutionShouldRecompositeLayer); }
+    bool styleResolutionShouldRecompositeLayer() const { return hasStateFlag(StateFlag::StyleResolutionShouldRecompositeLayer); }
     bool childNeedsStyleRecalc() const { return hasStyleFlag(NodeStyleFlag::DescendantNeedsStyleResolution); }
     bool isEditingText() const { return isTextNode() && hasTypeFlag(TypeFlag::IsSpecialInternalNode); }
 
@@ -406,7 +414,7 @@ public:
         return *m_treeScope;
     }
     void setTreeScopeRecursively(TreeScope&);
-    static ptrdiff_t treeScopeMemoryOffset() { return OBJECT_OFFSETOF(Node, m_treeScope); }
+    static constexpr ptrdiff_t treeScopeMemoryOffset() { return OBJECT_OFFSETOF(Node, m_treeScope); }
 
     TreeScope& treeScopeForSVGReferences() const;
 
@@ -452,16 +460,18 @@ public:
 
     // As renderer() includes a branch you should avoid calling it repeatedly in hot code paths.
     RenderObject* renderer() const { return m_rendererWithStyleFlags.pointer(); }
+    CheckedPtr<RenderObject> checkedRenderer() const;
     void setRenderer(RenderObject*); // Defined in RenderObject.h
 
     // Use these two methods with caution.
     WEBCORE_EXPORT RenderBox* renderBox() const;
     RenderBoxModelObject* renderBoxModelObject() const;
-    
+
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
     const RenderStyle* renderStyle() const;
 
-    virtual const RenderStyle* computedStyle(PseudoId pseudoElementSpecifier = PseudoId::None);
+    WEBCORE_EXPORT const RenderStyle* computedStyle();
+    virtual const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&);
 
     enum class InsertedIntoAncestorResult {
         Done,
@@ -486,8 +496,8 @@ public:
     virtual String debugDescription() const;
 
 #if ENABLE(TREE_DEBUGGING)
-    void showNode(const char* prefix = "") const;
-    void showTreeForThis() const;
+    void showNode(ASCIILiteral prefix = ""_s) const;
+    WEBCORE_EXPORT void showTreeForThis() const;
     void showNodePathForThis() const;
     void showTreeAndMark(const Node* markedNode1, const char* markedLabel1, const Node* markedNode2 = nullptr, const char* markedLabel2 = nullptr) const;
     void showTreeForThisAcrossFrame() const;
@@ -499,14 +509,14 @@ public:
     void clearNodeLists();
 
     virtual bool willRespondToMouseMoveEvents() const;
-    bool willRespondToMouseClickEvents() const;
+    bool willRespondToMouseClickEvents(const RenderStyle* = nullptr) const;
     Editability computeEditabilityForMouseClickEvents(const RenderStyle* = nullptr) const;
     virtual bool willRespondToMouseClickEventsWithEditability(Editability) const;
     virtual bool willRespondToTouchEvents() const;
 
     WEBCORE_EXPORT unsigned short compareDocumentPosition(Node&);
 
-    EventTargetInterface eventTargetInterface() const override;
+    enum EventTargetInterfaceType eventTargetInterface() const override;
     ScriptExecutionContext* scriptExecutionContext() const final; // Implemented in DocumentInlines.h.
 
     WEBCORE_EXPORT bool addEventListener(const AtomString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
@@ -531,20 +541,31 @@ public:
     virtual void defaultEventHandler(Event&);
 
     void ref() const;
+    void refAllowingPartiallyDestroyed() const;
     void deref() const;
+    void derefAllowingPartiallyDestroyed() const;
     bool hasOneRef() const;
     unsigned refCount() const;
 
 #if ASSERT_ENABLED
-    bool m_deletionHasBegun { false };
+    enum class IsAllocatedMemory : unsigned {
+        Scribble = 0, // Do not check for this value, it is not guaranteed to exist.
+        Yes = 0xFEEDB0BA,
+    };
+    mutable IsAllocatedMemory m_isAllocatedMemory { IsAllocatedMemory::Yes };
     mutable bool m_inRemovedLastRefFunction { false };
     bool m_adoptionIsRequired { true };
+
+    bool deletionHasEnded() const
+    {
+        return m_isAllocatedMemory != IsAllocatedMemory::Yes;
+    }
 #endif
 
     void relaxAdoptionRequirement()
     {
 #if ASSERT_ENABLED
-        ASSERT_WITH_SECURITY_IMPLICATION(!m_deletionHasBegun);
+        ASSERT_WITH_SECURITY_IMPLICATION(!deletionHasBegun());
         ASSERT(m_adoptionIsRequired);
         m_adoptionIsRequired = false;
 #endif
@@ -564,9 +585,9 @@ public:
     void updateAncestorConnectedSubframeCountForInsertion() const;
 
 #if ENABLE(JIT)
-    static ptrdiff_t typeFlagsMemoryOffset() { return OBJECT_OFFSETOF(Node, m_typeBitFields); }
-    static ptrdiff_t stateFlagsMemoryOffset() { return OBJECT_OFFSETOF(Node, m_stateFlags); }
-    static ptrdiff_t rareDataMemoryOffset() { return OBJECT_OFFSETOF(Node, m_rareDataWithBitfields); }
+    static constexpr ptrdiff_t typeFlagsMemoryOffset() { return OBJECT_OFFSETOF(Node, m_typeBitFields); }
+    static constexpr ptrdiff_t stateFlagsMemoryOffset() { return OBJECT_OFFSETOF(Node, m_stateFlags); }
+    static constexpr ptrdiff_t rareDataMemoryOffset() { return OBJECT_OFFSETOF(Node, m_rareDataWithBitfields); }
 #if CPU(ADDRESS64)
     static uint64_t rareDataPointerMask() { return CompactPointerTuple<NodeRareData*, uint16_t>::pointerMask; }
 #else
@@ -580,6 +601,8 @@ public:
     static auto flagIsLink() { return enumToUnderlyingType(StateFlag::IsLink); }
     static auto flagIsParsingChildren() { return enumToUnderlyingType(StateFlag::IsParsingChildren); }
 #endif // ENABLE(JIT)
+
+    bool deletionHasBegun() const { return hasStateFlag(StateFlag::HasStartedDeletion); }
 
     bool containsSelectionEndPoint() const { return hasStateFlag(StateFlag::ContainsSelectionEndPoint); }
     void setContainsSelectionEndPoint(bool value) { setStateFlag(StateFlag::ContainsSelectionEndPoint, value); }
@@ -608,23 +631,31 @@ protected:
 
     enum class StateFlag : uint16_t {
         IsLink = 1 << 0,
+        IsParsingChildren = 1 << 1,
+        SelfOrPrecedingNodesAffectDirAuto = 1 << 2,
+        EffectiveLangKnownToMatchDocumentElement = 1 << 3,
+        IsComputedStyleInvalidFlag = 1 << 4,
+        HasInvalidRenderer = 1 << 5,
+        StyleResolutionShouldRecompositeLayer = 1 << 6,
+        ContainsOnlyASCIIWhitespace = 1 << 7, // Only used on CharacterData.
+        ContainsOnlyASCIIWhitespaceIsValid = 1 << 8, // Only used on CharacterData.
+        HasHeldBackChildrenChanged = 1 << 9,
+        HasStartedDeletion = 1 << 10,
+        ContainsSelectionEndPoint = 1 << 11,
+        // 4 bits free.
+    };
+
+    enum class ElementStateFlag : uint16_t {
+        HasElementIdentifier = 1 << 0,
         IsUserActionElement = 1 << 1,
-        IsParsingChildren = 1 << 2,
-        EverHadSmoothScroll = 1 << 3,
-        SelfOrPrecedingNodesAffectDirAuto = 1 << 4,
-        EffectiveLangKnownToMatchDocumentElement = 1 << 5,
-        IsComputedStyleInvalidFlag = 1 << 6,
-        NeedsSVGRendererUpdate = 1 << 7,
-        NeedsUpdateQueryContainerDependentStyle = 1 << 8,
+        IsInCustomElementReactionQueue = 1 << 2,
+        NeedsSVGRendererUpdate = 1 << 3,
+        NeedsUpdateQueryContainerDependentStyle = 1 << 4,
+        EverHadSmoothScroll = 1 << 5,
 #if ENABLE(FULLSCREEN_API)
-        IsFullscreen = 1 << 9,
+        IsFullscreen = 1 << 6,
 #endif
-        HasInvalidRenderer = 1 << 10,
-        ContainsOnlyASCIIWhitespace = 1 << 11, // Only used on CharacterData.
-        ContainsOnlyASCIIWhitespaceIsValid = 1 << 12, // Only used on CharacterData.
-        HasHeldBackChildrenChanged = 1 << 13,
-        ContainsSelectionEndPoint = 1 << 14,
-        IsInCustomElementReactionQueue = 1 << 15,
+        // 9-bits free.
     };
 
     enum class TabIndexState : uint8_t {
@@ -653,6 +684,10 @@ protected:
     void setStateFlag(StateFlag flag, bool value = true) const { m_stateFlags.set(flag, value); }
     void clearStateFlag(StateFlag flag) const { setStateFlag(flag, false); }
 
+    bool hasElementStateFlag(ElementStateFlag flag) const { return OptionSet<ElementStateFlag>::fromRaw(m_previous.type()).contains(flag); }
+    inline void setElementStateFlag(ElementStateFlag, bool value = true) const;
+    void clearElementStateFlag(ElementStateFlag flag) const { setElementStateFlag(flag, false); }
+
     RareDataBitFields rareDataBitfields() const { return bitwise_cast<RareDataBitFields>(m_rareDataWithBitfields.type()); }
     void setRareDataBitfields(RareDataBitFields bitfields) { m_rareDataWithBitfields.setType(bitwise_cast<uint16_t>(bitfields)); }
 
@@ -674,21 +709,20 @@ protected:
     enum class NodeStyleFlag : uint16_t {
         DescendantNeedsStyleResolution                          = 1 << 0,
         DirectChildNeedsStyleResolution                         = 1 << 1,
-        StyleResolutionShouldRecompositeLayer                   = 1 << 2,
 
-        AffectedByHasWithPositionalPseudoClass                  = 1 << 3,
-        ChildrenAffectedByFirstChildRules                       = 1 << 4,
-        ChildrenAffectedByLastChildRules                        = 1 << 5,
-        AffectsNextSiblingElementStyle                          = 1 << 6,
-        StyleIsAffectedByPreviousSibling                        = 1 << 7,
-        DescendantsAffectedByPreviousSibling                    = 1 << 8,
-        StyleAffectedByEmpty                                    = 1 << 9,
+        AffectedByHasWithPositionalPseudoClass                  = 1 << 2,
+        ChildrenAffectedByFirstChildRules                       = 1 << 3,
+        ChildrenAffectedByLastChildRules                        = 1 << 4,
+        AffectsNextSiblingElementStyle                          = 1 << 5,
+        StyleIsAffectedByPreviousSibling                        = 1 << 6,
+        DescendantsAffectedByPreviousSibling                    = 1 << 7,
+        StyleAffectedByEmpty                                    = 1 << 8,
         // We optimize for :first-child and :last-child. The other positional child selectors like nth-child or
         // *-child-of-type, we will just give up and re-evaluate whenever children change at all.
-        ChildrenAffectedByForwardPositionalRules                = 1 << 10,
-        DescendantsAffectedByForwardPositionalRules             = 1 << 11,
-        ChildrenAffectedByBackwardPositionalRules               = 1 << 12,
-        DescendantsAffectedByBackwardPositionalRules            = 1 << 13,
+        ChildrenAffectedByForwardPositionalRules                = 1 << 9,
+        DescendantsAffectedByForwardPositionalRules             = 1 << 10,
+        ChildrenAffectedByBackwardPositionalRules               = 1 << 11,
+        DescendantsAffectedByBackwardPositionalRules            = 1 << 12,
     };
 
     struct StyleBitfields {
@@ -706,8 +740,8 @@ protected:
         void clearDescendantsNeedStyleResolution() { m_flags = (flags() - NodeStyleFlag::DescendantNeedsStyleResolution - NodeStyleFlag::DirectChildNeedsStyleResolution).toRaw(); }
 
     private:
-        uint16_t m_styleValidity : 2;
-        uint16_t m_flags : 14;
+        uint16_t m_styleValidity : 3;
+        uint16_t m_flags : 13;
     };
 
     StyleBitfields styleBitfields() const { return StyleBitfields::fromRaw(m_rendererWithStyleFlags.type()); }
@@ -730,9 +764,12 @@ protected:
     void updateAncestorsForStyleRecalc();
     void markAncestorsForInvalidatedStyle();
 
-    // FIXME: Replace all uses of convertNodesOrStringsIntoNode by convertNodesOrStringsIntoNodeVector.
-    ExceptionOr<RefPtr<Node>> convertNodesOrStringsIntoNode(FixedVector<NodeOrString>&&);
-    ExceptionOr<NodeVector> convertNodesOrStringsIntoNodeVector(FixedVector<NodeOrString>&&);
+    template<typename NodeClass>
+    static NodeClass& traverseToRootNodeInternal(const NodeClass&);
+
+    // FIXME: Replace all uses of convertNodesOrStringsOrTrustedScriptsIntoNode by convertNodesOrStringsOrTrustedScriptsIntoNodeVector.
+    ExceptionOr<RefPtr<Node>> convertNodesOrStringsOrTrustedScriptsIntoNode(RefPtr<Node>, FixedVector<NodeOrStringOrTrustedScript>&&);
+    ExceptionOr<NodeVector> convertNodesOrStringsOrTrustedScriptsIntoNodeVector(RefPtr<Node>, FixedVector<NodeOrStringOrTrustedScript>&&);
 
 private:
     virtual PseudoId customPseudoId() const
@@ -768,7 +805,7 @@ private:
 
     ContainerNode* m_parentNode { nullptr };
     TreeScope* m_treeScope { nullptr };
-    Node* m_previous { nullptr };
+    CompactPointerTuple<Node*, uint16_t> m_previous;
     Node* m_next { nullptr };
     CompactPointerTuple<RenderObject*, uint16_t> m_rendererWithStyleFlags;
     CompactUniquePtrTuple<NodeRareData, uint16_t> m_rareDataWithBitfields;
@@ -796,7 +833,7 @@ inline void adopted(Node* node)
 {
     if (!node)
         return;
-    ASSERT(!node->m_deletionHasBegun);
+    ASSERT(!node->deletionHasBegun());
     ASSERT(!node->m_inRemovedLastRefFunction);
     node->m_adoptionIsRequired = false;
 }
@@ -805,22 +842,39 @@ inline void adopted(Node* node)
 
 ALWAYS_INLINE void Node::ref() const
 {
-    ASSERT(isMainThread());
-    ASSERT(!m_deletionHasBegun);
+    ASSERT(!deletionHasBegun());
     ASSERT(!m_inRemovedLastRefFunction);
+    refAllowingPartiallyDestroyed();
+}
+
+// Doesn't check deletionHasBegun().
+ALWAYS_INLINE void Node::refAllowingPartiallyDestroyed() const
+{
+    ASSERT(isMainThread());
+    ASSERT(!deletionHasEnded());
     ASSERT(!m_adoptionIsRequired);
     m_refCountAndParentBit += s_refCountIncrement;
 }
 
 ALWAYS_INLINE void Node::deref() const
 {
-    ASSERT(isMainThread());
-    ASSERT(refCount());
-    ASSERT(!m_deletionHasBegun);
+    ASSERT(!deletionHasBegun());
     ASSERT(!m_inRemovedLastRefFunction);
+    derefAllowingPartiallyDestroyed();
+}
+
+// Doesn't check deletionHasBegun().
+ALWAYS_INLINE void Node::derefAllowingPartiallyDestroyed() const
+{
+    ASSERT(isMainThread());
+    ASSERT(!deletionHasEnded());
     ASSERT(!m_adoptionIsRequired);
+
+    ASSERT(refCount());
     auto updatedRefCount = m_refCountAndParentBit - s_refCountIncrement;
     if (!updatedRefCount) {
+        if (deletionHasBegun())
+            return;
         // Don't update m_refCountAndParentBit to avoid double destruction through use of Ref<T>/RefPtr<T>.
         // (This is a security mitigation in case of programmer error. It will ASSERT in debug builds.)
 #if ASSERT_ENABLED
@@ -834,7 +888,7 @@ ALWAYS_INLINE void Node::deref() const
 
 ALWAYS_INLINE bool Node::hasOneRef() const
 {
-    ASSERT(!m_deletionHasBegun);
+    ASSERT(!deletionHasBegun());
     ASSERT(!m_inRemovedLastRefFunction);
     return refCount() == 1;
 }
@@ -863,6 +917,13 @@ inline ContainerNode* Node::parentNodeGuaranteedHostFree() const
     return parentNode();
 }
 
+inline void Node::setElementStateFlag(ElementStateFlag flag, bool value) const
+{
+    auto set = OptionSet<ElementStateFlag>::fromRaw(m_previous.type());
+    set.set(flag, value);
+    const_cast<Node&>(*this).m_previous.setType(set.toRaw());
+}
+
 ALWAYS_INLINE void Node::setStyleFlag(NodeStyleFlag flag)
 {
     auto bitfields = styleBitfields();
@@ -888,16 +949,16 @@ inline void Node::setHasValidStyle()
 {
     auto bitfields = styleBitfields();
     bitfields.setStyleValidity(Style::Validity::Valid);
-    bitfields.clearFlag(NodeStyleFlag::StyleResolutionShouldRecompositeLayer);
     setStyleBitfields(bitfields);
     clearStateFlag(StateFlag::IsComputedStyleInvalidFlag);
     clearStateFlag(StateFlag::HasInvalidRenderer);
+    clearStateFlag(StateFlag::StyleResolutionShouldRecompositeLayer);
 }
 
 inline void Node::setTreeScopeRecursively(TreeScope& newTreeScope)
 {
     ASSERT(!isDocumentNode());
-    ASSERT(!m_deletionHasBegun);
+    ASSERT(!deletionHasBegun());
     if (m_treeScope != &newTreeScope)
         moveTreeToNewScope(*this, *m_treeScope, newTreeScope);
 }
@@ -918,6 +979,15 @@ inline void EventTarget::deref()
         node->deref();
     else
         derefEventTarget();
+}
+
+template<typename NodeClass>
+inline NodeClass& Node::traverseToRootNodeInternal(const NodeClass& node)
+{
+    auto* current = const_cast<NodeClass*>(&node);
+    while (current->parentNode())
+        current = current->parentNode();
+    return *current;
 }
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const Node&);

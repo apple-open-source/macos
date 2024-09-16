@@ -1,5 +1,7 @@
 %union {
 	char	*str;
+	int	 num;
+	unsigned int	flag;
 }
 
 %token	ANALYTICS
@@ -15,8 +17,12 @@
 %token	ENV
 %token	ARGMODE
 %token	LOGONLY
+%token	PATTERN
 
 %token	<str>	ID
+
+%type	<num>	flag_argspec;
+%type	<flag>	flag_flags;
 
 %{
 /*
@@ -47,6 +53,7 @@
 
 #include <assert.h>
 #include <err.h>
+#include <regex.h>
 #include <string.h>
 
 #include "genwrap.h"
@@ -55,12 +62,19 @@ const char *yyfile;
 int yyline;
 
 static struct app *current_app;
-static void addflag(const char *first, const char *second, int argument);
 
 struct stringlist {
 	STAILQ_ENTRY(stringlist)	entries;
 	char				*str;
 };
+
+static struct flagspec {
+	const char	*flag;
+	const char	*alias;
+	const char	*pattern;
+	int		 argument;
+	uint32_t	 argflags;
+} flagspec;
 
 STAILQ_HEAD(stringhead, stringlist);
 
@@ -71,6 +85,9 @@ static STAILQ_HEAD(, stringlist) current_stringlist =
 static void stringlist_init(const char *str);
 static void stringlist_append(const char *str);
 static void stringlist_done(char ***, int *);
+
+static void addflag(struct flagspec *sp);
+static char *checkpattern(const char *pat);
 %}
 %%
 
@@ -146,44 +163,74 @@ application_spec:
 			yyerror("cwd paths must be relative");
 		app_set_path(current_app, $2, true);
 	} |
+	full_argspec {
+		addflag(&flagspec);
+	}
+
+full_argspec:
+	basic_flagspec | basic_flagspec flagspec_extension
+
+flagspec_extension:
+	flagspec_extension flagspec_extension |
+	flag_argspec {
+		flagspec.argument = $1;
+	} |
+	flag_flags {
+		flagspec.argflags |= $1;
+	} |
+	PATTERN ID {
+		flagspec.pattern = checkpattern($2);
+		/* Should not have allocated memory. */
+		assert(flagspec.pattern == $2);
+	}
+
+basic_flagspec:
 	FLAG ID {
-		addflag($2, NULL, no_argument);
-	} |
-	FLAG ID ARG {
-		addflag($2, NULL, required_argument);
-	} |
-	FLAG ID OPTARG {
-		addflag($2, NULL, optional_argument);
+		memset(&flagspec, 0, sizeof(flagspec));
+		flagspec.flag = $2;
 	} |
 	FLAG ID ID {
-		addflag($2, $3, no_argument);
+		memset(&flagspec, 0, sizeof(flagspec));
+		flagspec.flag = $2;
+		flagspec.alias = $3;
+	}
+
+flag_argspec:
+	ARG {
+		$$ = required_argument;
 	} |
-	FLAG ID ID ARG {
-		addflag($2, $3, required_argument);
+	OPTARG {
+		$$ = optional_argument;
+	}
+
+flag_flags:
+	flag_flags '|' flag_flags {
+		$$ = $1 | $3;
 	} |
-	FLAG ID ID OPTARG {
-		addflag($2, $3, optional_argument);
+	LOGONLY {
+		$$ = ARGFLAG_LOGONLY;
 	}
 %%
 
 static void
-addflag(const char *first, const char *second, int argument)
+addflag(struct flagspec *fs)
 {
-	if (first[0] == '\0')
+	if (fs->flag[0] == '\0')
 		yyerror("provided flag must not be empty");
-	if (second != NULL && second[0] == '\0')
+	if (fs->alias != NULL && fs->alias[0] == '\0')
 		yyerror("provided alias must not be empty");
 
-	if (second == NULL) {
-		app_add_flag(current_app, first, NULL, argument);
-		return;
+	/* Allow whatever order for flag, alias. */
+	if (fs->flag[1] != '\0' || fs->alias == NULL) {
+		app_add_flag(current_app, fs->flag, fs->alias, fs->argument,
+		    fs->argflags, fs->pattern);
+	} else {
+		app_add_flag(current_app, fs->alias, fs->flag, fs->argument,
+		    fs->argflags, fs->pattern);
 	}
 
-	/* Allow whatever order for flag, alias. */
-	if (first[1] != '\0')
-		app_add_flag(current_app, first, second, argument);
-	else
-		app_add_flag(current_app, second, first, argument);
+	/* Pattern memory now belongs to someone else. */
+	fs->pattern = NULL;
 }
 
 void
@@ -251,4 +298,31 @@ stringlist_done(char ***outlist, int *nelem)
 	assert(string_count == 0);
 	*outlist = out;
 	*nelem = n;
+}
+
+static char *
+checkpattern(const char *pat)
+{
+	regex_t reg;
+	int error;
+
+	if (*pat == '\0')
+		yyerror("pattern must not be empty");
+
+	/*
+	 * Try to compile it as an ERE, so that we have some idea up front if
+	 * it is basically sane or not.
+	 */
+	if ((error = regcomp(&reg, pat, REG_EXTENDED | REG_NOSUB)) != 0) {
+		char errbuf[128];
+		size_t errsz;
+
+		errsz = regerror(error, NULL, errbuf, sizeof(errbuf));
+		fprintf(stderr, "pattern error: %s%s\n", errbuf,
+		    errsz > sizeof(errbuf) ? " [...]" : "");
+		yyerror("failed to compile pattern");
+	}
+
+	regfree(&reg);
+	return (pat);
 }

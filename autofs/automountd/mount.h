@@ -7,7 +7,7 @@
 #ifndef _MOUNT_H_RPCGEN
 #define _MOUNT_H_RPCGEN
 
-#define RPCGEN_VERSION	199506
+#define RPCGEN_VERSION  199506
 
 #include <oncrpc/rpc.h>
 

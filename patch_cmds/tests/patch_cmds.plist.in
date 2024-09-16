@@ -964,6 +964,31 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>patch_cmds.diff.diff_test.fifodiff</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff/diff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/diff</string>
+				<string>-r</string>
+				<string>diff_test.sh.fifodiff.results.txt</string>
+				<string>fifodiff</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>patch_cmds.diff3_test.sh.diff3</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -1716,6 +1741,31 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>patch_cmds.unified_patch_test.sh.plinelen</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch/unified_patch_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/patch</string>
+				<string>-r</string>
+				<string>unified_patch_test.sh.plinelen.results.txt</string>
+				<string>plinelen</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>patch_cmds.sdiff_test.sh.flags</string>
 			<key>ShellEnv</key>
 			<dict>
@@ -1817,33 +1867,6 @@
 			</array>
 			<key>Description</key>
 			<string>Checks correct handling of lines ended with tabs</string>
-			<key>MayRunConcurrently</key>
-			<true/>
-			<key>Timeout</key>
-			<integer>300</integer>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>patch_cmds.sdiff_test.sh.mb</string>
-			<key>ShellEnv</key>
-			<dict>
-				<key>ATF_SH</key>
-				<string>/usr/local/bin/atf-sh</string>
-				<key>__RUNNING_INSIDE_ATF_RUN</key>
-				<string>internal-yes-value</string>
-			</dict>
-			<key>Command</key>
-			<array>
-				<string>/usr/local/bin/atf-sh</string>
-				<string>/AppleInternal/Tests/patch_cmds/sdiff/sdiff_test.sh</string>
-				<string>-s</string>
-				<string>/AppleInternal/Tests/patch_cmds/sdiff</string>
-				<string>-r</string>
-				<string>sdiff_test.sh.mb.results.txt</string>
-				<string>mb</string>
-			</array>
-			<key>Description</key>
-			<string>rdar://problem/100627590 - handling of multibyte sequences</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
@@ -2006,6 +2029,87 @@
 			</array>
 			<key>Description</key>
 			<string>Checks premature stop of merging</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.sdiff_test.sh.tflag</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff/sdiff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff</string>
+				<string>-r</string>
+				<string>sdiff_test.sh.tflag.results.txt</string>
+				<string>tflag</string>
+			</array>
+			<key>Description</key>
+			<string>Checks tab expansion</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.sdiff_test.sh.binary</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff/sdiff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff</string>
+				<string>-r</string>
+				<string>sdiff_test.sh.binary.results.txt</string>
+				<string>binary</string>
+			</array>
+			<key>Description</key>
+			<string>Checks binary file handling</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>patch_cmds.sdiff_test.sh.mb</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff/sdiff_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/patch_cmds/sdiff</string>
+				<string>-r</string>
+				<string>sdiff_test.sh.mb.results.txt</string>
+				<string>mb</string>
+			</array>
+			<key>Description</key>
+			<string>rdar://problem/100627590 - handling of multibyte sequences</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

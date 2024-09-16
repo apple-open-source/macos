@@ -3,43 +3,8 @@
 //
 //
 
-#import <Foundation/Foundation.h>
-#import <TargetConditionals.h>
-#import <CoreFoundation/CFBase.h>
-#import <Availability.h>
-#import <Security/Authorization.h>
-#import <Security/AuthorizationPriv.h>
-#import <Security/AuthorizationDB.h>
-#import <Security/AuthorizationTagsPriv.h>
-#import "authd/debugging.h"
-#import <XCTest/XCTest.h>
+#import "authdtestsCommon.h"
 
-#define AuthorizationFreeItemSetNull(IS) { AuthorizationItemSet *_is = (IS); \
-if (_is) { (IS) = NULL; AuthorizationFreeItemSet(_is); } }
-
-#define SAMPLE_RIGHT "com.apple.security.syntheticinput"
-#define SAMPLE_SHARED_RIGHT "system.preferences"
-#define SAMPLE_PASSWORD_RIGHT "system.csfde.requestpassword"
-#define SCREENSAVER_RIGHT "system.login.screensaver"
-
-NSString *correctUsername;
-NSString *correctPassword;
-
-#define INCORRECT_UNAME "fs;lgp-984-25opsdakflasdg"
-#define INCORRECT_PWD "654sa65gsqihr6hhsfd'lbo[0q2,m23-odasdf"
-
-#define SA_TIMEOUT (20)
-
-AuthorizationItem validCredentials[] = {
-	{AGENT_USERNAME, 0, NULL, 0},
-	{AGENT_PASSWORD, 0, NULL, 0}
-};
-
-AuthorizationItem invalidCredentials[] = {
-	{AGENT_USERNAME, strlen(INCORRECT_UNAME), (void *)INCORRECT_UNAME, 0},
-	{AGENT_PASSWORD, strlen(INCORRECT_PWD), (void *)INCORRECT_PWD,0}
-};
-                          
 @interface AuthorizationTests : XCTestCase
 @end
 
@@ -319,8 +284,12 @@ static pid_t _get_pid(NSString *name)
         toolArgv[1] = arg.UTF8String;
         toolArgv[2] = NULL;
         FILE *output = NULL;
-        
+        // test deprecated API
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         status = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/zsh", 0, (char *const *)toolArgv, &output);
+#pragma clang diagnostic pop
+
         XCTAssert(status == errAuthorizationSuccess, "AuthorizationExecuteWithPrivileges call succeess");
         
         if (status != 0) {
@@ -387,11 +356,54 @@ static pid_t _get_pid(NSString *name)
     audit_token_t emptyToken = { { 0 } };
     
     OSStatus stat = AuthorizationCreateWithAuditToken(emptyToken, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &authRef);
-    if (geteuid() == 0) {
-        XCTAssert(stat == errAuthorizationSuccess, "AuthorizationCreateWithAuditToken authRef for root process");
-    } else {
-        XCTAssert(stat != errAuthorizationSuccess, "AuthorizationCreateWithAuditToken should fail for non-root process");
+    XCTAssert(stat != errAuthorizationSuccess, "AuthorizationCreateWithAuditToken should fail for non-root process");
+}
+
+                                                                                                      
+- (void)testDatabaseProtection {
+    AuthorizationRef authRef;
+    OSStatus status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, kAuthorizationFlagDefaults, &authRef);
+
+    CFDictionaryRef outDict = NULL;
+    status = AuthorizationRightGet(SAMPLE_RIGHT, &outDict);
+    XCTAssert(status == errAuthorizationSuccess, "AuthorizationRightGet failed to get existing right %d", status);
+
+    // modify an existing protected right
+    status = AuthorizationRightSet(authRef, PROTECTED_RIGHT, outDict, NULL, NULL, NULL);
+    XCTAssert(status == errAuthorizationDenied, "AuthorizationRightSet failed to denial update of a protected right");
+
+    AuthorizationFree(authRef, kAuthorizationFlagDefaults);
+}
+
+// calls sheet version of the authorization without providinig all necessary parameters
+// authd should be able to handle this call by running SA dialog version instead
+// UI is not available from this scope so errAuthorizationInteractionNotAllowed is expected
+// as a result
+- (void) testWrongParams {
+    AuthorizationRef authorizationRef;
+    
+    OSStatus status = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
+    printf("AuthrizationCreate result: %d\n", status);
+    XCTAssert(status == errAuthorizationSuccess, "AuthorizationRef create");
+    
+    AuthorizationItem myItems = {SAMPLE_RIGHT, 0, NULL, 0};
+    AuthorizationRights myRights = {1, &myItems};
+    AuthorizationRights *authorizedRights = NULL;
+    status = AuthorizationCopyRights(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagSheet | kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, &authorizedRights);
+    printf("Sheet AuthorizationCopyRights without window handle result: %d\n", status);
+    XCTAssert(status == errAuthorizationInteractionNotAllowed, "Sheet authorization without window handle");
+}
+
+- (void) testClientLeaks {
+    char *cmd = NULL;
+    int ret = -1;
+    
+    asprintf(&cmd, "leaks %d >/dev/null", getpid());
+    if (cmd) {
+        ret = system(cmd);
+        free(cmd);
     }
+    XCTAssert(ret == 0, "Leaks in the Authorization.framerowk detected");
 }
 
 @end

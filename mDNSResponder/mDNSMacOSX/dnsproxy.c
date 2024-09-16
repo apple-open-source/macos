@@ -974,60 +974,6 @@ exit:
     return err;
 }
 
-static mrcs_dns_proxy_t gLegacyProxy = mDNSNULL;
-
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_PROXY_DNS64)
-mDNSexport void DNSProxyInit(mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf, const mDNSu8 IPv6Prefix[16], int IPv6PrefixBitLen,
-                             mDNSBool forceAAAASynthesis)
-#else
-mDNSexport void DNSProxyInit(mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf)
-#endif
-{
-    if (gLegacyProxy)
-    {
-        return;
-    }
-    gLegacyProxy = mrcs_dns_proxy_create(NULL);
-    if (!gLegacyProxy)
-    {
-        return;
-    }
-    for (int i = 0; i < MaxIp; ++i)
-    {
-        mrcs_dns_proxy_add_input_interface(gLegacyProxy, IpIfArr[i]);
-    }
-    mrcs_dns_proxy_set_output_interface(gLegacyProxy, OpIf);
-
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_PROXY_DNS64)
-    if (IPv6Prefix)
-    {
-        const OSStatus err = mrcs_dns_proxy_set_nat64_prefix(gLegacyProxy, IPv6Prefix, IPv6PrefixBitLen);
-        if (!err)
-        {
-            mrcs_dns_proxy_enable_force_aaaa_synthesis(gLegacyProxy, forceAAAASynthesis ? true : false);
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-                "DNSProxy using DNS64 IPv6 prefix: " PRI_IPv6_ADDR "/%d" PUB_S,
-                IPv6Prefix, IPv6PrefixBitLen, forceAAAASynthesis ? "" : " (force AAAA synthesis)");
-        }
-        else
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                "DNSProxy not using invalid DNS64 IPv6 prefix: " PRI_IPv6_ADDR "/%d", IPv6Prefix, IPv6PrefixBitLen);
-        }
-    }
-#endif
-    DNSProxyStart(gLegacyProxy);
-}
-
-mDNSexport void DNSProxyTerminate(void)
-{
-    if (gLegacyProxy)
-    {
-        DNSProxyStop(gLegacyProxy);
-        mrcs_forget(&gLegacyProxy);
-    }
-}
-
 mDNSlocal OSStatus DNSProxyStartHandler(const mrcs_dns_proxy_t proxy)
 {
     KQueueLock();

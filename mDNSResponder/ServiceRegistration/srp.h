@@ -1,12 +1,12 @@
 /* srp.h
  *
- * Copyright (c) 2018-2024 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,6 +39,7 @@ extern "C" {
 #endif
 
 #include "srp-features.h"           // for feature flags
+
 
 #ifdef __clang__
 #define NULLABLE _Nullable
@@ -324,6 +325,21 @@ is_thread_mesh_synthetic_or_link_local(const struct in6_addr *addr)
     return (is_thread_mesh_anycast_address(addr) || is_thread_mesh_rloc_address(addr) ||
             (addr->s6_addr[0] == 0xfe && (addr->s6_addr[1] & 0xc0) == 0x80));
 }
+
+#ifndef _SRP_STRICT_DISPOSE_TEMPLATE
+    #define _SRP_STRICT_DISPOSE_TEMPLATE(PTR, FUNCTION) \
+        do {                                            \
+            if (*(PTR) != NULL) {                       \
+                FUNCTION(*PTR);                         \
+                *(PTR) = NULL;                          \
+            }                                           \
+        } while(0)
+#endif
+
+#ifndef DNSServiceRefSourceForget
+    #define DNSServiceRefSourceForget(PTR) _SRP_STRICT_DISPOSE_TEMPLATE(PTR, DNSServiceRefDeallocate)
+#endif
+
 
 /*!
  *  @brief

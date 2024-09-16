@@ -26,31 +26,40 @@
 #include "config.h"
 #include "ProvisionalFrameProxy.h"
 
-#include "RemotePageProxy.h"
+#include "FrameProcess.h"
+#include "ProvisionalFrameCreationParameters.h"
 #include "VisitedLinkStore.h"
 #include "WebFrameProxy.h"
+#include "WebPageMessages.h"
 #include "WebPageProxy.h"
 
 namespace WebKit {
 
-ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, WebProcessProxy& process, RefPtr<RemotePageProxy>&& remotePageProxy)
+ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<FrameProcess>&& frameProcess)
     : m_frame(frame)
-    , m_process(process)
-    , m_remotePageProxy(WTFMove(remotePageProxy))
+    , m_frameProcess(WTFMove(frameProcess))
     , m_visitedLinkStore(frame.page()->visitedLinkStore())
-    , m_pageID(frame.page()->webPageID())
-    , m_webPageID(frame.page()->identifier())
-    , m_layerHostingContextIdentifier(WebCore::LayerHostingContextIdentifier::generate())
 {
-    ASSERT(!m_remotePageProxy || m_remotePageProxy->process().coreProcessIdentifier() == process.coreProcessIdentifier());
-    m_process->markProcessAsRecentlyUsed();
+    process().markProcessAsRecentlyUsed();
+    process().send(Messages::WebPage::CreateProvisionalFrame({ frame.layerHostingContextIdentifier() }, frame.frameID()), frame.page()->webPageIDInProcess(process()));
 }
 
-ProvisionalFrameProxy::~ProvisionalFrameProxy() = default;
-
-RefPtr<RemotePageProxy> ProvisionalFrameProxy::takeRemotePageProxy()
+ProvisionalFrameProxy::~ProvisionalFrameProxy()
 {
-    return std::exchange(m_remotePageProxy, nullptr);
+    if (m_frameProcess && m_frame->page())
+        process().send(Messages::WebPage::DestroyProvisionalFrame(m_frame->frameID()), m_frame->page()->webPageIDInProcess(process()));
+}
+
+RefPtr<FrameProcess> ProvisionalFrameProxy::takeFrameProcess()
+{
+    ASSERT(m_frameProcess);
+    return std::exchange(m_frameProcess, nullptr).releaseNonNull();
+}
+
+WebProcessProxy& ProvisionalFrameProxy::process() const
+{
+    ASSERT(m_frameProcess);
+    return m_frameProcess->process();
 }
 
 Ref<WebProcessProxy> ProvisionalFrameProxy::protectedProcess() const

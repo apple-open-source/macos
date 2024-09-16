@@ -36,6 +36,7 @@
 #include "CSSValuePool.h"
 #include "SVGPathByteStream.h"
 #include "SVGPathUtilities.h"
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -119,7 +120,7 @@ String CSSCircleValue::customCSSText() const
     auto x = buildSerializablePositionOffset(m_centerX.get(), CSSValueLeft);
     auto y = buildSerializablePositionOffset(m_centerY.get(), CSSValueTop);
     return makeString("circle("_s, radius, radius.isNull() ? ""_s : " "_s,
-        "at ", serializePositionOffset(x, y), ' ', serializePositionOffset(y, x), ')');
+        "at "_s, serializePositionOffset(x, y), ' ', serializePositionOffset(y, x), ')');
 }
 
 bool CSSCircleValue::equals(const CSSCircleValue& other) const
@@ -146,7 +147,7 @@ Ref<CSSEllipseValue> CSSEllipseValue::create(RefPtr<CSSValue>&& radiusX, RefPtr<
 static String buildEllipseString(const String& radiusX, const String& radiusY, const String& centerX, const String& centerY)
 {
     StringBuilder result;
-    result.append("ellipse(");
+    result.append("ellipse("_s);
     bool needsSeparator = false;
     if (!radiusX.isNull()) {
         result.append(radiusX);
@@ -161,7 +162,7 @@ static String buildEllipseString(const String& radiusX, const String& radiusY, c
     if (!centerX.isNull() || !centerY.isNull()) {
         if (needsSeparator)
             result.append(' ');
-        result.append("at ", centerX, ' ', centerY);
+        result.append("at "_s, centerX, ' ', centerY);
     }
     result.append(')');
     return result.toString();
@@ -470,7 +471,7 @@ static String buildInsetString(const String& top, const String& right, const Str
     const String& bottomLeftRadiusWidth, const String& bottomLeftRadiusHeight)
 {
     StringBuilder result;
-    result.append("inset(", top);
+    result.append("inset("_s, top);
 
     bool showLeftArg = !left.isNull() && left != right;
     bool showBottomArg = !bottom.isNull() && (bottom != top || showLeftArg);

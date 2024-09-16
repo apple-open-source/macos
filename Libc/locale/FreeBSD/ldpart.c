@@ -149,8 +149,11 @@ split_lines(char *p, const char *plim)
 }
 
 __private_extern__ void
-__ldpart_free_extra(struct __xlocale_st_ldpart *lp)
+destruct_ldpart(void *v)
 {
+	struct xlocale_ldpart *lp = v;
+
 	if (lp)
-		free(lp->_locale_buf);
+		free(lp->buffer);
+	free(lp);
 }

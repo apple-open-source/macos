@@ -7,7 +7,7 @@
 
 #include "libANGLE/renderer/vulkan/CLDeviceVk.h"
 #include "libANGLE/renderer/vulkan/CLPlatformVk.h"
-#include "libANGLE/renderer/vulkan/RendererVk.h"
+#include "libANGLE/renderer/vulkan/vk_renderer.h"
 
 #include "libANGLE/Display.h"
 #include "libANGLE/cl_utils.h"
@@ -15,14 +15,14 @@
 namespace rx
 {
 
-CLDeviceVk::CLDeviceVk(const cl::Device &device, RendererVk *renderer)
+CLDeviceVk::CLDeviceVk(const cl::Device &device, vk::Renderer *renderer)
     : CLDeviceImpl(device), mRenderer(renderer)
 {
     const VkPhysicalDeviceProperties &props = mRenderer->getPhysicalDeviceProperties();
 
     // Setup initial device mInfo fields
     // TODO(aannestrand) Create cl::Caps and use for device creation
-    // http://anglebug.com/8529
+    // http://anglebug.com/42266954
     mInfoString = {
         {cl::DeviceInfo::Name, std::string(props.deviceName)},
         {cl::DeviceInfo::Vendor, mRenderer->getVendorString()},
@@ -37,7 +37,7 @@ CLDeviceVk::CLDeviceVk(const cl::Device &device, RendererVk *renderer)
         {cl::DeviceInfo::GlobalVariablePreferredTotalSize, 0},
 
         // TODO(aannestrand) Update these hardcoded platform/device queries
-        // http://anglebug.com/8511
+        // http://anglebug.com/42266935
         {cl::DeviceInfo::MaxParameterSize, 1024},
         {cl::DeviceInfo::ProfilingTimerResolution, 1},
         {cl::DeviceInfo::PrintfBufferSize, 1024 * 1024},
@@ -52,7 +52,7 @@ CLDeviceVk::CLDeviceVk(const cl::Device &device, RendererVk *renderer)
         {cl::DeviceInfo::QueueOnHostProperties, CL_QUEUE_PROFILING_ENABLE},
 
         // TODO(aannestrand) Update these hardcoded platform/device queries
-        // http://anglebug.com/8511
+        // http://anglebug.com/42266935
         {cl::DeviceInfo::HalfFpConfig, 0},
         {cl::DeviceInfo::DoubleFpConfig, 0},
         {cl::DeviceInfo::GlobalMemCacheSize, 0},
@@ -88,7 +88,7 @@ CLDeviceVk::CLDeviceVk(const cl::Device &device, RendererVk *renderer)
         {cl::DeviceInfo::ExecutionCapabilities, CL_EXEC_KERNEL},
 
         // TODO(aannestrand) Update these hardcoded platform/device queries
-        // http://anglebug.com/8511
+        // http://anglebug.com/42266935
         {cl::DeviceInfo::AddressBits, 64},
         {cl::DeviceInfo::EndianLittle, CL_TRUE},
         {cl::DeviceInfo::LocalMemType, CL_LOCAL},
@@ -139,12 +139,12 @@ CLDeviceImpl::Info CLDeviceVk::createInfo(cl::DeviceType type) const
     info.maxWorkItemSizes.push_back(properties.limits.maxComputeWorkGroupSize[2]);
 
     // TODO(aannestrand) Update these hardcoded platform/device queries
-    // http://anglebug.com/8511
+    // http://anglebug.com/42266935
     info.maxMemAllocSize  = 1 << 30;
     info.memBaseAddrAlign = 1024;
 
     // TODO(aannestrand) Add image and sampler support later
-    // http://anglebug.com/8512
+    // http://anglebug.com/42266936
     info.imageSupport = CL_FALSE;
 
     info.image2D_MaxWidth          = properties.limits.maxImageDimension2D;
@@ -244,6 +244,38 @@ angle::Result CLDeviceVk::createSubDevices(const cl_device_partition_property *p
 {
     UNIMPLEMENTED();
     ANGLE_CL_RETURN_ERROR(CL_OUT_OF_RESOURCES);
+}
+
+cl::WorkgroupSize CLDeviceVk::selectWorkGroupSize(const cl::NDRange &ndrange) const
+{
+    // Limit total work-group size to the Vulkan device's limit
+    const VkPhysicalDeviceProperties &props = mRenderer->getPhysicalDeviceProperties();
+    uint32_t maxSize = static_cast<uint32_t>(mInfoSizeT.at(cl::DeviceInfo::MaxWorkGroupSize));
+    maxSize          = std::min(maxSize, 64u);
+
+    bool keepIncreasing         = false;
+    cl::WorkgroupSize localSize = {1, 1, 1};
+    do
+    {
+        keepIncreasing = false;
+        for (cl_uint i = 0; i < ndrange.workDimensions; i++)
+        {
+            cl::WorkgroupSize newLocalSize = localSize;
+            newLocalSize[i] *= 2;
+
+            // TODO: Add support for non-uniform WGS
+            // http://anglebug.com/42267067
+            if (ndrange.globalWorkSize[i] % newLocalSize[i] == 0 &&
+                newLocalSize[i] <= props.limits.maxComputeWorkGroupCount[i] &&
+                newLocalSize[0] * newLocalSize[1] * newLocalSize[2] <= maxSize)
+            {
+                localSize      = newLocalSize;
+                keepIncreasing = true;
+            }
+        }
+    } while (keepIncreasing);
+
+    return localSize;
 }
 
 }  // namespace rx

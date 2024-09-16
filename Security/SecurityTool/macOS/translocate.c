@@ -86,56 +86,6 @@ static void SafeCFRelease(CFTypeRef ref)
 
 /* return 2 = bad args, anything else is ignored */
 
-int translocate_create(int argc, char * const *argv)
-{
-    int result = -1;
-
-    if (argc != 2)
-    {
-        return SHOW_USAGE_MESSAGE;
-    }
-
-    CFURLRef inUrl = CFURLfromPath(argv[1], PathIsDir(argv[1]));
-    CFURLRef outUrl = NULL;
-    CFErrorRef error = NULL;
-    char* outPath = NULL;
-
-    if(!inUrl)
-    {
-        printf("Error: failed to create url for: %s\n", argv[1]);
-        goto done;
-    }
-
-    outUrl = SecTranslocateCreateSecureDirectoryForURL(inUrl, NULL, &error);
-
-    if (!outUrl)
-    {
-        int err = (int)CFErrorGetCode(error);
-        printf("Error: failed while trying to translocate %s (errno: %d, %s)\n", argv[1], err, strerror(err));
-        goto done;
-    }
-
-    outPath = PathFromCFURL(outUrl);
-
-    if( !outPath )
-    {
-        printf("Error: failed to convert out url to string for %s\n", argv[1]);
-        goto done;
-    }
-
-    printf("Translocation point: (note if this is what you passed in then that path should not be translocated)\n\t%s\n",outPath);
-
-    free(outPath);
-    result = 0;
-
-done:
-    SafeCFRelease(inUrl);
-    SafeCFRelease(outUrl);
-    SafeCFRelease(error);
-
-    return result;
-}
-
 int translocate_policy(int argc, char * const *argv)
 {
     int result = -1;

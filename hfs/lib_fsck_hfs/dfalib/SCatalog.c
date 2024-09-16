@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000, 2002, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002, 2007-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,7 +113,7 @@ UpdateFolderCount(SVCB *vcb, HFSCatalogNodeID pid, const CatalogName *name, SInt
 	if (vcb->vcbSignature == kHFSPlusSigWord) {
 		UInt32		timeStamp;
 
-		timeStamp = GetTimeUTC();
+		timeStamp = GetTimeUTC(vcb->vcbAttributes & kHFSExpandedTimesMask);
 		tempData.hfsPlusFolder.valence += valenceDelta;		// adjust valence
 		tempData.hfsPlusFolder.contentModDate = timeStamp;	// set date/time last modified
 		folderID = tempData.hfsPlusFolder.folderID;
@@ -138,7 +138,7 @@ UpdateFolderCount(SVCB *vcb, HFSCatalogNodeID pid, const CatalogName *name, SInt
 	else
 		vcb->vcbFileCount += valenceDelta;			// adjust volume file count
 	
-	vcb->vcbModifyDate = GetTimeUTC();	// update last modified date
+	vcb->vcbModifyDate = GetTimeUTC(vcb->vcbAttributes & kHFSExpandedTimesMask);	// update last modified date
 	MarkVCBDirty( vcb );
 
 	return result;

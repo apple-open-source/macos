@@ -42,12 +42,16 @@ typedef struct {
     int hiddenSectorsFlag;          // Hidden sectors flag
 } NewfsOptions;
 
-typedef struct format_context_t {
+typedef struct format_context_s {
     void *updater;
     void (*startPhase)(char *description, int64_t pendingUnits, int64_t totalCount, unsigned int *completedCount, void *updater);
     void (*endPhase)(char *description, void *updater);
+    void *resource;
+    size_t (*readHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
+    size_t (*writeHelper)(void *resource, void *buffer, size_t nbytes, off_t offset);
 
 } *format_context;
+
 int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context context);
 int getstdfmt(const char *, struct bpb *);
 int getdiskinfo(NewfsProperties newfsProps, int oflag, struct bpb *bpb);

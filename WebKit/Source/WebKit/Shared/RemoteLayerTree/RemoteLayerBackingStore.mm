@@ -39,7 +39,8 @@
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeLayers.h"
 #import "RemoteLayerTreeNode.h"
-#import "ShareableBitmap.h"
+#import "RemoteLayerWithInProcessRenderingBackingStore.h"
+#import "RemoteLayerWithRemoteRenderingBackingStore.h"
 #import "SwapBuffersDisplayRequirement.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebPageProxy.h"
@@ -54,6 +55,7 @@
 #import <WebCore/ImageBuffer.h>
 #import <WebCore/PlatformCALayerClient.h>
 #import <WebCore/PlatformCALayerDelegatedContents.h>
+#import <WebCore/ShareableBitmap.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <WebCore/WebLayer.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -78,9 +80,9 @@ public:
         return std::unique_ptr<DelegatedContentsFenceFlusher> { new DelegatedContentsFenceFlusher(WTFMove(fence)) };
     }
 
-    void flushAndCollectHandles(HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&) final
+    bool flushAndCollectHandles(HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&) final
     {
-        m_fence->waitFor(delegatedContentsFinishedTimeout);
+        return m_fence->waitFor(delegatedContentsFinishedTimeout);
     }
 
 private:
@@ -91,6 +93,16 @@ private:
     Ref<PlatformCALayerDelegatedContentsFence> m_fence;
 };
 
+}
+
+std::unique_ptr<RemoteLayerBackingStore> RemoteLayerBackingStore::createForLayer(PlatformCALayerRemote* layer)
+{
+    switch (processModelForLayer(layer)) {
+    case ProcessModel::Remote:
+        return makeUnique<RemoteLayerWithRemoteRenderingBackingStore>(layer);
+    case ProcessModel::InProcess:
+        return makeUnique<RemoteLayerWithInProcessRenderingBackingStore>(layer);
+    }
 }
 
 RemoteLayerBackingStore::RemoteLayerBackingStore(PlatformCALayerRemote* layer)
@@ -128,6 +140,13 @@ void RemoteLayerBackingStore::ensureBackingStore(const Parameters& parameters)
 
     m_parameters = parameters;
     clearBackingStore();
+}
+
+RemoteLayerBackingStore::ProcessModel RemoteLayerBackingStore::processModelForLayer(PlatformCALayerRemote* layer)
+{
+    if (WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM) && !layer->needsPlatformContext())
+        return ProcessModel::Remote;
+    return ProcessModel::InProcess;
 }
 
 #if !LOG_DISABLED
@@ -182,60 +201,23 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
 #endif
 }
 
-bool RemoteLayerBackingStoreProperties::decode(IPC::Decoder& decoder, RemoteLayerBackingStoreProperties& result)
-{
-    if (!decoder.decode(result.m_isOpaque))
-        return false;
-
-    if (!decoder.decode(result.m_type))
-        return false;
-
-    if (!decoder.decode(result.m_bufferHandle))
-        return false;
-
-    if (!decoder.decode(result.m_bufferSet))
-        return false;
-
-    if (!decoder.decode(result.m_frontBufferInfo))
-        return false;
-
-    if (!decoder.decode(result.m_backBufferInfo))
-        return false;
-
-    if (!decoder.decode(result.m_secondaryBackBufferInfo))
-        return false;
-
-    if (!decoder.decode(result.m_contentsRenderingResourceIdentifier))
-        return false;
-
-    if (!decoder.decode(result.m_paintedRect))
-        return false;
-
-#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    if (!decoder.decode(result.m_displayListBufferHandle))
-        return false;
-#endif
-
-    return true;
-}
-
 void RemoteLayerBackingStoreProperties::dump(TextStream& ts) const
 {
-    auto dumpBuffer = [&](const char* name, const std::optional<BufferAndBackendInfo>& bufferInfo) {
+    auto dumpBuffer = [&](ASCIILiteral name, const std::optional<BufferAndBackendInfo>& bufferInfo) {
         ts.startGroup();
-        ts << name << " ";
+        ts << name << " "_s;
         if (bufferInfo)
-            ts << bufferInfo->resourceIdentifier << " backend generation " << bufferInfo->backendGeneration;
+            ts << bufferInfo->resourceIdentifier << " backend generation "_s << bufferInfo->backendGeneration;
         else
-            ts << "none";
+            ts << "none"_s;
         ts.endGroup();
     };
-    dumpBuffer("front buffer", m_frontBufferInfo);
-    dumpBuffer("back buffer", m_backBufferInfo);
-    dumpBuffer("secondaryBack buffer", m_secondaryBackBufferInfo);
+    dumpBuffer("front buffer"_s, m_frontBufferInfo);
+    dumpBuffer("back buffer"_s, m_backBufferInfo);
+    dumpBuffer("secondaryBack buffer"_s, m_secondaryBackBufferInfo);
 
-    ts.dumpProperty("is opaque", isOpaque());
-    ts.dumpProperty("has buffer handle", !!bufferHandle());
+    ts.dumpProperty("is opaque"_s, isOpaque());
+    ts.dumpProperty("has buffer handle"_s, !!bufferHandle());
 }
 
 bool RemoteLayerBackingStore::layerWillBeDisplayed()
@@ -247,6 +229,17 @@ bool RemoteLayerBackingStore::layerWillBeDisplayed()
     }
 
     return collection->backingStoreWillBeDisplayed(*this);
+}
+
+bool RemoteLayerBackingStore::layerWillBeDisplayedWithRenderingSuppression()
+{
+    auto* collection = backingStoreCollection();
+    if (!collection) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
+    return collection->backingStoreWillBeDisplayedWithRenderingSuppression(*this);
 }
 
 void RemoteLayerBackingStore::setNeedsDisplay(const IntRect rect)
@@ -273,22 +266,21 @@ bool RemoteLayerBackingStore::usesDeepColorBackingStore() const
     return false;
 }
 
-PixelFormat RemoteLayerBackingStore::pixelFormat() const
+ImageBufferPixelFormat RemoteLayerBackingStore::pixelFormat() const
 {
     if (usesDeepColorBackingStore())
-        return m_parameters.isOpaque ? PixelFormat::RGB10 : PixelFormat::RGB10A8;
+        return m_parameters.isOpaque ? ImageBufferPixelFormat::RGB10 : ImageBufferPixelFormat::RGB10A8;
 
-    return m_parameters.isOpaque ? PixelFormat::BGRX8 : PixelFormat::BGRA8;
+    return m_parameters.isOpaque ? ImageBufferPixelFormat::BGRX8 : ImageBufferPixelFormat::BGRA8;
 }
 
 unsigned RemoteLayerBackingStore::bytesPerPixel() const
 {
     switch (pixelFormat()) {
-    case PixelFormat::RGBA8: return 4;
-    case PixelFormat::BGRX8: return 4;
-    case PixelFormat::BGRA8: return 4;
-    case PixelFormat::RGB10: return 4;
-    case PixelFormat::RGB10A8: return 5;
+    case ImageBufferPixelFormat::BGRX8: return 4;
+    case ImageBufferPixelFormat::BGRA8: return 4;
+    case ImageBufferPixelFormat::RGB10: return 4;
+    case ImageBufferPixelFormat::RGB10A8: return 5;
     }
     return 4;
 }
@@ -465,7 +457,8 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
     m_layer->owner()->platformCALayerLayerDidDisplay(m_layer);
 
     m_previouslyPaintedRect = dirtyBounds;
-    m_frontBufferFlushers.append(createFlusher());
+    if (auto flusher = createFlusher())
+        m_frontBufferFlushers.append(WTFMove(flusher));
 }
 
 void RemoteLayerBackingStore::enumerateRectsBeingDrawn(GraphicsContext& context, void (^block)(FloatRect))
@@ -493,15 +486,15 @@ RetainPtr<id> RemoteLayerBackingStoreProperties::layerContentsBufferFromBackendH
         },
         [&] (MachSendRight& machSendRight) {
             switch (contentsType) {
-            case RemoteLayerBackingStoreProperties::LayerContentsType::IOSurface: {
+            case LayerContentsType::IOSurface: {
                 auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight));
                 contents = surface ? surface->asLayerContents() : nil;
                 break;
             }
-            case RemoteLayerBackingStoreProperties::LayerContentsType::CAMachPort:
+            case LayerContentsType::CAMachPort:
                 contents = bridge_id_cast(adoptCF(CAMachPortCreate(machSendRight.leakSendRight())));
                 break;
-            case RemoteLayerBackingStoreProperties::LayerContentsType::CachedIOSurface:
+            case LayerContentsType::CachedIOSurface:
                 auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(machSendRight));
                 contents = surface ? surface->asCAIOSurfaceLayerContents() : nil;
                 break;
@@ -625,6 +618,24 @@ Vector<std::unique_ptr<ThreadSafeImageBufferSetFlusher>> RemoteLayerBackingStore
     return std::exchange(m_frontBufferFlushers, { });
 }
 
+void RemoteLayerBackingStore::purgeFrontBufferForTesting()
+{
+    if (auto* collection = backingStoreCollection())
+        collection->purgeFrontBufferForTesting(*this);
+}
+
+void RemoteLayerBackingStore::purgeBackBufferForTesting()
+{
+    if (auto* collection = backingStoreCollection())
+        collection->purgeBackBufferForTesting(*this);
+}
+
+void RemoteLayerBackingStore::markFrontBufferVolatileForTesting()
+{
+    if (auto* collection = backingStoreCollection())
+        collection->markFrontBufferVolatileForTesting(*this);
+}
+
 TextStream& operator<<(TextStream& ts, const RemoteLayerBackingStore& backingStore)
 {
     backingStore.dump(ts);
@@ -649,5 +660,8 @@ TextStream& operator<<(TextStream& ts, BackingStoreNeedsDisplayReason reason)
 
     return ts;
 }
+
+RemoteLayerBackingStoreOrProperties::RemoteLayerBackingStoreOrProperties(std::unique_ptr<RemoteLayerBackingStoreProperties>&& properties)
+    : properties(WTFMove(properties)) { }
 
 } // namespace WebKit

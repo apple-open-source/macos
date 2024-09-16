@@ -32,6 +32,7 @@
 
 #import "CocoaHelpers.h"
 #import "Logging.h"
+#import "WebExtensionConstants.h"
 #import "_WKWebExtensionSQLiteDatabase.h"
 #import "_WKWebExtensionSQLiteHelpers.h"
 #import "_WKWebExtensionSQLiteRow.h"
@@ -40,6 +41,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/RunLoop.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/text/MakeString.h>
 
 using namespace WebKit;
 
@@ -77,20 +79,22 @@ using namespace WebKit;
     auto *database = _database;
     _database = nil;
 
-    dispatch_sync(_databaseQueue, ^{
-        [database close];
-    });
+    if (NSThread.isMainThread) {
+        dispatch_sync(_databaseQueue, ^{
+            [database close];
+        });
+
+        return;
+    }
+
+    dispatch_assert_queue(_databaseQueue);
+    [database close];
 }
 
 - (void)deleteDatabaseWithCompletionHandler:(void (^)(NSString *errorMessage))completionHandler
 {
-    auto weakSelf = WeakObjCPtr<_WKWebExtensionSQLiteStore> { self };
     dispatch_async(_databaseQueue, ^{
-        auto strongSelf = weakSelf.get();
-        if (!strongSelf)
-            return;
-
-        NSString *deleteDatabaseErrorMessage = [strongSelf _deleteDatabase];
+        NSString *deleteDatabaseErrorMessage = [self _deleteDatabase];
         dispatch_async(dispatch_get_main_queue(), ^{
             completionHandler(deleteDatabaseErrorMessage);
         });
@@ -116,6 +120,11 @@ using namespace WebKit;
 
 - (BOOL)_openDatabaseIfNecessaryReturningErrorMessage:(NSString **)outErrorMessage
 {
+    return [self _openDatabaseIfNecessaryReturningErrorMessage:(NSString **)outErrorMessage createIfNecessary:YES];
+}
+
+- (BOOL)_openDatabaseIfNecessaryReturningErrorMessage:(NSString **)outErrorMessage createIfNecessary:(BOOL)createIfNecessary
+{
     dispatch_assert_queue(_databaseQueue);
 
     if ([self _isDatabaseOpen]) {
@@ -123,11 +132,13 @@ using namespace WebKit;
         return YES;
     }
 
-    *outErrorMessage = [self _openDatabase:self._databaseURL deleteDatabaseFileOnError:YES];
+    auto accessType = createIfNecessary ? SQLiteDatabaseAccessTypeReadWriteCreate : SQLiteDatabaseAccessTypeReadWrite;
+
+    *outErrorMessage = [self _openDatabase:self._databaseURL withAccessType:accessType deleteDatabaseFileOnError:YES];
     return [self _isDatabaseOpen];
 }
 
-- (NSString *)_openDatabase:(NSURL *)databaseURL deleteDatabaseFileOnError:(BOOL)deleteDatabaseFileOnError
+- (NSString *)_openDatabase:(NSURL *)databaseURL withAccessType:(SQLiteDatabaseAccessType)accessType deleteDatabaseFileOnError:(BOOL)deleteDatabaseFileOnError
 {
     dispatch_assert_queue(_databaseQueue);
     ASSERT(![self _isDatabaseOpen]);
@@ -146,7 +157,13 @@ using namespace WebKit;
 
     // FIXME: rdar://87898825 (unlimitedStorage: Allow the SQLite database to be opened as SQLiteDatabaseAccessTypeReadOnly if the request is to calculate storage size).
     NSError *error;
-    if (![_database openWithAccessType:SQLiteDatabaseAccessTypeReadWriteCreate error:&error]) {
+    if (![_database openWithAccessType:accessType error:&error]) {
+        if (!error && accessType != SQLiteDatabaseAccessTypeReadWriteCreate) {
+            // The file didn't exist and we were not asked to create it.
+            _database = nil;
+            return nil;
+        }
+
         RELEASE_LOG_ERROR(Extensions, "Failed to open database for extension %{private}@: %{public}@", _uniqueIdentifier, privacyPreservingDescription(error));
 
         if (usingDatabaseFile && deleteDatabaseFileOnError)
@@ -198,26 +215,20 @@ using namespace WebKit;
 
     // -shm and -wal files may not exist, so don't report errors for those.
     for (auto& suffix : databaseFileSuffixes)
-        FileSystem::deleteFile(databaseFilePath + suffix);
+        FileSystem::deleteFile(makeString(databaseFilePath, suffix));
 
     if (FileSystem::fileExists(databaseFilePath) && !FileSystem::deleteFile(databaseFilePath)) {
         RELEASE_LOG_ERROR(Extensions, "Failed to delete database for extension %{private}@", _uniqueIdentifier);
         return @"Failed to delete extension storage database file.";
     }
 
-    if (!reopenDatabase)
+    if (!reopenDatabase) {
+        _database = nil;
         return errorMessage;
+    }
 
     // Only try to recover from errors opening the database by deleting the file once.
-    return [self _openDatabase:databaseURL deleteDatabaseFileOnError:NO];
-}
-
-- (void)_deleteExtensionStorageFolderIfEmpty
-{
-    dispatch_assert_queue(_databaseQueue);
-    ASSERT(!_useInMemoryDatabase);
-
-    FileSystem::deleteEmptyDirectory(_directory.path);
+    return [self _openDatabase:databaseURL withAccessType:SQLiteDatabaseAccessTypeReadWriteCreate deleteDatabaseFileOnError:NO];
 }
 
 - (NSString *)_deleteDatabaseIfEmpty
@@ -235,8 +246,10 @@ using namespace WebKit;
 
     NSString *databaseCloseErrorMessage;
     if ([self _isDatabaseOpen]) {
-        if ([_database close] != SQLITE_OK)
+        if ([_database close] != SQLITE_OK) {
+            RELEASE_LOG_ERROR(Extensions, "Failed to close storage database for extension %{private}@", _uniqueIdentifier);
             databaseCloseErrorMessage = @"Failed to close extension storage database.";
+        }
         _database = nil;
     }
 
@@ -244,9 +257,6 @@ using namespace WebKit;
         return databaseCloseErrorMessage;
 
     NSString *deleteDatabaseFileErrorMessage = [self _deleteDatabaseFileAtURL:self._databaseURL reopenDatabase:NO];
-
-    // We don't tell the extension if we fail to delete the enclosing folder since it only cares whether the database itself was deleted.
-    [self _deleteExtensionStorageFolderIfEmpty];
 
     // An error from closing the database takes precedence over an error deleting the database file.
     return databaseCloseErrorMessage.length ? databaseCloseErrorMessage : deleteDatabaseFileErrorMessage;

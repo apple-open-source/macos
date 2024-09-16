@@ -25,6 +25,7 @@
 
 #include "DACallback.h"
 #include "DAServer.h"
+#include "DASupport.h"
 
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -47,6 +48,9 @@ struct __DASession
     mach_port_t         _server;
     DASessionState      _state;
     bool                _keepAlive;
+#ifdef DA_FSKIT
+    bool                _isFskitd;
+#endif
 };
 
 typedef struct __DASession __DASession;
@@ -118,6 +122,9 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         session->_server        = NULL;
         session->_state         = 0;
         session->_keepAlive     = false;
+#ifdef DA_FSKIT
+        session->_isFskitd      = false;
+#endif
 
         assert( session->_queue    );
         assert( session->_register );
@@ -253,6 +260,16 @@ mach_port_t DASessionGetID( DASessionRef session )
     return session->_server;
 }
 
+Boolean DASessionGetIsFSKitd( DASessionRef session )
+{
+#ifdef DA_FSKIT
+
+    return session->_isFskitd;
+#else
+    return FALSE;   /* No FSKit on this platform, no fskitd */
+#endif
+}
+
 Boolean DASessionGetOption( DASessionRef session, DASessionOption option )
 {
     return ( session->_options & option ) ? TRUE : FALSE;
@@ -381,6 +398,13 @@ void DASessionSetClientPort( DASessionRef session, mach_port_t client )
         }
     }
 }
+
+#ifdef DA_FSKIT
+void DASessionSetIsFSKitd( DASessionRef session, Boolean value )
+{
+    session->_isFskitd = value;
+}
+#endif
 
 void DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value )
 {

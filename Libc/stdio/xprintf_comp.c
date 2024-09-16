@@ -37,7 +37,7 @@ void
 free_printf_comp(printf_comp_t pc)
 {
     if(!pc) return;
-    XL_RELEASE(pc->loc);
+    xlocale_release(pc->loc);
 #ifdef XPRINTF_PERF
     arrayfree(pc->pa);
     free(pc->pa);
@@ -71,7 +71,7 @@ new_printf_comp(printf_domain_t restrict domain, locale_t loc, const char * rest
     pc->fmt = (const char *)(pc + 1);
     strcpy((char *)pc->fmt, fmt);
     DEFAULT_CURRENT_LOCALE(loc);
-    XL_RETAIN(loc);
+    xlocale_retain(loc);
     pc->loc = loc;
     xprintf_domain_init();
     pthread_rwlock_rdlock(&domain->rwlock);
@@ -79,7 +79,7 @@ new_printf_comp(printf_domain_t restrict domain, locale_t loc, const char * rest
     saverrno = errno;
     pthread_rwlock_unlock(&domain->rwlock);
     if(ret < 0) {
-	XL_RELEASE(loc);
+	xlocale_release(loc);
 	pthread_mutex_destroy(&pc->mutex);
 	free(pc);
 	errno = saverrno;

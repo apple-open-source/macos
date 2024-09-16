@@ -28,7 +28,16 @@
 #include "CachedResource.h"
 #include "CachedResourceRequest.h"
 #include "ScriptType.h"
-#include <wtf/CheckedRef.h>
+#include <wtf/WeakRef.h>
+
+namespace WebCore {
+class HTMLResourcePreloader;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::HTMLResourcePreloader> : std::true_type { };
+}
 
 namespace WebCore {
 

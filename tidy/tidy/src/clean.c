@@ -46,6 +46,7 @@
 
 */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -716,9 +717,8 @@ static void MergeClasses(TidyDocImpl* doc, Node *node, Node *child)
     {
         if (s2)  /* merge class names from both */
         {
-            uint l1, l2;
-            l1 = TY_(tmbstrlen)(s1);
-            l2 = TY_(tmbstrlen)(s2);
+            size_t l1 = TY_(tmbstrlen)(s1);
+            size_t l2 = TY_(tmbstrlen)(s2);
             names = (tmbstr) MemAlloc(l1 + l2 + 2);
             TY_(tmbstrcpy)(names, s1);
             names[l1] = ' ';
@@ -1780,7 +1780,9 @@ void TY_(NormalizeSpaces)(Lexer *lexer, Node *node)
 
                 p = TY_(PutUTF8)(p, c);
             }
-            node->end = p - lexer->lexbuf;
+            intptr_t len = p - lexer->lexbuf;
+            assert( len >= 0 && len <= UINT_MAX );
+            node->end = (uint)len;
         }
 
         node = node->next;
@@ -2158,7 +2160,7 @@ void TY_(VerifyHTTPEquiv)(TidyDocImpl* pDoc, Node *head)
     Node *pNode;
     StyleProp *pFirstProp = NULL, *pLastProp = NULL, *prop = NULL;
     tmbstr s, pszBegin, pszEnd;
-    ctmbstr enc = TY_(GetEncodingNameFromTidyId)(cfg(pDoc, TidyOutCharEncoding));
+    ctmbstr enc = TY_(GetEncodingNameFromTidyId)((uint)cfg(pDoc, TidyOutCharEncoding));
 
     if (!enc)
         return;
@@ -2380,7 +2382,9 @@ void TY_(DowngradeTypography)(TidyDocImpl* doc, Node* node)
                 p = TY_(PutUTF8)(p, c);
             }
 
-            node->end = p - lexer->lexbuf;
+            intptr_t len = p - lexer->lexbuf;
+            assert( len >= 0 && len <= UINT_MAX );
+            node->end = (uint)len;
         }
 
         if (node->content)

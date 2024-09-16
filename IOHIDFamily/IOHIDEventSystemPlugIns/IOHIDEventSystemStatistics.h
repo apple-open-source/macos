@@ -65,13 +65,23 @@ private:
         uint32_t                    cursor_count;
         uint32_t                    modifier_count;
     } KeyStats;
+    
+    typedef struct {
+        uint32_t                    press_count;
+        uint32_t                    rotation_clockwise;
+        int32_t                     rotation_counterclockwise;
+        bool                        updated;
+    } CrownStats;
 
     Buttons _pending_buttons;
     KeyStats _pending_keystats;
+    CrownStats _pending_crownstats;
     
     CFMutableSetRef             _keyServices;
     CFMutableDictionaryRef      _multiPressServices;
-    
+    IOHIDServiceRef             _crownService;
+    IOHIDServiceRef             _buttonService;
+
     IOHIDEventRef               _attachEvent;
         
 private:
@@ -89,6 +99,8 @@ private:
 
     void registerKeyboardService(IOHIDServiceRef service);
     void registerMultiPressService(IOHIDServiceRef service);
+    void registerCrownService(IOHIDServiceRef service);
+    void registerButtonService(IOHIDServiceRef service);
     
     static void scheduleWithDispatchQueue(void * self, dispatch_queue_t queue);
     static void unscheduleFromDispatchQueue(void * self, dispatch_queue_t queue);

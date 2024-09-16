@@ -74,7 +74,6 @@ typedef struct {
     SCNetworkReachabilityRef	reach;		/* resolves DNS name */
     CFStringRef			signature;	/* signature of IPv4 service */
     SCDynamicStoreRef		store;		/* notify on primary changes */
-    CFRunLoopSourceRef		store_rls;	
 } Service_stf_t;
 
 
@@ -183,9 +182,7 @@ stf_reachability_callback(SCNetworkReachabilityRef target,
 		   IP_LIST(&sin->sin_addr));
 
 	    /* don't need the reachability any longer */
-	    SCNetworkReachabilityUnscheduleFromRunLoop(stf->reach,
-						       CFRunLoopGetCurrent(),
-						       kCFRunLoopDefaultMode);
+	    SCNetworkReachabilitySetDispatchQueue(stf->reach, NULL);
 	    my_CFRelease(&stf->reach);
 	    make_6to4_addr(sin->sin_addr, &relay, FALSE);
 	    if (IN6_ARE_ADDR_EQUAL(&stf->relay, &relay) == FALSE) {
@@ -211,9 +208,7 @@ stf_set_relay_hostname(ServiceRef service_p, const char * relay_hostname)
 	stf->relay_hostname = NULL;
     }
     if (stf->reach != NULL) {
-	SCNetworkReachabilityUnscheduleFromRunLoop(stf->reach,
-						   CFRunLoopGetCurrent(),
-						   kCFRunLoopDefaultMode);
+	SCNetworkReachabilitySetDispatchQueue(stf->reach, NULL);
 	my_CFRelease(&stf->reach);
     }
     if (relay_hostname == NULL) {
@@ -239,9 +234,8 @@ stf_set_relay_hostname(ServiceRef service_p, const char * relay_hostname)
 	my_CFRelease(&stf->reach);
 	
     }
-    SCNetworkReachabilityScheduleWithRunLoop(stf->reach,
-					     CFRunLoopGetCurrent(),
-					     kCFRunLoopDefaultMode);
+    SCNetworkReachabilitySetDispatchQueue(stf->reach,
+					  IPConfigurationAgentQueue());
     my_log(LOG_INFO, "6TO4 %s: resolving %s", if_name(if_p),
 	   relay_hostname);
     stf->relay_hostname = strdup(relay_hostname);
@@ -481,9 +475,12 @@ stf_configure_address(ServiceRef service_p)
     array = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
     SCDynamicStoreSetNotificationKeys(stf->store, array, NULL);
     CFRelease(array);
-    stf->store_rls = SCDynamicStoreCreateRunLoopSource(NULL, stf->store, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), stf->store_rls,
-		       kCFRunLoopDefaultMode);
+    if (!SCDynamicStoreSetDispatchQueue(stf->store,
+					IPConfigurationAgentQueue())) {
+	my_log(LOG_NOTICE,
+	       "%s: SCDynamicStoreSetDispatchQueue failed",
+	       __func__);
+    }
 
     /* grab the current value */
     dict = copy_service_information(stf->store, key);
@@ -625,15 +622,13 @@ stf_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	my_log(LOG_DEBUG, "6TO4 %s: stop", if_name(if_p));
 	stf_set_relay_hostname(service_p, NULL);
-	if (stf->store_rls != NULL) {
-	    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), stf->store_rls,
-				  kCFRunLoopDefaultMode);
-	    my_CFRelease(&stf->store_rls);
-	}
 	if (stf->local_ip.s_addr != 0) {
 	    /* remove the address */
 	    make_6to4_addr(stf->local_ip, &local_ip6, TRUE);
 	    ServiceRemoveIPv6Address(service_p, &local_ip6, STF_PREFIX_LENGTH);
+	}
+	if (stf->store != NULL) {
+	    SCDynamicStoreSetDispatchQueue(stf->store, NULL);
 	}
 	my_CFRelease(&stf->store);
 	my_CFRelease(&stf->signature);

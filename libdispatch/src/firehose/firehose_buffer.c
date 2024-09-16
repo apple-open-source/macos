@@ -1149,10 +1149,6 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 	// really it's waiting on itself. It's better for the scheduler if we
 	// make it clear that we're waiting on ourselves!
 
-#if FIREHOSE_YIELD_TO_ENQUEUER
-	_dispatch_set_enqueuer_for(fbh_ring_head);
-#endif // FIREHOSE_YIELD_TO_ENQUEUER
-
 	head = os_atomic_load(fbh_ring_head, relaxed);
 	for (;;) {
 		gen = head & FIREHOSE_RING_POS_GEN_MASK;
@@ -1161,18 +1157,29 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 		// a thread being preempted here for GEN_MASK worth of ring rotations,
 		// it could lead to the cmpxchg succeed, and have a bogus enqueue
 		// (confused enqueuer)
+#if FIREHOSE_YIELD_TO_ENQUEUER
+		_dispatch_set_enqueuer_for(fbh_ring_head);
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
 		if (likely(os_atomic_cmpxchgv(&fbh_ring[idx], gen, gen | ref, &dummy,
 				relaxed))) {
 			if (likely(os_atomic_cmpxchgv(fbh_ring_head, head, head + 1,
 					&head, release))) {
 				__firehose_critical_region_leave();
+#if FIREHOSE_YIELD_TO_ENQUEUER
+				_dispatch_clear_enqueuer();
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
 				break;
 			}
 			// this thread is a confused enqueuer, need to undo enqueue
 			os_atomic_store(&fbh_ring[idx], gen, relaxed);
+#if FIREHOSE_YIELD_TO_ENQUEUER
+			_dispatch_clear_enqueuer();
+#endif // FIREHOSE_YIELD_TO_ENQUEUER
 			continue;
 		}
+
 #if FIREHOSE_YIELD_TO_ENQUEUER
+		_dispatch_clear_enqueuer();
 		_dispatch_wait_for_enqueuer_until(fbh_ring_head, ({
 			// wait until either the head moves (another enqueuer is done)
 			// or (not very likely) a recycler is very slow
@@ -1192,12 +1199,9 @@ firehose_buffer_ring_enqueue(firehose_buffer_t fb, firehose_chunk_ref_t ref)
 		}));
 #endif // FIREHOSE_YIELD_TO_ENQUEUER
 	}
-#if FIREHOSE_YIELD_TO_ENQUEUER
-	_dispatch_clear_enqueuer();
-#endif // FIREHOSE_YIELD_TO_ENQUEUER
 
 	firehose_client_send_push_async(fb, QOS_CLASS_UNSPECIFIED, for_io);
-#endif
+#endif // KERNEL
 }
 
 #ifndef KERNEL

@@ -32,6 +32,7 @@
 #include "RemoteImageBufferSetProxyMessages.h"
 #include "RemoteRenderingBackend.h"
 #include "RemoteRenderingBackendProxyMessages.h"
+#include <WebCore/GraphicsContext.h>
 
 #if PLATFORM(COCOA)
 #include <WebCore/PlatformCALayer.h>
@@ -48,14 +49,14 @@
 
 namespace WebKit {
 
-Ref<RemoteImageBufferSet> RemoteImageBufferSet::create(RemoteImageBufferSetIdentifier identifier, RenderingResourceIdentifier displayListIdentifier, RemoteRenderingBackend& backend)
+Ref<RemoteImageBufferSet> RemoteImageBufferSet::create(RemoteImageBufferSetIdentifier identifier, WebCore::RenderingResourceIdentifier displayListIdentifier, RemoteRenderingBackend& backend)
 {
     auto instance = adoptRef(*new RemoteImageBufferSet(identifier, displayListIdentifier, backend));
     instance->startListeningForIPC();
     return instance;
 }
 
-RemoteImageBufferSet::RemoteImageBufferSet(RemoteImageBufferSetIdentifier identifier, RenderingResourceIdentifier displayListIdentifier, RemoteRenderingBackend& backend)
+RemoteImageBufferSet::RemoteImageBufferSet(RemoteImageBufferSetIdentifier identifier, WebCore::RenderingResourceIdentifier displayListIdentifier, RemoteRenderingBackend& backend)
     : m_identifier(identifier)
     , m_displayListIdentifier(displayListIdentifier)
     , m_backend(&backend)
@@ -92,7 +93,7 @@ IPC::StreamConnectionWorkQueue& RemoteImageBufferSet::workQueue() const
     return m_backend->workQueue();
 }
 
-void RemoteImageBufferSet::updateConfiguration(const FloatSize& logicalSize, RenderingMode renderingMode, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat)
+void RemoteImageBufferSet::updateConfiguration(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode renderingMode, float resolutionScale, const WebCore::DestinationColorSpace& colorSpace, WebCore::ImageBufferPixelFormat pixelFormat)
 {
     m_logicalSize = logicalSize;
     m_renderingMode = renderingMode;
@@ -144,9 +145,9 @@ void RemoteImageBufferSet::ensureBufferForDisplay(ImageBufferSetPrepareBufferFor
     bool needsFullDisplay = false;
     if (m_frontBuffer) {
         auto previousState = m_frontBuffer->setNonVolatile();
-        if (previousState == SetNonVolatileResult::Empty) {
+        if (previousState == WebCore::SetNonVolatileResult::Empty) {
             needsFullDisplay = true;
-            inputData.dirtyRegion = IntRect { { }, expandedIntSize(m_logicalSize) };
+            inputData.dirtyRegion = WebCore::IntRect { { }, expandedIntSize(m_logicalSize) };
         }
     }
 
@@ -174,13 +175,18 @@ void RemoteImageBufferSet::ensureBufferForDisplay(ImageBufferSetPrepareBufferFor
 
         if (m_frontBuffer) {
             auto previousState = m_frontBuffer->setNonVolatile();
-            if (previousState == SetNonVolatileResult::Empty)
+            if (previousState == WebCore::SetNonVolatileResult::Empty)
                 m_previouslyPaintedRect = std::nullopt;
         }
     }
 
     if (!m_frontBuffer) {
-        m_frontBuffer = m_backend->allocateImageBuffer(m_logicalSize, m_renderingMode, WebCore::RenderingPurpose::LayerBacking, m_resolutionScale, m_colorSpace, m_pixelFormat, RenderingResourceIdentifier::generate());
+        WebCore::ImageBufferCreationContext creationContext;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+        creationContext.dynamicContentScalingResourceCache = ensureDynamicContentScalingResourceCache();
+#endif
+
+        m_frontBuffer = m_backend->allocateImageBuffer(m_logicalSize, m_renderingMode, WebCore::RenderingPurpose::LayerBacking, m_resolutionScale, m_colorSpace, m_pixelFormat, WTFMove(creationContext), WebCore::RenderingResourceIdentifier::generate());
         m_frontBufferIsCleared = true;
     }
 
@@ -200,35 +206,35 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
         return;
     }
 
-    FloatRect bufferBounds { { }, m_logicalSize };
+    WebCore::FloatRect bufferBounds { { }, m_logicalSize };
 
-    GraphicsContext& context = m_frontBuffer->context();
+    WebCore::GraphicsContext& context = m_frontBuffer->context();
     context.resetClip();
 
-    FloatRect copyRect;
+    WebCore::FloatRect copyRect;
     if (m_previousFrontBuffer && m_frontBuffer != m_previousFrontBuffer) {
-        IntRect enclosingCopyRect { m_previouslyPaintedRect ? *m_previouslyPaintedRect : enclosingIntRect(bufferBounds) };
+        WebCore::IntRect enclosingCopyRect { m_previouslyPaintedRect ? *m_previouslyPaintedRect : enclosingIntRect(bufferBounds) };
         if (!dirtyRegion.contains(enclosingCopyRect)) {
-            Region copyRegion(enclosingCopyRect);
+            WebCore::Region copyRegion(enclosingCopyRect);
             copyRegion.subtract(dirtyRegion);
             copyRect = intersection(copyRegion.bounds(), bufferBounds);
             if (!copyRect.isEmpty())
-                m_frontBuffer->context().drawImageBuffer(*m_previousFrontBuffer, copyRect, copyRect, { CompositeOperator::Copy });
+                m_frontBuffer->context().drawImageBuffer(*m_previousFrontBuffer, copyRect, copyRect, { WebCore::CompositeOperator::Copy });
         }
     }
 
     auto dirtyRects = dirtyRegion.rects();
 #if PLATFORM(COCOA)
-    IntRect dirtyBounds = dirtyRegion.bounds();
+    WebCore::IntRect dirtyBounds = dirtyRegion.bounds();
     if (dirtyRects.size() > PlatformCALayer::webLayerMaxRectsToPaint || dirtyRegion.totalArea() > PlatformCALayer::webLayerWastedSpaceThreshold * dirtyBounds.width() * dirtyBounds.height()) {
         dirtyRects.clear();
         dirtyRects.append(dirtyBounds);
     }
 #endif
 
-    Vector<FloatRect, 5> paintingRects;
+    Vector<WebCore::FloatRect, 5> paintingRects;
     for (const auto& rect : dirtyRects) {
-        FloatRect scaledRect(rect);
+        WebCore::FloatRect scaledRect(rect);
         scaledRect.scale(m_resolutionScale);
         scaledRect = enclosingIntRect(scaledRect);
         scaledRect.scale(1 / m_resolutionScale);
@@ -243,7 +249,7 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
     if (paintingRects.size() == 1)
         context.clip(paintingRects[0]);
     else {
-        Path clipPath;
+        WebCore::Path clipPath;
         for (auto rect : paintingRects)
             clipPath.addRect(rect);
         context.clipPath(clipPath);
@@ -257,16 +263,20 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
     m_frontBufferIsCleared = false;
 }
 
-bool RemoteImageBufferSet::makeBuffersVolatile(OptionSet<BufferInSetType> requestedBuffers, OptionSet<BufferInSetType>& volatileBuffers)
+bool RemoteImageBufferSet::makeBuffersVolatile(OptionSet<BufferInSetType> requestedBuffers, OptionSet<BufferInSetType>& volatileBuffers, bool forcePurge)
 {
     bool allSucceeded = true;
 
-    auto makeVolatile = [](ImageBuffer& imageBuffer) {
+    auto makeVolatile = [&](WebCore::ImageBuffer& imageBuffer) {
+        if (forcePurge) {
+            imageBuffer.setVolatileAndPurgeForTesting();
+            return true;
+        }
         imageBuffer.releaseGraphicsContext();
         return imageBuffer.setVolatile();
     };
 
-    auto makeBufferTypeVolatile = [&](BufferInSetType type, RefPtr<ImageBuffer> imageBuffer) {
+    auto makeBufferTypeVolatile = [&](BufferInSetType type, RefPtr<WebCore::ImageBuffer> imageBuffer) {
         if (requestedBuffers.contains(type) && imageBuffer) {
             if (makeVolatile(*imageBuffer))
                 volatileBuffers.add(type);
@@ -289,6 +299,13 @@ void RemoteImageBufferSet::dynamicContentScalingDisplayList(CompletionHandler<vo
     if (m_frontBuffer)
         displayList = m_frontBuffer->dynamicContentScalingDisplayList();
     completionHandler({ WTFMove(displayList) });
+}
+
+DynamicContentScalingResourceCache RemoteImageBufferSet::ensureDynamicContentScalingResourceCache()
+{
+    if (!m_dynamicContentScalingResourceCache)
+        m_dynamicContentScalingResourceCache = DynamicContentScalingResourceCache::create();
+    return m_dynamicContentScalingResourceCache;
 }
 #endif
 

@@ -64,7 +64,7 @@ IFIndexHash(const void *ptr)
 static CFStringRef
 IFIndexCopyDescription(const void *ptr)
 {
-    return CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), (IFIndex)ptr);
+    return CFStringCreateWithFormat(NULL, NULL, CFSTR("%u"), (IFIndex)ptr);
 }
 
 static CFDictionaryKeyCallBacks
@@ -111,9 +111,9 @@ PRIVATE_EXTERN void
 effective_ifindex_free(void)
 {
 	if (S_effective_ifindex_cache != NULL) {
-		my_log(LOG_DEBUG, "%s: count %lu",
+		my_log(LOG_DEBUG, "%s: count %ld",
 		       __func__,
-		       CFDictionaryGetCount(S_effective_ifindex_cache));
+		       (long)CFDictionaryGetCount(S_effective_ifindex_cache));
 		__SC_CFRELEASE(S_effective_ifindex_cache);
 	}
 }
@@ -152,7 +152,7 @@ effective_ifindex_get(const char * ifname, IFIndex ifindex)
 		}
 		else {
 			my_log(LOG_NOTICE,
-			       "%s: %s (%d): effective %s (%d)",
+			       "%s: %s (%u): effective %s (%u)",
 			       __func__, ifname, ifindex,
 			       effective_ifname, effective_ifindex);
 			effective_ifindex_add(ifindex, effective_ifindex);
@@ -340,7 +340,7 @@ my_if_indextoname2(IFIndex ifindex, char ifname[IFNAMSIZ])
 		return (NULL);
 	}
 	if (my_if_indextoname(ifindex, ifname) == NULL) {
-		snprintf(ifname, IFNAMSIZ, "[%d]", ifindex);
+		snprintf(ifname, IFNAMSIZ, "[%u]", ifindex);
 	}
 	return (ifname);
 }

@@ -61,6 +61,7 @@
 	state.debugLeftReason						= plist[@"debugLeftReason"];
 	state.pendingApplicationReminderInterval	= plist[@"pendingApplicationReminderInterval"];
 	state.absentCircleWithNoReason				= plist[@"absentCircleWithNoReason"] ? [plist[@"absentCircleWithNoReason"] intValue] : NO;
+    state.applicantNotificationTimestamp        = plist[@"applicantNotificationTimestamp"] ?: [NSDate distantPast];
 
     if (!state.pendingApplicationReminderInterval || [state.pendingApplicationReminderInterval doubleValue] <= 0) {
         state.pendingApplicationReminderInterval = [NSNumber numberWithUnsignedInt: 24*60*60];
@@ -77,6 +78,7 @@
 									@"pendingApplicationReminder"		 : self.pendingApplicationReminder,
 									@"pendingApplicationReminderInterval": self.pendingApplicationReminderInterval,
 									@"absentCircleWithNoReason" 		 : [NSNumber numberWithBool:self.absentCircleWithNoReason],
+                                    @"applicantNotificationTimestamp"    : self.applicantNotificationTimestamp ?: [NSDate distantPast]
 								   } mutableCopy];
 	if (self.debugLeftReason)
 		plist[@"debugLeftReason"] = self.debugLeftReason;

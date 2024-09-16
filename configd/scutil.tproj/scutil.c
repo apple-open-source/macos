@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -114,8 +114,9 @@ static const struct option longopts[] = {
 	{ "advisory",		required_argument,	NULL,	0	},
 	{ "rank",		required_argument,	NULL,	0	},
 #if	!TARGET_OS_IPHONE
-	{ "allow-new-interfaces", no_argument,		NULL,	0	},
+	{ ALLOW_NEW_INTERFACES, no_argument,		NULL,	0	},
 #endif	// !TARGET_OS_IPHONE
+	{ CONFIGURE_NEW_INTERFACES, no_argument,	NULL,	0	},
 	{ DISABLE_UNTIL_NEEDED, no_argument,		NULL,	0	},
 	{ DISABLE_PRIVATE_RELAY, no_argument,		NULL,	0	},
 	{ ENABLE_LOW_DATA_MODE, no_argument,		NULL,	0	},
@@ -445,12 +446,15 @@ usage(const char *command)
 		SCPrint(TRUE, stderr, CFSTR("\tmanage service coupling.\n"));
 	}
 
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --renew [interface-name]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tre-evaluate network configuration on the interface.\n"));
+
 #if	!TARGET_OS_IPHONE
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-	SCPrint(TRUE, stderr, CFSTR("   or: %s --allow-new-interfaces [off|on]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --" ALLOW_NEW_INTERFACES " [off|on]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tmanage new interface creation with screen locked.\n"));
 #endif	// !TARGET_OS_IPHONE
-
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --net\n"), command);
@@ -485,6 +489,7 @@ main(int argc, char * const argv[])
 	Boolean			allowNewInterfaces	= FALSE;
 #endif	// !TARGET_OS_IPHONE
 	Boolean			configuration		= FALSE;
+	Boolean			configureNewInterfaces	= FALSE;
 	Boolean			disableServiceCoupling	= FALSE;
 	Boolean			disableUntilNeeded	= FALSE;
 	Boolean			disablePrivateRelay	= FALSE;
@@ -592,10 +597,15 @@ main(int argc, char * const argv[])
 				log = optarg;
 				xStore++;
 #if	!TARGET_OS_IPHONE
-			} else if (strcmp(longopts[opti].name, "allow-new-interfaces") == 0) {
+			} else if (strcmp(longopts[opti].name,
+					  ALLOW_NEW_INTERFACES) == 0) {
 				allowNewInterfaces = TRUE;
 				xStore++;
 #endif	// !TARGET_OS_IPHONE
+			} else if (strcmp(longopts[opti].name,
+					  CONFIGURE_NEW_INTERFACES) == 0) {
+				configureNewInterfaces = TRUE;
+				xStore++;
 			} else if (strcmp(longopts[opti].name, DISABLE_UNTIL_NEEDED) == 0) {
 				disableUntilNeeded = TRUE;
 				xStore++;
@@ -706,7 +716,7 @@ main(int argc, char * const argv[])
 	if (error != NULL) {
 		int	sc_status	= atoi(error);
 
-		SCPrint(TRUE, stdout, CFSTR("Error: 0x%08x %d %s\n"),
+		SCPrint(TRUE, stdout, CFSTR("Error: 0x%08d %d %s\n"),
 			sc_status,
 			sc_status,
 			SCErrorString(sc_status));
@@ -770,11 +780,17 @@ main(int argc, char * const argv[])
 #if	!TARGET_OS_IPHONE
 	/* allowNewInterfaces */
 	if (allowNewInterfaces) {
-		do_ifnamer("allow-new-interfaces", argc, argv);
+		do_allow_new_interfaces(ALLOW_NEW_INTERFACES, argc, argv);
 		exit(0);
 	}
 #endif	// !TARGET_OS_IPHONE
 
+	/* configureNewInterfaces */
+	if (configureNewInterfaces) {
+		do_configure_new_interfaces(CONFIGURE_NEW_INTERFACES,
+					    argc, argv);
+		exit(0);
+	}
 	/* disableUntilNeeded */
 	if (disableUntilNeeded) {
 		do_disable_until_needed(argc, argv);

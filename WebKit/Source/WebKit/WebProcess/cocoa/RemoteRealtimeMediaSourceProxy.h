@@ -64,7 +64,7 @@ public:
     void createRemoteCloneSource(WebCore::RealtimeMediaSourceIdentifier, WebCore::PageIdentifier);
 
     void applyConstraintsSucceeded();
-    void applyConstraintsFailed(String&& failedConstraint, String&& errorMessage);
+    void applyConstraintsFailed(WebCore::MediaConstraintType, String&& errorMessage);
     void failApplyConstraintCallbacks(const String& errorMessage);
 
     bool isEnded() const { return m_isEnded; }
@@ -90,7 +90,11 @@ public:
 
     void updateConnection();
 
+    bool isPowerEfficient() const;
+
 private:
+    struct PromiseConverter;
+
     WebCore::RealtimeMediaSourceIdentifier m_identifier;
     Ref<IPC::Connection> m_connection;
     WebCore::CaptureDevice m_device;

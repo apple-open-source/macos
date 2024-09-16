@@ -1124,9 +1124,11 @@ hfs_set_compressed_fflag(struct archive_write_disk *a)
 
 		a->st.st_flags |= UF_COMPRESSED;
 		if (fchflags(a->fd, a->st.st_flags) != 0) {
-			archive_set_error(&a->archive, errno,
-							  "Failed to set UF_COMPRESSED file flag");
-			return (ARCHIVE_WARN);
+			if (errno != ENOTSUP) {
+				archive_set_error(&a->archive, errno,
+								"Failed to set UF_COMPRESSED file flag");
+				return (ARCHIVE_WARN);
+			}
 		}
 	}
 
@@ -4072,6 +4074,21 @@ set_fflags_platform(struct archive_write_disk *a, int fd, const char *name,
 
 	if (a->user_uid != 0)
 		a->st.st_flags &= ~sf_mask;
+
+	// UF_COMPRESSED needs speecial handling
+#ifdef __APPLE__
+#if defined(UF_COMPRESSED)
+	if (a->st.st_flags & UF_COMPRESSED) {
+		// hfs_set_compressed_fflag is essentially a wrapper that tries
+		// to set UF_COMPRESSED correctly
+		// If it returns archive warn then we cannot set the flags
+		// and need to remove it from the set
+		if (hfs_set_compressed_fflag(a) == ARCHIVE_WARN) {
+			a->st.st_flags &= ~UF_COMPRESSED;
+		}
+	}
+#endif
+#endif // __APPLE__
 
 #ifdef HAVE_FCHFLAGS
 	/* If platform has fchflags() and we were given an fd, use it. */

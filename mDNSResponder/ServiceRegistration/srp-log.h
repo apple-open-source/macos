@@ -69,19 +69,21 @@
 #else // ifdef THREAD_DEVKIT_ADK
 
 #    ifdef LOG_FPRINTF_STDERR
+void srp_log_timestamp(char *buf, size_t bufsize);
+extern bool srp_log_timestamp_relative;
 #        define OPENLOG(progname, consolep) do { (void)(consolep); (void)progname; } while (0)
-#        define ERROR(fmt, ...) fprintf(stderr, "%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
-#        define INFO(fmt, ...)  fprintf(stderr, "%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
-#        define FAULT(fmt, ...) fprintf(stderr, "%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
+#        define SRP_LOG_TIME char srp_log_time_buf[32]; srp_log_timestamp(srp_log_time_buf, sizeof(srp_log_time_buf))
+#        define ERROR(fmt, ...) do { SRP_LOG_TIME; fprintf(stderr, "%s %s: " fmt "\n", srp_log_time_buf, __FUNCTION__, ##__VA_ARGS__); } while (0)
+#        define INFO(fmt, ...)  do { SRP_LOG_TIME; fprintf(stderr, "%s %s: " fmt "\n", srp_log_time_buf, __FUNCTION__, ##__VA_ARGS__); } while (0)
 #        ifdef DEBUG_VERBOSE
 #            ifdef IOLOOP_MACOS
                 int get_num_fds(void);
 #            endif // ifdef IOLOOP_MACOS
-#            define DEBUG(fmt, ...) fprintf(stderr, "%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
+#            define DEBUG(fmt, ...)  do { SRP_LOG_TIME; fprintf(stderr, "%s %s: " fmt "\n", srp_log_time_buf, __FUNCTION__, ##__VA_ARGS__); } while (0)
 #        else // ifdef DEBUG_VERBOSE
 #            define DEBUG(fmt, ...)
 #        endif
-#        define FAULT(fmt, ...) fprintf(stderr, "%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
+#        define FAULT(fmt, ...) do { SRP_LOG_TIME; fprintf(stderr, "%s %s: " fmt "\n", srp_log_time_buf, __FUNCTION__, ##__VA_ARGS__); } while (0)
 #    else // ifdef LOG_FPRINTF_STDERR
 #        include <syslog.h>
 

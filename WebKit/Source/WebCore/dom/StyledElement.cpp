@@ -138,7 +138,7 @@ void StyledElement::setInlineStyleFromString(const AtomString& newStyleString)
     if (RefPtr mutableStyleProperties = dynamicDowncast<MutableStyleProperties>(inlineStyle))
         mutableStyleProperties->parseDeclaration(newStyleString, protectedDocument().get());
     else
-        inlineStyle = CSSParser::parseInlineStyleDeclaration(newStyleString, this);
+        inlineStyle = CSSParser::parseInlineStyleDeclaration(newStyleString, *this);
 
     if (usesStyleBasedEditability(*inlineStyle))
         protectedDocument()->setHasElementUsingStyleBasedEditability();
@@ -158,8 +158,22 @@ void StyledElement::styleAttributeChanged(const AtomString& newStyleString, Attr
 
     elementData()->setStyleAttributeIsDirty(false);
 
-    invalidateStyleInternal();
+    Node::invalidateStyle(Style::Validity::InlineStyleInvalid);
     InspectorInstrumentation::didInvalidateStyleAttr(*this);
+}
+
+void StyledElement::dirtyStyleAttribute()
+{
+    elementData()->setStyleAttributeIsDirty(true);
+
+    if (styleResolver().ruleSets().hasSelectorsForStyleAttribute()) {
+        if (auto* inlineStyle = this->inlineStyle()) {
+            elementData()->setStyleAttributeIsDirty(false);
+            auto newValue = inlineStyle->asTextAtom();
+            Style::AttributeChangeInvalidation styleInvalidation(*this, styleAttr, attributeWithoutSynchronization(styleAttr), newValue);
+            setSynchronizedLazyAttribute(styleAttr, newValue);
+        }
+    }
 }
 
 void StyledElement::invalidateStyleAttribute()
@@ -170,7 +184,8 @@ void StyledElement::invalidateStyleAttribute()
     }
 
     elementData()->setStyleAttributeIsDirty(true);
-    invalidateStyleInternal();
+
+    Node::invalidateStyle(Style::Validity::InlineStyleInvalid);
 
     // In the rare case of selectors like "[style] ~ div" we need to synchronize immediately to invalidate.
     if (styleResolver().ruleSets().hasComplexSelectorsForStyleAttribute()) {
@@ -181,6 +196,11 @@ void StyledElement::invalidateStyleAttribute()
             setSynchronizedLazyAttribute(styleAttr, newValue);
         }
     }
+}
+
+RefPtr<StyleProperties> StyledElement::protectedInlineStyle() const
+{
+    return elementData() ? elementData()->m_inlineStyle : nullptr;
 }
 
 void StyledElement::inlineStyleChanged()
@@ -361,6 +381,11 @@ void StyledElement::addPropertyToPresentationalHintStyle(MutableStyleProperties&
 void StyledElement::addPropertyToPresentationalHintStyle(MutableStyleProperties& style, CSSPropertyID propertyID, const String& value)
 {
     style.setProperty(propertyID, value, false, CSSParserContext(document()));
+}
+
+void StyledElement::addPropertyToPresentationalHintStyle(MutableStyleProperties& style, CSSPropertyID propertyID, RefPtr<CSSValue>&& value)
+{
+    style.setProperty(propertyID, WTFMove(value), false);
 }
 
 }

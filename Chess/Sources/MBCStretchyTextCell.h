@@ -1,7 +1,7 @@
 /*
     File:		MBCStretchyTextCell.h
     Contains:	Text cell that can draw outside its boundary
-    Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+    Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
     IMPORTANT: This Apple software is supplied to you by Apple Computer,
     Inc.  ("Apple") in consideration of your agreement to the following

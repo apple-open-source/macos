@@ -26,7 +26,6 @@
 #include "config.h"
 #include "NetworkProcessConnection.h"
 
-#include "DataReference.h"
 #include "LibWebRTCNetwork.h"
 #include "Logging.h"
 #include "NetworkConnectionToWebProcessMessages.h"
@@ -69,6 +68,7 @@
 #include <WebCore/InspectorInstrumentationWebKit.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MessagePort.h>
+#include <WebCore/NavigationScheduler.h>
 #include <WebCore/Page.h>
 #include <WebCore/SharedBuffer.h>
 #include <pal/SessionID.h>
@@ -124,7 +124,7 @@ void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IP
         WebProcess::singleton().fileSystemStorageConnection().didReceiveMessage(connection, decoder);
         return;
     }
-    if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName()) {
+    if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName() && WebProcess::singleton().isWebTransportEnabled()) {
         if (auto* webTransportSession = WebProcess::singleton().webTransportSession(WebTransportSessionIdentifier(decoder.destinationID())))
             webTransportSession->didReceiveMessage(connection, decoder);
         return;
@@ -276,6 +276,11 @@ void NetworkProcessConnection::allCookiesDeleted()
 }
 #endif
 
+void NetworkProcessConnection::updateCachedCookiesEnabled()
+{
+    WebProcess::singleton().updateCachedCookiesEnabled();
+}
+
 #if ENABLE(SHAREABLE_RESOURCE)
 void NetworkProcessConnection::didCacheResource(const ResourceRequest& request, ShareableResource::Handle&& handle)
 {
@@ -330,16 +335,22 @@ void NetworkProcessConnection::broadcastConsoleMessage(MessageSource source, Mes
     });
 }
 
+void NetworkProcessConnection::loadCancelledDownloadRedirectRequestInFrame(WebCore::ResourceRequest&& request, WebCore::FrameIdentifier frameID, WebCore::PageIdentifier pageID)
+{
+    if (RefPtr webPage = WebProcess::singleton().webPage(pageID); webPage && WebProcess::singleton().webFrame(frameID)) {
+        LoadParameters loadParameters;
+        loadParameters.frameIdentifier = frameID;
+        loadParameters.request = request;
+        webPage->loadRequest(WTFMove(loadParameters));
+    } else
+        RELEASE_LOG_ERROR(Process, "Trying to load Invalid page or frame for %s", request.url().string().utf8().data());
+}
+
 #if ENABLE(WEB_RTC)
 void NetworkProcessConnection::connectToRTCDataChannelRemoteSource(WebCore::RTCDataChannelIdentifier localIdentifier, WebCore::RTCDataChannelIdentifier remoteIdentifier, CompletionHandler<void(std::optional<bool>)>&& callback)
 {
     callback(RTCDataChannelRemoteManager::sharedManager().connectToRemoteSource(localIdentifier, remoteIdentifier));
 }
 #endif
-
-void NetworkProcessConnection::addAllowedFirstPartyForCookies(WebCore::RegistrableDomain&& firstPartyForCookies)
-{
-    WebProcess::singleton().addAllowedFirstPartyForCookies(WTFMove(firstPartyForCookies));
-}
 
 } // namespace WebKit

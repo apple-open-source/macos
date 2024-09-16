@@ -113,6 +113,7 @@ int verbose = 0;
 #define ACTIVE_USER_MODE 2
 #define MOUNT_MODE 3
 #define ZEROSTATS_MODE 4
+#define NFSERRS_MODE 5
 
 #define NUMERIC_NET 1
 #define NUMERIC_USER 2
@@ -125,6 +126,18 @@ LIST_HEAD(nfs_active_user_node_head, nfs_active_user_node);
 LIST_HEAD(nfs_export_node_head, nfs_export_node);
 
 const struct nfsstats_printer *printer = &printf_printer;
+
+const nfserr_info_t nfserrs_common[NFSERR_INFO_COMMON_SIZE] = {
+	NFSERR_INFO_COMMON
+};
+
+const nfserr_info_t nfserrs_v4[NFSERR_INFO_V4_SIZE] = {
+	NFSERR_INFO_V4
+};
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof(A[0]))
+#endif
 
 struct nfs_active_user_node {
 	LIST_ENTRY(nfs_active_user_node)        user_next;
@@ -143,6 +156,7 @@ struct nfs_active_user_list {
 };
 
 void intpr(u_int, u_int);
+void nfserrs(u_int, u_int);
 void zeroclntstats(void);
 void zerosrvstats(void);
 void printhdr(void);
@@ -199,7 +213,7 @@ main(int argc, char *argv[])
 	int ch;
 
 	interval = 0;
-	while ((ch = getopt(argc, argv, "w:sce34un:mvzf:")) != EOF) {
+	while ((ch = getopt(argc, argv, "w:sce34un:mvzEf:")) != EOF) {
 		switch (ch) {
 		case 'v':
 			verbose++;
@@ -213,11 +227,9 @@ main(int argc, char *argv[])
 			}
 			break;
 		case 's':
-			mode = CLIENT_SERVER_MODE;
 			display = SHOW_SERVER;
 			break;
 		case 'c':
-			mode = CLIENT_SERVER_MODE;
 			display = SHOW_CLIENT;
 			break;
 		case '3':
@@ -237,6 +249,9 @@ main(int argc, char *argv[])
 			break;
 		case 'z':
 			mode = ZEROSTATS_MODE;
+			break;
+		case 'E':
+			mode = NFSERRS_MODE;
 			break;
 		case 'f':
 			if (!strcmp(optarg, "JSON") || !strcmp(optarg, "Json") || !strcmp(optarg, "json")) {
@@ -283,6 +298,8 @@ main(int argc, char *argv[])
 		if (display & SHOW_SERVER) {
 			zerosrvstats();
 		}
+	} else if (mode == NFSERRS_MODE) {
+		nfserrs(display, version);
 	} else {
 		if (interval) {
 			sidewaysintpr(interval, display, version);
@@ -618,6 +635,61 @@ read_mountinfo(fsid_t *fsid, char **buf, size_t *buflen)
 	return 0;
 }
 
+static void
+print_nfserrs(uint64_t *stats, const nfserr_info_t *arr, int start, int amount)
+{
+	printer->nfserrs(amount,
+	    (amount > 0) ? arr[start + 0].nei_name : NULL, (amount > 0) ? stats[arr[start + 0].nei_index] : 0,
+	    (amount > 1) ? arr[start + 1].nei_name : NULL, (amount > 1) ? stats[arr[start + 1].nei_index] : 0,
+	    (amount > 2) ? arr[start + 2].nei_name : NULL, (amount > 2) ? stats[arr[start + 2].nei_index] : 0,
+	    (amount > 3) ? arr[start + 3].nei_name : NULL, (amount > 3) ? stats[arr[start + 3].nei_index] : 0);
+}
+
+/*
+ * Print a NFS protocol errors.
+ */
+void
+nfserrs(u_int display, u_int version)
+{
+#define ERRS_PER_LINE 4
+	struct nfsclntstats clntstats;
+	struct nfsrvstats srvstats;
+
+	if (display & SHOW_CLIENT) {
+		readclntstats(&clntstats);
+
+		// Print NFS Client Common Errors
+		printer->open(PRINTER_NO_PREFIX, "NFS Client Errors Info");
+		for (int i = 0; i < ARRAY_SIZE(nfserrs_common); i += ERRS_PER_LINE) {
+			print_nfserrs(clntstats.nfs_errs.errs_common, nfserrs_common, i, MIN(ERRS_PER_LINE, ARRAY_SIZE(nfserrs_common) - i));
+		}
+
+		// Print NFSv4 Client Errors
+		if (version & VERSION_V4) {
+			printer->newline();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4 Client Errors Info");
+			for (int i = 0; i < ARRAY_SIZE(nfserrs_v4); i += ERRS_PER_LINE) {
+				print_nfserrs(clntstats.nfs_errs.errs_v4, nfserrs_v4, i, MIN(ERRS_PER_LINE, ARRAY_SIZE(nfserrs_v4) - i));
+			}
+			printer->close();
+		}
+		printer->close();
+	}
+	if ((display & SHOW_SERVER) && (version & VERSION_V3)) {
+		readsrvstats(&srvstats);
+		if (display & SHOW_CLIENT) {
+			printer->newline();
+		}
+
+		// Print NFS Server Common Errors
+		printer->open(PRINTER_NO_PREFIX, "NFS Server Errors Info");
+		for (int i = 0; i < ARRAY_SIZE(nfserrs_common); i += ERRS_PER_LINE) {
+			print_nfserrs(srvstats.nfs_errs.errs_common, nfserrs_common, i, MIN(ERRS_PER_LINE, ARRAY_SIZE(nfserrs_common) - i));
+		}
+		printer->close();
+	}
+}
+
 /*
  * Print a description of the nfs stats.
  */
@@ -658,6 +730,12 @@ intpr(u_int display, u_int version)
 			    "PathConf", clntstats.rpccntv3[NFSPROC_PATHCONF],
 			    "Commit", clntstats.rpccntv3[NFSPROC_COMMIT],
 			    "Null", clntstats.rpccntv3[NFSPROC_NULL]);
+			printer->close();
+			printer->open(PRINTER_NO_PREFIX, "NLM RPC Counts");
+			printer->intpr(3,
+			    "Lock", clntstats.nlmcnt.nlm_lock,
+			    "Test", clntstats.nlmcnt.nlm_test,
+			    "Unlock", clntstats.nlmcnt.nlm_unlock);
 			printer->close();
 		}
 		if (version & VERSION_V4) {
@@ -751,7 +829,9 @@ intpr(u_int display, u_int version)
 	}
 	if ((display & SHOW_SERVER) && (version & VERSION_V3)) {
 		readsrvstats(&srvstats);
-		printer->newline();
+		if (display & SHOW_CLIENT) {
+			printer->newline();
+		}
 		printer->open(PRINTER_NO_PREFIX, "Server Info");
 		printer->open(PRINTER_NO_PREFIX, "RPC Counts");
 		printer->intpr(6,
@@ -832,7 +912,7 @@ sidewaysintpr(u_int interval, u_int display, u_int version)
 		if (display & SHOW_CLIENT) {
 			readclntstats(&clntstats);
 			if (version & VERSION_V3) {
-				printf("Client v3: %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
+				printf("Client v3: %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
 				    clntstats.rpccntv3[NFSPROC_GETATTR] - lastclntst.rpccntv3[NFSPROC_GETATTR],
 				    clntstats.rpccntv3[NFSPROC_LOOKUP] - lastclntst.rpccntv3[NFSPROC_LOOKUP],
 				    clntstats.rpccntv3[NFSPROC_READLINK] - lastclntst.rpccntv3[NFSPROC_READLINK],
@@ -841,10 +921,12 @@ sidewaysintpr(u_int interval, u_int display, u_int version)
 				    clntstats.rpccntv3[NFSPROC_RENAME] - lastclntst.rpccntv3[NFSPROC_RENAME],
 				    clntstats.rpccntv3[NFSPROC_ACCESS] - lastclntst.rpccntv3[NFSPROC_ACCESS],
 				    (clntstats.rpccntv3[NFSPROC_READDIR] - lastclntst.rpccntv3[NFSPROC_READDIR])
-				    + (clntstats.rpccntv3[NFSPROC_READDIRPLUS] - lastclntst.rpccntv3[NFSPROC_READDIRPLUS]));
+				    + (clntstats.rpccntv3[NFSPROC_READDIRPLUS] - lastclntst.rpccntv3[NFSPROC_READDIRPLUS]),
+				    clntstats.nlmcnt.nlm_lock - lastclntst.nlmcnt.nlm_lock,
+				    clntstats.nlmcnt.nlm_unlock - lastclntst.nlmcnt.nlm_unlock);
 			}
 			if (version & VERSION_V4) {
-				printf("Client v4: %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
+				printf("Client v4: %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu %8llu\n",
 				    clntstats.opcntv4[NFS_OP_GETATTR] - lastclntst.opcntv4[NFS_OP_GETATTR],
 				    clntstats.opcntv4[NFS_OP_LOOKUP] - lastclntst.opcntv4[NFS_OP_LOOKUP],
 				    clntstats.opcntv4[NFS_OP_READLINK] - lastclntst.opcntv4[NFS_OP_READLINK],
@@ -852,7 +934,9 @@ sidewaysintpr(u_int interval, u_int display, u_int version)
 				    clntstats.opcntv4[NFS_OP_WRITE] - lastclntst.opcntv4[NFS_OP_WRITE],
 				    clntstats.opcntv4[NFS_OP_RENAME] - lastclntst.opcntv4[NFS_OP_RENAME],
 				    clntstats.opcntv4[NFS_OP_ACCESS] - lastclntst.opcntv4[NFS_OP_ACCESS],
-				    clntstats.opcntv4[NFS_OP_READDIR] - lastclntst.opcntv4[NFS_OP_READDIR]);
+				    clntstats.opcntv4[NFS_OP_READDIR] - lastclntst.opcntv4[NFS_OP_READDIR],
+				    clntstats.opcntv4[NFS_OP_LOCK] - lastclntst.opcntv4[NFS_OP_LOCK],
+				    clntstats.opcntv4[NFS_OP_LOCKU] - lastclntst.opcntv4[NFS_OP_LOCKU]);
 			}
 			lastclntst = clntstats;
 		}
@@ -931,6 +1015,7 @@ struct mountargs {
 	struct timespec request_timeout;                        /* NFS request timeout */
 	uint32_t        soft_retry_count;                       /* soft retrans count */
 	int             readlink_nocache;                       /* readlink no-cache mode */
+	int             access_cache;                           /* access cache size */
 	struct timespec dead_timeout;                           /* dead timeout value */
 	fhandle_t       fh;                                     /* initial file handle */
 	uint32_t        numlocs;                                /* # of fs locations */
@@ -1340,6 +1425,9 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 		xb_get_32(error, xb, margs->acrootdirmax.tv_sec);
 		xb_get_32(error, xb, margs->acrootdirmax.tv_nsec);
 	}
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		xb_get_32(error, xb, margs->access_cache);
+	}
 
 	if (error) {
 		mountargs_cleanup(margs);
@@ -1708,6 +1796,10 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 	}
 	if (verbose && NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READLINK_NOCACHE)) {
 		printer->add_array_num(sep, "readlink_nocache=", margs->readlink_nocache);
+		SEP;
+	}
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ACCESS_CACHE)) {
+		printer->add_array_num(sep, "accesscache=", margs->access_cache);
 		SEP;
 	}
 	printer->close_array(0);
@@ -2619,9 +2711,9 @@ serialdiff_64(uint64_t new, uint64_t old)
 void
 printhdr(void)
 {
-	printf("        %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s\n",
+	printf("        %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s %8.8s\n",
 	    "Getattr", "Lookup", "Readlink", "Read", "Write", "Rename",
-	    "Access", "Readdir");
+	    "Access", "Readdir", "Lock", "Unlock");
 	fflush(stdout);
 }
 

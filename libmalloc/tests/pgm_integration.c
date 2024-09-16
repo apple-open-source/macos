@@ -6,6 +6,7 @@
 //
 
 #include <darwintest.h>
+#include <MallocStackLogging/MallocStackLogging.h>
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
 		T_META_TAG_XZONE);
@@ -17,8 +18,6 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_NAMESPACE("pgm"),
 #include <malloc/malloc.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#include "../src/platform.h"  // CONFIG_PGM_WRAP_CUSTOM_ZONES
 
 T_GLOBAL_META(
 	T_META_ENVVAR("MallocProbGuard=1"),
@@ -40,7 +39,7 @@ get_wrapped_zone(malloc_zone_t *zone)
 
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
-T_DECL(zone_setup, "ProbGuard zone is default zone and not full")
+T_DECL(zone_setup, "ProbGuard zone is default zone and not full", T_META_TAG_VM_PREFERRED)
 {
 	// malloc_default_zone() returns virtual zone, which delegates to zone 0.
 	malloc_zone_t *zone0 = malloc_zones[0];
@@ -97,40 +96,18 @@ out_of_bounds(void)
 	touch_memory(ptr + 17);
 }
 
-static void
-out_of_bounds_within_block(void)
-{
-	uint8_t *ptr = malloc(5);
-	T_ASSERT_EQ(malloc_size(ptr), 5ul, "strict alignment");
-
-	touch_memory(ptr - 1);  // left-alignment is always perfect
-	touch_memory(ptr + 5);
-}
-
 T_DECL(uaf_detection, "Use-after-free detection",
-		T_META_IGNORECRASHES("pgm_integration"))
+		T_META_IGNORECRASHES("pgm_integration"),
+		T_META_TAG_VM_PREFERRED)
 {
 	assert_crash(use_after_free);
 }
 
 T_DECL(oob_detection, "Out-of-bounds detection",
-		T_META_IGNORECRASHES("pgm_integration"))
+		T_META_IGNORECRASHES("pgm_integration"),
+		T_META_TAG_VM_PREFERRED)
 {
 	assert_crash(out_of_bounds);
-}
-
-T_DECL(oob_detection_within_block, "Intra-block out-of-bounds detection",
-		T_META_IGNORECRASHES("pgm_integration"),
-		T_META_ENVVAR("MallocProbGuard=1"),
-		T_META_ENVVAR("MallocProbGuardSampleRate=1"),
-		T_META_ENVVAR("MallocProbGuardAllocations=300"),
-		T_META_ENVVAR("MallocProbGuardStrictAlignment=1"))
-{
-#if defined(__LP64__)  // MALLOC_TARGET_64BIT
-	assert_crash(out_of_bounds_within_block);
-#else
-	T_SKIP("ARM (32 bit) crashes on misaligned memory accesses: EXC_ARM_DA_ALIGN");
-#endif
 }
 
 static void
@@ -146,7 +123,7 @@ access_in_bogus_pgm_region(void)
 }
 
 T_DECL(bogus_pgm_region, "Handle crashes in bogus PGM regions",
-		T_META_IGNORECRASHES("pgm_integration"))
+		T_META_IGNORECRASHES("pgm_integration"), T_META_TAG_VM_PREFERRED)
 {
 	// What we're really testing here is the code that runs in ReportCrash to
 	// generate the PGM report - it needs to gracefully handle unexpected PGM
@@ -154,7 +131,6 @@ T_DECL(bogus_pgm_region, "Handle crashes in bogus PGM regions",
 	assert_crash(access_in_bogus_pgm_region);
 }
 
-#if CONFIG_PGM_WRAP_CUSTOM_ZONES
 static void
 non_default_zone_use_after_free(void)
 {
@@ -166,11 +142,11 @@ non_default_zone_use_after_free(void)
 
 T_DECL(non_default_zone_uaf_detection,
 		"Use-after-free detection in a wrapped non-default zone",
-		T_META_IGNORECRASHES("pgm_integration"))
+		T_META_IGNORECRASHES("pgm_integration"),
+		T_META_TAG_VM_PREFERRED)
 {
 	assert_crash(non_default_zone_use_after_free);
 }
-#endif // CONFIG_PGM_WRAP_CUSTOM_ZONES
 
 static boolean_t
 check_bytes(uint8_t *ptr, size_t size)
@@ -230,14 +206,14 @@ smoke_test_100(void)
 	}
 }
 
-T_DECL(allocation_sample_all, "Smoke test, sample 1/1")
+T_DECL(allocation_sample_all, "Smoke test, sample 1/1", T_META_TAG_VM_PREFERRED)
 {
 	smoke_test_100();
 	T_PASS("Smoke test, sample all");
 }
 
 T_DECL(allocation_sample_half, "Smoke test, sample 1/2",
-		T_META_ENVVAR("MallocProbGuard=1"),
+		T_META_ENVVAR("MallocProbGuard=1"), T_META_TAG_VM_PREFERRED,
 		T_META_ENVVAR("MallocProbGuardSampleRate=2"))
 {
 	smoke_test_100();
@@ -273,7 +249,7 @@ setup_introspection_scenario(void)
 	malloc_zone_statistics(zone, &stats_after);
 }
 
-T_DECL(introspection_statistics, "Zone statistics")
+T_DECL(introspection_statistics, "Zone statistics", T_META_TAG_VM_PREFERRED)
 {
 	setup_introspection_scenario();
 
@@ -355,21 +331,21 @@ check_enumerator(unsigned type)
 	free_read_memory();
 }
 
-T_DECL(introspection_enumerate_regions, "Region enumeration")
+T_DECL(introspection_enumerate_regions, "Region enumeration", T_META_TAG_VM_PREFERRED)
 {
 	setup_introspection_scenario();
 
 	check_enumerator(MALLOC_PTR_REGION_RANGE_TYPE);
 }
 
-T_DECL(introspection_enumerate_blocks, "Block enumeration")
+T_DECL(introspection_enumerate_blocks, "Block enumeration", T_META_TAG_VM_PREFERRED)
 {
 	setup_introspection_scenario();
 
 	check_enumerator(MALLOC_PTR_IN_USE_RANGE_TYPE);
 }
 
-T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()")
+T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()", T_META_TAG_VM_PREFERRED)
 {
 	// Make sure we only query the environment during process launch.
 	setenv("MallocProbGuard", "0", /*overwrite=*/true);
@@ -377,19 +353,30 @@ T_DECL(wrap_malloc_create_zone, "Wrap malloc_create_zone()")
 	uint32_t num_zones = malloc_num_zones;
 	malloc_zone_t *zone = malloc_create_zone(0, 0);
 
-#if CONFIG_PGM_WRAP_CUSTOM_ZONES
-	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "ProbGuardMallocZone",
-			"PGM-wrapped zone");
+	T_EXPECT_EQ_STR(malloc_get_zone_name(zone), "ProbGuardMallocZone", "PGM zone");
 	T_EXPECT_EQ(zone->introspect->zone_type, 2, "MALLOC_ZONE_TYPE_PGM");
 
 	T_EXPECT_EQ(malloc_num_zones, num_zones + 2, "registered both zones");
-	T_EXPECT_EQ(malloc_zones[num_zones], get_wrapped_zone(zone),
+	T_EXPECT_EQ(malloc_zones[num_zones], zone, "PGM zone is registered");
+	T_EXPECT_EQ(malloc_zones[num_zones + 1], get_wrapped_zone(zone),
 			"Wrapped zone is registered");
-	T_EXPECT_EQ(malloc_zones[num_zones + 1], zone, "PGM zone is registered");
 
 	malloc_destroy_zone(zone);
 	T_EXPECT_EQ(malloc_num_zones, num_zones, "unregistered both zones");
-#else
-	T_EXPECT_EQ(malloc_num_zones, num_zones + 1, "no PGM wrapper zone");
-#endif
+}
+
+T_DECL(disable_pgm_on_lite_zone,
+		"The lite zone's helper zone shouldn't be wrapped by PGM")
+{
+	// Enabling MSL Lite will register the lite zone (via malloc_zone_register)
+	// and a helper zone (via malloc_create_zone). The latter needs to not
+	// insert PGM to avoid extra allocations in the underlying zone that don't
+	// have MSL metadata
+	uint32_t num_zones = malloc_num_zones;
+
+	bool enable = msl_turn_on_stack_logging(msl_mode_lite);
+	T_ASSERT_TRUE(enable, "Enabled MSL Lite");
+
+	T_EXPECT_EQ(malloc_num_zones, num_zones + 2,
+			"Enabling MSL generated 2 new zones");
 }

@@ -25,6 +25,20 @@ void ContextImpl::invalidateTexture(gl::TextureType target)
     UNREACHABLE();
 }
 
+angle::Result ContextImpl::startTiling(const gl::Context *context,
+                                       const gl::Rectangle &area,
+                                       GLbitfield preserveMask)
+{
+    UNREACHABLE();
+    return angle::Result::Stop;
+}
+
+angle::Result ContextImpl::endTiling(const gl::Context *context, GLbitfield preserveMask)
+{
+    UNREACHABLE();
+    return angle::Result::Stop;
+}
+
 angle::Result ContextImpl::onUnMakeCurrent(const gl::Context *context)
 {
     return angle::Result::Continue;
@@ -110,4 +124,13 @@ angle::Result ContextImpl::drawPixelLocalStorageEXTDisable(gl::Context *,
     UNREACHABLE();
     return angle::Result::Stop;
 }
+
+angle::Result ContextImpl::bindMetalRasterizationRateMap(gl::Context *,
+                                                         RenderbufferImpl *renderbuffer,
+                                                         GLMTLRasterizationRateMapANGLE map)
+{
+    UNREACHABLE();
+    return angle::Result::Stop;
+}
+
 }  // namespace rx

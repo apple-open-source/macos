@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2004,2011,2014 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2003-2004,2011,2014,2023 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,12 +17,12 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
- * pkc12Crypto.cpp - PKCS12-specific cyptrographic routines
+ * pkcs12Crypto.cpp - PKCS12-specific cryptographic routines
  */
 
 #include "pkcs12Crypto.h"
@@ -34,7 +34,7 @@
 
 /*
  * Given appropriate P12-style parameters, cook up a CSSM_KEY.
- * Caller MUST CSSM_FreeKey() when it's done with the key. 
+ * Caller MUST CSSM_FreeKey() when it's done with the key.
  */
 #define KEY_LABEL	"p12 key"
 
@@ -43,12 +43,12 @@ CSSM_RETURN p12KeyGen(
 	CSSM_KEY			&key,
 	bool				isForEncr,	// true: en/decrypt   false: MAC
 	CSSM_ALGORITHMS		keyAlg,
-	CSSM_ALGORITHMS		pbeHashAlg,	// actually must be SHA1 for now
+	CSSM_ALGORITHMS		pbeHashAlg, // SHA1, SHA256, SHA384, SHA512
 	uint32				keySizeInBits,
 	uint32				iterCount,
 	const CSSM_DATA		&salt,
 	/* exactly one of the following two must be valid */
-	const CSSM_DATA		*pwd,		// unicode external representation 
+	const CSSM_DATA		*pwd,		// unicode external representation
 	const CSSM_KEY		*passKey,
 	CSSM_DATA			&iv)		// referent is optional
 {
@@ -56,18 +56,21 @@ CSSM_RETURN p12KeyGen(
 	CSSM_CC_HANDLE 				ccHand;
 	CSSM_DATA					dummyLabel;
 	CSSM_ACCESS_CREDENTIALS		creds;
-	
+
 	memset(&key, 0, sizeof(CSSM_KEY));
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 
 	/* infer key derivation algorithm */
 	CSSM_ALGORITHMS deriveAlg = CSSM_ALGID_NONE;
-	if(pbeHashAlg != CSSM_ALGID_SHA1) {
+	if((pbeHashAlg != CSSM_ALGID_SHA1) &&
+		(pbeHashAlg != CSSM_ALGID_SHA256) &&
+		(pbeHashAlg != CSSM_ALGID_SHA384) &&
+		(pbeHashAlg != CSSM_ALGID_SHA512)) {
 		return CSSMERR_CSP_INVALID_ALGORITHM;
 	}
 	if(isForEncr) {
 		/*
-		 * FIXME - if this key is going to be used to wrap/unwrap a 
+		 * FIXME - if this key is going to be used to wrap/unwrap a
 		 * shrouded key bag, its usage will change accordingly...
 		 */
 		deriveAlg = CSSM_ALGID_PKCS12_PBE_ENCR;
@@ -85,7 +88,7 @@ CSSM_RETURN p12KeyGen(
 	}
 	seed.Callback = NULL;
 	seed.CallerCtx = NULL;
-	
+
 	crtn = CSSM_CSP_CreateDeriveKeyContext(cspHand,
 		deriveAlg,
 		keyAlg,
@@ -100,10 +103,10 @@ CSSM_RETURN p12KeyGen(
 		p12LogCssmError("CSSM_CSP_CreateDeriveKeyContext", crtn);
 		return crtn;
 	}
-	
+
 	dummyLabel.Length = strlen(KEY_LABEL);
 	dummyLabel.Data = (uint8 *)KEY_LABEL;
-	
+
 	/* KEYUSE_ANY - this is just an ephemeral session key */
 	crtn = CSSM_DeriveKey(ccHand,
 		&iv,
@@ -125,7 +128,7 @@ CSSM_RETURN p12KeyGen(
 CSSM_RETURN p12Decrypt(
 	CSSM_CSP_HANDLE		cspHand,
 	const CSSM_DATA		&cipherText,
-	CSSM_ALGORITHMS		keyAlg,				
+	CSSM_ALGORITHMS		keyAlg,
 	CSSM_ALGORITHMS		encrAlg,
 	CSSM_ALGORITHMS		pbeHashAlg,			// SHA1, MD5 only
 	uint32				keySizeInBits,
@@ -145,7 +148,7 @@ CSSM_RETURN p12Decrypt(
 	CSSM_CC_HANDLE ccHand = 0;
 	CSSM_DATA ourPtext = {0, NULL};
 	CSSM_DATA remData = {0, NULL};
-	
+
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
 	CSSM_DATA_PTR ivPtr = NULL;
@@ -153,15 +156,15 @@ CSSM_RETURN p12Decrypt(
 		coder.allocItem(iv, blockSizeInBytes);
 		ivPtr = &iv;
 	}
-	
+
 	/* P12 style key derivation */
 	crtn = p12KeyGen(cspHand, ckey, true, keyAlg, pbeHashAlg,
 		keySizeInBits, iterCount, salt, pwd, passKey, iv);
 	if(crtn) {
 		return crtn;
-	}	
+	}
 	/* subsequent errors to errOut: */
-	
+
 	/* CSSM context */
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
 		encrAlg,
@@ -169,14 +172,14 @@ CSSM_RETURN p12Decrypt(
 		NULL,			// access cred
 		&ckey,
 		ivPtr,			// InitVector, optional
-		padding,	
+		padding,
 		NULL,			// Params
 		&ccHand);
 	if(crtn) {
 		cuPrintError("CSSM_CSP_CreateSymmetricContext", crtn);
 		goto errOut;
 	}
-	
+
 	/* go - CSP mallocs ptext and rem data */
 	CSSM_SIZE bytesDecrypted;
 	crtn = CSSM_DecryptData(ccHand,
@@ -192,7 +195,7 @@ CSSM_RETURN p12Decrypt(
 	else {
 		coder.allocCopyItem(ourPtext, plainText);
 		plainText.Length = bytesDecrypted;
-		
+
 		/* plaintext copied into coder space; free the memory allocated
 		 * by the CSP */
 		freeCssmMemory(cspHand, ourPtext.Data);
@@ -216,7 +219,7 @@ errOut:
 CSSM_RETURN p12Encrypt(
 	CSSM_CSP_HANDLE		cspHand,
 	const CSSM_DATA		&plainText,
-	CSSM_ALGORITHMS		keyAlg,				
+	CSSM_ALGORITHMS		keyAlg,
 	CSSM_ALGORITHMS		encrAlg,
 	CSSM_ALGORITHMS		pbeHashAlg,			// SHA1, MD5 only
 	uint32				keySizeInBits,
@@ -236,7 +239,7 @@ CSSM_RETURN p12Encrypt(
 	CSSM_CC_HANDLE ccHand = 0;
 	CSSM_DATA ourCtext = {0, NULL};
 	CSSM_DATA remData = {0, NULL};
-	
+
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
 	CSSM_DATA_PTR ivPtr = NULL;
@@ -244,15 +247,15 @@ CSSM_RETURN p12Encrypt(
 		coder.allocItem(iv, blockSizeInBytes);
 		ivPtr = &iv;
 	}
-	
+
 	/* P12 style key derivation */
 	crtn = p12KeyGen(cspHand, ckey, true, keyAlg, pbeHashAlg,
 		keySizeInBits, iterCount, salt, pwd, passKey, iv);
 	if(crtn) {
 		return crtn;
-	}	
+	}
 	/* subsequent errors to errOut: */
-		
+
 	/* CSSM context */
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
 		encrAlg,
@@ -260,14 +263,14 @@ CSSM_RETURN p12Encrypt(
 		NULL,			// access cred
 		&ckey,
 		ivPtr,			// InitVector, optional
-		padding,	
+		padding,
 		NULL,			// Params
 		&ccHand);
 	if(crtn) {
 		cuPrintError("CSSM_CSP_CreateSymmetricContext", crtn);
 		goto errOut;
 	}
-	
+
 	/* go - CSP mallocs ctext and rem data */
 	CSSM_SIZE bytesEncrypted;
 	crtn = CSSM_EncryptData(ccHand,
@@ -283,7 +286,7 @@ CSSM_RETURN p12Encrypt(
 	else {
 		coder.allocCopyItem(ourCtext, cipherText);
 		cipherText.Length = bytesEncrypted;
-		
+
 		/* plaintext copied into coder space; free the memory allocated
 		 * by the CSP */
 		freeCssmMemory(cspHand, ourCtext.Data);
@@ -303,28 +306,40 @@ errOut:
 
 /*
  * Calculate the MAC for a PFX. Caller is either going compare
- * the result against an existing PFX's MAC or drop the result into 
+ * the result against an existing PFX's MAC or drop the result into
  * a newly created PFX.
  */
 CSSM_RETURN p12GenMac(
 	CSSM_CSP_HANDLE		cspHand,
-	const CSSM_DATA		&ptext,	// e.g., NSS_P12_DecodedPFX.derAuthSaafe
-	CSSM_ALGORITHMS		alg,	// better be SHA1!
+	const CSSM_DATA		&ptext,	// e.g., NSS_P12_DecodedPFX.derAuthSafe
+	CSSM_ALGORITHMS		alg,	// SHA1, SHA224, SHA256, SHA384, SHA512
 	unsigned			iterCount,
 	const CSSM_DATA		&salt,
 	/* exactly one of the following two must be valid */
 	const CSSM_DATA		*pwd,		// unicode external representation
 	const CSSM_KEY		*passKey,
 	SecNssCoder			&coder,		// for mallocing macData
-	CSSM_DATA			&macData)	// RETURNED 
+	CSSM_DATA			&macData)	// RETURNED
 {
 	CSSM_RETURN crtn;
 	CSSM_CC_HANDLE ccHand = 0;
-	
+
 	/* P12 style key derivation */
 	unsigned keySizeInBits;
-	CSSM_ALGORITHMS hmacAlg;
+	CSSM_ALGORITHMS hmacAlg = alg;
 	switch(alg) {
+		case CSSM_ALGID_SHA512:
+			keySizeInBits = 512;
+			break;
+		case CSSM_ALGID_SHA384:
+			keySizeInBits = 384;
+			break;
+		case CSSM_ALGID_SHA256:
+			keySizeInBits = 256;
+			break;
+		case CSSM_ALGID_SHA224:
+			keySizeInBits = 224;
+			break;
 		case CSSM_ALGID_SHA1:
 			keySizeInBits = 160;
 			hmacAlg = CSSM_ALGID_SHA1HMAC;
@@ -342,20 +357,23 @@ CSSM_RETURN p12GenMac(
 	crtn = p12KeyGen(cspHand, macKey, false, hmacAlg, alg,
 		keySizeInBits, iterCount, salt, pwd, passKey, iv);
 	if(crtn) {
+		p12EventLog("p12GenMac: p12KeyGen error %ld", (long)crtn);
 		return crtn;
-	}	
+	}
 	/* subsequent errors to errOut: */
 
 	/* prealloc the mac data */
 	coder.allocItem(macData, keySizeInBits / 8);
 	crtn = CSSM_CSP_CreateMacContext(cspHand, hmacAlg, &macKey, &ccHand);
 	if(crtn) {
+		p12EventLog("p12GenMac: CreateMacContext error %ld", (long)crtn);
 		cuPrintError("CSSM_CSP_CreateMacContext", crtn);
 		goto errOut;
 	}
-	
-	crtn = CSSM_GenerateMac (ccHand, &ptext, 1, &macData);
+
+	crtn = CSSM_GenerateMac(ccHand, &ptext, 1, &macData);
 	if(crtn) {
+		p12EventLog("p12GenMac: GenerateMac error %ld", (long)crtn);
 		cuPrintError("CSSM_GenerateMac", crtn);
 	}
 errOut:
@@ -363,6 +381,9 @@ errOut:
 		CSSM_DeleteContext(ccHand);
 	}
 	CSSM_FreeKey(cspHand, NULL, &macKey, CSSM_FALSE);
+	if(!crtn) {
+		p12EventLog("p12GenMac: SUCCESS (macData.Length=%lu)", (long)macData.Length);
+	}
 	return crtn;
 }
 
@@ -387,7 +408,7 @@ CSSM_RETURN p12UnwrapKey(
 	const CSSM_KEY		*passKey,
 	SecNssCoder			&coder,		// for mallocing privKey
 	const CSSM_DATA		&labelData,
-	SecAccessRef		access,		// optional 
+	SecAccessRef		access,		// optional
 	bool				noAcl,
 	CSSM_KEYUSE			keyUsage,
 	CSSM_KEYATTR_FLAGS	keyAttrs,
@@ -404,13 +425,13 @@ CSSM_RETURN p12UnwrapKey(
 	CSSM_KEY wrappedKey;
 	CSSM_KEY unwrappedKey;
 	CSSM_KEYHEADER &hdr = wrappedKey.KeyHeader;
-	CSSM_DATA descrData = {0, NULL};	// not used for PKCS8 wrap 
+	CSSM_DATA descrData = {0, NULL};	// not used for PKCS8 wrap
 	CSSM_KEYATTR_FLAGS reqAttr = keyAttrs;
-	
+
 	ResourceControlContext rcc;
 	ResourceControlContext *rccPtr = NULL;
 	Security::KeychainCore::Access::Maker maker;
-	
+
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
 	CSSM_DATA_PTR ivPtr = NULL;
@@ -418,15 +439,15 @@ CSSM_RETURN p12UnwrapKey(
 		coder.allocItem(iv, blockSizeInBytes);
 		ivPtr = &iv;
 	}
-	
+
 	/* P12 style key derivation */
 	crtn = p12KeyGen(cspHand, ckey, true, keyAlg, pbeHashAlg,
 		keySizeInBits, iterCount, salt, pwd, passKey, iv);
 	if(crtn) {
 		return crtn;
-	}	
+	}
 	/* subsequent errors to errOut: */
-		
+
 	/* CSSM context */
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
 		encrAlg,
@@ -434,7 +455,7 @@ CSSM_RETURN p12UnwrapKey(
 		NULL,			// access cred
 		&ckey,
 		ivPtr,			// InitVector, optional
-		padding,	
+		padding,
 		NULL,			// Params
 		&ccHand);
 	if(crtn) {
@@ -442,7 +463,7 @@ CSSM_RETURN p12UnwrapKey(
 		goto errOut;
 	}
 	if(dlDbHand) {
-		crtn = p12AddContextAttribute(ccHand, 
+		crtn = p12AddContextAttribute(ccHand,
 			CSSM_ATTRIBUTE_DL_DB_HANDLE,
 			sizeof(CSSM_ATTRIBUTE_DL_DB_HANDLE),
 			dlDbHand);
@@ -451,44 +472,44 @@ CSSM_RETURN p12UnwrapKey(
 			goto errOut;
 		}
 	}
-	
+
 	/*
 	 * Cook up minimal WrappedKey header fields
 	 */
 	memset(&wrappedKey, 0, sizeof(CSSM_KEY));
 	memset(&unwrappedKey, 0, sizeof(CSSM_KEY));
-	
+
 	hdr.HeaderVersion = CSSM_KEYHEADER_VERSION;
 	hdr.BlobType = CSSM_KEYBLOB_WRAPPED;
 	hdr.Format = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8;
-	
-	/* 
-	 * This one we do not know. The CSP will figure out the format 
-	 * of the unwrapped key after it decrypts the raw key material. 
+
+	/*
+	 * This one we do not know. The CSP will figure out the format
+	 * of the unwrapped key after it decrypts the raw key material.
 	 */
 	hdr.AlgorithmId = CSSM_ALGID_NONE;
 	hdr.KeyClass = CSSM_KEYCLASS_PRIVATE_KEY;
-	
+
 	/* also inferred by CSP */
 	hdr.LogicalKeySizeInBits = 0;
 	hdr.KeyAttr = CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE;
 	hdr.KeyUsage = CSSM_KEYUSE_ANY;
 	hdr.WrapAlgorithmId = encrAlg;
 	hdr.WrapMode = mode;
-	
+
 	if(dlDbHand && keyIsPermanent) {
 		reqAttr |= CSSM_KEYATTR_PERMANENT;
 	}
 
 	wrappedKey.KeyData = shroudedKeyBits;
-	
+
 	if(!noAcl) {
 		// Create a Access::Maker for the initial owner of the private key.
 		memset(&rcc, 0, sizeof(rcc));
 		maker.initialOwner(rcc);
 		rccPtr = &rcc;
 	}
-	
+
 	crtn = CSSM_UnwrapKey(ccHand,
 		NULL,				// PublicKey
 		&wrappedKey,
@@ -505,8 +526,8 @@ CSSM_RETURN p12UnwrapKey(
 			crtn = errSecDuplicateItem;
 		}
 	}
-	
-	// Finally fix the acl and owner of the private key to the 
+
+	// Finally fix the acl and owner of the private key to the
 	// specified access control settings.
 	if((crtn == CSSM_OK) && !noAcl) {
 		try {
@@ -539,7 +560,7 @@ errOut:
 }
 
 /*
- * Wrap a private key, yielding shrouded key bits. 
+ * Wrap a private key, yielding shrouded key bits.
  */
 CSSM_RETURN p12WrapKey(
 	CSSM_CSP_HANDLE		cspHand,
@@ -566,7 +587,7 @@ CSSM_RETURN p12WrapKey(
 	CSSM_CONTEXT_ATTRIBUTE attr;
 	CSSM_DATA descrData = {0, NULL};
 	CSSM_ACCESS_CREDENTIALS creds;
-	
+
 	/* key must be extractable */
 	if (!(privKey->KeyHeader.KeyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
 		return errSecDataNotAvailable;
@@ -577,7 +598,7 @@ CSSM_RETURN p12WrapKey(
 		memset(&creds, 0, sizeof(creds));
 		privKeyCreds = &creds;
 	}
-	
+
 	/* P12 style IV derivation, optional */
 	CSSM_DATA iv = {0, NULL};
 	CSSM_DATA_PTR ivPtr = NULL;
@@ -585,15 +606,15 @@ CSSM_RETURN p12WrapKey(
 		coder.allocItem(iv, blockSizeInBytes);
 		ivPtr = &iv;
 	}
-	
+
 	/* P12 style key derivation */
 	crtn = p12KeyGen(cspHand, ckey, true, keyAlg, pbeHashAlg,
 		keySizeInBits, iterCount, salt, pwd, passKey, iv);
 	if(crtn) {
 		return crtn;
-	}	
+	}
 	/* subsequent errors to errOut: */
-		
+
 	/* CSSM context */
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
 		encrAlg,
@@ -601,16 +622,16 @@ CSSM_RETURN p12WrapKey(
 		NULL,			// access cred
 		&ckey,
 		ivPtr,			// InitVector, optional
-		padding,	
+		padding,
 		NULL,			// Params
 		&ccHand);
 	if(crtn) {
 		p12LogCssmError("CSSM_CSP_CreateSymmetricContext", crtn);
 		goto errOut;
 	}
-	
+
 	memset(&wrappedKey, 0, sizeof(CSSM_KEY));
-	
+
 	/* specify PKCS8 wrap format */
 	attr.AttributeType = CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT;
 	attr.AttributeLength = sizeof(uint32);
@@ -623,7 +644,7 @@ CSSM_RETURN p12WrapKey(
 		p12LogCssmError("CSSM_UpdateContextAttributes", crtn);
 		goto errOut;
 	}
-	
+
 	crtn = CSSM_WrapKey(ccHand,
 		privKeyCreds,
 		privKey,
@@ -634,7 +655,7 @@ CSSM_RETURN p12WrapKey(
 	}
 	else {
 		coder.allocCopyItem(wrappedKey.KeyData, shroudedKeyBits);
-		
+
 		/* this was mallocd by CSP */
 		freeCssmMemory(cspHand, wrappedKey.KeyData.Data);
 	}

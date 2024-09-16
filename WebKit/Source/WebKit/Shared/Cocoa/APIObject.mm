@@ -29,7 +29,6 @@
 #import "WKBackForwardListInternal.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKBrowsingContextControllerInternal.h"
-#import "WKConnectionInternal.h"
 #import "WKContentRuleListInternal.h"
 #import "WKContentRuleListStoreInternal.h"
 #import "WKContentWorldInternal.h"
@@ -65,10 +64,12 @@
 #import "WKWebProcessPlugInNodeHandleInternal.h"
 #import "WKWebProcessPlugInRangeHandleInternal.h"
 #import "WKWebProcessPlugInScriptWorldInternal.h"
+#import "WKWebViewConfigurationInternal.h"
 #import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataRecordInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WKWindowFeaturesInternal.h"
+#import "_WKApplicationManifestInternal.h"
 #import "_WKAttachmentInternal.h"
 #import "_WKAutomationSessionInternal.h"
 #import "_WKContentRuleListActionInternal.h"
@@ -87,6 +88,8 @@
 #import "_WKResourceLoadInfoInternal.h"
 #import "_WKResourceLoadStatisticsFirstPartyInternal.h"
 #import "_WKResourceLoadStatisticsThirdPartyInternal.h"
+#import "_WKTargetedElementInfoInternal.h"
+#import "_WKTargetedElementRequestInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import "_WKUserStyleSheetInternal.h"
@@ -94,10 +97,6 @@
 #import "_WKWebAuthenticationAssertionResponseInternal.h"
 #import "_WKWebAuthenticationPanelInternal.h"
 #import "_WKWebsiteDataStoreConfigurationInternal.h"
-
-#if ENABLE(APPLICATION_MANIFEST)
-#import "_WKApplicationManifestInternal.h"
-#endif
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 #import "_WKInspectorExtensionInternal.h"
@@ -109,12 +108,15 @@
 #import "_WKWebExtensionContextInternal.h"
 #import "_WKWebExtensionControllerConfigurationInternal.h"
 #import "_WKWebExtensionControllerInternal.h"
+#import "_WKWebExtensionDataRecordInternal.h"
 #import "_WKWebExtensionInternal.h"
 #import "_WKWebExtensionMatchPatternInternal.h"
 #import "_WKWebExtensionMessagePortInternal.h"
 #endif
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 static const size_t minimumObjectAlignment = alignof(std::aligned_storage<std::numeric_limits<size_t>::max()>::type);
+ALLOW_DEPRECATED_DECLARATIONS_END
 static_assert(minimumObjectAlignment >= alignof(void*), "Objects should always be at least pointer-aligned.");
 static const size_t maximumExtraSpaceForAlignment = minimumObjectAlignment - alignof(void*);
 
@@ -152,11 +154,9 @@ void* Object::newObject(size_t size, Type type)
     // API::Object, so they are allocated using +alloc.
 
     switch (type) {
-#if ENABLE(APPLICATION_MANIFEST)
     case Type::ApplicationManifest:
         wrapper = [_WKApplicationManifest alloc];
         break;
-#endif
 
     case Type::Array:
         wrapper = [WKNSArray alloc];
@@ -202,14 +202,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         wrapper = [WKWebProcessPlugInBrowserContextController alloc];
         break;
 
-    case Type::Connection:
-        // While not actually a WKObject instance, WKConnection uses allocateWKObject to allocate extra space
-        // instead of using ObjectStorage because the wrapped C++ object is a subclass of WebConnection.
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        wrapper = allocateWKObject([WKConnection class], size);
-ALLOW_DEPRECATED_DECLARATIONS_END
-        break;
-
     case Type::DebuggableInfo:
         wrapper = [_WKInspectorDebuggableInfo alloc];
         break;
@@ -224,6 +216,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     case Type::ProcessPoolConfiguration:
         wrapper = [_WKProcessPoolConfiguration alloc];
+        break;
+
+    case Type::PageConfiguration:
+        wrapper = [WKWebViewConfiguration alloc];
         break;
 
     case Type::Data:
@@ -381,6 +377,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         wrapper = [WKContentWorld alloc];
         break;
 
+    case Type::TargetedElementInfo:
+        wrapper = [_WKTargetedElementInfo alloc];
+        break;
+
+    case Type::TargetedElementRequest:
+        wrapper = [_WKTargetedElementRequest alloc];
+        break;
+
     case Type::UserInitiatedAction:
         wrapper = [_WKUserInitiatedAction alloc];
         break;
@@ -420,6 +424,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     case Type::WebExtensionControllerConfiguration:
         wrapper = [_WKWebExtensionControllerConfiguration alloc];
+        break;
+
+    case Type::WebExtensionDataRecord:
+        wrapper = [_WKWebExtensionDataRecord alloc];
         break;
 
     case Type::WebExtensionMatchPattern:

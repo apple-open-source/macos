@@ -19,8 +19,6 @@
 
 #pragma once
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-
 #include "RenderLayerModelObject.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OptionSet.h>
@@ -86,9 +84,7 @@ private:
 
     void adjustBoxForClippingAndEffects(const DecorationOptions&, FloatRect& box, const DecorationOptions& optionsToCheckForFilters = filterBoundingBoxDecoration) const;
 
-    const RenderLayerModelObject& m_renderer;
+    SingleThreadWeakRef<const RenderLayerModelObject> m_renderer;
 };
 
 } // namespace WebCore
-
-#endif

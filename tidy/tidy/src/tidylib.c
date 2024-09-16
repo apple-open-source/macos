@@ -25,6 +25,7 @@
 */
 
 #include <errno.h>
+#include <limits.h>
 
 #include "tidy-int.h"
 #include "parser.h"
@@ -421,7 +422,7 @@ Bool TIDY_CALL        tidyOptSetBool( TidyDoc tdoc, TidyOptionId optId, Bool val
 
 ctmbstr TIDY_CALL       tidyOptGetEncName( TidyDoc tdoc, TidyOptionId optId )
 {
-  uint enc = tidyOptGetInt( tdoc, optId );
+  uint enc = (uint)tidyOptGetInt( tdoc, optId );
   return TY_(CharEncodingOptName)( enc );
 }
 
@@ -430,7 +431,7 @@ ctmbstr TIDY_CALL       tidyOptGetCurrPick( TidyDoc tdoc, TidyOptionId optId )
     const TidyOptionImpl* option = TY_(getOption)( optId );
     if ( option && option->pickList )
     {
-        uint ix, pick = tidyOptGetInt( tdoc, optId );
+        uint ix, pick = (uint)tidyOptGetInt( tdoc, optId );
         const ctmbstr* pL = option->pickList;
         for ( ix=0; *pL && ix < pick; ++ix )
             ++pL;
@@ -660,8 +661,8 @@ FILE* TIDY_CALL   tidySetErrorFile( TidyDoc tdoc, ctmbstr errfilnam )
         FILE* errout = fopen( errfilnam, "wb" );
         if ( errout )
         {
-            uint outenc = cfg( impl, TidyOutCharEncoding );
-            uint nl = cfg( impl, TidyNewline );
+            uint outenc = (uint)cfg( impl, TidyOutCharEncoding );
+            uint nl = (uint)cfg( impl, TidyNewline );
             TY_(ReleaseStreamOut)( impl->errout );
             impl->errout = TY_(FileOutput)( errout, outenc, nl );
             return errout;
@@ -677,8 +678,8 @@ int TIDY_CALL    tidySetErrorBuffer( TidyDoc tdoc, TidyBuffer* errbuf )
     TidyDocImpl* impl = tidyDocToImpl( tdoc );
     if ( impl )
     {
-        uint outenc = cfg( impl, TidyOutCharEncoding );
-        uint nl = cfg( impl, TidyNewline );
+        uint outenc = (uint)cfg( impl, TidyOutCharEncoding );
+        uint nl = (uint)cfg( impl, TidyNewline );
         TY_(ReleaseStreamOut)( impl->errout );
         impl->errout = TY_(BufferOutput)( errbuf, outenc, nl );
         return ( impl->errout ? 0 : -ENOMEM );
@@ -691,8 +692,8 @@ int TIDY_CALL    tidySetErrorSink( TidyDoc tdoc, TidyOutputSink* sink )
     TidyDocImpl* impl = tidyDocToImpl( tdoc );
     if ( impl )
     {
-        uint outenc = cfg( impl, TidyOutCharEncoding );
-        uint nl = cfg( impl, TidyNewline );
+        uint outenc = (uint)cfg( impl, TidyOutCharEncoding );
+        uint nl = (uint)cfg( impl, TidyNewline );
         TY_(ReleaseStreamOut)( impl->errout );
         impl->errout = TY_(UserOutput)( sink, outenc, nl );
         return ( impl->errout ? 0 : -ENOMEM );
@@ -835,7 +836,7 @@ int   tidyDocParseFile( TidyDocImpl* doc, ctmbstr filnam )
 
     if ( fin )
     {
-        StreamIn* in = TY_(FileInput)( doc, fin, cfg( doc, TidyInCharEncoding ));
+        StreamIn* in = TY_(FileInput)( doc, fin, (int)cfg( doc, TidyInCharEncoding ));
         if ( !in )
         {
             fclose( fin );
@@ -853,7 +854,7 @@ int   tidyDocParseFile( TidyDocImpl* doc, ctmbstr filnam )
 
 int   tidyDocParseStdin( TidyDocImpl* doc )
 {
-    StreamIn* in = TY_(FileInput)( doc, stdin, cfg( doc, TidyInCharEncoding ));
+    StreamIn* in = TY_(FileInput)( doc, stdin, (int)cfg( doc, TidyInCharEncoding ));
     int status = tidyDocParseStream( doc, in );
     TY_(freeStreamIn)(in);
     return status;
@@ -864,7 +865,7 @@ int   tidyDocParseBuffer( TidyDocImpl* doc, TidyBuffer* inbuf )
     int status = -EINVAL;
     if ( inbuf )
     {
-        StreamIn* in = TY_(BufferInput)( doc, inbuf, cfg( doc, TidyInCharEncoding ));
+        StreamIn* in = TY_(BufferInput)( doc, inbuf, (int)cfg( doc, TidyInCharEncoding ));
         status = tidyDocParseStream( doc, in );
         TY_(freeStreamIn)(in);
     }
@@ -879,8 +880,10 @@ int   tidyDocParseString( TidyDocImpl* doc, ctmbstr content )
 
     if ( content )
     {
-        tidyBufAttach( &inbuf, (byte*)content, TY_(tmbstrlen)(content)+1 );
-        in = TY_(BufferInput)( doc, &inbuf, cfg( doc, TidyInCharEncoding ));
+        size_t content_len = TY_(tmbstrlen)(content);
+        assert( content_len <= UINT_MAX - 1 );
+        tidyBufAttach( &inbuf, (byte*)content, (uint)( content_len+1 ) );
+        in = TY_(BufferInput)( doc, &inbuf, (int)cfg( doc, TidyInCharEncoding ));
         status = tidyDocParseStream( doc, in );
         tidyBufDetach( &inbuf );
         TY_(freeStreamIn)(in);
@@ -890,7 +893,7 @@ int   tidyDocParseString( TidyDocImpl* doc, ctmbstr content )
 
 int   tidyDocParseSource( TidyDocImpl* doc, TidyInputSource* source )
 {
-    StreamIn* in = TY_(UserInput)( doc, source, cfg( doc, TidyInCharEncoding ));
+    StreamIn* in = TY_(UserInput)( doc, source, (int)cfg( doc, TidyInCharEncoding ));
     int status = tidyDocParseStream( doc, in );
     TY_(freeStreamIn)(in);
     return status;
@@ -940,8 +943,8 @@ int         tidyDocSaveFile( TidyDocImpl* doc, ctmbstr filnam )
 
     if ( fout )
     {
-        uint outenc = cfg( doc, TidyOutCharEncoding );
-        uint nl = cfg( doc, TidyNewline );
+        uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+        uint nl = (uint)cfg( doc, TidyNewline );
         StreamOut* out = TY_(FileOutput)( fout, outenc, nl );
 
         status = tidyDocSaveStream( doc, out );
@@ -993,8 +996,8 @@ int         tidyDocSaveStdout( TidyDocImpl* doc )
 
 #endif
     int status = 0;
-    uint outenc = cfg( doc, TidyOutCharEncoding );
-    uint nl = cfg( doc, TidyNewline );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+    uint nl = (uint)cfg( doc, TidyNewline );
     StreamOut* out = TY_(FileOutput)( stdout, outenc, nl );
 
 #if !defined(NO_SETMODE_SUPPORT)
@@ -1029,8 +1032,8 @@ int         tidyDocSaveStdout( TidyDocImpl* doc )
 
 int         tidyDocSaveString( TidyDocImpl* doc, tmbstr buffer, uint* buflen )
 {
-    uint outenc = cfg( doc, TidyOutCharEncoding );
-    uint nl = cfg( doc, TidyNewline );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+    uint nl = (uint)cfg( doc, TidyNewline );
     TidyBuffer outbuf = {0};
 
     StreamOut* out = TY_(BufferOutput)( &outbuf, outenc, nl );
@@ -1052,8 +1055,8 @@ int         tidyDocSaveBuffer( TidyDocImpl* doc, TidyBuffer* outbuf )
     int status = -EINVAL;
     if ( outbuf )
     {
-        uint outenc = cfg( doc, TidyOutCharEncoding );
-        uint nl = cfg( doc, TidyNewline );
+        uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+        uint nl = (uint)cfg( doc, TidyNewline );
         StreamOut* out = TY_(BufferOutput)( outbuf, outenc, nl );
     
         status = tidyDocSaveStream( doc, out );
@@ -1064,8 +1067,8 @@ int         tidyDocSaveBuffer( TidyDocImpl* doc, TidyBuffer* outbuf )
 
 int         tidyDocSaveSink( TidyDocImpl* doc, TidyOutputSink* sink )
 {
-    uint outenc = cfg( doc, TidyOutCharEncoding );
-    uint nl = cfg( doc, TidyNewline );
+    uint outenc = (uint)cfg( doc, TidyOutCharEncoding );
+    uint nl = (uint)cfg( doc, TidyNewline );
     StreamOut* out = TY_(UserOutput)( sink, outenc, nl );
     int status = tidyDocSaveStream( doc, out );
     MemFree( out );
@@ -1493,8 +1496,8 @@ Bool TIDY_CALL  tidyNodeGetText( TidyDoc tdoc, TidyNode tnod, TidyBuffer* outbuf
   Node* nimp = tidyNodeToImpl( tnod );
   if ( doc && nimp && outbuf )
   {
-      uint outenc     = cfg( doc, TidyOutCharEncoding );
-      uint nl         = cfg( doc, TidyNewline );
+      uint outenc     = (uint)cfg( doc, TidyOutCharEncoding );
+      uint nl         = (uint)cfg( doc, TidyNewline );
       StreamOut* out  = TY_(BufferOutput)( outbuf, outenc, nl );
       Bool xmlOut     = cfgBool( doc, TidyXmlOut );
       Bool xhtmlOut   = cfgBool( doc, TidyXhtmlOut );

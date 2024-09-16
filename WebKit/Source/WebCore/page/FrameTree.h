@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "FrameIdentifier.h"
 #include <wtf/Forward.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomString.h>
@@ -42,7 +43,7 @@ public:
     ~FrameTree();
 
     const AtomString& specifiedName() const { return m_specifiedName; }
-    const AtomString& uniqueName() const { return m_uniqueName; }
+    WEBCORE_EXPORT AtomString uniqueName() const;
     WEBCORE_EXPORT void setSpecifiedName(const AtomString&);
     WEBCORE_EXPORT void clearName();
     WEBCORE_EXPORT Frame* parent() const;
@@ -71,12 +72,14 @@ public:
     WEBCORE_EXPORT void removeChild(Frame&);
 
     Frame* child(unsigned index) const;
-    Frame* childByUniqueName(const AtomString& name) const;
+    Frame* childBySpecifiedName(const AtomString& name) const;
+    Frame* childByFrameID(FrameIdentifier) const;
     WEBCORE_EXPORT Frame* findByUniqueName(const AtomString&, Frame& activeFrame) const;
     WEBCORE_EXPORT Frame* findBySpecifiedName(const AtomString&, Frame& activeFrame) const;
     WEBCORE_EXPORT unsigned childCount() const;
     unsigned descendantCount() const;
     WEBCORE_EXPORT Frame& top() const;
+    Ref<Frame> protectedTop() const;
     unsigned depth() const;
 
     WEBCORE_EXPORT Frame* scopedChild(unsigned index) const;
@@ -84,35 +87,29 @@ public:
     Frame* scopedChildBySpecifiedName(const AtomString& name) const;
     unsigned scopedChildCount() const;
 
-    void resetFrameIdentifiers() { m_frameIDGenerator = 0; }
-
 private:
     Frame* deepFirstChild() const;
     Frame* deepLastChild() const;
     Frame* nextAncestorSibling(const Frame* stayWithin) const;
 
-    bool scopedBy(TreeScope*) const;
     Frame* scopedChild(unsigned index, TreeScope*) const;
     Frame* scopedChild(const Function<bool(const FrameTree&)>& isMatch, TreeScope*) const;
     unsigned scopedChildCount(TreeScope*) const;
 
-    Frame* find(const AtomString& name, const Function<const AtomString&(const FrameTree&)>& nameGetter, Frame& activeFrame) const;
+    template<typename F> Frame* find(const AtomString& name, F&& nameGetter, Frame& activeFrame) const;
 
-    AtomString uniqueChildName(const AtomString& requestedName) const;
-    AtomString generateUniqueName() const;
+    Ref<Frame> protectedThisFrame() const;
 
-    Frame& m_thisFrame;
+    WeakRef<Frame> m_thisFrame;
 
     WeakPtr<Frame> m_parent;
     AtomString m_specifiedName; // The actual frame name (may be empty).
-    AtomString m_uniqueName;
 
     RefPtr<Frame> m_nextSibling;
     WeakPtr<Frame> m_previousSibling;
     RefPtr<Frame> m_firstChild;
     WeakPtr<Frame> m_lastChild;
     mutable unsigned m_scopedChildCount { invalidCount };
-    mutable uint64_t m_frameIDGenerator { 0 };
 };
 
 ASCIILiteral blankTargetFrameName();

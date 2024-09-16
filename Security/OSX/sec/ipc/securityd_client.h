@@ -30,6 +30,7 @@
 #include <Security/SecTrust.h>
 #include <Security/SecTask.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecItemFetchOutOfBandPriv.h>
 #ifndef MINIMIZE_INCLUDES
 
 #pragma clang diagnostic push
@@ -309,6 +310,8 @@ enum SecXPCOperation {
     sec_item_share_with_group_id,
     sec_delete_items_on_sign_out_id,
     sec_trust_store_migrate_plist_id,
+    sec_ota_pki_trust_store_content_digest_id,
+    sec_ota_pki_trust_store_asset_version_id,
 };
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
@@ -460,6 +463,8 @@ struct trustd {
     bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, SecCertificateRef certificate, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
     SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFDataRef auditToken, uint64_t attribution, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
+    CFStringRef (*sec_ota_pki_trust_store_asset_version)(CFErrorRef* error);
+    CFStringRef (*sec_ota_pki_trust_store_content_digest)(CFErrorRef* error);
     uint64_t (*sec_ota_pki_trust_store_version)(CFErrorRef* error);
     uint64_t (*sec_ota_pki_asset_version)(CFErrorRef* error);
     uint64_t (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
@@ -554,6 +559,13 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
                                fetchCloudValue:(bool)fetchCloudValue
                                       complete:(void (^) (NSData* persistentref, NSDate* cipModificationTime, NSError* operror)) complete;
 
+
+- (void)secItemFetchCurrentItemOutOfBand:(NSArray<CKKSCurrentItemQuery*>*)currentItemQueries
+                              forceFetch:(bool)forceFetch
+                                complete:(void (^)(NSArray<CKKSCurrentItemQueryResult*>* currentItems, NSError* operror)) complete;
+- (void)secItemFetchPCSIdentityByKeyOutOfBand:(NSArray<CKKSPCSIdentityQuery*>*)pcsIdentityQueries
+                                   forceFetch:(bool)forceFetch
+                                     complete:(void (^)(NSArray<CKKSPCSIdentityQueryResult*>* pcsIdentities, NSError* operror))complete;
 
 // For each item in the keychainClass, return a persistant reference and the digest of the value
 // The digest is not stable, and can change any time, the only promise is that if the digest

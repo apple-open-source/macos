@@ -29,6 +29,7 @@
 
 #include "agentquery.h"
 #include "ccaudit_extensions.h"
+#include "keybag_helpers.h"
 
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationTagsPriv.h>
@@ -44,7 +45,6 @@
 #include <stdlib.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
-#include "securityd_service/securityd_service/securityd_service_client.h"
 
 // Includes for <rdar://problem/34677969> Always require the user's password on keychain approval dialogs
 #include "server.h"
@@ -755,7 +755,7 @@ Reason QueryKeybagPassphrase::query()
 
 Reason QueryKeybagPassphrase::accept(Security::CssmManagedData & password)
 {
-	if (service_client_kb_unlock(&mContext, password.data(), (int)password.length()) == 0) {
+	if (kb_unlock(&mContext, password.data(), (int)password.length()) == 0) {
 		mSession.keybagSetState(session_keybag_unlocked);
         return SecurityAgent::noReason;
     } else

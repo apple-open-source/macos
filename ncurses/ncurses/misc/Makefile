@@ -72,7 +72,7 @@ INSTALL_PROGRAM	= ${INSTALL}
 INSTALL_SCRIPT	= ${INSTALL}
 INSTALL_DATA	= ${INSTALL} -m 644
 
-PKG_CONFIG_LIBDIR = /opt/brew/share/pkgconfig
+PKG_CONFIG_LIBDIR = no
 
 ################################################################################
 all :	terminfo.tmp

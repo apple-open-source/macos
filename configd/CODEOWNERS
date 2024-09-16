@@ -1,0 +1,19 @@
+# CODEOWNERS
+# Maintainers, owners, and mandatory code reviewers for this repo
+#
+# Comments with a "Radar: " prefix indicate the radar component for all files
+# grouped before the first subsequent newline.
+#
+# The first element on each line is a file pattern, as accepted by git ls-files.
+# Subsequent elements are @stash_usernames for each owner.
+
+# This suppresses info comment on pull request creation about added code owners.
+CODEOWNERS.toplevel.create_pull_request_comment disable
+
+# Any and all changes should be reviewed by the following people:
+#Radar: configd | all
+*		@dieter @sushant_chavan @gmishtaku
+
+# This project is owned by:
+CODEOWNERS	@dieter @gmishtaku
+

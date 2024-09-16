@@ -31,6 +31,7 @@
 #include "APIContentWorld.h"
 #include "APILoaderClient.h"
 #include "APINavigation.h"
+#include "APIPageConfiguration.h"
 #include "PageLoadState.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
@@ -40,6 +41,7 @@
 #include <WebCore/RunJavaScriptParameters.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <wtf/URL.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
@@ -152,18 +154,18 @@ void RemoteInspectorProtocolHandler::targetListChanged(RemoteInspectorClient& cl
     if (client.targets().isEmpty())
         html.append("<p>No targets found</p>"_s);
     else {
-        html.append("<table>");
+        html.append("<table>"_s);
         for (auto& connectionID : client.targets().keys()) {
             for (auto& target : client.targets().get(connectionID)) {
                 html.append(makeString(
                     "<tbody><tr>"
-                    "<td class=\"data\"><div class=\"targetname\">", target.name, "</div><div class=\"targeturl\">", target.url, "</div></td>"
-                    "<td class=\"input\"><input type=\"button\" value=\"Inspect\" onclick=\"window.webkit.messageHandlers.inspector.postMessage(\\'", connectionID, ":", target.id, ":", target.type, "\\');\"></td>"
-                    "</tr></tbody>"
+                    "<td class=\"data\"><div class=\"targetname\">"_s, target.name, "</div><div class=\"targeturl\">"_s, target.url, "</div></td>"
+                    "<td class=\"input\"><input type=\"button\" value=\"Inspect\" onclick=\"window.webkit.messageHandlers.inspector.postMessage(\\'"_s, connectionID, ':', target.id, ':', target.type, "\\');\"></td>"
+                    "</tr></tbody>"_s
                 ));
             }
         }
-        html.append("</table>");
+        html.append("</table>"_s);
     }
     m_targetListsHtml = html.toString();
     if (m_pageLoaded)
@@ -173,7 +175,7 @@ void RemoteInspectorProtocolHandler::targetListChanged(RemoteInspectorClient& cl
 void RemoteInspectorProtocolHandler::updateTargetList()
 {
     if (!m_targetListsHtml.isEmpty()) {
-        runScript(makeString("updateTargets(`", m_targetListsHtml, "`);"));
+        runScript(makeString("updateTargets(`"_s, m_targetListsHtml, "`);"_s));
         m_targetListsHtml = { };
     }
 }
@@ -188,7 +190,7 @@ void RemoteInspectorProtocolHandler::platformStartTask(WebPageProxy& pageProxy, 
 
     // Setup target postMessage listener
     auto handler = WebScriptMessageHandler::create(makeUnique<ScriptMessageClient>(*this), "inspector"_s, API::ContentWorld::pageContentWorld());
-    pageProxy.pageGroup().userContentController().addUserScriptMessageHandler(handler.get());
+    pageProxy.configuration().userContentController().addUserScriptMessageHandler(handler.get());
 
     // Setup loader client to get notified of page load
     m_page.setLoaderClient(makeUnique<LoaderClient>([this] {
@@ -223,11 +225,11 @@ void RemoteInspectorProtocolHandler::platformStartTask(WebPageProxy& pageProxy, 
             "let targetDiv = document.getElementById('targetlist');"
             "targetDiv.innerHTML = str;"
         "}"
-        "</script>");
-    htmlBuilder.append("</html>");
+        "</script>"_s);
+    htmlBuilder.append("</html>"_s);
 
     auto html = htmlBuilder.toString().utf8();
-    auto data = SharedBuffer::create(html.data(), html.length());
+    auto data = SharedBuffer::create(html.span());
     ResourceResponse response(requestURL, "text/html"_s, html.length(), "UTF-8"_s);
     task.didReceiveResponse(response);
     task.didReceiveData(WTFMove(data));

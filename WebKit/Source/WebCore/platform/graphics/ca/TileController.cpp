@@ -39,6 +39,7 @@
 #include <utility>
 #include <wtf/MainThread.h>
 #include <wtf/MemoryPressureHandler.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 #if HAVE(IOSURFACE)
@@ -83,6 +84,35 @@ TileController::~TileController()
 #endif
 }
 
+
+void TileController::setClient(TiledBackingClient* client)
+{
+    if (client) {
+        m_client = *client;
+        return;
+    }
+
+    m_client = nullptr;
+}
+
+PlatformLayerIdentifier TileController::layerIdentifier() const
+{
+    return owningGraphicsLayer()->platformCALayerIdentifier();
+}
+
+TileGridIdentifier TileController::primaryGridIdentifier() const
+{
+    return tileGrid().identifier();
+}
+
+std::optional<TileGridIdentifier> TileController::secondaryGridIdentifier() const
+{
+    if (m_zoomedOutTileGrid)
+        m_zoomedOutTileGrid->identifier();
+
+    return { };
+}
+
 void TileController::tileCacheLayerBoundsChanged()
 {
     ASSERT(owningGraphicsLayer()->isCommittingChanges());
@@ -125,7 +155,10 @@ void TileController::setContentsScale(float contentsScale)
         m_coverageMap->setDeviceScaleFactor(deviceScaleFactor);
 
     if (m_zoomedOutTileGrid && m_zoomedOutTileGrid->scale() == scale) {
-        m_tileGrid = WTFMove(m_zoomedOutTileGrid);
+        if (m_tileGrid && m_client)
+            m_client->willRemoveGrid(*this, m_tileGrid->identifier());
+
+        m_tileGrid = std::exchange(m_zoomedOutTileGrid, nullptr);
         m_tileGrid->setIsZoomedOutTileGrid(false);
         m_tileGrid->revalidateTiles();
         tileGridsChanged();
@@ -133,19 +166,36 @@ void TileController::setContentsScale(float contentsScale)
     }
 
     if (m_zoomedOutContentsScale && m_zoomedOutContentsScale == tileGrid().scale() && tileGrid().scale() != scale && !m_hasTilesWithTemporaryScaleFactor) {
-        m_zoomedOutTileGrid = WTFMove(m_tileGrid);
+        if (m_zoomedOutTileGrid && m_client)
+            m_client->willRemoveGrid(*this, m_zoomedOutTileGrid->identifier());
+
+        m_zoomedOutTileGrid = std::exchange(m_tileGrid, nullptr);
         m_zoomedOutTileGrid->setIsZoomedOutTileGrid(true);
         m_tileGrid = makeUnique<TileGrid>(*this);
+
+        if (m_client)
+            m_client->didAddGrid(*this, m_tileGrid->identifier());
+
         tileGridsChanged();
     }
 
+    auto oldScale = tileGrid().scale();
     tileGrid().setScale(scale);
+
+    if (m_client && scale != oldScale)
+        m_client->tilingScaleFactorDidChange(*this, scale);
+
     tileGrid().setNeedsDisplay();
 }
 
 float TileController::contentsScale() const
 {
     return tileGrid().scale() * m_deviceScaleFactor;
+}
+
+float TileController::tilingScaleFactor() const
+{
+    return tileGrid().scale();
 }
 
 float TileController::zoomedOutContentsScale() const
@@ -222,6 +272,11 @@ void TileController::setCoverageRect(const FloatRect& rect)
 
     m_coverageRect = rect;
     setNeedsRevalidateTiles();
+
+    if (!m_client)
+        return;
+
+    m_client->coverageRectDidChange(*this, m_coverageRect);
 }
 
 bool TileController::tilesWouldChangeForCoverageRect(const FloatRect& rect) const
@@ -528,6 +583,30 @@ void TileController::didEndLiveResize()
     m_tileSizeLocked = false; // Let the end of a live resize update the tiles.
 }
 
+void TileController::willRepaintTile(TileGrid& tileGrid, TileIndex tileIndex, const FloatRect& tileClip, const FloatRect& paintDirtyRect)
+{
+    if (!m_client)
+        return;
+
+    m_client->willRepaintTile(*this, tileGrid.identifier(), tileIndex, tileClip, paintDirtyRect);
+}
+
+void TileController::willRemoveTile(TileGrid& tileGrid, TileIndex tileIndex)
+{
+    if (!m_client)
+        return;
+
+    m_client->willRemoveTile(*this, tileGrid.identifier(), tileIndex);
+}
+
+void TileController::willRepaintAllTiles(TileGrid& tileGrid)
+{
+    if (!m_client)
+        return;
+
+    m_client->willRepaintAllTiles(*this, tileGrid.identifier());
+}
+
 void TileController::notePendingTileSizeChange()
 {
     if (m_isTileSizeUpdateDelayDisabledForTesting)
@@ -548,6 +627,11 @@ void TileController::tileSizeChangeTimerFired()
 IntSize TileController::tileSize() const
 {
     return tileGrid().tileSize();
+}
+
+FloatRect TileController::rectForTile(TileIndex tileIndex) const
+{
+    return tileGrid().rectForTile(tileIndex);
 }
 
 IntSize TileController::computeTileSize()
@@ -757,7 +841,7 @@ Ref<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect, Ti
     layer->setBorderWidth(m_tileDebugBorderWidth);
     layer->setAntialiasesEdges(false);
     layer->setOpaque(m_tilesAreOpaque);
-    layer->setName(makeString("tile at ", tileRect.location().x(), ',', tileRect.location().y()));
+    layer->setName(makeString("tile at "_s, tileRect.location().x(), ',', tileRect.location().y()));
     layer->setContentsScale(m_deviceScaleFactor * temporaryScaleFactor);
     layer->setAcceleratesDrawing(m_acceleratesDrawing);
     layer->setWantsDeepColorBackingStore(m_wantsDeepColorBackingStore);

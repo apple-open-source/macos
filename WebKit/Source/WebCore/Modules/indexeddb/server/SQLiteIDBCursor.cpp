@@ -35,6 +35,7 @@
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include <sqlite3.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 namespace IDBServer {
@@ -134,31 +135,31 @@ void SQLiteIDBCursor::currentData(IDBGetResult& result, const std::optional<IDBK
 
 static String buildPreIndexStatement(bool isDirectionNext)
 {
-    return makeString("SELECT rowid, key, value FROM IndexRecords WHERE indexID = ? AND key = CAST(? AS TEXT) AND value ",
-        isDirectionNext ? '>' : '<', " CAST(? AS TEXT) ORDER BY value", isDirectionNext ? "" : " DESC", ';');
+    return makeString("SELECT rowid, key, value FROM IndexRecords WHERE indexID = ? AND key = CAST(? AS TEXT) AND value "_s,
+        isDirectionNext ? '>' : '<', " CAST(? AS TEXT) ORDER BY value"_s, isDirectionNext ? ""_s : " DESC"_s, ';');
 }
 
 static String buildIndexStatement(const IDBKeyRangeData& keyRange, IndexedDB::CursorDirection cursorDirection)
 {
-    return makeString("SELECT rowid, key, value FROM IndexRecords WHERE indexID = ? AND key ",
-        !keyRange.lowerKey.isNull() && !keyRange.lowerOpen ? ">=" : ">",
-        " CAST(? AS TEXT) AND key ",
-        !keyRange.upperKey.isNull() && !keyRange.upperOpen ? "<=" : "<",
-        " CAST(? AS TEXT) ORDER BY key",
-        cursorDirection == IndexedDB::CursorDirection::Prev || cursorDirection == IndexedDB::CursorDirection::Prevunique ? " DESC" : "",
-        ", value",
-        cursorDirection == IndexedDB::CursorDirection::Prev ? " DESC" : "",
+    return makeString("SELECT rowid, key, value FROM IndexRecords WHERE indexID = ? AND key "_s,
+        !keyRange.lowerKey.isNull() && !keyRange.lowerOpen ? ">="_s : ">"_s,
+        " CAST(? AS TEXT) AND key "_s,
+        !keyRange.upperKey.isNull() && !keyRange.upperOpen ? "<="_s : "<"_s,
+        " CAST(? AS TEXT) ORDER BY key"_s,
+        cursorDirection == IndexedDB::CursorDirection::Prev || cursorDirection == IndexedDB::CursorDirection::Prevunique ? " DESC"_s : ""_s,
+        ", value"_s,
+        cursorDirection == IndexedDB::CursorDirection::Prev ? " DESC"_s : ""_s,
         ';');
 }
 
 static String buildObjectStoreStatement(const IDBKeyRangeData& keyRange, IndexedDB::CursorDirection cursorDirection)
 {
-    return makeString("SELECT rowid, key, value FROM Records WHERE objectStoreID = ? AND key ",
-        !keyRange.lowerKey.isNull() && !keyRange.lowerOpen ? ">=" : ">",
-        " CAST(? AS TEXT) AND key ",
-        !keyRange.upperKey.isNull() && !keyRange.upperOpen ? "<=" : "<",
-        " CAST(? AS TEXT) ORDER BY key",
-        cursorDirection == IndexedDB::CursorDirection::Prev || cursorDirection == IndexedDB::CursorDirection::Prevunique ? " DESC" : "",
+    return makeString("SELECT rowid, key, value FROM Records WHERE objectStoreID = ? AND key "_s,
+        !keyRange.lowerKey.isNull() && !keyRange.lowerOpen ? ">="_s : ">"_s,
+        " CAST(? AS TEXT) AND key "_s,
+        !keyRange.upperKey.isNull() && !keyRange.upperOpen ? "<="_s : "<"_s,
+        " CAST(? AS TEXT) ORDER BY key"_s,
+        cursorDirection == IndexedDB::CursorDirection::Prev || cursorDirection == IndexedDB::CursorDirection::Prevunique ? " DESC"_s : ""_s,
         ';');
 }
 
@@ -272,13 +273,13 @@ bool SQLiteIDBCursor::bindArguments()
     }
 
     auto buffer = serializeIDBKeyData(m_currentLowerKey);
-    if (m_statement->bindBlob(currentBindArgument++, buffer->dataAsSpanForContiguousData()) != SQLITE_OK) {
+    if (m_statement->bindBlob(currentBindArgument++, buffer->span()) != SQLITE_OK) {
         LOG_ERROR("Could not create cursor statement (lower key)");
         return false;
     }
 
     buffer = serializeIDBKeyData(m_currentUpperKey);
-    if (m_statement->bindBlob(currentBindArgument++, buffer->dataAsSpanForContiguousData()) != SQLITE_OK) {
+    if (m_statement->bindBlob(currentBindArgument++, buffer->span()) != SQLITE_OK) {
         LOG_ERROR("Could not create cursor statement (upper key)");
         return false;
     }
@@ -318,13 +319,13 @@ bool SQLiteIDBCursor::resetAndRebindPreIndexStatementIfNecessary()
     }
 
     auto buffer = serializeIDBKeyData(key);
-    if (m_preIndexStatement->bindBlob(currentBindArgument++, buffer->dataAsSpanForContiguousData()) != SQLITE_OK) {
+    if (m_preIndexStatement->bindBlob(currentBindArgument++, buffer->span()) != SQLITE_OK) {
         LOG_ERROR("Could not bind id argument to pre statement (key)");
         return false;
     }
 
     buffer = serializeIDBKeyData(m_currentIndexRecordValue);
-    if (m_preIndexStatement->bindBlob(currentBindArgument++, buffer->dataAsSpanForContiguousData()) != SQLITE_OK) {
+    if (m_preIndexStatement->bindBlob(currentBindArgument++, buffer->span()) != SQLITE_OK) {
         LOG_ERROR("Could not bind id argument to pre statement (value)");
         return false;
     }
@@ -511,7 +512,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
     ASSERT(record.rowID);
     auto keyDataSpan = statement->columnBlobAsSpan(1);
 
-    if (!deserializeIDBKeyData(keyDataSpan.data(), keyDataSpan.size(), record.record.key)) {
+    if (!deserializeIDBKeyData(keyDataSpan, record.record.key)) {
         LOG_ERROR("Unable to deserialize key data from database while advancing cursor");
         markAsErrored(record);
         return FetchResult::Failure;
@@ -534,7 +535,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
         if (m_cursorType == IndexedDB::CursorType::KeyAndValue)
             record.record.value = { ThreadSafeDataBuffer::create(WTFMove(keyData)), blobURLs, blobFilePaths };
     } else {
-        if (!deserializeIDBKeyData(keyData.data(), keyData.size(), record.record.primaryKey)) {
+        if (!deserializeIDBKeyData(keyData.span(), record.record.primaryKey)) {
             LOG_ERROR("Unable to deserialize value data from database while advancing index cursor");
             markAsErrored(record);
             return FetchResult::Failure;

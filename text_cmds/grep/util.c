@@ -370,7 +370,17 @@ procfile(const char *fn, struct stat *psbp)
 	pc.ln.len = 0;
 	pc.ln.boff = 0;
 	pc.ln.off = -1;
+#ifdef __APPLE__
+	/*
+	 * The parse context tracks whether we're treating this like a binary
+	 * file, but some parts of the search may need to know whether the file
+	 * was actually detected as a binary file.
+	 */
+	pc.f = f;
+	pc.binary = f->binary && binbehave != BINFILE_TEXT;
+#else
 	pc.binary = f->binary;
+#endif
 	pc.cntlines = false;
 	memset(&mc, 0, sizeof(mc));
 	mc.printmatch = true;
@@ -605,7 +615,7 @@ procline(struct parsec *pc)
 		for (i = 0; i < patterns; i++) {
 #ifdef __APPLE__
 			/* rdar://problem/10462853: Treat binary files as binary. */
-			if (pc->binary) {
+			if (pc->f->binary) {
 				setlocale(LC_ALL, "C");
 			}
 #endif /* __APPLE__ */
@@ -620,7 +630,7 @@ procline(struct parsec *pc)
 			    leflags);
 #ifdef __APPLE__
 			/* rdar://problem/10462853: Treat binary files as binary. */
-			if (pc->binary) {
+			if (pc->f->binary) {
 				setlocale(LC_ALL, "");
 			}
 #endif /* __APPLE__ */

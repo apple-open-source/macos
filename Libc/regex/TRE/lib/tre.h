@@ -202,7 +202,9 @@ tre_regwnexec(const regex_t * __restrict preg, const wchar_t * __restrict string
 #endif /* TRE_WCHAR */
 
 /* Extended locale versions */
+#define __DARWIN_XLOCALE_PRIVATE
 #include <xlocale.h>
+#undef __DARWIN_XLOCALE_PRIVATE
 
 extern int
 tre_regcomp_l(regex_t * __restrict preg, const char * __restrict regex, int cflags, locale_t __restrict loc);

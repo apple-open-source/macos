@@ -32,6 +32,10 @@ namespace WTF {
 class RunLoop;
 }
 
+namespace WebCore {
+class Region;
+}
+
 namespace WebKit {
 
 class WebPage;
@@ -58,7 +62,7 @@ public:
     virtual void willDestroyGLContext() { }
     virtual void finalize() { }
     virtual void willRenderFrame() { }
-    virtual void didRenderFrame() { }
+    virtual void didRenderFrame(const std::optional<WebCore::Region>&) { }
 
     virtual void didCreateCompositingRunLoop(WTF::RunLoop&) { }
     virtual void willDestroyCompositingRunLoop() { }
@@ -68,6 +72,9 @@ public:
 #endif
 
     virtual void visibilityDidChange(bool) { }
+    virtual bool backgroundColorDidChange();
+
+    void clearIfNeeded();
 
 protected:
     AcceleratedSurface(WebPage&, Client&);
@@ -75,6 +82,7 @@ protected:
     WebPage& m_webPage;
     Client& m_client;
     WebCore::IntSize m_size;
+    std::atomic<bool> m_isOpaque { true };
 };
 
 } // namespace WebKit

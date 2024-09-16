@@ -20,34 +20,28 @@
 
 #pragma once
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-
-#include "LegacyRenderSVGResource.h"
 #include "RenderSVGHiddenContainer.h"
 
 namespace WebCore {
 
-class RenderLayer;
-
 class RenderSVGResourceContainer : public RenderSVGHiddenContainer {
     WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceContainer);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderSVGResourceContainer);
 public:
     virtual ~RenderSVGResourceContainer();
 
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
     void idChanged();
-
     void repaintAllClients() const;
+
+    virtual void addReferencingCSSClient(const RenderElement&) { }
+    virtual void removeReferencingCSSClient(const RenderElement&) { }
 
 protected:
     RenderSVGResourceContainer(Type, SVGElement&, RenderStyle&&);
 
 private:
-    friend class SVGResourcesCache;
-    void addClient(RenderElement&);
-    void removeClient(RenderElement&);
-
     void willBeDestroyed() final;
     void registerResource();
 
@@ -59,4 +53,3 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGResourceContainer, isRenderSVGResourceContainer())
 
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

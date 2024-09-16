@@ -52,6 +52,7 @@
 #include <wtf/FixedVector.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringView.h>
 
@@ -76,7 +77,7 @@ ExceptionOr<RefPtr<CSSValue>> CSSStyleValueFactory::extractCSSValue(const CSSPro
     CSSParser::ParseResult parseResult = CSSParser::parseValue(styleDeclaration, propertyID, cssText, important, parserContext);
 
     if (parseResult == CSSParser::ParseResult::Error)
-        return Exception { ExceptionCode::TypeError, makeString(cssText, " cannot be parsed.") };
+        return Exception { ExceptionCode::TypeError, makeString(cssText, " cannot be parsed."_s) };
 
     return styleDeclaration->getPropertyCSSValue(propertyID);
 }
@@ -89,7 +90,7 @@ ExceptionOr<RefPtr<CSSStyleValue>> CSSStyleValueFactory::extractShorthandCSSValu
     CSSParser::ParseResult parseResult = CSSParser::parseValue(styleDeclaration, propertyID, cssText, important, parserContext);
 
     if (parseResult == CSSParser::ParseResult::Error)
-        return Exception { ExceptionCode::TypeError, makeString(cssText, " cannot be parsed.") };
+        return Exception { ExceptionCode::TypeError, makeString(cssText, " cannot be parsed."_s) };
 
     return constructStyleValueForShorthandSerialization(styleDeclaration->getPropertyValue(propertyID), parserContext);
 }

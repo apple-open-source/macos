@@ -46,7 +46,7 @@ namespace WebCore {
 class MediaSessionManageriOS
     : public MediaSessionManagerCocoa
     , public MediaSessionHelperClient
-    , public AudioSession::InterruptionObserver {
+    , public AudioSessionInterruptionObserver {
 public:
     virtual ~MediaSessionManageriOS();
 
@@ -72,7 +72,7 @@ private:
     bool sessionWillBeginPlayback(PlatformMediaSession&) final;
     void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) final;
 
-    // AudioSession::InterruptionObserver
+    // AudioSessionInterruptionObserver
     void beginAudioSessionInterruption() final { beginInterruption(PlatformMediaSession::InterruptionType::SystemInterruption); }
     void endAudioSessionInterruption(AudioSession::MayResume mayResume) final { endInterruption(mayResume == AudioSession::MayResume::Yes ? PlatformMediaSession::EndInterruptionFlags::MayResumePlaying : PlatformMediaSession::EndInterruptionFlags::NoFlags); }
 
@@ -87,7 +87,7 @@ private:
     void isPlayingToAutomotiveHeadUnitDidChange(PlayingToAutomotiveHeadUnit) final;
     void activeAudioRouteSupportsSpatialPlaybackDidChange(SupportsSpatialAudioPlayback) final;
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "MediaSessionManageriOS"; }
+    ASCIILiteral logClassName() const final { return "MediaSessionManageriOS"_s; }
 #endif
 
 #if !PLATFORM(WATCHOS)

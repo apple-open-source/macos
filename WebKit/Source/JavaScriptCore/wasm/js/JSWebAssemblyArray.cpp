@@ -33,6 +33,7 @@
 #include "TypeError.h"
 #include "WasmFormat.h"
 #include "WasmTypeDefinition.h"
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -75,6 +76,14 @@ JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::Field
 {
 }
 
+JSWebAssemblyArray::JSWebAssemblyArray(VM& vm, Structure* structure, Wasm::FieldType elementType, size_t size, FixedVector<v128_t>&& payload, RefPtr<const Wasm::RTT> rtt)
+    : Base(vm, structure, rtt)
+    , m_elementType(elementType)
+    , m_size(size)
+    , m_payload128(WTFMove(payload))
+{
+}
+
 JSWebAssemblyArray::~JSWebAssemblyArray()
 {
     if (m_elementType.type.is<Wasm::PackedType>()) {
@@ -94,9 +103,94 @@ JSWebAssemblyArray::~JSWebAssemblyArray()
     case Wasm::TypeKind::F32:
         m_payload32.~FixedVector<uint32_t>();
         break;
+    case Wasm::TypeKind::V128:
+        m_payload128.~FixedVector<v128_t>();
+        break;
     default:
         m_payload64.~FixedVector<uint64_t>();
         break;
+    }
+}
+
+void JSWebAssemblyArray::fill(uint32_t offset, uint64_t value, uint32_t size)
+{
+    // Handle ref types separately to ensure write barriers are in effect.
+    if (isRefType(m_elementType.type.unpacked()) && !isI31ref(m_elementType.type.unpacked())) {
+        for (size_t i = 0; i < size; i++)
+            set(offset + i, value);
+        return;
+    }
+
+    if (m_elementType.type.is<Wasm::PackedType>()) {
+        switch (m_elementType.type.as<Wasm::PackedType>()) {
+        case Wasm::PackedType::I8:
+            memsetSpan(m_payload8.mutableSpan().subspan(offset, size), static_cast<uint8_t>(value));
+            return;
+        case Wasm::PackedType::I16:
+            std::fill(m_payload16.begin() + offset, m_payload16.begin() + offset + size, static_cast<uint16_t>(value));
+            return;
+        }
+    }
+
+    switch (m_elementType.type.as<Wasm::Type>().kind) {
+    case Wasm::TypeKind::I32:
+    case Wasm::TypeKind::F32:
+        std::fill(m_payload32.begin() + offset, m_payload32.begin() + offset + size, static_cast<uint32_t>(value));
+        return;
+    case Wasm::TypeKind::V128:
+        RELEASE_ASSERT_NOT_REACHED();
+        return;
+    default:
+        std::fill(m_payload64.begin() + offset, m_payload64.begin() + offset + size, value);
+        return;
+    }
+}
+
+void JSWebAssemblyArray::fill(uint32_t offset, v128_t value, uint32_t size)
+{
+    ASSERT(m_elementType.type.unpacked().isV128());
+    std::fill(m_payload128.begin() + offset, m_payload128.begin() + offset + size, value);
+}
+
+void JSWebAssemblyArray::copy(JSWebAssemblyArray& dst, uint32_t dstOffset, uint32_t srcOffset, uint32_t size)
+{
+    // Handle ref types separately to ensure write barriers are in effect.
+    if (isRefType(m_elementType.type.unpacked()) && !isI31ref(m_elementType.type.unpacked())) {
+        // If the ranges overlap then copy to a tmp buffer first.
+        if (&dst == this && dstOffset <= srcOffset + size && srcOffset <= dstOffset + size) {
+            FixedVector<uint64_t> tmpCopy(size);
+            std::copy(m_payload64.begin() + srcOffset, m_payload64.begin() + srcOffset + size, tmpCopy.mutableSpan().data());
+            for (size_t i = 0; i < size; i++)
+                dst.set(dstOffset + i, tmpCopy[i]);
+        } else {
+            for (size_t i = 0; i < size; i++)
+                dst.set(dstOffset + i, m_payload64[srcOffset + i]);
+        }
+        return;
+    }
+
+    if (m_elementType.type.is<Wasm::PackedType>()) {
+        switch (m_elementType.type.as<Wasm::PackedType>()) {
+        case Wasm::PackedType::I8:
+            memmove(dst.m_payload8.mutableSpan().subspan(dstOffset).data(), m_payload8.span().subspan(srcOffset).data(), size);
+            return;
+        case Wasm::PackedType::I16:
+            std::copy(m_payload16.begin() + srcOffset, m_payload16.begin() + srcOffset + size, dst.m_payload16.begin() + dstOffset);
+            return;
+        }
+    }
+
+    switch (m_elementType.type.as<Wasm::Type>().kind) {
+    case Wasm::TypeKind::I32:
+    case Wasm::TypeKind::F32:
+        std::copy(m_payload32.begin() + srcOffset, m_payload32.begin() + srcOffset + size, dst.m_payload32.begin() + dstOffset);
+        return;
+    case Wasm::TypeKind::V128:
+        std::copy(m_payload128.begin() + srcOffset, m_payload128.begin() + srcOffset + size, dst.m_payload128.begin() + dstOffset);
+        return;
+    default:
+        std::copy(m_payload64.begin() + srcOffset, m_payload64.begin() + srcOffset + size, dst.m_payload64.begin() + dstOffset);
+        return;
     }
 }
 

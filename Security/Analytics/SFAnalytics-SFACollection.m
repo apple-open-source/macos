@@ -17,7 +17,7 @@
 #import "NSError+UsefulConstructors.h"
 
 static NSString *kSFAErrorDomain = @"com.apple.SFAErrorDomain";
-typedef NS_ENUM(NSInteger, kSFAErrorCode) {
+typedef NS_ERROR_ENUM(kSFAErrorDomain, kSFAErrorCode) {
     kSFAErrorsRulesMissing = 1,
     kSFAErrorTypeMissing,
     kSFAErrorRulesInvalidType,

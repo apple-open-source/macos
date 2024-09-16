@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,5 +95,15 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size,
  */
 CFArrayRef /* of CFStringRef */
 DNSNameListCreateArray(const uint8_t * buffer, int buffer_size);
+
+/*
+ * Function: DNSNameStringCreate
+ * Purpose:
+ *   Convert domain name in RFC 1035 format to a single string.
+ * Returns:
+ *   NULL if failure, non-NULL CFString otherwise.
+ */
+CFStringRef
+DNSNameStringCreate(const uint8_t * buffer, int buffer_size);
 
 #endif /* _S_DNSNAMELIST_H */

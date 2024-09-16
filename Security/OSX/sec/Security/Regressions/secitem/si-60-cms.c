@@ -1691,17 +1691,8 @@ static void tests(void)
         fk_cms, fk_cms_len, kCFAllocatorNull);
     policy = SecPolicyCreateiPhoneApplicationSigning();
     is_status(SecCMSVerify(message, detached, policy, &trust, NULL), errSecAuthFailed, "get trust");
-#if TARGET_OS_IPHONE
-    /* iOS only returns a trust ref on signature verification success */
     is(trust, NULL, "no trustref: digest was wrong");
-#else
-    if (useMessageSecurityEnabled()) {
-        is(trust, NULL, "no trustref: digest was wrong");
-    } else {
-        /* legacy macOS ALWAYS returns a trust ref */
-        isnt(trust, NULL, "always return trustref");
-    }
-#endif
+
     CFReleaseNull(trust);
     CFReleaseNull(message);
     CFReleaseNull(detached);

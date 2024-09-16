@@ -49,6 +49,8 @@
 #include <netinet/tcp_var.h>
 #include <string.h>
 
+#include <net/sockaddr_utils.h>
+
 static void fill_sockbuf_info(struct sockbuf *sb, struct sockbuf_info *sbi);
 static void fill_common_sockinfo(struct socket *so, struct socket_info *si);
 
@@ -187,7 +189,8 @@ fill_socketinfo(struct socket *so, struct socket_info *si)
 			if (addrlen > SOCK_MAXADDRLEN) {
 				addrlen = SOCK_MAXADDRLEN;
 			}
-			bcopy(unp->unp_addr, &unsi->unsi_addr, addrlen);
+			SOCKADDR_COPY(unp->unp_addr, &unsi->unsi_addr.ua_sun,
+			    addrlen);
 		}
 		if (unp->unp_conn && unp->unp_conn->unp_addr) {
 			size_t  addrlen = unp->unp_conn->unp_addr->sun_len;
@@ -195,7 +198,7 @@ fill_socketinfo(struct socket *so, struct socket_info *si)
 			if (addrlen > SOCK_MAXADDRLEN) {
 				addrlen = SOCK_MAXADDRLEN;
 			}
-			bcopy(unp->unp_conn->unp_addr, &unsi->unsi_caddr,
+			SOCKADDR_COPY(unp->unp_conn->unp_addr, &unsi->unsi_caddr.ua_sun,
 			    addrlen);
 		}
 		break;

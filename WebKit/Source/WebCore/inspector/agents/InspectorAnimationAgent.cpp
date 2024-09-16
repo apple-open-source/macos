@@ -61,6 +61,7 @@
 #include <wtf/Seconds.h>
 #include <wtf/Stopwatch.h>
 #include <wtf/Vector.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
@@ -123,7 +124,9 @@ static Ref<JSON::ArrayOf<Inspector::Protocol::Animation::Keyframe>> buildObjectF
         auto* renderer = keyframeEffect.renderer();
 
         // Synthesize CSS style declarations for each keyframe so the frontend can display them.
-        ComputedStyleExtractor computedStyleExtractor(target, false, target->pseudoId());
+
+        auto pseudoElementIdentifier = target->pseudoId() == PseudoId::None ? std::nullopt : std::optional(Style::PseudoElementIdentifier { target->pseudoId() });
+        ComputedStyleExtractor computedStyleExtractor(target, false, pseudoElementIdentifier);
 
         for (size_t i = 0; i < blendingKeyframes.size(); ++i) {
             auto& blendingKeyframe = blendingKeyframes[i];
@@ -152,12 +155,12 @@ static Ref<JSON::ArrayOf<Inspector::Protocol::Animation::Keyframe>> buildObjectF
                 --count;
                 WTF::switchOn(property,
                     [&] (CSSPropertyID cssPropertyId) {
-                        stylePayloadBuilder.append(nameString(cssPropertyId), ": ");
+                        stylePayloadBuilder.append(nameString(cssPropertyId), ": "_s);
                         if (auto value = computedStyleExtractor.valueForPropertyInStyle(style, cssPropertyId, renderer))
                             stylePayloadBuilder.append(value->cssText());
                     },
                     [&] (const AtomString& customProperty) {
-                        stylePayloadBuilder.append(customProperty, ": ");
+                        stylePayloadBuilder.append(customProperty, ": "_s);
                         if (auto value = computedStyleExtractor.customPropertyValue(customProperty))
                             stylePayloadBuilder.append(value->cssText());
                     }
@@ -260,12 +263,9 @@ Inspector::Protocol::ErrorStringOr<void> InspectorAnimationAgent::enable()
     m_instrumentingAgents.setEnabledAnimationAgent(this);
 
     const auto existsInCurrentPage = [&] (ScriptExecutionContext* scriptExecutionContext) {
-        if (!is<Document>(scriptExecutionContext))
-            return false;
-
         // FIXME: <https://webkit.org/b/168475> Web Inspector: Correctly display iframe's WebSockets
-        auto* document = downcast<Document>(scriptExecutionContext);
-        return document->page() == &m_inspectedPage;
+        RefPtr document = dynamicDowncast<Document>(scriptExecutionContext);
+        return document && document->page() == &m_inspectedPage;
     };
 
     {
@@ -299,13 +299,11 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::Styleable>> Ins
     if (!domAgent)
         return makeUnexpected("DOM domain must be enabled"_s);
 
-    auto* effect = animation->effect();
-    if (!is<KeyframeEffect>(effect))
+    RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect());
+    if (!keyframeEffect)
         return makeUnexpected("Animation for given animationId does not have an effect"_s);
 
-    auto& keyframeEffect = downcast<KeyframeEffect>(*effect);
-
-    auto target = keyframeEffect.targetStyleable();
+    auto target = keyframeEffect->targetStyleable();
     if (!target)
         return makeUnexpected("Animation for given animationId does not have a target"_s);
 
@@ -382,10 +380,11 @@ static bool isDelayed(const ComputedEffectTiming& computedTiming)
 void InspectorAnimationAgent::willApplyKeyframeEffect(const Styleable& target, KeyframeEffect& keyframeEffect, const ComputedEffectTiming& computedTiming)
 {
     auto* animation = keyframeEffect.animation();
-    if (!is<StyleOriginatedAnimation>(animation))
+    RefPtr styleOriginatedAnimation = dynamicDowncast<StyleOriginatedAnimation>(animation);
+    if (!styleOriginatedAnimation)
         return;
 
-    auto ensureResult = m_trackedStyleOriginatedAnimationData.ensure(downcast<StyleOriginatedAnimation>(animation), [&] () -> UniqueRef<TrackedStyleOriginatedAnimationData> {
+    auto ensureResult = m_trackedStyleOriginatedAnimationData.ensure(styleOriginatedAnimation.get(), [&] () -> UniqueRef<TrackedStyleOriginatedAnimationData> {
         return makeUniqueRef<TrackedStyleOriginatedAnimationData>(TrackedStyleOriginatedAnimationData { makeString("animation:"_s, IdentifiersFactory::createIdentifier()), computedTiming });
     });
     auto& trackingData = ensureResult.iterator->value.get();
@@ -526,10 +525,8 @@ void InspectorAnimationAgent::frameNavigated(LocalFrame& frame)
 
     Vector<String> animationIdsToRemove;
     for (auto& [animationId, animation] : m_animationIdMap) {
-        if (auto* scriptExecutionContext = animation->scriptExecutionContext()) {
-            if (is<Document>(scriptExecutionContext) && downcast<Document>(*scriptExecutionContext).frame() == &frame)
-                animationIdsToRemove.append(animationId);
-        }
+        if (RefPtr document = dynamicDowncast<Document>(animation->scriptExecutionContext()); document && document->frame() == &frame)
+            animationIdsToRemove.append(animationId);
     }
     for (const auto& animationId : animationIdsToRemove)
         unbindAnimation(animationId);
@@ -554,7 +551,7 @@ WebAnimation* InspectorAnimationAgent::assertAnimation(Inspector::Protocol::Erro
 
 void InspectorAnimationAgent::bindAnimation(WebAnimation& animation, RefPtr<Inspector::Protocol::Console::StackTrace> backtrace)
 {
-    auto animationId = makeString("animation:" + IdentifiersFactory::createIdentifier());
+    auto animationId = makeString("animation:"_s, IdentifiersFactory::createIdentifier());
     m_animationIdMap.set(animationId, &animation);
 
     auto animationPayload = Inspector::Protocol::Animation::Animation::create()

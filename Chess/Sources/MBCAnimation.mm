@@ -1,7 +1,7 @@
 /*
 	File:		MBCAnimation.mm
 	Contains:	General animation infrastructure.
-	Copyright:	� 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,7 +44,6 @@
 */
 
 #import "MBCAnimation.h"
-#import "MBCBoardView.h"
 #import "MBCBoardWin.h"
 
 #include <algorithm>
@@ -55,7 +54,10 @@ using std::min;
 
 - (void) scheduleNextStep
 {
-	[self performSelector:@selector(doStep:) withObject:nil afterDelay:0.010];
+    // This method sets up a timer to perform doStep: message on the current thread’s run loop.
+    // The message is dequed if the run loop is running and in one of the specified modes; otherwise,
+    // the timer waits until the run loop is in one of those modes.
+    [self performSelector:@selector(doStep:) withObject:nil afterDelay:0.010 inModes:@[NSRunLoopCommonModes]];
 }
 
 - (void) startState 		
@@ -97,7 +99,7 @@ using std::min;
 	}
 }
 
-- (void) runWithTime:(float)seconds view:(MBCBoardView *)view
+- (void) runWithTime:(float)seconds view:(NSView<MBCBoardViewInterface> *)view
 {
 	gettimeofday(&fStart, NULL);
 	fTime			= seconds;

@@ -8,6 +8,10 @@
 
 #define KEY "com.apple.notify.test.notify_register_signal"
 
+T_GLOBAL_META(
+	T_META_ENVVAR("DarwinNotificationLogging=com.apple.system.timezone," KEY)
+);
+
 void poster(char * msg);
 
 #define HANDLED 1

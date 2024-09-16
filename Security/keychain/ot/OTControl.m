@@ -184,6 +184,12 @@
     }
 }
 
+- (NSXPCConnection<OTControlProtocol>*)getAsyncConnection:(void (^)(NSError *error))handler
+{
+    // No matter how this object is configured, get the async version
+    return [self.connection remoteObjectProxyWithErrorHandler:handler];
+}
+
 - (void)restore:(NSString *)contextID dsid:(NSString *)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID
           reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply
 {
@@ -310,12 +316,13 @@
                permanentInfoSig:(NSData *)permanentInfoSig
                      stableInfo:(NSData *)stableInfo
                   stableInfoSig:(NSData *)stableInfoSig
+                  maxCapability:(NSString *)maxCapability
                           reply:(void (^)(NSData* voucher, NSData* voucherSig, NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(nil, nil, error);
-    }] rpcVoucherWithArguments:arguments configuration:config peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig reply:^(NSData* voucher, NSData* voucherSig, NSError * _Nullable error) {
+    }] rpcVoucherWithArguments:arguments configuration:config peerID:peerID permanentInfo:permanentInfo permanentInfoSig:permanentInfoSig stableInfo:stableInfo stableInfoSig:stableInfoSig maxCapability:maxCapability reply:^(NSData* voucher, NSData* voucherSig, NSError * _Nullable error) {
         reply(voucher, voucherSig, error);
     }];
 #else
@@ -633,6 +640,27 @@
     }] checkInheritanceKey:arguments uuid:uuid reply:reply];
 }
 
+- (void)recreateInheritanceKey:(OTControlArguments*)arguments
+                          uuid:(NSUUID *_Nullable)uuid
+                         oldIK:(OTInheritanceKey*)oldIK
+                         reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(nil, error);
+    }] recreateInheritanceKey:arguments uuid:uuid oldIK:oldIK reply:reply];
+}
+
+- (void)createInheritanceKey:(OTControlArguments*)arguments
+                        uuid:(NSUUID *_Nullable)uuid
+              claimTokenData:(NSData *)claimTokenData
+             wrappingKeyData:(NSData *)wrappingKeyData
+                       reply:(void (^)(OTInheritanceKey *_Nullable ik, NSError *_Nullable error)) reply
+{
+    [[self getConnection:^(NSError *error) {
+        reply(nil, error);
+    }] createInheritanceKey:arguments uuid:uuid claimTokenData:claimTokenData wrappingKeyData:wrappingKeyData reply:reply];
+}
+
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
@@ -728,6 +756,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                                        reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* connectionError) {
+        reply(NO, connectionError);
+    }] fetchUserControllableViewsSyncStatus:arguments reply:reply];
+}
+
+- (void)fetchUserControllableViewsSyncStatusAsync:(OTControlArguments*)arguments
+                                            reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
+{
+    [[self getAsyncConnection:^(NSError* connectionError) {
         reply(NO, connectionError);
     }] fetchUserControllableViewsSyncStatus:arguments reply:reply];
 }

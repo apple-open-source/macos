@@ -65,11 +65,22 @@ NSString *const kSecurityRTCEventNameInitiatorImportsInitialSyncData = @"com.app
 NSString *const kSecurityRTCEventNameAcceptorCreatesVoucher = @"com.apple.security.acceptorCreatesVoucher";
 NSString *const kSecurityRTCEventNameAcceptorFetchesInitialSyncData = @"com.apple.security.acceptorFetchesInitialSyncData";
 NSString *const kSecurityRTCEventNameNumberOfTrustedOctagonPeers = @"com.apple.security.numberOfTrustedOctagonPeers";
+NSString *const kSecurityRTCEventNameCliqueMemberIdentifier = @"com.apple.security.cliqueMemberIdentifier";
 NSString *const kSecurityRTCEventNameDuplicateMachineID = @"com.apple.security.duplicateMachineID";
 NSString *const kSecurityRTCEventNameMIDVanishedFromTDL = @"com.apple.security.midVanishedFromTDL";
 NSString *const kSecurityRTCEventNameTDLProcessingSuccess = @"com.apple.security.tdlProcessingSuccess";
 NSString *const kSecurityRTCEventNameAllowedMIDHashMismatch = @"com.apple.security.allowedMIDHashMismatch";
 NSString *const kSecurityRTCEventNameDeletedMIDHashMismatch = @"com.apple.security.deletedMIDHashMismatch";
+NSString *const kSecurityRTCEventNameTrustedDeviceListFailure = @"com.apple.security.trustedDeviceListFailure";
+NSString *const kSecurityRTCEventNamePairingDidNotReceivePCSData = @"com.apple.security.pairingDidNotReceivePCSData";
+NSString *const kSecurityRTCEventNamePairingFailedToAddItemToKeychain = @"com.apple.security.pairingFailedToAddItemToKeychain";
+NSString *const kSecurityRTCEventNamePairingFailedToUpdateItemInKeychain = @"com.apple.security.pairingFailedToUpdateItemInKeychain";
+NSString *const kSecurityRTCEventNamePairingImportKeychainResults = @"com.apple.security.pairingImportKeychainResults";
+NSString *const kSecurityRTCEventNamePairingFailedFetchPCSItems = @"com.apple.security.pairingFailedFetchPCSItems";
+NSString *const kSecurityRTCEventNamePairingEmptyOctagonPayload = @"com.apple.security.pairingEmptyOctagonPayload";
+NSString *const kSecurityRTCEventNamePairingEmptyAckPayload = @"com.apple.security.pairingEmptyAckPayload";
+NSString *const kSecurityRTCEventNameRPDDeleteAllRecords = @"com.apple.security.rpdDeleteAllRecords";
+
 
 // MARK: RTC Fields
 
@@ -79,7 +90,6 @@ NSString *const kSecurityRTCFieldDidSucceed = @"didSucceed";
 NSString *const kSecurityRTCFieldNumberOfTLKsFetched = @"numberOfTLKsFetched";
 NSString *const kSecurityRTCFieldNumberOfPCSItemsFetched = @"numberOfPCSItemsFetched";
 NSString *const kSecurityRTCFieldNumberOfBluetoothMigrationItemsFetched = @"numberOfBluetoothMigrationItemsFetched";
-NSString *const kSecurityRTCFieldAccountAvailability = @"accountAvailability";
 NSString *const kSecurityRTCFieldOctagonSignInResult = @"octagonSignInResult";
 NSString *const kSecurityRTCFieldNumberOfKeychainItemsCollected = @"numberOfKeychainItemsCollected";
 NSString *const kSecurityRTCFieldNumberOfKeychainItemsAdded = @"numberOfKeychainItemsAdded";
@@ -88,6 +98,8 @@ NSString *const kSecurityRTCFieldSecurityLevel = @"securityLevel";
 NSString *const kSecurityRTCFieldRetryAttemptCount = @"retryAttemptCount";
 NSString *const kSecurityRTCFieldTotalRetryDuration = @"totalRetryDuration";
 NSString *const kSecurityRTCFieldEgoMachineIDVanishedFromTDL = @"egoMachineIDVanishedFromTDL";
+NSString *const kSecurityRTCFieldPairingSuccessfulImportCount = @"pairingSuccessfulImportCount";
+NSString *const kSecurityRTCFieldPairingFailedImportCount = @"pairingFailedImportCount";
 
 // MARK: CKKS Launch RTC Event Names
 

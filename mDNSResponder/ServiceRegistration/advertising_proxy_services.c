@@ -1,6 +1,6 @@
 /* advertising_proxy_services.h
  *
- * Copyright (c) 2020-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -548,16 +548,16 @@ advertising_proxy_start_thread_shutdown(advertising_proxy_conn_ref *conn_ref,
 }
 
 static void
-adv_set_variable_callback(advertising_proxy_conn_ref conn_ref, xpc_object_t *response, int status)
+adv_set_variable_callback(advertising_proxy_conn_ref conn_ref, xpc_object_t *response, advertising_proxy_error_type status)
 {
-    if (conn_ref->app_context_callback != NULL) {
-        conn_ref->app_context_callback(conn_ref, conn_ref->context, response, status);
+    if (conn_ref->app_response_callback != NULL) {
+        conn_ref->app_response_callback(conn_ref, conn_ref->context, response, status);
     }
 }
 
 advertising_proxy_error_type
 advertising_proxy_set_variable(advertising_proxy_conn_ref *conn_ref,
-                               run_context_t client_queue, advertising_proxy_context_reply callback, void *context,
+                               run_context_t client_queue, advertising_proxy_response_reply callback, void *context,
                                const char *name, const char *value)
 {
     advertising_proxy_error_type errx;
@@ -575,7 +575,7 @@ advertising_proxy_set_variable(advertising_proxy_conn_ref *conn_ref,
     free(buf);
     if (errx == kDNSSDAdvertisingProxyStatus_NoError) {
         (*conn_ref)->context = context;
-        (*conn_ref)->app_context_callback = callback;
+        (*conn_ref)->app_response_callback = callback;
     }
     return errx;
 }

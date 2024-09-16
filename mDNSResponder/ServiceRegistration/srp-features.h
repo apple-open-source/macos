@@ -1,6 +1,6 @@
 /* srp-features.h
  *
- * Copyright (c) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@
 #endif
 
     #define SRP_ANALYTICS 0
+
 
 // At present we never want this, but we're keeping the code around.
 #define SRP_ALLOWS_MDNS_CONFLICTS 0

@@ -23,6 +23,10 @@ static const char rcsid[] =
 
 #include "cron.h"
 
+#ifdef __APPLE__
+#include <btm.h>
+#include <os/feature_private.h>
+#endif
 
 typedef	struct _job {
 	struct _job	*next;
@@ -66,7 +70,24 @@ job_runqueue()
 	register int	run = 0;
 
 	for (j=jhead; j; j=jn) {
+#ifdef __APPLE__
+		if (os_feature_enabled(cronBTMToggle, cronBTMCheck)) {
+			bool cron_enabled = FALSE;
+			btm_error_code_t error = btm_get_enablement_status_for_subsystem_and_uid(btm_subsystem_cron, BTMGlobalDataUID, &cron_enabled);
+
+			if (error != btm_error_none) {
+				Debug(DMISC, ("Error contacting BTM to check enablement state: %d", error));
+			}
+
+			if (cron_enabled) {
+				do_command(j->e, j->u);
+			}
+		} else {
+			do_command(j->e, j->u);
+		}
+#else
 		do_command(j->e, j->u);
+#endif
 		jn = j->next;
 		free(j);
 		run++;

@@ -47,6 +47,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 extern CKKSFetchBecause* const CKKSFetchBecauseMoreComing;
 extern CKKSFetchBecause* const CKKSFetchBecauseResolvingConflict;
 extern CKKSFetchBecause* const CKKSFetchBecausePeriodicRefetch;
+extern CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete;
 
 /* Clients that register to use fetches */
 @interface CKKSCloudKitFetchRequest : NSObject

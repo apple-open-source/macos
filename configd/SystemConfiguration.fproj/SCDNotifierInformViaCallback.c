@@ -96,7 +96,7 @@ __SCDynamicStoreAddNotificationPort(SCDynamicStoreRef store)
 	}
 
 #ifdef	DEBUG
-	SC_log(LOG_DEBUG, "+ establish notification request w/port=0x%x (%d) with SCDynamicStore server (%@)",
+	SC_log(LOG_DEBUG, "+ establish notification request w/port=0x%x (%u) with SCDynamicStore server (%@)",
 	       port, port,
 	       (storePrivate->name != NULL) ? storePrivate->name : CFSTR("?"));
 #endif	/* DEBUG */
@@ -683,7 +683,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 			      MACH_MSG_TIMEOUT_NONE,	// timeout
 			      MACH_PORT_NULL);		// notify
 		if (kr != KERN_SUCCESS) {
-			SC_log(LOG_NOTICE, "mach_msg() failed, kr=0x%x", kr);
+			SC_log(LOG_NOTICE, "mach_msg() failed, kr=%d", kr);
 			return;
 		}
 

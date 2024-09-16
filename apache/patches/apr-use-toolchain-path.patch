@@ -1,0 +1,54 @@
+diff --git a/support/apxs.in b/support/apxs.in
+index b2705fa..faf330c 100644
+--- support/apxs.in
++++ support/apxs.in
+@@ -35,8 +35,19 @@ if ($ddi >= 0) {
+ 
+ my %config_vars = ();
+ 
++my $xcode_toolchain_dir;
++my $default_xcode_path = "XCODE_PATH_HERE";
++
+ my $installbuilddir = "@exp_installbuilddir@";
+-get_config_vars($destdir . "$installbuilddir/config_vars.mk",\%config_vars);
++
++if (defined $ENV{'TOOLCHAIN_DIR'}) {
++    # runtime xcode toolchain dir
++    $xcode_toolchain_dir = $ENV{'TOOLCHAIN_DIR'};
++} else {
++    $xcode_toolchain_dir = $default_xcode_path;
++}
++
++get_config_vars($destdir . "$xcode_toolchain_dir/$installbuilddir/config_vars.mk",\%config_vars);
+ 
+ # read the configuration variables once
+ 
+@@ -248,6 +259,12 @@ sub get_vars {
+         }
+     }
+     $result =~ s|;;$||;
++     my $default_prefix = "/Applications/Xcode.app/Contents/Developer";
++     if (rindex($result, $default_prefix, 0) == 0) {
++         if (defined $ENV{'RC_PLATFORM_INSTALL_PATH'} && defined $ENV{'DEVELOPER_DIR'}) {
++             $result =~ s/$default_prefix/$ENV{'DEVELOPER_DIR'}/;
++         }
++     }
+     return $result;
+ }
+ 
+@@ -365,9 +384,15 @@ if ($apr_major_version < 2) {
+ }
+ 
+ my $libtool = `$apr_config --apr-libtool`;
++if (defined $ENV{'TOOLCHAIN_DIR'}) {
++    $libtool =~ s/$default_xcode_path/$ENV{'TOOLCHAIN_DIR'}/g
++}
+ chomp($libtool);
+ 
+ my $apr_includedir = `$apr_config --includes`;
++if (defined $ENV{'TOOLCHAIN_DIR'}) {
++    $apr_includedir =~ s/$default_xcode_path/$ENV{'TOOLCHAIN_DIR'}/g
++}
+ chomp($apr_includedir);
+ my $apu_includedir = "";
+ if ($apr_major_version < 2) {

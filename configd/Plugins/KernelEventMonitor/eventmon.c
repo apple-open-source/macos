@@ -207,7 +207,7 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 	}
 
 	SC_log(LOG_DEBUG, "%@ event:", evStr);
-	SC_log(LOG_DEBUG, "  Event size=%d, id=%d, vendor=%d, class=%d, subclass=%d, code=%d",
+	SC_log(LOG_DEBUG, "  Event size=%u, id=%u, vendor=%u, class=%u, subclass=%u, code=%u",
 	      ev_msg->total_size,
 	      ev_msg->id,
 	      ev_msg->vendor_code,
@@ -222,7 +222,7 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 static void
 copy_if_name(const struct net_event_data * ev, char * ifr_name, int ifr_len)
 {
-	snprintf(ifr_name, ifr_len, "%s%d", ev->if_name, ev->if_unit);
+	snprintf(ifr_name, ifr_len, "%s%u", ev->if_name, ev->if_unit);
 	return;
 }
 
@@ -253,7 +253,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process IPv4 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
+					SC_log(LOG_INFO, "Process IPv4 address change: %s: %u", (char *)ifr_name, ev_msg->event_code);
 					ipv4_interface_update(NULL, ifr_name);
 					if (ev_msg->event_code
 					    != KEV_INET_ADDR_DELETED) {
@@ -338,7 +338,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process IPv6 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
+					SC_log(LOG_INFO, "Process IPv6 address change: %s: %u", (char *)ifr_name, ev_msg->event_code);
 					interface_update_ipv6(NULL, ifr_name);
 					if (ev_msg->event_code == KEV_INET6_NEW_USER_ADDR
 					    && (ev->ia6_flags & IN6_IFF_DUPLICATED) != 0) {
@@ -424,7 +424,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					}
 					copy_if_name(&protoEvent->link_data,
 						     ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process protocol %s: %s (pf=%d, n=%d)",
+					SC_log(LOG_INFO, "Process protocol %s: %s (pf=%u, n=%u)",
 						 (ev_msg->event_code == KEV_DL_PROTO_ATTACHED) ? "attach" : "detach",
 						 (char *)ifr_name,
 						 protoEvent->proto_family,
@@ -553,7 +553,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 				}
 				copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-				SC_log(LOG_INFO, "Process ND6 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
+				SC_log(LOG_INFO, "Process ND6 address change: %s: %u", (char *)ifr_name, ev_msg->event_code);
 				interface_update_ipv6(NULL, ifr_name);
 				break;
 			case KEV_ND6_RTR_EXPIRED :
@@ -562,7 +562,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 				}
 				copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-				SC_log(LOG_INFO, "Process IPv6 router expired: %s: %d", (char *)ifr_name, ev_msg->event_code);
+				SC_log(LOG_INFO, "Process IPv6 router expired: %s: %u", (char *)ifr_name, ev_msg->event_code);
 				ipv6_router_expired(ifr_name);
 				break;
 			default :

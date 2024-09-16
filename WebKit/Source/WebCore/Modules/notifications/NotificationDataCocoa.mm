@@ -27,6 +27,7 @@
 #import "NotificationData.h"
 
 #import "NotificationDirection.h"
+#import <wtf/cocoa/VectorCocoa.h>
 
 static NSString * const WebNotificationDefaultActionURLKey = @"WebNotificationDefaultActionURLKey";
 static NSString * const WebNotificationTitleKey = @"WebNotificationTitleKey";
@@ -89,7 +90,7 @@ std::optional<NotificationData> NotificationData::fromDictionary(NSDictionary *d
         return std::nullopt;
     }
 
-    NotificationData data { URL { String { defaultActionURL } }, title, body, iconURL, tag, language, direction, originString, URL { String { serviceWorkerRegistrationURL } }, *uuid, contextIdentifier, PAL::SessionID { sessionID.unsignedLongLongValue }, { }, { static_cast<const uint8_t*>(notificationData.bytes), notificationData.length }, nsValueToOptionalBool(dictionary[WebNotificationSilentKey]) };
+    NotificationData data { URL { String { defaultActionURL } }, title, body, iconURL, tag, language, direction, originString, URL { String { serviceWorkerRegistrationURL } }, *uuid, contextIdentifier, PAL::SessionID { sessionID.unsignedLongLongValue }, { }, makeVector(notificationData), nsValueToOptionalBool(dictionary[WebNotificationSilentKey]) };
     return WTFMove(data);
 }
 
@@ -108,7 +109,7 @@ NSDictionary *NotificationData::dictionaryRepresentation() const
         WebNotificationUUIDStringKey : (NSString *)notificationID.toString(),
         WebNotificationContextUUIDStringKey : (NSString *)contextIdentifier.toString(),
         WebNotificationSessionIDKey : @(sourceSession.toUInt64()),
-        WebNotificationDataKey: [NSData dataWithBytes:data.data() length:data.size()],
+        WebNotificationDataKey: toNSData(data).autorelease(),
     }.mutableCopy;
 
     if (silent != std::nullopt)

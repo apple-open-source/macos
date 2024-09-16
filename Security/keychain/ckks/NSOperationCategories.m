@@ -26,6 +26,8 @@
 #import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+#define LINEAR_DEPENDENCY_LIMIT 100
+
 @implementation NSOperation (CKKSUsefulPrintingOperation)
 - (NSString*)selfname {
     if(self.name) {
@@ -48,6 +50,9 @@
             [self addDependency: existingop];
         }
         [collection addObject:self];
+        if (collection.count > LINEAR_DEPENDENCY_LIMIT) {
+            secerror("ckks-operation: linear dependencies exceeds %d operations", LINEAR_DEPENDENCY_LIMIT);
+        }
     }
 }
 

@@ -32,7 +32,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
-#include <wtf/text/AtomString.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -74,14 +74,16 @@ public:
         WhiteBalanceMode = 1 << 13,
         Zoom = 1 << 14,
         Torch = 1 << 15,
+        BackgroundBlur = 1 << 16,
+        PowerEfficient = 1 << 17,
     };
 
-    static constexpr OptionSet<Flag> allFlags() { return { Width, Height, FrameRate, FacingMode, Volume, SampleRate, SampleSize, EchoCancellation, DeviceId, GroupId, Label, DisplaySurface, LogicalSurface, WhiteBalanceMode, Zoom, Torch }; }
+    static constexpr OptionSet<Flag> allFlags() { return { Width, Height, FrameRate, FacingMode, Volume, SampleRate, SampleSize, EchoCancellation, DeviceId, GroupId, Label, DisplaySurface, LogicalSurface, WhiteBalanceMode, Zoom, Torch, BackgroundBlur, PowerEfficient }; }
 
     WEBCORE_EXPORT OptionSet<RealtimeMediaSourceSettings::Flag> difference(const RealtimeMediaSourceSettings&) const;
 
     RealtimeMediaSourceSettings() = default;
-    RealtimeMediaSourceSettings(uint32_t width, uint32_t height, float frameRate, VideoFacingMode facingMode, double volume, uint32_t sampleRate, uint32_t sampleSize, bool echoCancellation, AtomString&& deviceId, String&& groupId, AtomString&& label, DisplaySurfaceType displaySurface, bool logicalSurface, MeteringMode whiteBalanceMode, double zoom, bool torch, RealtimeMediaSourceSupportedConstraints&& supportedConstraints)
+    RealtimeMediaSourceSettings(uint32_t width, uint32_t height, float frameRate, VideoFacingMode facingMode, double volume, uint32_t sampleRate, uint32_t sampleSize, bool echoCancellation, String&& deviceId, String&& groupId, String&& label, DisplaySurfaceType displaySurface, bool logicalSurface, MeteringMode whiteBalanceMode, double zoom, bool torch, bool backgroundBlur, bool powerEfficient, RealtimeMediaSourceSupportedConstraints&& supportedConstraints)
         : m_width(width)
         , m_height(height)
         , m_frameRate(frameRate)
@@ -98,6 +100,8 @@ public:
         , m_whiteBalanceMode(whiteBalanceMode)
         , m_zoom(zoom)
         , m_torch(torch)
+        , m_backgroundBlur(backgroundBlur)
+        , m_powerEfficient(powerEfficient)
         , m_supportedConstraints(WTFMove(supportedConstraints))
     {
     }
@@ -137,8 +141,8 @@ public:
     void setEchoCancellation(bool echoCancellation) { m_echoCancellation = echoCancellation; }
 
     bool supportsDeviceId() const { return m_supportedConstraints.supportsDeviceId(); }
-    const AtomString& deviceId() const { return m_deviceId; }
-    void setDeviceId(const AtomString& deviceId) { m_deviceId = deviceId; }
+    const String& deviceId() const { return m_deviceId; }
+    void setDeviceId(const String& deviceId) { m_deviceId = deviceId; }
 
     bool supportsGroupId() const { return m_supportedConstraints.supportsGroupId(); }
     const String& groupId() const { return m_groupId; }
@@ -164,13 +168,23 @@ public:
     bool torch() const { return m_torch; }
     void setTorch(bool torch) { m_torch = torch; }
 
+    bool supportsBackgroundBlur() const { return m_supportedConstraints.supportsBackgroundBlur(); }
+    bool backgroundBlur() const { return m_backgroundBlur; }
+    void setBackgroundBlur(bool backgroundBlur) { m_backgroundBlur = backgroundBlur; }
+
+    bool supportsPowerEfficient() const { return m_supportedConstraints.supportsPowerEfficient(); }
+    bool powerEfficient() const { return m_powerEfficient; }
+    void setPowerEfficient(bool value) { m_powerEfficient = value; }
+
     const RealtimeMediaSourceSupportedConstraints& supportedConstraints() const { return m_supportedConstraints; }
     void setSupportedConstraints(const RealtimeMediaSourceSupportedConstraints& supportedConstraints) { m_supportedConstraints = supportedConstraints; }
 
-    const AtomString& label() const { return m_label; }
-    void setLabel(const AtomString& label) { m_label = label; }
+    const String& label() const { return m_label; }
+    void setLabel(const String& label) { m_label = label; }
 
     static String convertFlagsToString(const OptionSet<RealtimeMediaSourceSettings::Flag>);
+
+    RealtimeMediaSourceSettings isolatedCopy() const;
 
 private:
     uint32_t m_width { 0 };
@@ -182,9 +196,9 @@ private:
     uint32_t m_sampleSize { 0 };
     bool m_echoCancellation { 0 };
 
-    AtomString m_deviceId;
+    String m_deviceId;
     String m_groupId;
-    AtomString m_label;
+    String m_label;
 
     DisplaySurfaceType m_displaySurface { DisplaySurfaceType::Invalid };
     bool m_logicalSurface { 0 };
@@ -192,6 +206,8 @@ private:
     MeteringMode m_whiteBalanceMode { MeteringMode::None };
     double m_zoom { 1.0 };
     bool m_torch { false };
+    bool m_backgroundBlur { false };
+    bool m_powerEfficient { false };
 
     RealtimeMediaSourceSupportedConstraints m_supportedConstraints;
 };

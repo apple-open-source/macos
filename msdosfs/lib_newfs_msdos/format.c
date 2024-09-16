@@ -66,7 +66,6 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
     const char *bname = newfsProps.bname;
     unsigned int progressTracker = 0;
     int fd = newfsProps.fd;
-    int bootFD = newfsProps.bootFD;
     struct stat sb = newfsProps.sb;
     char buf[MAXPATHLEN];
     struct timeval tv;
@@ -85,6 +84,7 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
     int ret = 0;
     ssize_t n;
     time_t now;
+    off_t fd_offset = 0;
 
     if (reportProgress) {
         context->startPhase(phasesNames[currPhase], 10, 10, &progressTracker,
@@ -620,6 +620,7 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
         WipeFSProperties wipefsProps;
         memset(&wipefsProps, 0, sizeof(wipefsProps)); // just in case (if new fields are added in the future and this code isn't updated)
         wipefsProps.fd = fd;
+
         wipefsProps.block_size = bpb.bps;
         wipefsProps.except_block_start = 0;
         wipefsProps.except_block_length = sectors_to_write;
@@ -642,19 +643,16 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
         /*
          * Now start writing the new file system to disk.
          */
+
         for (lsn = 0; lsn < sectors_to_write; lsn++) {
             x = lsn;
             if (sopts.bootStrapFromFile && fat == 32 && bpb.bkbs != MAXU16 &&
                 bss <= bpb.bkbs && x >= bpb.bkbs) {
                 x -= bpb.bkbs;
-                if (!x && lseek(bootFD, 0, SEEK_SET)) {
-                    newfs_print(newfs_ctx, LOG_ERR, "%s: %s", strerror(errno), bname);
-                    ret = 1;
-		            goto exit;
-                }
+                fd_offset = 0;
             }
             if (sopts.bootStrapFromFile && x < bss) {
-                if ((n = read(bootFD, img, bpb.bps)) == -1) {
+                if ((n = context->readHelper(context->resource, img, bpb.bps, fd_offset)) == -1) {
                     newfs_print(newfs_ctx, LOG_ERR, "%s: %s", strerror(errno), bname);
                     ret = 1;
 		            goto exit;
@@ -750,11 +748,13 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
 
             if (img >= (io_buffer + IO_BUFFER_SIZE)) {
                 /* We filled the I/O buffer, so write it out now */
-                if ((n = write(fd, io_buffer, IO_BUFFER_SIZE)) == -1) {
+                n = context->writeHelper(context->resource, io_buffer, IO_BUFFER_SIZE, fd_offset);
+                if (n == -1) {
                     newfs_print(newfs_ctx, LOG_ERR, "%s: %s", strerror(errno), devName);
                     ret = 1;
-		            goto exit;
+                    goto exit;
                 }
+                fd_offset += n;
                 if (n != IO_BUFFER_SIZE) {
                     newfs_print(newfs_ctx, LOG_ERR, "%s: can't write sector %u", devName, lsn);
                     ret = 1;
@@ -766,25 +766,19 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
         }
         if (img != io_buffer) {
             /* The I/O buffer was partially full; write it out before exit */
-            if ((n = write(fd, io_buffer, img-io_buffer)) == -1) {
+            n = context->writeHelper(context->resource, io_buffer, img - io_buffer, fd_offset);
+            if (n == -1 || n != img - io_buffer) {
                 newfs_print(newfs_ctx, LOG_ERR, "%s: %s", strerror(errno), devName);
                 ret = 1;
                 goto exit;
             }
-            if (n != (img-io_buffer)) {
-                newfs_print(newfs_ctx, LOG_ERR, "%s: can't write sector %u", devName, lsn);
-                ret = 1;
-                goto exit;
-            }
+            fd_offset += n;
         }
         progressTracker++;
         /* Write out boot sector at the end now */
-        if (lseek(fd, 0, SEEK_SET) == -1) {
-            newfs_print(newfs_ctx, LOG_ERR, "%s: lseek: %s", strerror(errno), devName);
-            ret = 1;
-            goto exit;
-        }
-        if ((n = write(fd, bpb_buffer, bpb.bps)) == -1) {
+        fd_offset = 0;
+        n = context->writeHelper(context->resource, bpb_buffer, bpb.bps, fd_offset);
+        if (n == -1) {
             newfs_print(newfs_ctx, LOG_ERR, "%s: write: %s", strerror(errno), devName);
             ret = 1;
             goto exit;
@@ -1167,26 +1161,4 @@ setstr(u_int8_t *dest, const char *src, size_t len)
     }
 }
 
-/** Wipes our device by calling directly to wipefs library */
-int wipefs(newfs_client_ctx_t ctx, WipeFSProperties props)
-{
-    wipefs_ctx wiper;
-    int error = wipefs_alloc(props.fd, props.block_size, &wiper);
-    if (error) {
-        newfs_print(newfs_ctx, LOG_ERR, "wipefs_alloc(): fd(%d) %s", props.fd, strerror(error));
-        return error;
-    }
-    error = wipefs_except_blocks(wiper, props.except_block_start, props.except_block_length);
-    if (error) {
-        newfs_print(newfs_ctx, LOG_ERR, "wipefs_except_blocks(): fd(%d) %s", props.fd, strerror(error));
-        goto exit;
-    }
-    error = wipefs_wipe(wiper);
-    if (error) {
-        newfs_print(newfs_ctx, LOG_ERR, "wipefs_wipe(): fd(%d) %s", props.fd, strerror(error));
-        goto exit;
-    }
-exit:
-    wipefs_free(&wiper);
-    return error;
-}
+

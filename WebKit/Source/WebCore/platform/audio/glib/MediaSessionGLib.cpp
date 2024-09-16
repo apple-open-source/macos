@@ -26,6 +26,7 @@
 #include <gio/gio.h>
 #include <wtf/SortedArrayMap.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -205,20 +206,16 @@ MediaSessionGLib::MediaSessionGLib(MediaSessionManagerGLib& manager, GRefPtr<GDB
 
 MediaSessionGLib::~MediaSessionGLib()
 {
-    if (m_connection) {
-        if (m_rootRegistrationId && !g_dbus_connection_unregister_object(m_connection.get(), m_rootRegistrationId))
-            g_warning("Unable to unregister MPRIS D-Bus object.");
-        if (m_playerRegistrationId && !g_dbus_connection_unregister_object(m_connection.get(), m_playerRegistrationId))
-            g_warning("Unable to unregister MPRIS D-Bus player object.");
-    }
-    if (m_ownerId)
-        g_bus_unown_name(m_ownerId);
+    unregisterMprisSession();
 }
 
-void MediaSessionGLib::ensureMprisSessionRegistered()
+bool MediaSessionGLib::ensureMprisSessionRegistered()
 {
-    if (m_ownerId || !m_connection)
-        return;
+    if (!m_connection || mprisRegistrationEligibility() == MediaSessionGLibMprisRegistrationEligiblilty::NotEligible)
+        return false;
+
+    if (m_ownerId)
+        return true;
 
     const auto& mprisInterface = m_manager.mprisInterface();
     GUniqueOutPtr<GError> error;
@@ -227,7 +224,7 @@ void MediaSessionGLib::ensureMprisSessionRegistered()
 
     if (!m_rootRegistrationId) {
         g_warning("Failed to register MPRIS D-Bus object: %s", error->message);
-        return;
+        return false;
     }
 
     m_playerRegistrationId = g_dbus_connection_register_object(m_connection.get(), DBUS_MPRIS_OBJECT_PATH, mprisInterface->interfaces[1],
@@ -235,13 +232,35 @@ void MediaSessionGLib::ensureMprisSessionRegistered()
 
     if (!m_playerRegistrationId) {
         g_warning("Failed at MPRIS object registration: %s", error->message);
-        return;
+        return false;
     }
 
     const auto& applicationID = getApplicationID();
-    m_instanceId = applicationID.isEmpty() ? makeString("org.mpris.MediaPlayer2.webkit.instance", getpid(), "-", m_identifier.toUInt64()) : makeString("org.mpris.MediaPlayer2.", applicationID.ascii().data(), ".Sandboxed.instance-", m_identifier.toUInt64());
+    m_instanceId = applicationID.isEmpty() ? makeString("org.mpris.MediaPlayer2.webkit.instance"_s, getpid(), '-', m_identifier.toUInt64()) : makeString("org.mpris.MediaPlayer2."_s, applicationID.ascii().span(), ".Sandboxed.instance-"_s, m_identifier.toUInt64());
 
     m_ownerId = g_bus_own_name_on_connection(m_connection.get(), m_instanceId.ascii().data(), G_BUS_NAME_OWNER_FLAGS_NONE, nullptr, nullptr, this, nullptr);
+
+    return true;
+}
+
+void MediaSessionGLib::unregisterMprisSession()
+{
+    if (m_connection) {
+        if (m_rootRegistrationId && !g_dbus_connection_unregister_object(m_connection.get(), m_rootRegistrationId))
+            g_warning("Unable to unregister MPRIS D-Bus object.");
+        m_rootRegistrationId = 0;
+
+        if (m_playerRegistrationId && !g_dbus_connection_unregister_object(m_connection.get(), m_playerRegistrationId))
+            g_warning("Unable to unregister MPRIS D-Bus player object.");
+        m_playerRegistrationId = 0;
+    }
+    if (m_ownerId) {
+        g_bus_unown_name(m_ownerId);
+        m_ownerId = 0;
+    }
+
+    // This session will only be eligible again once it is set to the primary session.
+    setMprisRegistrationEligibility(MprisRegistrationEligiblilty::NotEligible);
 }
 
 void MediaSessionGLib::emitPositionChanged(double time)
@@ -249,7 +268,8 @@ void MediaSessionGLib::emitPositionChanged(double time)
     if (!m_connection)
         return;
 
-    ensureMprisSessionRegistered();
+    if (!ensureMprisSessionRegistered())
+        return;
 
     GUniqueOutPtr<GError> error;
     int64_t position = time * 1000000;
@@ -282,14 +302,14 @@ GVariant* MediaSessionGLib::getMetadataAsGVariant(std::optional<NowPlayingInfo> 
 
     g_variant_builder_add(&builder, "{sv}", "mpris:trackid", g_variant_new("o", DBUS_MPRIS_TRACK_PATH));
     g_variant_builder_add(&builder, "{sv}", "mpris:length", g_variant_new_int64(info->duration * 1000000));
-    g_variant_builder_add(&builder, "{sv}", "xesam:title", g_variant_new_string(info->title.utf8().data()));
-    g_variant_builder_add(&builder, "{sv}", "xesam:album", g_variant_new_string(info->album.utf8().data()));
-    if (info->artwork)
-        g_variant_builder_add(&builder, "{sv}", "mpris:artUrl", g_variant_new_string(info->artwork->src.utf8().data()));
+    g_variant_builder_add(&builder, "{sv}", "xesam:title", g_variant_new_string(info->metadata.title.utf8().data()));
+    g_variant_builder_add(&builder, "{sv}", "xesam:album", g_variant_new_string(info->metadata.album.utf8().data()));
+    if (info->metadata.artwork)
+        g_variant_builder_add(&builder, "{sv}", "mpris:artUrl", g_variant_new_string(info->metadata.artwork->src.utf8().data()));
 
     GVariantBuilder artistBuilder;
     g_variant_builder_init(&artistBuilder, G_VARIANT_TYPE("as"));
-    g_variant_builder_add(&artistBuilder, "s", info->artist.utf8().data());
+    g_variant_builder_add(&artistBuilder, "s", info->metadata.artist.utf8().data());
     g_variant_builder_add(&builder, "{sv}", "xesam:artist", g_variant_builder_end(&artistBuilder));
 
     return g_variant_builder_end(&builder);
@@ -301,7 +321,7 @@ GVariant* MediaSessionGLib::getPlaybackStatusAsGVariant(std::optional<const Plat
         if (session)
             return session.value()->state();
 
-        auto* nowPlayingSession = m_manager.nowPlayingEligibleSession();
+        auto nowPlayingSession = m_manager.nowPlayingEligibleSession();
         if (nowPlayingSession)
             return nowPlayingSession->state();
 
@@ -327,7 +347,8 @@ void MediaSessionGLib::emitPropertiesChanged(GVariant* parameters)
     if (!m_connection)
         return;
 
-    ensureMprisSessionRegistered();
+    if (!ensureMprisSessionRegistered())
+        return;
 
     GUniqueOutPtr<GError> error;
     if (!g_dbus_connection_emit_signal(m_connection.get(), nullptr, DBUS_MPRIS_OBJECT_PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged", parameters, &error.outPtr()))

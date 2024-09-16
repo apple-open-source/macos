@@ -74,20 +74,44 @@ static sig_atomic_t siginfo_recvd;
 static char decimal_point;
 static struct timespec before_ts;
 static int hflag, pflag;
-static bool child_running = true;
+static volatile sig_atomic_t child_running = 1;
+#ifdef __APPLE__
+static pid_t pid = -1;
+#endif
 
 void
 child_handler(int sig)
 {
-	child_running = false;
+	child_running = 0;
 }
+
+#ifdef __APPLE__
+static void
+forward_signal_handler(int sig)
+{
+
+	/*
+	 * If the process is still running, forward the signal which should have
+	 * terminated us, which will then propagate back up via child wait
+	 * status while still reporting.  If we can't kill(2) it, we'll just
+	 * fall through to re-raising the signal and hoping for the best.
+	 */
+	if (pid != -1 && child_running && kill(pid, sig) == 0)
+		return;
+
+	signal(sig, SIG_DFL);
+	raise(sig);
+}
+#endif	/* __APPLE__ */
 
 int
 main(int argc, char **argv)
 {
 	int aflag, ch, lflag, status, rusage_ret = -1;
 	int exitonsig;
+#ifndef __APPLE__
 	pid_t pid;
+#endif
 	struct rlimit rl;
 	struct rusage ru;
 	struct rusage_info_v4 ruinfo;
@@ -95,6 +119,10 @@ main(int argc, char **argv)
 	struct timespec after;
 	char *ofn = NULL;
 	FILE *out = stderr;
+#ifdef __APPLE__
+	struct sigaction osa;
+	bool sigint_ignored = false, sigquit_ignored = false;
+#endif
 
 	(void) setlocale(LC_NUMERIC, "");
 	decimal_point = localeconv()->decimal_point[0];
@@ -148,6 +176,17 @@ main(int argc, char **argv)
 		setvbuf(out, (char *)NULL, _IONBF, (size_t)0);
 	}
 
+#ifdef __APPLE__
+	/*
+	 * Checked in advance to avoid disturbing our measurements with extra
+	 * syscall trips.
+	 */
+	if (sigaction(SIGINT, NULL, &osa) == 0)
+		sigint_ignored = osa.sa_handler == SIG_IGN;
+	if (sigaction(SIGQUIT, NULL, &osa) == 0)
+		sigquit_ignored = osa.sa_handler == SIG_IGN;
+#endif
+
 	if (clock_gettime(CLOCK_MONOTONIC, &before_ts))
 		err(1, "clock_gettime");
 	/*
@@ -172,10 +211,18 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Let the child handle signals that normally exit.
+	 * Let the child handle signals that normally exit, unless they were
+	 * inherited as ignored.
 	 */
+#ifdef __APPLE__
+	if (!sigint_ignored)
+		signal(SIGINT, forward_signal_handler);
+	if (!sigquit_ignored)
+		signal(SIGQUIT, forward_signal_handler);
+#else
 	(void)signal(SIGINT, SIG_IGN);
 	(void)signal(SIGQUIT, SIG_IGN);
+#endif
 	siginfo_recvd = 0;
 	(void)signal(SIGINFO, siginfo);
 	(void)siginterrupt(SIGINFO, 1);

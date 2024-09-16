@@ -364,6 +364,10 @@ dispatch_suspend(dispatch_object_t dou)
 		return;
 	}
 	if (dx_cluster(dou._do) == _DISPATCH_QUEUE_CLUSTER) {
+		if (unlikely((dx_metatype(dou._do) == _DISPATCH_WORKLOOP_TYPE) &&
+			_dispatch_workloop_uses_bound_thread(dou._dwl))) {
+			_OS_OBJECT_CLIENT_CRASH("Object type does not support suspension");
+		}
 		return _dispatch_lane_suspend(dou._dl);
 	}
 }
@@ -377,6 +381,10 @@ dispatch_resume(dispatch_object_t dou)
 		return;
 	}
 	if (dx_cluster(dou._do) == _DISPATCH_QUEUE_CLUSTER) {
+		if (unlikely((dx_metatype(dou._do) == _DISPATCH_WORKLOOP_TYPE) &&
+			_dispatch_workloop_uses_bound_thread(dou._dwl))) {
+			_OS_OBJECT_CLIENT_CRASH("Object type does not support resume");
+		}
 		_dispatch_lane_resume(dou._dl, DISPATCH_RESUME);
 	}
 }

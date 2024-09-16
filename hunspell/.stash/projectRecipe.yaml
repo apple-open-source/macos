@@ -1,0 +1,49 @@
+project:
+  xbsProject: hunspell
+  disabled: false
+workflows:
+- name: unitTests
+  platform: iOS
+  xbsProject: hunspell
+  description: "hunspell tests"
+  testConfiguration:
+    enabled: true
+    testScheme: hunspell.iOS
+  triggers: [PR, Merge]
+- name: unitTests
+  platform: watchOS
+  xbsProject: hunspell
+  description: "hunspell tests"
+  testConfiguration:
+    enabled: true
+    testScheme: hunspell.watchOS
+  triggers: [PR, Merge]
+- name: unitTests
+  platform: tvOS
+  xbsProject: hunspell
+  description: "hunspell tests"
+  testConfiguration:
+    enabled: true
+    testScheme: hunspell.tvOS
+  triggers: [PR, Merge]
+- name: unitTests
+  platform: visionOS
+  xbsProject: hunspell
+  description: "hunspell tests"
+  testConfiguration:
+    enabled: true
+    testScheme: hunspell.visionOS
+  triggers: [PR, Merge]
+- name: unitTests
+  platform: macOS
+  description: "hunspell tests"
+  xbsProject: hunspell
+  testConfiguration:
+    enabled: true
+    testScheme: hunspell.macOS
+  triggers: [PR, Merge]
+buildConfig:
+    - cortexOverrides:
+    - luxonOverrides:
+    - monorailOverrides:
+

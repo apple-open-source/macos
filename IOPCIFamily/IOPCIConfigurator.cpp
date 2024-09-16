@@ -362,6 +362,11 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			ret = kIOReturnSuccess;
             break;
 
+        case kConfigOpLinkInt:
+			entry->deviceState |= kPCIDeviceStateLinkInt;
+			ret = kIOReturnSuccess;
+            break;
+
         case kConfigOpShadowed:
 			entry->configShadow = (uint8_t *) arg;
 			ret = kIOReturnSuccess;
@@ -437,6 +442,11 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			configure(0);
 			DLOG("[ PCI configuration end, bridges %d, devices %d, changed %d, waiting %d ]\n", 
 				  fBridgeCount, fDeviceCount, fChangedServices->getCount(), fWaitingPause);
+
+			if (entry)
+			{
+				entry->deviceState &= ~kPCIDeviceStateLinkInt;
+			}
 
 			if (arg)
 			{
@@ -1256,6 +1266,40 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 
 //---------------------------------------------------------------------------
 
+void CLASS::bridgeMPSOverride(IOPCIConfigEntry * bridge)
+{
+    IOPCIConfigEntry * child;
+    for (child = bridge->child; child; child = child->peer)
+    {
+        if (kPCIDeviceStateHidden & child->deviceState)     continue;
+        if ((child->expressCapBlock == 0) || (child->dtEntry == NULL))     continue;
+        OSData* maxPayloadOverride = OSDynamicCast(OSData, child->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize));
+        if (maxPayloadOverride == NULL)     continue;
+        uint8_t expressCaps = child->expressCaps & kPCIECapDevicePortType;
+        // MPS override should only be set at Root Port, Switch USP, or EP
+        if ((expressCaps == kPCIEPortTypeUpstreamPCIESwitch) || (expressCaps == kPCIEPortTypePCIERootPort) || (expressCaps == kPCIEPortTypePCIEEndpoint))
+        {
+            uint8_t overrideMaxPayload = *reinterpret_cast<const uint32_t*>(maxPayloadOverride->getBytesNoCopy());
+            if (overrideMaxPayload > child->expressMaxPayload)
+            {
+                IOLog("Cannot override %s's MPS to %u which is higher than its MPS Capability %u\n", child->dtEntry->getName(), overrideMaxPayload, child->expressMaxPayload);
+            }
+            else if (overrideMaxPayload < child->expressMaxPayload)
+            {
+                child->expressMaxPayload = overrideMaxPayload;
+                DLOG("MPS override for" D() " =  %u\n", DEVICE_IDENT(child), child->expressMaxPayload);
+                // If the MPS override is for the root port's link partner, then also change the root port's MPS
+                if (child->parent == child->rootPortEntry)
+                {
+                    child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
+                }
+            }
+        }
+    }
+}
+
+//---------------------------------------------------------------------------
+
 void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 {
     IOPCIConfigEntry *  parent;
@@ -1915,6 +1959,8 @@ void CLASS::bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child)
         fDeviceCount++;
 
 	bridge->deviceState |= kPCIDeviceStateChildChanged | kPCIDeviceStateChildAdded;
+    if (child->rootPortEntry)
+        child->rootPortEntry->deviceState |= kPCIDeviceStateDomainChanged;
 }
 
 //---------------------------------------------------------------------------
@@ -2049,8 +2095,12 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
     DLOG("bridge " B() " removing child %p " D() "\n",
          BRIDGE_IDENT(bridge), dead, DEVICE_IDENT(dead));
 
-	/* Allow MPS recalculation since the hierarchy has changed */
-	dead->rootPortEntry->expressPayloadSetting &= ~kPCIMaxPayloadSizeSet;
+	if ((bridge == bridge->rootPortEntry) && !bridge->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize))
+	{
+		// Root Port no longer has a connection. Reset Root Port MPS to its capability if there's no MPS override.
+		bridge->expressMaxPayload = (configRead32(bridge, bridge->expressCapBlock + 0x04) & 7);
+	}
+	dead->rootPortEntry->deviceState |= kPCIDeviceStateDomainChanged;
 
 	if (kPCIDeviceStateRequestPause & dead->deviceState)
 	{
@@ -2341,7 +2391,23 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
 		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24);
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
-		DLOG("  expressMaxPayload 0x%x\n", child->expressMaxPayload);
+		DLOG("  expressMaxPayload Capability 0x%x\n", child->expressMaxPayload);
+		if (child != child->rootPortEntry)
+		{
+			if (bridge == child->rootPortEntry)
+			{
+				if (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload)
+				{
+					DLOG("  root port's expressMaxPayload 0x%x -> 0x%x\n", child->rootPortEntry->expressMaxPayload, child->expressMaxPayload);
+					child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
+				}
+			}
+			if (child->expressMaxPayload > bridge->expressMaxPayload)
+			{
+				child->expressMaxPayload = bridge->expressMaxPayload;
+			}
+			DLOG("  expressMaxPayload Setting 0x%x\n", child->expressMaxPayload)
+		}
 	}
 
 	if (kIOPCIConfiguratorAER & gIOPCIFlags)
@@ -2981,6 +3047,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 
         // associate bootrom devices
         bridgeConnectDeviceTree(bridge);
+        bridgeMPSOverride(bridge);
         // scan ranges
         if (haveBus) bridgeProbeChildRanges(bridge, resetMask);
         bridgeFinishProbe(bridge);
@@ -3049,63 +3116,6 @@ int32_t CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
         if (!ok) bridge->parent->deviceState &= ~kPCIDeviceStateAllocated;
         bridge->deviceState |= kPCIDeviceStateTotalled;
     }
-
-    //calculate max payload size
-    IOPCIConfigEntry * child;
-    for (child = bridge->child; child; child = child->peer)
-    {
-        if (kPCIDeviceStateHidden & child->deviceState)     continue;
-
-        // don't take into account empty bridges
-        bool usePayloadForDevice = false;
-        for (int i = 0; i < kIOPCIRangeBridgeBusNumber; i++)
-        {
-            if(child->ranges[i] != NULL)
-            {
-                usePayloadForDevice = true;
-                break;
-            }
-        }
-
-        if (   (child->expressCapBlock != 0)
-            && (usePayloadForDevice == true))
-        {
-
-            OSData* maxPayloadOverride = NULL;
-            if(child->dtEntry != NULL)
-            {
-                maxPayloadOverride = OSDynamicCast(OSData, child->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize));
-                if(maxPayloadOverride != NULL)
-                {
-                    child->expressMaxPayload = *reinterpret_cast<const uint32_t*>(maxPayloadOverride->getBytesNoCopy());
-                    DLOG("max payload override for" D() " =  %u\n", DEVICE_IDENT(child), child->expressMaxPayload)
-                }
-            }
-
-            /* Hotplug-capable hierarchy domains containing a switch are restricted to the
-             * minimum MPS to avoid having to pause devices during a hotplug event in order
-             * to safely change their setting.
-             */
-            if (((child->expressCaps & 0xf0) == 0x50) && (kPCIStatic != (kPCIHPTypeMask & child->supportsHotPlug)))
-            {
-                child->expressMaxPayload = 0;
-                DLOG("Limiting device " D() "'s domain to 128B MPS\n", DEVICE_IDENT(child));
-            }
-
-            if (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload)
-            {
-                if (child->rootPortEntry->expressPayloadSetting & kPCIMaxPayloadSizeSet)
-                {
-                    DLOG("Device " D() " supports up to %u MPS, its domain hierarchy max is %u\n", DEVICE_IDENT(child), child->expressMaxPayload, child->rootPortEntry->expressMaxPayload);
-                    panic("MPS configuration failed");
-                }
-                DLOG("Lowering " D() "'s domain hierarchy's expressMaxPayload: %u -> %u\n",
-                     DEVICE_IDENT(child), child->rootPortEntry->expressMaxPayload, child->expressMaxPayload);
-                child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
-            }
-        }
-    }
-
     return (true);
 }
 
@@ -3139,10 +3149,10 @@ void CLASS::doConfigure(uint32_t options)
 {
     bool bootConfig = (kIOPCIConfiguratorBoot & options);
 
-    if (bootConfig) iterate("boot reset", &CLASS::scanProc,                 &CLASS::bootResetProc, this);
-					iterate("scan total", &CLASS::scanProc,                 &CLASS::totalProc,     NULL);
-					iterate("allocate",   &CLASS::allocateProc,             NULL,	    			NULL);
-					iterate("finalize",   &CLASS::bridgeFinalizeConfigProc, NULL,                  NULL);
+    if (bootConfig) iterate("boot reset", &CLASS::scanProc,                 &CLASS::bootResetProc,            this);
+					iterate("scan total", &CLASS::scanProc,                 &CLASS::totalProc,                NULL);
+					iterate("allocate",   &CLASS::allocateProc,             NULL,                             NULL);
+					iterate("finalize",   &CLASS::bridgeFinalizeConfigProc, &CLASS::domainFinalizeConfigProc, NULL);
 }
 
 //---------------------------------------------------------------------------
@@ -3250,8 +3260,8 @@ void CLASS::configure(uint32_t options)
     // successful completion to valid Config Request 1s after reset exit
     // So we're supposed to wait 900ms since we waited 100ms after link up
     fResetWaitTime = kIOPCIEnumerationWaitTime;
+	IOLog("[IOPCIConfigurator::%s()] PCI configuration %s\n", __func__, fRoot->child->dtNub->getName());
 
-    IOLog("IOPCIConfigurator::configure kIOPCIEnumerationWaitTime is %d\n", kIOPCIEnumerationWaitTime);
     PE_Video	       consoleInfo;
 
 	fFlags |= options;
@@ -3940,11 +3950,27 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 
 	result = (0 == failTypes);
 
-    if (failTypes && !(bridge->rangeRequestChanges & typeMask))
+    if ((failTypes && !(bridge->rangeRequestChanges & typeMask)) || (kIOPCIConfiguratorForcePause & fFlags))
     {
-        result = true;
+		bool artificialPause = !(failTypes && !(bridge->rangeRequestChanges & typeMask));
+
+		if (!artificialPause)
+		{
+			result = true;
+		}
+
 		FOREACH_CHILD(bridge, child)
 		{
+			// Force a pause by pretending we failed to allocate memory and bus numbers.
+			if (artificialPause && (child->deviceState & kPCIDeviceStateLinkInt))
+			{
+				failTypes = kIOPCIResourceTypeMemory | kIOPCIResourceTypeBusNumber;
+			}
+			if (artificialPause && !(child->deviceState & kPCIDeviceStateLinkInt))
+			{
+				continue;
+			}
+
 			if (!(kIOPCIConfiguratorUsePause & fFlags))   				  continue;
 			// no pause for i/o
 			if ((1 << kIOPCIResourceTypeIO) == failTypes) 				  continue;
@@ -4461,30 +4487,46 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 		FOREACH_CHILD(bridge, child)
 		{
 			if (kPCIDeviceStateDeadOrHidden   & child->deviceState) continue;
-			if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
 			if (!child->expressCapBlock) 							continue;
+			if (!(child->rootPortEntry->deviceState & kPCIDeviceStateDomainChanged)) continue;
 			deviceControl = configRead16(child, child->expressCapBlock + 0x08);
 			newControl    = deviceControl & ~(7 << 5);
-			newControl    |= (child->rootPortEntry->expressMaxPayload << 5);
-			if (!child->isBridge && child->hostBridgeEntry->expressEndpointMaxReadRequestSize != -1)
+			newControl    |= (child->expressMaxPayload << 5);
+			if (!child->isBridge)
 			{
-				newControl = newControl & ~(7 << 12);
-				newControl |= (child->hostBridgeEntry->expressEndpointMaxReadRequestSize << 12);
-            }
+				bool epMRRSOverride = (child->hostBridgeEntry->expressEndpointMaxReadRequestSize != -1);
+				bool epMPSLowerThanRPMPS = (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload);
+				int8_t tmpEPMRRS = -1;
+				if (epMPSLowerThanRPMPS && epMRRSOverride)
+				{
+					// if EP MPS < RP MPS and we have EP MRRS override, EP MRRS = min(EP MPS, EP MRRS override)
+					tmpEPMRRS = (child->expressMaxPayload < child->hostBridgeEntry->expressEndpointMaxReadRequestSize) ? child->expressMaxPayload : child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
+				}
+				else if (epMPSLowerThanRPMPS && !epMRRSOverride)
+				{
+					// if EP MPS < RP MPS and there's no EP MRRS override, EP MRRS = EP MPS
+					tmpEPMRRS = child->expressMaxPayload;
+				}
+				else if (!epMPSLowerThanRPMPS && epMRRSOverride)
+				{
+					// if EP MPS == RP MPS and we have EP MRRS override, EP MRRS = EP MRRS override
+					tmpEPMRRS = child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
+				}
+
+				if (tmpEPMRRS != -1)
+				{
+					tmpEPMRRS = (tmpEPMRRS & 7);
+					newControl = newControl & ~(7 << 12);
+					newControl |= (tmpEPMRRS << 12);
+					DLOG("device " D() " Max Read Request Size set to 0x%x\n", DEVICE_IDENT(child), tmpEPMRRS);
+				}
+			}
 			if (newControl != deviceControl)
 			{
 				configWrite16(child, child->expressCapBlock + 0x08, newControl);
 				DLOG("payload set 0x%08x -> 0x%08x (at " D() "), maxPayload 0x%x\n",
 					  deviceControl, newControl,
-					  DEVICE_IDENT(child), child->rootPortEntry->expressMaxPayload);
-            }
-
-            /* When the first endpoint in a hierarchy domain has its max payload size programmed,
-             * that MPS is fixed.
-             */
-            if (!child->isBridge)
-            {
-                child->rootPortEntry->expressPayloadSetting |= kPCIMaxPayloadSizeSet;
+					  DEVICE_IDENT(child), child->expressMaxPayload);
             }
 		}
 	}
@@ -4496,6 +4538,17 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 	}
 
 	return (bridgeConstructDeviceTree(unused, bridge));
+}
+
+//---------------------------------------------------------------------------
+
+int32_t CLASS::domainFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge)
+{
+    if ((bridge == bridge->rootPortEntry) && (bridge->deviceState & kPCIDeviceStateDomainChanged) && (bridge->deviceState & kPCIDeviceStateAllocated))
+    {
+        bridge->deviceState &= ~kPCIDeviceStateDomainChanged;
+    }
+    return true;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *

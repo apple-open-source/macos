@@ -24,6 +24,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #define ASL_ENCODE_MASK		0x0000000f
 #define ASL_STRING_VM		0x80000000
 #define ASL_STRING_LEN		0x40000000

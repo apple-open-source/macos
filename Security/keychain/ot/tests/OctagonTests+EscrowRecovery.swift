@@ -4,9 +4,6 @@ import Security_Private.SecPasswordGenerate
 
 @objcMembers
 class OctagonEscrowRecoveryTests: OctagonTestsBase {
-    override func setUp() {
-        super.setUp()
-    }
 
     func testJoinWithBottle() throws {
         let initiatorContextID = "initiator-context-id"
@@ -24,10 +21,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -164,10 +160,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -991,10 +986,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1118,10 +1112,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1237,10 +1230,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                            otControl: self.otControl,
+                                                            altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1547,7 +1539,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [fetchViableExpectation], timeout: 10)
 
         // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break joinWithBottle.
-        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { _ in
             return NSError(domain: CKErrorDomain,
                            code: CKError.serverRejectedRequest.rawValue,
                            userInfo: [:])

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,25 +87,6 @@ STATIC const DHCPv6OptionInfo IAPREFIX_OptionInfo = {
    .min_length = DHCPv6OptionIAPREFIX_MIN_LENGTH
 };
 
-#if TEST_DHCPV6_CLIENT
-#include <SystemConfiguration/SCPrivate.h>
-#undef my_log
-#define my_log(pri, format, ...)	do {		\
-	struct timeval	tv;				\
-	struct tm       tm;				\
-	time_t		t;				\
-							\
-	(void)gettimeofday(&tv, NULL);					\
-	t = tv.tv_sec;							\
-	(void)localtime_r(&t, &tm);					\
-									\
-	SCPrint(TRUE, stdout,						\
-		CFSTR("%04d/%02d/%02d %2d:%02d:%02d.%06d " format "\n"), \
-		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,		\
-		tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,		\
-		## __VA_ARGS__ );					\
-    } while (0)
-#endif
 
 typedef void
 (DHCPv6ClientEventFunc)(DHCPv6ClientRef client, IFEventID_t event_id, 
@@ -199,7 +180,7 @@ DHCPv6ClientModeGetShortName(DHCPv6ClientMode mode)
 }
 
 typedef struct {
-    CFAbsoluteTime		start;
+    absolute_time_t		start;
 
     /* these times are all relative to start */
     uint32_t			t1;
@@ -231,7 +212,7 @@ typedef union {
 
 struct DHCPv6Client {
     char			description[32];
-    CFRunLoopSourceRef		callback_rls;
+    dispatch_source_t		callback_source;
     DHCPv6ClientNotificationCallBack callback;
     void *			callback_arg;
     struct in6_addr		our_ip;
@@ -247,14 +228,14 @@ struct DHCPv6Client {
     timer_callout_t *		timer;
     DHCPv6TransactionID		transaction_id;
     int				try;
-    CFAbsoluteTime		start_time;
+    absolute_time_t		start_time;
     CFTimeInterval		retransmit_time;
     dhcpv6_info			saved;
     lease_info			lease;
     bool			saved_verified;
     bool			private_address;
     CFDataRef			duid;
-    CFAbsoluteTime		renew_rebind_time;
+    absolute_time_t		renew_rebind_time;
     DHCPDUIDRef			server_id; 	/* points to saved */
     IA_NA_PD_U			ia_na_pd;
     ADDR_PREFIX_U		addr_prefix;
@@ -312,6 +293,8 @@ DHCPv6ClientVerifyModeIsNone(DHCPv6ClientRef client, const char * func)
 STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
     kDHCPv6OPTION_DOMAIN_LIST,
+    kDHCPv6OPTION_POSIX_TIMEZONE,
+    kDHCPv6OPTION_TZDB_TIMEZONE,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL
 };
 
@@ -1025,7 +1008,7 @@ DHCPv6ClientProvideSummary(DHCPv6ClientRef client,
 	}
     }
     else {
-	CFAbsoluteTime	current_time;
+	absolute_time_t	current_time;
 
 	switch (client->cstate) {
 	case kDHCPv6ClientStateSolicit:
@@ -1123,8 +1106,8 @@ DHCPv6ClientNextRetransmit(DHCPv6ClientRef client,
 STATIC void
 DHCPv6ClientPostNotification(DHCPv6ClientRef client)
 {
-    if (client->callback_rls != NULL) {
-	CFRunLoopSourceSignal(client->callback_rls);
+    if (client->callback_source != NULL) {
+	dispatch_source_merge_data(client->callback_source, 1);
     }
     return;
 }
@@ -1201,7 +1184,7 @@ DHCPv6ClientLeaseOnSameNetwork(DHCPv6ClientRef client)
 
 STATIC bool
 DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client,
-			    CFAbsoluteTime current_time)
+			    absolute_time_t current_time)
 {
     lease_info_t	lease_p = &client->lease;
 
@@ -1235,7 +1218,7 @@ DHCPv6ClientLeaseStillValid(DHCPv6ClientRef client,
 STATIC void
 DHCPv6ClientSavePacket(DHCPv6ClientRef client, DHCPv6SocketReceiveDataRef data)
 {
-    CFAbsoluteTime		current_time = timer_get_current_time();
+    absolute_time_t		current_time = timer_get_current_time();
     DHCPv6OptionErrorString 	err;
     bool			get_ia_na;
     lease_info_t		lease_p = &client->lease;
@@ -1787,7 +1770,7 @@ STATIC void
 DHCPv6Client_RenewRebind(DHCPv6ClientRef client, IFEventID_t event_id, 
 			 void * event_data)
 {
-    CFAbsoluteTime		current_time = timer_get_current_time();
+    absolute_time_t		current_time = timer_get_current_time();
 
     switch (event_id) {
     case IFEventID_start_e:
@@ -1927,7 +1910,7 @@ STATIC void
 DHCPv6Client_Confirm(DHCPv6ClientRef client, IFEventID_t event_id, 
 		     void * event_data)
 {
-    CFAbsoluteTime		current_time = timer_get_current_time();
+    absolute_time_t		current_time = timer_get_current_time();
     interface_t *		if_p = DHCPv6ClientGetInterface(client);
 
     switch (event_id) {
@@ -2111,8 +2094,8 @@ DHCPv6ClientSimulateAddressChanged(DHCPv6ClientRef client)
  *   time interval specified by 'time_interval'.
  */
 INLINE bool
-S_time_in_future(CFAbsoluteTime current_time,
-		 CFAbsoluteTime the_time,
+S_time_in_future(absolute_time_t current_time,
+		 absolute_time_t the_time,
 		 CFTimeInterval time_interval)
 {
     return (current_time < the_time
@@ -2156,7 +2139,7 @@ DHCPv6ClientHandleWake(DHCPv6ClientRef client,
 	}
     }
     else {
-	CFAbsoluteTime		current_time = timer_get_current_time();
+	absolute_time_t		current_time = timer_get_current_time();
 
 	if (!DHCPv6ClientLeaseStillValid(client, current_time)) {
 	    if (client->cstate != kDHCPv6ClientStateSolicit) {
@@ -2189,7 +2172,7 @@ DHCPv6ClientHandleWake(DHCPv6ClientRef client,
 	 */
 	if (S_time_in_future(current_time, client->renew_rebind_time,
 			     G_wake_skew_secs)) {
-	    CFAbsoluteTime	delta;
+	    absolute_time_t	delta;
 
 	    delta = client->renew_rebind_time - current_time;
 	    my_log(LOG_INFO,
@@ -2316,7 +2299,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 {
     switch (event_id) {
     case IFEventID_start_e: {
-	CFAbsoluteTime		current_time = timer_get_current_time();
+	absolute_time_t		current_time = timer_get_current_time();
 	uint32_t		preferred_lifetime;
 	CFTimeInterval		time_since_start = 0;
 	uint32_t		valid_lifetime;
@@ -2701,7 +2684,7 @@ DHCPv6ClientCreate(ServiceRef service_p)
 STATIC void
 DHCPv6ClientStartInternal(DHCPv6ClientRef client)
 {
-    CFAbsoluteTime		current_time;
+    absolute_time_t		current_time;
     interface_t *		if_p = DHCPv6ClientGetInterface(client);
 
     switch (client->mode) {
@@ -2817,7 +2800,7 @@ PRIVATE_EXTERN void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 {
     DHCPv6ClientRef	client = *client_p;
-    CFAbsoluteTime	current_time;
+    absolute_time_t	current_time;
 
     if (client == NULL) {
 	return;
@@ -2892,10 +2875,8 @@ DHCPv6ClientCopyAddresses(DHCPv6ClientRef client,
 }
 
 STATIC void 
-DHCPv6ClientDeliverNotification(void * info)
+DHCPv6ClientDeliverNotification(DHCPv6ClientRef client)
 {
-    DHCPv6ClientRef	client = (DHCPv6ClientRef)info;
-
     if (client->callback == NULL) {
 	/* this can't really happen */
 	my_log(LOG_NOTICE,
@@ -2915,20 +2896,29 @@ DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client,
     client->callback = callback;
     client->callback_arg = callback_arg;
     if (callback == NULL) {
-	if (client->callback_rls != NULL) {
-	    CFRunLoopSourceInvalidate(client->callback_rls);
-	    my_CFRelease(&client->callback_rls);
+	dispatch_source_t	source;
+
+	source = client->callback_source;
+	if (source != NULL) {
+	    client->callback_source = NULL;
+	    dispatch_source_cancel(source);
+	    dispatch_release(source);
 	}
     }
-    else if (client->callback_rls == NULL) {
-	CFRunLoopSourceContext 	context;
+    else if (client->callback_source == NULL) {
+	dispatch_block_t	handler;
+	dispatch_source_t	source;
 
-	bzero(&context, sizeof(context));
-	context.info = (void *)client;
-	context.perform = DHCPv6ClientDeliverNotification;
-	client->callback_rls = CFRunLoopSourceCreate(NULL, 0, &context);
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), client->callback_rls,
-			   kCFRunLoopDefaultMode);
+	source = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_ADD,
+					0,
+					0,
+					IPConfigurationAgentQueue());
+	handler = ^{
+	    DHCPv6ClientDeliverNotification(client);
+	};
+	dispatch_source_set_event_handler(source, handler);
+	dispatch_activate(source);
+	client->callback_source = source;
     }
     return;
 }
@@ -2955,7 +2945,7 @@ DHCPv6ClientHandleLinkStatusRenew(DHCPv6ClientRef client,
 STATIC void
 DHCPv6ClientHandleRoam(DHCPv6ClientRef client)
 {
-    CFAbsoluteTime	current_time;
+    absolute_time_t	current_time;
 
     /* we roamed, confirm the address if necessary */
     my_log(LOG_NOTICE,
@@ -3150,7 +3140,7 @@ dhcpv6_pd_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     return (status);
 }
 
-#if TEST_DHCPV6_CLIENT
+#ifdef TEST_DHCPV6_CLIENT
 #include "sysconfig.h"
 #include "wireless.h"
 #include <SystemConfiguration/SCPrivate.h>
@@ -3362,7 +3352,6 @@ notification_init(DHCPv6ClientRef client)
     SCDynamicStoreContext	context;
     CFStringRef			ifname_cf;
     const void *		keys[2];
-    CFRunLoopSourceRef		rls;
     SCDynamicStoreRef		store;
 
     bzero(&context, sizeof(context));
@@ -3390,9 +3379,11 @@ notification_init(DHCPv6ClientRef client)
     array = CFArrayCreate(NULL, (const void **)keys, 2, &kCFTypeArrayCallBacks);
     SCDynamicStoreSetNotificationKeys(store, array, NULL);
     CFRelease(array);
-    rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
+    if (!SCDynamicStoreSetDispatchQueue(store,
+					IPConfigurationAgentQueue())) {
+	my_log(LOG_NOTICE,
+	       "DHCPv6Client: SCDynamicStoreSetDispatchQueue failed");
+    }
     return;
 }
 
@@ -3536,7 +3527,7 @@ main(int argc, char * argv[])
 	    break;
 	}
 	DHCPv6ClientStart(client);
-	CFRunLoopRun();
+	dispatch_main();
     }
     exit(0);
     return (0);

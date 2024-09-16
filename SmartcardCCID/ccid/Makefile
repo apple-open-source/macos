@@ -27,21 +27,3 @@ post-install:
 	install_name_tool -id $(CCIDDriversPath)$(CCIDdylib) $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib)
 	codesign -s - $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib)
 
-# Automatic Extract & Patch
-AEP_Project    = ccid
-AEP_Version    = 1.5.1
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.bz2
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = destDirFix.patch ForceWithoutPcsc.patch ccid-info-plist.patch osxConfigure.patch headerpadLDFlags.patch
-
-# Extract the source.
-install_source::
-	$(TAR) -C $(SRCROOT) -jxf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
-	done
-	(cd $(SRCROOT)/$(Project) && MacOSX/configure --no-configure)
-

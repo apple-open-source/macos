@@ -22,19 +22,14 @@
 
 #if USE(COORDINATED_GRAPHICS)
 
-#include <WebCore/GraphicsContext.h>
-#include <WebCore/GraphicsLayer.h>
-#include <WebCore/IntRect.h>
-#include <WebCore/IntSize.h>
+#include <WebCore/Damage.h>
 #include <WebCore/NicosiaImageBackingStore.h>
 #include <WebCore/NicosiaPlatformLayer.h>
 #include <WebCore/NicosiaScene.h>
 #include <WebCore/TextureMapper.h>
-#include <WebCore/TextureMapperBackingStore.h>
 #include <WebCore/TextureMapperFPSCounter.h>
 #include <WebCore/TextureMapperLayer.h>
 #include <WebCore/TextureMapperPlatformLayerProxy.h>
-#include <WebCore/Timer.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -58,9 +53,10 @@ public:
     virtual void updateViewport() = 0;
 };
 
-class CoordinatedGraphicsScene : public ThreadSafeRefCounted<CoordinatedGraphicsScene>, public WebCore::TextureMapperPlatformLayerProxy::Compositor {
+class CoordinatedGraphicsScene : public ThreadSafeRefCounted<CoordinatedGraphicsScene>, public WebCore::TextureMapperPlatformLayerProxy::Compositor
+    , public WebCore::TextureMapperLayerDamageVisitor {
 public:
-    explicit CoordinatedGraphicsScene(CoordinatedGraphicsSceneClient*);
+    CoordinatedGraphicsScene(CoordinatedGraphicsSceneClient*, WebCore::Damage::ShouldPropagate);
     virtual ~CoordinatedGraphicsScene();
 
     void applyStateChanges(const Vector<RefPtr<Nicosia::Scene>>&);
@@ -74,6 +70,9 @@ public:
 
     bool isActive() const { return m_isActive; }
     void setActive(bool active) { m_isActive = active; }
+
+    const WebCore::Damage& lastDamage() const { return m_damage; }
+    void recordDamage(const WebCore::FloatRect&) override;
 
 private:
     void commitSceneState(const RefPtr<Nicosia::Scene>&);
@@ -97,6 +96,9 @@ private:
     // Below two members are accessed by only the main thread. The painting thread must lock the main thread to access both members.
     CoordinatedGraphicsSceneClient* m_client;
     bool m_isActive { false };
+
+    WebCore::Damage::ShouldPropagate m_propagateDamage;
+    WebCore::Damage m_damage;
 
     std::unique_ptr<WebCore::TextureMapperLayer> m_rootLayer;
 

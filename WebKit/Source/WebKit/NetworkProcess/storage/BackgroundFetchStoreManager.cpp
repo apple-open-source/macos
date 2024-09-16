@@ -34,6 +34,7 @@
 #include <wtf/PageBlock.h>
 #include <wtf/UUID.h>
 #include <wtf/WorkQueue.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -54,7 +55,7 @@ String BackgroundFetchStoreManager::createNewStorageIdentifier()
 BackgroundFetchStoreManager::BackgroundFetchStoreManager(const String& path, Ref<WorkQueue>&& taskQueue, QuotaCheckFunction&& quotaCheckFunction)
     : m_path(path)
     , m_taskQueue(WTFMove(taskQueue))
-    , m_ioQueue(WorkQueue::create("com.apple.WebKit.BackgroundFetchStoreManager"))
+    , m_ioQueue(WorkQueue::create("com.apple.WebKit.BackgroundFetchStoreManager"_s))
     , m_quotaCheckFunction(WTFMove(quotaCheckFunction))
 {
     m_ioQueue->dispatch([directoryPath = m_path.isolatedCopy()]() mutable {
@@ -137,7 +138,7 @@ void BackgroundFetchStoreManager::clearAllFetches(const Vector<String>& identifi
             size_t index = 0;
             String bodyPath;
             do {
-                bodyPath = makeString(filePath, "-", index++);
+                bodyPath = makeString(filePath, '-', index++);
             } while (FileSystem::deleteFile(bodyPath));
         }
         queue->dispatch(WTFMove(callback));
@@ -184,7 +185,7 @@ void BackgroundFetchStoreManager::storeFetchAfterQuotaCheck(const String& identi
         auto writtenSize = FileSystem::overwriteEntireFile(filePath, { data.data(), data.size() });
         auto result = static_cast<size_t>(writtenSize) == data.size() ? StoreResult::OK : StoreResult::InternalError;
         if (result == StoreResult::OK && responseBodyIndexToClear)
-            FileSystem::deleteFile(makeString(filePath, "-", *responseBodyIndexToClear));
+            FileSystem::deleteFile(makeString(filePath, '-', *responseBodyIndexToClear));
         RELEASE_LOG_ERROR_IF(result == StoreResult::InternalError, ServiceWorker, "BackgroundFetchStoreManager::storeFetch failed writing");
         queue->dispatch([result, callback = WTFMove(callback)]() mutable {
             callback(result);
@@ -194,7 +195,7 @@ void BackgroundFetchStoreManager::storeFetchAfterQuotaCheck(const String& identi
 
 static String createFetchResponseBodyFile(const String& identifier, size_t index)
 {
-    return makeString(identifier, "-", index);
+    return makeString(identifier, '-', index);
 }
 
 void BackgroundFetchStoreManager::storeFetchResponseBodyChunk(const String& identifier, size_t index, const SharedBuffer& data, CompletionHandler<void(StoreResult)>&& callback)
@@ -221,7 +222,7 @@ void BackgroundFetchStoreManager::storeFetchResponseBodyChunk(const String& iden
         FileSystem::PlatformFileHandle handle = FileSystem::openFile(filePath, FileSystem::FileOpenMode::ReadWrite);
         if (FileSystem::isHandleValid(handle)) {
             // FIXME: Cover the case of partial write.
-            auto writtenSize = FileSystem::writeToFile(handle, data->data(), data->size());
+            auto writtenSize = FileSystem::writeToFile(handle, data->span());
             if (static_cast<size_t>(writtenSize) == data->size())
                 result = StoreResult::OK;
             FileSystem::closeFile(handle);

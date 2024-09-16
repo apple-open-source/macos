@@ -26,10 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __APPLE__
 #ifndef lint
 static const char rcsid[] =
   "$FreeBSD$";
 #endif /* not lint */
+#endif // __APPLE__
 
 /* System Headers */
 
@@ -69,6 +71,11 @@ static const char rcsid[] =
 #include <security/openpam.h>
 #endif
 
+#ifdef __APPLE__
+#include <btm.h>
+#include <os/feature_private.h>
+#endif // __APPLE__
+
 /* Local headers */
 
 #include "gloadavg.h"
@@ -100,7 +107,7 @@ void perrx(const char *fmt, ...);
 static void usage(void);
 
 /* Local functions */
-static int
+static ssize_t
 write_string(int fd, const char* a)
 {
     return write(fd, a, strlen(a));
@@ -149,6 +156,23 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 	.appdata_ptr = NULL
     };
 #endif
+    
+#ifdef __APPLE__
+    if (os_feature_enabled(cronBTMToggle, cronBTMCheck)) {
+	/* We're using the same name for atrun and cron */
+	bool cron_enabled = false;
+	btm_error_code_t error = btm_get_enablement_status_for_subsystem_and_uid(btm_subsystem_cron, BTMGlobalDataUID, &cron_enabled);
+
+	if (error != btm_error_none) {
+	    perr("cannot query BTM");
+	}
+
+	/* We've already marked the file as processed */
+	if (!cron_enabled) {
+	    return;
+	}
+    }
+#endif // __APPLE__
 
     PRIV_START
 

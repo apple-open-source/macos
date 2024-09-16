@@ -40,6 +40,15 @@
 #endif
 
 namespace WebCore {
+class TimerAlignment;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::TimerAlignment> : std::true_type { };
+}
+
+namespace WebCore {
 
 class TimerAlignment : public CanMakeWeakPtr<TimerAlignment> {
 public:
@@ -66,7 +75,7 @@ public:
     inline void stop();
     inline bool isActive() const;
 
-    MonotonicTime nextFireTime() const { return m_heapItem ? m_heapItem->time : MonotonicTime { }; }
+    MonotonicTime nextFireTime() const { return m_heapItemWithBitfields.pointer() ? m_heapItemWithBitfields.pointer()->time : MonotonicTime { }; }
     WEBCORE_EXPORT Seconds nextFireInterval() const;
     Seconds nextUnalignedFireInterval() const;
     Seconds repeatInterval() const { return m_repeatInterval; }
@@ -74,15 +83,24 @@ public:
     void setTimerAlignment(TimerAlignment& alignment) { m_alignment = alignment; }
     TimerAlignment* timerAlignment() { return m_alignment.get(); }
 
-    bool hasReachedMaxNestingLevel() const { return m_hasReachedMaxNestingLevel; }
-    void setHasReachedMaxNestingLevel(bool value) { m_hasReachedMaxNestingLevel = value; }
+    bool hasReachedMaxNestingLevel() const { return bitfields().hasReachedMaxNestingLevel; }
+    void setHasReachedMaxNestingLevel(bool);
 
-    void augmentFireInterval(Seconds delta) { setNextFireTime(m_heapItem->time + delta); }
+    void augmentFireInterval(Seconds delta) { setNextFireTime(m_heapItemWithBitfields.pointer()->time + delta); }
     void augmentRepeatInterval(Seconds delta) { augmentFireInterval(delta); m_repeatInterval += delta; }
 
     void didChangeAlignmentInterval();
 
     WEBCORE_EXPORT static void fireTimersInNestedEventLoop();
+
+protected:
+    struct TimerBitfields {
+        uint8_t hasReachedMaxNestingLevel : 1 { false };
+        uint8_t shouldRestartWhenTimerFires : 1 { false }; // DeferrableOneShotTimer
+    };
+
+    TimerBitfields bitfields() const { return bitwise_cast<TimerBitfields>(m_heapItemWithBitfields.type()); }
+    void setBitfields(const TimerBitfields& bitfields) { return m_heapItemWithBitfields.setType(bitwise_cast<uint8_t>(bitfields)); }
 
 private:
     virtual void fired() = 0;
@@ -94,7 +112,7 @@ private:
 
     void setNextFireTime(MonotonicTime);
 
-    bool inHeap() const { return m_heapItem && m_heapItem->isInHeap(); }
+    bool inHeap() const { return m_heapItemWithBitfields.pointer() && m_heapItemWithBitfields.pointer()->isInHeap(); }
 
     bool hasValidHeapPosition() const;
     void updateHeapIfNeeded(MonotonicTime oldTime);
@@ -111,16 +129,14 @@ private:
     WeakPtr<TimerAlignment> m_alignment;
     MonotonicTime m_unalignedNextFireTime; // m_nextFireTime not considering alignment interval
     Seconds m_repeatInterval; // 0 if not repeating
-    bool m_hasReachedMaxNestingLevel { false };
 
-    RefPtr<ThreadTimerHeapItem> m_heapItem;
+    CompactRefPtrTuple<ThreadTimerHeapItem, uint8_t> m_heapItemWithBitfields;
     Ref<Thread> m_thread { Thread::current() };
 
     friend class ThreadTimers;
     friend class TimerHeapLessThanFunction;
     friend class TimerHeapReference;
 };
-
 
 class Timer : public TimerBase {
     WTF_MAKE_FAST_ALLOCATED;
@@ -157,7 +173,7 @@ private:
 
 inline void TimerBase::stop()
 {
-    if (m_heapItem)
+    if (m_heapItemWithBitfields.pointer())
         stopSlowCase();
 }
 
@@ -172,6 +188,13 @@ inline bool TimerBase::isActive() const
     return static_cast<bool>(nextFireTime());
 }
 
+inline void TimerBase::setHasReachedMaxNestingLevel(bool value)
+{
+    auto values = bitfields();
+    values.hasReachedMaxNestingLevel = value;
+    setBitfields(values);
+}
+
 class DeferrableOneShotTimer : protected TimerBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -184,7 +207,6 @@ public:
     DeferrableOneShotTimer(Function<void()>&& function, Seconds delay)
         : m_function(WTFMove(function))
         , m_delay(delay)
-        , m_shouldRestartWhenTimerFires(false)
     {
     }
 
@@ -195,7 +217,7 @@ public:
         // can be quite expensive.
 
         if (isActive()) {
-            m_shouldRestartWhenTimerFires = true;
+            setShouldRestartWhenTimerFires(true);
             return;
         }
         startOneShot(m_delay);
@@ -203,7 +225,7 @@ public:
 
     void stop()
     {
-        m_shouldRestartWhenTimerFires = false;
+        setShouldRestartWhenTimerFires(false);
         TimerBase::stop();
     }
 
@@ -212,8 +234,8 @@ public:
 private:
     void fired() override
     {
-        if (m_shouldRestartWhenTimerFires) {
-            m_shouldRestartWhenTimerFires = false;
+        if (bitfields().shouldRestartWhenTimerFires) {
+            setShouldRestartWhenTimerFires(false);
             startOneShot(m_delay);
             return;
         }
@@ -221,10 +243,16 @@ private:
         m_function();
     }
 
+    void setShouldRestartWhenTimerFires(bool value)
+    {
+        auto values = bitfields();
+        values.shouldRestartWhenTimerFires = value;
+        setBitfields(values);
+    }
+
     Function<void()> m_function;
 
     Seconds m_delay;
-    bool m_shouldRestartWhenTimerFires;
 };
 
 }

@@ -13,8 +13,6 @@
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSItem.h"
-#import "keychain/ckks/CKKSManifest.h"
-#import "keychain/ckks/CKKSManifestLeafRecord.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
 
 
@@ -28,6 +26,8 @@
 
 @property BOOL limitOperationToPriorityViewsSet;
 
+@property bool zoneModifierHalted;
+
 @end
 
 @implementation CKKSOperationDependencies
@@ -35,7 +35,6 @@
 - (instancetype)initWithViewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
                          contextID:(NSString*)contextID
                      activeAccount:(TPSpecificUser* _Nullable)activeAccount
-                      zoneModifier:(CKKSZoneModifier*)zoneModifier
                         ckdatabase:(CKDatabase*)ckdatabase
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                   ckoperationGroup:(CKOperationGroup* _Nullable)operationGroup
@@ -53,7 +52,6 @@
     if((self = [super init])) {
         _allViews = viewStates;
 
-        _zoneModifier = zoneModifier;
         _ckdatabase = ckdatabase;
         _cloudKitClassDependencies = cloudKitClassDependencies;
         _ckoperationGroup = operationGroup;
@@ -77,6 +75,15 @@
         _limitOperationToPriorityViewsSet = NO;
         _personaAdapter = personaAdapter;
         _sendMetric = sendMetric;
+
+        _cloudkitRetryAfter = [[CKKSNearFutureScheduler alloc] initWithName:@"zonemodifier-ckretryafter"
+                                                               initialDelay:100*NSEC_PER_MSEC
+                                                         exponentialBackoff:1
+                                                               maximumDelay:100*NSEC_PER_MSEC
+                                                           keepProcessAlive:false
+                                                  dependencyDescriptionCode:CKKSResultDescriptionPendingCloudKitRetryAfter
+                                                                   qosClass:QOS_CLASS_USER_INITIATED
+                                                                      block:^{}];
     }
     return self;
 }
@@ -367,10 +374,10 @@
                                                         error:&localerror];
 
         } else if ([[record recordType] isEqualToString:SecCKRecordManifestType]) {
-            [CKKSPendingManifest intransactionRecordChanged:record resync:resync error:&localerror];
+            // Previously used record type; ignore for now
 
         } else if ([[record recordType] isEqualToString:SecCKRecordManifestLeafType]) {
-            [CKKSManifestPendingLeafRecord intransactionRecordChanged:record resync:resync error:&localerror];
+            // Previously used record type; ignore for now
 
         } else if ([[record recordType] isEqualToString:SecCKRecordDeviceStateType]) {
             [CKKSDeviceStateEntry intransactionRecordChanged:record
@@ -428,7 +435,7 @@
                                                    error:&error];
 
     } else if ([recordType isEqualToString:SecCKRecordManifestType]) {
-        [CKKSManifest intransactionRecordDeleted:recordID resync:resync error:&error];
+        // Previously used record type; ignore for now
 
     } else {
         ckkserror("ckksfetch", recordID.zoneID, "unknown record type: %@ %@", recordType, recordID);
@@ -562,6 +569,16 @@
         } else {
             return [musrStr dataUsingEncoding:NSUTF8StringEncoding];
         }
+    }
+}
+
+- (void)inspectErrorForRetryAfter:(NSError*)ckerror
+{
+    NSTimeInterval delay = CKRetryAfterSecondsForError(ckerror);
+    if(delay) {
+        uint64_t ns_delay = NSEC_PER_SEC * ((uint64_t) delay);
+        ckksnotice_global("ckkszonemodifier", "CK operation failed with rate-limit, scheduling delay for %.1f seconds: %@", delay, ckerror);
+        [self.cloudkitRetryAfter waitUntil:ns_delay];
     }
 }
 

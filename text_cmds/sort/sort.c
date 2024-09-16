@@ -453,13 +453,56 @@ parse_memory_buffer_value(const char *value)
  * Signal handler that clears the temporary files.
  */
 static void
+#ifdef __APPLE__
+sig_handler(int sig, siginfo_t *siginfo __unused,
+#else
 sig_handler(int sig __unused, siginfo_t *siginfo __unused,
+#endif
     void *context __unused)
 {
 
 	clear_tmp_files();
+#ifdef __APPLE__
+	/*
+	 * For conformance purposes, we can't just exit with a single static
+	 * exit code -- we must actually re-raise the error once we've finished
+	 * our cleanup to get the signal-exit bits correct.
+	 */
+	signal(sig, SIG_DFL);
+	raise(sig);
+#else
 	exit(-1);
+#endif
 }
+
+#ifdef __APPLE__
+/*
+ * Install the requested action, but *only* if the signal's not currently being
+ * ignored.  sort(1) won't ignore anything itself, so this would indicate that
+ * the caller is ignoring it for one reason or another and we shouldn't override
+ * that just for cleanup purposes.
+ */
+static int
+sigaction_notign(int sig, const struct sigaction *act, struct sigaction *poact)
+{
+	struct sigaction oact;
+	int error;
+
+	if ((error = sigaction(sig, NULL, &oact)) < 0)
+		return (error);
+
+	/* Silently succeed. */
+	if (oact.sa_handler == SIG_IGN) {
+		if (poact != NULL)
+			*poact = oact;
+		return (0);
+	}
+
+	return (sigaction(sig, act, poact));
+}
+
+#define	sigaction(s, a, o)	sigaction_notign(s, a, o)
+#endif
 
 /*
  * Set signal handler on panic signals.

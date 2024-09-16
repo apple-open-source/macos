@@ -29,6 +29,7 @@
 #import "NetworkProcessConnection.h"
 #import "WebProcess.h"
 #import <WebCore/NetworkStorageSession.h>
+#import <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -37,7 +38,7 @@ using namespace WebCore;
 NetworkStorageSession& WebCookieCache::inMemoryStorageSession()
 {
     if (!m_inMemoryStorageSession) {
-        String sessionName = makeString("WebKitInProcessStorage-", getCurrentProcessID());
+        String sessionName = makeString("WebKitInProcessStorage-"_s, getCurrentProcessID());
         auto cookieAcceptPolicy = WebProcess::singleton().ensureNetworkProcessConnection().cookieAcceptPolicy();
         auto storageSession = WebCore::createPrivateStorageSession(sessionName.createCFString().get(), cookieAcceptPolicy);
         auto cookieStorage = adoptCF(_CFURLStorageSessionCopyCookieStorage(kCFAllocatorDefault, storageSession.get()));

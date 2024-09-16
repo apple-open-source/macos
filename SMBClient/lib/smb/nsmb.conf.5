@@ -3,7 +3,7 @@
 .\" Originally written by Sergey A. Osokin
 .\" Rewritten by Tom Rhodes
 .\"
-.\" Portions Copyright (C) 2005 - 2017 Apple Inc. All rights reserved.
+.\" Portions Copyright (C) 2005 - 2023 Apple Inc. All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -105,11 +105,21 @@ Possible keywords may include:
 .It Va max_cached_per_dir  Ta "+ + -"  Ta "Varies" Ta "Varies from 2000-10000 depending on RAM amount"
 .It Va netBIOS_before_DNS  Ta "+ + +"  Ta "no"     Ta "Try NetBIOS resolution before DNS resolution"
 .It Va mc_on               Ta "+ + -"  Ta "yes"    Ta "Turn on SMB multichannel (allow more than one channel per session)"
+.It Va mc_max_channels     Ta "+ + -"  Ta "9"      Ta "Max channels between client and server"
+.It Va mc_srvr_rss_channels Ta "+ + -"  Ta "4"     Ta "Max RSS channels per server interface"
+.It Va mc_clnt_rss_channels Ta "+ + -"  Ta "4"     Ta "Max RSS channels per client interface"
 .It Va mc_prefer_wired     Ta "+ + -"  Ta "no"     Ta "Prefer wired NIC's over wireless in multichannel mode"
 .It Va encrypt_cipher_map  Ta "+ + -"  Ta "15"     Ta "Bitmap of SMB 3.1.1 encryption algorithms that are enabled"
 .It Va force_sess_encrypt  Ta "+ + -"  Ta "no"     Ta "Force session encryption"
 .It Va force_share_encrypt Ta "+ + -"  Ta "no"     Ta "Force share encryption"
-.It Va connect_to_sharedisk Ta "+ - -"  Ta "yes"   Ta "Allow connection to a server in disk share mode"
+.It Va connect_to_sharedisk Ta "+ - -" Ta "yes"    Ta "Allow connection to a server in disk share mode"
+.It Va comp_algorithms_map Ta "+ + -"  Ta "0xf"    Ta "Bitmap of compression algorithms that are enabled"
+.It Va comp_chaining_disable Ta "+ + -" Ta "no"    Ta "Disable chained compression"
+.It Va comp_io_threshold   Ta "+ + -"  Ta "4096"   Ta "Min IO size to use compression (4096 - 1048576)"
+.It Va comp_chunk_len      Ta "+ + -"  Ta "256KB"  Ta "Chained write chunk size for processing"
+.It Va comp_max_fail_cnt   Ta "+ + -"  Ta "5"      Ta "Max times write compression can fail before disabling for that file"
+.It Va comp_exclude_list   Ta "+ + -"  Ta ""       Ta "Comma separated list of file extensions to not compress"
+.It Va comp_include_list   Ta "+ + -"  Ta ""       Ta "Comma seperated list of file extensions to override default exclusion list"
 .El
 .Pp
 The minimum authentication level can be one of:
@@ -192,6 +202,18 @@ AES-128-GCM/AES-128-CCM should be enabled
 .It Li 1 == 0001
 AES-128-CCM should be enabled
 .El
+.Pp
+"Bitmap of SMB 3.1.1 compressions algorithms that are enabled" can be any combination of (set to 0 to disable compression):
+.Bl -tag -width ".Li 7"
+.It Li 8 == 1000
+PatternV1 should be enabled (only valid if chained compressions are supported)
+.It Li 4 == 0100
+LZ77+Huffman should be enabled.
+.It Li 2 == 0010
+LZ77 should be enabled
+.It Li 1 == 0001
+LZNT1 should be enabled
+.El
 .Sh FILES
 .Bl -tag -width ".Pa /etc/nsmb.conf"
 .It Pa /etc/nsmb.conf
@@ -209,8 +231,9 @@ minauth=ntlmv2
 streams=yes
 soft=yes
 notify_off=yes
-[WINXP]
-addr=windowsXP.apple.com
+comp_exclude_list=foo,bar
+[WIN11]
+addr=windows11.apple.com
 .Ed
 .Pp
 All lines which begin with the

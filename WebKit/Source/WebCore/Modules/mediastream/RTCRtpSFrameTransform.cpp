@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "CryptoKeyRaw.h"
 #include "JSDOMConvertBufferSource.h"
 #include "JSDOMPromiseDeferred.h"
@@ -45,6 +46,7 @@
 #include "ReadableStreamSource.h"
 #include "SharedBuffer.h"
 #include "WritableStream.h"
+#include <wtf/EnumTraits.h>
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -66,9 +68,7 @@ RTCRtpSFrameTransform::RTCRtpSFrameTransform(ScriptExecutionContext& context, Op
     m_transformer->setAuthenticationSize(options.authenticationSize);
 }
 
-RTCRtpSFrameTransform::~RTCRtpSFrameTransform()
-{
-}
+RTCRtpSFrameTransform::~RTCRtpSFrameTransform() = default;
 
 void RTCRtpSFrameTransform::setEncryptionKey(CryptoKey& key, std::optional<uint64_t> keyId, DOMPromiseDeferred<void>&& promise)
 {
@@ -116,8 +116,6 @@ static RTCRtpSFrameTransformErrorEvent::Type errorTypeFromInformation(const RTCR
         return RTCRtpSFrameTransformErrorEvent::Type::Authentication;
     case RTCRtpSFrameTransformer::Error::Syntax:
         return RTCRtpSFrameTransformErrorEvent::Type::Syntax;
-    case RTCRtpSFrameTransformer::Error::Other:
-        return RTCRtpSFrameTransformErrorEvent::Type::Other;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -129,7 +127,7 @@ static std::optional<Vector<uint8_t>> processFrame(std::span<const uint8_t> data
     if (!result.has_value()) {
         auto errorInformation = WTFMove(result.error());
         errorInformation.message = { };
-        RELEASE_LOG_ERROR(WebRTC, "RTCRtpSFrameTransform failed transforming a frame with error %d", errorInformation.error);
+        RELEASE_LOG_ERROR(WebRTC, "RTCRtpSFrameTransform failed transforming a frame with error %hhu", enumToUnderlyingType(errorInformation.error));
         // Call the error event handler.
         ScriptExecutionContext::postTaskTo(identifier, [errorInformation, weakTransform](auto&&) {
             RefPtr transform = weakTransform.get();
@@ -233,9 +231,10 @@ ExceptionOr<void> RTCRtpSFrameTransform::createStreams()
         auto& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(context.globalObject());
         auto scope = DECLARE_THROW_SCOPE(globalObject.vm());
 
-        auto frame = convert<IDLUnion<IDLArrayBuffer, IDLArrayBufferView, IDLInterface<RTCEncodedAudioFrame>, IDLInterface<RTCEncodedVideoFrame>>>(globalObject, value);
-        if (scope.exception())
+        auto frameConversionResult = convert<IDLUnion<IDLArrayBuffer, IDLArrayBufferView, IDLInterface<RTCEncodedAudioFrame>, IDLInterface<RTCEncodedVideoFrame>>>(globalObject, value);
+        if (UNLIKELY(frameConversionResult.hasException(scope)))
             return Exception { ExceptionCode::ExistingExceptionError };
+        auto frame = frameConversionResult.releaseReturnValue();
 
         // We do not want to throw any exception in the transform to make sure we do not error the transform.
         WTF::switchOn(frame, [&](RefPtr<RTCEncodedAudioFrame>& value) {
@@ -243,9 +242,9 @@ ExceptionOr<void> RTCRtpSFrameTransform::createStreams()
         }, [&](RefPtr<RTCEncodedVideoFrame>& value) {
             transformFrame(*value, globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
         }, [&](RefPtr<ArrayBuffer>& value) {
-            transformFrame({ static_cast<const uint8_t*>(value->data()), value->byteLength() }, globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
+            transformFrame(value->span(), globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
         }, [&](RefPtr<ArrayBufferView>& value) {
-            transformFrame({ static_cast<const uint8_t*>(value->data()), value->byteLength() }, globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
+            transformFrame(value->span(), globalObject, transformer.get(), *readableStreamSource, context.identifier(), weakThis);
         });
         return { };
     }));

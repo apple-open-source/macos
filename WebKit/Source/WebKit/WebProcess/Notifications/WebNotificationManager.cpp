@@ -57,7 +57,7 @@ using namespace WebCore;
 #if ENABLE(NOTIFICATIONS)
 static bool sendMessage(WebPage* page, const Function<bool(IPC::Connection&, uint64_t)>& sendMessage)
 {
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
     if (DeprecatedGlobalSettings::builtInNotificationsEnabled()) {
         Ref networkProcessConnection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
         return sendMessage(networkProcessConnection, WebProcess::singleton().sessionID().toUInt64());
@@ -93,9 +93,9 @@ template<typename U> static bool sendNotificationMessageWithAsyncReply(U&& messa
 }
 #endif // ENABLE(NOTIFICATIONS)
 
-const char* WebNotificationManager::supplementName()
+ASCIILiteral WebNotificationManager::supplementName()
 {
-    return "WebNotificationManager";
+    return "WebNotificationManager"_s;
 }
 
 WebNotificationManager::WebNotificationManager(WebProcess& process)

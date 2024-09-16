@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -218,6 +218,7 @@ typedef struct {
     uint8_t			prefix_length;
     uint32_t			prefix_valid_lifetime;
     uint32_t			prefix_preferred_lifetime;
+    CFDictionaryRef		pvd_additional_info_dict;
 } ipv6_info_t;
 
 typedef struct {

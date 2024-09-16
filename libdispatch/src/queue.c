@@ -40,6 +40,10 @@ static inline bool
 _dispatch_async_and_wait_should_always_async(dispatch_queue_class_t dqu,
 		uint64_t dq_state);
 
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+static inline void _dispatch_workloop_bound_thread_init(void);
+#endif
+
 #pragma mark -
 #pragma mark dispatch_assert_queue
 
@@ -1755,6 +1759,17 @@ _dispatch_barrier_trysync_or_async_f(dispatch_lane_t dq, void *ctxt,
 #pragma mark -
 #pragma mark dispatch_sync / dispatch_barrier_sync
 
+DISPATCH_ALWAYS_INLINE
+static inline bool
+_dispatch_queue_supports_sync(dispatch_queue_t dq)
+{
+	if ((dx_metatype(dq) != _DISPATCH_LANE_TYPE) ||
+		_dispatch_queue_targets_special_wlh_with_bound_thread(dq)) {
+		return false;
+	}
+	return true;
+}
+
 DISPATCH_NOINLINE
 static void
 _dispatch_sync_f_slow(dispatch_queue_class_t top_dqu, void *ctxt,
@@ -1832,7 +1847,7 @@ _dispatch_barrier_sync_f_inline(dispatch_queue_t dq, void *ctxt,
 {
 	dispatch_tid tid = _dispatch_tid_self();
 
-	if (unlikely(dx_metatype(dq) != _DISPATCH_LANE_TYPE)) {
+	if (unlikely(!_dispatch_queue_supports_sync(dq))) {
 		DISPATCH_CLIENT_CRASH(0, "Queue type doesn't support dispatch_sync");
 	}
 
@@ -1886,7 +1901,7 @@ _dispatch_sync_f_inline(dispatch_queue_t dq, void *ctxt,
 		return _dispatch_barrier_sync_f(dq, ctxt, func, dc_flags);
 	}
 
-	if (unlikely(dx_metatype(dq) != _DISPATCH_LANE_TYPE)) {
+	if (unlikely(!_dispatch_queue_supports_sync(dq))) {
 		DISPATCH_CLIENT_CRASH(0, "Queue type doesn't support dispatch_sync");
 	}
 
@@ -2539,6 +2554,9 @@ _dispatch_lane_inherit_wlh_from_target(dispatch_lane_t dq, dispatch_queue_t tq)
 			// Workloop is specially configured - annotate dq as targetting such a wlh
 			if (!_dispatch_is_in_root_queues_array(tq->do_targetq)) {
 				dq_set |= DQF_TARGET_SPECIAL_WLH;
+				if (_dispatch_workloop_uses_bound_thread((dispatch_workloop_t)tq)) {
+					dq_set |= DQF_THREAD_BOUND;
+				}
 			}
 #if !DISPATCH_ALLOW_NON_LEAF_RETARGET
 		} else {
@@ -2548,6 +2566,13 @@ _dispatch_lane_inherit_wlh_from_target(dispatch_lane_t dq, dispatch_queue_t tq)
 			// Target queue is not a workloop - inherit information about the
 			// hierarchy from the immediate thing we are targetting
 			dq_set |= (_dispatch_queue_atomic_flags(tq) & DQF_TARGET_SPECIAL_WLH);
+			if (_dispatch_queue_targets_special_wlh(tq)) {
+				// Only inherit DQF_THREAD_BOUND when targetting a specially
+				// configured dispatch workloop with a bound thread.
+				// We don't want to do that for regular queues that target the
+				// main queue.
+				dq_set |= (_dispatch_queue_atomic_flags(tq) & DQF_THREAD_BOUND);
+			}
 		}
 
 		if (tq_clear) {
@@ -2581,7 +2606,10 @@ _dispatch_queue_compute_priority_and_wlh(dispatch_queue_t dq,
 			if (wlh_out) *wlh_out = DISPATCH_WLH_ANON;
 			return DISPATCH_PRIORITY_FLAG_MANAGER;
 		}
-		if (unlikely(_dispatch_queue_is_thread_bound(tq))) {
+		if (unlikely(_dispatch_queue_is_thread_bound(tq) &&
+			!_dispatch_queue_targets_special_wlh(tq))) {
+			// Traditional usecase of thread bound queue such as
+			// main queue or _dispatch_runloop_root_queue_create_4CF
 			if (wlh_out) *wlh_out = DISPATCH_WLH_ANON;
 			return tq->dq_priority;
 		}
@@ -3497,9 +3525,13 @@ _dispatch_queue_debug_attr(dispatch_queue_t dq, char* buf, size_t bufsiz)
 		offset += dsnprintf(&buf[offset], bufsiz - offset, ", max qos %d", qos);
 	}
 	mach_port_t owner = _dq_state_drain_owner(dq_state);
-	if (!_dispatch_queue_is_thread_bound(dq) && owner) {
-		offset += dsnprintf(&buf[offset], bufsiz - offset, ", draining on 0x%x",
+	if (owner) {
+		if (!_dispatch_queue_is_thread_bound(dq) || _dispatch_queue_targets_special_wlh(dq)) {
+			// Covers regular queues and the one that target a specially
+			// configured dispatch workloop with a bound thread.
+			offset += dsnprintf(&buf[offset], bufsiz - offset, ", draining on 0x%x",
 				owner);
+		}
 	}
 	if (_dq_state_is_in_barrier(dq_state)) {
 		offset += dsnprintf(&buf[offset], bufsiz - offset, ", in-barrier");
@@ -3510,7 +3542,9 @@ _dispatch_queue_debug_attr(dispatch_queue_t dq, char* buf, size_t bufsiz)
 	if (_dq_state_has_pending_barrier(dq_state)) {
 		offset += dsnprintf(&buf[offset], bufsiz - offset, ", pending-barrier");
 	}
-	if (_dispatch_queue_is_thread_bound(dq)) {
+	if (_dispatch_queue_is_thread_bound(dq) && !_dispatch_queue_targets_special_wlh(dq)) {
+		// Covers traditional usecase of thread bound queue such as
+		// main queue or _dispatch_runloop_root_queue_create_4CF.
 		offset += dsnprintf(&buf[offset], bufsiz - offset, ", thread = 0x%x ",
 				owner);
 	}
@@ -4036,6 +4070,21 @@ _dispatch_workloop_role_bits(void)
 }
 
 bool
+_dispatch_workloop_uses_bound_thread(dispatch_workloop_t dwl)
+{
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+	dispatch_workloop_attr_t dwla = dwl->dwl_attr;
+	if (dwla && (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD)) {
+		return true;
+	}
+	return false;
+#else
+	(void)dwl;
+	return false;
+#endif
+}
+
+bool
 _dispatch_workloop_should_yield_4NW(void)
 {
 	dispatch_workloop_t dwl = _dispatch_wlh_to_workloop(_dispatch_get_wlh());
@@ -4120,7 +4169,11 @@ _dispatch_workloop_has_kernel_attributes(dispatch_workloop_t dwl)
 	ret = dwl->dwl_attr && (dwl->dwl_attr->dwla_flags &
 			(DISPATCH_WORKLOOP_ATTR_HAS_SCHED |
 			 DISPATCH_WORKLOOP_ATTR_HAS_POLICY |
-			 DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT));
+			 DISPATCH_WORKLOOP_ATTR_HAS_CPUPERCENT
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+			 | DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD
+#endif
+			));
 
 #if DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
 	ret = ret || (dwl->dwl_attr && dwl->dwl_attr->workgroup &&
@@ -4150,6 +4203,55 @@ dispatch_workloop_set_scheduler_priority(dispatch_workloop_t dwl, int priority,
 	} else {
 		dwl->dwl_attr->dwla_flags &= ~DISPATCH_WORKLOOP_ATTR_HAS_POLICY;
 	}
+}
+
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+DISPATCH_STATIC_GLOBAL(dispatch_once_t _dispatch_workloop_bound_thread_pred);
+
+static void
+_dispatch_workloop_bound_thread_init_once(void *context DISPATCH_UNUSED)
+{
+	int kern_thread_bound_kqwl_enabled = 0;
+	size_t size = sizeof(kern_thread_bound_kqwl_enabled);
+	int r = sysctlbyname("kern.kern_event.thread_bound_kqwl_support_enabled",
+				&kern_thread_bound_kqwl_enabled,
+				&size,
+				NULL, 0);
+	(void)dispatch_assume_zero(r);
+	if (kern_thread_bound_kqwl_enabled != 0) {
+		_dispatch_thread_bound_kqwl_enabled = true;
+	}
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_workloop_bound_thread_init(void)
+{
+	dispatch_once_f(&_dispatch_workloop_bound_thread_pred, NULL,
+			_dispatch_workloop_bound_thread_init_once);
+}
+#endif
+
+int
+dispatch_workloop_set_uses_bound_thread(dispatch_workloop_t dwl)
+{
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+
+	_dispatch_workloop_bound_thread_init();
+
+	if (!_dispatch_thread_bound_kqwl_enabled) {
+		return -1;
+	}
+
+	_dispatch_queue_setter_assert_inactive(dwl);
+	_dispatch_workloop_attributes_alloc_if_needed(dwl);
+
+	dwl->dwl_attr->dwla_flags |= DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD;
+	return 0;
+#else
+	(void)dwl;
+	return -1;
+#endif
 }
 #endif // TARGET_OS_MAC
 
@@ -4304,6 +4406,7 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 #if defined(_POSIX_THREADS)
 	dispatch_workloop_attr_t dwla = dwl->dwl_attr;
 	pthread_attr_t attr;
+	uint64_t options = 0;
 
 	pthread_attr_init(&attr);
 	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_QOS_CLASS) {
@@ -4340,6 +4443,23 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 		}
 #endif
 	}
+
+	#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD) {
+		// We do want workq to be fully initialized before we poke it
+		// for a bound thread.
+		_dispatch_root_queues_init();
+		options |= PTHREAD_WORKLOOP_CREATE_WITH_BOUND_THREAD;
+
+		// _dispatch_async_and_wait_should_always_async detects when a queue
+		// targets a root queue that is not part of the root queues array in
+		// order to force async_and_wait to async. We want this path to always
+		// be taken on workloops with a bound thread config.
+		dwl->do_targetq =
+			(dispatch_queue_t)_dispatch_custom_workloop_overcommit_root_queue._as_dq;
+	}
+#endif
+
 	if (dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_POLICY) {
 		pthread_attr_setschedpolicy(&attr, dwla->dwla_policy);
 	}
@@ -4352,7 +4472,7 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 #endif // HAVE_PTHREAD_ATTR_SETCPUPERCENT_NP
 #if TARGET_OS_MAC
 	if (_dispatch_workloop_has_kernel_attributes(dwl)) {
-		int rv = _pthread_workloop_create((uint64_t)dwl, 0, &attr);
+		int rv = _pthread_workloop_create((uint64_t)dwl, options, &attr);
 		switch (rv) {
 		case 0:
 			dwla->dwla_flags |= DISPATCH_WORKLOOP_ATTR_NEEDS_DESTROY;
@@ -4375,6 +4495,15 @@ _dispatch_workloop_activate_attributes(dispatch_workloop_t dwl)
 			_dispatch_workloop_activate_simulator_fallback(dwl, &attr);
 #endif // DISPATCH_USE_OS_WORKGROUP_TG_PREADOPTION
 			break;
+#if DISPATCH_SUPPORTS_THREAD_BOUND_KQWL
+		case EDOM:
+			// The underlying workqueue subsystem failed to allocate a new
+			// thread to bind to this dispatch workloop because it is
+			// already above the thread limit.
+			dispatch_assert(dwla->dwla_flags & DISPATCH_WORKLOOP_ATTR_HAS_BOUND_THREAD);
+			DISPATCH_CLIENT_CRASH(dwl, "Process has too many threads.");
+			break;
+#endif
 		default:
 			dispatch_assert_zero(rv);
 		}
@@ -4445,7 +4574,8 @@ _dispatch_workloop_activate(dispatch_workloop_t dwl)
 			~DISPATCH_QUEUE_ACTIVATED, relaxed);
 
 	if (likely(_dq_state_is_inactive(old_state))) {
-		if (dwl->dwl_attr) {
+		dispatch_workloop_attr_t dwla = dwl->dwl_attr;
+		if (dwla) {
 			// Activation of a workloop with attributes forces us to create
 			// the workloop up front and register the attributes with the
 			// kernel.
@@ -4457,7 +4587,11 @@ _dispatch_workloop_activate(dispatch_workloop_t dwl)
 		}
 		dwl->dq_priority |= DISPATCH_PRIORITY_FLAG_OVERCOMMIT;
 		os_atomic_and(&dwl->dq_state, ~DISPATCH_QUEUE_ACTIVATING, relaxed);
-		return _dispatch_workloop_wakeup(dwl, 0, DISPATCH_WAKEUP_CONSUME_2);
+		// Pushing on an inactive workloop is not supported. The workloop has
+		// to be idle at activation time. That implies the following wakeup will
+		// simply release +2 internal ref we took in _dispatch_queue_init from
+		// dispatch_workloop_create_inactive.
+		_dispatch_workloop_wakeup(dwl, 0, DISPATCH_WAKEUP_CONSUME_2);
 	}
 }
 
@@ -5414,7 +5548,10 @@ static inline bool
 _dispatch_lane_push_waiter_should_wakeup(dispatch_lane_t dq,
 		dispatch_sync_context_t dsc)
 {
-	if (_dispatch_queue_is_thread_bound(dq)) {
+	if (_dispatch_queue_is_thread_bound(dq) &&
+		!_dispatch_queue_targets_special_wlh(dq)) {
+		// Traditional usecase of thread bound queue such as
+		// main queue or _dispatch_runloop_root_queue_create_4CF
 		return true;
 	}
 	if (dsc->dc_flags & DC_FLAG_ASYNC_AND_WAIT) {
@@ -6440,6 +6577,45 @@ _dispatch_wlh_worker_thread_reset(void)
 	}
 }
 
+static inline bool
+_dispatch_wlh_uses_bound_thread(dispatch_wlh_t wlh)
+{
+	dispatch_queue_t dq = (dispatch_queue_t) wlh;
+	if (wlh != DISPATCH_WLH_ANON && (dx_type(dq) == DISPATCH_WORKLOOP_TYPE)) {
+		dispatch_workloop_t dwl = (dispatch_workloop_t) dq;
+		if (_dispatch_workloop_uses_bound_thread(dwl)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static inline void
+_dispatch_wlh_uses_bound_thread_setup(dispatch_wlh_t wlh)
+{
+	dispatch_workloop_t dwl = (dispatch_workloop_t)wlh;
+
+	// Setup the bound thread's name.
+	if (dwl->dq_label) {
+		if ((uintptr_t)_dispatch_thread_getspecific(dispatch_set_threadname_key) == 0) {
+			pthread_setname_np(dwl->dq_label);
+			_dispatch_thread_setspecific(dispatch_set_threadname_key, (void *)1);
+		}
+	}
+
+	// The bound worker thread joins the work interval backing the os workgroup
+	// configured on this dispatch workloop before coming out to userspace for
+	// the first time. We need to make sure to update its userspace object state.
+	if (dwl->dwl_attr && dwl->dwl_attr->workgroup) {
+		if ((uintptr_t)_dispatch_thread_getspecific(os_workgroup_join_token_key) == 0) {
+			os_workgroup_join_token_t token;
+			token = _dispatch_calloc(1, sizeof(os_workgroup_join_token_s));
+			_os_workgroup_join_update_wg(dwl->dwl_attr->workgroup, token);
+			_dispatch_thread_setspecific(os_workgroup_join_token_key, token);
+		}
+	}
+}
+
 static inline os_workgroup_t
 _dispatch_wlh_get_workgroup(dispatch_wlh_t wlh)
 {
@@ -6451,7 +6627,6 @@ _dispatch_wlh_get_workgroup(dispatch_wlh_t wlh)
 			wg = dwl->dwl_attr->workgroup;
 		}
 	}
-
 	return wg;
 }
 
@@ -6479,13 +6654,28 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 	};
 	bool is_manager;
 
-	os_workgroup_t wg = _dispatch_wlh_get_workgroup(wlh);
+	bool wlh_uses_bound_thread = _dispatch_wlh_uses_bound_thread(wlh);
 	os_workgroup_join_token_s join_token = {0};
-	if (wg) {
-		int rv = os_workgroup_join(wg, &join_token);
-		if (rv != 0) {
-			DISPATCH_CLIENT_CRASH(rv, "dispatch_workloop "
+	os_workgroup_t wg = NULL;
+
+	if (wlh_uses_bound_thread) {
+		_dispatch_wlh_uses_bound_thread_setup(wlh);
+	} else {
+		wg = _dispatch_wlh_get_workgroup(wlh);
+		if (wg) {
+			int rv = os_workgroup_join(wg, &join_token);
+			if (rv == EINVAL) {
+				// rdar://129823627: It's possible for workgroup cancellation
+				// to race with the servicer thread being brought up. If the
+				// workgroup is cancelled first, we will still invoke the
+				// enqueued items, but the thread won't join that workgroup
+				_dispatch_debug("wlh[%p]: Failed to join cancelled workgroup %p",
+						wlh, wg);
+				wg = NULL;
+			} else if (rv != 0) {
+				DISPATCH_CLIENT_CRASH(rv, "dispatch_workloop "
 					"os_workgroup_join failed");
+			}
 		}
 	}
 
@@ -6523,8 +6713,13 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 		}
 	}
 
-	if (wg) {
-		os_workgroup_leave(wg, &join_token);
+	if (wlh_uses_bound_thread) {
+		// The bound thread leaves the workgroup when it terminates.
+		// See _os_workgroup_join_token_tsd_cleanup.
+	} else {
+		if (wg) {
+			os_workgroup_leave(wg, &join_token);
+		}
 	}
 
 	_dispatch_deferred_items_set(NULL);
@@ -8078,6 +8273,7 @@ _dispatch_main_queue_wakeup(dispatch_queue_main_t dq, dispatch_qos_t qos,
 {
 #if DISPATCH_COCOA_COMPAT
 	if (_dispatch_queue_is_thread_bound(dq)) {
+		dispatch_assert(!_dispatch_queue_targets_special_wlh(dq));
 		return _dispatch_runloop_queue_wakeup(dq->_as_dl, qos, flags);
 	}
 #endif
@@ -8122,6 +8318,11 @@ dispatch_main(void)
 		//
 		// We also need to guard against reentrant calls back to drain the main
 		// queue
+
+		if (_dispatch_main_q.dq_side_suspend_cnt) {
+			DISPATCH_CLIENT_CRASH(0,
+			"dispatch_main called from a block on the main queue");
+		}
 		_dispatch_main_q.dq_side_suspend_cnt = true;
 		_dispatch_main_queue_drain(&_dispatch_main_q);
 		_dispatch_main_q.dq_side_suspend_cnt = false;
@@ -8484,9 +8685,11 @@ libdispatch_init(void)
 			_dispatch_deferred_items_cleanup);
 	_dispatch_thread_key_create(&dispatch_quantum_key, NULL);
 	_dispatch_thread_key_create(&dispatch_dsc_key, NULL);
+	_dispatch_thread_key_create(&os_workgroup_join_token_key, _os_workgroup_join_token_tsd_cleanup);
 	_dispatch_thread_key_create(&os_workgroup_key, _os_workgroup_tsd_cleanup);
 	_dispatch_thread_key_create(&dispatch_enqueue_key, NULL);
 	_dispatch_thread_key_create(&dispatch_msgv_aux_key, free);
+	_dispatch_thread_key_create(&dispatch_set_threadname_key, NULL);
 #endif
 #if DISPATCH_USE_RESOLVERS // rdar://problem/8541707
 	_dispatch_main_q.do_targetq = _dispatch_get_default_queue(true);
@@ -8638,6 +8841,7 @@ _libdispatch_tsd_cleanup(void *ctx)
 	_tsd_call_cleanup(dispatch_quantum_key, NULL);
 	_tsd_call_cleanup(dispatch_enqueue_key, NULL);
 	_tsd_call_cleanup(dispatch_msgv_aux_key, free);
+	_tsd_call_cleanup(dispatch_set_threadname_key, NULL);
 	_tsd_call_cleanup(dispatch_dsc_key, NULL);
 #ifdef __ANDROID__
 	if (_dispatch_thread_detach_callback) {

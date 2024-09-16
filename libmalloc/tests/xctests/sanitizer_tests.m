@@ -100,7 +100,7 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 		Dl_info info = {};
 		dladdr((const void *)report.alloc_trace.frames[i], &info);
 		NSLog(@"frame[%d] = %s", i, info.dli_sname);
-		if ([@(info.dli_sname) isEqualTo:@"_sanitizer_test_allocationFunction"]) {
+		if ([@(info.dli_sname) isEqualToString:@"_sanitizer_test_allocationFunction"]) {
 			allocSiteFrameFound = true;
 			break;
 		}
@@ -112,7 +112,7 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 		Dl_info info = {};
 		dladdr((const void *)report.dealloc_trace.frames[i], &info);
 		NSLog(@"frame[%d] = %s", i, info.dli_sname);
-		if ([@(info.dli_sname) isEqualTo:@"_sanitizer_test_deallocationFunction"]) {
+		if ([@(info.dli_sname) isEqualToString:@"_sanitizer_test_deallocationFunction"]) {
 			deallocSiteFrameFound = true;
 			break;
 		}
@@ -190,6 +190,25 @@ _sanitizer_test_deallocationFunction(malloc_zone_t *szone, void *p) __attribute_
 	XCTAssertTrue(did_internal);
 }
 
+/**
+ Zero sized allocations are resized to 1
+ */
+- (void)testZeroSizedAllocation
+{
+	const size_t alloc_sz = 0;
+	void *p = _sanitizer_test_allocationFunction(szone, alloc_sz);
+	XCTAssertNotNull(p);
+
+	size_t sz = szone->size(szone, p);
+	XCTAssertEqual(sz, 1);
+
+	_sanitizer_test_deallocationFunction(szone, p);
+}
+
+- (void)testInvalidSanitizerSize
+{
+	XCTAssertFalse(szone->size(szone, (void *)0x1));
+}
 @end
 
 #endif // CONFIG_SANITIZER

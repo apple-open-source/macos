@@ -398,8 +398,8 @@ GLenum GLVariableType(const TType &type)
         case EbtPixelLocalANGLE:
         case EbtIPixelLocalANGLE:
         case EbtUPixelLocalANGLE:
-            // TODO(anglebug.com/7279): For now, we can expect PLS handles to be rewritten to images
-            // before anyone calls into here.
+            // TODO(anglebug.com/40096838): For now, we can expect PLS handles to be rewritten to
+            // images before anyone calls into here.
             [[fallthrough]];
         default:
             UNREACHABLE();
@@ -827,6 +827,10 @@ bool IsOutputMSL(ShShaderOutput output)
 {
     return output == SH_MSL_METAL_OUTPUT;
 }
+bool IsOutputWGSL(ShShaderOutput output)
+{
+    return output == SH_WGSL_OUTPUT;
+}
 
 bool IsInShaderStorageBlock(TIntermTyped *node)
 {
@@ -1011,7 +1015,7 @@ bool IsPrecisionApplicableToType(TBasicType type)
         case EbtUInt:
         case EbtFloat:
             // TODO: find all types where precision is applicable; for example samplers.
-            // http://anglebug.com/6132
+            // http://anglebug.com/42264661
             return true;
         default:
             return false;
@@ -1038,10 +1042,10 @@ size_t FindFieldIndex(const TFieldList &fieldList, const char *fieldName)
     return 0;
 }
 
-Declaration ViewDeclaration(TIntermDeclaration &declNode)
+Declaration ViewDeclaration(TIntermDeclaration &declNode, uint32_t index)
 {
-    ASSERT(declNode.getChildCount() == 1);
-    TIntermNode *childNode = declNode.getChildNode(0);
+    ASSERT(declNode.getChildCount() > index);
+    TIntermNode *childNode = declNode.getChildNode(index);
     ASSERT(childNode);
     TIntermSymbol *symbolNode;
     if ((symbolNode = childNode->getAsSymbolNode()))

@@ -1,0 +1,65 @@
+#!/bin/sh
+
+ifname=${1}
+if [ "${ifname}" = "" ]; then
+   echo "usage: run-rtadvd <ifname>"
+   exit 1
+fi
+
+rtadvd_file=/tmp/rtadvd.conf.$ifname.$$
+forwarding_enabled=0
+
+cleanup()
+{
+    echo "cleaning up"
+    if [ ! ${forwarding_enabled} -eq 0 ]; then
+	sysctl -w net.inet6.ip6.forwarding=0
+    fi
+    if [ -f "${rtadvd_file}" ]; then
+	echo "removing ${rtadvd_file}"
+	rm "${rtadvd_file}"
+    fi
+    echo "disabling routermode IPv6"
+    ifconfig ${ifname} inet6 routermode disabled
+    exit 1
+}
+
+# the following makes a test rtadvd.conf file.
+# change the inline fields accordingly.
+sed "s/--IFNAME--/${ifname}/g" <<EOF > ${rtadvd_file}
+--IFNAME--:\\
+	:addr0="3ffc:dead:beef:1000::":prefixlen0#64:pinfoflags0#128:\\
+	:rdnssaddrs#2:\\
+	:rdnssaddr0="3ffc:dead:beef:1000::2":\\
+	:rdnssaddr1="3ffc:dead:beef:1000::3":\\
+	:pvd:http:delay#0:seqnr#0:pvdid="foo.bar"
+EOF
+#	:maxinterval#90:mininterval#30:\\
+#	:addr0="fd46:2074:6267:ce76::":prefixlen0#64:pinfoflags0#192:\\
+#	:dnssldomains#2:\\
+#	:dnssldomain0="foo.bar":\\
+#	:dnssldomain1="boo.a.b.d":\\
+#	:mtu#1500:\\
+
+trap cleanup 1 2 3 15 
+
+sysctl -w net.inet6.ip6.forwarding=1 || {
+    cleanup
+}
+forwarding_enabled=1
+
+echo "enabling routermode IPv6"
+ifconfig ${ifname} inet6 routermode enabled
+
+executable_path=${2}
+if [ "${executable_path}" = "" ]; then
+   executable_path=/usr/sbin/rtadvd
+fi
+
+echo "starting rtadvd..."
+$executable_path -dDf -c ${rtadvd_file} ${ifname} || {
+	 echo "failed to start rtadvd"
+	 cleanup
+	 exit 1
+}
+

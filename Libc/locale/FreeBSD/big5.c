@@ -62,7 +62,7 @@ typedef struct {
 } _BIG5State;
 
 int
-_BIG5_init(struct __xlocale_st_runelocale *xrl)
+_BIG5_init(struct xlocale_ctype *xrl)
 {
 
 	xrl->__mbrtowc = _BIG5_mbrtowc;

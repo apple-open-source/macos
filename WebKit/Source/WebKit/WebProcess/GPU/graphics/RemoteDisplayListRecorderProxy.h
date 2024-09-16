@@ -56,7 +56,8 @@ public:
 
 private:
     template<typename T> void send(T&& message);
-
+    RefPtr<IPC::StreamClientConnection> connection() const;
+    void didBecomeUnresponsive() const;
     friend class WebCore::DrawGlyphsRecorder;
 
     WebCore::RenderingMode renderingMode() const final;
@@ -93,6 +94,7 @@ private:
     void recordDrawSystemImage(WebCore::SystemImage&, const WebCore::FloatRect&);
     void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, WebCore::ImagePaintingOptions = { }) final;
     void recordBeginTransparencyLayer(float) final;
+    void recordBeginTransparencyLayer(WebCore::CompositeOperator, WebCore::BlendMode) final;
     void recordEndTransparencyLayer() final;
     void recordDrawRect(const WebCore::FloatRect&, float) final;
     void recordDrawLine(const WebCore::FloatPoint& point1, const WebCore::FloatPoint& point2) final;
@@ -102,9 +104,10 @@ private:
     void recordDrawPath(const WebCore::Path&) final;
     void recordDrawFocusRingPath(const WebCore::Path&, float outlineWidth, const WebCore::Color&) final;
     void recordDrawFocusRingRects(const Vector<WebCore::FloatRect>&, float outlineOffset, float outlineWidth, const WebCore::Color&) final;
-    void recordFillRect(const WebCore::FloatRect&) final;
+    void recordFillRect(const WebCore::FloatRect&, RequiresClipToRect) final;
     void recordFillRectWithColor(const WebCore::FloatRect&, const WebCore::Color&) final;
     void recordFillRectWithGradient(const WebCore::FloatRect&, WebCore::Gradient&) final;
+    void recordFillRectWithGradientAndSpaceTransform(const WebCore::FloatRect&, WebCore::Gradient&, const WebCore::AffineTransform&, RequiresClipToRect) final;
     void recordFillCompositedRect(const WebCore::FloatRect&, const WebCore::Color&, WebCore::CompositeOperator, WebCore::BlendMode) final;
     void recordFillRoundedRect(const WebCore::FloatRoundedRect&, const WebCore::Color&, WebCore::BlendMode) final;
     void recordFillRectWithRoundedHole(const WebCore::FloatRect&, const WebCore::FloatRoundedRect&, const WebCore::Color&) final;

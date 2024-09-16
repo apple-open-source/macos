@@ -21,18 +21,18 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 extern int32_t malloc_num_zones;
 extern malloc_zone_t **malloc_zones;
 
-void check_stats(malloc_zone_t *zone, malloc_statistics_t *stats) 
+void check_stats(malloc_zone_t *zone, malloc_statistics_t *stats)
 {
 	malloc_statistics_t stats2 = {};
 	zone->introspect->statistics(zone, &stats2);
 	T_QUIET; T_EXPECT_EQ(stats->blocks_in_use, stats2.blocks_in_use, "blocks_in_use matches");
-	T_QUIET; T_EXPECT_EQ(stats->size_in_use, stats2.size_in_use, "size_in_use matches");	
+	T_QUIET; T_EXPECT_EQ(stats->size_in_use, stats2.size_in_use, "size_in_use matches");
 	T_QUIET; T_EXPECT_EQ(stats->blocks_in_use, stats2.blocks_in_use, "blocks_in_use matches");
 	T_QUIET; T_EXPECT_EQ(stats->size_allocated, stats2.size_allocated, "size_allocated matches");
 }
 
 
-void test_stats(int limit) 
+void test_stats(int limit)
 {
 	malloc_statistics_t stats = {};
 	malloc_statistics_t old_stats = {};
@@ -45,7 +45,7 @@ void test_stats(int limit)
 	check_stats(zone, &old_stats);
 
 	T_LOG("testing statistics for allocations from 1 to %d", limit);
-	
+
 	for (int i = 0; i < limit; i++) {
 		void *ptr = malloc(i);
 		T_QUIET; T_ASSERT_NOTNULL(ptr, "ptr isn't null");
@@ -65,12 +65,13 @@ void test_stats(int limit)
 		T_QUIET; T_EXPECT_EQ(stats.blocks_in_use, old_stats.blocks_in_use+1, "one more block in use");
 		old_stats = stats;
 	}
-	
+
 	T_LOG("done");
 }
 
 T_DECL(nano_statistics_test, "Test that we can introspect nano zone statistics",
-	   T_META_ENVVAR("MallocNanoZone=V2"), T_META_CHECK_LEAKS(false))
+		T_META_ENVVAR("MallocNanoZone=V2"), T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_CHECK_LEAKS(false))
 {
 #if CONFIG_NANOZONE
 	(void)malloc(16);
@@ -83,8 +84,9 @@ T_DECL(nano_statistics_test, "Test that we can introspect nano zone statistics",
 
 
 T_DECL(szone_statistics_test, "Test that we can introspect szone zone statistics",
-	   T_META_ENVVAR("MallocNanoZone=0"), T_META_CHECK_LEAKS(false),
-	   T_META_TAG_XZONE)
+		T_META_TAG_VM_NOT_PREFERRED, T_META_TAG_XZONE,
+		T_META_ENVVAR("MallocNanoZone=0"), T_META_ENVVAR("MallocProbGuard=0"),
+		T_META_CHECK_LEAKS(false))
 {
 	(void)malloc(16);
 	T_ASSERT_EQ(malloc_engaged_nano(), 0, "Nanozone not engaged");
@@ -102,7 +104,7 @@ void check_zones(vm_address_t *zones, unsigned zone_count)
 
 T_DECL(malloc_get_all_zones,
 		"Test that we can retrieve the zones of our own process with a NULL reader",
-		T_META_TAG_XZONE)
+		T_META_TAG_XZONE, T_META_TAG_VM_PREFERRED)
 {
 	vm_address_t *zones;
 	unsigned zone_count;

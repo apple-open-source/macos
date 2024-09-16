@@ -1,4 +1,4 @@
-/*  Copyright © 2017-2018 Apple Inc. All rights reserved.
+/*  Copyright © 2017-2023 Apple Inc. All rights reserved.
  *
  *  lf_hfs_vfsops.c
  *  livefiles_hfs
@@ -934,6 +934,7 @@ hfs_flushvolumeheader(struct hfsmount *hfsmp, hfs_flush_volume_header_options_t 
     bool critical = false;
     daddr64_t avh_sector;
     bool altflush = ISSET(options, HFS_FVH_WRITE_ALT);
+	bool hfs_extime = (hfsmp->hfs_flags & HFS_EXPANDED_TIMES);
 
     void         *pvVolHdrData  = NULL;
     GenericLFBuf *psVolHdrBuf   = NULL;
@@ -1166,8 +1167,8 @@ hfs_flushvolumeheader(struct hfsmount *hfsmp, hfs_flush_volume_header_options_t 
         volumeHeader->lastMountedVersion = SWAP_BE32 (kHFSPlusMountVersion);
     }
     volumeHeader->createDate      = SWAP_BE32 (vcb->localCreateDate);  /* volume create date is in local time */
-    volumeHeader->modifyDate      = SWAP_BE32 (to_hfs_time(vcb->vcbLsMod));
-    volumeHeader->backupDate      = SWAP_BE32 (to_hfs_time(vcb->vcbVolBkUp));
+    volumeHeader->modifyDate      = SWAP_BE32 (to_hfs_time(vcb->vcbLsMod, hfs_extime));
+    volumeHeader->backupDate      = SWAP_BE32 (to_hfs_time(vcb->vcbVolBkUp, hfs_extime));
     volumeHeader->fileCount       = SWAP_BE32 (vcb->vcbFilCnt);
     volumeHeader->folderCount     = SWAP_BE32 (vcb->vcbDirCnt);
     volumeHeader->totalBlocks     = SWAP_BE32 (vcb->totalBlocks);

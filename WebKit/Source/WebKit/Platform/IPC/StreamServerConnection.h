@@ -92,7 +92,7 @@ public:
 
     void open(StreamConnectionWorkQueue&);
     void invalidate();
-    template<typename T> Error send(T&& message, const ObjectIdentifierGenericBase& destinationID);
+    template<typename T, typename RawValue> Error send(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID);
 
     template<typename T, typename... Arguments>
     void sendSyncReply(Connection::SyncRequestID, Arguments&&...);
@@ -110,7 +110,7 @@ private:
     StreamServerConnection(Ref<Connection>, StreamServerConnectionBuffer&&);
 
     // MessageReceiveQueue
-    void enqueueMessage(Connection&, std::unique_ptr<Decoder>&&) final;
+    void enqueueMessage(Connection&, UniqueRef<Decoder>&&) final;
 
     // Connection::Client
     void didReceiveMessage(Connection&, Decoder&) final;
@@ -122,13 +122,15 @@ private:
     bool dispatchStreamMessage(Decoder&&, StreamMessageReceiver&);
     bool dispatchOutOfStreamMessage(Decoder&&);
 
+    RefPtr<StreamConnectionWorkQueue> protectedWorkQueue() const;
+
     using WakeUpClient = StreamServerConnectionBuffer::WakeUpClient;
     const Ref<IPC::Connection> m_connection;
     RefPtr<StreamConnectionWorkQueue> m_workQueue;
     StreamServerConnectionBuffer m_buffer;
 
     Lock m_outOfStreamMessagesLock;
-    Deque<std::unique_ptr<Decoder>> m_outOfStreamMessages WTF_GUARDED_BY_LOCK(m_outOfStreamMessagesLock);
+    Deque<UniqueRef<Decoder>> m_outOfStreamMessages WTF_GUARDED_BY_LOCK(m_outOfStreamMessagesLock);
 
     bool m_isDispatchingStreamMessage { false };
     Lock m_receiversLock;
@@ -140,8 +142,8 @@ private:
     friend class StreamConnectionWorkQueue;
 };
 
-template<typename T>
-Error StreamServerConnection::send(T&& message, const ObjectIdentifierGenericBase& destinationID)
+template<typename T, typename RawValue>
+Error StreamServerConnection::send(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID)
 {
     return m_connection->send(std::forward<T>(message), destinationID);
 }

@@ -92,6 +92,31 @@ probe_state_finalize(probe_state_t *probe_state)
     free(probe_state);
 }
 
+void
+probe_srp_service_probe_cancel(thread_service_t *service)
+{
+    probe_state_t *probe_state = service->probe_state;
+    probe_state->service = NULL;
+    service->probe_state = NULL;
+
+    if (probe_state->context_release != NULL) {
+        probe_state->context_release(probe_state->context);
+    }
+    probe_state->context = NULL;
+
+    thread_service_release(service); // The probe state's reference to the service
+    if (probe_state->wakeup != NULL) {
+        ioloop_cancel_wake_event(probe_state->wakeup);
+    }
+
+    if (probe_state->connection != NULL) {
+        ioloop_comm_cancel(probe_state->connection); // Cancel the connection (should result in the state being released)
+        ioloop_comm_release(probe_state->connection);
+        probe_state->connection = NULL;
+    }
+    RELEASE_HERE(probe_state, probe_state); // The thread_service_t's reference to the probe state
+}
+
 static void
 probe_srp_done(void *context, bool succeeded)
 {
@@ -122,14 +147,12 @@ probe_srp_done(void *context, bool succeeded)
              SEGMENTED_IPv6_ADDR_PARAM_SRP(address->s6_addr, addr_buf), port);
         service->checking = false;
         service->ignore = true;  // Don't consider this service when deciding what to advertise
-        service->remove = false; // Keep the service around so we don't keep probing it.
         service->responding = false;
     } else {
         INFO("service " PRI_SEGMENTED_IPv6_ADDR_SRP " responded on port %d",
              SEGMENTED_IPv6_ADDR_PARAM_SRP(address->s6_addr, addr_buf), port);
         service->checking = false;
         service->ignore = false;
-        service->remove = false;
         service->checked = true;
     }
     service->responding = true;
@@ -185,6 +208,9 @@ probe_srp_datagram(comm_t *connection, message_t *message, void *context)
     }
     probe_srp_done(context, rcode == dns_rcode_noerror);
     ioloop_comm_cancel(probe_state->connection); // Cancel the connection (should result in the state being released)
+    if (probe_state->wakeup != NULL) {
+        ioloop_cancel_wake_event(probe_state->wakeup);
+    }
 #endif
 }
 
@@ -192,7 +218,6 @@ static void
 probe_srp_probe_state_context_release(void *context)
 {
     probe_state_t *probe_state = context;
-    probe_state->connection = NULL;
     RELEASE_HERE(probe_state, probe_state);
 }
 

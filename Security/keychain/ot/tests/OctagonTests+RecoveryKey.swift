@@ -425,10 +425,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -648,10 +647,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -823,11 +821,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
         let initiatorContext = self.makeInitiatorContext(contextID: initiatorContextID)
-        let initiatorConfigurationContext = OTConfigurationContext()
-        initiatorConfigurationContext.context = initiatorContextID
-        initiatorConfigurationContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        initiatorConfigurationContext.otControl = self.otControl
-
+        let initiatorConfigurationContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                                      otControl: self.otControl,
+                                                                                      altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         initiatorContext.startOctagonStateMachine()
         self.sendContainerChange(context: initiatorContext)
         let restoreExpectation = self.expectation(description: "restore returns")
@@ -960,10 +956,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = establishContextID
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -994,11 +989,6 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         try self.putRecoveryKeyTLKSharesInCloudKit(recoveryKey: recoveryKey, salt: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         self.sendContainerChangeWaitForFetch(context: establishContext)
-
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = OTDefaultContext
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
 
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
@@ -1096,7 +1086,7 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
         let setRecoveryKeyExpectation = self.expectation(description: "setRecoveryKeyExpectation callback occurs")
-        TestsObjectiveC.setNewRecoveryKeyWithData(try self.otconfigurationContextFor(context: establishContext), recoveryKey: recoveryKey) { _, error in
+        TestsObjectiveC.setNewRecoveryKeyWithData(self.createOTConfigurationContextForTests(contextID: establishContext.contextID), recoveryKey: recoveryKey) { _, error in
             XCTAssertNil(error, "error should be nil")
             setRecoveryKeyExpectation.fulfill()
         }
@@ -1109,7 +1099,7 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
 
         // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break RK join.
-        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { _ in
             return NSError(domain: CKErrorDomain,
                            code: CKError.serverRejectedRequest.rawValue,
                            userInfo: [:])
@@ -1172,12 +1162,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
 
         XCTAssertNotNil(peerIDBeforeRestore, "peerIDBeforeRestore should not be nil")
 
-        let newOTCliqueContext = OTConfigurationContext()
-        newOTCliqueContext.context = OTDefaultContext
-        newOTCliqueContext.altDSID = self.otcliqueContext.altDSID
-        newOTCliqueContext.otControl = self.otcliqueContext.otControl
-        newOTCliqueContext.sbd = OTMockSecureBackup(bottleID: "", entropy: Data())
-
+        let newOTCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                           otControl: self.otcliqueContext.otControl,
+                                                                           altDSID: self.otcliqueContext.altDSID,
+                                                                           sbd: OTMockSecureBackup(bottleID: "", entropy: Data()))
         let newClique: OTClique
         do {
             newClique = try OTClique.performEscrowRecovery(withContextData: newOTCliqueContext, escrowArguments: ["SecureBackupRecoveryKey": recoveryKey])
@@ -1312,10 +1300,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = establishContextID
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1345,11 +1332,6 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.wait(for: [setRecoveryKeyExpectation], timeout: 10)
 
         self.sendContainerChangeWaitForFetch(context: establishContext)
-
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = OTDefaultContext
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
 
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
@@ -1409,10 +1391,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = establishContextID
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1459,10 +1440,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: establishContext)
 
-        let brandNewDeviceCliqueContext = OTConfigurationContext()
-        brandNewDeviceCliqueContext.context = OTDefaultContext
-        brandNewDeviceCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        brandNewDeviceCliqueContext.otControl = self.otControl
+        let brandNewDeviceCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                                    otControl: self.otControl,
+                                                                                    altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         let brandNewDeviceContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         brandNewDeviceContext.startOctagonStateMachine()
@@ -1504,10 +1484,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let recoverykeyotcliqueContext = OTConfigurationContext()
-        recoverykeyotcliqueContext.context = establishContextID
-        recoverykeyotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        recoverykeyotcliqueContext.otControl = self.otControl
+        let recoverykeyotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                                   otControl: self.otControl,
+                                                                                   altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -1538,10 +1517,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         }
         self.wait(for: [createKeyExpectation], timeout: 2)
 
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = OTDefaultContext
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
@@ -1568,10 +1546,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
 
     @discardableResult
     func createAndSetRecoveryKey(context: OTCuttlefishContext) throws -> String {
-        let cliqueConfiguration = OTConfigurationContext()
-        cliqueConfiguration.context = context.contextID
-        cliqueConfiguration.altDSID = try XCTUnwrap(context.activeAccount?.altDSID)
-        cliqueConfiguration.otControl = self.otControl
+        let cliqueConfiguration = self.createOTConfigurationContextForTests(contextID: context.contextID,
+                                                                            otControl: self.otControl,
+                                                                            altDSID: try XCTUnwrap(context.activeAccount?.altDSID))
 
         let recoveryKey = try XCTUnwrap(SecRKCreateRecoveryKeyString(nil), "should be able to create a recovery key")
 
@@ -1824,7 +1801,7 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
 
         let setRecoveryKeyExpectation = self.expectation(description: "setRecoveryKeyExpectation callback occurs")
 
-        TestsObjectiveC.setNewRecoveryKeyWithData(try self.otconfigurationContextFor(context: establishContext), recoveryKey: recoveryKey) { _, error in
+        TestsObjectiveC.setNewRecoveryKeyWithData(self.createOTConfigurationContextForTests(contextID: establishContext.contextID), recoveryKey: recoveryKey) { _, error in
             XCTAssertNil(error, "error should be nil")
             setRecoveryKeyExpectation.fulfill()
         }
@@ -2015,11 +1992,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
 
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString)
@@ -2418,12 +2394,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = newContextID
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
-        newCliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                         sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
         self.otcliqueContext.sbd = mockSBD
@@ -2565,12 +2539,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = newContextID
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
-        newCliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                         sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         self.otcliqueContext.sbd = mockSBD
         newCliqueContext.sbd = mockSBD
@@ -2608,11 +2580,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
         self.otcliqueContext.sbd = mockSBD
@@ -2704,11 +2674,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
 
         let newGuyContext = self.makeInitiatorContext(contextID: newContextID, authKitAdapter: self.mockAuthKit2)
         newGuyContext.startOctagonStateMachine()
@@ -2793,12 +2762,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.overrideForJoinAfterRestore = true
-
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               overrideForJoinAfterRestore: true)
         let mockSBD = OTMockSecureBackup(bottleID: nil, entropy: nil)
         let correctInSOSRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(correctInSOSRecoveryKey, "correctInSOSRecoveryKey should not be nil")
@@ -2901,12 +2868,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         enableSOSCompatibilityForTests()
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.overrideForJoinAfterRestore = true
-
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               overrideForJoinAfterRestore: true)
         let mockSBD = OTMockSecureBackup(bottleID: nil, entropy: nil)
         let correctInSOSRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(correctInSOSRecoveryKey, "correctInSOSRecoveryKey should not be nil")
@@ -3009,10 +2974,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         self.otcliqueContext.sbd = mockSBD
         newCliqueConfiguration.sbd = mockSBD
@@ -3103,10 +3068,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
         self.otcliqueContext.sbd = mockSBD
@@ -3208,10 +3173,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         enableSOSCompatibilityForTests()
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         newCliqueConfiguration.octagonCapableRecordsExist = true
 
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
@@ -3294,10 +3258,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let mismatchedRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(mismatchedRecoveryKey, "mismatchedRecoveryKey should not be nil")
@@ -3401,10 +3365,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let mismatchedRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(mismatchedRecoveryKey, "mismatchedRecoveryKey should not be nil")
@@ -3492,12 +3456,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = newContextID
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
-        newCliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                         sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         self.otcliqueContext.sbd = mockSBD
         newCliqueContext.sbd = mockSBD
@@ -3534,10 +3496,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
 
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
@@ -3629,10 +3590,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
 
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
@@ -3716,12 +3676,12 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.overrideForJoinAfterRestore = true
-        newCliqueConfiguration.octagonCapableRecordsExist = true
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                               octagonCapableRecordsExist: true,
+                                                                               overrideForJoinAfterRestore: true)
 
         let mockSBD = OTMockSecureBackup(bottleID: nil, entropy: nil)
         let recoveryKey = SecRKCreateRecoveryKeyString(nil)
@@ -3813,12 +3773,11 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.overrideForJoinAfterRestore = true
-
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                               overrideForJoinAfterRestore: true)
         let mockSBD = OTMockSecureBackup(bottleID: nil, entropy: nil)
         let correctInSOSRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(correctInSOSRecoveryKey, "correctInSOSRecoveryKey should not be nil")
@@ -3919,12 +3878,11 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
-        newCliqueConfiguration.overrideForJoinAfterRestore = true
-
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                               overrideForJoinAfterRestore: true)
         let mockSBD = OTMockSecureBackup(bottleID: nil, entropy: nil)
         let correctInSOSRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(correctInSOSRecoveryKey, "correctInSOSRecoveryKey should not be nil")
@@ -4026,10 +3984,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         self.otcliqueContext.sbd = mockSBD
         newCliqueConfiguration.sbd = mockSBD
@@ -4119,10 +4077,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
         self.otcliqueContext.sbd = mockSBD
@@ -4222,10 +4180,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         newCliqueConfiguration.octagonCapableRecordsExist = true
 
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
@@ -4326,10 +4283,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let mismatchedRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(mismatchedRecoveryKey, "mismatchedRecoveryKey should not be nil")
@@ -4440,10 +4397,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let mismatchedRecoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(mismatchedRecoveryKey, "mismatchedRecoveryKey should not be nil")
@@ -4541,11 +4498,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(false)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = newContextID
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
-        newCliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                         sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
 
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         let error = NSError(domain: "KVSErrorDomain", code: -1)
@@ -4585,10 +4541,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
 
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let kvsError = NSError(domain: "KVSErrorDomain", code: -1)
@@ -4685,10 +4640,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
         let kvsError = NSError(domain: "KVSErrorDomain", code: -1)
         mockSBD.setExpectKVSError(kvsError)
@@ -4789,10 +4744,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -4857,10 +4812,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -4930,10 +4885,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -4992,10 +4947,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -5098,10 +5053,10 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
@@ -5168,10 +5123,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
 
         let mockSBD = self.otcliqueContext.sbd as! OTMockSecureBackup
         mockSBD.setRecoveryKey(recoveryKey: recoveryString!)
@@ -5263,10 +5217,9 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
         OctagonSetSOSFeatureEnabled(true)
 
         let newContextID = "joiningWithRecoveryKeyContext"
-        let newCliqueConfiguration = OTConfigurationContext()
-        newCliqueConfiguration.context = newContextID
-        newCliqueConfiguration.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        newCliqueConfiguration.otControl = self.otControl
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
 
         let newGuyContext = self.makeInitiatorContext(contextID: newContextID, authKitAdapter: self.mockAuthKit2)
         newGuyContext.startOctagonStateMachine()
@@ -5665,6 +5618,113 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             rkJoinExpectation.fulfill()
         }
         self.wait(for: [rkJoinExpectation], timeout: 10)
+    }
+
+    func testLastPastSelfTrustingRecoveryKeyBeforeJoiningWithBottle() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "joiner2", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        // peer2 sets a recovery key
+        let setRKExpectation = self.expectation(description: "setRecoveryKey")
+        self.fakeCuttlefishServer.setRecoveryKeyListener = { request in
+            self.fakeCuttlefishServer.setRecoveryKeyListener = nil
+            XCTAssertNotNil(request.recoverySigningPubKey, "signing public key should be present")
+            XCTAssertNotNil(request.recoveryEncryptionPubKey, "encryption public key should be present")
+
+            setRKExpectation.fulfill()
+            return nil
+        }
+
+        try self.createAndSetRecoveryKey(context: secondJoiningContext)
+        self.wait(for: [setRKExpectation], timeout: 10)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+        let establishPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        let entropy = try self.loadSecret(label: establishPeerID)
+
+        self.mockAuthKit3.removeAndSendNotification(self.mockAuthKit.primaryAltDSID()!)
+        self.mockAuthKit3.removeAndSendNotification(self.mockAuthKit2.primaryAltDSID()!)
+
+        let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
+        secondJoiningContext.join(
+            withBottle: bottle.bottleID,
+            entropy: entropy!,
+            bottleSalt: self.mockAuthKit3.primaryAltDSID()!) { error in
+            XCTAssertNil(error, "error should be nil")
+                joinWithBottleExpectation.fulfill()
+            }
+        self.wait(for: [joinWithBottleExpectation], timeout: 10)
+        self.verifyDatabaseMocks()
+
+        self.assertEnters(context: secondJoiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: secondJoiningContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertCKKSStateMachine(enters: CKKSStateReady, within: 10 * NSEC_PER_SEC)
+
+        let rkSetExpectation = self.expectation(description: "rpcIsRecoveryKeySet on second joining context")
+        secondJoiningContext.rpcIsRecoveryKeySet { isSet, error in
+            XCTAssertTrue(isSet, "should be true")
+            XCTAssertNil(error, "error should be nil")
+            rkSetExpectation.fulfill()
+        }
+        self.wait(for: [rkSetExpectation], timeout: 10)
+
+        self.sendContainerChangeWaitForFetch(context: secondJoiningContext)
+    }
+
+    func testCreateAndSetRecoveryKeyThenRecoverWithRecoveryKeyWhileLocked() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+        OctagonSetSOSFeatureEnabled(false)
+
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+        var error: NSError?
+        var recoveryString: String?
+        XCTAssertNoThrow(recoveryString = cliqueBridge.createAndSetRecoveryKey(with: self.otcliqueContext, error: &error), "createAndSetRecoveryKey should not error")
+        XCTAssertNil(error, "error should be nil")
+        XCTAssertNotNil(recoveryString, "recoveryString should not be nil")
+
+        let newContextID = "joiningWithRecoveryKeyContext"
+        let newCliqueConfiguration = self.createOTConfigurationContextForTests(contextID: newContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()),
+                                                                               sbd: OTMockSecureBackup(bottleID: nil, entropy: nil))
+        let mockSBD: OTMockSecureBackup = self.otcliqueContext.sbd as! OTMockSecureBackup
+        mockSBD.setRecoveryKey(recoveryKey: recoveryString)
+        self.otcliqueContext.sbd = mockSBD
+        newCliqueConfiguration.sbd = mockSBD
+
+        let newGuyContext = self.makeInitiatorContext(contextID: newContextID, authKitAdapter: self.mockAuthKit2)
+        newGuyContext.startOctagonStateMachine()
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
+        self.verifyDatabaseMocks()
+
+        SecCKKSSetTestSkipTLKShareHealing(true)
+
+        self.aksLockState = true
+
+        XCTAssertThrowsError(try OctagonTrustCliqueBridge.recover(withRecoveryKey: newCliqueConfiguration, recoveryKey: recoveryString!), "recoverWithRecoveryKey should throw an error") { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error as NSError).domain, NSOSStatusErrorDomain, "error domain should be NSOSStatusErrorDomain")
+            XCTAssertEqual((error as NSError).code, Int(errSecInteractionNotAllowed), "error code should be errSecInteractionNotAllowed")
+        }
+
+        self.assertEnters(context: newGuyContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.aksLockState = false
+
+        XCTAssertNoThrow(try OctagonTrustCliqueBridge.isRecoveryKeySet(newCliqueConfiguration), "isRecoveryKeySet should not throw an error")
     }
 }
 #endif

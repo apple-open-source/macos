@@ -32,6 +32,7 @@
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
+#include <CoreFoundation/CFBundle.h>
 #include <Security/SecAsn1Types.h>
 
 __BEGIN_DECLS
@@ -39,6 +40,8 @@ __BEGIN_DECLS
 #define SecString(key, comment)  CFSTR(key)
 #define SecStringFromTable(key, tbl, comment)  CFSTR(key)
 #define SecStringWithDefaultValue(key, tbl, bundle, value, comment)  CFSTR(key)
+
+CFBundleRef SecFrameworkGetBundle();
 
 CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
     CFStringRef tableName);

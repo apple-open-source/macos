@@ -42,6 +42,9 @@
 #include <Security/SecCmsDecoder.h>
 #include <Security/SecCmsEnvelopedData.h>
 #include <Security/SecCmsRecipientInfo.h>
+#include <Security/oidsalg.h>
+
+#include "cmstpriv.h"
 
 #include <security_asn1/secerr.h>
 #include <security_asn1/seccomon.h>
@@ -110,8 +113,7 @@ static void cleanup_keychain(SecKeychainRef* keychain, SecIdentityRef* identity,
     CFReleaseNull(*identity);
 }
 
-static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, bool withAttrs, uint8_t *expected_output, size_t expected_len) {
-
+static OSStatus outputSignature(SecIdentityRef identity, SECOidTag digestAlgTag, bool withAttrs, SecArenaPoolRef arena, CSSM_DATA *cms_data) {
     OSStatus status = SECFailure;
 
     SecCmsMessageRef cmsg = NULL;
@@ -119,11 +121,7 @@ static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, boo
     SecCmsContentInfoRef cinfo = NULL;
     SecCmsSignerInfoRef signerInfo = NULL;
     SecCmsEncoderRef encoder = NULL;
-    SecArenaPoolRef arena = NULL;
-    CSSM_DATA cms_data = {
-        .Data = NULL,
-        .Length = 0
-    };
+
     uint8_t string_to_sign[] = "This message is signed. Ain't it pretty?";
 
     /* setup the message */
@@ -153,16 +151,37 @@ static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, boo
                          "Couldn't add signer info to signed data");
 
     /* encode now */
-    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
-                         "Failed to create arena");
-    require_noerr_string(status = SecCmsEncoderCreate(cmsg, NULL, NULL, &cms_data, arena, NULL, NULL,
+    require_noerr_string(status = SecCmsEncoderCreate(cmsg, NULL, NULL, cms_data, arena, NULL, NULL,
                                                       NULL, NULL, NULL, NULL, &encoder), out,
                          "Failed to create encoder");
     require_noerr_string(status = SecCmsEncoderUpdate(encoder, string_to_sign, sizeof(string_to_sign)), out,
-                         "Failed to add data ");
+                         "Failed to add data");
     status = SecCmsEncoderFinish(encoder);
     encoder = NULL; // SecCmsEncoderFinish always frees the encoder but doesn't NULL it.
     require_noerr_quiet(status, out);
+
+out:
+    if (encoder) {
+        SecCmsEncoderDestroy(encoder);
+    }
+    if (cmsg) {
+        SecCmsMessageDestroy(cmsg);
+    }
+    return status;
+}
+
+static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, bool withAttrs, uint8_t *expected_output, size_t expected_len) {
+    OSStatus status = SECFailure;
+    SecArenaPoolRef arena = NULL;
+    CSSM_DATA cms_data = {
+        .Data = NULL,
+        .Length = 0
+    };
+
+    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
+                         "Failed to create arena");
+    require_noerr_string(status = outputSignature(identity, digestAlgTag, withAttrs, arena, &cms_data),
+                         out, "Failed to create signature");
 
     /* verify the output matches expected results */
     if (expected_output) {
@@ -173,17 +192,10 @@ static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, boo
     }
 
 out:
-    if (encoder) {
-        SecCmsEncoderDestroy(encoder);
-    }
     if (arena) {
         SecArenaPoolFree(arena, false);
     }
-    if (cmsg) {
-        SecCmsMessageDestroy(cmsg);
-    }
     return status;
-
 }
 
 static OSStatus verify_please(SecKeychainRef keychain, uint8_t *data_to_verify, size_t length) {
@@ -479,10 +491,69 @@ static void decrypt_tests(bool isRsa) {
        errSecSuccess, "Decrypt 256-bit AES");
 }
 
+#define kNumberECSigAlgTests 3
+static void check_ec_sigalg(SecIdentityRef identity) {
+    OSStatus status = SECFailure;
+    SecArenaPoolRef arena = NULL;
+    SecCmsDecoderRef decoder = NULL;
+    SecCmsMessageRef cmsg = NULL;
+    SecCmsContentInfoRef cinfo = NULL;
+    SecCmsSignedDataRef sigd = NULL;
+    SecCmsSignerInfoRef sinfo = NULL;
+    CSSM_DATA cms_data = {
+        .Data = NULL,
+        .Length = 0
+    };
+
+    /* Create Signature*/
+    require_noerr_string(status = SecArenaPoolCreate(1024, &arena), out,
+                         "Failed to create arena");
+    require_noerr_string(status = outputSignature(identity, SEC_OID_SHA256, true, arena, &cms_data),
+                         out, "Failed to create signature");
+
+    /* Decode siganture */
+    require_noerr_string(status = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+                                                      NULL, NULL, &decoder), out,
+                         "Failed to create decoder");
+    require_noerr_string(status = SecCmsDecoderUpdate(decoder, cms_data.Data, cms_data.Length), out,
+                         "Failed to add data ");
+    status = SecCmsDecoderFinish(decoder, &cmsg);
+    decoder = NULL; // SecCmsDecoderFinish always frees the decoder
+    require_noerr_quiet(status, out);
+
+    /* Dive down into the signer info to check the sig alg oid*/
+    require_action_string(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
+                          status = errSecDecode, "Failed to get content info");
+    require_action_string(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
+                          status = errSecDecode, "Content type was pkcs7 signed data");
+    require_action_string(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
+                          status = errSecDecode, "Failed to get signed data");
+    require_action_string(sinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
+                          status = errSecDecode, "Failed to get signer info");
+
+    is(sinfo->digestEncAlg.algorithm.Length, CSSMOID_ECDSA_WithSHA256.Length,
+       "Wrong sig alg length %zu", sinfo->digestEncAlg.algorithm.Length);
+    ok_status(memcmp(sinfo->digestEncAlg.algorithm.Data, CSSMOID_ECDSA_WithSHA256.Data, CSSMOID_ECDSA_WithSHA256.Length),
+              "Wrong sig alg");
+
+out:
+    if (arena) {
+        SecArenaPoolFree(arena, false);
+    }
+    if (decoder) {
+        SecCmsDecoderDestroy(decoder);
+    }
+    if (cmsg) {
+        SecCmsMessageDestroy(cmsg);
+    }
+    ok_status(status);
+}
+
 int cms_01_basic(int argc, char *const *argv)
 {
     plan_tests(2*(kNumberSetupTests + kNumberSignTests + kNumberVerifyTests +
-                  kNumberEncryptTests + kNumberDecryptTests + kNumberCleanupTests));
+                  kNumberEncryptTests + kNumberDecryptTests + kNumberCleanupTests)
+               + kNumberECSigAlgTests);
 
     SecKeychainRef kc = NULL;
     SecIdentityRef identity = NULL;
@@ -499,6 +570,7 @@ int cms_01_basic(int argc, char *const *argv)
     /* EC tests */
     kc = setup_keychain(_ec_identity, sizeof(_ec_identity), &identity, &certificate);
     sign_tests(identity, false);
+    check_ec_sigalg(identity);
     verify_tests(kc, false);
     encrypt_tests(certificate);
     decrypt_tests(false);

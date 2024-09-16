@@ -26,7 +26,6 @@
 #import <utilities/debugging.h>
 
 #import "keychain/ot/OTJoinSOSAfterCKKSFetchOperation.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTOperationDependencies.h"
 #include "keychain/SecureObjectSync/SOSAccount.h"
 

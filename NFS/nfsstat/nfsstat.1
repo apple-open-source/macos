@@ -104,6 +104,8 @@ Show network addresses as numbers, or show users as uid numbers.
 This option can appear multiple times.
 .It Fl z
 Zero NFS client and server statistics.
+.It Fl E
+Show NFS protocol errors statistics.
 .It Fl v
 Show additional information (if available).
 .El
@@ -119,6 +121,13 @@ Statistics for NFSv3 file system mounts.
 .It RPC Counts
 Counts of the RPC calls made to each of the NFSv3 protocol
 procedures.
+.El
+.\" ========
+.It Cm NLM Client Information:
+Statistics for the Network Lock Manager protocol.
+.Bl -tag -width "xx"
+.It RPC Counts
+Counts of the LOCK, TEST and UNLOCK RPC calls of the NLM protocol.
 .El
 .\" ========
 .It Cm NFSv4 Client Information:
@@ -244,6 +253,11 @@ Information about the given NFS mount (or all NFS mounts).
 .It The path mounted on and the server:/path that is mounted.
 .It Mount arguments originally passed in to the mount.
 .It Current mount parameter values and status information.
+.El
+.It Cm NFS Protocol Errors Information:
+.Bl -tag -width "xxx"
+.It Information about NFS protocol errors categorized by error type.
+.It This option will provide a detailed breakdown of errors encountered within the NFS layer.
 .El
 .El
 .Sh SEE ALSO

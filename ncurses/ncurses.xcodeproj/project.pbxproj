@@ -106,6 +106,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A0CAB7429D4F36A00F7451C /* nc_abi.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CAB7329D4F36A00F7451C /* nc_abi.c */; };
 		2A114C63295A2699005099EA /* obsolete.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C62295A2698005099EA /* obsolete.c */; };
 		2A114C66295A2A74005099EA /* tparm_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C65295A2A74005099EA /* tparm_type.c */; };
 		2A114C67295A2A74005099EA /* tparm_type.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A114C65295A2A74005099EA /* tparm_type.c */; };
@@ -627,6 +628,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A0CAB7329D4F36A00F7451C /* nc_abi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nc_abi.c; sourceTree = "<group>"; };
 		2A114C62295A2698005099EA /* obsolete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = obsolete.c; sourceTree = "<group>"; };
 		2A114C64295A2A3F005099EA /* tparm_type.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tparm_type.h; sourceTree = "<group>"; };
 		2A114C65295A2A74005099EA /* tparm_type.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tparm_type.c; sourceTree = "<group>"; };
@@ -2841,6 +2843,7 @@
 				4CF0891E0FFC2BB100CE4372 /* MKkeyname.awk */,
 				4CF0891F0FFC2BB100CE4372 /* MKlib_gen.sh */,
 				4CF089200FFC2BB100CE4372 /* MKunctrl.awk */,
+				2A0CAB7329D4F36A00F7451C /* nc_abi.c */,
 				4CF089210FFC2BB100CE4372 /* nc_panel.c */,
 				4CF089220FFC2BB100CE4372 /* README */,
 				4CF089230FFC2BB100CE4372 /* resizeterm.c */,
@@ -3705,6 +3708,7 @@
 				4C29FC7A102257C6001D8279 /* lib_addch.c in Sources */,
 				4C29FC7B102257C6001D8279 /* lib_addstr.c in Sources */,
 				4C29FC7C102257C6001D8279 /* lib_baudrate.c in Sources */,
+				2A0CAB7429D4F36A00F7451C /* nc_abi.c in Sources */,
 				4C29FC7D102257C6001D8279 /* lib_beep.c in Sources */,
 				4C29FC7E102257C6001D8279 /* lib_bkgd.c in Sources */,
 				4C29FC7F102257C6001D8279 /* lib_box.c in Sources */,
@@ -4161,6 +4165,10 @@
 					"$(PROJECT_DIR)/ncurses/ncurses",
 					"$(PROJECT_DIR)/ncurses/progs",
 				);
+				OTHER_CFLAGS = (
+					"-fno-typed-memory-operations-experimental",
+					"-fno-typed-cxx-new-delete",
+				);
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Werror=format-nonliteral";
 			};
@@ -4244,8 +4252,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-private-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-private-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-private-header $(SRCROOT)/ncurses/include/termcap.h -extra-private-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-private-header $(SRCROOT)/ncurses/include/tic.h -extra-private-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
-				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-public-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-public-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-public-header $(SRCROOT)/ncurses/include/termcap.h -extra-public-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-public-header $(SRCROOT)/ncurses/include/tic.h -extra-public-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
+				OTHER_TAPI_FLAGS = "$(COMMON_TAPI_FLAGS) -Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-private-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-private-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-private-header $(SRCROOT)/ncurses/include/termcap.h -extra-private-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-private-header $(SRCROOT)/ncurses/include/tic.h -extra-private-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "$(COMMON_TAPI_FLAGS) -Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -extra-public-header $(BUILT_PRODUCTS_DIR)/curses.h -extra-public-header $(BUILT_PRODUCTS_DIR)/term.h -extra-project-header $(SRCROOT)/ncurses/include/nc_alloc.h -extra-public-header $(SRCROOT)/ncurses/include/termcap.h -extra-public-header $(SRCROOT)/ncurses/include/term_entry.h -extra-project-header $(SRCROOT)/ncurses/include/nc_panel.h -extra-public-header $(SRCROOT)/ncurses/include/tic.h -extra-public-header $(SRCROOT)/ncurses/include/unctrl.h -extra-project-header $(SRCROOT)/ncurses/ncurses/curses.priv.h";
 				PRODUCT_NAME = ncurses.5.4;
 			};
 			name = Release;
@@ -4281,8 +4289,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-I$(SRCROOT)/ncurses/menu -extra-private-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
-				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-I$(SRCROOT)/ncurses/menu -extra-public-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
+				OTHER_TAPI_FLAGS = "$(COMMON_TAPI_FLAGS) -I$(SRCROOT)/ncurses/menu -extra-private-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "$(COMMON_TAPI_FLAGS) -I$(SRCROOT)/ncurses/menu -extra-public-header $(SRCROOT)/ncurses/form/form.h -extra-project-header $(SRCROOT)/ncurses/form/form.priv.h";
 				PRODUCT_NAME = form.5.4;
 			};
 			name = Release;
@@ -4293,8 +4301,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-extra-private-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
-				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-extra-public-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
+				OTHER_TAPI_FLAGS = "$(COMMON_TAPI_FLAGS) -extra-private-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "$(COMMON_TAPI_FLAGS) -extra-public-header $(SRCROOT)/ncurses/menu/menu.h -extra-project-header $(SRCROOT)/ncurses/menu/menu.priv.h";
 				PRODUCT_NAME = menu.5.4;
 			};
 			name = Release;
@@ -4305,8 +4313,8 @@
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 5.4;
 				DYLIB_CURRENT_VERSION = 5.4;
-				OTHER_TAPI_FLAGS = "-extra-private-header $(SRCROOT)/ncurses/panel/panel.h";
-				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "-extra-public-header $(SRCROOT)/ncurses/panel/panel.h";
+				OTHER_TAPI_FLAGS = "$(COMMON_TAPI_FLAGS) -extra-private-header $(SRCROOT)/ncurses/panel/panel.h";
+				"OTHER_TAPI_FLAGS[sdk=macosx*]" = "$(COMMON_TAPI_FLAGS) -extra-public-header $(SRCROOT)/ncurses/panel/panel.h";
 				PRODUCT_NAME = panel.5.4;
 			};
 			name = Release;

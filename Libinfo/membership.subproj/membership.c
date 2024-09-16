@@ -43,8 +43,9 @@
 #include <mach-o/dyld_priv.h>
 #endif
 #ifdef DARWIN_DIRECTORY_AVAILABLE
+#include "darwin_directory_enabled.h"
 #include "darwin_directory_helpers.h"
-#include <os/feature_private.h>
+#include <os/cleanup.h>
 #endif // DARWIN_DIRECTORY_AVAIABLE
 
 static const uuid_t _user_compat_prefix = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
@@ -487,8 +488,15 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 	}
 
 #ifdef DARWIN_DIRECTORY_AVAILABLE
-	if (os_feature_enabled_simple(DarwinDirectory, LibinfoLookups, false)) {
-		return _dd_mbr_identifier_translate(id_type, identifier, identifier_size, target_type, result, rec_type);
+	if (_darwin_directory_enabled()) {
+		rc = _dd_mbr_identifier_translate(id_type, identifier, identifier_size, target_type, result, rec_type);
+
+		// If Darwin Directory didn't find the identifier (ENOENT), fall through
+		// to the default code or OD (if OD is available).  For all other cases
+		// Darwin Directory's result is authoritative since it found the identifier.
+		if (rc != ENOENT) {
+			return rc;
+		}
 	}
 #endif // DARWIN_DIRECTORY_AVAILABLE
 
@@ -792,11 +800,10 @@ mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
 	return mbr_check_membership_ext(ID_TYPE_UUID, user, sizeof(uuid_t), ID_TYPE_UUID, group, 1, ismember);
 }
 
-LIBINFO_EXPORT
-int
-mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, int refresh, int *isMember)
-{
 #ifdef DS_AVAILABLE
+static int
+_od_mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, int refresh, int *isMember)
+{
 	xpc_object_t payload, reply;
 	int rc = 0;
 
@@ -846,9 +853,157 @@ mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size
 	xpc_release(payload);
 	
 	return rc;
-#else
-	return EIO;
+}
+#endif // DS_AVAILABLE
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+OS_ENUM(dd_mbr_check_result, int,
+	DD_MBR_SUCCESS = 0,
+	DD_MBR_USER_NOT_FOUND,
+	DD_MBR_GROUP_NOT_FOUND,
+	DD_MBR_INVALID_PARAMETER,
+);
+
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline bool
+_dd_user_belongs_to_group(const char *username, gid_t userPrimaryGroupID, darwin_directory_record_t group)
+{
+	return userPrimaryGroupID == group->id || _dd_user_is_member_of_group(username, group);
+}
+
+OS_WARN_RESULT
+static dd_mbr_check_result_t
+_dd_mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, __unused int refresh, int *isMember)
+{
+	*isMember = 0;
+
+	if (userid == NULL || groupid == NULL) {
+		return DD_MBR_INVALID_PARAMETER;
+	}
+
+	id_t tempID = -2;
+	__block char __os_free *username = NULL;
+	__block gid_t userPrimaryGroupID = -2;
+
+	switch (userid_type) {
+		case ID_TYPE_USERNAME:
+			// Yes we already have the username but we need to make sure the user
+			// exists in the record store.
+			_dd_foreach_record_with_name(DARWIN_DIRECTORY_TYPE_USERS, userid, ^(darwin_directory_record_t user, bool *stop) {
+				username = strdup(user->name);
+				userPrimaryGroupID = user->attributes.user.primaryGroupID;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_UUID:
+			if (userid_size != sizeof(uuid_t)) {
+				return DD_MBR_INVALID_PARAMETER;
+			}
+
+			_dd_foreach_record_with_uuid(DARWIN_DIRECTORY_TYPE_USERS, userid, ^(darwin_directory_record_t user, bool *stop) {
+				username = strdup(user->name);
+				userPrimaryGroupID = user->attributes.user.primaryGroupID;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_UID:
+			if (userid_size != sizeof(id_t)) {
+				return DD_MBR_INVALID_PARAMETER;
+			}
+
+			tempID = *((id_t *)userid);
+			_dd_foreach_record_with_id(DARWIN_DIRECTORY_TYPE_USERS, tempID, ^(darwin_directory_record_t user, bool *stop) {
+				username = strdup(user->name);
+				userPrimaryGroupID = user->attributes.user.primaryGroupID;
+				*stop = true;
+			});
+			break;
+
+		default:
+			return DD_MBR_INVALID_PARAMETER;
+	}
+
+	if (username == NULL) {
+		return DD_MBR_USER_NOT_FOUND;
+	}
+
+	__block bool groupFound = false;
+	switch (groupid_type) {
+		case ID_TYPE_GROUPNAME:
+			_dd_foreach_record_with_name(DARWIN_DIRECTORY_TYPE_GROUPS, groupid, ^(darwin_directory_record_t group, bool *stop) {
+				*isMember = (int)_dd_user_belongs_to_group(username, userPrimaryGroupID, group);
+				groupFound = true;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_UUID:
+			_dd_foreach_record_with_uuid(DARWIN_DIRECTORY_TYPE_GROUPS, groupid, ^(darwin_directory_record_t group, bool *stop) {
+				*isMember = (int)_dd_user_belongs_to_group(username, userPrimaryGroupID, group);
+				groupFound = true;
+				*stop = true;
+			});
+			break;
+
+		case ID_TYPE_GID:
+			tempID = *((id_t *)groupid);
+			_dd_foreach_record_with_id(DARWIN_DIRECTORY_TYPE_GROUPS, tempID, ^(darwin_directory_record_t group, bool *stop) {
+				*isMember = (int)_dd_user_belongs_to_group(username, userPrimaryGroupID, group);
+				groupFound = true;
+				*stop = true;
+			});
+			break;
+
+		default:
+			return DD_MBR_INVALID_PARAMETER;
+	}
+
+	if (!groupFound) {
+		return DD_MBR_GROUP_NOT_FOUND;
+	}
+
+	return DD_MBR_SUCCESS;
+}
+#endif // DARWIN_DIRECTORY_AVAILABLE
+
+LIBINFO_EXPORT
+int
+mbr_check_membership_ext(int userid_type, const void *userid, size_t userid_size, int groupid_type, const void *groupid, int refresh, int *isMember)
+{
+	int result = EIO;
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+	if (_darwin_directory_enabled()) {
+		result = _dd_mbr_check_membership_ext(userid_type, userid, userid_size, groupid_type, groupid, refresh, isMember);
+		switch (result) {
+			case DD_MBR_SUCCESS:
+				return 0;
+
+			case DD_MBR_USER_NOT_FOUND:
+				// The user wasn't found in Darwin Directory.  Let OD handle it
+				// in case this is a network user.
+				break;
+
+			case DD_MBR_GROUP_NOT_FOUND:
+				// User was found but the group wasn't.  According to the man
+				// page this is not an error.  The user simply isn't a member
+				// of a non-existent group.
+				return 0;
+
+			case DD_MBR_INVALID_PARAMETER:
+			default:
+				return EINVAL;
+		}
+	}
 #endif
+
+#ifdef DS_AVAILABLE
+	result = _od_mbr_check_membership_ext(userid_type, userid, userid_size, groupid_type, groupid, refresh, isMember);
+#endif
+
+	return result;
 }
 
 LIBINFO_EXPORT
@@ -901,11 +1056,10 @@ mbr_group_name_to_uuid(const char *name, uuid_t uu)
 	return mbr_identifier_to_uuid(ID_TYPE_GROUPNAME, name, -1, uu);
 }
 
-LIBINFO_EXPORT
-int
-mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
-{
 #ifdef DS_AVAILABLE
+static int
+_od_mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
+{
 	xpc_object_t payload, reply;
 	int result = EIO;
 
@@ -933,9 +1087,60 @@ mbr_check_service_membership(const uuid_t user, const char *servicename, int *is
 	xpc_release(payload);
 
 	return result;
-#else
-	return EIO;
+}
 #endif
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+OS_WARN_RESULT
+static int
+_dd_mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
+{
+	char groupname[PATH_MAX];
+
+	snprintf(groupname, sizeof(groupname), "com.apple.access_%s", servicename);
+	return _dd_mbr_check_membership_ext(ID_TYPE_UUID, user, sizeof(uuid_t), ID_TYPE_GROUPNAME, groupname, 0, ismember);
+}
+#endif // DARWIN_DIRECTORY_AVAILABLE
+
+LIBINFO_EXPORT
+int
+mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
+{
+	int result = EIO;
+
+#ifdef DARWIN_DIRECTORY_AVAILABLE
+	if (_darwin_directory_enabled()) {
+		result = _dd_mbr_check_service_membership(user, servicename, ismember);
+		switch (result) {
+			case DD_MBR_SUCCESS:
+				return 0;
+
+			case DD_MBR_USER_NOT_FOUND:
+				// The user wasn't found in Darwin Directory.  Let OD handle it
+				// in case this is a network user.
+				break;
+
+			case DD_MBR_GROUP_NOT_FOUND:
+				// User was found but the group wasn't.  According to the man
+				// page this is an error (which is not the case for regular
+				// groups).  Since the user was found in Darwin Directory but
+				// the group wasn't return ENOENT.  Local users are not allowed
+				// to be in network groups so there's no reason to let OD handle
+				// this case.
+				return ENOENT;
+
+			case DD_MBR_INVALID_PARAMETER:
+			default:
+				return EINVAL;
+		}
+	}
+#endif
+
+#ifdef DS_AVAILABLE
+	result = _od_mbr_check_service_membership(user, servicename, ismember);
+#endif
+
+	return result;
 }
 
 #ifdef DS_AVAILABLE

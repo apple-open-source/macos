@@ -41,6 +41,7 @@
 #include <kern/debug.h>
 #include <kern/thread.h>
 #include <sys/systm.h>
+#include <sys/sysctl.h>
 #include <stdatomic.h>
 #include <sys/time.h>
 #include <sys/kauth.h>
@@ -67,6 +68,7 @@
 #endif
 
 #define SMB_RW_HASH(x) (x % smb_rw_thread_count)
+#define SMB_STRATEGY_HASH(x) (x % smb_strategy_thread_count)
 #define SMB_RW_QUEUE_SLEEPING    0x0001
 
 TAILQ_HEAD(smb_rw_q, smb_rw_arg);
@@ -82,14 +84,22 @@ static struct smb_rw_queue {
 	struct smb_rw_q	rwq_queue[1];   /* Each dog has their own food bowl */
 	thread_t		rwq_thd;
 	uint32_t		rwq_flags;
-} smb_rw_queue_tbl[SMB_RW_HASH_SZ];
+} *smb_rw_queue_tbl;
 
 
 lck_grp_t *smb_rw_group;
 static lck_mtx_t *smb_rw_shutdown_lock;
 static volatile int smb_rw_shutdown = 0;
+
+/*
+ * worker threads are either rw threads or strategy threads
+ */
+static int32_t smb_rw_queue_tbl_len;
+static int32_t smb_active_worker_thread_count;
 static int32_t smb_rw_thread_count;
-static atomic_uint_fast32_t round_robin_index = 0;
+static int32_t smb_strategy_thread_count;
+static atomic_uint_fast32_t rw_round_robin_index = 0;
+static atomic_uint_fast32_t strategy_round_robin_index = 0;
 
 extern kern_return_t thread_terminate(thread_t);
 
@@ -110,7 +120,7 @@ static void
 smb_rw_thread(void *arg, wait_result_t wr __unused)
 {
 	int qi = (int)(uintptr_t)arg;
-	int error;
+	int error = 0;
     struct smb_rw_arg *ep = NULL;
 	struct smb_rw_queue *myqueue = &smb_rw_queue_tbl[qi];
 
@@ -135,7 +145,6 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
 			break;
 		}
 
-
         /* Dequeue the work and process it */
         ep = TAILQ_FIRST(myqueue->rwq_queue);
         DPRINT("%d dequeue %p from %p\n", qi, ep, myqueue);
@@ -150,17 +159,17 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
         OSDecrementAtomic(&smb_rw_queue_count);
 #endif
 
-        SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_START,
-                       /* channelID */ 0, qi, ep->command, 0, 0);
+        SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_START, qi, ep->command, 0, 0, 0);
 
         switch (ep->command) {
             case SMB_READ_WRITE:
                 /* Send the read/write request and block waiting for reply */
-                ep->error = smb_rq_simple(ep->rqp);
+                error = smb_rq_simple(ep->rw.rqp);
+                ep->error = error;
                 
-                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_END,
-                               /* channelID */ 0, qi, ep->error, 0, 0);
-
+                /* ktrace when request is done */
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_NONE, 0xabc001, qi, error, 0, 0);
+                
                 /*
                  * We now have the reply so wake up main thread which is waiting
                  * for the reply
@@ -169,16 +178,19 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
                 ep->flags |= SMB_RW_REPLY_RCVD;
                 wakeup(&ep->flags);
                 lck_mtx_unlock(&ep->rw_arg_lock);
+                
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_END, error, qi, 0, 0, 0);
                 break;
 
             case SMB_LEASE_BREAK_ACK:
                 /* Send the lease break ack and block waiting for reply */
-                ep->error = smb2_smb_lease_break_ack(ep->share, ep->iod,
-                                                     ep->lease_key_hi, ep->lease_key_low,
-                                                     ep->lease_state, ep->context);
+                error = smb2_smb_lease_break_ack(ep->lease.share, ep->lease.iod,
+                                                 ep->lease.lease_key_hi, ep->lease.lease_key_low,
+                                                 ep->lease.lease_state, ep->lease.context);
+                ep->error = error;
                 
-                SMB_LOG_KTRACE(SMB_DBG_SMB_RW_THREAD | DBG_FUNC_END,
-                               /* channelID */ 0, qi, ep->error, 0, 0);
+                /* ktrace when request is done */
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_NONE, 0xabc002, qi, error, 0, 0);
 
                 /*
                  * Just free the smb_rw_arg here for lease break acks. We are
@@ -187,20 +199,59 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
                  */
                 lck_mtx_destroy(&ep->rw_arg_lock, smb_rw_group);
                 SMB_FREE_TYPE(struct smb_rw_arg, ep);
+                
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_END, error, qi, 0, 0, 0);
                 break;
+
+            case SMB_VNOP_STRATEGY:
+                /* Do the vnop_strategy */
+                error = smbfs_do_strategy(ep->strategy.bp);
+                ep->error = error;
+                
+                /* ktrace when request is done */
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_NONE, 0xabc003, qi, error, 0, 0);
+
+                /*
+                 * Just free the smb_rw_arg here for vnop_strategy. Errors
+                 * were returned in the struct buf in smbfs_do_strategy()
+                 */
+                lck_mtx_destroy(&ep->rw_arg_lock, smb_rw_group);
+                SMB_FREE_TYPE(struct smb_rw_arg, ep);
+                
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_END, error, qi, 0, 0, 0);
+                break;
+
             default:
                 SMBERROR("Unknown command %d\n", ep->command);
-               break;
+                SMB_LOG_KTRACE(SMB_DBG_RW_THREAD | DBG_FUNC_END, EINVAL, qi, 0, 0, 0);
+                break;
         }
     }
 
     /* This thread is exiting */
 	lck_mtx_lock(smb_rw_shutdown_lock);
-	smb_rw_thread_count--;
-	wakeup(&smb_rw_thread_count);
+	smb_active_worker_thread_count--;
+	wakeup(&smb_active_worker_thread_count);
 	lck_mtx_unlock(smb_rw_shutdown_lock);
 
 	thread_terminate(current_thread());
+}
+
+static uint32_t
+smbfs_num_cpus(void)
+{
+    uint32_t num_cpus;
+    size_t num_cpus_sz = sizeof(num_cpus);
+
+    if (sysctlbyname("hw.ncpu", &num_cpus, &num_cpus_sz, NULL, 0) != 0) {
+    /* default to 8 */
+      num_cpus = 8;
+    }
+
+    if (num_cpus > SMB_MAX_RW_HASH_SZ) {
+        num_cpus = SMB_MAX_RW_HASH_SZ;
+    }
+  return num_cpus;
 }
 
 /*
@@ -209,11 +260,14 @@ smb_rw_thread(void *arg, wait_result_t wr __unused)
 void
 smb_rw_init(void)
 {
-	int i;
-
+    int i = 0;
 	smb_rw_group = lck_grp_alloc_init("smb_rw_locks", LCK_GRP_ATTR_NULL);
-    
-	for (i = 0; i < SMB_RW_HASH_SZ; i++) {
+
+    smb_rw_thread_count = smbfs_num_cpus();
+    smb_strategy_thread_count = SMB_STRATEGY_HASH_SZ;
+    smb_rw_queue_tbl_len = smb_rw_thread_count + smb_strategy_thread_count;
+    SMB_MALLOC_TYPE_COUNT(smb_rw_queue_tbl, struct smb_rw_queue, smb_rw_queue_tbl_len, Z_WAITOK);
+	for (i = 0; i < smb_rw_queue_tbl_len; i++) {
 		TAILQ_INIT(smb_rw_queue_tbl[i].rwq_queue);
 		smb_rw_queue_tbl[i].rwq_lock = lck_mtx_alloc_init(smb_rw_group, LCK_ATTR_NULL);
 		smb_rw_queue_tbl[i].rwq_thd = THREAD_NULL;
@@ -244,20 +298,20 @@ smb_rw_start(void)
 
 	/* Wait until previous shutdown finishes */
 	lck_mtx_lock(smb_rw_shutdown_lock);
-	while (smb_rw_shutdown || smb_rw_thread_count > 0)
-		msleep(&smb_rw_thread_count, smb_rw_shutdown_lock, PSOCK,
+	while (smb_rw_shutdown || smb_active_worker_thread_count > 0)
+		msleep(&smb_active_worker_thread_count, smb_rw_shutdown_lock, PSOCK,
                "smb_rw_shutdown_wait", NULL);
 
 	/* Start up worker threads */
-	for (i = 0; i < SMB_RW_HASH_SZ; i++) {
-		error = kernel_thread_start(smb_rw_thread, (void *)(uintptr_t)i, &smb_rw_queue_tbl[smb_rw_thread_count].rwq_thd);
+	for (i = 0; i < smb_rw_queue_tbl_len; i++) {
+		error = kernel_thread_start(smb_rw_thread, (void *)(uintptr_t)i, &smb_rw_queue_tbl[smb_active_worker_thread_count].rwq_thd);
 		if (!error) {
-			smb_rw_thread_count++;
+			smb_active_worker_thread_count++;
 		} else {
 			SMBERROR("Could not start smb_rw_thread: %d\n", error);
 		}
 	}
-	if (smb_rw_thread_count == 0) {
+	if (smb_active_worker_thread_count == 0) {
 		SMBERROR("Could not start smb_rw_threads. Falling back\n");
 		goto out;
 	}
@@ -278,7 +332,7 @@ static void
 smb_rw_stop(void)
 {
 	int32_t i;
-	int32_t thread_count = smb_rw_thread_count;
+	int32_t thread_count = smb_active_worker_thread_count;
 
 	DPRINT("Entering smb_rw_stop\n");
 
@@ -292,13 +346,13 @@ smb_rw_stop(void)
 
 	/* Wait until they are done shutting down */
 	lck_mtx_lock(smb_rw_shutdown_lock);
-    while (smb_rw_thread_count > 0) {
-		msleep(&smb_rw_thread_count, smb_rw_shutdown_lock, PSOCK,
+    while (smb_active_worker_thread_count > 0) {
+		msleep(&smb_active_worker_thread_count, smb_rw_shutdown_lock, PSOCK,
                "smb_rw_shutdown_stop", NULL);
     }
 
 	/* Deallocate threads */
-	for (i = 0; i < smb_rw_thread_count; i++) {
+	for (i = 0; i < smb_active_worker_thread_count; i++) {
         if (smb_rw_queue_tbl[i].rwq_thd != THREAD_NULL) {
 			thread_deallocate(smb_rw_queue_tbl[i].rwq_thd);
         }
@@ -326,7 +380,7 @@ smb_rw_cleanup(void)
 	 * Every thing should be dequeued at this point or will be as sockets are closed
 	 * but to be safe, we'll make sure.
 	 */
-	for (i = 0; i < SMB_RW_HASH_SZ; i++) {
+    for (i = 0; i < smb_rw_queue_tbl_len; i++) {
 		struct smb_rw_queue *queue = &smb_rw_queue_tbl[i];
 
 		lck_mtx_lock(queue->rwq_lock);
@@ -341,9 +395,11 @@ smb_rw_cleanup(void)
 	smb_rw_stop();
 
     /* Free the rwq locks */
-    for (i = 0; i < SMB_RW_HASH_SZ; i++) {
+    for (i = 0; i < smb_rw_queue_tbl_len; i++) {
         lck_mtx_free(smb_rw_queue_tbl[i].rwq_lock, smb_rw_group);
     }
+
+    SMB_FREE_TYPE_COUNT(struct smb_rw_queue, smb_rw_queue_tbl_len, smb_rw_queue_tbl);
 
     lck_mtx_free(smb_rw_shutdown_lock, smb_rw_group);
 
@@ -351,15 +407,54 @@ smb_rw_cleanup(void)
 }
 
 /*
- * Using a round robin method, pick a queue to enqueue the work onto and then
+ * There are two types of queues
+ * 1. the first smb_strategy_thread_count strategy queues that only handle strategy calls
+ * 2. the remaining smb_rw_thread_count queues for read/write and lease breaks
+ * This split is done because strategy calls generate rw requests that are
+ * added to the queue and wait for them, so we can't have a strategy call and
+ * its rw request in the same queue
+ */
+static int
+smb_rw_get_queue_id(struct smb_rw_arg *uap)
+{
+    uint32_t qi = 0;
+    switch(uap->command) {
+        case SMB_VNOP_STRATEGY:
+            qi = SMB_STRATEGY_HASH(atomic_fetch_add(&strategy_round_robin_index, 1));
+            break;
+        case SMB_READ_WRITE:
+        case SMB_LEASE_BREAK_ACK:
+            /*
+             * make sure to skip over the first smb_strategy_thread_count
+             */
+            qi = SMB_RW_HASH(atomic_fetch_add(&rw_round_robin_index, 1));
+            qi += smb_strategy_thread_count;
+            break;
+        default:
+            SMBERROR("Unknown command %d", uap->command);
+            qi = -1;
+            break;
+    }
+    return qi;
+}
+
+/*
+ * Depending on passed in flags, pick a queue to enqueue the work onto and then
  * wake up that thread.
  */
 void
 smb_rw_proxy(void *arg)
 {
 	struct smb_rw_arg *uap = (struct smb_rw_arg *) arg;
-    int qi = SMB_RW_HASH(atomic_fetch_add(&round_robin_index, 1));
-    struct smb_rw_queue *myqueue = &smb_rw_queue_tbl[qi];
+    uint32_t qi = 0;
+    struct smb_rw_queue *myqueue = NULL;
+    
+    qi = smb_rw_get_queue_id(uap);
+    if (qi < 0) {
+        SMBERROR("smb_rw_get_queue_id failed");
+        return;
+    }
+    myqueue = &smb_rw_queue_tbl[qi];
 
     lck_mtx_lock(myqueue->rwq_lock);
 	DPRINT("called for %p\n", uap);
@@ -393,4 +488,3 @@ smb_rw_proxy(void *arg)
 #endif
 	lck_mtx_unlock(myqueue->rwq_lock);
 }
-

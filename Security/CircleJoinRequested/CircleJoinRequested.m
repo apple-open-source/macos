@@ -196,10 +196,6 @@ BOOL processRequests(CFErrorRef *error) {
 	if ([toAccept count]) {
 		secnotice("cjr", "Process accept: %@", toAccept);
 		ok = ok && SOSCCAcceptApplicants((__bridge CFArrayRef) toAccept, error);
-		if (ok) {
-			secnotice("cjr", "kSOSCCHoldLockForInitialSync");
-			notify_post(kSOSCCHoldLockForInitialSync);
-		}
 	}
 
 	if ([toReject count]) {
@@ -462,6 +458,8 @@ static void askAboutAll(bool passwordFailure)
 
 static void scheduleActivity(int alertInterval)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     xpc_object_t options = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(options, XPC_ACTIVITY_DELAY, alertInterval);
     xpc_dictionary_set_uint64(options, XPC_ACTIVITY_GRACE_PERIOD, XPC_ACTIVITY_INTERVAL_1_MIN);
@@ -472,6 +470,7 @@ static void scheduleActivity(int alertInterval)
     xpc_activity_register(kLaunchLaterXPCName, options, ^(xpc_activity_t activity) {
         secnotice("cjr", "activity handler fired");
     });
+#pragma clang diagnostic pop
 }
 
 
@@ -1120,8 +1119,11 @@ int main (int argc, const char * argv[]) {
             }
         });
         
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
         });
+#pragma clang diagnostic pop
         
 		int falseInARow = 0;
 		while (falseInARow < 2 && !_executeProcessEventsOnce) {

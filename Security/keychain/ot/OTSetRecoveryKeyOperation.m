@@ -27,7 +27,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ot/OTSetRecoveryKeyOperation.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
 

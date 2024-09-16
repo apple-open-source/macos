@@ -66,14 +66,14 @@
 #include "ext.h"
 #include "lib_fsck_msdos.h"
 
-int checkfilesys(const char *fname, check_context context)
+int checkfilesys(const char *fname, check_context *context)
 {
 	char *phasesNamesFails[6] = {"Check device: Checking parameters: Failed", "Check device: open file: Failed", "Check device: read boot sector: Failed",
-                                  "Check device: Quick check: Failed", "Check device: Perform check: Failed", "Check device: Finish: Failed"};
+								 "Check device: Quick check: Failed", "Check device: Perform check: Failed", "Check device: Finish: Failed"};
 	char *phasesNames[6] = {"Check device: Checking parameters", "Check device: open file", "Check device: read boot sector",
 							"Check device: Quick check", "Check device: Perform check", "Check device: Finish"};
 	int reportProgress = (context != NULL && context->updater != NULL &&
-                          context->startPhase != NULL && context->endPhase != NULL);
+						  context->startPhase != NULL && context->endPhase != NULL);
 	unsigned int progressTracker = 0;
 	int finish_dosdirsection = 0;
 	bool close_dosfs = true;
@@ -89,7 +89,7 @@ int checkfilesys(const char *fname, check_context context)
 
 	if (reportProgress) {
 		context->startPhase(phasesNames[currPhase], 1, 3, &progressTracker,
-                            context->updater);
+							context->updater);
 	}
 
 	/*
@@ -133,25 +133,18 @@ int checkfilesys(const char *fname, check_context context)
 			goto out;
 		}
 	}
+
+
 	progressTracker++;
 
 	if (dosfs >= 0)
 	{
-		struct stat info;
-		if (fstat(dosfs, &info))
-		{
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Cannot stat", strerror(errno));
-			ret = 8;
-			goto out;
+		if (context->resource == NULL) {
+			context->resource = &dosfs;
 		}
-
-		/* Note: Passed in fd can be seeked to arbitrary location, bellow code
-		 *       assumes that fd is seeked to 0, and uses read instead of pread.
-		 *       To make everything work, just reset fd to 0.
-		 */
-		if (lseek(dosfs, 0, SEEK_SET) == -1)
-		{
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Cannot seek", strerror(errno));
+		struct stat info;
+		if (context->fstatHelper(context->resource, &info)) {
+			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Cannot stat", strerror(errno));
 			ret = 8;
 			goto out;
 		}
@@ -171,13 +164,13 @@ int checkfilesys(const char *fname, check_context context)
                             context->updater);
     }
 
-	if (dosfs < 0) {
+	if (dosfs < 0 && context->resource == NULL) {
 		dosfs = open(fname, fsck_rdonly() ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
 		close_dosfs = true;
 	}
 	progressTracker++;
 
-	if (dosfs < 0 && !fsck_rdonly()) {
+	if (dosfs < 0 && context->resource == NULL && !fsck_rdonly()) {
 		dosfs = open(fname, O_RDONLY, 0);
 		close_dosfs = true;
 		if (dosfs >= 0)
@@ -189,11 +182,14 @@ int checkfilesys(const char *fname, check_context context)
 		fsck_print(fsck_ctx, LOG_INFO, "\n");
 	progressTracker++;
 
-	if (dosfs < 0) {
+	if (context->resource == NULL && dosfs < 0) {
 		fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Can't open", strerror(errno));
 		ret = 8;
 		goto out;
+	} else if (context->resource == NULL) {
+		context->resource = &dosfs;
 	}
+
 	progressTracker++;
 
 	if (reportProgress) {
@@ -203,7 +199,7 @@ int checkfilesys(const char *fname, check_context context)
                             context->updater);
     }
 
-	mod = readboot(dosfs, &boot);
+	mod = readboot(&boot, context);
 	if (mod & FSFATAL) {
 		if (close_dosfs) {
 			close(dosfs);
@@ -241,7 +237,7 @@ int checkfilesys(const char *fname, check_context context)
 			/* Go verify the volume */
 			goto Again;
 		}
-		else if (isdirty(dosfs, &boot, boot.ValidFat >= 0 ? boot.ValidFat : 0)) {
+		else if (isdirty(&boot, boot.ValidFat >= 0 ? boot.ValidFat : 0, context)) {
 			fsck_print(fsck_ctx, LOG_INFO, "Warning: FILESYSTEM DIRTY; SKIPPING CHECKS\n");
 			ret = FSDIRTY;
 		}
@@ -288,8 +284,8 @@ Again:
 	}
 	progressTracker++;
 
-	mod |= fat_init(dosfs, &boot);
-	
+	mod |= fat_init(&boot, context);
+
 	if (mod & FSFATAL) {
 		if (close_dosfs) {
 			close(dosfs);
@@ -302,7 +298,7 @@ Again:
 	if (!fsck_preen() && !fsck_quiet())
 		fsck_print(fsck_ctx, LOG_INFO, "** Phase 2 - Checking Directories\n");
 
-	mod |= resetDosDirSection(&boot);
+	mod |= resetDosDirSection(&boot, context);
 	finish_dosdirsection = 1;
 	if (mod & FSFATAL)
 		goto out;
@@ -310,7 +306,7 @@ Again:
 
 	progressTracker++;
 
-	mod |= handleDirTree(dosfs, &boot, fsck_rdonly());
+	mod |= handleDirTree(dosfs, &boot, fsck_rdonly(), context);
 	if (mod & FSFATAL)
 		goto out;
 
@@ -324,7 +320,7 @@ Again:
 	 * that are actually referenced by some directory entry, even if they are
 	 * beyond the logical file size (and the file size was not repaired).
 	 */
-	mod |= fat_free_unused();
+	mod |= fat_free_unused(context);
 	if (mod & FSFATAL)
 		goto out;
 
@@ -337,6 +333,7 @@ Again:
 			fsck_print(fsck_ctx, LOG_INFO, "FILESYSTEM CLEAN\n");
 			ret = 0;
 		}
+	} else {
 	}
 
 	if (boot.NumBad)
@@ -359,7 +356,7 @@ Again:
 
 			if (mod & FSDIRTY) {
 				fsck_print(fsck_ctx, LOG_INFO, "Warning: MARKING FILE SYSTEM CLEAN\n");
-				mod |= fat_mark_clean();
+				mod |= fat_mark_clean(context);
 			} else {
 				fsck_print(fsck_ctx, LOG_INFO, "Warning: \n***** FILE SYSTEM IS LEFT MARKED AS DIRTY *****\n");
 			}
@@ -370,7 +367,7 @@ Again:
 	/*
 	 * We're done changing the FAT, so flush any changes.
 	 */
-	mod |= fat_flush();
+	mod |= fat_flush(context);
 	progressTracker++;
 
 	/* Don't bother trying multiple times if we're not doing repairs */
@@ -384,15 +381,19 @@ Again:
 
 		goto Again;
 	}
-	if ((mod & (FSFATAL | FSERROR)) == 0)
+	if ((mod & (FSFATAL | FSERROR)) == 0) {
 		ret = 0;
+	}
 
 out:
 	if (reportProgress) {
-		if (ret) {
-			context->endPhase(phasesNamesFails[currPhase++], context->updater);
-		} else {
-			context->endPhase(phasesNames[currPhase++], context->updater);
+		if (!fsck_quick() || (boot.ClustMask == CLUST12_MASK)) {
+			// if fsck_quick we already called endPhase
+			if (ret) {
+				context->endPhase(phasesNamesFails[currPhase++], context->updater);
+			} else {
+				context->endPhase(phasesNames[currPhase++], context->updater);
+			}
 		}
 		progressTracker = 0;
 		context->startPhase(phasesNames[currPhase], 19, 1, &progressTracker,

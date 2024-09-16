@@ -199,10 +199,10 @@ struct LogArgument<WebCore::CDMInstanceFairPlayStreamingAVFObjC::Keys> {
     static String toString(const WebCore::CDMInstanceFairPlayStreamingAVFObjC::Keys& keys)
     {
         StringBuilder builder;
-        builder.append("[");
+        builder.append('[');
         for (auto key : keys)
             builder.append(key->toHexString());
-        builder.append("]");
+        builder.append(']');
         return builder.toString();
     }
 };
@@ -336,14 +336,11 @@ private:
 static RefPtr<JSON::Value> parseJSONValue(const SharedBuffer& buffer)
 {
     // Fail on large buffers whose size doesn't fit into a 32-bit unsigned integer.
-    size_t size = buffer.size();
-    if (size > std::numeric_limits<unsigned>::max())
+    if (buffer.size() > std::numeric_limits<unsigned>::max())
         return nullptr;
 
     // Parse the buffer contents as JSON, returning the root object (if any).
-    String json { buffer.makeContiguous()->data(), static_cast<unsigned>(size) };
-
-    return JSON::Value::parseJSON(json);
+    return JSON::Value::parseJSON(buffer.makeContiguous()->span());
 }
 
 bool CDMInstanceFairPlayStreamingAVFObjC::supportsPersistableState()
@@ -797,7 +794,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
         identifier = adoptNS([[NSString alloc] initWithData:initData->makeContiguous()->createNSData().get() encoding:NSUTF8StringEncoding]);
 #if HAVE(FAIRPLAYSTREAMING_CENC_INITDATA)
     else if (initDataType == InitDataRegistry::cencName()) {
-        auto psshString = base64EncodeToString(initData->makeContiguous()->data(), initData->size());
+        auto psshString = base64EncodeToString(initData->makeContiguous()->span());
         initializationData = [NSJSONSerialization dataWithJSONObject:@{ @"pssh": (NSString*)psshString } options:NSJSONWritingPrettyPrinted error:nil];
     }
 #endif
@@ -1292,8 +1289,8 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::didProvideRequests(Vector<Retai
             auto entry = JSON::Object::create();
             auto& keyID = requestData.first;
             auto& payload = requestData.second;
-            entry->setString("keyID"_s, base64EncodeToString(keyID->makeContiguous()->data(), keyID->size()));
-            entry->setString("payload"_s, base64EncodeToString(payload.get().bytes, payload.get().length));
+            entry->setString("keyID"_s, base64EncodeToString(keyID->makeContiguous()->span()));
+            entry->setString("payload"_s, base64EncodeToString(span(payload.get())));
             requestJSON->pushObject(WTFMove(entry));
         }
         auto requestBuffer = utf8Buffer(requestJSON->toJSONString());

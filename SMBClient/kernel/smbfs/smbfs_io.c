@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2017 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,7 +80,7 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, fastlookup, CTLFLAG_RW, &smbfs_fastlookup, 0, 
  * This routine will fill in the correct values for the correct structure. The
  * de value points t0 either a direntry or dirent structure.
  */
-static uint32_t 
+uint32_t
 smbfs_fill_direntry(void *de, const char *name, size_t nmlen, uint8_t dtype, 
 					uint64_t ino, int flags)
 {
@@ -179,8 +179,9 @@ done:
 	return error;
 }
 
-static int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags,
-                               const char *name, size_t name_len, struct smbfattr *fap)
+int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags,
+                        const char *name, size_t name_len,
+                        struct smbfattr *fap, int is_attrlist)
 {
     uint8_t dtype = 0;
     uint32_t delen;
@@ -236,15 +237,21 @@ static int smbfs_add_dir_entry(vnode_t dvp, uio_t uio, int flags,
         }
     }
     else {
-        /* Ran out of space, save for next enumeration */
-        SMB_MALLOC_DATA(dnp->d_nextEntry, delen, Z_WAITOK);
-        if (dnp->d_nextEntry) {
-            bcopy(&de, dnp->d_nextEntry, delen);
-            dnp->d_nextEntryLen = delen;
-            dnp->d_nextEntryFlags = (flags & VNODE_READDIR_EXTENDED);
-            
-            SMB_LOG_DIR_CACHE_LOCK(dnp, "Save <%s> for next enum in <%s> \n",
-                                   name, dnp->n_name);
+        /*
+         * In case of getattrlistbulk, we're reading from the cache
+         * There's no need to store the next entry in d_nextEntry
+         */
+        if (is_attrlist == 0) {
+            /* Ran out of space, save for next enumeration */
+            SMB_MALLOC_DATA(dnp->d_nextEntry, delen, Z_WAITOK);
+            if (dnp->d_nextEntry) {
+                bcopy(&de, dnp->d_nextEntry, delen);
+                dnp->d_nextEntryLen = delen;
+                dnp->d_nextEntryFlags = (flags & VNODE_READDIR_EXTENDED);
+
+                SMB_LOG_DIR_CACHE_LOCK(dnp, "Save <%s> for next enum in <%s> \n",
+                                       name, dnp->n_name);
+            }
         }
         
         error = ENOBUFS;
@@ -255,29 +262,24 @@ done:
     return (error);
 }
 
+/*
+ * The calling routine must hold a reference on the share
+ */
 int
 smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
                vfs_context_t context)
 {
 	struct smbnode *dnp = VTOSMB(dvp);
-	union {
-		struct dirent de32;
-		struct direntry de64;
-	} de;
 	struct smbfs_fctx *ctx = NULL;
-	off_t offset;
-	uint32_t delen;
 	int error = 0;
 	struct smb_share *share = NULL;
-    uint64_t node_ino;
     const char *name = NULL;
     size_t name_len = 0;
 	struct smbfattr *fap = NULL;
    	struct smb_session *sessionp = NULL;
-    int i;
-    vnode_t par_vp = NULL;
     int first = 0;
     char *last_entry_namep = NULL;
+    off_t offset = uio_offset(uio);
 
     SMB_MALLOC_DATA(last_entry_namep, PATH_MAX, Z_WAITOK_ZERO);
 
@@ -296,82 +298,24 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
      * d_rdir_offset - offset of next item to fetch from server
      * dnp->d_main_cache.offset - offset of next item to be placed into dir cache
      */
-    
-    share = smb_get_share_with_reference(VTOSMBFS(dvp));
+    share = VTOSMBFS(dvp)->sm_share;
    	sessionp = SS_TO_SESSION(share);
-
-	offset = uio_offset(uio);
     SMB_LOG_DIR_CACHE_LOCK(dnp, "offset %lld d_rdir_offset %lld for <%s>\n",
                            offset, dnp->d_rdir_offset, dnp->n_name);
-
-	/*
-     * SMB servers will return the dot and dotdot in most cases. If the share is a
-     * FAT Filesystem then the information return could be bogus, also if its a
-     * FAT drive then they won't even return the dot or the dotdot. Since we already
-     * know everything about dot and dotdot just fill them in here and then skip
-     * them during the lookup.
-     */
-    if (offset == 0) {
-        dnp->d_rdir_offset = 0;
-        
-        for (i = 0; i < 2; i++) {
-            if (i == 0) {
-                node_ino = dnp->n_ino;
-            }
-            else {
-                par_vp = smbfs_smb_get_parent(dnp, kShareLock);
-                if (par_vp != NULL) {
-                    node_ino = VTOSMB(par_vp)->n_ino;
-                    vnode_put(par_vp);
-                }
-                else {
-                    if (dnp->n_parent_vid == 0) {
-                        /* Must be the root of share */
-                        node_ino = SMBFS_ROOT_INO;
-                    }
-                    else {
-                        /* Parent got recycled already? */
-                        SMBWARNING_LOCK(dnp, "Missing parent for <%s> \n",
-                                        dnp->n_name);
-                        error = ENOENT;
-                        goto done;
-                    }
-                }
-            }
-            
-            delen = smbfs_fill_direntry(&de, "..", i + 1, DT_DIR,
-                                        node_ino, flags);
-            /*
-             * At this point we always expect them to have enough room for dot
-             * and dotdot. If not enough room then uiomove will return an error.
-             */
-            error = uiomove((void *)&de, delen, uio);
-            if (error) {
-                goto done;
-            }
-            
-            (*numdirent)++;
-            offset++;
-            dnp->d_rdir_offset++;
-        }
-    }
 
 	/*
      * Do we need to open or restart the enumeration?
      */
     if (!(dnp->d_rdir_fctx) ||
         (dnp->d_rdir_fctx->f_share != share) ||
-        (offset == 2) ||
+        (offset == 0) ||
         (offset != dnp->d_rdir_offset)) {
         SMB_LOG_DIR_CACHE_LOCK(dnp, "Restart enum offset %lld d_rdir_offset %lld for <%s> \n",
                                offset, dnp->d_rdir_offset, dnp->n_name);
         
         smbfs_closedirlookup(dnp, 1, "readvdir dir restart", context); /* sets dnp->d_rdir_offset to 0 */
-        
-        /* "." and ".." were added in earlier in this code */
-        if (offset == 2) {
-            dnp->d_rdir_offset = 2;
-        }
+
+        dnp->d_rdir_offset = 0;
         
         error = smbfs_smb_findopen(share, dnp, "*", 1, &dnp->d_rdir_fctx, TRUE,
                                    1, context);
@@ -393,14 +337,8 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
      * They are continuing from some point ahead of us in the buffer. Skip all
      * entries until we reach their point in the buffer.
      */
-    if (offset < 2) {
-        /* This should never happen */
-        SMBERROR_LOCK(dnp, "offset less than two for <%s>??? \n", dnp->n_name);
-        error = EINVAL;
-        goto done;
-    }
 
-    while (dnp->d_rdir_offset < (offset - 2)) {
+    while (dnp->d_rdir_offset < offset) {
         error = smbfs_findnext(ctx, context);
         if (error) {
             smbfs_closedirlookup(dnp, 1, "readvdir findnext error", context);
@@ -470,7 +408,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, int flags, int32_t *numdirent,
         }
 
 		/* Return this entry */
-        error = smbfs_add_dir_entry(dvp, uio, flags, name, name_len, fap);
+        error = smbfs_add_dir_entry(dvp, uio, flags, name, name_len, fap, false);
         switch (error) {
             case 0:
                 /* Item added successfully */
@@ -524,10 +462,6 @@ done:
 	 * lot simplier. 
 	 */
     uio_setoffset(uio, offset);
-
-    if (share != NULL) {
-        smb_share_rele(share, context);
-    }
 	
     if (last_entry_namep != NULL) {
         SMB_FREE_DATA(last_entry_namep, PATH_MAX);
@@ -546,12 +480,14 @@ static char smbzeroes[4096] = { 0 };
 
 static int
 smbfs_zero_fill(struct smb_share *share, SMBFID fid, u_quad_t from,
-                u_quad_t to, int ioflag, vfs_context_t context)
+                u_quad_t to, int ioflag,
+                vfs_context_t context)
 {
 	user_size_t len;
 	int error = 0;
 	uio_t uio;
-
+    uint32_t allow_compression = 1; /* Seems like a great place to compress */
+    
 	/*
 	 * Coherence callers must prevent VM from seeing the file size
 	 * grow until this loop is complete.
@@ -561,7 +497,8 @@ smbfs_zero_fill(struct smb_share *share, SMBFID fid, u_quad_t from,
 		len = MIN((to - from), sizeof(smbzeroes));
 		uio_reset(uio, from, UIO_SYSSPACE, UIO_WRITE );
 		uio_addiov(uio, CAST_USER_ADDR_T(&smbzeroes[0]), len);
-		error = smb_smb_write(share, fid, uio, ioflag, context);
+		error = smb_smb_write(share, fid, uio, ioflag,
+                              &allow_compression, context);
 		if (error)
 			break;
 			/* nothing written */
@@ -587,7 +524,8 @@ smbfs_zero_fill(struct smb_share *share, SMBFID fid, u_quad_t from,
  */
 int 
 smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
-              u_quad_t to, int ioflag, vfs_context_t context)
+              u_quad_t to, int ioflag,
+              uint32_t *allow_compressionp, vfs_context_t context)
 {
 	int error;
 
@@ -607,7 +545,8 @@ smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
 	if ((share->ss_fstype == SMB_FS_FAT) || 
 		((SS_TO_SESSION(share)->session_flags & SMBV_NT4)) || 
 		((SS_TO_SESSION(share)->session_flags & SMBV_WIN2K_XP))) {
-		error = smbfs_zero_fill(share, fid, from, to, ioflag, context);
+		error = smbfs_zero_fill(share, fid, from, to, ioflag,
+                                context);
 	} else {
 		char onezero = 0;
 		int len = 1;
@@ -616,7 +555,8 @@ smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
 		/* Writing one byte of zero before the eof will force NTFS to zero fill. */
 		uio = uio_create(1, (to - 1) , UIO_SYSSPACE, UIO_WRITE);
 		uio_addiov(uio, CAST_USER_ADDR_T(&onezero), len);
-		error = smb_smb_write(share, fid, uio, ioflag, context);
+		error = smb_smb_write(share, fid, uio, ioflag,
+                              allow_compressionp, context);
 		uio_free(uio);
 	}
 	return(error);
@@ -627,7 +567,7 @@ smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
  */
 int 
 smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-             SMBFID fid, vfs_context_t context)
+             SMBFID fid, uint32_t allow_compression, vfs_context_t context)
 {
 #pragma unused(endOfFile)
 	int error;
@@ -637,7 +577,7 @@ smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
      * EOF because we can never be sure what the current EOF is on the server
      * right at this exact moment. Just try the read request as is.
      */
-	error = smb_smb_read(share, fid, uiop, context);
+	error = smb_smb_read(share, fid, uiop, allow_compression, context);
 
 	return error;
 }
@@ -652,7 +592,8 @@ smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
  */
 int 
 smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-              SMBFID fid, int ioflag, vfs_context_t context)
+              SMBFID fid, int ioflag,
+              uint32_t *allow_compressionp, vfs_context_t context)
 {
 	int error = 0;
 
@@ -668,11 +609,13 @@ smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop,
 	 * We have a hole in the file make sure it gets zero filled 
 	 */
 	if (uio_offset(uiop) > endOfFile) {
-		error = smbfs_0extend(share, fid, endOfFile, uio_offset(uiop), ioflag, context);
+		error = smbfs_0extend(share, fid, endOfFile, uio_offset(uiop), ioflag,
+                              allow_compressionp, context);
 	}
 
 	if (!error) {
-		error = smb_smb_write(share, fid, uiop, ioflag, context);
+		error = smb_smb_write(share, fid, uiop, ioflag,
+                              allow_compressionp, context);
 	}
 
 	return error;

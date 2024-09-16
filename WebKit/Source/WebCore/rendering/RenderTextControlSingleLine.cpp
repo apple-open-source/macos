@@ -488,10 +488,17 @@ HTMLInputElement& RenderTextControlSingleLine::inputElement() const
     return downcast<HTMLInputElement>(RenderTextControl::textFormControlElement());
 }
 
+Ref<HTMLInputElement> RenderTextControlSingleLine::protectedInputElement() const
+{
+    return downcast<HTMLInputElement>(RenderTextControl::textFormControlElement());
+}
+
 RenderTextControlInnerBlock::RenderTextControlInnerBlock(Element& element, RenderStyle&& style)
     : RenderBlockFlow(Type::TextControlInnerBlock, element, WTFMove(style))
 {
     ASSERT(isRenderTextControlInnerBlock());
 }
+
+RenderTextControlInnerBlock::~RenderTextControlInnerBlock() = default;
 
 }

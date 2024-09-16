@@ -26,7 +26,6 @@
 #import <utilities/debugging.h>
 
 #import "keychain/ot/OTSetAccountSettingsOperation.h"
-#import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
 

@@ -334,16 +334,31 @@ sig_cleanup(int which_sig)
 	 * will clearly see the message on a line by itself.
 	 */
 	vflag = vfpart = 1;
+#ifndef __APPLE__
+	/*
+	 * POSIX conformance currently requires that we not emit these messages,
+	 * at least.
+	 */
 	if (which_sig == SIGXCPU)
 		paxwarn(0, "Cpu time limit reached, cleaning up.");
 	else
 		paxwarn(0, "Signal caught, cleaning up.");
+#endif
 
 	ar_close();
 	proc_dir();
 	if (tflag)
 		atdir_end();
+#ifdef __APPLE__
+	/*
+	 * Conformance requires us to re-raise these to propagate the correct
+	 * exit status up to the caller.
+	 */
+	signal(which_sig, SIG_DFL);
+	raise(which_sig);
+#else
 	exit(1);
+#endif
 }
 
 /*
@@ -439,10 +454,16 @@ gen_init(void)
 	   setup_sig(SIGXCPU, &n_hand))
 		goto out;
 
+#ifndef __APPLE__
+	/*
+	 * For conformance purposes, we can't ignore these; they're defined to
+	 * have default handling.
+	 */
 	n_hand.sa_handler = SIG_IGN;
 	if ((sigaction(SIGPIPE, &n_hand, NULL) < 0) ||
 	    (sigaction(SIGXFSZ, &n_hand, NULL) < 0))
 		goto out;
+#endif
 	return(0);
 
     out:

@@ -96,9 +96,10 @@ main(int argc, const char *argv[])
     [NSError _setFileNameLocalizationEnabled:NO];
     enter_sandbox();
 
+    /* daemon mode */
     static NSXPCListener *listener = nil;
 
-    ServiceDelegate *delegate = [ServiceDelegate new];
+    ServiceDelegate *delegate = [[ServiceDelegate alloc] init];
     listener = [[NSXPCListener alloc] initWithMachServiceName:@TrustdFileHelperXPCServiceName];
     listener.delegate = delegate;
 

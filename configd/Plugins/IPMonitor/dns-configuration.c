@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1822,7 +1822,7 @@ normalize_path(const char *file_name, char resolved_name[PATH_MAX])
 }
 
 static void
-dns_configuration_start_monitor(CFRunLoopRef runloop,
+dns_configuration_start_monitor(dispatch_queue_t queue,
 				dns_change_callback callback)
 {
 	FSEventStreamContext		context	= { 0, NULL, NULL, NULL, NULL };
@@ -1855,26 +1855,29 @@ dns_configuration_start_monitor(CFRunLoopRef runloop,
 				      0.0,
 				      flags);
 	CFRelease(paths);
-	FSEventStreamScheduleWithRunLoop(monitor, runloop,
-					 kCFRunLoopDefaultMode);
+	FSEventStreamSetDispatchQueue(monitor, queue);
 	FSEventStreamStart(monitor);
 }
 
 __private_extern__
 void
-dns_configuration_monitor(dns_change_callback callback)
+dns_configuration_monitor(dispatch_queue_t queue,
+			  dns_change_callback callback)
 {
 	dispatch_block_t	block;
-	CFRunLoopRef		runloop;
-	dispatch_queue_t	queue;
+	dispatch_queue_t	temp_queue;
 
-	queue = dispatch_queue_create(__func__, NULL);
-	runloop = CFRunLoopGetCurrent();
+	/*
+	 * rdar://84705539
+	 * Use a temporary queue to do the initialization to avoid
+	 * blocking IPMonitor's queue.
+	 */
+	temp_queue = dispatch_queue_create(__func__, NULL);
 	block = ^{
-		  dns_configuration_start_monitor(runloop, callback);
-		  dispatch_release(queue);
+		dns_configuration_start_monitor(queue, callback);
+		dispatch_release(temp_queue);
 	};
-	dispatch_async(queue, block);
+	dispatch_async(temp_queue, block);
 	return;
 }
 

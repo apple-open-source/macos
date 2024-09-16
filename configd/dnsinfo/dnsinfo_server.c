@@ -313,7 +313,7 @@ add_state_handler(void)
 		dnsinfo_len = (S_dns_info.data != NULL) ? CFDataGetLength(S_dns_info.data) : 0;
 		state_data_size = OS_STATE_DATA_SIZE_NEEDED(dnsinfo_len);
 		if (state_data_size > MAX_STATEDUMP_SIZE) {
-			SC_log(LOG_ERR, "DNS configuration: state data too large (%zd > %zd)",
+			SC_log(LOG_ERR, "DNS configuration: state data too large (%zu > %zu)",
 			       state_data_size,
 			       (size_t)MAX_STATEDUMP_SIZE);
 			return NULL;
@@ -471,7 +471,7 @@ _dns_configuration_store(dns_create_config_t *_config)
 
 		status = notify_post(notify_key);
 		if (status != NOTIFY_STATUS_OK) {
-			SC_log(LOG_ERR, "notify_post() failed: %d", status);
+			SC_log(LOG_ERR, "notify_post() failed: %u", status);
 			// notification posting failures are non-fatal
 		}
 	}

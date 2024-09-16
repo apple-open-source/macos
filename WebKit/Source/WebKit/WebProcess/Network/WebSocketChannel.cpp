@@ -45,6 +45,7 @@
 #include <WebCore/ThreadableWebSocketChannel.h>
 #include <WebCore/WebSocketChannelClient.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -54,23 +55,24 @@ Ref<WebSocketChannel> WebSocketChannel::create(WebPageProxyIdentifier webPagePro
     return adoptRef(*new WebSocketChannel(webPageProxyID, document, client));
 }
 
-void WebSocketChannel::notifySendFrame(WebSocketFrame::OpCode opCode, const uint8_t* data, size_t length)
+void WebSocketChannel::notifySendFrame(WebSocketFrame::OpCode opCode, std::span<const uint8_t> data)
 {
-    WebSocketFrame frame(opCode, true, false, true, data, length);
+    WebSocketFrame frame(opCode, true, false, true, data);
     m_inspector.didSendWebSocketFrame(frame);
 }
 
 NetworkSendQueue WebSocketChannel::createMessageQueue(Document& document, WebSocketChannel& channel)
 {
     return { document, [&channel](auto& utf8String) {
-        channel.notifySendFrame(WebSocketFrame::OpCode::OpCodeText, utf8String.dataAsUInt8Ptr(), utf8String.length());
-        channel.sendMessage(Messages::NetworkSocketChannel::SendString { IPC::DataReference { utf8String.dataAsUInt8Ptr(), utf8String.length() } }, utf8String.length());
-    }, [&channel](auto& span) {
-        channel.notifySendFrame(WebSocketFrame::OpCode::OpCodeBinary, span.data(), span.size());
-        channel.sendMessage(Messages::NetworkSocketChannel::SendData { IPC::DataReference { span.data(), span.size() } }, span.size());
+        auto data = utf8String.span();
+        channel.notifySendFrame(WebSocketFrame::OpCode::OpCodeText, data);
+        channel.sendMessageInternal(Messages::NetworkSocketChannel::SendString { data }, utf8String.length());
+    }, [&channel](auto span) {
+        channel.notifySendFrame(WebSocketFrame::OpCode::OpCodeBinary, span);
+        channel.sendMessageInternal(Messages::NetworkSocketChannel::SendData { span }, span.size());
     }, [&channel](ExceptionCode exceptionCode) {
         auto code = static_cast<int>(exceptionCode);
-        channel.fail(makeString("Failed to load Blob: exception code = ", code));
+        channel.fail(makeString("Failed to load Blob: exception code = "_s, code));
         return NetworkSendQueue::Continue::No;
     } };
 }
@@ -97,7 +99,7 @@ IPC::Connection* WebSocketChannel::messageSenderConnection() const
 
 uint64_t WebSocketChannel::messageSenderDestinationID() const
 {
-    return m_identifier.toUInt64();
+    return identifier().toUInt64();
 }
 
 String WebSocketChannel::subprotocol()
@@ -160,7 +162,7 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& url, const 
 
     m_inspector.didCreateWebSocket(url);
     m_url = request->url();
-    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { *request, protocol, m_identifier, m_webPageProxyID, frameID, pageID, m_document->clientOrigin(), WebProcess::singleton().hadMainFrameMainResourcePrivateRelayed(), allowPrivacyProxy, advancedPrivacyProtections, shouldRelaxThirdPartyCookieBlocking, storedCredentialsPolicy });
+    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { *request, protocol, identifier(), m_webPageProxyID, frameID, pageID, m_document->clientOrigin(), WebProcess::singleton().hadMainFrameMainResourcePrivateRelayed(), allowPrivacyProxy, advancedPrivacyProtections, shouldRelaxThirdPartyCookieBlocking, storedCredentialsPolicy });
     return ConnectStatus::OK;
 }
 
@@ -193,7 +195,7 @@ void WebSocketChannel::decreaseBufferedAmount(size_t byteLength)
         m_client->didUpdateBufferedAmount(m_bufferedAmount);
 }
 
-template<typename T> void WebSocketChannel::sendMessage(T&& message, size_t byteLength)
+template<typename T> void WebSocketChannel::sendMessageInternal(T&& message, size_t byteLength)
 {
     CompletionHandler<void()> completionHandler = [this, protectedThis = Ref { *this }, byteLength] {
         decreaseBufferedAmount(byteLength);
@@ -305,7 +307,7 @@ void WebSocketChannel::didReceiveText(String&& message)
     m_client->didReceiveMessage(WTFMove(message));
 }
 
-void WebSocketChannel::didReceiveBinaryData(IPC::DataReference&& data)
+void WebSocketChannel::didReceiveBinaryData(std::span<const uint8_t> data)
 {
     if (m_isClosing)
         return;
@@ -338,9 +340,9 @@ void WebSocketChannel::logErrorMessage(const String& errorMessage)
 
     String consoleMessage;
     if (!m_url.isNull())
-        consoleMessage = makeString("WebSocket connection to '", m_url.string(), "' failed: ", errorMessage);
+        consoleMessage = makeString("WebSocket connection to '"_s, m_url.string(), "' failed: "_s, errorMessage);
     else
-        consoleMessage = makeString("WebSocket connection failed: ", errorMessage);
+        consoleMessage = makeString("WebSocket connection failed: "_s, errorMessage);
     m_document->addConsoleMessage(MessageSource::Network, MessageLevel::Error, consoleMessage);
 }
 

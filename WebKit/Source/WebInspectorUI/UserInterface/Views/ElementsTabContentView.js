@@ -39,6 +39,11 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
         // COMPATIBILITY (iOS 14.0): `CSS.getFontDataForNode` did not exist yet.
         if (InspectorBackend.hasCommand("CSS.getFontDataForNode"))
             detailsSidebarPanelConstructors.push(WI.FontDetailsSidebarPanel);
+
+        // COMPATIBILITY (iOS 18.0, macOS 15.0): `DOM.getMediaStats` did not exist yet.
+        if (InspectorBackend.hasCommand("DOM.getMediaStats"))
+            detailsSidebarPanelConstructors.push(WI.MediaDetailsSidebarPanel)
+
         detailsSidebarPanelConstructors.push(WI.ChangesDetailsSidebarPanel, WI.DOMNodeDetailsSidebarPanel);
         if (InspectorBackend.hasDomain("LayerTree"))
             detailsSidebarPanelConstructors.push(WI.LayerTreeDetailsSidebarPanel);

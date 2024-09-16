@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,18 +71,6 @@ hostremove(struct hosts * * hosts, struct hosts * hp)
 	*hosts = hp->next;
     if (hp->next)
 	hp->next->prev = hp->prev;
-}
-
-void
-hostprint(struct hosts * hp)
-{
-    if (hp)
-	syslog(LOG_INFO, 
-	       "hw %s type %d len %d ip %s host '%s' bootfile '%s'\n", 
-	       ether_ntoa((struct ether_addr *)&hp->haddr), hp->htype,
-	       hp->hlen, inet_ntoa(hp->iaddr), 
-	       hp->hostname ? hp->hostname : "", 
-	       hp->bootfile ? hp->bootfile : "");
 }
 
 void

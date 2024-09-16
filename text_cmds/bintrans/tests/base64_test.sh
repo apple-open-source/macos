@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 Apple Inc. All rights reserved.
+# Copyright (c) 2022-2023 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 #
@@ -22,10 +22,10 @@
 #
 
 cmd=base64
-#cmd="sh base64.sh"
 
 sampinp="aoijeasdflkbnoiqenfoaisdfjlkadjslkjdf"
 sampout="YW9pamVhc2RmbGtibm9pcWVuZm9haXNkZmpsa2FkanNsa2pkZgo="
+sampoutnonl="YW9pamVhc2RmbGtibm9pcWVuZm9haXNkZmpsa2FkanNsa2pkZg=="
 sampoutb20="YW9pamVhc2RmbGtibm9p
 cWVuZm9haXNkZmpsa2Fk
 anNsa2pkZgo="
@@ -35,171 +35,212 @@ cWVuZm9haX
 NkZmpsa2Fk
 anNsa2pkZg
 o="
-fails=0
 
-if [ "$sampout" != "$(
-    echo "$sampinp" | $cmd )" ]; then
-	echo test 1 failed
-	fails=$((fails + 1))
-fi
+atf_test_case encode
+encode_head()
+{
+	atf_set descr "encode, no break"
+}
+encode_body()
+{
+	printf "%s\n" "$sampinp" >infile
+	atf_check -o inline:"$sampout\n" $cmd -i infile
+}
 
-if [ "$sampoutb10" != "$(
-    echo "$sampinp" | $cmd  -b 10)" ]; then
-	echo test 2 failed
-	fails=$((fails + 1))
-fi
+atf_test_case encode_b10
+encode_b10_head()
+{
+	atf_set descr "encode, break at 10"
+}
+encode_b10_body()
+{
+	printf "%s\n" "$sampinp" >infile
+	atf_check -o inline:"$sampoutb10\n" $cmd -b10 -i infile
+	atf_check -o inline:"$sampoutb10\n" $cmd --break 10 -i infile
+	atf_check -o inline:"$sampoutb10\n" $cmd -w10 -i infile
+	atf_check -o inline:"$sampoutb10\n" $cmd --wrap 10 -i infile
+}
 
-if [ "$sampoutb10" != "$(
-    echo "$sampinp" | $cmd  --break=10)" ]; then
-	echo test 3 failed
-	fails=$((fails + 1))
-fi
+atf_test_case encode_b20
+encode_b20_head()
+{
+	atf_set descr "encode, break at 20"
+}
+encode_b20_body()
+{
+	printf "%s\n" "$sampinp" >infile
+	atf_check -o inline:"$sampoutb20\n" $cmd -b20 -i infile
+	atf_check -o inline:"$sampoutb20\n" $cmd --break 20 -i infile
+	atf_check -o inline:"$sampoutb20\n" $cmd -w20 -i infile
+	atf_check -o inline:"$sampoutb20\n" $cmd --wrap 20 -i infile
+}
 
-if [ "$sampoutb20" != "$(
-    echo "$sampinp" | $cmd  -b 20)" ]; then
-	echo test 4 failed
-	fails=$((fails + 1))
-fi
+atf_test_case decode
+decode_head()
+{
+	atf_set descr "decode, no break"
+}
+decode_body()
+{
+	printf "%s\n" "$sampout" >infile
+	atf_check -o inline:"$sampinp\n" $cmd -D -i infile
+	atf_check -o inline:"$sampinp\n" $cmd -d -i infile
+	atf_check -o inline:"$sampinp\n" $cmd --decode -i infile
+}
 
-if [ "$sampoutb20" != "$(
-    echo "$sampinp" | $cmd  --break=20)" ]; then
-	echo test 5 failed
-	fails=$((fails + 1))
-fi
+atf_test_case decode_b10
+decode_b10_head()
+{
+	atf_set descr "decode, break at 10"
+}
+decode_b10_body()
+{
+	printf "%s\n" "$sampoutb10" >infile
+	atf_check -o inline:"$sampinp\n" $cmd -D -i infile
+	atf_check -o inline:"$sampinp\n" $cmd -d -i infile
+	atf_check -o inline:"$sampinp\n" $cmd --decode -i infile
+}
 
-if [ "$sampinp" != "$(
-    echo "$sampout" | $cmd  -d)" ]; then
-	echo test 6 failed
-	fails=$((fails + 1))
-fi
+atf_test_case decode_b20
+decode_b20_head()
+{
+	atf_set descr "decode, break at 20"
+}
+decode_b20_body()
+{
+	printf "%s\n" "$sampoutb20" >infile
+	atf_check -o inline:"$sampinp\n" $cmd -D -i infile
+	atf_check -o inline:"$sampinp\n" $cmd -d -i infile
+	atf_check -o inline:"$sampinp\n" $cmd --decode -i infile
+}
 
-if [ "$sampinp" != "$(
-    echo "$sampinp" | $cmd  -b 20 | $cmd  -d)" ]; then
-	echo test 7 failed
-	fails=$((fails + 1))
-fi
+atf_test_case ex_usage
+ex_usage_head()
+{
+	atf_set descr "exit code when incorrect usage"
+}
+ex_usage_body()
+{
+	printf "%s" "$sampinp\n" >infile
+	atf_check -s exit:64 -e match:"requires an argument" $cmd -b
+	atf_check -s exit:64 -e match:"requires an argument" $cmd -w
+	atf_check -s exit:64 -e match:"invalid argument" $cmd infile
+}
 
-if [ "$sampinp" != "$(
-    echo "$sampoutb20" | $cmd  -d)" ]; then
-	echo test 8 failed
-	fails=$((fails + 1))
-fi
+atf_test_case in_out
+in_out_head()
+{
+	atf_set descr "different ways of specifying input and output"
+}
+in_out_body()
+{
+	printf "%s\n" "$sampinp" >infile
+	for o in "" "-o-" "-o -" "--output=-" ; do
+		for i in "-iinfile" "-i infile" "--input=infile" ; do
+			atf_check -o inline:"$sampout\n" $cmd $i $o
+		done
+		for i in "" "-i-" "-i -" "--input=-" ; do
+			atf_check -o inline:"$sampout\n" $cmd $i $o <infile
+		done
+	done
+	for i in "-iinfile" "-i infile" "--input=infile" ; do
+		for o in "-ooutfile" "-o outfile" "--output=outfile" ; do
+			atf_check $cmd -b 20 $i $o
+			atf_check -o inline:"$sampoutb20\n" cat outfile
+		done
+	done
+	for i in "" "-i-" "-i -" "--input=-" ; do
+		for o in "-ooutfile" "-o outfile" "--output=outfile" ; do
+			atf_check $cmd -b 20 $i $o <infile
+			atf_check -o inline:"$sampoutb20\n" cat outfile
+		done
+	done
+}
 
-if [ "$sampinp" != "$(
-    echo "$sampinp" | $cmd  -b 20 | $cmd  -D)" ]; then
-	echo test 9 failed
-	fails=$((fails + 1))
-fi
+atf_test_case decode_break
+decode_break_head()
+{
+	atf_set descr "check that we don't break the output when decoding"
+}
+decode_break_body()
+{
+	printf "%s\n" "$sampout" >infile
+	atf_check -o inline:"$sampinp\n" $cmd -d -b 20 -i infile
+}
 
-if [ "$sampinp" != "$(
-    echo "$sampinp" | $cmd  -b 20 | $cmd  --decode)" ]; then
-	echo test 10 failed
-	fails=$((fails + 1))
-fi
+atf_test_case unreadable
+unreadable_head()
+{
+	atf_set descr "unreadable input file"
+}
+unreadable_body()
+{
+	printf "%s\n" "$sampinp" >infile
+	chmod a-r infile
+	atf_check -s not-exit -e match:"denied" $cmd -i infile
+}
 
-res=$($cmd  -w 2>/dev/null)
-if [ "$?" -ne 64 ]; then
-	echo test 11 failed
-	fails=$((fails + 1))
-fi
-if [ ! -z "$res" ]; then
-	echo test 12 failed
-	fails=$((fails + 1))
-fi
+atf_test_case unwriteable
+unwriteable_head()
+{
+	atf_set descr "unwriteable output file"
+}
+unwriteable_body()
+{	
+	truncate -s0 outfile
+	chmod a-w outfile
+	atf_check -s not-exit -e match:"denied" $cmd -o outfile
+}
 
-if [ "$sampout" != "$(
-    echo "$sampinp" | $cmd  -o - -i -)" ]; then
-	echo test 13 failed
-	fails=$((fails + 1))
-fi
+atf_test_case unterminated
+unterminated_head()
+{
+	atf_set descr "unterminated input"
+}
+unterminated_body()
+{
+	printf "%s" "$sampinp" >infile
+	atf_check -o inline:"$sampoutnonl\n" $cmd -i infile
+}
 
-echo "$sampinp" | $cmd  -b 20 -o testfile.$$
-if [ "$sampoutb20" != "$(cat testfile.$$)" ]; then
-	echo test 14 failed
-	fails=$((fails + 1))
-fi
-rm testfile.$$
+atf_test_case rdar109360812
+rdar109360812_head()
+{
+	atf_set descr "Check that base64 does not break lines by default"
+}
+rdar109360812_body()
+{
+	seq 1 1024 >infile
+	atf_check $cmd -i infile -o outfile
+	atf_check -o match:"^ *1 outfile$" wc -l outfile
+	atf_check -o file:infile $cmd -d -i outfile
+}
 
-echo "$sampinp" | $cmd  -b 20 --output=testfile.$$
-if [ "$sampoutb20" != "$(cat testfile.$$)" ]; then
-	echo test 15 failed
-	fails=$((fails + 1))
-fi
+atf_test_case url
+url_head()
+{
+	atf_set descr "test URL encoding"
+}
+url_body()
+{
+	printf "MCM_MA==\n" >infile
+	atf_check -o inline:"0#?0" $cmd -d -i infile
+}
 
-# the -d -b 20 seems nonsensical, but we need to make sure that
-# we don't break the output when decoding
-$cmd  -d -b 20 -i testfile.$$ --output=testfile.out.$$
-if [ "$sampinp" != "$(cat testfile.out.$$)" ]; then
-	echo test 16 failed
-	fails=$((fails + 1))
-fi
-rm testfile.out.$$
-
-$cmd  -d --input=testfile.$$ --output=testfile.out.$$
-if [ "$sampinp" != "$(cat testfile.out.$$)" ]; then
-	echo test 17 failed
-	fails=$((fails + 1))
-fi
-
-# Ensure base64 throws an error for an unreadable input file...
-echo "$sampinp" > testfile.$$
-chmod -r testfile.$$
-if $cmd -i testfile.$$ -o /dev/null 2>/dev/null; then
-	echo test 18 failed
-	fails=$((fails + 1))
-fi
-
-# ... and an unwritable output file.
-chmod +r-w testfile.$$
-if echo "$sampinp" | $cmd -i - -o testfile.$$ 2>/dev/null; then
-	echo test 19 failed
-	fails=$((fails + 1))
-fi
-
-rm -f testfile.$$
-
-# Test that base64 --decode doesn't eat our newlines.
-printf "ABCD\nEFGH\n" > testfile.$$
-
-$cmd -b 64 -i testfile.$$ -o - | $cmd -D -i - -o testfile.out.$$
-if ! cmp -s testfile.$$ testfile.out.$$; then
-	echo "test 20 failed"
-	fails=$((fails + 1))
-fi
-
-# Test that base64 --decode can handle inputs without a newline at all.
-$cmd -i testfile.$$ -o - | tr -d '[[:space:]]' | \
-    $cmd -D -i - -o testfile.out.$$
-if ! cmp -s testfile.$$ testfile.out.$$; then
-	echo "test 21 failed"
-	fails=$((fails + 1))
-fi
-
-# Large inputs have to be broken up because OpenSSL wants to see a newline
-# within the first ~80 characters, it seems, based on experimentation.
-seq 1 1024 > testfile.$$
-$cmd -i testfile.$$ -o - | $cmd -D -i - -o testfile.out.$$
-if ! cmp -s testfile.$$ testfile.out.$$; then
-	echo "test 22 failed"
-	fails=$((fails + 1))
-fi
-
-rm -f testfile.$$
-rm testfile.out.$$
-
-printf "0#?0" > testfile.$$
-echo "MCM_MA==" | $cmd -D -o testfile.out.$$
-if ! cmp -s testfile.$$ testfile.out.$$; then
-	echo "test 23 failed"
-	fails=$((fails + 1))
-fi
-
-rm -f testfile.$$
-rm testfile.out.$$
-
-if [ "$fails" -ne 0 ]; then
-	echo "$fails tests failed"
-else
-	echo "all tests passed"
-fi
-exit $fails
+atf_init_test_cases()
+{
+	atf_add_test_case encode
+	atf_add_test_case encode_b10
+	atf_add_test_case encode_b20
+	atf_add_test_case decode
+	atf_add_test_case decode_b10
+	atf_add_test_case decode_b20
+	atf_add_test_case ex_usage
+	atf_add_test_case in_out
+	atf_add_test_case decode_break
+	atf_add_test_case unreadable
+	atf_add_test_case unwriteable
+	atf_add_test_case unterminated
+	atf_add_test_case rdar109360812
+	atf_add_test_case url
+}

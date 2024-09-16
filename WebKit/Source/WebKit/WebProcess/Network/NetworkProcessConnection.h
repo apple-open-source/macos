@@ -26,17 +26,18 @@
 #pragma once
 
 #include "Connection.h"
-#include "ShareableResource.h"
 #include <JavaScriptCore/ConsoleTypes.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/MessagePortChannelProvider.h>
+#include <WebCore/PageIdentifier.h>
 #include <WebCore/RTCDataChannelIdentifier.h>
 #include <WebCore/ResourceLoaderIdentifier.h>
 #include <WebCore/ServiceWorkerTypes.h>
+#include <WebCore/ShareableResource.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-class RegistrableDomain;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
@@ -91,9 +92,8 @@ public:
     void cookiesDeleted(const String& host, Vector<WebCore::Cookie>&&);
     void allCookiesDeleted();
 #endif
-
-    void addAllowedFirstPartyForCookies(WebCore::RegistrableDomain&&);
-
+    void updateCachedCookiesEnabled();
+    void loadCancelledDownloadRedirectRequestInFrame(WebCore::ResourceRequest&&, WebCore::FrameIdentifier, WebCore::PageIdentifier);
 private:
     NetworkProcessConnection(IPC::Connection::Identifier, WebCore::HTTPCookieAcceptPolicy);
 
@@ -112,7 +112,7 @@ private:
 
 #if ENABLE(SHAREABLE_RESOURCE)
     // Message handlers.
-    void didCacheResource(const WebCore::ResourceRequest&, ShareableResource::Handle&&);
+    void didCacheResource(const WebCore::ResourceRequest&, WebCore::ShareableResource::Handle&&);
 #endif
 #if ENABLE(WEB_RTC)
     void connectToRTCDataChannelRemoteSource(WebCore::RTCDataChannelIdentifier source, WebCore::RTCDataChannelIdentifier handler, CompletionHandler<void(std::optional<bool>)>&&);

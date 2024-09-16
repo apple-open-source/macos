@@ -1,5 +1,4 @@
 # $NetBSD: t_sdiff.sh,v 1.1 2012/03/17 16:33:15 jruoho Exp $
-# $FreeBSD$
 #
 # Copyright (c) 2008, 2009 The NetBSD Foundation, Inc.
 # All rights reserved.
@@ -192,6 +191,40 @@ short_body()
 $(atf_get_srcdir)/d_input2 >/dev/null ; cat merge.out"
 }
 
+atf_test_case tflag
+tflag_head()
+{
+	atf_set "descr" "Checks tab expansion"
+}
+tflag_body()
+{
+	printf "a\tb\n" >a
+	printf "b\ta\n" >b
+	atf_check -s exit:1 -o match:$'a\tb' \
+		  sdiff a b
+	atf_check -s exit:1 -o match:"a {7}b" \
+		  sdiff -t a b
+	atf_check -s exit:1 -o match:"a {3}b" \
+		  sdiff -t --tabsize 4 a b
+}
+
+atf_test_case binary
+binary_head()
+{
+	atf_set "descr" "Checks binary file handling"
+}
+binary_body()
+{
+	printf "a\0\n" >a
+	printf "b\0\n" >b
+	atf_check -o empty sdiff a a
+	atf_check -o empty sdiff a - <a
+	atf_check -s exit:1 -o match:"Binary files .* differ" \
+		  sdiff a b
+	atf_check -s exit:1 -o match:"Binary files .* differ" \
+		  sdiff a - <b
+}
+
 #ifdef __APPLE__
 atf_test_case mb
 mb_head()
@@ -219,6 +252,8 @@ atf_init_test_cases()
 	atf_add_test_case dot
 	atf_add_test_case stdin
 	atf_add_test_case short
+	atf_add_test_case tflag
+	atf_add_test_case binary
 #ifdef __APPLE__
 	atf_add_test_case mb
 #endif

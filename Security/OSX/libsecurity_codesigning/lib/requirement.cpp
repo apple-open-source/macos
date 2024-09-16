@@ -78,11 +78,7 @@ bool Requirement::validates(const Requirement::Context &ctx, OSStatus failure /*
 		}
 #if !TARGET_OS_SIMULATOR
 	case lwcrForm: {
-		Requirement::Reader reader(this);
-		const UInt8* data = NULL;
-		size_t length = 0;
-		reader.getData(data, length);
-		CFRef<CFDataRef> lwcr = CFDataCreate(NULL, data, length);
+		CFRef<CFDataRef> lwcr = createlwcrFormData();
 		if (evaluateLightweightCodeRequirement(ctx, lwcr)) {
 			CODESIGN_EVAL_REQINT_END(this, 0);
 			return true;
@@ -95,6 +91,19 @@ bool Requirement::validates(const Requirement::Context &ctx, OSStatus failure /*
 	default:
 		CODESIGN_EVAL_REQINT_END(this, errSecCSReqUnsupported);
 		MacOSError::throwMe(errSecCSReqUnsupported);
+	}
+}
+
+CFDataRef Requirement::createlwcrFormData() const
+{
+	if (kind() == lwcrForm) {
+		Requirement::Reader reader(this);
+		const UInt8* data = NULL;
+		size_t length = 0;
+		reader.getData(data, length);
+		return CFDataCreate(NULL, data, length);
+	} else {
+		MacOSError::throwMe(errSecCSReqInvalid);
 	}
 }
 

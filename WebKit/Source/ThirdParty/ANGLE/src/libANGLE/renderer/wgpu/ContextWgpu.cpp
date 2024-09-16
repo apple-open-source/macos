@@ -30,12 +30,24 @@
 #include "libANGLE/renderer/wgpu/TextureWgpu.h"
 #include "libANGLE/renderer/wgpu/TransformFeedbackWgpu.h"
 #include "libANGLE/renderer/wgpu/VertexArrayWgpu.h"
+#include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
 namespace rx
 {
 
-ContextWgpu::ContextWgpu(const gl::State &state, gl::ErrorSet *errorSet)
-    : ContextImpl(state, errorSet)
+namespace
+{
+
+constexpr angle::PackedEnumMap<webgpu::RenderPassClosureReason, const char *>
+    kRenderPassClosureReason = {{
+        {webgpu::RenderPassClosureReason::NewRenderPass,
+         "Render pass closed due to starting a new render pass"},
+    }};
+
+}  // namespace
+
+ContextWgpu::ContextWgpu(const gl::State &state, gl::ErrorSet *errorSet, DisplayWgpu *display)
+    : ContextImpl(state, errorSet), mDisplay(display)
 {
     mExtensions                               = gl::Extensions();
     mExtensions.blendEquationAdvancedKHR      = true;
@@ -86,6 +98,8 @@ ContextWgpu::ContextWgpu(const gl::State &state, gl::ErrorSet *errorSet)
 
     InitMinimumTextureCapsMap(maxClientVersion, mExtensions, &mTextureCaps);
 
+    webgpu::EnsureCapsInitialized(mDisplay->getDevice(), &mCaps);
+
     if (mExtensions.shaderPixelLocalStorageANGLE)
     {
         mPLSOptions.type             = ShPixelLocalStorageType::FramebufferFetch;
@@ -102,6 +116,7 @@ void ContextWgpu::onDestroy(const gl::Context *context)
 
 angle::Result ContextWgpu::initialize(const angle::ImageLoadContext &imageLoadContext)
 {
+    mImageLoadContext = imageLoadContext;
     return angle::Result::Continue;
 }
 
@@ -524,4 +539,33 @@ void ContextWgpu::handleError(GLenum errorCode,
     errorStream << "Internal Wgpu back-end error: " << message << ".";
     mErrors->handleError(errorCode, errorStream.str().c_str(), file, function, line);
 }
+
+angle::Result ContextWgpu::startRenderPass(const wgpu::RenderPassDescriptor &desc)
+{
+    mCurrentCommandEncoder = getDevice().CreateCommandEncoder(nullptr);
+    mCurrentRenderPass     = mCurrentCommandEncoder.BeginRenderPass(&desc);
+    return angle::Result::Continue;
+}
+
+angle::Result ContextWgpu::endRenderPass(webgpu::RenderPassClosureReason closure_reason)
+{
+    if (!mCurrentRenderPass)
+    {
+        return angle::Result::Continue;
+    }
+    const char *reasonText = kRenderPassClosureReason[closure_reason];
+    INFO() << reasonText;
+    mCurrentRenderPass.End();
+    mCurrentRenderPass = nullptr;
+    return angle::Result::Continue;
+}
+
+angle::Result ContextWgpu::flush()
+{
+    wgpu::CommandBuffer command_buffer = mCurrentCommandEncoder.Finish();
+    getQueue().Submit(1, &command_buffer);
+    mCurrentCommandEncoder = nullptr;
+    return angle::Result::Continue;
+}
+
 }  // namespace rx

@@ -47,13 +47,6 @@ static void test_cms_verification(void)
     /* verify that CMS stack found the certs in the CMS (using the SKID) and stuck them in the trust ref */
     ok_status(SecTrustCopyInputCertificates(trust, &certificates), "copy input certificates");
     CFIndex expectedCertCount = 4;
-#if TARGET_OS_IPHONE
-    /* The legacy iOS implementation re-orders the 3 certs, whereas the legacy macOS and new implementations
-     * prepend the signer cert to all certificates in the CMS object */
-    if (!useMessageSecurityEnabled()) {
-        expectedCertCount = 3;
-    }
-#endif
     is(CFArrayGetCount(certificates), expectedCertCount, "%d certs in the cms", (int)expectedCertCount);
 
     CFReleaseNull(policy);

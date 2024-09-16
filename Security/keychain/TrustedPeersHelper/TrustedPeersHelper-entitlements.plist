@@ -6,6 +6,10 @@
 	<string>com.apple.TrustedPeersHelper</string>
 	<key>aps-environment</key>
 	<string>serverPreferred</string>
+	<key>com.apple.accounts.appleaccount.fullaccess</key>
+	<true/>
+	<key>com.apple.accounts.idms.fullaccess</key>
+	<true/>
 	<key>com.apple.application-identifier</key>
 	<string>com.apple.TrustedPeersHelper</string>
 	<key>com.apple.developer.aps-environment</key>
@@ -42,6 +46,7 @@
 	</array>
 	<key>com.apple.security.exception.mach-lookup.global-name</key>
 	<array>
+		<string>com.apple.cdp.daemon</string>
 		<string>com.apple.accountsd.accountmanager</string>
 		<string>com.apple.mobile.usermanagerd.xpc</string>
 		<string>com.apple.security.sfkeychainserver</string>

@@ -43,6 +43,8 @@ void xpcEngineCheckNotarized(CFBooleanRef* result);
 void xpcEngineTicketRegister(CFDataRef ticketData);
 void xpcEngineTicketLookup(CFDataRef hashData, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date);
 void xpcEngineLegacyCheck(CFDataRef hashData, SecCSDigestAlgorithm hashType, CFStringRef teamID);
+void xpcEngineEnable(void);
+void xpcEngineDisable(void);
 
 } // end namespace CodeSigning
 } // end namespace Security

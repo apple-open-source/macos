@@ -28,7 +28,6 @@
 
 #include "InlineContentAligner.h"
 #include "InlineFormattingContext.h"
-#include "InlineLevelBox.h"
 #include "InlineLine.h"
 #include "RenderStyleInlines.h"
 
@@ -186,14 +185,14 @@ bool RubyFormattingContext::isAtSoftWrapOpportunity(const InlineItem& previous, 
 
         if (current.isInlineBoxStart()) {
             // At the beginning of <ruby>.
-            if (!previous.isText())
+            auto* leadingTextItem = dynamicDowncast<InlineTextItem>(previous);
+            if (!leadingTextItem)
                 return true;
-            auto& leadingTextItem = downcast<InlineTextItem>(previous);
-            if (!leadingTextItem.length()) {
+            if (!leadingTextItem->length()) {
                 // FIXME: This needs to know prior context.
                 return true;
             }
-            auto lastCharacter = leadingTextItem.inlineTextBox().content()[leadingTextItem.end() - 1];
+            auto lastCharacter = leadingTextItem->inlineTextBox().content()[leadingTextItem->end() - 1];
             return canBreakAfter(lastCharacter);
         }
         // Don't break between base end and <ruby> end.
@@ -210,14 +209,14 @@ bool RubyFormattingContext::isAtSoftWrapOpportunity(const InlineItem& previous, 
 
         if (previous.isInlineBoxEnd()) {
             // At the end of <ruby>
-            if (!current.isText())
+            auto* trailingTextItem = dynamicDowncast<InlineTextItem>(current);
+            if (!trailingTextItem)
                 return true;
-            auto& trailingTextItem = downcast<InlineTextItem>(current);
-            if (!trailingTextItem.length()) {
+            if (!trailingTextItem->length()) {
                 // FIXME: This should be turned into one of those "can't decide it yet" cases.
                 return true;
             }
-            auto firstCharacter = trailingTextItem.inlineTextBox().content()[trailingTextItem.start()];
+            auto firstCharacter = trailingTextItem->inlineTextBox().content()[trailingTextItem->start()];
             return canBreakBefore(firstCharacter);
         }
         // We should handled this case already when looking at current: base, previous: ruby.
@@ -434,7 +433,7 @@ void RubyFormattingContext::adjustLayoutBoundsAndStretchAncestorRubyBase(LineBox
         auto extraSpaceForAnnotation = InlineLayoutUnit { };
         if (!isFirstFormattedLine) {
             // Note that annotation may leak into the half leading space (gap between lines).
-            auto lineGap = rubyBaseLayoutBox.style().metricsOfPrimaryFont().lineSpacing();
+            auto lineGap = rubyBaseLayoutBox.style().metricsOfPrimaryFont().intLineSpacing();
             extraSpaceForAnnotation = std::max(0.f, (lineGap - (ascent + descent)) / 2);
         }
         auto ascentWithAnnotation = (ascent + over) - extraSpaceForAnnotation;

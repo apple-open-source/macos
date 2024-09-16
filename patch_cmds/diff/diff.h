@@ -93,14 +93,15 @@
 #ifdef __APPLE__
 /*
  * This has been converted to an enum for rdar://problem/87480531 handling.  It
- * is easier to avoid conflicts with upstream in enums.  In our version, we
- * don't emit any skipped messages; just that something was mismatched.
+ * is easier to avoid conflicts with upstream in enums.
  */
 enum {
 	D_SAME,			/* Files are the same */
 	D_DIFFER,		/* Files are different */
 	D_BINARY,		/* Binary files are different */
 	D_MISMATCH,		/* Paths are different, non-comparable types */
+	D_SKIPPED1,		/* path1 was a special file */
+	D_SKIPPED2,		/* path2 was a special file */
 	D_ERROR,		/* A file access error occurred */
 };
 

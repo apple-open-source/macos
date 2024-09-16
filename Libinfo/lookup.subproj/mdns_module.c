@@ -1321,7 +1321,7 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 	_mdns_debug_message(";; mdns query %s type %d class %d ifindex %d [ctx %p]\n", qname, type, class, (int)iface, ctx);
 
 #if _DNS_SD_H >= 15030000
-	status = DNSServiceQueryRecordEx(&ctx->sd, flags, iface, qname, type, class, &kDNSServiceAttrAllowFailover, _mdns_query_callback, ctx);
+	status = DNSServiceQueryRecordWithAttribute(&ctx->sd, flags, iface, qname, type, class, &kDNSServiceAttrAllowFailover, _mdns_query_callback, ctx);
 #else
 	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 #endif

@@ -25,13 +25,14 @@
 
 #pragma once
 
-#if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
+#if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_RECORDER)
 
 #include "MediaRecorderIdentifier.h"
 #include "SharedCARingBuffer.h"
 #include "SharedVideoFrame.h"
 #include <WebCore/CAAudioStreamDescription.h>
 #include <WebCore/MediaRecorderPrivate.h>
+#include <wtf/Identified.h>
 #include <wtf/MediaTime.h>
 #include <wtf/WeakPtr.h>
 
@@ -50,8 +51,10 @@ class MediaRecorderPrivateGPUProcessDidCloseObserver;
 
 class MediaRecorderPrivate final
     : public WebCore::MediaRecorderPrivate
-    , public CanMakeWeakPtr<MediaRecorderPrivate> {
+    , public CanMakeWeakPtr<MediaRecorderPrivate>
+    , private Identified<MediaRecorderIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(MediaRecorderPrivate);
 public:
     MediaRecorderPrivate(WebCore::MediaStreamPrivate&, const WebCore::MediaRecorderPrivateOptions&);
     ~MediaRecorderPrivate();
@@ -70,7 +73,6 @@ private:
     friend class MediaRecorderPrivateGPUProcessDidCloseObserver;
     void gpuProcessConnectionDidClose();
 
-    MediaRecorderIdentifier m_identifier;
     Ref<WebCore::MediaStreamPrivate> m_stream;
     Ref<IPC::Connection> m_connection;
 
@@ -89,4 +91,4 @@ private:
 
 }
 
-#endif // PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
+#endif // PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_RECORDER)

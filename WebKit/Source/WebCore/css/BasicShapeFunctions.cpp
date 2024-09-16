@@ -80,6 +80,12 @@ static SVGPathByteStream copySVGPathByteStream(const SVGPathByteStream& source, 
     return source;
 }
 
+Ref<CSSValue> valueForSVGPath(const BasicShapePath& path, SVGPathConversion conversion)
+{
+    ASSERT(path.pathData());
+    return CSSPathValue::create(copySVGPathByteStream(*path.pathData(), conversion), path.windRule());
+}
+
 Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& basicShape, SVGPathConversion conversion)
 {
     auto createValue = [&](const Length& length) {
@@ -88,32 +94,15 @@ Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& bas
     auto createPair = [&](const LengthSize& size) {
         return CSSValuePair::create(createValue(size.width), createValue(size.height));
     };
-
-    auto createSumValue = [&](Vector<Ref<CSSCalcExpressionNode>> expressions) -> Ref<CSSValue> {
-        auto node = CSSCalcOperationNode::simplify(CSSCalcOperationNode::createSum(WTFMove(expressions)).releaseNonNull());
-        if (RefPtr operation = dynamicDowncast<CSSCalcOperationNode>(node); operation && operation->isIdentity()) {
-            if (RefPtr child = dynamicDowncast<CSSCalcPrimitiveValueNode>(operation->children()[0]))
-                return const_cast<CSSPrimitiveValue&>(child->value());
-        }
-        return CSSCalcValue::create(WTFMove(node));
-    };
-
-    auto createNode = [&](const Length& length) {
-        return CSSCalcPrimitiveValueNode::create(createValue(length));
-    };
-    auto create100PercentNode = [&]() {
-        return createNode(Length(100, LengthType::Percent));
-    };
-    auto createNegatedNode = [&](const Length& length) {
-        return CSSCalcNegateNode::create(createNode(length));
-    };
     auto createReflectedSumValue = [&](const Length& a, const Length& b) {
-        return createSumValue({ create100PercentNode(), createNegatedNode(a), createNegatedNode(b) });
+        auto reflected = convertTo100PercentMinusLengthSum(a, b);
+        return CSSPrimitiveValue::create(reflected, style);
     };
     auto createReflectedValue = [&](const Length& length) -> Ref<CSSValue> {
         if (length.isAuto())
             return createValue(Length(0, LengthType::Percent));
-        return createSumValue({ create100PercentNode(), createNegatedNode(length) });
+        auto reflected = convertTo100PercentMinusLength(length);
+        return CSSPrimitiveValue::create(reflected, style);
     };
 
     switch (basicShape.type()) {
@@ -148,11 +137,8 @@ Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& bas
             values.append(CSSPrimitiveValue::create(value, style));
         return CSSPolygonValue::create(WTFMove(values), polygon.windRule());
     }
-    case BasicShape::Type::Path: {
-        auto& pathShape = uncheckedDowncast<BasicShapePath>(basicShape);
-        ASSERT(pathShape.pathData());
-        return CSSPathValue::create(copySVGPathByteStream(*pathShape.pathData(), conversion), pathShape.windRule());
-    }
+    case BasicShape::Type::Path:
+        return valueForSVGPath(uncheckedDowncast<BasicShapePath>(basicShape), conversion);
     case BasicShape::Type::Inset: {
         auto& inset = uncheckedDowncast<BasicShapeInset>(basicShape);
         return CSSInsetShapeValue::create(createValue(inset.top()), createValue(inset.right()),
@@ -193,7 +179,7 @@ static LengthSize convertToLengthSize(const CSSToLengthConversionData& conversio
     if (!value)
         return { { 0, LengthType::Fixed }, { 0, LengthType::Fixed } };
 
-    return { convertToLength(conversionData, value->first()), convertToLength(conversionData, value->second()) };
+    return { convertToLength(conversionData, value->protectedFirst()), convertToLength(conversionData, value->protectedSecond()) };
 }
 
 static BasicShapeCenterCoordinate convertToCenterCoordinate(const CSSToLengthConversionData& conversionData, const CSSValue* value)
@@ -206,7 +192,7 @@ static BasicShapeCenterCoordinate convertToCenterCoordinate(const CSSToLengthCon
         keyword = value->valueID();
     else if (value->isPair()) {
         keyword = value->first().valueID();
-        offset = convertToLength(conversionData, value->second());
+        offset = convertToLength(conversionData, value->protectedSecond());
     } else
         offset = convertToLength(conversionData, *value);
 
@@ -257,18 +243,18 @@ Ref<BasicShape> basicShapeForValue(const CSSToLengthConversionData& conversionDa
 {
     if (auto* circleValue = dynamicDowncast<CSSCircleValue>(value)) {
         auto circle = BasicShapeCircle::create();
-        circle->setRadius(cssValueToBasicShapeRadius(conversionData, circleValue->radius()));
-        circle->setCenterX(convertToCenterCoordinate(conversionData, circleValue->centerX()));
-        circle->setCenterY(convertToCenterCoordinate(conversionData, circleValue->centerY()));
+        circle->setRadius(cssValueToBasicShapeRadius(conversionData, circleValue->protectedRadius().get()));
+        circle->setCenterX(convertToCenterCoordinate(conversionData, circleValue->protectedCenterX().get()));
+        circle->setCenterY(convertToCenterCoordinate(conversionData, circleValue->protectedCenterY().get()));
         circle->setPositionWasOmitted(!circleValue->centerX() && !circleValue->centerY());
         return circle;
     }
     if (auto* ellipseValue = dynamicDowncast<CSSEllipseValue>(value)) {
         auto ellipse = BasicShapeEllipse::create();
-        ellipse->setRadiusX(cssValueToBasicShapeRadius(conversionData, ellipseValue->radiusX()));
-        ellipse->setRadiusY(cssValueToBasicShapeRadius(conversionData, ellipseValue->radiusY()));
-        ellipse->setCenterX(convertToCenterCoordinate(conversionData, ellipseValue->centerX()));
-        ellipse->setCenterY(convertToCenterCoordinate(conversionData, ellipseValue->centerY()));
+        ellipse->setRadiusX(cssValueToBasicShapeRadius(conversionData, ellipseValue->protectedRadiusX().get()));
+        ellipse->setRadiusY(cssValueToBasicShapeRadius(conversionData, ellipseValue->protectedRadiusY().get()));
+        ellipse->setCenterX(convertToCenterCoordinate(conversionData, ellipseValue->protectedCenterX().get()));
+        ellipse->setCenterY(convertToCenterCoordinate(conversionData, ellipseValue->protectedCenterY().get()));
         ellipse->setPositionWasOmitted(!ellipseValue->centerX() && !ellipseValue->centerY());
         return ellipse;
     }
@@ -276,54 +262,58 @@ Ref<BasicShape> basicShapeForValue(const CSSToLengthConversionData& conversionDa
         auto polygon = BasicShapePolygon::create();
         polygon->setWindRule(polygonValue->windRule());
         for (unsigned i = 0; i < polygonValue->size(); i += 2)
-            polygon->appendPoint(convertToLength(conversionData, *polygonValue->item(i)), convertToLength(conversionData, *polygonValue->item(i + 1)));
+            polygon->appendPoint(convertToLength(conversionData, *polygonValue->protectedItem(i)), convertToLength(conversionData, *polygonValue->protectedItem(i + 1)));
         return polygon;
     }
     if (auto* rectValue = dynamicDowncast<CSSInsetShapeValue>(value)) {
         auto rect = BasicShapeInset::create();
-        rect->setTop(convertToLength(conversionData, rectValue->top()));
-        rect->setRight(convertToLength(conversionData, rectValue->right()));
-        rect->setBottom(convertToLength(conversionData, rectValue->bottom()));
-        rect->setLeft(convertToLength(conversionData, rectValue->left()));
-        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->topLeftRadius()));
-        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->topRightRadius()));
-        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->bottomRightRadius()));
-        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->bottomLeftRadius()));
+        rect->setTop(convertToLength(conversionData, rectValue->protectedTop()));
+        rect->setRight(convertToLength(conversionData, rectValue->protectedRight()));
+        rect->setBottom(convertToLength(conversionData, rectValue->protectedBottom()));
+        rect->setLeft(convertToLength(conversionData, rectValue->protectedLeft()));
+        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->protectedTopLeftRadius().get()));
+        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->protectedTopRightRadius().get()));
+        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->protectedBottomRightRadius().get()));
+        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->protectedBottomLeftRadius().get()));
         return rect;
     }
     if (auto* rectValue = dynamicDowncast<CSSXywhValue>(value)) {
         auto rect = BasicShapeXywh::create();
-        rect->setInsetX(convertToLength(conversionData, rectValue->insetX()));
-        rect->setInsetY(convertToLength(conversionData, rectValue->insetY()));
-        rect->setWidth(convertToLength(conversionData, rectValue->width()));
-        rect->setHeight(convertToLength(conversionData, rectValue->height()));
+        rect->setInsetX(convertToLength(conversionData, rectValue->protectedInsetX().get()));
+        rect->setInsetY(convertToLength(conversionData, rectValue->protectedInsetY().get()));
+        rect->setWidth(convertToLength(conversionData, rectValue->protectedWidth().get()));
+        rect->setHeight(convertToLength(conversionData, rectValue->protectedHeight().get()));
 
-        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->topLeftRadius()));
-        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->topRightRadius()));
-        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->bottomRightRadius()));
-        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->bottomLeftRadius()));
+        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->protectedTopLeftRadius().get()));
+        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->protectedTopRightRadius().get()));
+        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->protectedBottomRightRadius().get()));
+        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->protectedBottomLeftRadius().get()));
         return rect;
     }
     if (auto* rectValue = dynamicDowncast<CSSRectShapeValue>(value)) {
         auto rect = BasicShapeRect::create();
-        rect->setTop(convertToLengthOrAuto(conversionData, rectValue->top()));
-        rect->setRight(convertToLengthOrAuto(conversionData, rectValue->right()));
-        rect->setBottom(convertToLengthOrAuto(conversionData, rectValue->bottom()));
-        rect->setLeft(convertToLengthOrAuto(conversionData, rectValue->left()));
+        rect->setTop(convertToLengthOrAuto(conversionData, rectValue->protectedTop()));
+        rect->setRight(convertToLengthOrAuto(conversionData, rectValue->protectedRight()));
+        rect->setBottom(convertToLengthOrAuto(conversionData, rectValue->protectedBottom()));
+        rect->setLeft(convertToLengthOrAuto(conversionData, rectValue->protectedLeft()));
 
-        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->topLeftRadius()));
-        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->topRightRadius()));
-        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->bottomRightRadius()));
-        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->bottomLeftRadius()));
+        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue->protectedTopLeftRadius().get()));
+        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue->protectedTopRightRadius().get()));
+        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue->protectedBottomRightRadius().get()));
+        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue->protectedBottomLeftRadius().get()));
         return rect;
     }
-    if (auto* pathValue = dynamicDowncast<CSSPathValue>(value)) {
-        auto path = BasicShapePath::create(pathValue->pathData().copy());
-        path->setWindRule(pathValue->windRule());
-        path->setZoom(zoom);
-        return path;
-    }
+    if (auto* pathValue = dynamicDowncast<CSSPathValue>(value))
+        return basicShapePathForValue(*pathValue, zoom);
     RELEASE_ASSERT_NOT_REACHED();
+}
+
+Ref<BasicShapePath> basicShapePathForValue(const CSSPathValue& value, float zoom)
+{
+    auto path = BasicShapePath::create(value.pathData().copy());
+    path->setWindRule(value.windRule());
+    path->setZoom(zoom);
+    return path;
 }
 
 float floatValueForCenterCoordinate(const BasicShapeCenterCoordinate& center, float boxDimension)

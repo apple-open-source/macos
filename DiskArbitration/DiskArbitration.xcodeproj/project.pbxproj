@@ -38,9 +38,7 @@
 				95A7EDDC26D6D4FC00DCFA83 /* ShellScript */,
 			);
 			dependencies = (
-				95E127272728B3ED002A43B7 /* PBXTargetDependency */,
 				95D52F6E26F3C565007A99E6 /* PBXTargetDependency */,
-				95D52F6C26F3C561007A99E6 /* PBXTargetDependency */,
 			);
 			name = All_embedded;
 			productName = All_embedded;
@@ -49,9 +47,10 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 95A7EDD726D6D4EE00DCFA83 /* Build configuration list for PBXAggregateTarget "DiskArbitration_executables_embedded" */;
 			buildPhases = (
-				95A7EDDD26D6D50800DCFA83 /* ShellScript */,
 			);
 			dependencies = (
+				DBA83A292BEC2FA100EAF0FB /* PBXTargetDependency */,
+				DBA83A2B2BEC2FA100EAF0FB /* PBXTargetDependency */,
 			);
 			name = DiskArbitration_executables_embedded;
 			productName = DiskArbitration_executables_embedded;
@@ -62,9 +61,7 @@
 			buildPhases = (
 			);
 			dependencies = (
-				95E127292728B3F3002A43B7 /* PBXTargetDependency */,
 				95D52F6A26E97064007A99E6 /* PBXTargetDependency */,
-				95D52F6826E97062007A99E6 /* PBXTargetDependency */,
 			);
 			name = All_iOS;
 			productName = All_iOS;
@@ -170,8 +167,6 @@
 		A407C29F2908897A00928858 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A407C29E2908897A00928858 /* FSKit.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		DB0BFD1929DE382200CE569E /* DiskArbitration.plist in Copy Feature Flag plist */ = {isa = PBXBuildFile; fileRef = DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */; };
 		DB7355FC29C3E24800840238 /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
-		DB7355FF29C3E31400840238 /* FSKitdWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = DB7355FD29C3E31400840238 /* FSKitdWatcher.h */; };
-		DB73560029C3E31400840238 /* FSKitdWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = DB7355FE29C3E31400840238 /* FSKitdWatcher.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -196,26 +191,12 @@
 			remoteGlobalIDString = 95AB0D20267A78FE00682648;
 			remoteInfo = datest;
 		};
-		95D52F6726E97062007A99E6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C87BF08EC8117004474CD;
-			remoteInfo = diskarbitrationd;
-		};
 		95D52F6926E97064007A99E6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 603C880E08EC8117004474CD;
 			remoteInfo = DiskArbitration;
-		};
-		95D52F6B26F3C561007A99E6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C87BF08EC8117004474CD;
-			remoteInfo = diskarbitrationd;
 		};
 		95D52F6D26F3C565007A99E6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -224,19 +205,19 @@
 			remoteGlobalIDString = 603C880E08EC8117004474CD;
 			remoteInfo = DiskArbitration;
 		};
-		95E127262728B3ED002A43B7 /* PBXContainerItemProxy */ = {
+		DBA83A282BEC2FA100EAF0FB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 95AB0D20267A78FE00682648;
 			remoteInfo = datest;
 		};
-		95E127282728B3F3002A43B7 /* PBXContainerItemProxy */ = {
+		DBA83A2A2BEC2FA100EAF0FB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 95AB0D20267A78FE00682648;
-			remoteInfo = datest;
+			remoteGlobalIDString = 603C87BF08EC8117004474CD;
+			remoteInfo = diskarbitrationd;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -406,8 +387,6 @@
 		95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 		A407C29E2908897A00928858 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
 		DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = DiskArbitration.plist; path = diskarbitrationd/DiskArbitration.plist; sourceTree = "<group>"; };
-		DB7355FD29C3E31400840238 /* FSKitdWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = FSKitdWatcher.h; path = diskarbitrationd/FSKitdWatcher.h; sourceTree = "<group>"; };
-		DB7355FE29C3E31400840238 /* FSKitdWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = FSKitdWatcher.m; path = diskarbitrationd/FSKitdWatcher.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -568,13 +547,11 @@
 				124AF310030AD9AD03A87B01 /* DASession.h */,
 				125B1A7F039D119A03A87B01 /* DAStage.c */,
 				125B1A7E039D119A03A87B01 /* DAStage.h */,
-				12BA01D8038C2A5803A87B01 /* DASupport.m */,
 				12BA01D7038C2A5803A87B01 /* DASupport.h */,
+				12BA01D8038C2A5803A87B01 /* DASupport.m */,
 				6DFC226C04E2DCF700A87B01 /* DAThread.c */,
 				6DFC226B04E2DCF700A87B01 /* DAThread.h */,
 				957575E025D36E9A002758FF /* DAUserFSMount.m */,
-				DB7355FD29C3E31400840238 /* FSKitdWatcher.h */,
-				DB7355FE29C3E31400840238 /* FSKitdWatcher.m */,
 			);
 			name = diskarbitrationd;
 			sourceTree = "<group>";
@@ -758,7 +735,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DB7355FF29C3E31400840238 /* FSKitdWatcher.h in Headers */,
 				603C87C108EC8117004474CD /* vsdb.h in Headers */,
 				605A42301695070C00959114 /* DAAgent.h in Headers */,
 				603C87C208EC8117004474CD /* DABase.h in Headers */,
@@ -847,6 +823,7 @@
 				603C87F308EC8117004474CD /* Copy Files */,
 				9500560C268A876400C60718 /* ShellScript */,
 				DB0BFD1829DE37F400CE569E /* Copy Feature Flag plist */,
+				D3A68EE22B7D2DF100451D9A /* Update Feature Flag plist */,
 			);
 			buildRules = (
 			);
@@ -971,10 +948,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
+				"${OBJROOT}/DiskArbitration.order",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -r /usr/local/lib/OrderFiles/DiskArbitration.order ] ; then\n\tcp /usr/local/lib/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi\n";
+			shellScript = "if [ -r ${SDK_DIR}/AppleInternal/OrderFiles/DiskArbitration.order ] ; then\n\tcp ${SDK_DIR}/AppleInternal/OrderFiles/DiskArbitration.order ${OBJROOT}/DiskArbitration.order\nelse\n\ttouch ${OBJROOT}/DiskArbitration.order\nfi\n";
 		};
 		9500560C268A876400C60718 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1029,22 +1007,24 @@
 			shellPath = /bin/sh;
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
 		};
-		95A7EDDD26D6D50800DCFA83 /* ShellScript */ = {
+		D3A68EE22B7D2DF100451D9A /* Update Feature Flag plist */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			files = (
 			);
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(DSTROOT)/System/Library/FeatureFlags/Domain/DiskArbitration.plist",
 			);
+			name = "Update Feature Flag plist";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nmkdir -p $DSTROOT/AppleInternal\n";
+			shellScript = "if [ \"macosx\" = \"$PLATFORM_NAME\" ]; then\n    /usr/libexec/PlistBuddy -c \"set :enableFSKitModules:DevelopmentPhase FeatureComplete\" -c \"save\" $SCRIPT_INPUT_FILE_0\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1079,7 +1059,6 @@
 				603C87DA08EC8117004474CD /* DACallback.c in Sources */,
 				603C87DB08EC8117004474CD /* DACommand.c in Sources */,
 				603C87DC08EC8117004474CD /* DADialog.c in Sources */,
-				DB73560029C3E31400840238 /* FSKitdWatcher.m in Sources */,
 				603C87DD08EC8117004474CD /* DADisk.c in Sources */,
 				603C87DE08EC8117004474CD /* DADissenter.c in Sources */,
 				603C87DF08EC8117004474CD /* DAFileSystem.c in Sources */,
@@ -1141,35 +1120,25 @@
 			target = 95AB0D20267A78FE00682648 /* datest */;
 			targetProxy = 95B96D3526A899AF000A2594 /* PBXContainerItemProxy */;
 		};
-		95D52F6826E97062007A99E6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
-			targetProxy = 95D52F6726E97062007A99E6 /* PBXContainerItemProxy */;
-		};
 		95D52F6A26E97064007A99E6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
 			targetProxy = 95D52F6926E97064007A99E6 /* PBXContainerItemProxy */;
-		};
-		95D52F6C26F3C561007A99E6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
-			targetProxy = 95D52F6B26F3C561007A99E6 /* PBXContainerItemProxy */;
 		};
 		95D52F6E26F3C565007A99E6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
 			targetProxy = 95D52F6D26F3C565007A99E6 /* PBXContainerItemProxy */;
 		};
-		95E127272728B3ED002A43B7 /* PBXTargetDependency */ = {
+		DBA83A292BEC2FA100EAF0FB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 95AB0D20267A78FE00682648 /* datest */;
-			targetProxy = 95E127262728B3ED002A43B7 /* PBXContainerItemProxy */;
+			targetProxy = DBA83A282BEC2FA100EAF0FB /* PBXContainerItemProxy */;
 		};
-		95E127292728B3F3002A43B7 /* PBXTargetDependency */ = {
+		DBA83A2B2BEC2FA100EAF0FB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 95AB0D20267A78FE00682648 /* datest */;
-			targetProxy = 95E127282728B3F3002A43B7 /* PBXContainerItemProxy */;
+			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
+			targetProxy = DBA83A2A2BEC2FA100EAF0FB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1259,7 +1228,7 @@
 				INSTALL_PATH = /usr/libexec;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
-				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "-lfs";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-weak_framework",
 					UserFS,
@@ -1269,6 +1238,7 @@
 					UserManagement,
 					"-weak_framework",
 					MobileKeyBag,
+					"-lfs",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-weak_framework",
@@ -1279,7 +1249,7 @@
 					UserManagement,
 					"-lfs",
 				);
-				"OTHER_LDFLAGS[sdk=watchos*]" = "";
+				"OTHER_LDFLAGS[sdk=watchos*]" = "-lfs";
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
@@ -1302,7 +1272,7 @@
 				INSTALL_PATH = /usr/libexec;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++ c c++";
 				NEW_SETTING = "";
-				"OTHER_LDFLAGS[sdk=appletvos*]" = "";
+				"OTHER_LDFLAGS[sdk=appletvos*]" = "-lfs";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-weak_framework",
 					UserFS,
@@ -1312,6 +1282,7 @@
 					UserManagement,
 					"-weak_framework",
 					MobileKeyBag,
+					"-lfs",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-weak_framework",
@@ -1320,7 +1291,7 @@
 					LiveFS,
 					"-lfs",
 				);
-				"OTHER_LDFLAGS[sdk=watchos*]" = "";
+				"OTHER_LDFLAGS[sdk=watchos*]" = "-lfs";
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";

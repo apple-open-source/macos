@@ -130,9 +130,8 @@ void PropertyCascade::set(CSSPropertyID id, CSSValue& cssValue, const MatchedPro
     }
 
     auto& property = m_properties[id];
-    if (!m_propertyIsPresent[id])
+    if (!m_propertyIsPresent.testAndSet(id))
         property.cssValue = { };
-    m_propertyIsPresent.set(id);
     setPropertyInternal(property, id, cssValue, matchedProperties, cascadeLevel);
 }
 
@@ -219,6 +218,9 @@ bool PropertyCascade::addMatch(const MatchedProperties& matchedProperties, Casca
                 return false;
 
             if (m_includedProperties.containsAll(normalProperties()))
+                return true;
+
+            if (matchedProperties.isCacheable == IsCacheable::Partially && m_includedProperties.contains(PropertyType::NonCacheable))
                 return true;
 
             // If we have applied this property for some reason already we must apply anything that overrides it.

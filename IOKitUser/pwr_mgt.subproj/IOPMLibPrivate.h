@@ -3708,7 +3708,11 @@ typedef enum {
 
 
 // Async assertions default offload delay
+#if TARGET_OS_IOS
 #define kAsyncAssertionsDefaultOffloadDelay 1 // Delay (in secs) after which assertions are offloaded to powerd
+#else
+#define kAsyncAssertionsDefaultOffloadDelay 0
+#endif
 #define kAsyncAssertionDisable "com.apple.powerd.assertionoffloadtimer"
 
 // Functions to return internal state of async assertions

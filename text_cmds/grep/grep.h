@@ -114,6 +114,9 @@ struct parsec {
 	regmatch_t	matches[MAX_MATCHES];		/* Matches made */
 	/* XXX TODO: This should be a chunk, not a line */
 	struct str	ln;				/* Current line */
+#ifdef __APPLE__
+	struct file	*f;				/* Underlying file */
+#endif
 	size_t		lnstart;			/* Position in line */
 	size_t		matchidx;			/* Latest match index */
 	int		printed;			/* Metadata printed? */

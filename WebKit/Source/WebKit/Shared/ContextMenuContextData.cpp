@@ -138,8 +138,8 @@ ContextMenuContextData::ContextMenuContextData(WebCore::ContextMenuContext::Type
     , std::optional<WebKit::WebHitTestResultData>&& webHitTestResultData
     , String&& selectedText
 #if ENABLE(SERVICE_CONTROLS)
-    , std::optional<WebKit::ShareableBitmapHandle>&& controlledImageHandle
-    , Vector<uint8_t>&& controlledSelectionData
+    , std::optional<WebCore::ShareableBitmapHandle>&& controlledImageHandle
+    , WebCore::AttributedString&& controlledSelection
     , Vector<String>&& selectedTelephoneNumbers
     , bool selectionIsEditable
     , WebCore::IntRect&& controlledImageBounds
@@ -148,8 +148,8 @@ ContextMenuContextData::ContextMenuContextData(WebCore::ContextMenuContext::Type
     , String&& controlledImageMIMEType
 #endif // ENABLE(SERVICE_CONTROLS)
 #if ENABLE(CONTEXT_MENU_QR_CODE_DETECTION)
-    , std::optional<WebKit::ShareableBitmapHandle>&& potentialQRCodeNodeSnapshotImageHandle
-    , std::optional<WebKit::ShareableBitmapHandle>&& potentialQRCodeViewportSnapshotImageHandle
+    , std::optional<WebCore::ShareableBitmapHandle>&& potentialQRCodeNodeSnapshotImageHandle
+    , std::optional<WebCore::ShareableBitmapHandle>&& potentialQRCodeViewportSnapshotImageHandle
 #endif // ENABLE(CONTEXT_MENU_QR_CODE_DETECTION)
     , bool hasEntireImage
 )
@@ -160,7 +160,7 @@ ContextMenuContextData::ContextMenuContextData(WebCore::ContextMenuContext::Type
     , m_selectedText(WTFMove(selectedText))
     , m_hasEntireImage(hasEntireImage)
 #if ENABLE(SERVICE_CONTROLS)
-    , m_controlledSelectionData(WTFMove(controlledSelectionData))
+    , m_controlledSelection(WTFMove(controlledSelection))
     , m_selectedTelephoneNumbers(WTFMove(selectedTelephoneNumbers))
     , m_selectionIsEditable(selectionIsEditable)
     , m_controlledImageBounds(WTFMove(controlledImageBounds))
@@ -185,7 +185,7 @@ ContextMenuContextData::ContextMenuContextData(WebCore::ContextMenuContext::Type
 #if ENABLE(SERVICE_CONTROLS)
 bool ContextMenuContextData::controlledDataIsEditable() const
 {
-    if (!m_controlledSelectionData.isEmpty() || m_controlledImage || !m_controlledImageAttachmentID.isNull())
+    if (!m_controlledSelection.isNull() || m_controlledImage || !m_controlledImageAttachmentID.isNull())
         return m_selectionIsEditable;
 
     return false;

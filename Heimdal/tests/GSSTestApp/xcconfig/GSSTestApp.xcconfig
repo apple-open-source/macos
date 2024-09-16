@@ -9,7 +9,7 @@ SAFARI_SERVICES_FRAMEWORK[sdk=appletv*] =
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos  watchsimulator 
 
 GSSTEST_APP_INFO_PLIST = 
-GSSTEST_APP_INFO_PLIST[sdk=iphoneos*] = GSSTestAppIOS/GSSTestApp-Info.plist 
+GSSTEST_APP_INFO_PLIST[sdk=iphone*] = GSSTestAppIOS/GSSTestApp-Info.plist
 GSSTEST_APP_INFO_PLIST[sdk=appletv*] = GSSTestAppIOS/GSSTestApp-tvOS-Info.plist
 
 EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*] = *tvOS.storyboard

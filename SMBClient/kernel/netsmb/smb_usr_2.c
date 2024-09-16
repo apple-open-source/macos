@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012  Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2023  Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -858,6 +858,7 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
 {
 	int error;
  	struct smb2_rw_rq *read_writep = NULL;
+    uint32_t allow_compression = 0;
     
     SMB_MALLOC_TYPE(read_writep, struct smb2_rw_rq, Z_WAITOK_ZERO);
     if (read_writep == NULL) {
@@ -892,12 +893,16 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
         read_writep->fid = rw_ioc->ioc_fid;
         read_writep->mc_flags = 0;
         
-        /* Now do the real work */
+        /*
+         * Now do the real work
+         * Do not allow read/write compression from user space since I have
+         * no idea the type of file being accessed.
+         */
         if (cmd == SMB2IOC_READ) {
-            error = smb2_smb_read(share, read_writep, context);
-        } 
+            error = smb2_smb_read(share, read_writep, allow_compression, context);
+        }
         else {
-            error = smb2_smb_write(share, read_writep, context);
+            error = smb2_smb_write(share, read_writep, &allow_compression, context);
         }
         
         /* always return the ntstatus error */

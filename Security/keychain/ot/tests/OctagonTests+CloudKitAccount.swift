@@ -83,7 +83,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -114,7 +114,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
     }
@@ -166,7 +166,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
 
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -208,7 +208,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -267,7 +267,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -327,7 +327,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 

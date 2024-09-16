@@ -118,11 +118,11 @@ static struct dirTodoNode *newDirTodo __P((void));
 static void freeDirTodo __P((struct dirTodoNode *));
 static char *fullpath __P((struct dosDirEntry *));
 static u_char calcShortSum __P((u_char *));
-static int delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast);
-static int msdosfs_removede __P((int, struct bootblock *, u_char *,
-    u_char *, cl_t, cl_t, cl_t, char *, int, int));
-static int checksize __P((struct bootblock *, u_char *, struct dosDirEntry *));
-static int readDosDirSection __P((int, struct bootblock *, struct dosDirEntry *, int));
+static int delete(struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast, check_context *chkContext);
+static int msdosfs_removede __P((struct bootblock *, u_char *,
+    u_char *, cl_t, cl_t, cl_t, char *, int, int, check_context *chkContext));
+static int checksize __P((struct bootblock *, u_char *, struct dosDirEntry *, check_context *context));
+static int readDosDirSection __P((struct bootblock *, struct dosDirEntry *, int, check_context *context));
 
 /*
  * Manage free dosDirEntry structures.
@@ -249,7 +249,7 @@ calcShortSum(u_char *p)
  * is valid, not CLUST_FREE, and not yet marked used.
  */
 static int
-markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir)
+markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir, check_context *context)
 {
 	int err = FSOK;
 	cl_t cluster, prev, value;
@@ -271,7 +271,7 @@ markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir)
 		 * current cluster will remain part of the file (i.e. it becomes
 		 * "previous" as we iterate once more).
 		 */
-		value = fat_get(cluster);
+		value = fat_get(cluster, context);
 		if (value == CLUST_RSRVD || value == CLUST_BAD)
 		{
 			cluster = value;
@@ -280,7 +280,7 @@ markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir)
 		markUsed(cluster);
 		++count;
 		prev = cluster;
-		cluster = fat_get(cluster);
+		cluster = fat_get(cluster, context);
 	}
 	
 	/*
@@ -300,7 +300,7 @@ markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir)
 				fullpath(dir), dir->head, cluster);
 		if (fsck_ask(fsck_ctx, 1, "Truncate"))
 		{
-			err = fat_set(prev, CLUST_EOF);
+			err = fat_set(prev, CLUST_EOF, context);
 			if (err)
 				cluster = CLUST_ERROR;
 			else
@@ -331,7 +331,7 @@ static struct dosDirEntry *lostDir;
  * Init internal state for a new directory scan.
  */
 int
-resetDosDirSection(struct bootblock *boot)
+resetDosDirSection(struct bootblock *boot, check_context *context)
 {
 	int b1, b2;
 	cl_t cl;
@@ -354,7 +354,7 @@ resetDosDirSection(struct bootblock *boot)
 			return FSFATAL;
 		}
 
-		cl = fat_get(boot->RootCl);
+		cl = fat_get(boot->RootCl, context);
 		if (cl == CLUST_ERROR)
 			return FSFATAL;
 
@@ -369,7 +369,7 @@ resetDosDirSection(struct bootblock *boot)
 				/*
 				 * This used to assign CLUST_FREE.  How was that a good idea???
 				 */
-				ret = fat_set(boot->RootCl, CLUST_EOF);
+				ret = fat_set(boot->RootCl, CLUST_EOF, context);
 				if (!ret)
 					ret = FSFATMOD;
 				
@@ -384,7 +384,7 @@ resetDosDirSection(struct bootblock *boot)
 		}
 
 		rootDir->head = boot->RootCl;
-		ret |= markDosDirChain(boot, rootDir);
+		ret |= markDosDirChain(boot, rootDir, context);
 	}
 
 	return ret;
@@ -434,7 +434,7 @@ finishDosDirSection(void)
  *              update those entries itself.
  */
 static int
-delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast)
+delete(struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast, check_context *context)
 {
 	u_char *s, *e;
 	off_t off;
@@ -450,23 +450,21 @@ delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl
 		}
 		off = (startcl - CLUST_FIRST) * boot->SecPerClust + boot->ClusterOffset;
 		off *= boot->BytesPerSec;
-		if (lseek(fd, off, SEEK_SET) != off
-		    || read(fd, delbuf, clsz) != clsz) {
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
-			return FSFATAL;
-		}
+        if (context->readHelper(context->resource, delbuf, clsz, off) != clsz) {
+                            fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
+                            return FSFATAL;
+        }
 		while (s < e) {
 			*s = SLOT_DELETED;
 			s += 32;
 		}
-		if (lseek(fd, off, SEEK_SET) != off
-		    || write(fd, delbuf, clsz) != clsz) {
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
-			return FSFATAL;
-		}
+        if (context->writeHelper(context->resource, delbuf, clsz, off) != clsz) {
+            fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
+            return FSFATAL;
+        }
 		if (startcl == endcl)
 			break;
-		startcl = fat_get(startcl);
+		startcl = fat_get(startcl, context);
 		if (startcl == CLUST_ERROR)
 			return FSFATAL;
 		s = delbuf;
@@ -475,7 +473,7 @@ delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl
 }
 
 static int
-msdosfs_removede(int f, struct bootblock *boot, u_char *start, u_char *end, cl_t startcl, cl_t endcl, cl_t curcl, char *path, int type, int force)
+msdosfs_removede(struct bootblock *boot, u_char *start, u_char *end, cl_t startcl, cl_t endcl, cl_t curcl, char *path, int type, int force, check_context *context)
 {
 	switch (type) {
 	case 0:
@@ -493,10 +491,9 @@ msdosfs_removede(int f, struct bootblock *boot, u_char *start, u_char *end, cl_t
 	}
 	if (force || fsck_ask(fsck_ctx, 0, "Remove")) {
 		if (startcl != curcl) {
-			if (delete(f, boot,
-				   startcl, start - buffer,
+			if (delete(boot, startcl, start - buffer,
 				   endcl, end - buffer,
-				   endcl == curcl) == FSFATAL)
+				   endcl == curcl, context) == FSFATAL)
 				return FSFATAL;
 			start = buffer;
 		}
@@ -516,7 +513,7 @@ msdosfs_removede(int f, struct bootblock *boot, u_char *start, u_char *end, cl_t
  * has been set up.
  */
 static int
-checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir)
+checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir, check_context *context)
 {
 	/*
 	 * Check size on ordinary files
@@ -557,7 +554,7 @@ checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir)
 				 */
 				for (cl = dir->head; (sz += boot->ClusterSize) < dir->size;)
 				{
-					cl = fat_get(cl);
+					cl = fat_get(cl, context);
 					if (cl == CLUST_ERROR)
 						return FSFATAL;
 				}
@@ -568,10 +565,10 @@ checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir)
 				 * Remember the first cluster to be dropped.
 				 * Mark the new last cluster as CLUST_EOF.
 				 */
-				next = fat_get(cl);
+				next = fat_get(cl, context);
 				if (next == CLUST_ERROR)
 					return FSFATAL;
-				if (fat_set(cl, CLUST_EOF))
+				if (fat_set(cl, CLUST_EOF, context))
 					return FSFATAL;
 				cl = next;
 			}
@@ -586,10 +583,10 @@ checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir)
 			 */
 			while (sz < dir->physicalSize)
 			{
-				next = fat_get(cl);
+				next = fat_get(cl, context);
 				if (next == CLUST_ERROR)
 					return FSFATAL;
-				if (fat_set(cl, CLUST_FREE))
+				if (fat_set(cl, CLUST_FREE, context))
 					return FSFATAL;
 				cl = next;
 				sz += boot->ClusterSize;
@@ -615,7 +612,7 @@ checksize(struct bootblock *boot, u_char *p, struct dosDirEntry *dir)
  *  ENOMEM      Unable to allocate memory for an I/O buffer
  *  EIO         Unable to read from the subdirectory
  */
-static errno_t isSubdirectory(int fd, struct bootblock *boot, struct dosDirEntry *dir)
+static errno_t isSubdirectory(struct bootblock *boot, struct dosDirEntry *dir, check_context *context)
 {
     off_t offset;
     ssize_t amount;
@@ -629,7 +626,7 @@ static errno_t isSubdirectory(int fd, struct bootblock *boot, struct dosDirEntry
     }
 
     offset = (((off_t)dir->head - CLUST_FIRST) * boot->SecPerClust + boot->ClusterOffset) * boot->BytesPerSec;
-    amount = pread(fd, buf, boot->BytesPerSec, offset);
+    amount = context->readHelper(context->resource, buf, boot->BytesPerSec, offset);
     if (amount != boot->BytesPerSec) {
         fsck_print(fsck_ctx, LOG_CRIT, "Unable to read cluster %u", dir->head);
         err = EIO;
@@ -660,7 +657,7 @@ fail:
  *   - remove unlinked files
  */
 static int
-readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rdonly)
+readDosDirSection(struct bootblock *boot, struct dosDirEntry *dir, int rdonly, check_context *context)
 {
 	struct dosDirEntry dirent, *d;
 	u_char *p, *vallfn, *invlfn, *empty;
@@ -672,6 +669,7 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 	u_int lidx = 0;
 	int shortSum;
 	int mod = FSOK;
+
 #define	THISMOD	0x8000			/* Only used within this routine */
 
 	cl = dir->head;
@@ -679,10 +677,10 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 		/*
 		 * Already handled somewhere else.
 		 */
-		fsck_print(fsck_ctx, LOG_ERR, "readDosDirSection: Start cluster (%u) out of range; ignoring\n", cl);
+		fsck_print(fsck_ctx, LOG_ERR, "%s: Start cluster (%u) out of range; ignoring\n", __func__, cl);
 		return FSOK;
 	}
-	
+
 	shortSum = -1;
 	vallfn = invlfn = empty = NULL;
 	do {
@@ -701,11 +699,11 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 		}
 
 		off *= boot->BytesPerSec;
-		if (lseek(f, off, SEEK_SET) != off
-		    || read(f, buffer, last) != last) {
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
-			return FSFATAL;
-		}
+        if (context->readHelper(context->resource, buffer, last, off) != last) {
+            fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to read directory", strerror(errno));
+            return FSFATAL;
+        }
+
 		last /= 32;
 
 		/*
@@ -737,9 +735,8 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 						u_char *q;
 
 						dir->fsckflags &= ~DIREMPTY;
-						if (delete(f, boot,
-							   empcl, empty - buffer,
-							   cl, p - buffer, 1) == FSFATAL)
+						if (delete(boot, empcl, empty - buffer,
+							   cl, p - buffer, 1, context) == FSFATAL)
 							return FSFATAL;
 						q = empcl == cl ? empty : buffer;
 						for (; q < p; q += 32)
@@ -871,10 +868,10 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 
 			if (dirent.flags & ATTR_VOLUME) {
 				if (vallfn || invlfn) {
-					mod |= msdosfs_removede(f, boot,
+					mod |= msdosfs_removede(boot,
 							invlfn ? invlfn : vallfn, p,
 							invlfn ? invcl : valcl, cl, cl,
-							fullpath(dir), 2, 0);
+							fullpath(dir), 2, 0, context);
 					vallfn = NULL;
 					invlfn = NULL;
 				}
@@ -918,10 +915,10 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 			dirent.next = dir->child;
 
 			if (invlfn) {
-				mod |= k = msdosfs_removede(f, boot,
+				mod |= k = msdosfs_removede(boot,
 						    invlfn, vallfn ? vallfn : p,
 						    invcl, vallfn ? valcl : cl, cl,
-						    fullpath(&dirent), 0, 0);
+						    fullpath(&dirent), 0, 0, context);
 				if (mod & FSFATAL)
 					return FSFATAL;
 				if (vallfn
@@ -935,10 +932,10 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
                 !strncmp(dirent.lname, ".nfs.20051",10) &&
                 !(dirent.flags & ATTR_DIRECTORY))
             {
-                mod |= k = msdosfs_removede(f, boot,
+                mod |= k = msdosfs_removede(boot,
                             vallfn, p + 32,
                             valcl, cl, cl,
-                            fullpath(&dirent), 3, 1);
+                            fullpath(&dirent), 3, 1, context);
                 if (mod & FSFATAL)
                     return FSFATAL;
                 if (valcl == cl && vallfn != buffer)
@@ -989,7 +986,7 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 						goto remove_or_truncate;
 					}
 					
-					next = fat_get(dirent.head);
+					next = fat_get(dirent.head, context);
 					if (next == CLUST_ERROR)
 						return FSFATAL;
 					
@@ -1030,7 +1027,7 @@ readDosDirSection(int f, struct bootblock *boot, struct dosDirEntry *dir, int rd
 
 			if (dirent.head >= CLUST_FIRST && dirent.head < boot->NumClusters)
 			{
-				mod |= markDosDirChain(boot, &dirent);
+				mod |= markDosDirChain(boot, &dirent, context);
 				if (mod & FSFATAL)
 					return FSFATAL;
 			}
@@ -1110,7 +1107,7 @@ MarkedChain:
                  * Make sure the contents of the first cluster contain "."
                  * and ".." entries; if not, assume this is actually a file.
                  */
-                errno_t err = isSubdirectory(f, boot, &dirent);
+                errno_t err = isSubdirectory(boot, &dirent, context);
                 if (err) {
                     if (err == ENOTDIR) {
                         fsck_print(fsck_ctx, LOG_INFO, "Warning: Item %s does not appear to be a subdirectory\n", fullpath(&dirent));
@@ -1147,18 +1144,17 @@ MarkedChain:
 				pendingDirectories = n;
 			} else {
             check_file:
-				mod |= k = checksize(boot, p, &dirent);
+				mod |= k = checksize(boot, p, &dirent, context);
 				if (k & FSDIRMOD)
 					mod |= THISMOD;
 			}
 			boot->NumFiles++;
 		}
 		if (mod & THISMOD) {
-			if (lseek(f, off, SEEK_SET) != off
-			    || write(f, buffer, last*32) != last*32) {
-				fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
-				return FSFATAL;
-			}
+            if (context->writeHelper(context->resource, buffer, last * 32, off) != last * 32) {
+                fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
+                return FSFATAL;
+            }
 			mod &= ~THISMOD;
 		}
 
@@ -1170,30 +1166,29 @@ MarkedChain:
 			break;
 	
 	/* What about errors below? */
-	} while ((cl = fat_get(cl)) >= CLUST_FIRST && cl < boot->NumClusters && cl != dir->end);
+	} while ((cl = fat_get(cl, context)) >= CLUST_FIRST && cl < boot->NumClusters && cl != dir->end);
 	if (cl == CLUST_ERROR)
 		mod |= FSFATAL;
 	if (invlfn || vallfn)
 	{
-		mod |= msdosfs_removede(f, boot,
+		mod |= msdosfs_removede(boot,
 				invlfn ? invlfn : vallfn, p,
 				invlfn ? invcl : valcl, last_cl, last_cl,
-				fullpath(dir), 1, 0);
-		if (lseek(f, off, SEEK_SET) != off
-			|| write(f, buffer, last*32) != last*32) {
-			fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
-			return FSFATAL;
-		}
+				fullpath(dir), 1, 0, context);
+        if (context->writeHelper(context->resource, buffer, last * 32, off) != last * 32) {
+            fsck_print(fsck_ctx, LOG_CRIT, "%s (%s)\n", "Unable to write directory", strerror(errno));
+            return FSFATAL;
+        }
 	}
 	return mod & ~THISMOD;
 }
 
 int
-handleDirTree(int dosfs, struct bootblock *boot, int rdonly)
+handleDirTree(int dosfs, struct bootblock *boot, int rdonly, check_context *context)
 {
 	int mod;
 
-	mod = readDosDirSection(dosfs, boot, rootDir, rdonly);
+	mod = readDosDirSection(boot, rootDir, rdonly, context);
 	if (mod & FSFATAL)
 		return FSFATAL;
 
@@ -1214,7 +1209,7 @@ handleDirTree(int dosfs, struct bootblock *boot, int rdonly)
 		/*
 		 * handle subdirectory
 		 */
-		mod |= readDosDirSection(dosfs, boot, dir, rdonly);
+		mod |= readDosDirSection(boot, dir, rdonly, context);
 		if (mod & FSFATAL)
 			return FSFATAL;
 	}

@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoardViewDraw.h
 	Contains:	Drawing the OpenGL chess board view
-	Copyright:	© 2002 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,24 +44,6 @@
 */
 
 #import "MBCBoardView.h"
-
-@interface MBCDrawStyle : NSObject
-{
-@public
-	float   fDiffuse;	// Diffuse color component
-	float	fSpecular;	// Specular color component
-	float	fShininess;	// Shininess of element
-	float	fAlpha;		// Opacity of element
-@private
-	GLuint	fTexture;
-}
-
-- (id) init;
-- (id) initWithTexture:(GLuint)tex;
-- (void) unloadTexture;
-- (void) startStyle:(float)alpha;
-
-@end
 
 @interface MBCBoardView ( Draw )
 

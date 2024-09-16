@@ -26,20 +26,12 @@ import Foundation
 #if OCTAGON
 
 class OctagonAccountCleanupTests: OctagonTestsBase {
-    override func setUp() {
-        super.setUp()
-    }
-
-    override func tearDown() {
-        super.tearDown()
-    }
 
     @discardableResult
     func createAndSetRecoveryKey(context: OTCuttlefishContext) throws -> String {
-        let cliqueConfiguration = OTConfigurationContext()
-        cliqueConfiguration.context = context.contextID
-        cliqueConfiguration.altDSID = try XCTUnwrap(context.activeAccount?.altDSID)
-        cliqueConfiguration.otControl = self.otControl
+        let cliqueConfiguration = self.createOTConfigurationContextForTests(contextID: context.contextID,
+                                                                            otControl: self.otcliqueContext.otControl,
+                                                                            altDSID: try XCTUnwrap(context.activeAccount?.altDSID))
 
         let recoveryKey = try XCTUnwrap(SecRKCreateRecoveryKeyString(nil), "should be able to create a recovery key")
 
@@ -69,10 +61,9 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = initiatorContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: initiatorContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
         do {
             clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")

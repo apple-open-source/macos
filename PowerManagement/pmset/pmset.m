@@ -2153,11 +2153,17 @@ static void show_power_sources(char **argv, int which)
 #endif
 
 
-    if (which & kApplyToAccessories) {
+    if (which) {
+        int powerSourceTypeRequest = 0;
+        if (which == (kApplyToBattery | kApplyToUPS)) {
+            powerSourceTypeRequest = kIOPSSourceInternalAndUPS;
+        } else if (which == (kApplyToBattery | kApplyToUPS | kApplyToAccessories)) {
+            powerSourceTypeRequest = kIOPSSourceAll;
+        }
 #if TARGET_OS_OSX
-        ps_info = IOPSCopyPowerSourcesByType(kIOPSSourceAll);
+        ps_info = IOPSCopyPowerSourcesByType(powerSourceTypeRequest);
 #else
-        status = IOPSCopyPowerSourcesByTypePrecise(kIOPSSourceAll, &ps_info);
+        status = IOPSCopyPowerSourcesByTypePrecise(powerSourceTypeRequest, &ps_info);
 #endif
     }
     else {
@@ -4453,7 +4459,6 @@ static int checkAndSetPowerModeIntValue(
                     goto exit;
                 }
                 break;
-#endif
             default:
                 break;
         }
@@ -4475,7 +4480,6 @@ static int checkAndSetPowerModeIntValue(
                     goto exit;
                 }
                 break;
-#endif
             default:
                 break;
         }

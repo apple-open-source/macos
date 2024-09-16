@@ -29,6 +29,7 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include "UserMediaCaptureManager.h"
+#include "UserMediaCaptureManagerProxyMessages.h"
 
 namespace WebKit {
 using namespace WebCore;
@@ -69,19 +70,28 @@ bool RemoteRealtimeVideoSource::setShouldApplyRotation(bool shouldApplyRotation)
 
 Ref<RealtimeMediaSource> RemoteRealtimeVideoSource::clone()
 {
-    if (isEnded() || proxy().isEnded())
-        return *this;
+    RefPtr<RemoteRealtimeVideoSource> clone;
+    callOnMainRunLoopAndWait([this, &clone] {
+        if (isEnded() || proxy().isEnded()) {
+            clone = this;
+            return;
+        }
 
-    auto source = adoptRef(*new RemoteRealtimeVideoSource(proxy().clone(), MediaDeviceHashSalts { deviceIDHashSalts() }, manager(), pageIdentifier()));
+        clone = adoptRef(*new RemoteRealtimeVideoSource(proxy().clone(), MediaDeviceHashSalts { deviceIDHashSalts() }, manager(), pageIdentifier()));
 
-    source->setSettings(RealtimeMediaSourceSettings { settings() });
-    source->setCapabilities(RealtimeMediaSourceCapabilities { capabilities() });
+        clone->m_registerOwnerCallback = m_registerOwnerCallback;
+        clone->setSettings(RealtimeMediaSourceSettings { settings() });
+        clone->setCapabilities(RealtimeMediaSourceCapabilities { capabilities() });
 
-    manager().addSource(source.copyRef());
-    manager().remoteCaptureSampleManager().addSource(source.copyRef());
-    proxy().createRemoteCloneSource(source->identifier(), pageIdentifier());
+        manager().addSource(*clone);
+        manager().remoteCaptureSampleManager().addSource(*clone);
+        proxy().createRemoteCloneSource(clone->identifier(), pageIdentifier());
 
-    return source;
+        bool isNewClonedSource = true;
+        clone->m_registerOwnerCallback(*clone, isNewClonedSource);
+    });
+
+    return clone.releaseNonNull();
 }
 
 void RemoteRealtimeVideoSource::remoteVideoFrameAvailable(VideoFrame& frame, VideoFrameTimeMetadata metadata)

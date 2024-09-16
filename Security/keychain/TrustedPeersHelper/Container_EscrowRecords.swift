@@ -74,6 +74,13 @@ extension Container {
                     metadata.escrowedSpki = m.escrowedSPKI ?? Data()
                     metadata.peerInfo = m.peerInfo ?? Data()
                     metadata.serial = m.serial ?? ""
+                    metadata.build = m.build ?? ""
+                    if let passcodeGeneration = m.passcodeGen {
+                        if let passcodeGen = OTEscrowRecordMetadataPasscodeGeneration() {
+                            passcodeGen.value = UInt64(passcodeGeneration.value)
+                            metadata.passcodeGeneration = passcodeGen
+                        }
+                    }
                     if let cmToFill = clientMetadata {
                         if let cm = m.clientMetadata {
                             cmToFill.deviceMid = cm.deviceMid ?? ""
@@ -120,6 +127,12 @@ extension Container {
         escrowRecordMetadataMO.escrowedSPKI = record.escrowInformationMetadata.escrowedSpki
         escrowRecordMetadataMO.peerInfo = record.escrowInformationMetadata.peerInfo
         escrowRecordMetadataMO.serial = record.escrowInformationMetadata.serial
+        escrowRecordMetadataMO.build = record.escrowInformationMetadata.build
+        if record.escrowInformationMetadata.hasPasscodeGeneration {
+            let passcodeGen = PasscodeGen(context: self.moc)
+            passcodeGen.value = Int64(record.escrowInformationMetadata.passcodeGeneration.value)
+            escrowRecordMetadataMO.passcodeGen = passcodeGen
+        }
         escrowRecordMO.escrowMetadata = escrowRecordMetadataMO
 
         let escrowRecordClientMetadataMO = EscrowClientMetadataMO(context: self.moc)

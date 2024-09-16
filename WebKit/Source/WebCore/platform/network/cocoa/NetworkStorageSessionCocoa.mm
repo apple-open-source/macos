@@ -42,6 +42,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/URL.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/text/StringBuilder.h>
 #import <wtf/text/cf/StringConcatenateCF.h>
 
@@ -110,7 +111,7 @@ static Vector<Cookie> nsCookiesToCookieVector(NSArray<NSHTTPCookie *> *nsCookies
 Vector<Cookie> NetworkStorageSession::getAllCookies()
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
-    return nsCookiesToCookieVector(nsCookieStorage().cookies);
+    return nsCookiesToCookieVector([nsCookieStorage() cookies]);
 }
 
 Vector<Cookie> NetworkStorageSession::getCookies(const URL& url)
@@ -123,7 +124,7 @@ void NetworkStorageSession::hasCookies(const RegistrableDomain& domain, Completi
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     
-    for (NSHTTPCookie *nsCookie in nsCookieStorage().cookies) {
+    for (NSHTTPCookie *nsCookie in [nsCookieStorage() cookies]) {
         if (RegistrableDomain::uncheckedCreateFromHost(nsCookie.domain) == domain) {
             completionHandler(true);
             return;
@@ -140,7 +141,7 @@ void NetworkStorageSession::setAllCookiesToSameSiteStrict(const RegistrableDomai
     RetainPtr<NSMutableArray<NSHTTPCookie *>> oldCookiesToDelete = adoptNS([[NSMutableArray alloc] init]);
     RetainPtr<NSMutableArray<NSHTTPCookie *>> newCookiesToAdd = adoptNS([[NSMutableArray alloc] init]);
 
-    for (NSHTTPCookie *nsCookie in nsCookieStorage().cookies) {
+    for (NSHTTPCookie *nsCookie in [nsCookieStorage() cookies]) {
         if (RegistrableDomain::uncheckedCreateFromHost(nsCookie.domain) == domain && nsCookie.sameSitePolicy != NSHTTPCookieSameSiteStrict) {
             [oldCookiesToDelete addObject:nsCookie];
             RetainPtr<NSMutableDictionary<NSHTTPCookiePropertyKey, id>> mutableProperties = adoptNS([[nsCookie properties] mutableCopy]);
@@ -164,7 +165,7 @@ void NetworkStorageSession::setAllCookiesToSameSiteStrict(const RegistrableDomai
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-NSHTTPCookieStorage *NetworkStorageSession::nsCookieStorage() const
+RetainPtr<NSHTTPCookieStorage> NetworkStorageSession::nsCookieStorage() const
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies) || m_isInMemoryCookieStore);
     auto cfCookieStorage = cookieStorage();
@@ -172,13 +173,13 @@ NSHTTPCookieStorage *NetworkStorageSession::nsCookieStorage() const
     if (!m_isInMemoryCookieStore && (!cfCookieStorage || [NSHTTPCookieStorage sharedHTTPCookieStorage]._cookieStorage == cfCookieStorage))
         return [NSHTTPCookieStorage sharedHTTPCookieStorage];
 
-    return adoptNS([[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:cfCookieStorage.get()]).autorelease();
+    return adoptNS([[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:cfCookieStorage.get()]);
 }
 
 CookieStorageObserver& NetworkStorageSession::cookieStorageObserver() const
 {
     if (!m_cookieStorageObserver)
-        m_cookieStorageObserver = makeUnique<CookieStorageObserver>(nsCookieStorage());
+        m_cookieStorageObserver = makeUnique<CookieStorageObserver>(nsCookieStorage().get());
 
     return *m_cookieStorageObserver;
 }
@@ -378,7 +379,7 @@ std::pair<String, bool> NetworkStorageSession::cookiesForSession(const URL& firs
             if (includeSecureCookies == IncludeSecureCookies::No)
                 continue;
         }
-        cookiesBuilder.append(cookiesBuilder.isEmpty() ? "" : "; ", [cookie name], '=', [cookie value]);
+        cookiesBuilder.append(cookiesBuilder.isEmpty() ? ""_s : "; "_s, [cookie name], '=', [cookie value]);
     }
     return { cookiesBuilder.toString(), didAccessSecureCookies };
 
@@ -445,7 +446,7 @@ static NSHTTPCookie *parseDOMCookie(String cookieString, NSURL* cookieURL, std::
 
     // <http://bugs.webkit.org/show_bug.cgi?id=6531>, <rdar://4409034>
     // cookiesWithResponseHeaderFields doesn't parse cookies without a value
-    cookieString = cookieString.contains('=') ? cookieString : cookieString + "=";
+    cookieString = cookieString.contains('=') ? cookieString : makeString(cookieString, '=');
 
     NSHTTPCookie *initialCookie = [NSHTTPCookie _cookieForSetCookieString:cookieString forURL:cookieURL partition:nil];
     if (!initialCookie)
@@ -712,7 +713,7 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
         if (cookies.isEmpty())
             return;
         for (auto& observer : it->value)
-            observer->cookiesAdded(host, cookies);
+            observer.cookiesAdded(host, cookies);
     }).get() onQueue:dispatch_get_main_queue()];
 
     [nsCookieStorage() _setCookiesRemovedHandler:makeBlockPtr([this, weakThis = WeakPtr { *this }](NSArray<NSHTTPCookie *> *removedCookies, NSString *domainForRemovedCookies, bool removeAllCookies) {
@@ -721,7 +722,7 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
         if (removeAllCookies) {
             for (auto& observers : m_cookieChangeObservers.values()) {
                 for (auto& observer : observers)
-                    observer->allCookiesDeleted();
+                    observer.allCookiesDeleted();
             }
             return;
         }
@@ -735,7 +736,7 @@ void NetworkStorageSession::registerCookieChangeListenersIfNecessary()
         if (cookies.isEmpty())
             return;
         for (auto& observer : it->value)
-            observer->cookiesDeleted(host, cookies);
+            observer.cookiesDeleted(host, cookies);
     }).get() onQueue:dispatch_get_main_queue()];
 }
 
@@ -756,10 +757,10 @@ void NetworkStorageSession::startListeningForCookieChangeNotifications(CookieCha
     registerCookieChangeListenersIfNecessary();
 
     auto& observers = m_cookieChangeObservers.ensure(host, [] {
-        return HashSet<CheckedPtr<CookieChangeObserver>> { };
+        return WeakHashSet<CookieChangeObserver> { };
     }).iterator->value;
-    ASSERT(!observers.contains(&observer));
-    observers.add(&observer);
+    ASSERT(!observers.contains(observer));
+    observers.add(observer);
 
     if (!m_subscribedDomainsForCookieChanges)
         m_subscribedDomainsForCookieChanges = adoptNS([[NSMutableSet alloc] init]);
@@ -780,9 +781,9 @@ void NetworkStorageSession::stopListeningForCookieChangeNotifications(CookieChan
             continue;
 
         auto& observers = it->value;
-        ASSERT(observers.contains(&observer));
-        observers.remove(&observer);
-        if (observers.isEmpty()) {
+        ASSERT(observers.contains(observer));
+        observers.remove(observer);
+        if (observers.isEmptyIgnoringNullReferences()) {
             m_cookieChangeObservers.remove(it);
             ASSERT([m_subscribedDomainsForCookieChanges containsObject:(NSString *)host]);
             [m_subscribedDomainsForCookieChanges removeObject:(NSString *)host];

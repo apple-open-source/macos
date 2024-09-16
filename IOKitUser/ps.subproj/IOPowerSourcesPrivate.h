@@ -50,7 +50,6 @@ enum {
 
 
 
-
 /*!
  * @function    IOPSRequestBatteryUpdate
  * @abstract    Tell the battery driver to read the battery's state.

@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC)
 
+#import "APIPageConfiguration.h"
 #import "DrawingArea.h"
 #import "DrawingAreaMessages.h"
 #import "MessageSenderInlines.h"
@@ -56,6 +57,7 @@ static NSString * const transientZoomScrollPositionOverrideAnimationKey = @"wkSc
 class RemoteLayerTreeDisplayLinkClient final : public DisplayLink::Client {
 public:
     WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteLayerTreeDisplayLinkClient);
 public:
     explicit RemoteLayerTreeDisplayLinkClient(WebPageProxyIdentifier pageID)
         : m_pageIdentifier(pageID)
@@ -112,14 +114,14 @@ DisplayLink* RemoteLayerTreeDrawingAreaProxyMac::existingDisplayLink()
     if (!m_displayID)
         return nullptr;
     
-    return m_webPageProxy->process().processPool().displayLinks().existingDisplayLinkForDisplay(*m_displayID);
+    return m_webPageProxy->configuration().processPool().displayLinks().existingDisplayLinkForDisplay(*m_displayID);
 }
 
 DisplayLink& RemoteLayerTreeDrawingAreaProxyMac::displayLink()
 {
     ASSERT(m_displayID);
 
-    auto& displayLinks = m_webPageProxy->process().processPool().displayLinks();
+    auto& displayLinks = m_webPageProxy->configuration().processPool().displayLinks();
     return displayLinks.displayLinkForDisplay(*m_displayID);
 }
 
@@ -377,6 +379,11 @@ void RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks()
     auto& displayLink = this->displayLink();
     m_displayRefreshObserverID = DisplayLinkObserverID::generate();
     displayLink.addObserver(*m_displayLinkClient, *m_displayRefreshObserverID, m_clientPreferredFramesPerSecond);
+    if (m_shouldLogNextObserverChange) {
+        RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks",
+            this, m_webPageProxy->identifier().toUInt64(), m_webPageProxy->webPageIDInMainFrameProcess().toUInt64(), m_webPageProxy->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        m_shouldLogNextObserverChange = false;
+    }
 }
 
 void RemoteLayerTreeDrawingAreaProxyMac::pauseDisplayRefreshCallbacks()
@@ -444,13 +451,32 @@ void RemoteLayerTreeDrawingAreaProxyMac::windowScreenDidChange(PlatformDisplayID
     }
 }
 
+void RemoteLayerTreeDrawingAreaProxyMac::viewIsBecomingVisible()
+{
+    m_shouldLogNextObserverChange = true;
+    m_shouldLogNextDisplayRefresh = true;
+}
+
+void RemoteLayerTreeDrawingAreaProxyMac::viewIsBecomingInvisible()
+{
+    m_shouldLogNextObserverChange = false;
+    m_shouldLogNextDisplayRefresh = false;
+}
+
 std::optional<WebCore::FramesPerSecond> RemoteLayerTreeDrawingAreaProxyMac::displayNominalFramesPerSecond()
 {
+    if (!m_displayID)
+        return std::nullopt;
     return displayLink().nominalFramesPerSecond();
 }
 
 void RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay()
 {
+    if (m_shouldLogNextDisplayRefresh) {
+        RELEASE_LOG(ViewState, "%p [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", PID=%i, DisplayID=%u] RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay",
+            this, m_webPageProxy->identifier().toUInt64(), m_webPageProxy->webPageIDInMainFrameProcess().toUInt64(), m_webPageProxy->legacyMainFrameProcessID(), m_displayID ? *m_displayID : 0);
+        m_shouldLogNextDisplayRefresh = false;
+    }
     // FIXME: Need to pass WebCore::DisplayUpdate here and filter out non-relevant displays.
     m_webPageProxy->scrollingCoordinatorProxy()->displayDidRefresh(m_displayID.value_or(0));
     RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay();

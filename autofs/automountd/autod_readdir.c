@@ -51,36 +51,36 @@
 #include "automountd.h"
 
 static void build_dir_entry_list(struct rddir_cache *rdcp,
-				struct dir_entry *list);
+    struct dir_entry *list);
 static void build_subdir_entry_list(struct dir_entry *list, ino_t start_inonum);
 static int rddir_cache_enter(const char *map, uint_t bucket_size,
-				struct rddir_cache **rdcpp);
+    struct rddir_cache **rdcpp);
 static int rddir_cache_lookup(const char *map, struct rddir_cache **rdcpp);
 static int rddir_cache_delete(struct rddir_cache *rdcp);
 static struct dir_entry *scan_cache_entry_for_bucket(struct rddir_cache *rdcp,
-				off_t offset);
+    off_t offset);
 static int create_dirents(struct dir_entry *list, off_t offset,
-				uint32_t rda_count,
-				off_t *rddir_offset,
-				boolean_t *rddir_eof,
-				byte_buffer *rddir_entries,
-				mach_msg_type_number_t *rddir_entriesCnt);
+    uint32_t rda_count,
+    off_t *rddir_offset,
+    boolean_t *rddir_eof,
+    byte_buffer *rddir_entries,
+    mach_msg_type_number_t *rddir_entriesCnt);
 static void free_offset_tbl(struct off_tbl *head);
 static void free_dir_list(struct dir_entry *head);
 
-#define	OFFSET_BUCKET_SIZE	100
+#define OFFSET_BUCKET_SIZE      100
 
-pthread_rwlock_t rddir_cache_lock;		/* readdir cache lock */
-struct rddir_cache *rddir_head;		/* readdir cache head */
+pthread_rwlock_t rddir_cache_lock;              /* readdir cache lock */
+struct rddir_cache *rddir_head;         /* readdir cache head */
 
 int
 do_readdir(autofs_pathname rda_map,
-	   off_t rda_offset,
-	   uint32_t rda_count,
-	   off_t *rddir_offset,
-	   boolean_t *rddir_eof,
-	   byte_buffer *rddir_entries,
-	   mach_msg_type_number_t *rddir_entriesCnt)
+    off_t rda_offset,
+    uint32_t rda_count,
+    off_t *rddir_offset,
+    boolean_t *rddir_eof,
+    byte_buffer *rddir_entries,
+    mach_msg_type_number_t *rddir_entriesCnt)
 {
 	struct dir_entry *list = NULL, *l, *bucket;
 	struct rddir_cache *rdcp = NULL;
@@ -95,7 +95,7 @@ do_readdir(autofs_pathname rda_map,
 		*rddir_eof = TRUE;
 		*rddir_entries = NULL;
 
-		return (0);
+		return 0;
 	}
 
 	pthread_rwlock_rdlock(&rddir_cache_lock);
@@ -105,20 +105,22 @@ do_readdir(autofs_pathname rda_map,
 		pthread_rwlock_wrlock(&rddir_cache_lock);
 		error = rddir_cache_lookup(rda_map, &rdcp);
 		if (error) {
-			if (trace > 2)
+			if (trace > 2) {
 				trace_prt(1,
-				"map %s not found, adding...\n", rda_map);
+				    "map %s not found, adding...\n", rda_map);
+			}
 			/*
 			 * entry doesn't exist, add it.
 			 */
 			error = rddir_cache_enter(rda_map,
-					OFFSET_BUCKET_SIZE, &rdcp);
+			    OFFSET_BUCKET_SIZE, &rdcp);
 		}
 	}
 	pthread_rwlock_unlock(&rddir_cache_lock);
 
-	if (error)
-		return (error);
+	if (error) {
+		return error;
+	}
 
 	assert(rdcp != NULL);
 	assert(rdcp->in_use);
@@ -139,15 +141,16 @@ do_readdir(autofs_pathname rda_map,
 			stack_op(INIT, NULL, stack, &stkptr);
 			(void) getmapkeys(rda_map, &list, &error,
 			    &cache_time, stack, &stkptr);
-			if (!error)
+			if (!error) {
 				build_dir_entry_list(rdcp, list);
-			else if (list) {
+			} else if (list) {
 				free_dir_list(list);
 				list = NULL;
 			}
 		}
-	} else
+	} else {
 		pthread_rwlock_rdlock(&rdcp->rwlock);
+	}
 
 	if (!error) {
 		bucket = scan_cache_entry_for_bucket(rdcp, rda_offset);
@@ -172,8 +175,9 @@ do_readdir(autofs_pathname rda_map,
 		/*
 		 * print this list only once
 		 */
-		for (l = list; l != NULL; l = l->next)
+		for (l = list; l != NULL; l = l->next) {
 			trace_prt(0, "%s\n", l->name);
+		}
 		trace_prt(0, "\n");
 	}
 
@@ -215,7 +219,7 @@ do_readdir(autofs_pathname rda_map,
 
 	assert(rdcp->in_use >= 0);
 
-	return (error);
+	return error;
 }
 
 int
@@ -246,10 +250,10 @@ do_readsubdir(autofs_pathname rda_map, char *key,
 	 * call parser w default mount_access = TRUE
 	 */
 	mapents = parse_entry(key, rda_map, mapopts, rda_subdir, FALSE,
-		NULL, isrestricted, TRUE, &err);
+	    NULL, isrestricted, TRUE, &err);
 	if (mapents == NULL) {
 		/* Return the error parse_entry handed back. */
-		return (err);
+		return err;
 	}
 	for (me = mapents; me; me = me->map_next) {
 		p = me->map_mntpnt;
@@ -258,16 +262,18 @@ do_readsubdir(autofs_pathname rda_map, char *key,
 			    me->map_root  ? me->map_root : "<NULL>");
 			continue;
 		}
-		while (*p == '/')
+		while (*p == '/') {
 			p++;
+		}
 		err = add_dir_entry(p, NULL, NULL, &list, &last);
 		if (err != -1) {
 			if (err != 0) {
 				/*
 				 * Free up list.
 				 */
-				if (list)
+				if (list) {
 					free_dir_list(list);
+				}
 
 				/*
 				 * Free the map entries.
@@ -280,13 +286,14 @@ do_readsubdir(autofs_pathname rda_map, char *key,
 				*rddir_entriesCnt = 0;
 				*rddir_eof = TRUE;
 				*rddir_entries = NULL;
-				return (err);
+				return err;
 			}
 		}
 	}
 
-	if (mapents)
+	if (mapents) {
 		free_mapent(mapents);
+	}
 
 	/*
 	 * We base the inode numbers in the subdirectory on the inode
@@ -310,9 +317,10 @@ do_readsubdir(autofs_pathname rda_map, char *key,
 	 * handed out for top-level directories.
 	 */
 	rda_dirino = ((rda_dirino >> 16) & 0x0000FFFF) |
-		     ((rda_dirino << 16) & 0xFFFF0000);
-	if (rda_dirino & 0x00000001)
+	    ((rda_dirino << 16) & 0xFFFF0000);
+	if (rda_dirino & 0x00000001) {
 		rda_dirino &= ~0x00010001;
+	}
 
 	build_subdir_entry_list(list, rda_dirino);
 
@@ -329,7 +337,7 @@ do_readsubdir(autofs_pathname rda_map, char *key,
 		*rddir_entries = NULL;
 	}
 
-	return (err);
+	return err;
 }
 
 static struct dir_entry *
@@ -347,8 +355,9 @@ scan_cache_entry_for_bucket(struct rddir_cache *rdcp, off_t offset)
 		x++;
 		next = offtp->next;
 		this_bucket = (next == NULL);
-		if (!this_bucket)
+		if (!this_bucket) {
 			this_bucket = (offset < next->offset);
+		}
 		if (this_bucket) {
 			/*
 			 * has to be in this bucket
@@ -362,10 +371,11 @@ scan_cache_entry_for_bucket(struct rddir_cache *rdcp, off_t offset)
 		 */
 	}
 
-	if (trace > 2)
+	if (trace > 2) {
 		trace_prt(1, "%s: offset searches (%d)\n", rdcp->map, x);
+	}
 
-	return (list);
+	return list;
 }
 
 static int
@@ -386,8 +396,9 @@ create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
 	int error = 0;
 	int y = 0;
 
-	for (l = list; l != NULL && l->offset < offset; l = l->next)
+	for (l = list; l != NULL && l->offset < offset; l = l->next) {
 		y++;
+	}
 
 	if (l == NULL) {
 		/*
@@ -397,11 +408,12 @@ create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
 		goto empty;
 	}
 
-	if (trace > 2)
+	if (trace > 2) {
 		trace_prt(1, "offset searches (%d)\n", y);
+	}
 
 	total_bytes_wanted = rda_count;
-	bufsize = total_bytes_wanted + sizeof (struct dirent_nonext);
+	bufsize = total_bytes_wanted + sizeof(struct dirent_nonext);
 	ret = vm_allocate(current_task(), &buffer_vm_address,
 	    bufsize, VM_FLAGS_ANYWHERE);
 	if (ret != KERN_SUCCESS) {
@@ -463,16 +475,16 @@ create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
 		*rddir_entries = NULL;
 		vm_deallocate(current_task(), buffer_vm_address, bufsize);
 		syslog(LOG_ERR,
-			"byte count in readdir too small for one directory entry");
+		    "byte count in readdir too small for one directory entry");
 		error = EIO;
 	}
 
-	return (error);
+	return error;
 
-empty:	*rddir_entriesCnt = 0;
+empty:  *rddir_entriesCnt = 0;
 	*rddir_eof = TRUE;
 	*rddir_entries = NULL;
-	return (error);
+	return error;
 }
 
 
@@ -492,21 +504,21 @@ rddir_cache_enter(const char *map, uint_t bucket_size,
 	/*
 	 * Add to front of the list at this time
 	 */
-	p = (struct rddir_cache *)malloc(sizeof (*p));
+	p = (struct rddir_cache *)malloc(sizeof(*p));
 	if (p == NULL) {
 		syslog(LOG_ERR,
-			"rddir_cache_enter: memory allocation failed\n");
-		return (ENOMEM);
+		    "rddir_cache_enter: memory allocation failed\n");
+		return ENOMEM;
 	}
-	memset((char *)p, 0, sizeof (*p));
+	memset((char *)p, 0, sizeof(*p));
 
 	len = (int) strlen(map) + 1;
 	p->map = malloc(len);
 	if (p->map == NULL) {
 		syslog(LOG_ERR,
-			"rddir_cache_enter: memory allocation failed\n");
+		    "rddir_cache_enter: memory allocation failed\n");
 		free(p);
-		return (ENOMEM);
+		return ENOMEM;
 	}
 	strlcpy(p->map, map, len);
 
@@ -519,15 +531,15 @@ rddir_cache_enter(const char *map, uint_t bucket_size,
 	(void) pthread_rwlock_init(&p->rwlock, NULL);
 	(void) pthread_mutex_init(&p->lock, NULL);
 
-	if (rddir_head == NULL)
+	if (rddir_head == NULL) {
 		rddir_head = p;
-	else {
+	} else {
 		p->next = rddir_head;
 		rddir_head = p;
 	}
 	*rdcpp = p;
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -550,13 +562,13 @@ rddir_cache_lookup(const char *map, struct rddir_cache **rdcpp)
 			pthread_mutex_lock(&p->lock);
 			p->in_use++;
 			pthread_mutex_unlock(&p->lock);
-			return (0);
+			return 0;
 		}
 	}
 	/*
 	 * didn't find entry
 	 */
-	return (ENOENT);
+	return ENOENT;
 }
 
 /*
@@ -598,12 +610,15 @@ rddir_cache_entry_free(struct rddir_cache *p)
 	assert(RW_LOCK_HELD(&rddir_cache_lock));
 #endif
 	assert(!p->in_use);
-	if (p->map)
+	if (p->map) {
 		free(p->map);
-	if (p->offtp)
+	}
+	if (p->offtp) {
 		free_offset_tbl(p->offtp);
-	if (p->entp)
+	}
+	if (p->entp) {
 		free_dir_list(p->entp);
+	}
 	free(p);
 }
 
@@ -628,19 +643,21 @@ rddir_cache_delete(struct rddir_cache *rdcp)
 			/*
 			 * entry found, remove from list if not in use
 			 */
-			if (p->in_use)
-				return (EBUSY);
-			if (prev)
+			if (p->in_use) {
+				return EBUSY;
+			}
+			if (prev) {
 				prev->next = p->next;
-			else
+			} else {
 				rddir_head = p->next;
+			}
 			rddir_cache_entry_free(p);
-			return (0);
+			return 0;
 		}
 		prev = p;
 	}
 	syslog(LOG_ERR, "Couldn't find entry %p in cache\n", rdcp);
-	return (ENOENT);
+	return ENOENT;
 }
 
 /*
@@ -669,8 +686,9 @@ rddir_entry_lookup(const char *mapname, const char *name)
 			p = btree_lookup(rdcp->entp, name);
 			pthread_rwlock_unlock(&rdcp->rwlock);
 		}
-	} else
+	} else {
 		pthread_rwlock_unlock(&rddir_cache_lock);
+	}
 
 	if (!err) {
 		/*
@@ -682,7 +700,7 @@ rddir_entry_lookup(const char *mapname, const char *name)
 		pthread_mutex_unlock(&rdcp->lock);
 	}
 
-	return (p);
+	return p;
 }
 
 static void
@@ -706,7 +724,7 @@ build_dir_entry_list(struct rddir_cache *rdcp, struct dir_entry *list)
 			 * add node to index table
 			 */
 			offtp = (struct off_tbl *)
-				malloc(sizeof (struct off_tbl));
+			    malloc(sizeof(struct off_tbl));
 			if (offtp != NULL) {
 				offtp->offset = offset;
 				offtp->first = p;
@@ -714,21 +732,21 @@ build_dir_entry_list(struct rddir_cache *rdcp, struct dir_entry *list)
 				offset_list += rdcp->bucket_size;
 			} else {
 				syslog(LOG_ERR,
-"WARNING: build_dir_entry_list: could not add offset to index table\n");
+				    "WARNING: build_dir_entry_list: could not add offset to index table\n");
 				continue;
 			}
 			/*
 			 * add to cache
 			 */
-			if (rdcp->offtp == NULL)
+			if (rdcp->offtp == NULL) {
 				rdcp->offtp = offtp;
-			else
-				if (last != NULL)
-					last->next = offtp;
+			} else if (last != NULL) {
+				last->next = offtp;
+			}
 			last = offtp;
 		}
 		offset++;
-		inonum += 2;		/* use even numbers in daemon */
+		inonum += 2;            /* use even numbers in daemon */
 	}
 	rdcp->full = 1;
 }
@@ -744,7 +762,7 @@ build_subdir_entry_list(struct dir_entry *list, ino_t start_inonum)
 		p->nodeid = inonum;
 		p->offset = offset;
 		offset++;
-		inonum += 2;		/* use even numbers in daemon */
+		inonum += 2;            /* use even numbers in daemon */
 	}
 }
 
@@ -770,14 +788,15 @@ cache_cleanup(__unused void *unused)
 		 * delay RDDIR_CACHE_TIME seconds, or until some other thread
 		 * requests that I cleanup the caches
 		 */
-		abstime.tv_sec = time(NULL) + RDDIR_CACHE_TIME/2;
+		abstime.tv_sec = time(NULL) + RDDIR_CACHE_TIME / 2;
 		abstime.tv_nsec = 0;
 		if ((error = pthread_cond_timedwait(
-		    &cleanup_start_cv, &cleanup_lock, &abstime)) != 0) {
+			    &cleanup_start_cv, &cleanup_lock, &abstime)) != 0) {
 			if (error != ETIMEDOUT) {
-				if (trace > 1)
+				if (trace > 1) {
 					trace_prt(1,
-					"cleanup thread wakeup (%d)\n", error);
+					    "cleanup thread wakeup (%d)\n", error);
+				}
 				continue;
 			}
 		}
@@ -795,7 +814,7 @@ cache_cleanup(__unused void *unused)
 				 */
 				if (trace > 1) {
 					trace_prt(1,
-					"%s cache in use\n", p->map);
+					    "%s cache in use\n", p->map);
 				}
 				continue;
 			}
@@ -818,12 +837,13 @@ cache_cleanup(__unused void *unused)
 				 */
 				if (trace > 1) {
 					trace_prt(1,
-					"%s cache still valid\n", p->map);
+					    "%s cache still valid\n", p->map);
 				}
 				continue;
 			}
-			if (trace > 1)
+			if (trace > 1) {
 				trace_prt(1, "%s freeing cache\n", p->map);
+			}
 			assert(!p->in_use);
 			error = rddir_cache_delete(p);
 			assert(!error);

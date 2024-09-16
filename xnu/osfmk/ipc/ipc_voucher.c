@@ -2055,9 +2055,9 @@ ipc_get_pthpriority_from_kmsg_voucher(
 {
 	mach_port_t voucher_port;
 	ipc_voucher_t pthread_priority_voucher;
-	mach_voucher_attr_raw_recipe_size_t content_size =
-	    sizeof(mach_voucher_attr_recipe_data_t) + sizeof(ipc_pthread_priority_value_t);
-	uint8_t content_data[content_size];
+	uint8_t content_data[sizeof(mach_voucher_attr_recipe_data_t) +
+	sizeof(ipc_pthread_priority_value_t)];
+	mach_voucher_attr_raw_recipe_size_t content_size = sizeof(content_data);
 	mach_voucher_attr_recipe_t cur_content;
 
 	kern_return_t kr = KERN_SUCCESS;

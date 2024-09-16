@@ -9,9 +9,9 @@
  * Return values for od_print_record().
  */
 typedef enum {
-	OD_CB_KEEPGOING,		/* continue the search */
-	OD_CB_REJECTED,			/* this record had a problem - keep going */
-	OD_CB_ERROR			/* error - quit and return an error */
+	OD_CB_KEEPGOING,                /* continue the search */
+	OD_CB_REJECTED,                 /* this record had a problem - keep going */
+	OD_CB_ERROR                     /* error - quit and return an error */
 } callback_ret_t;
 
 static void pr_msg(const char *fmt, ...);
@@ -66,14 +66,15 @@ od_CFStringtoCString(CFStringRef cfstr)
 	length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr),
 	    kCFStringEncodingUTF8);
 	string = malloc(length + 1);
-	if (string == NULL)
-		return (NULL);
+	if (string == NULL) {
+		return NULL;
+	}
 	if (!CFStringGetCString(cfstr, string, length + 1,
 	    kCFStringEncodingUTF8)) {
 		free(string);
-		return (NULL);
+		return NULL;
 	}
-	return (string);
+	return string;
 }
 
 
@@ -87,9 +88,10 @@ od_get_error_string(CFErrorRef err)
 		errstringref = CFErrorCopyDescription(err);
 		errstring = od_CFStringtoCString(errstringref);
 		CFRelease(errstringref);
-	} else
+	} else {
 		errstring = strdup("Unknown error");
-	return (errstring);
+	}
+	return errstring;
 }
 
 /*
@@ -123,14 +125,14 @@ od_print_record(ODRecordRef record)
 			pr_msg("od_print_record: can't get kODAttributeTypeRecordName attribute for record: %s",
 			    errstring);
 			free(errstring);
-			return (OD_CB_ERROR);
+			return OD_CB_ERROR;
 		} else {
 			/*
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
 			pr_msg("od_print_record: record has no kODAttributeTypeRecordName attribute");
-			return (OD_CB_REJECTED);
+			return OD_CB_REJECTED;
 		}
 	}
 	if (CFArrayGetCount(keys) == 0) {
@@ -140,7 +142,7 @@ od_print_record(ODRecordRef record)
 		 */
 		CFRelease(keys);
 		pr_msg("od_print_record: record has no kODAttributeTypeRecordName attribute");
-		return (OD_CB_REJECTED);
+		return OD_CB_REJECTED;
 	}
 	key = CFArrayGetValueAtIndex(keys, 0);
 	error = NULL;
@@ -153,14 +155,14 @@ od_print_record(ODRecordRef record)
 			pr_msg("od_print_record: can't get kODAttributeTypeAutomountInformation attribute for record: %s",
 			    errstring);
 			free(errstring);
-			return (OD_CB_ERROR);
+			return OD_CB_ERROR;
 		} else {
 			/*
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
 			pr_msg("od_print_record: record has no kODAttributeTypeAutomountInformation attribute");
-			return (OD_CB_REJECTED);
+			return OD_CB_REJECTED;
 		}
 	}
 	if (CFArrayGetCount(values) == 0) {
@@ -171,7 +173,7 @@ od_print_record(ODRecordRef record)
 		CFRelease(values);
 		CFRelease(keys);
 		pr_msg("od_print_record: record has no kODAttributeTypeRecordName attribute");
-		return (OD_CB_REJECTED);
+		return OD_CB_REJECTED;
 	}
 	value = CFArrayGetValueAtIndex(values, 0);
 
@@ -185,7 +187,7 @@ od_print_record(ODRecordRef record)
 	free(value_cstring);
 	CFRelease(values);
 	CFRelease(keys);
-	return (OD_CB_KEEPGOING);
+	return OD_CB_KEEPGOING;
 }
 
 /*
@@ -212,14 +214,14 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 	 * Create the search node.
 	 */
 	error = NULL;
-	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, 
-	     kODNodeTypeAuthentication, &error);
+	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault,
+	    kODNodeTypeAuthentication, &error);
 	if (node_ref == NULL) {
 		errstring = od_get_error_string(error);
 		pr_msg("od_search: can't create search node for /Search: %s",
 		    errstring);
 		free(errstring);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -231,7 +233,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 		CFRelease(node_ref);
 		pr_msg("od_search: can't make CFString from %s",
 		    value_to_match);
-		return (0);
+		return 0;
 	}
 	attrs = CFArrayCreate(kCFAllocatorDefault,
 	    (const void *[2]){kODAttributeTypeRecordName,
@@ -241,7 +243,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 		CFRelease(value_to_match_cfstr);
 		CFRelease(node_ref);
 		pr_msg("od_search: can't make array of attribute types");
-		return (0);
+		return 0;
 	}
 	error = NULL;
 	query_ref = ODQueryCreateWithNode(kCFAllocatorDefault, node_ref,
@@ -255,7 +257,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 		pr_msg("od_search: can't create query: %s",
 		    errstring);
 		free(errstring);
-		return (0);
+		return 0;
 	}
 
 	/*
@@ -269,10 +271,10 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 		errstring = od_get_error_string(error);
 		pr_msg("od_search: query failed: %s", errstring);
 		free(errstring);
-		return (0);
+		return 0;
 	}
 
-	ret = 0;	/* we haven't found any records yet */
+	ret = 0;        /* we haven't found any records yet */
 	num_results = CFArrayGetCount(results);
 	for (i = 0; i < num_results; i++) {
 		/*
@@ -303,7 +305,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match)
 	CFRelease(results);
 	CFRelease(query_ref);
 	CFRelease(node_ref);
-	return (ret);
+	return ret;
 }
 
 /*
@@ -320,4 +322,3 @@ pr_msg(const char *fmt, ...)
 	putc('\n', stderr);
 	va_end(ap);
 }
-

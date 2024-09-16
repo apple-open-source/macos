@@ -240,7 +240,7 @@ using JSC::Yarr::RegularExpression;
     NSData *data = [_private->dataSource data];
     if (!data)
         return nil;
-    return decoder->encoding().decode(reinterpret_cast<const char*>([data bytes]), [data length]);
+    return decoder->encoding().decode(span(data));
 }
 
 - (NSString *)title
@@ -376,7 +376,7 @@ static RegularExpression* regExpForLabels(NSArray *labels)
             
             // Search for word boundaries only if label starts/ends with "word characters".
             // If we always searched for word boundaries, this wouldn't work for languages such as Japanese.
-            pattern.append(i ? "|" : "", startsWithWordCharacter ? "\\b" : "", label, endsWithWordCharacter ? "\\b" : "");
+            pattern.append(i ? "|"_s : ""_s, startsWithWordCharacter ? "\\b"_s : ""_s, label, endsWithWordCharacter ? "\\b"_s : ""_s);
         }
         pattern.append(')');
         result = new RegularExpression(pattern.toString(), { JSC::Yarr::Flags::IgnoreCase });
@@ -440,7 +440,7 @@ static NSString* searchForLabelsBeforeElement(LocalFrame* frame, NSArray* labels
                 return result;
             }
             searchedCellAbove = true;
-        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().visibility() == Visibility::Visible) {
+        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().usedVisibility() == Visibility::Visible) {
             // For each text chunk, run the regexp
             String nodeString = n->nodeValue();
             // add 100 for slop, to make it more likely that we'll search whole nodes

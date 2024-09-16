@@ -52,7 +52,7 @@
 #else
 #include <System/libkern/OSKextLibPrivate.h>
 #endif
-#include <Kernel/mach/vm_param.h>
+#include <mach/vm_param.h>
 #if __has_include(<prelink.h>)
 /* take prelink.h from host side tools SDK */
 #include <prelink.h>
@@ -969,7 +969,7 @@ static CFDataRef __OSKextCreateMkext(
     Boolean             compressFlag,
     Boolean             skipLoadedFlag,
     CFDictionaryRef     loadArgsDict);
-static CFDataRef __OSKextUncompressMkext2FileData(
+static CFDataRef __OSKextCreateUncompressMkext2FileData(
     CFAllocatorRef   allocator,
     const UInt8    * buffer,
     uint32_t        compressedSize,
@@ -978,7 +978,7 @@ static CFArrayRef __OSKextCreateKextsFromMkext(
     CFAllocatorRef allocator,
     CFDataRef mkextData,
     CFURLRef  mkextURL);
-static CFDataRef __OSKextExtractMkext2FileEntry(
+static CFDataRef __OSKextCopyMkext2FileEntry(
     OSKextRef   aKext,
     CFDataRef   mkextData,
     CFNumberRef offsetNum,
@@ -3034,7 +3034,7 @@ void __OSKextRemoveKextFromIdentifierDict(
                 // xxx - scan through the whole array?
             }
         }
-        
+
        /* If we've emptied the array kextsWithSameID, remove it
         * from the identifier dictionary. Also, because that dictionary
         * doesn't retain values, release it explicitly.
@@ -6479,6 +6479,7 @@ OSKextRef OSKextCopyContainerForPluginKext(OSKextRef aKext)
     CFBundleRef pContainerBundle   = NULL;  // must release
     CFURLRef    pluginsURL         = NULL;  // must release
     CFURLRef    checkURL           = NULL;  // must release
+    CFStringRef bundleURLLastPath  = NULL;  // must release
     char        potentialContainerPath[PATH_MAX];
     char        canonicalPath[PATH_MAX];
     char        scratchPath[PATH_MAX];
@@ -6550,9 +6551,11 @@ OSKextRef OSKextCopyContainerForPluginKext(OSKextRef aKext)
             "Failed to open CFBundle for %s.", potentialContainerPath);
         goto finish;
     }
+
+    bundleURLLastPath = CFURLCopyLastPathComponent(aKext->bundleURL);
     pluginsURL = CFBundleCopyBuiltInPlugInsURL(pContainerBundle);
     checkURL = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault,
-        pluginsURL, CFURLCopyLastPathComponent(aKext->bundleURL), true);
+        pluginsURL, bundleURLLastPath, true);
     if (!checkURL) {
         OSKextLogMemError();
         goto finish;
@@ -6595,6 +6598,7 @@ finish:
     SAFE_RELEASE(pContainerBundle);
     SAFE_RELEASE(pluginsURL);
     SAFE_RELEASE(checkURL);
+    SAFE_RELEASE(bundleURLLastPath);
     return result;
 }
 
@@ -7047,7 +7051,7 @@ Boolean __OSKextReadExecutable(OSKextRef aKext)
             executableOffsetNum = CFDictionaryGetValue(aKext->infoDictionary,
                 CFSTR(kMKEXTExecutableKey));
             if (executableOffsetNum) {
-                aKext->mkextInfo->executable = __OSKextExtractMkext2FileEntry(
+                aKext->mkextInfo->executable = __OSKextCopyMkext2FileEntry(
                     aKext,
                     aKext->mkextInfo->mkextData,
                     executableOffsetNum,
@@ -8843,8 +8847,15 @@ Boolean __OSKextReadSymbolReferences(
         if ((n_type & N_TYPE) == N_UNDF) {
             char * symbol_name;
             CFStringRef cfSymbolName; // must release
-
             symbol_name = (char *)(string_list + string_index);
+
+            size_t len = ((void *)symbol_name < file_end) ? strnlen(symbol_name, file_end - (void *)symbol_name) : 0;
+            if (((void *)symbol_name + len) >= file_end) {
+                OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
+                    "%s: internal overrun (%p, string_index: %d, file_end: %p) in executable file (%s).",
+                    kextPath, symbol_name, string_index, file_end, OSKextGetArchitecture()->name);
+                goto finish;
+            }
             cfSymbolName = CFStringCreateWithCString(kCFAllocatorDefault,
                 symbol_name, kCFStringEncodingASCII);
             if (!cfSymbolName) {
@@ -15275,7 +15286,7 @@ Boolean __OSKextAddToMkext(
     CFStringRef            bundlePath             = NULL;   // must release
     CFStringRef            executableRelPath       = NULL;  // must release
     char                   kextPath[PATH_MAX];
-    char                 * kextVolPath = kextPath;
+    char                 * kextVolPath = NULL;
     CFDataRef              executable             = NULL;   // must release
     CFIndex                mkextDataStartLength   = CFDataGetLength(mkextData);
     uint32_t               mkextEntryOffset;
@@ -15641,7 +15652,7 @@ CFDataRef OSKextCreateMkext(
 
 /*********************************************************************
 *********************************************************************/
-CFDataRef __OSKextUncompressMkext2FileData(
+CFDataRef __OSKextCreateUncompressMkext2FileData(
     CFAllocatorRef   allocator,
     const UInt8    * buffer,
     uint32_t        compressedSize,
@@ -15886,7 +15897,7 @@ CFArrayRef __OSKextCreateKextsFromMkext(
         "Mkext plist full size is %u.", mkextPlistFullSize);
 
     if (mkextPlistCompressedSize) {
-        mkextPlistUncompressedData = __OSKextUncompressMkext2FileData(
+        mkextPlistUncompressedData = __OSKextCreateUncompressMkext2FileData(
             CFGetAllocator(mkextData),
             (const UInt8 *)mkextHeader + mkextPlistOffset,
             mkextPlistCompressedSize, mkextPlistFullSize);
@@ -15937,6 +15948,7 @@ CFArrayRef __OSKextCreateKextsFromMkext(
             goto finish;
         }
         CFArrayAppendValue(kexts, aKext);
+        CFRelease(aKext);
     }
 
     result = kexts;
@@ -15956,7 +15968,7 @@ finish:
 
 /*********************************************************************
 *********************************************************************/
-CFDataRef __OSKextExtractMkext2FileEntry(
+CFDataRef __OSKextCopyMkext2FileEntry(
     OSKextRef   aKext,
     CFDataRef   mkextData,
     CFNumberRef offsetNum,
@@ -15999,7 +16011,7 @@ CFDataRef __OSKextExtractMkext2FileEntry(
     fullSize = OSSwapBigToHostInt32(fileEntry->full_size);
     compressedSize = OSSwapBigToHostInt32(fileEntry->compressed_size);
     if (compressedSize) {
-        result = __OSKextUncompressMkext2FileData(CFGetAllocator(aKext),
+        result = __OSKextCreateUncompressMkext2FileData(CFGetAllocator(aKext),
             fileEntry->data,
             compressedSize, fullSize);
         if (!result) {
@@ -19029,6 +19041,7 @@ static CFDataRef __OSKextCreatePrelinkInfoDictionary(
         CFDictionarySetValue(prelinkInfoDict,
                              CFSTR(kPrelinkLinkKASLROffsetsKey),
                              kaslrOffsetsData);
+        CFRelease(kaslrOffsetsData);
         free(myPackedOffsets);
     }
 

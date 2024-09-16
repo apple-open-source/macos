@@ -34,6 +34,7 @@ class SVGImageElement;
 
 class LegacyRenderSVGImage final : public LegacyRenderSVGModelObject {
     WTF_MAKE_ISO_ALLOCATED(LegacyRenderSVGImage);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(LegacyRenderSVGImage);
 public:
     LegacyRenderSVGImage(SVGImageElement&, RenderStyle&&);
     virtual ~LegacyRenderSVGImage();
@@ -46,6 +47,7 @@ public:
 
     RenderImageResource& imageResource() { return *m_imageResource; }
     const RenderImageResource& imageResource() const { return *m_imageResource; }
+    CheckedRef<RenderImageResource> checkedImageResource() const;
 
     // Note: Assumes the PaintInfo context has had all local transforms applied.
     void paintForeground(PaintInfo&);

@@ -36,26 +36,19 @@
  * do this, it puts ecPublicKey there, and if we put ecdsa-with-SHA1 there, 
  * MS can't verify - presumably because it takes the digest of the digest 
  * before feeding it to ECDSA.
- * We handle this with a preference; default if it's not there is 
- * "Microsoft compatibility mode". 
+ * We handle this with a preference; default if it's not there is OFF
  */
 
 bool SecCmsMsEcdsaCompatMode()
 {
-    bool msCompat = true;
+    bool msCompat = false;
     Dictionary* pd =
         Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_User, false);
     if(pd == NULL) {
         pd = Dictionary::CreateDictionary(kMSCompatibilityDomain, Dictionary::US_System, false);
     }
     if(pd != NULL) {
-        /* 
-	     * not present means true, the opposite of getBoolValue(), so we have to see if 
-	     * it's there...
-	     */
-        if(pd->getValue(kMSCompatibilityMode)) {
-            msCompat = pd->getBoolValue(kMSCompatibilityMode);
-        }
+        msCompat = pd->getBoolValue(kMSCompatibilityMode);
         delete pd;
     }
     return msCompat;

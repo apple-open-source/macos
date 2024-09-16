@@ -38,6 +38,7 @@ header: <WebCore/WebGPUMapMode.h>
     Read,
     Write,
 };
+using WebCore::WebGPU::MapModeFlags = OptionSet<WebCore::WebGPU::MapMode>;
 
 [AdditionalEncoder=StreamConnectionEncoder] enum class WebCore::WebGPU::MapMode : uint8_t {
     Read,
@@ -257,16 +258,7 @@ enum class WebCore::WebGPU::ColorWrite : uint8_t {
     All,
 };
 
-header: <WebCore/WebGPUColorWrite.h>
-[OptionSet] enum class WebCore::WebGPU::ColorWrite : uint8_t {
-    Red,
-    Green,
-    Blue,
-    Alpha,
-    All,
-};
-
-using WebCore::WebGPU::ColorWriteFlags = OptionSet<WebCore::WebGPU::ColorWrite>;
+using WebCore::WebGPU::ColorWriteFlags = uint32_t;
 
 header: <WebCore/WebGPUSamplerBindingType.h>
 enum class WebCore::WebGPU::SamplerBindingType : uint8_t {
@@ -321,22 +313,6 @@ enum class WebCore::WebGPU::BufferUsage : uint16_t {
     QueryResolve,
 };
 
-header: <WebCore/WebGPUBufferUsage.h>
-[OptionSet] enum class WebCore::WebGPU::BufferUsage : uint16_t {
-    MapRead,
-    MapWrite,
-    CopySource,
-    CopyDestination,
-    Index,
-    Vertex,
-    Uniform,
-    Storage,
-    Indirect,
-    QueryResolve,
-};
-
-using WebCore::WebGPU::BufferUsageFlags = OptionSet<WebCore::WebGPU::BufferUsage>;
-
 header: <WebCore/WebGPUTextureUsage.h>
 enum class WebCore::WebGPU::TextureUsage : uint8_t {
     CopySource,
@@ -356,3 +332,5 @@ header: <WebCore/WebGPUTextureUsage.h>
 };
 
 using WebCore::WebGPU::TextureUsageFlags = OptionSet<WebCore::WebGPU::TextureUsage>;
+
+using WebCore::WebGPU::BufferUsageFlags = uint16_t

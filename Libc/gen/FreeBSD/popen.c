@@ -57,6 +57,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/popen.c,v 1.21 2009/05/27 19:28:04 ed Exp $
 #include <spawn.h>
 #include "un-namespace.h"
 #include "libc_private.h"
+#include "libc_hooks_impl.h"
 
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
@@ -101,6 +102,9 @@ popen(const char *command, const char *type)
 	struct pid *p;
 	posix_spawn_file_actions_t file_actions;
 	int err;
+
+	libc_hooks_will_read_cstring(command);
+	libc_hooks_will_read_cstring(type);
 
 	if (type == NULL) {
 		errno = EINVAL;
@@ -231,6 +235,8 @@ pclose(FILE *iop)
 	struct pid *cur, *last = NULL;
 	int pstat;
 	pid_t pid;
+
+	libc_hooks_will_read(iop, sizeof(*iop));
 
 	/*
 	 * Find the appropriate file pointer and remove it from the list.

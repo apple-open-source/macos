@@ -9,7 +9,11 @@
 #include <darwintest.h>
 #include <malloc/malloc.h>
 
+#if TARGET_OS_WATCH
+#define N_ZONE_CREATION_THREADS 4
+#else // TARGET_OS_WATCH
 #define N_ZONE_CREATION_THREADS 8
+#endif // TARGET_OS_WATCH
 
 static void *
 msl_thread(void *arg)
@@ -35,7 +39,7 @@ zone_thread(void *arg)
 	return NULL;
 }
 
-T_DECL(malloc_enable_msl_lite, "enable the malloc stack logging lite zone while constantly registering zones")
+T_DECL(malloc_enable_msl_lite, "enable the malloc stack logging lite zone while constantly registering zones", T_META_TAG_VM_NOT_PREFERRED)
 {
 	pthread_t zone_threads[N_ZONE_CREATION_THREADS];
 	for (int i = 0; i < N_ZONE_CREATION_THREADS; i++) {

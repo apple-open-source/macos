@@ -62,6 +62,7 @@
 #include <keychain/ckks/CKKS.h>
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTConstants.h"
+#import "keychain/ot/Affordance_OTConstants.h"
 #import "keychain/escrowrequest/EscrowRequestServerHelpers.h"
 
 #if KCSHARING
@@ -1888,14 +1889,10 @@ static dispatch_queue_t get_async_db_dispatch(void) {
     return _async_db_dispatch;
 }
 
-/* whitebox testing only, and I really hope you call DbReset soon */
+/* open box testing only, and I really hope you call DbReset soon */
 void SecKeychainDbForceClose(void)
 {
-    // Wait for any async blocks to finish...
-    dispatch_group_t g = dispatch_group_create();
-    dispatch_group_async(g, get_async_db_dispatch(), ^{});
-    dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
-    dispatch_release(g);
+    SecKeychainDbWaitForAsyncBlocks();
 
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
         if(_kc_dbhandle) {
@@ -1905,7 +1902,31 @@ void SecKeychainDbForceClose(void)
     LKAForceClose();
 }
 
-/* For whitebox testing only */
+// for open box testing only
+dispatch_group_t groupDelayAsyncBlocks;
+void SecKeychainDelayAsyncBlocks(bool yorn)
+{
+    if (groupDelayAsyncBlocks) {
+        dispatch_release(groupDelayAsyncBlocks);
+    }
+    groupDelayAsyncBlocks = yorn ? dispatch_group_create() : nullptr;
+}
+
+// for open box testing only
+void SecKeychainDbWaitForAsyncBlocks(void)
+{
+    if (groupDelayAsyncBlocks) {
+        dispatch_group_wait(groupDelayAsyncBlocks, DISPATCH_TIME_FOREVER);
+    } else {
+        // even if we're not delaying the blocks, we still need to wait for them (e.g. secd_05_corrupted_items())
+        dispatch_group_t g = dispatch_group_create();
+        dispatch_group_async(g, get_async_db_dispatch(), ^{});
+        dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
+        dispatch_release(g);
+    }
+}
+
+/* For open box testing only */
 
 SecDbRef SecKeychainDbGetDb(CFErrorRef* error)
 {
@@ -2115,6 +2136,32 @@ _FilterWithDate(CFDateRef validOnDate, SecCertificateRef cert)
 }
 
 static bool
+_FilterWithEmailAddress(CFStringRef emailAddrToMatch, SecCertificateRef cert)
+{
+    if (!cert || !emailAddrToMatch || CFGetTypeID(emailAddrToMatch) != CFStringGetTypeID()) {
+        return false;
+    }
+    CFArrayRef emailAddresses = NULL;
+    OSStatus status = SecCertificateCopyEmailAddresses(cert, &emailAddresses);
+    if (status != errSecSuccess) {
+        return false;
+    }
+    CFIndex idx, count = (emailAddresses) ? CFArrayGetCount(emailAddresses) : 0;
+    status = (count > 0) ? errSecSMIMEEmailAddressesNotFound : errSecSMIMENoEmailAddress;
+    for (idx = 0; idx < count; idx++) {
+        CFStringRef emailAddr = (CFStringRef) CFArrayGetValueAtIndex(emailAddresses, idx);
+        if (emailAddr && kCFCompareEqualTo == CFStringCompare(emailAddrToMatch, emailAddr, kCFCompareCaseInsensitive)) {
+            status = errSecSuccess;
+            break;
+        }
+    }
+    if (emailAddresses) {
+        CFRelease(emailAddresses);
+    }
+    return (status == errSecSuccess) ? true : false;
+}
+
+static bool
 _FilterWithTrust(Boolean trustedOnly, SecCertificateRef cert)
 {
     if (!cert) return false;
@@ -2172,6 +2219,22 @@ out:
     return certRef;
 }
 
+static bool isHostOrSubdomainOfHost(CFStringRef data, CFStringRef query) {
+    if (data && query){
+        if (CFEqualSafe(data, query)){
+            return true;
+        }
+        CFMutableStringRef queryS = CFStringCreateMutable(kCFAllocatorDefault, 0);
+        CFStringAppend(queryS, CFSTR("."));
+        CFStringAppend(queryS, query);
+        
+        bool ok = CFStringHasSuffix(data, queryS);
+        CFReleaseSafe(queryS);
+        return ok;
+    }
+    return false;
+}
+
 bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDictionaryRef item)
 {
     bool ok = false;
@@ -2203,6 +2266,26 @@ bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDic
         require_quiet(_FilterWithTrust(CFBooleanGetValue(q->q_match_trusted_only), certRef), out);
     }
 
+    if (q->q_match_email_address && (q->q_class == identity_class() || q->q_class == cert_class())) {
+        if (!certRef) {
+            certRef = CopyCertificateFromItem(q, item);
+        }
+        require_quiet(certRef, out);
+        require_quiet(_FilterWithEmailAddress(q->q_match_email_address, certRef), out);
+    }
+
+    if (q->q_match_host_or_subdomain && (q->q_class == inet_class())){
+        CFTypeRef server = (CFTypeRef)CFDictionaryGetValue(item, kSecAttrServer);
+        if (server && CFGetTypeID(server) == CFStringGetTypeID()){
+            if(!isHostOrSubdomainOfHost((CFStringRef)server, q->q_match_host_or_subdomain)) {
+                return ok;
+            }
+        } else {
+            // server was not a string type, so filter it out since we're matching against a string
+            return ok;
+        }
+    }
+
     /* Add future match checks here. */
     ok = true;
 out:
@@ -2223,7 +2306,7 @@ void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sql
     CFRetain(db);
     CFRetain(tablename);
 
-    dispatch_async(get_async_db_dispatch(), ^{
+    dispatch_block_t deleteAsync = ^{
         __block CFErrorRef localErr = NULL;
         kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt2) {
             CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
@@ -2244,8 +2327,17 @@ void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sql
 
         CFRelease(tablename); // can't be a CFReleaseNull() because of scope
         CFRelease(db);
-    });
+    };
 
+    // local variable to obviate races
+    dispatch_group_t theGroup = groupDelayAsyncBlocks;
+    if (theGroup) {
+        // This is the case for open box testing, not the normal case.
+        dispatch_group_enter(theGroup);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC*250), get_async_db_dispatch(), ^{deleteAsync(); dispatch_group_leave(theGroup);});
+    } else {
+        dispatch_async(get_async_db_dispatch(), deleteAsync);
+    }
 }
 
 
@@ -2524,6 +2616,8 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
         } else if (q->q_match_issuer && ((q->q_class != cert_class()) &&
                     (q->q_class != identity_class()))) {
             ok = SecError(errSecUnsupportedOperation, error, CFSTR("unsupported match attribute"));
+        } else if (q->q_match_host_or_subdomain && ((q->q_class != inet_class()))) {
+            ok = SecError(errSecUnsupportedOperation, error, CFSTR("unsupported kSecMatchHostOrSubdomainOfHost attribute"));
         } else if (q->q_match_policy && ((q->q_class != cert_class()) &&
                     (q->q_class != identity_class()))) {
             ok = SecError(errSecUnsupportedOperation, error, CFSTR("unsupported kSecMatchPolicy attribute"));

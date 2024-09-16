@@ -56,6 +56,7 @@
 
 #include "keychain/ckks/CKKS.h"
 #include "keychain/ot/OTConstants.h"
+#include "keychain/ot/Affordance_OTConstants.h"
 
 #define kSecBackupKeybagUUIDKey CFSTR("keybag-uuid")
 
@@ -2429,10 +2430,10 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
 
 #define EXCLUDE_AGRPS "'com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks', 'com.apple.security.egoIdentities', 'com.apple.security.octagon'"
 
-                bool tok = SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
-                tok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
-                tok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
-                tok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
+                bool tok = SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ") AND NOT ggrp <> '';"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ") AND NOT ggrp <> '';"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ") AND NOT ggrp <> '';"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ") AND NOT ggrp <> '';"), &btError);
 
 #undef EXCLUDE_AGRPS
                 return tok;

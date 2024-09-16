@@ -1,8 +1,0 @@
-/# Look for our function/a
-.
-/++$found if/s,;, \&\& !/^X</;,
-/or ( $ret = $self->check_file($dir,$s))/a
-.
-.t.-1
-s/,$s/& . $Config{_v_}/
-w

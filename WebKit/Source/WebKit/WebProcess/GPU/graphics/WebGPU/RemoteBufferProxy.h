@@ -39,9 +39,9 @@ class ConvertToBackingContext;
 class RemoteBufferProxy final : public WebCore::WebGPU::Buffer {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteBufferProxy> create(RemoteDeviceProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
+    static Ref<RemoteBufferProxy> create(RemoteDeviceProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, bool mappedAtCreation)
     {
-        return adoptRef(*new RemoteBufferProxy(parent, convertToBackingContext, identifier));
+        return adoptRef(*new RemoteBufferProxy(parent, convertToBackingContext, identifier, mappedAtCreation));
     }
 
     virtual ~RemoteBufferProxy();
@@ -52,7 +52,7 @@ public:
 private:
     friend class DowncastConvertToBackingContext;
 
-    RemoteBufferProxy(RemoteDeviceProxy&, ConvertToBackingContext&, WebGPUIdentifier);
+    RemoteBufferProxy(RemoteDeviceProxy&, ConvertToBackingContext&, WebGPUIdentifier, bool mappedAtCreation);
 
     RemoteBufferProxy(const RemoteBufferProxy&) = delete;
     RemoteBufferProxy(RemoteBufferProxy&&) = delete;
@@ -79,8 +79,10 @@ private:
     }
 
     void mapAsync(WebCore::WebGPU::MapModeFlags, WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> sizeForMap, CompletionHandler<void(bool)>&&) final;
-    MappedRange getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64>) final;
+    void getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64>, Function<void(MappedRange)>&&) final;
+    MappedRange getBufferContents() final;
     void unmap() final;
+    void copy(std::span<const uint8_t>, size_t offset) final;
 
     void destroy() final;
 
@@ -91,7 +93,6 @@ private:
     WebGPUIdentifier m_backing;
     Ref<ConvertToBackingContext> m_convertToBackingContext;
     Ref<RemoteDeviceProxy> m_parent;
-    std::optional<Vector<uint8_t>> m_data;
     WebCore::WebGPU::MapModeFlags m_mapModeFlags;
 };
 

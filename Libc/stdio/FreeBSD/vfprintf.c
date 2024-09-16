@@ -80,6 +80,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfprintf.c,v 1.90 2009/02/28 06:06:57 das
 #include "local.h"
 #include "fvwrite.h"
 #include "printflocal.h"
+#include "libc_hooks_impl.h"
 
 static int	__sprint(FILE *, locale_t, struct __suio *);
 #if 0
@@ -291,6 +292,8 @@ vfprintf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, va_
 {
 	int ret;
 
+	libc_hooks_will_write(fp, sizeof(*fp));
+
 	FLOCKFILE(fp);
 	ret = __xvprintf(XPRINTF_PLAIN, NULL, fp, loc, fmt0, ap);
 	FUNLOCKFILE(fp);
@@ -302,6 +305,8 @@ vfprintf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
 
 {
 	int ret;
+
+	libc_hooks_will_write(fp, sizeof(*fp));
 
 	FLOCKFILE(fp);
 	ret = __xvprintf(XPRINTF_PLAIN, NULL, fp, __current_locale(), fmt0, ap);
@@ -884,22 +889,23 @@ fp_common:
 			}
 #endif // ALLOW_DYNAMIC_PERCENT_N
 
-			if (flags & LLONGINT)
-				*(long long *)ptr = ret;
-			else if (flags & SIZET)
-				*(ssize_t *)ptr = (ssize_t)ret;
-			else if (flags & PTRDIFFT)
-				*(ptrdiff_t *)ptr = ret;
-			else if (flags & INTMAXT)
-				*(intmax_t *)ptr = ret;
-			else if (flags & LONGINT)
-				*(long *)ptr = ret;
-			else if (flags & SHORTINT)
-				*(short *)ptr = ret;
-			else if (flags & CHARINT)
-				*(signed char *)ptr = ret;
-			else
-				*(int *)ptr = ret;
+			if (flags & LLONGINT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long long, ret);
+			} else if (flags & SIZET) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, ssize_t, ret);
+			} else if (flags & PTRDIFFT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, ptrdiff_t, ret);
+			} else if (flags & INTMAXT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, intmax_t, ret);
+			} else if (flags & LONGINT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, long, ret);
+			} else if (flags & SHORTINT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, short, ret);
+			} else if (flags & CHARINT) {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, signed char, ret);
+			} else {
+				LIBC_HOOKS_WRITE_SIMPLE_TYPE(ptr, int, ret);
+			}
 			continue;	/* no output */
 		}
 		case 'O':
@@ -963,6 +969,7 @@ fp_common:
 					ret = EOF;
 					goto error;
 				}
+				libc_hooks_will_read(cp, size);
 			}
 			sign = '\0';
 			break;

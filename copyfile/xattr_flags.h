@@ -119,6 +119,13 @@ typedef uint64_t xattr_flags_t;
  */
 #define XATTR_FLAG_ONLY_BACKUP	((xattr_flags_t)0x0010)
 
+/*
+ * XATTR_FLAG_ONLY_SAVING
+ * Declares that the extended attribute should only be copied if the intention
+ * is XATTR_OPERATION_INTENT_SAVE or XATTR_OPERATION_INTENT_BACKUP.
+ */
+#define XATTR_FLAG_ONLY_SAVING	((xattr_flags_t)0x0020)
+
 /* Given a named extended attribute, and a copy intent, should the EA be preserved? */
 extern int xattr_preserve_for_intent(const char *__unsafe_indexable, xattr_operation_intent_t) __OSX_AVAILABLE_STARTING( __MAC_10_10, __IPHONE_8_0);
 

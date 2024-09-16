@@ -756,6 +756,24 @@ os_unfair_lock_unlock_no_tsd(os_unfair_lock_t lock, mach_port_t self)
 	return _os_unfair_lock_unlock_slow(l, self, current, 0);
 }
 
+// Following section is an API surface of existing
+// os_unfair_lock_lock_with_options SPIs surface and its variants.
+
+_Static_assert(OS_UNFAIR_LOCK_FLAG_ADAPTIVE_SPIN ==
+			   ULF_WAIT_ADAPTIVE_SPIN,
+		"check value for OS_UNFAIR_LOCK_FLAG_ADAPTIVE_SPIN");
+
+OS_ATOMIC_EXPORT void os_unfair_lock_lock_with_flags(os_unfair_lock_t lock,
+	os_unfair_lock_flags_t flags);
+
+void
+os_unfair_lock_lock_with_flags(os_unfair_lock_t lock,
+	os_unfair_lock_flags_t flags)
+{
+	return os_unfair_lock_lock_with_options(lock,
+		(os_unfair_lock_options_t)flags);
+}
+
 
 void
 os_unfair_lock_assert_owner(const os_unfair_lock *lock)

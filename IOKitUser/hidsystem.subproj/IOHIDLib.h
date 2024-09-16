@@ -213,6 +213,23 @@ __OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AV
 bool IOHIDRequestAccess(IOHIDRequestType requestType)
 __OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
 
+/*!
+ * @function IOHIDAccessCheckAuditToken
+ *
+ * @abstract
+ * Checks access for a specific IOHIDRequestType for a specific client, identified by the audit token
+ *
+ * @param requestType
+ * The request type defined in the IOHIDRequestType enumerator.
+ * @param token
+ * The audit token associated with the client we are checking access for
+ *
+ * @result
+ * Returns true if the specified client has TCC access for the specified service.
+ */
+bool IOHIDAccessCheckAuditToken(IOHIDRequestType requestType, audit_token_t token)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 __END_DECLS

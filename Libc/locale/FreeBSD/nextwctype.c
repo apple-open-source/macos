@@ -40,7 +40,7 @@ nextwctype_l(wint_t wc, wctype_t wct, locale_t loc)
 	_RuneRange *rr;
 	_RuneEntry *base, *re;
 	int noinc;
-	_RuneLocale *rl = &loc->__lc_ctype->_CurrentRuneLocale;
+	_RuneLocale *rl = XLOCALE_CTYPE(loc)->_CurrentRuneLocale;
 
 	noinc = 0;
 	if (wc < _CACHED_RUNES) {

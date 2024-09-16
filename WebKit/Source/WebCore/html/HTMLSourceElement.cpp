@@ -149,9 +149,10 @@ bool HTMLSourceElement::isURLAttribute(const Attribute& attribute) const
     return attribute.name() == srcAttr || HTMLElement::isURLAttribute(attribute);
 }
 
-const char* HTMLSourceElement::activeDOMObjectName() const
+bool HTMLSourceElement::attributeContainsURL(const Attribute& attribute) const
 {
-    return "HTMLSourceElement";
+    return attribute.name() == srcsetAttr
+        || HTMLElement::attributeContainsURL(attribute);
 }
 
 void HTMLSourceElement::stop()
@@ -223,6 +224,24 @@ Attribute HTMLSourceElement::replaceURLsInAttributeValue(const Attribute& attrib
 void HTMLSourceElement::addCandidateSubresourceURLs(ListHashSet<URL>& urls) const
 {
     getURLsFromSrcsetAttribute(*this, attributeWithoutSynchronization(srcsetAttr), urls);
+}
+
+Ref<Element> HTMLSourceElement::cloneElementWithoutAttributesAndChildren(Document& targetDocument)
+{
+    auto clone = create(targetDocument);
+#if ENABLE(ATTACHMENT_ELEMENT)
+    cloneAttachmentAssociatedElementWithoutAttributesAndChildren(clone, targetDocument);
+#endif
+    return clone;
+}
+
+void HTMLSourceElement::copyNonAttributePropertiesFromElement(const Element& source)
+{
+#if ENABLE(ATTACHMENT_ELEMENT)
+    auto& sourceElement = downcast<HTMLSourceElement>(source);
+    copyAttachmentAssociatedPropertiesFromElement(sourceElement);
+#endif
+    Element::copyNonAttributePropertiesFromElement(source);
 }
 
 }

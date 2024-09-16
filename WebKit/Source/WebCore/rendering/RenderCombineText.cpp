@@ -41,6 +41,8 @@ RenderCombineText::RenderCombineText(Text& textNode, const String& string)
     ASSERT(isRenderCombineText());
 }
 
+RenderCombineText::~RenderCombineText() = default;
+
 void RenderCombineText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     // FIXME: This is pretty hackish.
@@ -186,12 +188,11 @@ void RenderCombineText::combineTextIfNeeded()
         m_combineFontStyle->fontCascade().update(fontSelector);
 
     if (m_isCombined) {
-        static NeverDestroyed<String> objectReplacementCharacterString(&objectReplacementCharacter, 1);
+        static NeverDestroyed<String> objectReplacementCharacterString = span(objectReplacementCharacter);
         RenderText::setRenderedText(objectReplacementCharacterString.get());
         m_combinedTextWidth = combinedTextWidth;
         m_combinedTextAscent = glyphOverflow.top;
         m_combinedTextDescent = glyphOverflow.bottom;
-        m_lineBoxes.dirtyRange(*this, 0, originalText().length(), originalText().length());
         setNeedsLayout();
     }
 }

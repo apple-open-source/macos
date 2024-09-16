@@ -69,6 +69,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecXPCError.h>
+#include <utilities/SecFileLocations.h>
 #include <utilities/der_plist.h>
 #include <utilities/der_plist_internal.h>
 #include <utilities/simulatecrash_assert.h>
@@ -101,7 +102,7 @@
 #include "SecSoftLink.h"
 
 #include <Security/OTConstants.h>
-
+#include "keychain/ot/Affordance_OTConstants.h"
 /*
  * See corresponding definition in SecDbKeychainItemV7. This is the unserialized
  * maximum, so the daemon's limit is not exactly the same.
@@ -1267,17 +1268,57 @@ out:
     return ok;
 }
 
+static bool SecItemAttributesSpecifySystemKeychain(NSDictionary *attributes) {
+    BOOL useSystemKeychain = NO;
+#if TARGET_OS_OSX || TARGET_OS_IOS
+     useSystemKeychain = [attributes[(id)kSecUseSystemKeychainAlways] boolValue];
+#if TARGET_OS_IOS
+     if (SecIsEduMode()) {
+         useSystemKeychain = useSystemKeychain || [attributes[(id)kSecUseSystemKeychain] boolValue];
+     }
+#endif
+#endif
+    return useSystemKeychain;
+}
+
+static bool SecItemCheckRefCompatibilityWithQuery(NSDictionary *refAttributes, NSDictionary *attributes) {
+    // We want to avoid storing non-system-seession SEP keys into system keychain. Such keys, when retrieved from keychain,
+    // would always fail when attempting to perform cryptographic operations with them due to keybag mismatch.
+
+    // First check, that we are dealing with SEP key here.
+    if ([refAttributes[(id)kSecClass] isEqual:(id)kSecClassKey]) {
+        NSString *tokenID = refAttributes[(id)kSecAttrTokenID];
+        if ([tokenID isKindOfClass:NSString.class] && [tokenID hasPrefix:(id)kSecAttrTokenIDSecureEnclave]) {
+            // Check, whether we are trying to store non-system key into system keychain.
+            if (SecItemAttributesSpecifySystemKeychain(attributes) && !SecItemAttributesSpecifySystemKeychain(refAttributes)) {
+                // This is bad. Normally, we would want to error out and completely forbid such attempt, but since there is already
+                // apparently code in the wild which is doing that, we allow doing it and just log fault so that we are notified about it.
+                os_log_fault(secLogObjForScope("seckey"), "Storing non-system-session key into system keychain, will always lead to unusable key when retrieved from keychain!");
+            }
+        }
+    }
+
+    return true;
+}
+
 static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, CFErrorRef *error) {
     bool ok = false;
     CFDataRef ac_data = NULL, acm_context = NULL;
+    CFDictionaryRef ref_attributes = NULL;
     LAContext *authContext;
 
     // If a ref was specified we get its attribute dictionary and parse it.
     CFTypeRef value = CFDictionaryGetValue(attrs->dictionary, kSecValueRef);
     if (value) {
-        CFDictionaryRef ref_attributes;
         require_action_quiet(ref_attributes = SecItemCopyAttributeDictionary(value, forQuery), out,
                              SecError(errSecValueRefUnsupported, error, CFSTR("unsupported kSecValueRef in query")));
+
+        // Check compatibility of provided ref with specified attributes.
+        if (!forQuery) {
+            require_action_quiet(SecItemCheckRefCompatibilityWithQuery((__bridge NSDictionary *)ref_attributes, 
+                                                                       (__bridge NSDictionary *)attrs->dictionary), out,
+                                 SecError(errSecValueRefUnsupported, error, CFSTR("incompatible kSecValueRef in query")));
+        }
 
         // Replace any attributes we already got from the ref with the ones from the attributes dictionary the caller passed us.
         // This allows a caller to add an item using attributes from the ref and still override some of them in the dictionary directly.
@@ -1286,7 +1327,6 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
             // so add only those attributes from 'ref' which are missing in attrs.
             CFDictionaryAddValue(SecCFDictionaryCOWGetMutable(attrs), key, value);
         });
-        CFRelease(ref_attributes);
 
         if (forQuery) {
             CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(attrs), kSecAttrTokenOID);
@@ -1362,6 +1402,7 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
 out:
     CFReleaseSafe(ac_data);
     CFReleaseSafe(acm_context);
+    CFReleaseSafe(ref_attributes);
     return ok;
 }
 

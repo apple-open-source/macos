@@ -83,7 +83,7 @@ static NSString * const suggestionCellReuseIdentifier = @"WKDataListSuggestionCe
 
 + (instancetype)textSuggestionWithInputText:(NSString *)inputText
 {
-#if SERVICE_EXTENSIONS_TEXT_INPUT_IS_AVAILABLE
+#if USE(BROWSERENGINEKIT)
     return [[[super alloc] initWithInputText:inputText] autorelease];
 #else
     return [super textSuggestionWithInputText:inputText];
@@ -138,7 +138,7 @@ void WebDataListSuggestionsDropdownIOS::close()
 {
     [m_suggestionsControl invalidate];
     m_suggestionsControl = nil;
-    m_page->didCloseSuggestions();
+    WebDataListSuggestionsDropdown::close();
 }
 
 void WebDataListSuggestionsDropdownIOS::didSelectOption(const String& selectedOption)
@@ -464,7 +464,22 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     [self _updateTextSuggestions];
 
-    if (![UIKeyboard isInHardwareKeyboardMode] && activationType != WebCore::DataListSuggestionActivationType::IndicatorClicked)
+    bool shouldShowOrUpdateSugggestions = [&] {
+#if USE(UICONTEXTMENU)
+        if (_suggestionsContextMenuPresenter)
+            return true;
+#endif
+
+        if ([UIKeyboard isInHardwareKeyboardMode])
+            return true;
+
+        if (activationType == WebCore::DataListSuggestionActivationType::IndicatorClicked || activationType == WebCore::DataListSuggestionActivationType::DataListMayHaveChanged)
+            return true;
+
+        return false;
+    }();
+
+    if (!shouldShowOrUpdateSugggestions)
         return;
 
     [self _showSuggestions];

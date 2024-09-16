@@ -925,9 +925,16 @@
 		AA3880E127063A66001035DA /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E027063A66001035DA /* libiconv.tbd */; };
 		AA3880E327063A70001035DA /* libgssapi_krb5.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E227063A6F001035DA /* libgssapi_krb5.tbd */; };
 		AA3880E527063AA4001035DA /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
-		AA56E18026FD1867008E2A55 /* libcups.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72220EAE1333047D00FCA411 /* libcups.dylib */; };
 		AAF7F0B929F1BB11009E973D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2767FC5E1926750C000F61D3 /* SystemConfiguration.framework */; };
 		AAF7F0BA29F1BB18009E973D /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
+		DC887C3D2B056FC200B7A8E5 /* libcups_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A4332F155844CF002E172D /* libcups_static.a */; };
+		DC887C3E2B056FDA00B7A8E5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2767FC5D1926750C000F61D3 /* Security.framework */; };
+		DC887C3F2B056FE400B7A8E5 /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E027063A66001035DA /* libiconv.tbd */; };
+		DC887C402B056FEC00B7A8E5 /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880D927063A3E001035DA /* libresolv.tbd */; };
+		DC887C412B056FF300B7A8E5 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880DE27063A60001035DA /* libz.tbd */; };
+		DC887C422B056FF900B7A8E5 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3880E427063AA4001035DA /* GSS.framework */; };
+		DC887C432B05700600B7A8E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2767FC591926750C000F61D3 /* CoreFoundation.framework */; };
+		DC887C442B05700F00B7A8E5 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2767FC5E1926750C000F61D3 /* SystemConfiguration.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -4191,7 +4198,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA56E18026FD1867008E2A55 /* libcups.dylib in Frameworks */,
+				DC887C442B05700F00B7A8E5 /* SystemConfiguration.framework in Frameworks */,
+				DC887C432B05700600B7A8E5 /* CoreFoundation.framework in Frameworks */,
+				DC887C422B056FF900B7A8E5 /* GSS.framework in Frameworks */,
+				DC887C412B056FF300B7A8E5 /* libz.tbd in Frameworks */,
+				DC887C402B056FEC00B7A8E5 /* libresolv.tbd in Frameworks */,
+				DC887C3F2B056FE400B7A8E5 /* libiconv.tbd in Frameworks */,
+				DC887C3E2B056FDA00B7A8E5 /* Security.framework in Frameworks */,
+				DC887C3D2B056FC200B7A8E5 /* libcups_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

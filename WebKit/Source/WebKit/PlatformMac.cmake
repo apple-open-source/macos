@@ -1,4 +1,4 @@
-add_definitions("-ObjC++ -std=c++2a -D__STDC_WANT_LIB_EXT1__")
+add_definitions("-ObjC++ -std=c++2b -D__STDC_WANT_LIB_EXT1__")
 find_library(APPLICATIONSERVICES_LIBRARY ApplicationServices)
 find_library(CARBON_LIBRARY Carbon)
 find_library(CORESERVICES_LIBRARY CoreServices)
@@ -261,6 +261,7 @@ list(APPEND WebKit_SERIALIZATION_IN_FILES
     Shared/Cocoa/CacheStoragePolicy.serialization.in
     Shared/Cocoa/DataDetectionResult.serialization.in
     Shared/Cocoa/InsertTextOptions.serialization.in
+    Shared/Cocoa/RemoteObjectInvocation.serialization.in
     Shared/Cocoa/RevealItem.serialization.in
     Shared/Cocoa/WebCoreArgumentCodersCocoa.serialization.in
 )
@@ -371,7 +372,6 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/Cocoa/WKSecurityOrigin.h
     UIProcess/API/Cocoa/WKSecurityOriginPrivate.h
     UIProcess/API/Cocoa/WKSnapshotConfiguration.h
-    UIProcess/API/Cocoa/WKTypeRefWrapper.h
     UIProcess/API/Cocoa/WKUIDelegate.h
     UIProcess/API/Cocoa/WKUIDelegatePrivate.h
     UIProcess/API/Cocoa/WKURLSchemeHandler.h
@@ -481,7 +481,6 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/Cocoa/_WKWebAuthenticationPanel.h
     UIProcess/API/Cocoa/_WKWebAuthenticationPanelForTesting.h
     UIProcess/API/Cocoa/_WKWebsiteDataSize.h
-    UIProcess/API/Cocoa/_WKWebsiteDataStore.h
     UIProcess/API/Cocoa/_WKWebsiteDataStoreConfiguration.h
     UIProcess/API/Cocoa/_WKWebsiteDataStoreDelegate.h
 
@@ -812,7 +811,7 @@ function(WEBKIT_DEFINE_XPC_SERVICES)
             VERBATIM)
         list(APPEND WebKit_SB_FILES ${WebKit_RESOURCES_DIR}/com.apple.WebKit.GPUProcess.sb)
     endif ()
-    if (ENABLE_BUILT_IN_NOTIFICATIONS)
+    if (ENABLE_WEB_PUSH_NOTIFICATIONS)
         add_custom_command(OUTPUT ${WebKit_RESOURCES_DIR}/com.apple.WebKit.webpushd.mac.sb COMMAND
             grep -o "^[^;]*" ${WEBKIT_DIR}/webpushd/mac/com.apple.WebKit.webpushd.mac.sb.in | clang -E -P -w -include wtf/Platform.h -I ${WTF_FRAMEWORK_HEADERS_DIR} -I ${bmalloc_FRAMEWORK_HEADERS_DIR} -I ${WEBKIT_DIR} - > ${WebKit_RESOURCES_DIR}/com.apple.WebKit.webpushd.mac.sb
             VERBATIM)
@@ -827,3 +826,5 @@ function(WEBKIT_DEFINE_XPC_SERVICES)
     add_custom_target(WebContentProcessNib ALL DEPENDS ${WebKit_XPC_SERVICE_DIR}/com.apple.WebKit.WebContent.xpc/Contents/Resources/WebContentProcess.nib)
     add_dependencies(WebKit WebContentProcessNib)
 endfunction()
+
+set(WebKit_GENERATED_SERIALIZERS_SUFFIX mm)

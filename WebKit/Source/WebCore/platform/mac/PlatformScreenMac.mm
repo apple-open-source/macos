@@ -128,7 +128,7 @@ ScreenProperties collectScreenProperties()
     auto screenSupportsHighDynamicRange = [](PlatformDisplayID displayID, DynamicRangeMode& dynamicRangeMode) {
         bool supportsHighDynamicRange = false;
 #if HAVE(AVPLAYER_VIDEORANGEOVERRIDE)
-        if (PAL::isAVFoundationFrameworkAvailable() && [PAL::getAVPlayerClass() respondsToSelector:@selector(preferredVideoRangeForDisplays:)]) {
+        if (PAL::isAVFoundationFrameworkAvailable()) {
             dynamicRangeMode = convertAVVideoRangeToEnum([PAL::getAVPlayerClass() preferredVideoRangeForDisplays:@[ @(displayID) ]]);
             supportsHighDynamicRange = dynamicRangeMode > DynamicRangeMode::Standard;
         }
@@ -166,6 +166,7 @@ ScreenProperties collectScreenProperties()
         if (screenData.displayMask)
             screenData.gpuID = gpuIDForDisplayMask(screenData.displayMask);
 
+        screenData.screenSize = FloatSize { CGDisplayScreenSize(displayID) };
         screenData.scaleFactor = screen.backingScaleFactor;
         screenData.screenSupportsHighDynamicRange = screenSupportsHighDynamicRange(displayID, screenData.preferredDynamicRangeMode);
 
@@ -388,7 +389,7 @@ DynamicRangeMode preferredDynamicRangeMode(Widget* widget)
         return data->preferredDynamicRangeMode;
 
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    if (PAL::isAVFoundationFrameworkAvailable() && [PAL::getAVPlayerClass() respondsToSelector:@selector(preferredVideoRangeForDisplays:)]) {
+    if (PAL::isAVFoundationFrameworkAvailable()) {
         auto displayID = WebCore::displayID(screen(widget));
         return convertAVVideoRangeToEnum([PAL::getAVPlayerClass() preferredVideoRangeForDisplays:@[ @(displayID) ]]);
     }
@@ -436,6 +437,12 @@ FloatRect safeScreenFrame(NSScreen* screen)
     return frame;
 }
 
+double ScreenData::screenDPI() const
+{
+    constexpr double mmPerInch = 25.4;
+    auto screenWidthInches = screenSize.width() / mmPerInch;
+    return screenRect.width() / screenWidthInches;
+}
 
 } // namespace WebCore
 

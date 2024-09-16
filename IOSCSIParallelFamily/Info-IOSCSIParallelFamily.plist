@@ -30,6 +30,8 @@
 	<dict>
 		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
 		<string>1.0.0</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>2.7</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>9.0.0</string>
 		<key>com.apple.kpi.iokit</key>

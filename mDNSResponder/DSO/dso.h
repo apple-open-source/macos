@@ -263,7 +263,7 @@ bool dso_make_message(dso_message_t *state, uint8_t *outbuf, size_t outbuf_size,
                       bool unidirectional, bool response, uint16_t xid, int rcode, void *callback_state);
 size_t dso_message_length(dso_message_t *state);
 void dso_retry_delay(dso_state_t *dso, const DNSMessageHeader *header);
-void dso_keepalive(dso_state_t *dso, const DNSMessageHeader *header);
+void dso_keepalive(dso_state_t *dso, const DNSMessageHeader *header, bool response);
 void dso_message_received(dso_state_t *dso, const uint8_t *message, size_t message_length, void *context);
 void dns_message_received(dso_state_t *dso, const uint8_t *message, size_t message_length, void *context);
 

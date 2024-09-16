@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,5 +121,8 @@ bytesFromColonHexString(CFStringRef colon_hex, int * len);
 CFDictionaryRef
 route_dict_create(const struct in_addr * dest, const struct in_addr * mask,
 		  const struct in_addr * gate);
+
+CFDictionaryRef
+PvDEntityCreateWithInfo(ipv6_info_t * info_p);
 
 #endif /* _S_SYSCONFIG_H */

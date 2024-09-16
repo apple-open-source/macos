@@ -90,7 +90,7 @@ MD2, MD4, and MD5 are recommended only for compatibility with existing
 applications. In new applications, SHA\-256(or greater) should be
 preferred.
 .Sh RETURN VALUES
-All routines return 1 except for the one-shot routines (
+All routines return 1 upon success and NULL upon failure, except for the one-shot routines (
 .Fn CC_MD2
 , etc.), which return the pointer passed in via the md parameter.
 .Sh CONFORMING TO

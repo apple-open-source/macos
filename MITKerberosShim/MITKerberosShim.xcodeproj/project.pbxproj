@@ -91,6 +91,8 @@
 		1CC0D81D1108EDC600D084BB /* krb5.conf.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 1CC0D8151108ED7600D084BB /* krb5.conf.in */; };
 		1CEDD250106303EE008A482B /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
 		1CF9E7CA10605843009E3024 /* Krb4DeprecatedAPIs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */; };
+		847C35902A57890B00D003D4 /* gssapi.modulemap in install include */ = {isa = PBXBuildFile; fileRef = 847C358F2A5787EA00D003D4 /* gssapi.modulemap */; };
+		847C35912A57890B00D003D4 /* krb5.modulemap in install include */ = {isa = PBXBuildFile; fileRef = 847C358E2A57873F00D003D4 /* krb5.modulemap */; };
 		E1EAC85D21506EE8004684C0 /* heim-proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = E1EAC85C21506EE8004684C0 /* heim-proxy.c */; };
 		E1EAC86121506F51004684C0 /* libHeimdalProxy.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E1EAC85821506EAF004684C0 /* libHeimdalProxy.dylib */; };
 		E1EAC862215071B5004684C0 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F2A3F1000310300224B2D /* Heimdal.framework */; };
@@ -375,6 +377,8 @@
 			dstPath = "$(HEIMDAL_ROOT)/usr/include";
 			dstSubfolderSpec = 0;
 			files = (
+				847C35902A57890B00D003D4 /* gssapi.modulemap in install include */,
+				847C35912A57890B00D003D4 /* krb5.modulemap in install include */,
 				EB2747F610883A3700AAB294 /* com_err.h in install include */,
 				EB2747F710883A3700AAB294 /* gssapi.h in install include */,
 				EB2747F810883A3700AAB294 /* krb5.h in install include */,
@@ -506,6 +510,8 @@
 		1C82A7DE10C5CA3900115F67 /* test-krb5 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-krb5"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CC0D8151108ED7600D084BB /* krb5.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = krb5.conf.in; path = test/krb5.conf.in; sourceTree = "<group>"; };
 		1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Krb4DeprecatedAPIs.c; sourceTree = "<group>"; };
+		847C358E2A57873F00D003D4 /* krb5.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = krb5.modulemap; path = "mit-include/krb5.modulemap"; sourceTree = "<group>"; };
+		847C358F2A5787EA00D003D4 /* gssapi.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; name = gssapi.modulemap; path = "mit-include/gssapi.modulemap"; sourceTree = "<group>"; };
 		8D576317048677EA00EA77CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E1EAC85821506EAF004684C0 /* libHeimdalProxy.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libHeimdalProxy.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1EAC85C21506EE8004684C0 /* heim-proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "heim-proxy.c"; sourceTree = "<group>"; };
@@ -960,6 +966,8 @@
 		EB27476E108839F300AAB294 /* mit-include */ = {
 			isa = PBXGroup;
 			children = (
+				847C358F2A5787EA00D003D4 /* gssapi.modulemap */,
+				847C358E2A57873F00D003D4 /* krb5.modulemap */,
 				EB27477010883A1500AAB294 /* gssapi */,
 				EB27477510883A1500AAB294 /* krb5 */,
 				EB27476F10883A1500AAB294 /* com_err.h */,

@@ -627,8 +627,8 @@ static tmbchar LastChar( tmbstr str )
 {
     if ( str && *str )
     {
-        int n = TY_(tmbstrlen)(str);
-        return str[n-1];
+        size_t n = TY_(tmbstrlen)(str);
+        return n > 0 ? str[n-1] : 0;
     }
     return 0;
 }
@@ -1634,7 +1634,7 @@ Bool TY_(FixDocType)( TidyDocImpl* doc )
 {
     Lexer* lexer = doc->lexer;
     Node* doctype = TY_(FindDocType)( doc );
-    uint dtmode = cfg( doc, TidyDoctypeMode );
+    uint dtmode = (uint)cfg( doc, TidyDoctypeMode );
     uint guessed = VERS_UNKNOWN;
     Bool hadSI = no;
 
@@ -1737,7 +1737,7 @@ Bool TY_(FixXmlDecl)( TidyDocImpl* doc )
 
     if ( encoding == NULL && cfg(doc, TidyOutCharEncoding) != UTF8 )
     {
-        ctmbstr enc = TY_(GetEncodingNameFromTidyId)(cfg(doc, TidyOutCharEncoding));
+        ctmbstr enc = TY_(GetEncodingNameFromTidyId)((uint)cfg(doc, TidyOutCharEncoding));
         if ( enc )
             TY_(AddAttribute)( doc, xml, "encoding", enc );
     }

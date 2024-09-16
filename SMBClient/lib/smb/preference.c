@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 - 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,12 +43,14 @@
 static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs, 
 								   const char *sname, int level)
 {
-	char	*p;
-	int32_t	altflags;
-    char* str = NULL;
-    char *token;
-    uint32_t if_index;
+	char *p = NULL;
+	int32_t	altflags = 0;
+    char *str = NULL;
+    char *token = NULL;
+    uint32_t if_index = 0;
     uint32_t ignorelist_len = 0;
+    uint32_t list_len = 0;
+    size_t str_len = 0;
 
 	/* global only preferences */
 	if (level == 0) {
@@ -245,6 +247,137 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
             if (altflags) {
                 prefs->altflags |= SMBFS_MNT_MC_PREFER_WIRED;
             }
+        }
+        
+        /* Is chained compression disabled? */
+        if (rc_getbool(rcfile, sname, "comp_chaining_disable", &altflags) == 0) {
+            if (altflags) {
+                prefs->altflags |= SMBFS_MNT_COMPRESSION_CHAINING_OFF;
+            }
+        }
+
+        /*
+         * Check for which compression algorithms are enabled.
+         * Default is all algorithms are enabled
+         *
+         * SMB2_COMPRESSION_LZNT1_ENABLED (0x00000001) = LZNT1 enabled
+         * SMB2_COMPRESSION_LZ77_ENABLED (0x00000002) = LZ77 enabled
+         * SMB2_COMPRESSION_LZ77_HUFFMAN_ENABLED (0x00000004) = LZ77+Huffman enabled
+         * SMB2_COMPRESSION_PATTERN_V1_ENABLED (0x00000008) = Pattern Scanning enabled
+         */
+        rc_getint(rcfile, sname, "comp_algorithms_map", &prefs->compression_algorithms_map);
+        
+        rc_getint(rcfile, sname, "comp_io_threshold", &prefs->compression_io_threshold);
+        /* Make sure they set it to something reasonable */
+        if (prefs->compression_io_threshold < 4096) {
+            /* 4096 bytes is the min since that is Windows Client min */
+            prefs->compression_io_threshold = 4096;
+        }
+        
+        if (prefs->compression_io_threshold > 5242880) {
+            /* Set an arbitrary upper limit */
+            prefs->compression_io_threshold = 5242880;
+        }
+        
+        rc_getint(rcfile, sname, "comp_chunk_len", &prefs->compression_chunk_len);
+        /* Make sure they set it to something reasonable */
+        if (prefs->compression_chunk_len < 4096) {
+            prefs->compression_chunk_len = 4096;
+        }
+        
+        if (prefs->compression_chunk_len > 5242880) {
+            /* Set an arbitrary upper limit */
+            prefs->compression_chunk_len = 5242880;
+        }
+
+        rc_getint(rcfile, sname, "comp_max_fail_cnt", &prefs->compression_max_fail_cnt);
+        /* Make sure they set it to something reasonable */
+        if (prefs->compression_max_fail_cnt > 500000) {
+            /* Set an arbitrary upper limit */
+            prefs->compression_max_fail_cnt = 500000;
+        }
+
+        /* Check for a list of extensions to skip compression on */
+        list_len = 0;
+        rc_getstringptr(rcfile, sname, "comp_exclude_list", &str);
+        if (str != NULL) {
+            /* walk through tokens */
+            token = strtok(str, ",");
+
+            while ((token != NULL) && (list_len < kClientCompressMaxEntries)) {
+                /* Sanity check the extension length */
+                str_len = strlen(token);
+                if (str_len > kClientCompressMaxExtLen) {
+                    /* Too long, skip it */
+                    os_log_error(OS_LOG_DEFAULT, "%s: Skipping exclude extension that is too long <%s>",
+                                 __FUNCTION__, token);
+                }
+                else {
+                    prefs->compression_exclude[list_len] = malloc(str_len + 1);
+                    bzero(prefs->compression_exclude[list_len], (str_len + 1));
+                    strncpy(prefs->compression_exclude[list_len], token, (str_len + 1));
+                    list_len++;
+                }
+
+                token = strtok(NULL, ",");
+            }
+
+            prefs->compression_exclude_cnt = list_len;
+        }
+
+        /* Check for a list of extensions to allow compression on */
+        list_len = 0;
+        rc_getstringptr(rcfile, sname, "comp_include_list", &str);
+        if (str != NULL) {
+            /* walk through tokens */
+            token = strtok(str, ",");
+
+            while ((token != NULL) && (list_len < kClientCompressMaxEntries)) {
+                /* Sanity check the extension length */
+                str_len = strlen(token);
+                if (str_len > kClientCompressMaxExtLen) {
+                    /* Too long, skip it */
+                    os_log_error(OS_LOG_DEFAULT, "%s: Skipping include extension that is too long <%s>",
+                                 __FUNCTION__, token);
+                }
+                else {
+                    prefs->compression_include[list_len] = malloc(str_len + 1);
+                    bzero(prefs->compression_include[list_len], (str_len + 1));
+                    strncpy(prefs->compression_include[list_len], token, (str_len + 1));
+                    list_len++;
+                }
+
+                token = strtok(NULL, ",");
+            }
+
+            prefs->compression_include_cnt = list_len;
+        }
+        
+        /* Change max channels */
+        rc_getint(rcfile, sname, "mc_max_channels", (int32_t *) &prefs->mc_max_channels);
+        /* Make sure they set it to something reasonable (in range 1-64) */
+        if (prefs->mc_max_channels < 1) {
+            prefs->mc_max_channels = 9; /* default is 8 active, 1 inactive */
+        } else if (prefs->mc_max_channels > 64) {
+            prefs->mc_max_channels = 64;
+        }
+
+        /* Change RSS server channels */
+        rc_getint(rcfile, sname, "mc_srvr_rss_channels", (int32_t *) &prefs->mc_srvr_rss_channels);
+        /* Make sure they set it to something reasonable (in range 1-64) */
+        if (prefs->mc_srvr_rss_channels < 1) {
+            prefs->mc_srvr_rss_channels = 4; // default is 4
+        } else if (prefs->mc_srvr_rss_channels > 64) {
+            prefs->mc_srvr_rss_channels = 64;
+        }
+        
+        /* Change RSS client channels */
+        rc_getint(rcfile, sname, "mc_clnt_rss_channels", (int32_t *) &prefs->mc_clnt_rss_channels);
+        /* Make sure they set it to something reasonable (in range 1-64) */
+        if (prefs->mc_clnt_rss_channels < 1) {
+            prefs->mc_clnt_rss_channels = 4; // default is 4
+        } else if (prefs->mc_clnt_rss_channels > 64) {
+            prefs->mc_clnt_rss_channels = 64;
         }
 	}
 	
@@ -481,20 +614,20 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 
     rc_getint(rcfile, sname, "min_read_count", &prefs->read_count[0]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->read_count[0] > kSmallMTUMaxNumber) {
-        prefs->read_count[0] = kSmallMTUMaxNumber;
+    if (prefs->read_count[0] > kQuantumNumberLimit) {
+        prefs->read_count[0] = kQuantumNumberLimit;
     }
     
     rc_getint(rcfile, sname, "med_read_count", &prefs->read_count[1]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->read_count[1] > kSmallMTUMaxNumber) {
-        prefs->read_count[1] = kSmallMTUMaxNumber;
+    if (prefs->read_count[1] > kQuantumNumberLimit) {
+        prefs->read_count[1] = kQuantumNumberLimit;
     }
     
     rc_getint(rcfile, sname, "max_read_count", &prefs->read_count[2]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->read_count[2] > kSmallMTUMaxNumber) {
-        prefs->read_count[2] = kSmallMTUMaxNumber;
+    if (prefs->read_count[2] > kQuantumNumberLimit) {
+        prefs->read_count[2] = kQuantumNumberLimit;
     }
     
     /*
@@ -520,40 +653,37 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 
     rc_getint(rcfile, sname, "min_write_count", &prefs->write_count[0]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->write_count[0] > kSmallMTUMaxNumber) {
-        prefs->write_count[0] = kSmallMTUMaxNumber;
+    if (prefs->write_count[0] > kQuantumNumberLimit) {
+        prefs->write_count[0] = kQuantumNumberLimit;
     }
     
     rc_getint(rcfile, sname, "med_write_count", &prefs->write_count[1]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->write_count[1] > kSmallMTUMaxNumber) {
-        prefs->write_count[1] = kSmallMTUMaxNumber;
+    if (prefs->write_count[1] > kQuantumNumberLimit) {
+        prefs->write_count[1] = kQuantumNumberLimit;
     }
     
     rc_getint(rcfile, sname, "max_write_count", &prefs->write_count[2]);
     /* Make sure they set it to something reasonable. */
-    if (prefs->write_count[2] > kSmallMTUMaxNumber) {
-        prefs->write_count[2] = kSmallMTUMaxNumber;
+    if (prefs->write_count[2] > kQuantumNumberLimit) {
+        prefs->write_count[2] = kQuantumNumberLimit;
     }
 
     /*
-     * Another hidden config option, to control IO threading useage
-     * 1 = force single thread, 2 = force multi thread
+     * Another hidden config option for how long to check read/write_count
+     * quantum sizes/numbers. In microsecs
      */
-    rc_getint(rcfile, sname, "rw_thread_control", &prefs->rw_thread_control);
-    /* Can only be 0, 1, or 2 at this time */
-    switch(prefs->rw_thread_control) {
-        case 0:
-            /* no change to setting */
-        case 1:
-            /* Force using single thread */
-        case 2:
-            /* Force using multi thread */
-            break;
-        default:
-            prefs->rw_thread_control= 0;
-            break;
+    rc_getint(rcfile, sname, "rw_max_check_time", &prefs->rw_max_check_time);
+    /* Make sure they set it to something reasonable < 1 min */
+    if (prefs->rw_max_check_time > 60000000) {
+        prefs->rw_max_check_time = 60000000;
     }
+
+    /*
+     * Another hidden config option for min GigBit speed to force a set
+     * read/write Quantum size/number. In GigaBits
+     */
+    rc_getint(rcfile, sname, "rw_gb_threshold", &prefs->rw_gb_threshold);
 
     /* Another hidden config option to set IP QoS */
     rc_getint(rcfile, sname, "ip_qos", &prefs->ip_QoS);
@@ -565,23 +695,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
     }
     
     /* Multichannel preferences */
-    /* Another hidden config option, to change max channels */
-    rc_getint(rcfile, sname, "mc_max_channels", &prefs->mc_max_channels);
-    /* Make sure they set it to something reasonable (in range 1-64) */
-    if (prefs->mc_max_channels < 1) {
-        prefs->mc_max_channels = 9; // default is 9
-    } else if (prefs->mc_max_channels > 64) {
-        prefs->mc_max_channels = 64;
-    }
-
-    /* Another hidden config option, to change max RSS channels */
-    rc_getint(rcfile, sname, "mc_max_rss_channels", &prefs->mc_max_rss_channels);
-    /* Make sure they set it to something reasonable (in range 1-8) */
-    if (prefs->mc_max_rss_channels < 1) {
-        prefs->mc_max_rss_channels = 4; // default is 4
-    } else if (prefs->mc_max_rss_channels > 8) {
-        prefs->mc_max_rss_channels = 8;
-    }
 
     /*
      * Another hidden config option, to ignore client interfaces
@@ -589,8 +702,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
      */
     rc_getstringptr(rcfile, sname, "mc_client_if_ignore_list", &str);
 
-    if (str != NULL)
-    {
+    if (str != NULL) {
         /* walk through tokens */
         token = strtok(str, ",");
 
@@ -608,6 +720,17 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
         prefs->mc_client_if_ignorelist_len = ignorelist_len;
     }
     
+    /*
+     * Another hidden config option, to force Client side RSS on
+     */
+    if (rc_getbool(rcfile, sname, "mc_client_rss_on", &altflags) == 0) {
+        if (altflags) {
+            prefs->altflags |= SMBFS_MNT_MC_CLIENT_RSS_FORCE_ON;
+        } else {
+            prefs->altflags &= ~SMBFS_MNT_MC_CLIENT_RSS_FORCE_ON;
+        }
+    }
+
     /*
      * Can disable SMB v3.1.1 if server is not doing pre auth integrity
      * check correctly.
@@ -795,12 +918,16 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     prefs->write_count[1] = 0;
     prefs->write_count[2] = 0;
 
-    /* rw_thread_control of 0 means use the default behavior */
-    prefs->rw_thread_control = 0;
+    /* rw_max_check_time */
+    prefs->rw_max_check_time = 0;
     
+    /* rw_gb_threshold of 0 means use the default behavior */
+    prefs->rw_gb_threshold = 0;
+
     /* multichannel defaults */
-    prefs->mc_max_channels = 9;
-    prefs->mc_max_rss_channels = 4;
+    prefs->mc_max_channels = 9;     /* 8 active, 1 inactive */
+    prefs->mc_srvr_rss_channels = 4;
+    prefs->mc_clnt_rss_channels = 4;
     prefs->mc_client_if_ignorelist_len = 0;
 
     /* AES_128_CCM/AES_128_GCM/AES-256-CCM/AES-256-GCM enabled by default */
@@ -812,6 +939,14 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* Force share level encryption is OFF by default */
     prefs->force_share_encrypt = 0;
 
+    /*
+     * Compression
+     */
+    prefs->compression_algorithms_map = 0x0; /* Off by default for now */
+    prefs->compression_io_threshold = 4096;
+    prefs->compression_chunk_len = 262144;
+    prefs->compression_max_fail_cnt = 5;
+
     /* Now get any values stored in the System Configuration */
     getSCPreferences(prefs);
     
@@ -819,6 +954,8 @@ void getDefaultPreferences(struct smb_prefs *prefs)
 
 void releasePreferenceInfo(struct smb_prefs *prefs)
 {
+    uint32_t i = 0;
+    
 	if (prefs->LocalNetBIOSName) {
 		CFRelease(prefs->LocalNetBIOSName);
 		prefs->LocalNetBIOSName = NULL;
@@ -831,6 +968,20 @@ void releasePreferenceInfo(struct smb_prefs *prefs)
 		CFRelease(prefs->NetBIOSDNSName);
 		prefs->NetBIOSDNSName = NULL;
 	}
+    
+    for (i = 0; i < prefs->compression_exclude_cnt; i++) {
+        if (prefs->compression_exclude[i] != NULL) {
+            free(prefs->compression_exclude[i]);
+        }
+    }
+    prefs->compression_exclude_cnt = 0;
+    
+    for (i = 0; i < prefs->compression_include_cnt; i++) {
+        if (prefs->compression_include[i] != NULL) {
+            free(prefs->compression_include[i]);
+        }
+    }
+    prefs->compression_include_cnt = 0;
 }
 
 void setWINSAddress(struct smb_prefs *prefs, const char *winsAddress, int count)

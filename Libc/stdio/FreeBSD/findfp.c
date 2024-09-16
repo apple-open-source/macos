@@ -79,7 +79,6 @@ pthread_once_t	__sdidinit;
 #define __sFXInit3      {.fl_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER, .counted = 1}
 
 static int64_t __scounted;		/* streams counted against STREAM_MAX */
-static int64_t __stream_max;
 
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 /* usual and usual_extra are data pigs. See 7929728. For embedded we should
@@ -163,16 +162,14 @@ __sfp(int count)
 
 	if (count) {
 		int64_t new = OSAtomicIncrement64(&__scounted);
-		if (new > __stream_max) {
-			/* Greater than the saved limit, check again with getrlimit. */
-			if (new > (__stream_max = sysconf(_SC_STREAM_MAX))){
-				OSAtomicDecrement64(&__scounted);
-				errno = EMFILE;
-				return NULL;
-			}
+		if (new > sysconf(_SC_STREAM_MAX)) {
+			OSAtomicDecrement64(&__scounted);
+			errno = EMFILE;
+			return NULL;
 		}
-		/* Overflowing #streams beyond RLIMIT_INFINITY */
+		/* Overflowing #streams beyond RLIM_INFINITY */
 		if (new < 0) {
+			OSAtomicDecrement64(&__scounted);
 			errno = EOVERFLOW;
 			return NULL;
 		}
@@ -187,8 +184,11 @@ __sfp(int count)
 				goto found;
 	}
 	FILELIST_UNLOCK();	/* don't hold lock while malloc()ing. */
-	if ((g = moreglue(NDYNAMIC)) == NULL)
+	if ((g = moreglue(NDYNAMIC)) == NULL) {
+		if (count)
+			OSAtomicDecrement64(&__scounted);
 		return (NULL);
+	}
 	FILELIST_LOCK();		/* reacquire the lock */
 	lastglue->next = g; /* atomically append glue to list */
 	lastglue = g;		/* not atomic; only accessed when locked */
@@ -265,7 +265,7 @@ f_prealloc(void)
 }
 
 /*
- * exit() calls _cleanup() through *__cleanup, set whenever we
+ * exit() calls _cleanup() checking __cleanup, set whenever we
  * open or buffer a file.  This chicanery is done so that programs
  * that do not use stdio need not link it all in.
  *
@@ -289,9 +289,12 @@ __sinit(void)
 #endif
 
 	/* Make sure we clean up on exit. */
-	__cleanup = _cleanup;		/* conservative */
-	__stream_max = sysconf(_SC_STREAM_MAX);
-	__scounted = 3;			/* std{in,out,err} already exists */
+#ifdef __APPLE__
+	__cleanup = 1; /* conservative */
+#else
+	__cleanup = _cleanup;           /* conservative */
+#endif // __APPLE__
+	__scounted = 3;			/* account for std{in,out,err} */
 
 #if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* Set _extra for the usual suspects. */

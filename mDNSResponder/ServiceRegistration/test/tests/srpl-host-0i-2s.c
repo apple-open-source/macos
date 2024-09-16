@@ -1,6 +1,6 @@
 /* srpl-host-0i-2s.c
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,10 @@
 #include "srp-tls.h"
 
 static void
-test_host_0i2s_test_finished(test_state_t *state, srp_server_t *server)
+test_host_0i2s_test_finished(srpl_connection_t *connection)
 {
+    test_state_t *state = connection->test_state;
+    srp_server_t *server = connection->instance->domain->server_state;
     // Check for a DNSServiceRegosterRecord for both an AAAA record and a KEY record, we don't care which order.
     dns_service_event_t *regrec_1 =
         dns_service_find_first_register_record_event_by_name(server, TEST_HOST_NAME_REGISTERED);
@@ -138,7 +140,7 @@ test_srpl_host_0i2s(test_state_t *next_test)
         "  to the other server through SRPL connection and the host is then registered on that server.";
     test_state_t *state = test_state_create(srp_servers, "SRPL zero-instance test", NULL, description, NULL);
     srp_proxy_init("local");
-    state->primary->stub_router_enabled = true;
+    srp_test_enable_stub_router(state, srp_servers);
     srp_servers->srp_replication_enabled = true;
     state->next = next_test;
     srp_servers->server_id = 0;
@@ -147,7 +149,7 @@ test_srpl_host_0i2s(test_state_t *next_test)
     srpl_connection_t *connection = test_srpl_connection_create(state, state->primary, second);
     connection->srpl_advertise_finished_callback = test_host_0i2s_test_finished;
 
-    state->srp_listener = srp_proxy_listen(NULL, 0, test_srpl_host_0i2s_ready, NULL, NULL, NULL, state->primary);
+    state->srp_listener = srp_proxy_listen(NULL, 0, NULL, test_srpl_host_0i2s_ready, NULL, NULL, NULL, state->primary);
     TEST_FAIL_CHECK(state, state->srp_listener != NULL, "listener create failed");
     // Test should not take longer than ten seconds.
     srp_test_state_add_timeout(state, 20);

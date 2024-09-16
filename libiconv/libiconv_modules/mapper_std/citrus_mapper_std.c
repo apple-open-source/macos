@@ -504,14 +504,18 @@ static int
 /*ARGSUSED*/
 #ifdef __APPLE__
 _citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
-    _index_t * __restrict dst, _index_t * __restrict src, int * __restrict cnt,
-    void * __restrict ps)
+    struct _citrus_mapper_convert_ctx * __restrict ctx)
 #else
 _citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
     _index_t * __restrict dst, _index_t src, void * __restrict ps)
 #endif
 {
 	struct _citrus_mapper_std *ms;
+#ifdef __APPLE__
+	_index_t *dst = ctx->dst, *src = ctx->src;
+	int *cnt = ctx->cnt;
+	void *ps = ctx->ps;
+#endif
 
 	ms = cm->cm_closure;
 #ifdef __APPLE__
@@ -523,7 +527,7 @@ _citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
 		 */
 		ret = ((*ms->ms_convert)(ms, &dst[i], src[i], ps, false));
 		if (ret != _MAPPER_CONVERT_SUCCESS) {
-#ifdef __APPLE__
+			assert(_MAPPER_CONVERT_DIR(ret) == 0);
 			if (ret == _MAPPER_CONVERT_NONIDENTICAL) {
 				int tret;
 
@@ -543,12 +547,12 @@ _citrus_mapper_std_mapper_convert(struct _citrus_mapper * __restrict cm,
 					 * available.
 					 */
 					i++;
-					ret = _CITRUS_MAPPER_CONVERT_TRANSLIT;
+					ret = _MAPPER_CONVERT_TRANSLIT;
 				}
 			}
-#endif
 			*cnt = i;
-			return (ret);
+
+			return (_MAPPER_CONVERT_COMBINE(cm->cm_dir, ret));
 		}
 	}
 

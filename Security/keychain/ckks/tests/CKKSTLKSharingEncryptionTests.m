@@ -36,7 +36,7 @@
 #import <SecurityFoundation/SFKey_Private.h>
 #import <SecurityFoundation/SFDigestOperation.h>
 
-#include "featureflags/featureflags.h"
+#include "featureflags/affordance_featureflags.h"
 
 @interface CloudKitKeychainTLKSharingEncryptionTests : CloudKitMockXCTest
 @property CKKSKey* tlk;

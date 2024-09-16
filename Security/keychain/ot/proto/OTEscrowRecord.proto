@@ -31,6 +31,11 @@ message EscrowRecord {
         optional bytes peer_info = 7;
         optional string bottle_validity = 8;
         optional string serial = 9;
+        optional string build = 10;
+        message PasscodeGeneration {
+            optional uint64 value = 1;
+        }
+        optional PasscodeGeneration passcodeGeneration = 11;
     }
     optional Metadata escrow_information_metadata = 3;
     optional string label = 4;

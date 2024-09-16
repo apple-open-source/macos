@@ -1,7 +1,7 @@
 /*
 	File:		MBCTuner.h
 	Contains:	Manage a window to set graphics options
-	Copyright:	© 2003 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -44,9 +44,9 @@
 */
 
 #import <Cocoa/Cocoa.h>
+#import "MBCBoardViewInterface.h"
 
 @class MBCDrawStyle;
-@class MBCBoardView;
 
 @interface MBCTunerStyle : NSObject {
 	IBOutlet id fDiffuse;
@@ -62,19 +62,19 @@
 
 @interface MBCTuner : NSWindowController
 {
-	MBCBoardView *				fView;
-	IBOutlet MBCTunerStyle *	fWhitePieceStyle;
-	IBOutlet MBCTunerStyle * 	fBlackPieceStyle;
-	IBOutlet MBCTunerStyle * 	fWhiteBoardStyle;
-	IBOutlet MBCTunerStyle * 	fBlackBoardStyle;
-	IBOutlet MBCTunerStyle * 	fBorderStyle;
-	IBOutlet id					fBoardReflectivity;
-	IBOutlet id					fLabelIntensity;
-	IBOutlet id					fLightPosX;
-	IBOutlet id					fLightPosY;
-	IBOutlet id					fLightPosZ;
-	IBOutlet id					fAmbient;
-	IBOutlet id					fLightParams;
+	NSView<MBCBoardViewInterface> * fView;
+	IBOutlet MBCTunerStyle *	    fWhitePieceStyle;
+	IBOutlet MBCTunerStyle * 	    fBlackPieceStyle;
+	IBOutlet MBCTunerStyle * 	    fWhiteBoardStyle;
+	IBOutlet MBCTunerStyle * 	    fBlackBoardStyle;
+	IBOutlet MBCTunerStyle * 	    fBorderStyle;
+	IBOutlet id					    fBoardReflectivity;
+	IBOutlet id					    fLabelIntensity;
+	IBOutlet id					    fLightPosX;
+	IBOutlet id					    fLightPosY;
+	IBOutlet id					    fLightPosZ;
+	IBOutlet id					    fAmbient;
+	IBOutlet id					    fLightParams;
 }
 
 + (void) makeTuner;

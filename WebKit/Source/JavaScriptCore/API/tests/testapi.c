@@ -71,10 +71,6 @@
 #include "PingPongStackOverflowTest.h"
 #include "TypedArrayCTest.h"
 
-#if COMPILER(MSVC)
-#pragma warning(disable:4204)
-#endif
-
 #if JSC_OBJC_API_ENABLED
 void testObjectiveCAPI(const char*);
 #endif
@@ -1199,18 +1195,18 @@ static void checkJSStringOOBUTF8(void)
     const size_t sourceCStringSize = 200;
     const size_t outCStringSize = 10;
 
-    char sourceCString[sourceCStringSize];
-    memset(sourceCString, 0, sizeof(sourceCString));
+    char* sourceCString = (char*)malloc(sourceCStringSize);
+    memset(sourceCString, 0, sourceCStringSize);
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
         sourceCString[i] = '0' + (i%10);
 
-    char outCString[outCStringSize + sourceCStringSize];
-    memset(outCString, 0x13, sizeof(outCString));
+    char* outCString = (char*)malloc(outCStringSize + sourceCStringSize);
+    memset(outCString, 0x13, outCStringSize + sourceCStringSize);
 
     JSStringRef str = JSStringCreateWithUTF8CString(sourceCString);
     size_t bytesWritten = JSStringGetUTF8CString(str, outCString, outCStringSize);
 
-    assertTrue(!bytesWritten, "we report no bytes written");
+    assertTrue(bytesWritten == 10, "we report 10 bytes written precisely");
 
     for (size_t i = 0; i < sizeof(outCString); ++i) {
         if (i == outCStringSize - 1)
@@ -1222,6 +1218,8 @@ static void checkJSStringOOBUTF8(void)
     }
 
     JSStringRelease(str);
+    free(outCString);
+    free(sourceCString);
 }
 
 static void checkJSStringOOBUTF16(void)
@@ -1229,8 +1227,8 @@ static void checkJSStringOOBUTF16(void)
     const size_t sourceCStringSize = 22;
     const size_t outCStringSize = 20;
 
-    char sourceCString[sourceCStringSize];
-    memset(sourceCString, 0, sizeof(sourceCString));
+    char* sourceCString = (char*)malloc(sourceCStringSize);
+    memset(sourceCString, 0, sourceCStringSize);
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
         sourceCString[i] = '0' + (i%10);
 
@@ -1239,13 +1237,13 @@ static void checkJSStringOOBUTF16(void)
     sourceCString[5] = '\x98';
     sourceCString[6] = '\x81';
 
-    char outCString[outCStringSize + sourceCStringSize];
-    memset(outCString, 0x13, sizeof(outCString));
+    char* outCString = (char*)malloc(outCStringSize + sourceCStringSize);
+    memset(outCString, 0x13, outCStringSize + sourceCStringSize);
 
     JSStringRef str = JSStringCreateWithUTF8CString(sourceCString);
     size_t bytesWritten = JSStringGetUTF8CString(str, outCString, outCStringSize);
 
-    assertTrue(!bytesWritten, "we report no bytes written");
+    assertTrue(bytesWritten == 20, "we report 20 bytes written precisely");
 
     for (size_t i = 0; i < sizeof(outCString); ++i) {
         if (i == outCStringSize - 1)
@@ -1257,6 +1255,8 @@ static void checkJSStringOOBUTF16(void)
     }
 
     JSStringRelease(str);
+    free(outCString);
+    free(sourceCString);
 }
 
 static void checkJSStringOOBUTF16AtEnd(void)
@@ -1264,8 +1264,8 @@ static void checkJSStringOOBUTF16AtEnd(void)
     const size_t sourceCStringSize = 22;
     const size_t outCStringSize = 20;
 
-    char sourceCString[sourceCStringSize];
-    memset(sourceCString, 0, sizeof(sourceCString));
+    char* sourceCString = (char*)malloc(sourceCStringSize);
+    memset(sourceCString, 0, sourceCStringSize);
     for (size_t i = 0; i < sourceCStringSize - 1; ++i)
         sourceCString[i] = '0' + (i%10);
 
@@ -1274,13 +1274,13 @@ static void checkJSStringOOBUTF16AtEnd(void)
     sourceCString[19] = '\x98';
     sourceCString[20] = '\x81';
 
-    char outCString[outCStringSize + sourceCStringSize];
-    memset(outCString, 0x13, sizeof(outCString));
+    char* outCString = (char*)malloc(outCStringSize + sourceCStringSize);
+    memset(outCString, 0x13, outCStringSize + sourceCStringSize);
 
     JSStringRef str = JSStringCreateWithUTF8CString(sourceCString);
     size_t bytesWritten = JSStringGetUTF8CString(str, outCString, outCStringSize);
 
-    assertTrue(!bytesWritten, "we report no bytes written");
+    assertTrue(bytesWritten == 18, "we report 18 bytes written precisely");
 
     for (size_t i = 0; i < sizeof(outCString); ++i) {
         if (i == 17)
@@ -1292,6 +1292,8 @@ static void checkJSStringOOBUTF16AtEnd(void)
     }
 
     JSStringRelease(str);
+    free(outCString);
+    free(sourceCString);
 }
 
 static void checkJSStringOOB(void)

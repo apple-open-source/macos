@@ -65,8 +65,10 @@
 
 //Begin-Libc
 #include "xlocale_private.h"
+#include "mblocal.h"
 //End-Libc
-#ifndef	__CTYPE_H_
+#ifndef	_CTYPE_H_
+#define _CTYPE_H_
 #define __CTYPE_H_
 
 #include <sys/cdefs.h>
@@ -147,6 +149,12 @@
 #endif /* _EXTERNALIZE_CTYPE_INLINES_TOP_ */
 //End-Libc
 
+//Begin-Libc
+#ifdef __LIBC__
+#define __current_lc_ctype XLOCALE_CTYPE(__current_locale())
+#endif
+//End-Libc
+
 /*
  * Use inline functions if we are allowed to and the compiler supports them.
  */
@@ -177,13 +185,13 @@ __maskrune(__darwin_ct_rune_t _c, unsigned long _f)
 __DARWIN_CTYPE_inline int
 __maskrune(__darwin_ct_rune_t _c, unsigned long _f)
 {
-	/* _CurrentRuneLocale.__runetype[_c] is __uint32_t
+	/* _CurrentRuneLocale->__runetype[_c] is __uint32_t
 	 * _f is unsigned long
 	 * ___runetype(_c) is unsigned long
 	 * retval is int
 	 */
 	return (int)((_c < 0 || _c >= _CACHED_RUNES) ? (__uint32_t)___runetype(_c) :
-		__current_locale()->__lc_ctype->_CurrentRuneLocale.__runetype[_c]) & (__uint32_t)_f;
+		__current_lc_ctype->_CurrentRuneLocale->__runetype[_c]) & (__uint32_t)_f;
 }
 //End-Libc
 #else /* !USE_ASCII */
@@ -238,14 +246,14 @@ __DARWIN_CTYPE_inline __darwin_ct_rune_t
 __toupper(__darwin_ct_rune_t _c)
 {
 	return (_c < 0 || _c >= _CACHED_RUNES) ? ___toupper(_c) :
-		__current_locale()->__lc_ctype->_CurrentRuneLocale.__mapupper[_c];
+		__current_lc_ctype->_CurrentRuneLocale->__mapupper[_c];
 }
 
 __DARWIN_CTYPE_inline __darwin_ct_rune_t
 __tolower(__darwin_ct_rune_t _c)
 {
 	return (_c < 0 || _c >= _CACHED_RUNES) ? ___tolower(_c) :
-		__current_locale()->__lc_ctype->_CurrentRuneLocale.__maplower[_c];
+		__current_lc_ctype->_CurrentRuneLocale->__maplower[_c];
 }
 //End-Libc
 #else /* !USE_ASCII */
@@ -444,9 +452,5 @@ int     isspecial(int);
 __END_DECLS
 
 #endif /* using inlines */
-
-#ifdef _USE_EXTENDED_LOCALES_
-#include <xlocale/_ctype.h>
-#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* !_CTYPE_H_ */

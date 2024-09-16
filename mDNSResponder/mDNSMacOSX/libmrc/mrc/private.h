@@ -20,8 +20,11 @@
 #undef MRC_ALLOW_HEADER_INCLUDES
 #define MRC_ALLOW_HEADER_INCLUDES 1
 
+#include <mrc/cached_local_records_inquiry.h>
+#include <mrc/discovery_proxy.h>
 #include <mrc/dns_proxy.h>
 #include <mrc/dns_service_registration.h>
+#include <mrc/record_cache_flush.h>
 
 #undef MRC_ALLOW_HEADER_INCLUDES
 

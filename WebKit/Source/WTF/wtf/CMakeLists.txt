@@ -27,6 +27,7 @@ set(WTF_PUBLIC_HEADERS
     ButterflyArray.h
     ByteOrder.h
     CPUTime.h
+    CanMakeWeakPtr.h
     CagedPtr.h
     CagedUniquePtr.h
     CallbackAggregator.h
@@ -156,6 +157,7 @@ set(WTF_PUBLIC_HEADERS
     MachSendRight.h
     MainThread.h
     MainThreadData.h
+    MainThreadDispatcher.h
     MallocPtr.h
     Markable.h
     MathExtras.h
@@ -206,7 +208,7 @@ set(WTF_PUBLIC_HEADERS
     PlatformEnableCocoa.h
     PlatformEnableGlib.h
     PlatformEnablePlayStation.h
-    PlatformEnableWinCairo.h
+    PlatformEnableWin.h
     PlatformHave.h
     PlatformLegacy.h
     PlatformOS.h
@@ -246,6 +248,7 @@ set(WTF_PUBLIC_HEADERS
     RobinHoodHashTable.h
     RunLoop.h
     SHA1.h
+    SIMDHelpers.h
     SafeStrerror.h
     SaturatedArithmetic.h
     SchedulePair.h
@@ -263,6 +266,7 @@ set(WTF_PUBLIC_HEADERS
     SinglyLinkedList.h
     SinglyLinkedListWithTail.h
     SixCharacterHash.h
+    SmallMap.h
     SmallSet.h
     SoftLinking.h
     SortedArrayMap.h
@@ -294,6 +298,7 @@ set(WTF_PUBLIC_HEADERS
     SystemMalloc.h
     SystemTracing.h
     TZoneMalloc.h
+    TZoneMallocInitialization.h
     TZoneMallocInlines.h
     TaggedArrayStoragePtr.h
     ThreadAssertions.h
@@ -341,7 +346,10 @@ set(WTF_PUBLIC_HEADERS
     WeakHashMap.h
     WeakHashSet.h
     WeakListHashSet.h
+    WeakObjCPtr.h
     WeakPtr.h
+    WeakPtrFactory.h
+    WeakPtrImpl.h
     WeakRandom.h
     WeakRandomNumber.h
     WeakRef.h
@@ -390,6 +398,10 @@ set(WTF_PUBLIC_HEADERS
     persistence/PersistentDecoder.h
     persistence/PersistentEncoder.h
 
+    simde/simde.h
+    simde/arm/neon.h
+    simde/arm/sve.h
+
     text/ASCIIFastPath.h
     text/ASCIILiteral.h
     text/AdaptiveStringSearcher.h
@@ -399,6 +411,7 @@ set(WTF_PUBLIC_HEADERS
     text/AtomStringTable.h
     text/Base64.h
     text/CString.h
+    text/CharacterProperties.h
     text/CodePointIterator.h
     text/ConversionMode.h
     text/EscapedFormsForJSON.h
@@ -407,6 +420,7 @@ set(WTF_PUBLIC_HEADERS
     text/IntegerToStringConversion.h
     text/LChar.h
     text/LineEnding.h
+    text/MakeString.h
     text/NullTextBreakIterator.h
     text/OrdinalNumber.h
     text/StringBuffer.h
@@ -421,7 +435,6 @@ set(WTF_PUBLIC_HEADERS
     text/SuperFastHash.h
     text/WYHash.h
     text/StringImpl.h
-    text/StringOperators.h
     text/StringParsingBuffer.h
     text/StringSearch.h
     text/StringToIntegerConversion.h
@@ -487,7 +500,6 @@ set(WTF_SOURCES
     HexNumber.cpp
     Int128.cpp
     JSONValues.cpp
-    JSValueMalloc.cpp
     Language.cpp
     LikelyDenseUnsignedIntegerSet.cpp
     Lock.cpp
@@ -497,6 +509,7 @@ set(WTF_SOURCES
     Logger.cpp
     Logging.cpp
     MainThread.cpp
+    MainThreadDispatcher.cpp
     MediaTime.cpp
     MemoryPressureHandler.cpp
     MetaAllocator.cpp
@@ -601,12 +614,68 @@ set(WTF_SOURCES
     unicode/icu/ICUHelpers.cpp
 )
 
-if (APPLE)
+if (WIN32)
     list(APPEND WTF_PUBLIC_HEADERS
-        darwin/OSLogPrintStream.h
+        text/win/WCharStringExtras.h
+
+        win/DbgHelperWin.h
+        win/GDIObject.h
+        win/PathWalker.h
+        win/SoftLinking.h
+        win/Win32Handle.h
     )
+elseif (APPLE)
     list(APPEND WTF_SOURCES
         darwin/OSLogPrintStream.mm
+    )
+
+    list(APPEND WTF_PUBLIC_HEADERS
+        cf/CFURLExtras.h
+        cf/TypeCastsCF.h
+        cf/VectorCF.h
+
+        cocoa/CrashReporter.h
+        cocoa/Entitlements.h
+        cocoa/NSURLExtras.h
+        cocoa/RuntimeApplicationChecksCocoa.h
+        cocoa/SoftLinking.h
+        cocoa/TollFreeBridging.h
+        cocoa/TypeCastsCocoa.h
+        cocoa/VectorCocoa.h
+
+        darwin/OSLogPrintStream.h
+        darwin/WeakLinking.h
+
+        spi/cf/CFBundleSPI.h
+        spi/cf/CFStringSPI.h
+
+        spi/cocoa/CFXPCBridgeSPI.h
+        spi/cocoa/CrashReporterClientSPI.h
+        spi/cocoa/IOSurfaceSPI.h
+        spi/cocoa/MachVMSPI.h
+        spi/cocoa/NSLocaleSPI.h
+        spi/cocoa/NSObjCRuntimeSPI.h
+        spi/cocoa/SecuritySPI.h
+        spi/cocoa/objcSPI.h
+
+        spi/darwin/AbortWithReasonSPI.h
+        spi/darwin/CodeSignSPI.h
+        spi/darwin/DataVaultSPI.h
+        spi/darwin/OSVariantSPI.h
+        spi/darwin/ProcessMemoryFootprint.h
+        spi/darwin/SandboxSPI.h
+        spi/darwin/XPCSPI.h
+        spi/darwin/dyldSPI.h
+
+        spi/mac/MetadataSPI.h
+
+        text/cf/StringConcatenateCF.h
+        text/cf/TextBreakIteratorCF.h
+    )
+elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    list(APPEND WTF_PUBLIC_HEADERS
+        linux/CurrentProcessMemoryStatus.h
+        linux/ProcessMemoryFootprint.h
     )
 endif ()
 

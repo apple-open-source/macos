@@ -1,7 +1,7 @@
 /*
 	File:		MBCBoard.h
 	Contains:	Fundamental move and board classes.
-	Copyright:	� 2002-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -43,113 +43,16 @@
 	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#import "MBCBoardEnums.h"
 #import <OpenGL/gl.h>
 #import <Cocoa/Cocoa.h>
 #import <stdio.h>
 
-enum MBCVariant {
-	kVarNormal,
-	kVarCrazyhouse,
-	kVarSuicide,
-	kVarLosers
-};
-
 extern NSString *   gVariantName[];
 extern const char   gVariantChar[];
 
-enum MBCPlayers {
-	kHumanVsHuman,
-	kHumanVsComputer,
-	kComputerVsHuman,
-	kComputerVsComputer,
-    kHumanVsGameCenter,
-};
-
-enum MBCSideCode {
-    kPlayWhite,
-    kPlayBlack,
-    kPlayEither
-};
-
-enum MBCUniqueCode {
-	kMatchingPieceExists 	= 1,
-	kMatchingPieceOnSameRow	= 2,
-	kMatchingPieceOnSameCol = 4,
-};
-typedef int MBCUnique;
-
-enum MBCPieceCode {
-	EMPTY = 0, 
-	KING, QUEEN, BISHOP, KNIGHT, ROOK, PAWN,
-	kWhitePiece = 0,
-	kBlackPiece = 8,
-	kPromoted	= 16,
-	kPieceMoved	= 32
-};
-typedef unsigned char MBCPiece;
-
-inline MBCPiece White(MBCPieceCode code) { return kWhitePiece | code; }
-inline MBCPiece Black(MBCPieceCode code) { return kBlackPiece | code; }
-inline MBCPieceCode Piece(MBCPiece piece){ return (MBCPieceCode)(piece&7); }
-inline MBCPieceCode Color(MBCPiece piece){ return (MBCPieceCode)(piece&8); }
-inline MBCPieceCode What(MBCPiece piece) { return (MBCPieceCode)(piece&15);} 
-inline MBCPiece Matching(MBCPiece piece, MBCPieceCode code) 
-                                         { return (piece & 8) | code; }
-inline MBCPiece Opposite(MBCPiece piece) { return piece ^ 8; }
-inline MBCPieceCode Promoted(MBCPiece piece) 
-                                         { return (MBCPieceCode)(piece & 16); }
-inline MBCPieceCode PieceMoved(MBCPiece piece) 
-                                         { return (MBCPieceCode)(piece & 32); }
-
-enum MBCMoveCode { 
-	kCmdNull, 
-	kCmdMove, 		kCmdDrop, 		kCmdUndo, 
-	kCmdWhiteWins, 	kCmdBlackWins, 	kCmdDraw,
-	kCmdPong, 		kCmdStartGame,
-	kCmdPMove,		kCmdPDrop, 
-	kCmdMoveOK
-};
-
-typedef unsigned char MBCSquare;
-enum {
-	kSyntheticSquare	= 0x70,
-    kWhitePromoSquare	= 0x71,
-	kBlackPromoSquare	= 0x72,
-	kBorderRegion		= 0x73,
-	kInHandSquare  		= 0x80,
-	kInvalidSquare 		= 0xFF,
-    kSquareA8           = 56,
-    kBoardSquares       = 64
-};
-
-inline unsigned 	Row(MBCSquare square)		   
-                       { return 1+(square>>3); 			}
-inline char 		Col(MBCSquare square)		   
-                       { return 'a'+(square&7);			}
-inline MBCSquare	Square(char col, unsigned row) 
-                       { return ((row-1)<<3)|(col-'a'); }
-inline MBCSquare	Square(const char * colrow) 
-                       { return ((colrow[1]-'1')<<3)|(colrow[0]-'a'); }
-
-enum MBCCastling {
-	kUnknownCastle, kCastleQueenside, kCastleKingside, kNoCastle
-};
-
-enum MBCSide {
-	kWhiteSide, kBlackSide, kBothSides, kNeitherSide
-};
-
-inline bool SideIncludesWhite(MBCSide side)     { return side==kWhiteSide || side==kBothSides; }
-inline bool SideIncludesBlack(MBCSide side)     { return side==kBlackSide || side==kBothSides; }
-
 extern const MBCSide gHumanSide[];
 extern const MBCSide gEngineSide[];
-
-//
-// A compact move has a very short existence and is only used in places
-// where the information absolutely has to be kept to 32 bits.
-//
-typedef unsigned MBCCompactMove;
 
 //
 // MBCMove - A move

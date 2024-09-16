@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 
-AuthorizationItemSet * DeserializeItemSet(const xpc_object_t);
-xpc_object_t SerializeItemSet(const AuthorizationItemSet*);
+CF_RETURNS_RETAINED AuthorizationItemSet * DeserializeItemSet(const xpc_object_t);
+XPC_RETURNS_RETAINED xpc_object_t SerializeItemSet(const AuthorizationItemSet*);
 void FreeItemSet(AuthorizationItemSet*);
 
 char * _copy_cf_string(CFTypeRef,const char*);

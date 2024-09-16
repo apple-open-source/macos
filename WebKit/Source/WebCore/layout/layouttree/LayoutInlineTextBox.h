@@ -35,6 +35,7 @@ namespace Layout {
 
 class InlineTextBox : public Box {
     WTF_MAKE_ISO_ALLOCATED(InlineTextBox);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(InlineTextBox);
 public:
     enum class ContentCharacteristic : uint8_t {
         CanUseSimplifiedContentMeasuring         = 1 << 0,
@@ -51,8 +52,10 @@ public:
     bool canUseSimplifiedContentMeasuring() const { return m_contentCharacteristicSet.contains(ContentCharacteristic::CanUseSimplifiedContentMeasuring); }
     bool canUseSimpleFontCodePath() const { return m_contentCharacteristicSet.contains(ContentCharacteristic::CanUseSimpledFontCodepath); }
     bool hasPositionDependentContentWidth() const { return m_contentCharacteristicSet.contains(ContentCharacteristic::HasPositionDependentContentWidth); }
+    bool hasStrongDirectionalityContent() const { return m_contentCharacteristicSet.contains(ContentCharacteristic::HasStrongDirectionalityContent); }
 
-    void updateContent(String newContent, OptionSet<ContentCharacteristic>);
+    void setContent(String newContent, OptionSet<ContentCharacteristic>);
+    void setContentCharacteristic(OptionSet<ContentCharacteristic> contentCharacteristicSet) { m_contentCharacteristicSet = contentCharacteristicSet; }
 
 private:
     String m_content;
@@ -60,7 +63,7 @@ private:
     OptionSet<ContentCharacteristic> m_contentCharacteristicSet;
 };
 
-inline void InlineTextBox::updateContent(String newContent, OptionSet<ContentCharacteristic> contentCharacteristicSet)
+inline void InlineTextBox::setContent(String newContent, OptionSet<ContentCharacteristic> contentCharacteristicSet)
 {
     m_content = newContent;
     m_contentCharacteristicSet = contentCharacteristicSet;

@@ -221,7 +221,7 @@ extern const CFStringRef kSecClassAppleSharePassword;
         item's custom icon attribute. You use this tag to set or get a value
         of type CFBooleanRef that indicates whether the item should have an
         application-specific icon. (Note: use of this attribute is deprecated;
-        custom item icons are not supported in Mac OS X. This is currently
+        custom item icons are not supported in macOS. This is currently
         private for use by syncing; new code should not use this attribute.)
     @constant kSecAttrVolume Specifies a dictionary key whose value is the
         item's volume attribute. You use this key to set or get a CFStringRef
@@ -370,6 +370,14 @@ extern const CFStringRef kSecAttrKeyTypeEd448
 SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0));
 extern const CFStringRef kSecAttrKeyTypeX448
 SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0));
+extern const CFStringRef kSecAttrKeyTypeKyber
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+// Subtypes of Kyber, to be used as values of kSecAttrKeySizeInBits when type is kSecAttrKeyTypeKyber.
+extern const CFStringRef kSecAttrKeySizeKyber768
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+extern const CFStringRef kSecAttrKeySizeKyber1024
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
 
 // Should not be used, use kSecAttrTokenOID instead.
 extern const CFStringRef kSecAttrSecureEnclaveKeyBlob

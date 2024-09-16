@@ -39,6 +39,22 @@ pdfjs-open-file-button-label = Digeriñ ur restr
 pdfjs-print-button =
     .title = Moullañ
 pdfjs-print-button-label = Moullañ
+pdfjs-save-button =
+    .title = Enrollañ
+pdfjs-save-button-label = Enrollañ
+# Used in Firefox for Android as a tooltip for the download button (“download” is a verb).
+pdfjs-download-button =
+    .title = Pellgargañ
+# Used in Firefox for Android as a label for the download button (“download” is a verb).
+# Length of the translation matters since we are in a mobile context, with limited screen estate.
+pdfjs-download-button-label = Pellgargañ
+pdfjs-bookmark-button-label = Pajenn a-vremañ
+# Used in Firefox for Android.
+pdfjs-open-in-app-button =
+    .title = Digeriñ en arload
+# Used in Firefox for Android.
+# Length of the translation matters since we are in a mobile context, with limited screen estate.
+pdfjs-open-in-app-button-label = Digeriñ en arload
 
 ##  Secondary toolbar and context menu
 
@@ -252,10 +268,46 @@ pdfjs-web-fonts-disabled = Diweredekaet eo an nodrezhoù web: n'haller ket arver
 
 ## Editing
 
+pdfjs-editor-free-text-button =
+    .title = Testenn
+pdfjs-editor-free-text-button-label = Testenn
+pdfjs-editor-ink-button =
+    .title = Tresañ
+pdfjs-editor-ink-button-label = Tresañ
+pdfjs-editor-stamp-button =
+    .title = Ouzhpennañ pe aozañ skeudennoù
+pdfjs-editor-stamp-button-label = Ouzhpennañ pe aozañ skeudennoù
+
+## Remove button for the various kind of editor.
+
+
+##
+
+# Editor Parameters
+pdfjs-editor-free-text-color-input = Liv
+pdfjs-editor-free-text-size-input = Ment
+pdfjs-editor-ink-color-input = Liv
+pdfjs-editor-ink-thickness-input = Tevder
+pdfjs-editor-ink-opacity-input = Boullder
+pdfjs-editor-stamp-add-image-button =
+    .title = Ouzhpennañ ur skeudenn
+pdfjs-editor-stamp-add-image-button-label = Ouzhpennañ ur skeudenn
+pdfjs-free-text =
+    .aria-label = Aozer testennoù
+pdfjs-ink =
+    .aria-label = Aozer tresoù
+pdfjs-ink-canvas =
+    .aria-label = Skeudenn bet krouet gant an implijer·ez
 
 ## Alt-text dialog
 
+pdfjs-editor-alt-text-add-description-label = Ouzhpennañ un deskrivadur
+pdfjs-editor-alt-text-cancel-button = Nullañ
+pdfjs-editor-alt-text-save-button = Enrollañ
 
 ## Editor resizers
 ## This is used in an aria label to help to understand the role of the resizer.
+
+
+## Color picker
 

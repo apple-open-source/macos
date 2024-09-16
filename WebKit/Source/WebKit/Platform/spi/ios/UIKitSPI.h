@@ -31,6 +31,7 @@
 #import <UIKit/NSTextAlternatives.h>
 #import <UIKit/UIActivityViewController_Private.h>
 #import <UIKit/UIAlertController_Private.h>
+#import <UIKit/UIApplication+iOSMac_Private.h>
 #import <UIKit/UIApplication_Private.h>
 #import <UIKit/UIBarButtonItem_Private.h>
 #import <UIKit/UIBlurEffect_Private.h>
@@ -116,23 +117,6 @@
 #import <UIKit/UIDragSession.h>
 #import <UIKit/UIDropInteraction.h>
 #import <UIKit/_UITextDragCaretView.h>
-#endif
-
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
-#import <UIKit/UIAsyncTextInput.h>
-#import <UIKit/UIAsyncTextInputClient.h>
-#import <UIKit/UIAsyncTextInteraction.h>
-#import <UIKit/UIAsyncTextInteractionDelegate.h>
-#import <UIKit/UIKeyEventContext.h>
-#endif
-
-#if HAVE(UI_ASYNC_DRAG_INTERACTION)
-#import <UIKit/UIDragInteraction_AsyncSupport.h>
-#import <UIKit/_UIAsyncDragInteraction.h>
-#endif
-
-#if HAVE(UI_CONTEXT_MENU_ASYNC_CONFIGURATION)
-#import <UIKit/_UIContextMenuAsyncConfiguration.h>
 #endif
 
 #if HAVE(UIFINDINTERACTION)
@@ -431,6 +415,7 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 @class FBSDisplayConfiguration;
 @interface UIScreen ()
 @property (nonatomic, readonly, retain) FBSDisplayConfiguration *displayConfiguration;
+@property (nonatomic, readonly) CGRect _referenceBounds;
 @end
 
 @interface UIScrollView ()
@@ -508,8 +493,6 @@ typedef enum {
 - (void)layoutHasChanged;
 @end
 
-@class UITextInputArrowKeyHistory;
-
 @protocol UITextInputPrivate <UITextInput, UITextInputTokenizer, UITextInputTraits_Private>
 @optional
 - (BOOL)requiresKeyEvents;
@@ -563,6 +546,13 @@ typedef enum {
 - (pid_t)_hostProcessIdentifier;
 @property (readonly) NSString *_hostApplicationBundleIdentifier;
 @end
+
+@interface UIViewController (Private)
+- (/* nullable */ UIPresentationController *)_existingPresentationControllerImmediate:(BOOL)immediate effective:(BOOL)effective;
+@end
+
+extern NSString * const UIPresentationControllerDismissalTransitionDidEndNotification;
+extern NSString * const UIPresentationControllerDismissalTransitionDidEndCompletedKey;
 
 @interface _UIViewControllerTransitionContext : NSObject <UIViewControllerContextTransitioning>
 @end
@@ -969,13 +959,13 @@ typedef NS_OPTIONS(NSInteger, UIWKDocumentRequestFlags) {
 @property (nonatomic, strong) UIImage *image;
 @end
 
-#if HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
+#if USE(UICONTEXTMENU)
 @interface _UIClickInteraction : NSObject <UIInteraction>
 @end
 
 @interface _UIClickPresentationInteraction : NSObject <UIInteraction>
 @end
-#endif // HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
+#endif // USE(UICONTEXTMENU)
 
 @interface NSTextAlternatives : NSObject
 - (id)initWithPrimaryString:(NSString *)primaryString alternativeStrings:(NSArray<NSString *> *)alternativeStrings;
@@ -1016,14 +1006,14 @@ typedef NS_OPTIONS(NSInteger, UIWKDocumentRequestFlags) {
 
 #if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
 
-@interface UIWindowScene ()
-@property (nonatomic, readonly, getter=_isInLiveResize) BOOL _inLiveResize;
-@end
-
 extern NSNotificationName const _UIWindowSceneDidBeginLiveResizeNotification;
 extern NSNotificationName const _UIWindowSceneDidEndLiveResizeNotification;
 
 #endif // HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
+
+#if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
+extern void _UIApplicationCatalystRequestViewServiceIdiomAndScaleFactor(UIUserInterfaceIdiom, CGFloat scaleFactor);
+#endif
 
 #endif // USE(APPLE_INTERNAL_SDK)
 
@@ -1201,55 +1191,10 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 @end
 #endif
 
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
-
-@interface UIAsyncTextInteraction (Staging_117831560)
-
-- (void)presentEditMenuForSelection;
-- (void)dismissEditMenuForSelection;
-
-- (void)selectionChanged;
-- (void)editabilityChanged;
-
-@property (nonatomic, readonly) UITextSelectionDisplayInteraction *textSelectionDisplayInteraction;
-
-#if USE(UICONTEXTMENU)
-@property (nonatomic, weak) id<UIContextMenuInteractionDelegate> contextMenuInteractionDelegate;
-@property (nonatomic, readonly) UIContextMenuInteraction *contextMenuInteraction;
-#endif
-
-@end
-
-#if !defined(UI_DIRECTIONAL_TEXT_RANGE_STRUCT)
-
-typedef struct {
-    NSInteger offset;
-    NSInteger length;
-} UIDirectionalTextRange;
-
-#endif // !defined(UI_DIRECTIONAL_TEXT_RANGE_STRUCT)
-
-@interface UIKeyEventContext (Staging_118307536)
-@property (nonatomic, assign, readwrite) BOOL shouldEvaluateForInputSystemHandling;
-@end
-
-@protocol UIAsyncTextInputDelegate_Staging<UIAsyncTextInputDelegate>
-- (void)deferReplaceTextActionToSystem:(id)sender; // Added in rdar://118307558.
-@end
-
-#endif // HAVE(UI_ASYNC_TEXT_INTERACTION)
-
-#if HAVE(UI_CONTEXT_MENU_ASYNC_CONFIGURATION)
-
-@interface _UIContextMenuAsyncConfiguration (Staging_119442063)
-- (BOOL)fulfillUsingConfiguration:(UIContextMenuConfiguration *)configuration;
-@end
-
-#endif
-
 @interface UIResponder (Staging_118307086)
 
 - (void)addShortcut:(id)sender;
+- (void)lookup:(id)sender;
 - (void)define:(id)sender;
 - (void)promptForReplace:(id)sender;
 - (void)share:(id)sender;
@@ -1262,21 +1207,21 @@ typedef struct {
 
 @end
 
-#if !defined(UI_SHIFT_KEY_STATE_ENUM)
-
-typedef NS_ENUM(NSInteger, UIShiftKeyState) {
-    UIShiftKeyStateNone = 0,
-    UIShiftKeyStateShifted,
-    UIShiftKeyStateCapsLocked
-};
-
-#endif
-
 @interface UIResponder (Internal)
 - (BOOL)_requiresKeyboardWhenFirstResponder;
 - (BOOL)_requiresKeyboardResetOnReload;
 - (UTF32Char)_characterInRelationToCaretSelection:(int)amount;
 @end
+
+@class UITextInputArrowKeyHistory;
+
+#if HAVE(UI_FOCUS_ITEM_DEFERRAL_MODE)
+// FIXME: <rdar://131799614> Remove staging code.
+
+typedef NS_ENUM(NSInteger, UIFocusItemDeferralMode);
+
+#define UIFocusItemDeferralModeNever 2
+#endif
 
 WTF_EXTERN_C_BEGIN
 

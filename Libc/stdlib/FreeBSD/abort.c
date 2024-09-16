@@ -82,7 +82,11 @@ abort()
 	 * XXX ISO C requires that abort() be async-signal-safe.
 	 */
 	if (__cleanup)
-		(*__cleanup)();
+#ifdef __APPLE__
+		_cleanup();
+#else
+	    (*__cleanup)();
+#endif // __APPLE__
 
 	sigfillset(&act.sa_mask);
 	/*

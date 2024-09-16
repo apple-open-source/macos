@@ -439,6 +439,10 @@ statf(int indent, FTSENT *p)
 		uint64_t dataless = IS_DATALESS(p->fts_statp);
 		output(indent, &offset, "dataless=%llu", dataless);
 	}
+	if (keys & F_PROTECTION_CLASS) {
+		uint32_t protection = get_protection_class(p->fts_accpath);
+		output(indent, &offset, "protectionclass=%u", protection);
+	}
 	
 	(void)putchar('\n');
 }

@@ -1,9 +1,9 @@
 /*
 	File:		MBCBoardViewTextures.mm
 	Contains:	Load OpenGL textures from resources
-	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 	
-	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
+	Derived from glChess, Copyright Â© 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
@@ -49,6 +49,7 @@
 #import "MBCBoardView.h"
 #import "MBCBoardViewDraw.h"
 #import "MBCDebug.h"
+#import "MBCDrawStyle.h"
 
 #import <stdlib.h> 
 #import <string.h>

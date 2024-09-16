@@ -14,5 +14,5 @@ INSTALLHDRS_COPY_PHASE = YES
 
 GENERATE_TEXT_BASED_STUBS = YES
 SUPPORTS_TEXT_BASED_API = YES
-TAPI_VERIFY_MODE = ErrorsAndWarnings
-OTHER_TAPI_FLAGS = -Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h
+TAPI_VERIFY_MODE = Pedantic
+COMMON_TAPI_FLAGS = -Xparser -include -Xparser $(SRCROOT)/ncurses/include/ncurses_cfg.h -DTAPI

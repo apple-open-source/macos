@@ -42,7 +42,7 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFDataRef			tempValue;
 
-	SC_trace("add  %s : %5d : %@",
+	SC_trace("add  %s : %5u : %@",
 		 storePrivate->useSessionKeys ? "t " : "  ",
 		 storePrivate->server,
 		 key);
@@ -131,7 +131,7 @@ _configadd(mach_port_t 			server,
 #ifdef	DEBUG
 		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-		SC_trace("!add %s : %5d : %@",
+		SC_trace("!add %s : %5u : %@",
 			 storePrivate->useSessionKeys ? "t " : "  ",
 			 storePrivate->server,
 			 key);
@@ -202,7 +202,7 @@ _configadd_s(mach_port_t 		server,
 #ifdef	DEBUG
 		storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
-		SC_trace("!add t  : %5d : %@",
+		SC_trace("!add t  : %5u : %@",
 			 storePrivate->server,
 			 key);
 #endif	// DEBUG

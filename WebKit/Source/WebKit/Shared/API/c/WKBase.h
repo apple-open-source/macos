@@ -55,7 +55,6 @@ typedef struct OpaqueWKDictionary* WKMutableDictionaryRef;
 
 typedef const struct OpaqueWKBoolean* WKBooleanRef;
 typedef const struct OpaqueWKCertificateInfo* WKCertificateInfoRef;
-typedef const struct OpaqueWKConnection* WKConnectionRef;
 typedef const struct OpaqueWKContextMenuItem* WKContextMenuItemRef;
 typedef const struct OpaqueWKData* WKDataRef;
 typedef const struct OpaqueWKDouble* WKDoubleRef;
@@ -159,7 +158,6 @@ typedef const struct OpaqueWKBundleDOMWindowExtension* WKBundleDOMWindowExtensio
 typedef const struct OpaqueWKBundleFileHandle* WKBundleFileHandleRef;
 typedef const struct OpaqueWKBundleFrame* WKBundleFrameRef;
 typedef const struct OpaqueWKBundleHitTestResult* WKBundleHitTestResultRef;
-typedef const struct OpaqueWKBundleInspector* WKBundleInspectorRef;
 typedef const struct OpaqueWKBundleNavigationAction* WKBundleNavigationActionRef;
 typedef const struct OpaqueWKBundleNodeHandle* WKBundleNodeHandleRef;
 typedef const struct OpaqueWKBundlePage* WKBundlePageRef;

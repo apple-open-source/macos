@@ -183,7 +183,7 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
     
     secnotice("octagontrust-fetchescrowrecords", "no viable records!");
 
-    return nil;
+    return [NSArray array];
 }
 
 + (NSArray<OTEscrowRecord*>* _Nullable)fetchAndHandleEscrowRecords:(OTConfigurationContext*)data shouldFilter:(BOOL)shouldFiler error:(NSError**)error
@@ -229,6 +229,10 @@ static NSString * const kOTEscrowAuthKey = @"kOTEscrowAuthKey";
                 secnotice("octagontrust-handleEscrowRecords", "failed to create sos peer info: %@", cfError);
             } else {
                 translated.serialNumber = (NSString*)CFBridgingRelease(SOSPeerInfoCopySerialNumber(peer));
+            }
+            if (translated.serialNumber == nil || [translated.serialNumber isEqualToString:@""]) {
+                secnotice("octagontrust-handleEscrowRecords", "attempted to use peer info's serial number and failed, using metadata");
+                translated.serialNumber = translated.escrowInformationMetadata.serial;
             }
             CFReleaseNull(cfError);
             CFReleaseNull(peer);
@@ -1471,6 +1475,22 @@ typedef NS_ENUM(NSInteger, RecoveryKeyInOctagonState) {
     NSError* octagonError = nil;
     RecoveryKeyInOctagonState octagonState = [OTClique doesRecoveryKeyExistInOctagonAndIsCorrect:ctx recoveryKey:recoveryKey error:&octagonError];
 
+    if (octagonError &&
+        [octagonError.domain isEqualToString:TrustedPeersHelperErrorDomain]
+        && octagonError.code == TrustedPeersHelperErrorFailedToCreateRecoveryKey) {
+        NSError* underlyingError = octagonError.userInfo[NSUnderlyingErrorKey];
+        if (underlyingError && [underlyingError.domain isEqualToString:TrustedPeersHelperRecoveryKeySetErrorDomain] && underlyingError.code == TrustedPeersHelperRecoveryKeySetErrorFailedToSaveToKeychain) {
+            NSError* secondUnderlyingError = underlyingError.userInfo[NSUnderlyingErrorKey];
+            if (secondUnderlyingError && [secondUnderlyingError.domain isEqualToString:NSOSStatusErrorDomain] && secondUnderlyingError.code == errSecInteractionNotAllowed) {
+                secerror("octagon-recover-with-rk: device is locked %@", secondUnderlyingError);
+                if (error) {
+                    *error = secondUnderlyingError;
+                }
+                return NO;
+            }
+        }
+    }
+    
     if (sosState != RecoveryKeyInSOSStateExistsAndIsCorrect &&
         octagonState != RecoveryKeyInOctagonStateExistsAndIsCorrect) {
         secerror("octagon-recover-with-rk: recovery key will not work for both SOS and Octagon");

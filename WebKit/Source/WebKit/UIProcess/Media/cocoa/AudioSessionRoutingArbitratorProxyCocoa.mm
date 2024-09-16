@@ -40,7 +40,7 @@ using namespace WebCore;
 
 AudioSessionRoutingArbitratorProxy::AudioSessionRoutingArbitratorProxy(WebProcessProxy& proxy)
     : m_process(proxy)
-    , m_token(SharedRoutingArbitrator::Token::create())
+    , m_token(SharedRoutingArbitratorToken::create())
 {
     m_logIdentifier = m_token->logIdentifier();
     SharedRoutingArbitrator::sharedInstance().setLogger(logger());
@@ -49,9 +49,8 @@ AudioSessionRoutingArbitratorProxy::AudioSessionRoutingArbitratorProxy(WebProces
 
 AudioSessionRoutingArbitratorProxy::~AudioSessionRoutingArbitratorProxy()
 {
-    // Unable to ref the process because it may have started destruction.
-    CheckedRef checkedProcess = m_process.get();
-    checkedProcess->removeMessageReceiver(Messages::AudioSessionRoutingArbitratorProxy::messageReceiverName(), destinationId());
+    RefAllowingPartiallyDestroyed<WebProcessProxy> process = m_process.get();
+    process->removeMessageReceiver(Messages::AudioSessionRoutingArbitratorProxy::messageReceiverName(), destinationId());
 }
 
 void AudioSessionRoutingArbitratorProxy::processDidTerminate()

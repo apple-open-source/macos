@@ -26,9 +26,6 @@
 #include "TestWithStream.h"
 
 #include "ArgumentCoders.h" // NOLINT
-#if PLATFORM(COCOA)
-#include "ArgumentCodersDarwin.h" // NOLINT
-#endif
 #include "Decoder.h" // NOLINT
 #include "HandleMessage.h" // NOLINT
 #include "TestWithStreamMessages.h" // NOLINT
@@ -69,7 +66,7 @@ void TestWithStream::didReceiveStreamMessage(IPC::StreamServerConnection& connec
     if (connection.protectedConnection()->ignoreInvalidMessageForTesting())
         return;
 #endif // ENABLE(IPC_TESTING_API)
-    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled stream message %s to %" PRIu64, IPC::description(decoder.messageName()), decoder.destinationID());
+    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled stream message %s to %" PRIu64, IPC::description(decoder.messageName()).characters(), decoder.destinationID());
 }
 
 } // namespace WebKit

@@ -195,57 +195,10 @@ public:
         store8(reg, Address(scratchRegister()));
     }
 
-#if OS(WINDOWS)
-    Call callWithUGPRPair(PtrTag)
-    {
-        DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
-        Call result = Call(m_assembler.call(scratchRegister()), Call::Linkable);
-        // Copy the return value into rax and rdx.
-        load64(Address(X86Registers::eax, sizeof(int64_t)), X86Registers::edx);
-        load64(Address(X86Registers::eax), X86Registers::eax);
-
-        ASSERT_UNUSED(label, differenceBetween(label, result) == REPATCH_OFFSET_CALL_R11);
-        return result;
-    }
-
-    void callWithUGPRPair(Address address, PtrTag)
-    {
-        m_assembler.call_m(address.offset, address.base);
-        // Copy the return value into rax and rdx.
-        load64(Address(X86Registers::eax, sizeof(int64_t)), X86Registers::edx);
-        load64(Address(X86Registers::eax), X86Registers::eax);
-    }
-#endif
-
     Call call(PtrTag)
     {
-#if OS(WINDOWS)
-        // JIT relies on the CallerFrame (frame pointer) being put on the stack,
-        // On Win64 we need to manually copy the frame pointer to the stack, since MSVC may not maintain a frame pointer on 64-bit.
-        // See http://msdn.microsoft.com/en-us/library/9z1stfyw.aspx where it's stated that rbp MAY be used as a frame pointer.
-        store64(X86Registers::ebp, Address(X86Registers::esp, -16));
-
-        // On Windows we need to copy the arguments that don't fit in registers to the stack location where the callee expects to find them.
-        // We don't know the number of arguments at this point, so the arguments (5, 6, ...) should always be copied.
-
-        // Copy argument 5
-        load64(Address(X86Registers::esp, 4 * sizeof(int64_t)), scratchRegister());
-        store64(scratchRegister(), Address(X86Registers::esp, -4 * static_cast<int32_t>(sizeof(int64_t))));
-
-        // Copy argument 6
-        load64(Address(X86Registers::esp, 5 * sizeof(int64_t)), scratchRegister());
-        store64(scratchRegister(), Address(X86Registers::esp, -3 * static_cast<int32_t>(sizeof(int64_t))));
-
-        // We also need to allocate the shadow space on the stack for the 4 parameter registers.
-        // Also, we should allocate 16 bytes for the frame pointer, and return address (not populated).
-        // In addition, we need to allocate 16 bytes for two more parameters, since the call can have up to 6 parameters.
-        sub64(TrustedImm32(8 * sizeof(int64_t)), X86Registers::esp);
-#endif
         DataLabelPtr label = moveWithPatch(TrustedImmPtr(nullptr), scratchRegister());
         Call result = Call(m_assembler.call(scratchRegister()), Call::Linkable);
-#if OS(WINDOWS)
-        add64(TrustedImm32(8 * sizeof(int64_t)), X86Registers::esp);
-#endif
         ASSERT_UNUSED(label, differenceBetween(label, result) == REPATCH_OFFSET_CALL_R11);
         return result;
     }
@@ -358,6 +311,16 @@ public:
         m_assembler.leaq_mr(imm.m_value, src, dest);
     }
 
+    void add64(TrustedImm64 imm, RegisterID src, RegisterID dest)
+    {
+        if (WTF::isRepresentableAs<int32_t>(imm.m_value))
+            m_assembler.leaq_mr(imm.m_value, src, dest);
+        else {
+            move(src, dest);
+            add64(imm, dest);
+        }
+    }
+
     void add64(TrustedImm32 imm, Address address)
     {
         if (imm.m_value == 1)
@@ -459,8 +422,7 @@ public:
     void and64(TrustedImm64 imm, RegisterID srcDest)
     {
         int64_t intValue = imm.m_value;
-        if (intValue <= std::numeric_limits<int32_t>::max()
-            && intValue >= std::numeric_limits<int32_t>::min()) {
+        if (isRepresentableAs<int32_t>(intValue)) {
             and64(TrustedImm32(static_cast<int32_t>(intValue)), srcDest);
             return;
         }
@@ -481,6 +443,12 @@ public:
     }
 
     void and64(TrustedImm32 imm, RegisterID src, RegisterID dest)
+    {
+        move(src, dest);
+        and64(imm, dest);
+    }
+
+    void and64(TrustedImm64 imm, RegisterID src, RegisterID dest)
     {
         move(src, dest);
         and64(imm, dest);
@@ -905,8 +873,7 @@ public:
 
     void or64(TrustedImm64 imm, RegisterID srcDest)
     {
-        if (imm.m_value <= std::numeric_limits<int32_t>::max()
-            && imm.m_value >= std::numeric_limits<int32_t>::min()) {
+        if (isRepresentableAs<int32_t>(imm.m_value)) {
             or64(TrustedImm32(static_cast<int32_t>(imm.m_value)), srcDest);
             return;
         }
@@ -932,6 +899,12 @@ public:
     }
 
     void or64(TrustedImm32 imm, RegisterID src, RegisterID dest)
+    {
+        move(src, dest);
+        or64(imm, dest);
+    }
+
+    void or64(TrustedImm64 imm, RegisterID src, RegisterID dest)
     {
         move(src, dest);
         or64(imm, dest);
@@ -964,8 +937,16 @@ public:
 
     void sub64(RegisterID a, TrustedImm32 imm, RegisterID dest)
     {
-        move(a, dest);
-        sub64(imm, dest);
+        if (a == dest) {
+            sub64(imm, dest);
+            return;
+        }
+
+        if (UNLIKELY(imm.m_value == INT32_MIN)) {
+            move(a, dest);
+            sub64(imm, dest);
+        } else
+            m_assembler.leaq_mr(-imm.m_value, a, dest);
     }
 
     void sub64(TrustedImm64 imm, RegisterID dest)
@@ -975,6 +956,21 @@ public:
         else {
             move(imm, scratchRegister());
             sub64(scratchRegister(), dest);
+        }
+    }
+
+    void sub64(RegisterID src, TrustedImm64 imm, RegisterID dest)
+    {
+        if (src == dest) {
+            sub64(imm, dest);
+            return;
+        }
+
+        if (isRepresentableAs<int32_t>(imm.m_value) && LIKELY(imm.m_value != INT32_MIN))
+            m_assembler.leaq_mr(-imm.m_value, src, dest);
+        else {
+            move(src, dest);
+            sub64(imm, dest);
         }
     }
 
@@ -1068,8 +1064,16 @@ public:
 
     void xor64(TrustedImm64 imm, RegisterID srcDest)
     {
+        if (isRepresentableAs<int32_t>(imm.m_value))
+            return xor64(TrustedImm32(imm.m_value), srcDest);
         move(imm, scratchRegister());
         xor64(scratchRegister(), srcDest);
+    }
+
+    void xor64(TrustedImm64 imm, RegisterID src, RegisterID dest)
+    {
+        move(src, dest);
+        xor64(imm, dest);
     }
 
     void not64(RegisterID srcDest)
@@ -1260,6 +1264,12 @@ public:
         store64(scratchRegister(), dest);
     }
 
+    void transferVector(Address src, Address dest)
+    {
+        loadVector(src, fpTempRegister);
+        storeVector(fpTempRegister, dest);
+    }
+
     void transferPtr(Address src, Address dest)
     {
         transfer64(src, dest);
@@ -1275,6 +1285,12 @@ public:
     {
         load64(src, scratchRegister());
         store64(scratchRegister(), dest);
+    }
+
+    void transferVector(BaseIndex src, BaseIndex dest)
+    {
+        loadVector(src, fpTempRegister);
+        storeVector(fpTempRegister, dest);
     }
 
     void transferPtr(BaseIndex src, BaseIndex dest)
@@ -1304,12 +1320,9 @@ public:
         if (reg1 == reg2)
             return;
 
-        // FIXME: This is kinda a hack since we don't use xmm7 as a temp.
-        ASSERT(reg1 != FPRegisterID::xmm7);
-        ASSERT(reg2 != FPRegisterID::xmm7);
-        moveDouble(reg1, FPRegisterID::xmm7);
+        moveDouble(reg1, fpTempRegister);
         moveDouble(reg2, reg1);
-        moveDouble(FPRegisterID::xmm7, reg2);
+        moveDouble(fpTempRegister, reg2);
     }
 
     void move32ToFloat(RegisterID src, FPRegisterID dest)
@@ -1416,6 +1429,24 @@ public:
         }
 
         m_assembler.cmpq_ir(right.m_value, left);
+        set32(x86Condition(cond), dest);
+    }
+
+    void compare64(RelationalCondition cond, RegisterID left, TrustedImm64 right, RegisterID dest)
+    {
+        if (!right.m_value) {
+            if (auto resultCondition = commuteCompareToZeroIntoTest(cond)) {
+                test64(*resultCondition, left, left, dest);
+                return;
+            }
+        }
+
+        if (isRepresentableAs<int32_t>(right.m_value))
+            m_assembler.cmpq_ir(right.m_value, left);
+        else {
+            move(right, scratchRegister());
+            m_assembler.cmpq_rr(scratchRegister(), left);
+        }
         set32(x86Condition(cond), dest);
     }
     
@@ -1945,6 +1976,13 @@ public:
         TrustedImm32 mask8(static_cast<int8_t>(mask.m_value));
         MacroAssemblerX86Common::move(TrustedImmPtr(address.m_ptr), scratchRegister());
         return MacroAssemblerX86Common::branchTest8(cond, Address(scratchRegister()), mask8);
+    }
+
+    using MacroAssemblerX86Common::branch16;
+    Jump branch16(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
+    {
+        MacroAssemblerX86Common::move(TrustedImmPtr(left.m_ptr), scratchRegister());
+        return MacroAssemblerX86Common::branch16(cond, Address(scratchRegister()), right);
     }
 
     using MacroAssemblerX86Common::branchTest16;

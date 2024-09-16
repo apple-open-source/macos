@@ -7,6 +7,9 @@
 #include "sparse.h"
 #include "utils.h"
 #include "vm.h"
+#include "notes.h"
+#include "portable_task_crash_info_t.h"
+#include "portable_region_infos_t.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,10 +104,321 @@ make_coredata_command(void *data, const struct vm_range *vr, const struct file_r
 	return cc;
 }
 
+#pragma mark -- Write LC_NOTEs for memory analysis tools --
+
+static walk_return_t
+pwrite_memory(struct write_segment_data *, const void *, size_t, const struct vm_range *);
+
+static struct file_range 
+note_write_memory(struct write_segment_data *wsd, const void *addr, size_t size)
+{
+    const struct vm_range vr = {
+        .addr = (mach_vm_offset_t)addr,
+        .size = size,
+    };
+    struct file_range fr = {
+        .off = wsd->wsd_foffset,
+        .size = size
+    };
+    if (WALK_CONTINUE != pwrite_memory(wsd, addr, size, &vr)) {
+        return (struct file_range){0, 0};
+    }
+    return fr;
+}
+
+static uint64_t 
+write_string_to_wsda(struct write_segment_data *wsda, const char *string)
+{
+    if (NULL == string) {
+        return UINT64_MAX;
+    }
+    
+    const struct file_range fr = note_write_memory(wsda, string, strlen(string) + 1);
+    return fr.off;
+}
+
+static uint64_t
+write_uint16_array_to_wsda(struct write_segment_data *wsda, const uint16_t *array, size_t array_count)
+{
+    if (NULL == wsda) {
+        return UINT64_MAX;
+    }
+    
+    const struct file_range fr = note_write_memory(wsda, array, array_count * sizeof(*array));
+    return fr.off;
+}
+
+struct note_command *
+make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct write_segment_data *wsda, const struct region_infos_note_data *region_infos_note)
+{
+    nc->cmd = LC_NOTE;
+    nc->cmdsize = sizeof(struct note_command);
+    strlcpy(nc->data_owner, "vm info", sizeof(nc->data_owner));
+    
+    const size_t portable_region_infos_size = sizeof(struct portable_region_infos_t) + (sizeof(struct portable_region_info_t) * (size_t)region_infos_note->regions_count);
+    struct portable_region_infos_t *portable_reigon_infos = calloc(1, portable_region_infos_size);
+    portable_reigon_infos->major_version = PORTABLE_REGION_INFOS_CURRENT_MAJOR_VERSION;
+    portable_reigon_infos->minor_version = PORTABLE_REGION_INFOS_CURRENT_MINOR_VERSION;
+    portable_reigon_infos->regions_count = region_infos_note->regions_count;
+    
+    for (uint64_t region_index = 0; region_index < region_infos_note->regions_count; region_index++) {
+        const struct region_infos_note_region_data *region_data = &region_infos_note->regions[region_index];
+        
+        uint64_t mapped_file_path_file_offset = UINT64_MAX;
+        if (region_data->mapped_file_path) {
+            mapped_file_path_file_offset = write_string_to_wsda(wsda, region_data->mapped_file_path);
+            if (mapped_file_path_file_offset == 0) {
+                return NULL;
+            }
+        }
+        
+        uint64_t phys_footprint_dispositions_file_offset = UINT64_MAX;
+        if (NULL != region_data->phys_footprint_dispositions) {
+            phys_footprint_dispositions_file_offset = write_uint16_array_to_wsda(wsda, region_data->phys_footprint_dispositions, (size_t)region_data->phys_footprint_disposition_count);
+            if (phys_footprint_dispositions_file_offset == 0) {
+                return NULL;
+            }
+        }
+        
+        uint64_t non_phys_footprint_dispositions_file_offset = UINT64_MAX;
+        if (NULL != region_data->non_phys_footprint_dispositions) {
+            non_phys_footprint_dispositions_file_offset = write_uint16_array_to_wsda(wsda, region_data->non_phys_footprint_dispositions, (size_t)region_data->non_phys_footprint_disposition_count);
+            if (non_phys_footprint_dispositions_file_offset == 0) {
+                return NULL;
+            }
+        }
+        
+        portable_reigon_infos->regions[region_index] = (struct portable_region_info_t){
+            .vmaddr = region_data->vmaddr,
+            .vmsize = region_data->vmsize,
+
+            .nesting_depth = region_data->nesting_depth,
+
+            .protection               = region_data->protection,
+            .max_protection           = region_data->max_protection,
+            .inheritance              = region_data->inheritance,
+            .offset                   = region_data->offset,
+            .user_tag                 = region_data->user_tag,
+            .pages_resident           = region_data->pages_resident,
+            .pages_shared_now_private = region_data->pages_shared_now_private,
+            .pages_swapped_out        = region_data->pages_swapped_out,
+            .pages_dirtied            = region_data->pages_dirtied,
+            .ref_count                = region_data->ref_count,
+            .shadow_depth             = region_data->shadow_depth,
+            .external_pager           = region_data->external_pager,
+            .share_mode               = region_data->share_mode,
+            .is_submap                = region_data->is_submap,
+            .behavior                 = region_data->behavior,
+            .object_id                = region_data->object_id,
+            .user_wired_count         = region_data->user_wired_count,
+            .pages_reusable           = region_data->pages_reusable,
+            .object_id_full           = region_data->object_id_full,
+
+            .purgeability = region_data->purgeability,
+
+            .mapped_file_path_offset = mapped_file_path_file_offset,
+
+            .phys_footprint_disposition_count   = region_data->phys_footprint_disposition_count,
+            .phys_footprint_dispositions_offset = phys_footprint_dispositions_file_offset,
+
+            .non_phys_footprint_disposition_count   = region_data->non_phys_footprint_disposition_count,
+            .non_phys_footprint_dispositions_offset = non_phys_footprint_dispositions_file_offset,
+        };
+    }
+    
+    const struct file_range portable_reigon_infos_file_range = note_write_memory(wsda, portable_reigon_infos, portable_region_infos_size);
+    if (portable_reigon_infos_file_range.off == 0) {
+        return NULL;
+    }
+    
+    nc->offset = F_OFF(&portable_reigon_infos_file_range);
+    nc->size = F_SIZE(&portable_reigon_infos_file_range);
+    
+    mach_header_inc_ncmds(mh, 1);
+    mach_header_inc_sizeofcmds(mh, nc->cmdsize);
+
+    return nc;
+}
+
+struct note_command *
+make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, struct write_segment_data *wsda, const struct task_crashinfo_note_data *task_crashinfo_note)
+{
+    nc->cmd = LC_NOTE;
+    nc->cmdsize = sizeof(struct note_command);
+    strlcpy(nc->data_owner, "task crashinfo", sizeof(nc->data_owner));
+    
+    const uint64_t proc_name_file_offset = write_string_to_wsda(wsda, task_crashinfo_note->proc_name);
+    if (proc_name_file_offset == 0) {
+        return NULL;
+    }
+    const uint64_t proc_path_file_offset = write_string_to_wsda(wsda, task_crashinfo_note->proc_path);
+    if (proc_path_file_offset == 0) {
+        return NULL;
+    }
+    const uint64_t parent_proc_name_file_offset = write_string_to_wsda(wsda, task_crashinfo_note->parent_proc_name);
+    if (parent_proc_name_file_offset == 0) {
+        return NULL;
+    }
+    const uint64_t parent_proc_path_file_offset = write_string_to_wsda(wsda, task_crashinfo_note->parent_proc_path);
+    if (parent_proc_path_file_offset == 0) {
+        return NULL;
+    }
+    
+    assert((NULL == task_crashinfo_note->udata_ptrs && 0 == task_crashinfo_note->udata_ptrs_count) || (NULL != task_crashinfo_note->udata_ptrs && task_crashinfo_note->udata_ptrs_count > 0));
+    uint64_t udata_ptrs_file_offset = UINT64_MAX;
+    if (task_crashinfo_note->udata_ptrs) {
+        udata_ptrs_file_offset = note_write_memory(wsda, task_crashinfo_note->udata_ptrs, sizeof(*task_crashinfo_note->udata_ptrs) * (size_t)task_crashinfo_note->udata_ptrs_count).off;
+        if (udata_ptrs_file_offset == 0) {
+            return NULL;
+        }
+    }
+    
+    assert((NULL == task_crashinfo_note->vm_object_query_datas && 0 == task_crashinfo_note->vm_object_query_datas_count) || (NULL != task_crashinfo_note->vm_object_query_datas && task_crashinfo_note->vm_object_query_datas_count > 0));
+    uint64_t vm_object_query_datas_file_offset = UINT64_MAX;
+    if (task_crashinfo_note->vm_object_query_datas) {
+        vm_object_query_datas_file_offset = note_write_memory(wsda, task_crashinfo_note->vm_object_query_datas, sizeof(*task_crashinfo_note->vm_object_query_datas) * (size_t)task_crashinfo_note->vm_object_query_datas_count).off;
+        if (vm_object_query_datas_file_offset == 0) {
+            return NULL;
+        }
+    }
+    
+    struct portable_task_crash_info_t portable_task_crash_info = {
+        .major_version = PORTABLE_TASK_CRASH_INFO_CURRENT_MAJOR_VERSION,
+        .minor_version = PORTABLE_TASK_CRASH_INFO_CURRENT_MINOR_VERSION,
+
+        .task_type = task_crashinfo_note->task_type,
+
+        .pid                 = task_crashinfo_note->pid,
+        .ppid                = task_crashinfo_note->ppid,
+        .uid                 = task_crashinfo_note->uid,
+        .gid                 = task_crashinfo_note->gid,
+        .proc_starttime_sec  = task_crashinfo_note->proc_starttime_sec,
+        .proc_starttime_usec = task_crashinfo_note->proc_starttime_usec,
+
+        .proc_name_offset        = proc_name_file_offset,
+        .proc_path_offset        = proc_path_file_offset,
+        .parent_proc_name_offset = parent_proc_name_file_offset,
+        .parent_proc_path_offset = parent_proc_path_file_offset,
+
+        .responsible_pid = task_crashinfo_note->responsible_pid,
+
+        .proc_persona_id = task_crashinfo_note->proc_persona_id,
+
+        .userstack  = task_crashinfo_note->userstack,
+        .proc_flags = task_crashinfo_note->proc_flags,
+
+        .argslen   = task_crashinfo_note->argslen,
+        .proc_argc = task_crashinfo_note->proc_argc,
+
+        .dirty_flags = task_crashinfo_note->dirty_flags,
+
+        .proc_csflags = task_crashinfo_note->proc_csflags,
+
+        .exception_code_code    = task_crashinfo_note->exception_code_code,
+        .exception_code_subcode = task_crashinfo_note->exception_code_subcode,
+
+        .crashed_threadid         = task_crashinfo_note->crashed_threadid,
+        .crashinfo_exception_type = task_crashinfo_note->crashinfo_exception_type,
+
+        .coalition_resource_id = task_crashinfo_note->coalition_resource_id,
+        .coalition_jetsam_id   = task_crashinfo_note->coalition_jetsam_id,
+
+        .dyld_all_image_infos_addr = task_crashinfo_note->dyld_all_image_infos_addr,
+        .dyld_all_image_infos_size = task_crashinfo_note->dyld_all_image_infos_size,
+
+        .dyld_shared_cache_base_addr = task_crashinfo_note->dyld_shared_cache_base_addr,
+        .dyld_shared_cache_size      = task_crashinfo_note->dyld_shared_cache_size,
+
+        .udata_ptrs_offset = udata_ptrs_file_offset,
+        .udata_ptrs_count  = task_crashinfo_note->udata_ptrs_count,
+
+        .vm_object_query_datas_offset = vm_object_query_datas_file_offset,
+        .vm_object_query_datas_count  = task_crashinfo_note->vm_object_query_datas_count,
+
+        .memory_limit                    = task_crashinfo_note->memory_limit,
+        .memory_limit_increase           = task_crashinfo_note->memory_limit_increase,
+        .memorystatus_effective_priority = task_crashinfo_note->memorystatus_effective_priority,
+
+        .pwq_nthreads       = task_crashinfo_note->pwq_nthreads,
+        .pwq_runthreads     = task_crashinfo_note->pwq_runthreads,
+        .pwq_blockedthreads = task_crashinfo_note->pwq_blockedthreads,
+        .pwq_state          = task_crashinfo_note->pwq_state,
+
+        .mach_timebase_info_numer = task_crashinfo_note->mach_timebase_info_numer,
+        .mach_timebase_info_denom = task_crashinfo_note->mach_timebase_info_denom,
+
+        /* ri_uuid populated below */
+        .ri_user_time                     = task_crashinfo_note->ri_user_time,
+        .ri_system_time                   = task_crashinfo_note->ri_system_time,
+        .ri_pkg_idle_wkups                = task_crashinfo_note->ri_pkg_idle_wkups,
+        .ri_interrupt_wkups               = task_crashinfo_note->ri_interrupt_wkups,
+        .ri_pageins                       = task_crashinfo_note->ri_pageins,
+        .ri_wired_size                    = task_crashinfo_note->ri_wired_size,
+        .ri_resident_size                 = task_crashinfo_note->ri_resident_size,
+        .ri_proc_start_abstime            = task_crashinfo_note->ri_proc_start_abstime,
+        .ri_proc_exit_abstime             = task_crashinfo_note->ri_proc_exit_abstime,
+        .ri_child_user_time               = task_crashinfo_note->ri_child_user_time,
+        .ri_child_system_time             = task_crashinfo_note->ri_child_system_time,
+        .ri_child_pkg_idle_wkups          = task_crashinfo_note->ri_child_pkg_idle_wkups,
+        .ri_child_interrupt_wkups         = task_crashinfo_note->ri_child_interrupt_wkups,
+        .ri_child_pageins                 = task_crashinfo_note->ri_child_pageins,
+        .ri_child_elapsed_abstime         = task_crashinfo_note->ri_child_elapsed_abstime,
+        .ri_diskio_bytesread              = task_crashinfo_note->ri_diskio_bytesread,
+        .ri_diskio_byteswritten           = task_crashinfo_note->ri_diskio_byteswritten,
+        .ri_cpu_time_qos_default          = task_crashinfo_note->ri_cpu_time_qos_default,
+        .ri_cpu_time_qos_maintenance      = task_crashinfo_note->ri_cpu_time_qos_maintenance,
+        .ri_cpu_time_qos_background       = task_crashinfo_note->ri_cpu_time_qos_background,
+        .ri_cpu_time_qos_utility          = task_crashinfo_note->ri_cpu_time_qos_utility,
+        .ri_cpu_time_qos_legacy           = task_crashinfo_note->ri_cpu_time_qos_legacy,
+        .ri_cpu_time_qos_user_initiated   = task_crashinfo_note->ri_cpu_time_qos_user_initiated,
+        .ri_cpu_time_qos_user_interactive = task_crashinfo_note->ri_cpu_time_qos_user_interactive,
+        .ri_billed_system_time            = task_crashinfo_note->ri_billed_system_time,
+        .ri_serviced_system_time          = task_crashinfo_note->ri_serviced_system_time,
+
+        .ledger_internal                        = task_crashinfo_note->ledger_internal,
+        .ledger_internal_compressed             = task_crashinfo_note->ledger_internal_compressed,
+        .ledger_iokit_mapped                    = task_crashinfo_note->ledger_iokit_mapped,
+        .ledger_alternate_accounting            = task_crashinfo_note->ledger_alternate_accounting,
+        .ledger_alternate_compressed            = task_crashinfo_note->ledger_alternate_compressed,
+        .ledger_purgable_nonvolatile            = task_crashinfo_note->ledger_purgable_nonvolatile,
+        .ledger_purgable_nonvolatile_compressed = task_crashinfo_note->ledger_purgable_nonvolatile_compressed,
+        .ledger_page_table                      = task_crashinfo_note->ledger_page_table,
+        .ledger_phys_footprint                  = task_crashinfo_note->ledger_phys_footprint,
+        .ledger_phys_footprint_lifetime_max     = task_crashinfo_note->ledger_phys_footprint_lifetime_max,
+        .ledger_network_nonvolatile             = task_crashinfo_note->ledger_network_nonvolatile,
+        .ledger_network_nonvolatile_compressed  = task_crashinfo_note->ledger_network_nonvolatile_compressed,
+        .ledger_wired_mem                       = task_crashinfo_note->ledger_wired_mem,
+        .ledger_tagged_footprint                = task_crashinfo_note->ledger_tagged_footprint,
+        .ledger_tagged_footprint_compressed     = task_crashinfo_note->ledger_tagged_footprint_compressed,
+        .ledger_media_footprint                 = task_crashinfo_note->ledger_media_footprint,
+        .ledger_media_footprint_compressed      = task_crashinfo_note->ledger_media_footprint_compressed,
+        .ledger_graphics_footprint              = task_crashinfo_note->ledger_graphics_footprint,
+        .ledger_graphics_footprint_compressed   = task_crashinfo_note->ledger_graphics_footprint_compressed,
+        .ledger_neural_footprint                = task_crashinfo_note->ledger_neural_footprint,
+        .ledger_neural_footprint_compressed     = task_crashinfo_note->ledger_neural_footprint_compressed,
+    };
+    
+    memcpy(&portable_task_crash_info.ri_uuid, task_crashinfo_note->ri_uuid, sizeof(uuid_t));
+    
+    const struct file_range portable_task_crash_info_file_range = note_write_memory(wsda, &portable_task_crash_info, sizeof(portable_task_crash_info));
+    if (portable_task_crash_info_file_range.off == 0) {
+        return NULL;
+    }
+    
+    nc->offset = F_OFF(&portable_task_crash_info_file_range);
+    nc->size = F_SIZE(&portable_task_crash_info_file_range);
+    
+    mach_header_inc_ncmds(mh, 1);
+    mach_header_inc_sizeofcmds(mh, nc->cmdsize);
+    
+    return nc;
+}
+
 static size_t
-sizeof_segment_command(void) {
+sizeof_segment_command(void) 
+{
 	return opt->extended ?
-		sizeof (struct proto_coredata_command) : sizeof (native_segment_command_t);
+		sizeof(struct proto_coredata_command) : sizeof(native_segment_command_t);
 }
 
 static struct load_command *
@@ -705,6 +1019,9 @@ pwrite_memory_range(struct write_segment_data *wsd,
 			filesize = V_SIZEOF(dp);
 
         assert(filesize);
+
+        /* Align the written memory to a 16K offset so it can be cleanly mmap()ped by tools */
+        wsd->wsd_foffset = roundup(wsd->wsd_foffset, 0x4000);
 
 		const struct file_range fr = {
 			.off = wsd->wsd_foffset,

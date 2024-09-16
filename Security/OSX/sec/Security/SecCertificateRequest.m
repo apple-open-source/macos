@@ -673,7 +673,7 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
     NSData *nonceData = [_token dataUsingEncoding:NSUTF8StringEncoding];
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:4];
 
-    dict[kSecOptionsBAAValidity] = @(60*60*24*30*3); // 3 months
+    dict[kSecOptionsBAAValidity] = @(60*24*30*3); // 3 months (value is expressed in minutes)
     dict[kSecOptionsBAAOIDSToInclude] = _attestationOids;
     dict[kSecOptionsBAAPerformOperationsOverIPC] = @YES;
     if (nonceData) {

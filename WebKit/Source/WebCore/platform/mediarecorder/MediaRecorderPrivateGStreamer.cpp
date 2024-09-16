@@ -23,6 +23,7 @@
 #if USE(GSTREAMER_TRANSCODER)
 
 #include "ContentType.h"
+#include "GStreamerCodecUtilities.h"
 #include "GStreamerCommon.h"
 #include "GStreamerMediaStreamSource.h"
 #include "GStreamerRegistryScanner.h"
@@ -137,6 +138,7 @@ void MediaRecorderPrivateBackend::stopRecording(CompletionHandler<void()>&& comp
     GST_DEBUG_OBJECT(m_transcoder.get(), "Stop requested, pushing EOS event");
 
     auto scopeExit = makeScopeExit([this, completionHandler = WTFMove(completionHandler)]() mutable {
+        unregisterPipeline(m_pipeline);
         m_pipeline.clear();
         GST_DEBUG_OBJECT(m_transcoder.get(), "Stopping");
         m_transcoder.clear();
@@ -152,7 +154,7 @@ void MediaRecorderPrivateBackend::stopRecording(CompletionHandler<void()>&& comp
 
     bool isEOS = false;
     while (!isEOS) {
-        LockHolder lock(m_eosLock);
+        Locker lock(m_eosLock);
         m_eosCondition.waitFor(m_eosLock, 200_ms, [weakThis = ThreadSafeWeakPtr { *this }]() -> bool {
             if (auto protectedThis = weakThis.get())
                 return protectedThis->m_eos;
@@ -240,28 +242,12 @@ GRefPtr<GstEncodingContainerProfile> MediaRecorderPrivateBackend::containerProfi
         gst_encoding_profile_set_element_properties(GST_ENCODING_PROFILE(profile.get()), gst_structure_from_string("element-properties-map, map={[mp4mux,fragment-duration=1000,fragment-mode=0,streamable=0,force-create-timecode-trak=1]}", nullptr));
 
     auto codecs = contentType.codecs();
-    // TODO: Handle profiles.
     if (selectedTracks.videoTrack) {
-        String videoCapsName;
-        if (codecs.contains("vp8"_s))
-            videoCapsName = "video/x-vp8"_s;
-        else if (codecs.contains("vp9"_s))
-            videoCapsName = "video/x-vp9"_s;
-        else if (codecs.contains("av1"_s))
-            videoCapsName = "video/x-av1"_s;
-        else if (codecs.findIf([](auto& codec) { return codec.startsWith("avc1"_s); }) != notFound)
-            videoCapsName = "video/x-h264"_s;
-        else if (containerType.endsWith("webm"_s))
-            videoCapsName = "video/x-vp8"_s;
-        else if (containerType.endsWith("mp4"_s))
-            videoCapsName = "video/x-h264"_s;
-        else {
-            GST_WARNING("Video codec for %s not supported", contentType.raw().utf8().data());
-            return nullptr;
-        }
-
-        RELEASE_ASSERT(!videoCapsName.isEmpty());
-        auto videoCaps = adoptGRef(gst_caps_new_empty_simple(videoCapsName.utf8().data()));
+        if (codecs.isEmpty())
+            m_videoCodec = "avc1.4d002a"_s;
+        else
+            m_videoCodec = codecs.first();
+        auto [_, videoCaps] = GStreamerCodecUtilities::capsFromCodecString(m_videoCodec);
         GST_DEBUG("Creating video encoding profile for caps %" GST_PTR_FORMAT, videoCaps.get());
         m_videoEncodingProfile = adoptGRef(GST_ENCODING_PROFILE(gst_encoding_video_profile_new(videoCaps.get(), nullptr, nullptr, 1)));
         gst_encoding_container_profile_add_profile(profile.get(), m_videoEncodingProfile.get());
@@ -297,12 +283,11 @@ GRefPtr<GstEncodingContainerProfile> MediaRecorderPrivateBackend::containerProfi
 void MediaRecorderPrivateBackend::setSource(GstElement* element)
 {
     auto selectedTracks = MediaRecorderPrivate::selectTracks(stream());
-    bool onlyTrack = (selectedTracks.audioTrack && !selectedTracks.videoTrack) || (selectedTracks.videoTrack && !selectedTracks.audioTrack);
     auto* src = WEBKIT_MEDIA_STREAM_SRC(element);
     if (selectedTracks.audioTrack)
-        webkitMediaStreamSrcAddTrack(src, selectedTracks.audioTrack, onlyTrack);
+        webkitMediaStreamSrcAddTrack(src, selectedTracks.audioTrack);
     if (selectedTracks.videoTrack)
-        webkitMediaStreamSrcAddTrack(src, selectedTracks.videoTrack, onlyTrack);
+        webkitMediaStreamSrcAddTrack(src, selectedTracks.videoTrack);
     if (m_selectTracksCallback) {
         auto& callback = *m_selectTracksCallback;
         callback(selectedTracks);
@@ -328,7 +313,7 @@ void MediaRecorderPrivateBackend::setSink(GstElement* element)
         },
         // new_event
         nullptr,
-#if GST_CHECK_VERSION(1, 23, 0)
+#if GST_CHECK_VERSION(1, 24, 0)
         // propose_allocation
         nullptr,
 #endif
@@ -341,8 +326,7 @@ void MediaRecorderPrivateBackend::setSink(GstElement* element)
 
 void MediaRecorderPrivateBackend::configureVideoEncoder(GstElement* element)
 {
-    auto format = adoptGRef(gst_encoding_profile_get_format(GST_ENCODING_PROFILE(m_videoEncodingProfile.get())));
-    g_object_set(element, "format", format.get(), nullptr);
+    videoEncoderSetCodec(WEBKIT_VIDEO_ENCODER(element), m_videoCodec);
 
     auto bitrate = [options = m_options]() -> unsigned {
         if (options.videoBitsPerSecond)
@@ -406,13 +390,13 @@ void MediaRecorderPrivateBackend::processSample(GRefPtr<GstSample>&& sample)
     Locker locker { m_dataLock };
 
     GST_LOG_OBJECT(m_transcoder.get(), "Queueing %zu bytes of encoded data, caps: %" GST_PTR_FORMAT, buffer.size(), gst_sample_get_caps(sample.get()));
-    m_data.append(buffer.data(), buffer.size());
+    m_data.append(std::span<const uint8_t> { buffer.data(), buffer.size() });
 }
 
 void MediaRecorderPrivateBackend::notifyEOS()
 {
     GST_DEBUG("EOS received");
-    LockHolder lock(m_eosLock);
+    Locker lock(m_eosLock);
     m_eos = true;
     m_eosCondition.notifyAll();
 }

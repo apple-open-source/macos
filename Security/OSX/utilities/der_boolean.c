@@ -64,6 +64,7 @@ size_t der_sizeof_boolean(CFBooleanRef data __unused, CFErrorRef *error)
 uint8_t* der_encode_boolean(CFBooleanRef boolean, CFErrorRef *error,
                             const uint8_t *der, uint8_t *der_end)
 {
+    // this mis-encoding is load-bearing for SOS, see rdar://132436820
     uint8_t value = CFBooleanGetValue(boolean);
 
     return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_BOOLEAN, 1, der,

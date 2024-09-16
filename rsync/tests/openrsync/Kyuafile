@@ -1,0 +1,7 @@
+syntax(2)
+
+-- The name of the test suite must be defined.
+test_suite('openrsynctests')
+
+-- This specifies the test programs
+atf_test_program{name='tests_kyua.sh'}

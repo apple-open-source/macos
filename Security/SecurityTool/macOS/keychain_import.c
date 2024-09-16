@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009,2012,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009,2012,2014,2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 #include "security_tool.h"
 
 #include <utilities/fileIo.h>
+#include <utilities/SecCFWrappers.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -112,17 +113,38 @@ static int do_keychain_import(
 	{
 		keyParams.alertPrompt = (tryCount == 0) ? promptStr : retryStr;
 
-		ortn = SecKeychainItemImport(inData,
-									 fileStr,
-									 &externFormat,
-									 &itemType,
-									 0,		/* flags not used (yet) */
-									 &keyParams,
-									 kcRef,
-									 &outArray);
+        if (externFormat == kSecFormatPKCS12) {
+            // handle PKCS12 format with SecPKCS12Import
+            CFMutableDictionaryRef options = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+            if (!passStr) {
+                __block CFStringRef localStr = NULL;
+                __block CFStringRef nameStr = (fileStr) ? fileStr : CFSTR("import file");
+                CFStringPerformWithCString(nameStr, ^(const char *utf8Str) {
+                    char* cpassword = prompt_password(utf8Str);
+                    if (cpassword) { localStr = CFStringCreateWithCString(NULL, cpassword, kCFStringEncodingUTF8); }
+                    free(cpassword);
+                });
+                passStr = localStr;
+            }
+            if (passStr) { CFDictionarySetValue(options, kSecImportExportPassphrase, passStr); }
+            if (kcRef) { CFDictionarySetValue(options, kSecImportExportKeychain, kcRef); }
+            if (access) { CFDictionarySetValue(options, kSecImportExportAccess, access); }
+            ortn = SecPKCS12Import(inData, options, &outArray);
+            CFReleaseSafe(options);
+        } else {
+            // handle other formats with SecKeychainItemImport
+            ortn = SecKeychainItemImport(inData,
+                                         fileStr,
+                                         &externFormat,
+                                         &itemType,
+                                         0,		/* flags not used (yet) */
+                                         &keyParams,
+                                         kcRef,
+                                         &outArray);
+        }
 
 		if(ortn) {
-			if (ortn == errSecPkcs12VerifyFailure && ++tryCount < 3) {
+			if ((ortn == errSecPkcs12VerifyFailure || ortn == errSecAuthFailed) && ++tryCount < 3) {
 				continue;
 			}
 			sec_perror("SecKeychainItemImport", ortn);
@@ -153,8 +175,8 @@ static int do_keychain_import(
 		else if(itemType == SecKeyGetTypeID()) {
 			numKeys++;
 		}
-		else {
-			sec_error("Unexpected item type returned from SecKeychainItemImport");
+		else if(externFormat != kSecFormatPKCS12) {
+			sec_error("Unexpected item type returned from import function");
 			result = 1;
 			goto cleanup;
 		}

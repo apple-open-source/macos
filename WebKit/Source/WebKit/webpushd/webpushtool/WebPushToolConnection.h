@@ -36,6 +36,15 @@
 using WebKit::WebPushD::PushMessageForTesting;
 
 namespace WebPushTool {
+class Connection;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebPushTool::Connection> : std::true_type { };
+}
+
+namespace WebPushTool {
 
 enum class Action {
     StreamDebugMessages,
@@ -56,7 +65,7 @@ enum class WaitForServiceToExist : bool {
     Yes,
 };
 
-class Connection : public CanMakeWeakPtr<Connection>, public IPC::MessageSender {
+class Connection final : public CanMakeWeakPtr<Connection>, public IPC::MessageSender {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static std::unique_ptr<Connection> create(std::optional<Action>, PreferTestService, Reconnect);

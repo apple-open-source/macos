@@ -243,6 +243,7 @@
 			inputPaths = (
 			);
 			outputPaths = (
+				"$(SYMROOT)/symbolsets.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

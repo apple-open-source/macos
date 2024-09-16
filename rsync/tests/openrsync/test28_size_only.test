@@ -1,0 +1,77 @@
+#! /bin/sh
+
+# Test that the --size-only option prevents destination files from being
+# updated if its size matches the source file.
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst ref
+
+# Create the source tree:
+mkdir src
+echo one > src/one
+echo two > src/two
+
+# Create the reference tree identical to the source tree,
+# with the exception that "dir2/two" is the same size as
+# "dir1/two" but contains different data.
+#
+cp -a src ref
+echo owt > ref/two
+
+# Ensure both src and ref's mtime and access times
+# match so that compare_trees doesn't miscompare them.
+#
+touch -t 202308252015.01 src
+touch -t 202308252015.01 ref
+
+# Create the destination tree:
+cp -a ref dst
+echo "check 1"
+compare_trees -t ref dst
+
+# Try to rsync src to dst with the --size-only option,
+# no files in dst/ should be updated.
+#
+rsync -a --size-only -- src/ dst/
+echo "check 2"
+compare_trees -t ref dst
+
+# Check that the ref and dst trees remain identical
+# after running a simple rsync:
+#
+rsync -a -- src/ dst/
+echo "check 3a"
+compare_trees -t ref dst
+
+# Check that the src and dst trees match after
+# running rsync --checksum:
+#
+rsync -a --checksum -- src/ dst/
+echo "check 3b"
+compare_trees -t src dst
+
+# Change the the reference file ref/two from a regular
+# file to a directory, then recreate the dest dir from
+# a copy of the reference dir.  rsync --size-only of
+# the source to dest dir should update dst/two
+# (i.e., changing it back into a regular file).
+#
+rm -rf dst
+rm ref/two
+mkdir ref/two
+cp -a ref dst
+
+# Ensure both src and dst's mtime and access times
+# match so that compare_trees doesn't miscompare them.
+#
+touch -t 202308252015.01 src
+touch -t 202308252015.01 dst
+
+rsync -a --size-only -- src/ dst/
+echo "check 4"
+compare_trees -t src dst

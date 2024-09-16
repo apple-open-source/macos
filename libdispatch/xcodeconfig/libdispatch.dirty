@@ -150,6 +150,7 @@ __voucher_activity_debug_channel
 __voucher_libtrace_hooks
 __voucher_task_mach_voucher_pred
 __voucher_process_can_use_arbitrary_personas_pred
+__dispatch_workloop_bound_thread_pred
 
 # 32bits
 __dispatch_mach_host_port
@@ -161,6 +162,7 @@ __voucher_task_mach_voucher
 # byte-sized
 __dispatch_is_daemon
 __dispatch_memory_warn
+__dispatch_thread_bound_kqwl_enabled
 __dispatch_mode
 __dispatch_program_is_probably_callback_driven
 __dispatch_unsafe_fork

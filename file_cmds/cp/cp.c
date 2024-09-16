@@ -32,20 +32,6 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char const copyright[] =
-"@(#) Copyright (c) 1988, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)cp.c	8.2 (Berkeley) 4/1/94";
-#endif /* not lint */
-#endif
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 /*
  * Cp copies source files to target files.
  *
@@ -93,14 +79,14 @@ static char emptystring[] = "";
 
 PATH_T to = { to.p_path, emptystring, "" };
 
-int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
+int Nflag, fflag, iflag, lflag, nflag, pflag, sflag, vflag;
 #ifdef __APPLE__
 int unix2003_compat;
 int cflag;
 int Sflag;
 int Xflag;
 #endif /* __APPLE__ */
-static int Hflag, Lflag, Rflag, rflag;
+static int Hflag, Lflag, Pflag, Rflag, rflag;
 volatile sig_atomic_t info;
 
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
@@ -113,18 +99,17 @@ main(int argc, char *argv[])
 {
 	struct stat to_stat, tmp_stat;
 	enum op type;
-	int Pflag, ch, fts_options, r, have_trailing_slash;
+	int ch, fts_options, r, have_trailing_slash;
 	char *target;
 
 #ifdef __APPLE__
 	unix2003_compat = COMPAT_MODE("bin/cp", "unix2003");
 #endif /* __APPLE__ */
 	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
-	Pflag = 0;
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "cHLPRXafilnprSsvx")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRacfilNnprSsvXx")) != -1)
 #else /* !__APPLE__ */
-	while ((ch = getopt(argc, argv, "HLPRafilnprsvx")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRafilNnprsvx")) != -1)
 #endif /* __APPLE__ */
 		switch (ch) {
 #ifdef __APPLE__
@@ -180,6 +165,9 @@ main(int argc, char *argv[])
 		case 'l':
 			lflag = 1;
 			break;
+		case 'N':
+			Nflag = 1;
+			break;
 		case 'n':
 			nflag = 1;
 			fflag = iflag = 0;
@@ -207,7 +195,6 @@ main(int argc, char *argv[])
 			break;
 		default:
 			usage();
-			break;
 		}
 	argc -= optind;
 	argv += optind;
@@ -352,8 +339,7 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 		case FTS_NS:
 		case FTS_DNR:
 		case FTS_ERR:
-			warnx("%s: %s",
-			    curr->fts_path, strerror(curr->fts_errno));
+			warnc(curr->fts_errno, "%s", curr->fts_path);
 			badcp = rval = 1;
 			continue;
 		case FTS_DC:			/* Warn, continue. */
@@ -482,7 +468,6 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 					continue;
 				}
 
-
 				if (asprintf(&recurse_path, "%s/%s", to.p_path,
 				    rootname) == -1)
 					err(1, "asprintf");
@@ -557,13 +542,19 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 
 		switch (curr->fts_statp->st_mode & S_IFMT) {
 		case S_IFLNK:
-			/* Catch special case of a non-dangling symlink. */
 			if ((fts_options & FTS_LOGICAL) ||
 			    ((fts_options & FTS_COMFOLLOW) &&
 			    curr->fts_level == 0)) {
+				/*
+				 * We asked FTS to follow links but got
+				 * here anyway, which means the target is
+				 * nonexistent or inaccessible.  Let
+				 * copy_file() deal with the error.
+				 */
 				if (copy_file(curr, dne))
 					badcp = rval = 1;
-			} else {	
+			} else {
+				/* Copy the link. */
 				if (copy_link(curr, !dne))
 					badcp = rval = 1;
 			}
@@ -585,14 +576,12 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 			 * umask blocks owner writes, we fail.
 			 */
 			if (dne) {
-				if (mkdir(to.p_path,
-				    curr->fts_statp->st_mode | S_IRWXU) < 0) {
-#ifdef __APPLE__
-					if (unix2003_compat)
-						warn("%s", to.p_path);
-					else
-#endif /* __APPLE__ */
-					err(1, "%s", to.p_path);
+				mode = curr->fts_statp->st_mode | S_IRWXU;
+				if (mkdir(to.p_path, mode) != 0) {
+					warn("%s", to.p_path);
+					(void)fts_set(ftsp, curr, FTS_SKIP);
+					badcp = rval = 1;
+					break;
 				}
 				/*
 				 * First DNE with a NULL root_stat is the root
@@ -602,22 +591,19 @@ copy(char *argv[], enum op type, int fts_options, struct stat *root_stat)
 				 * first directory we created and use that.
 				 */
 				if (root_stat == NULL &&
-				    stat(to.p_path, &created_root_stat) == -1) {
-#ifdef __APPLE__
-					if (!unix2003_compat || errno != ENOENT)
-#endif /* __APPLE__ */
-					err(1, "stat");
-				} else if (root_stat == NULL) {
-					root_stat = &created_root_stat;
-				}
-			} else if (!S_ISDIR(to_stat.st_mode)) {
-				errno = ENOTDIR;
-#ifdef __APPLE__
-				if (unix2003_compat)
+				    stat(to.p_path, &created_root_stat) != 0) {
 					warn("%s", to.p_path);
-				else
-#endif /* __APPLE__ */
-				err(1, "%s", to.p_path);
+					(void)fts_set(ftsp, curr, FTS_SKIP);
+					badcp = rval = 1;
+					break;
+				}
+				if (root_stat == NULL)
+					root_stat = &created_root_stat;
+			} else if (!S_ISDIR(to_stat.st_mode)) {
+				warnc(ENOTDIR, "%s", to.p_path);
+				(void)fts_set(ftsp, curr, FTS_SKIP);
+				badcp = rval = 1;
+				break;
 			}
 			/*
 			 * Arrange to correct directory attributes later

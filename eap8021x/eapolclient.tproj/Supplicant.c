@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,7 @@
 #include "ClientControlInterface.h"
 #include "AppSSOProviderAccess.h"
 #include "MIBConfigurationAccess.h"
+#include "FactoryOTAConfigurationAccess.h"
 
 #define START_PERIOD_SECS		5
 #define START_ATTEMPTS_MAX		3
@@ -139,6 +140,7 @@ struct Supplicant_s {
     CFStringRef			config_id;
 
     MIBEAPConfigurationRef 	mib_eap_configuration;
+    FOTAEAPConfiguration 	factory_ota_eap_configuration;
 
     int				previous_identifier;
     char *			outer_identity;
@@ -192,6 +194,7 @@ struct Supplicant_s {
     bool			sent_identity;
     bool 			appsso_auth_requested;
     bool 			in_box_auth_requested;
+    bool 			in_factory_ota_auth_requested;
 };
 
 typedef enum {
@@ -1624,7 +1627,9 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 		supp->last_status = kEAPClientStatusUserInputNotPossible;
 		Supplicant_held(supp, kSupplicantEventStart, NULL);
 	    }
-	    else if (supp->appsso_auth_requested || supp->in_box_auth_requested) {
+	    else if (supp->appsso_auth_requested ||
+		     supp->in_box_auth_requested ||
+		     supp->in_factory_ota_auth_requested) {
 		supp->last_status = kEAPClientStatusOtherInputRequired;
 		Supplicant_report_status(supp);
 	    }
@@ -1659,7 +1664,9 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 			       NULL);
 	    
 	}
-	else if (supp->appsso_auth_requested || supp->in_box_auth_requested) {
+	else if (supp->appsso_auth_requested ||
+		 supp->in_box_auth_requested ||
+		 supp->in_factory_ota_auth_requested) {
 	    supp->last_status = kEAPClientStatusOtherInputRequired;
 	    Supplicant_report_status(supp);
 	}
@@ -2333,13 +2340,13 @@ free_mib_configuration(MIBEAPConfigurationRef *configuration_p)
 }
 
 static bool
-is_in_box_auth_auth_requested(void)
+is_in_box_auth_requested(void)
 {
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS && !TARGET_OS_VISION
     return MIBConfigurationAccessIsInBoxUpdateMode();
-#else /* TARGET_OS_IOS */
+#else /* TARGET_OS_IOS && !TARGET_OS_VISION */
     return false;
-#endif /* TARGET_OS_IOS */
+#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
 }
 
 bool
@@ -2384,12 +2391,87 @@ mib_access_callback(void *context, MIBEAPConfigurationRef configuration)
 static void
 fetch_mib_eap_configuration(SupplicantRef supp)
 {
-#if TARGET_OS_IOS
+#if TARGET_OS_IOS && !TARGET_OS_VISION
     EAPLOG_FL(LOG_INFO, "fetching EAP configuration from MIB source");
     MIBConfigurationAccessFetchEAPConfiguration(mib_access_callback, supp);
-#endif /* TARGET_OS_IOS */
+#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
     return;
 }
+
+#pragma mark - Factory OTA Source
+
+static bool
+is_factory_ota_auth_requested(void)
+{
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+    return FactoryOTAConfigurationAccessIsInFactoryMode();
+#else /* TARGET_OS_IOS && !TARGET_OS_VISION */
+    return false;
+#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+}
+
+static void
+free_factory_ota_configuration(FOTAEAPConfigurationRef configuration)
+{
+    my_CFRelease(&configuration->tlsClientIdentity);
+    my_CFRelease(&configuration->tlsClientCertificateChain);
+    return;
+}
+
+static bool
+handle_factory_ota_configuration(SupplicantRef supp, FOTAEAPConfigurationRef configuration)
+{
+    CFMutableDictionaryRef config_dict = NULL;
+
+    if (configuration == NULL) {
+	EAPLOG_FL(LOG_ERR, "received NULL EAP configuration from MIB");
+	return false;
+    }
+    config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+    if (configuration->tlsClientCertificateChain != NULL) {
+	supp->factory_ota_eap_configuration.tlsClientCertificateChain =
+	CFRetain(configuration->tlsClientCertificateChain);
+    }
+    supp->factory_ota_eap_configuration.tlsClientIdentity =
+	(SecIdentityRef)CFRetain(configuration->tlsClientIdentity);
+    Supplicant_update_configuration(supp, config_dict, NULL);
+    my_CFRelease(&config_dict);
+    other_source_supplied_credentials(supp);
+    return true;
+}
+
+static void
+factory_ota_access_callback(void *context, FOTAEAPConfigurationRef configuration)
+{
+    bool 		success = true;
+    SupplicantRef 	supp = (SupplicantRef)context;
+
+    EAPLOG_FL(LOG_INFO, "factory_ota_access_callback");
+    if (supp->last_status != kEAPClientStatusOtherInputRequired) {
+	EAPLOG_FL(LOG_ERR, "supplicant's last status is not %s",
+		  EAPClientStatusGetString(kEAPClientStatusOtherInputRequired));
+	return;
+    }
+    success = handle_factory_ota_configuration(supp, configuration);
+    if (!success) {
+	EAPLOG_FL(LOG_ERR, "failed to process EAP configuration from Factory OTA");
+	CFMutableDictionaryRef config_dict = CFDictionaryCreateMutableCopy(NULL, 0, supp->orig_config_dict);
+	supp->in_factory_ota_auth_requested = false;
+	Supplicant_update_configuration(supp, config_dict, NULL);
+	my_CFRelease(&config_dict);
+    }
+}
+
+static void
+fetch_factory_ota_eap_configuration(SupplicantRef supp)
+{
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+    EAPLOG_FL(LOG_INFO, "fetching EAP configuration from Factory OTA client");
+    FactoryOTAConfigurationAccessFetchEAPConfiguration(factory_ota_access_callback, supp);
+#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+    return;
+}
+
 
 static void
 S_config_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
@@ -2736,6 +2818,8 @@ Supplicant_report_status(SupplicantRef supp)
 		fetch_credentials_from_appsso_provider(supp, supp->appsso_provider_url, ssid);
 	    } else if (supp->in_box_auth_requested) {
 		fetch_mib_eap_configuration(supp);
+	    } else if (supp->in_factory_ota_auth_requested) {
+		fetch_factory_ota_eap_configuration(supp);
 	    }
 	}
 	else if (supp->last_status == kEAPClientStatusUserInputRequired) {
@@ -3517,7 +3601,11 @@ S_set_credentials(SupplicantRef supp)
 	}
 	if (supp->in_box_auth_requested && supp->mib_eap_configuration != NULL &&
 	    supp->mib_eap_configuration->tlsClientIdentity) {
-	    sec_identity = CFRetain(supp->mib_eap_configuration->tlsClientIdentity);
+	    sec_identity = (SecIdentityRef)CFRetain(supp->mib_eap_configuration->tlsClientIdentity);
+	}
+	if (supp->in_factory_ota_auth_requested &&
+	    supp->factory_ota_eap_configuration.tlsClientIdentity != NULL) {
+	    sec_identity = (SecIdentityRef)CFRetain(supp->factory_ota_eap_configuration.tlsClientIdentity);
 	}
 	my_CFRelease(&supp->sec_identity);
 	supp->sec_identity = sec_identity;
@@ -3744,9 +3832,13 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 
     /* is this iOS device inside the box ? */
     if (supp->mib_eap_configuration == NULL) {
-	supp->in_box_auth_requested = is_in_box_auth_auth_requested();
+	supp->in_box_auth_requested = is_in_box_auth_requested();
 	EAPLOG(LOG_INFO, "in-box auth %s requested", supp->in_box_auth_requested ? "is" : "is not");
     }
+
+    /* check if auth is occurring in NON-UI+Factory Mode iOS */
+    supp->in_factory_ota_auth_requested = is_factory_ota_auth_requested();
+    EAPLOG(LOG_INFO, "factory ota auth %s requested", supp->in_factory_ota_auth_requested ? "is" : "is not");
 
     /* AppSSO specific checks */
     supp->appsso_auth_requested = is_appsso_provider_auth_requested(eap_config);
@@ -3770,10 +3862,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	|| supp->ui_config_dict != NULL
 	|| supp->appsso_provider_creds != NULL
 	|| supp->mib_eap_configuration != NULL
-#if ! TARGET_OS_IPHONE
+	|| supp->in_factory_ota_auth_requested
 	|| password_info != NULL
 	|| profile != NULL
-#endif /* ! TARGET_OS_IPHONE */
 	|| CFDictionaryContainsKey(eap_config,
 				   kEAPClientPropProfileID)) {
 	CFMutableDictionaryRef		new_eap_config = NULL;
@@ -3787,7 +3878,6 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	}
 	CFDictionaryRemoveValue(new_eap_config,
 				kEAPClientPropProfileID);
-#if ! TARGET_OS_IPHONE
 	if (password_info != NULL) {
 	    CFDictionaryApplyFunction(password_info, dict_set_key_value, 
 				      new_eap_config);
@@ -3797,7 +3887,6 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				 kEAPClientPropProfileID,
 				 EAPOLClientProfileGetID(profile));
 	}
-#endif /* TARGET_OS_IPHONE */
 	if (supp->ui_config_dict != NULL) {
 	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_set_key_value,
 				      new_eap_config);
@@ -3808,6 +3897,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	}
 	if (supp->mib_eap_configuration != NULL && supp->mib_eap_configuration->tlsClientCertificateChain != NULL) {
 	    CFDictionarySetValue(new_eap_config, kEAPClientPropTLSClientIdentityTrustChainCertificates, supp->mib_eap_configuration->tlsClientCertificateChain);
+	}
+	if (supp->in_factory_ota_auth_requested && supp->factory_ota_eap_configuration.tlsClientCertificateChain != NULL) {
+	    CFDictionarySetValue(new_eap_config, kEAPClientPropTLSClientIdentityTrustChainCertificates, supp->factory_ota_eap_configuration.tlsClientCertificateChain);
 	}
 	supp->config_dict = new_eap_config;
     }
@@ -4106,6 +4198,7 @@ Supplicant_free(SupplicantRef * supp_p)
 	}
 #endif /* ! TARGET_OS_IPHONE */
 	free_mib_configuration(&supp->mib_eap_configuration);
+	free_factory_ota_configuration(&supp->factory_ota_eap_configuration);
 	my_CFRelease(&supp->sec_identity);
 	if (supp->outer_identity != NULL) {
 	    free(supp->outer_identity);

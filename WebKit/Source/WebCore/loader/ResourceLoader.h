@@ -29,6 +29,7 @@
 #pragma once
 
 #include "CachedResourceHandle.h"
+#include "FrameLoaderTypes.h"
 #include "ResourceHandleClient.h"
 #include "ResourceLoadTiming.h"
 #include "ResourceLoaderIdentifier.h"
@@ -80,12 +81,13 @@ public:
 #endif
 
     WEBCORE_EXPORT FrameLoader* frameLoader() const;
+    WEBCORE_EXPORT CheckedPtr<FrameLoader> checkedFrameLoader() const;
     DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
     RefPtr<DocumentLoader> protectedDocumentLoader() const;
     const ResourceRequest& originalRequest() const { return m_originalRequest; }
 
     WEBCORE_EXPORT void start();
-    WEBCORE_EXPORT void cancel(const ResourceError&);
+    WEBCORE_EXPORT void cancel(const ResourceError&, LoadWillContinueInAnotherProcess = LoadWillContinueInAnotherProcess::No);
     WEBCORE_EXPORT ResourceError cancelledError();
     WEBCORE_EXPORT ResourceError blockedError();
     ResourceError blockedByContentBlockerError();
@@ -103,6 +105,7 @@ public:
     const ResourceResponse& response() const { return m_response; }
 
     const FragmentedSharedBuffer* resourceData() const;
+    RefPtr<const FragmentedSharedBuffer> protectedResourceData() const;
     void clearResourceData();
     
     virtual bool isSubresourceLoader() const;
@@ -156,7 +159,8 @@ public:
     void unschedule(WTF::SchedulePair&);
 #endif
 
-    const LocalFrame* frame() const { return m_frame.get(); }
+    LocalFrame* frame() const { return m_frame.get(); }
+    RefPtr<LocalFrame> protectedFrame() const;
 
     const ResourceLoaderOptions& options() const { return m_options; }
 
@@ -194,7 +198,7 @@ protected:
 
 private:
     virtual void willCancel(const ResourceError&) = 0;
-    virtual void didCancel(const ResourceError&) = 0;
+    virtual void didCancel(LoadWillContinueInAnotherProcess = LoadWillContinueInAnotherProcess::No) = 0;
 
     void addBuffer(const FragmentedSharedBuffer&, DataPayloadType);
     void loadDataURL();

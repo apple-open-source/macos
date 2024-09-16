@@ -1184,6 +1184,78 @@ static void __DARequestRenameCallback( int status, void * context )
     CFRelease( request );
 }
 
+#ifdef DA_FSKIT
+/*
+ * __DARequstSetFSKitValidateKey - Catch if any key does NOT start with "FS"
+ */
+static void __DARequstSetFSKitValidateKey(const void *key, const void *value, void *context)
+{
+    int     *ptr = context;
+    char	 buffer[4] = {0};
+    CFStringGetBytes(key, CFRangeMake(0, 2), kCFStringEncodingUTF8, 0, false, (void *)buffer, 4, NULL);
+
+    if (strncmp(buffer, "FS", 2)) {
+        // Oops, bad key prefix
+        *ptr = 1;
+    }
+}
+
+static Boolean __DARequstSetFSKitAdditions( DARequestRef request )
+{
+    DADiskRef       disk;
+    DAReturn        status = kDAReturnSuccess;
+    CFDictionaryRef additions;
+    int             bad;
+
+    disk = DARequestGetDisk( request );
+    if ( !disk )
+    {
+        return FALSE;
+    }
+
+    additions =  DARequestGetArgument2( request );
+
+    if ( additions && !( CFGetTypeID( additions ) == CFDictionaryGetTypeID() ))
+    {
+        // We were passed an option but it's not a CFDictionary
+        status = kDAReturnUnsupported;
+    }
+
+    if ( ! status && additions )
+    {
+        bad = 0;
+        CFDictionaryApplyFunction( additions, __DARequstSetFSKitValidateKey, &bad);
+
+        if ( bad ) {
+            status = kDAReturnBadArgument;
+        }
+    }
+
+    if ( ! status )
+    {
+        DADiskSetFskitAdditions( disk, additions );
+    }
+
+    DARequestDispatchCallback( request, status );
+
+    DAStageSignal( );
+
+    return TRUE;
+}
+
+static void __DARequestSetFSKitAdditionsCallback( int status, void * context )
+{
+    DARequestRef request = context;
+
+    DARequestDispatchCallback( request, status ? unix_err( status ) : status );
+
+    DAStageSignal( );
+
+    CFRelease( request );
+}
+
+#endif
+
 static Boolean __DARequestUnmount( DARequestRef request )
 {
     DADiskRef disk;
@@ -1231,7 +1303,8 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
             mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 
-            if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file:///" ) ) )
+            if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file:///" ) ) ||
+                CFEqual( CFURLGetString( mountpoint ), CFSTR( "file:///System/Volumes/Data/" ) ) )
             {
                 DADissenterRef dissenter;
 
@@ -1406,7 +1479,10 @@ handleumount:
 
         mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 
-        DAMountRemoveMountPoint( mountpoint );
+        if ( ___CFArrayContainsValue(gDAMountPointList, mountpoint) == FALSE )
+        {
+            DAMountRemoveMountPoint( mountpoint );
+        }
 
         DADiskSetBypath( disk, NULL );
 
@@ -1771,6 +1847,14 @@ Boolean DARequestDispatch( DARequestRef request )
 
                             break;
                         }
+                        case _kDADiskSetFSKitAdditions:
+                        {
+#ifdef DA_FSKIT
+                            dispatch = __DARequstSetFSKitAdditions( request );
+#endif
+
+                            break;
+                        }
                         case _kDADiskUnmount:
                         {
                             dispatch = __DARequestUnmount( request );
@@ -1908,3 +1992,16 @@ void DARequestSetState( DARequestRef request, DARequestState state, Boolean valu
 
     ___CFDictionarySetIntegerValue( ( void * ) request, _kDARequestStateKey, state );
 }
+
+void DARequestSetArgument2( DARequestRef request, CFTypeRef argument2)
+{
+    if ( argument2 )
+    {
+        CFDictionarySetValue( ( void * ) request, _kDARequestArgument2Key, argument2 );
+    }
+    else
+    {
+        CFDictionaryRemoveValue( ( void * ) request, _kDARequestArgument2Key );
+    }
+}
+

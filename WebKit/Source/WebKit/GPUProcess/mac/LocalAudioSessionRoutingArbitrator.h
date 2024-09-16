@@ -28,6 +28,8 @@
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
 
 #include "AudioSessionRoutingArbitratorProxy.h"
+#include <wtf/ThreadSafeWeakPtr.h>
+#include <wtf/WeakRef.h>
 
 namespace WTF {
 class Logger;
@@ -58,12 +60,12 @@ private:
     void leaveRoutingAbritration() final;
 
     Logger& logger();
-    const char* logClassName() const { return "LocalAudioSessionRoutingArbitrator"; }
+    ASCIILiteral logClassName() const { return "LocalAudioSessionRoutingArbitrator"_s; }
     WTFLogChannel& logChannel() const;
     const void* logIdentifier() const final { return m_logIdentifier; }
     bool canLog() const final;
 
-    GPUConnectionToWebProcess& m_connectionToWebProcess;
+    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_connectionToWebProcess;
     const void* m_logIdentifier;
 };
 

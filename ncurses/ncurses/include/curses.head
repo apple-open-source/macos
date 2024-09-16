@@ -178,6 +178,64 @@ typedef unsigned long mmask_t;
 #endif
 #endif /* NCURSES_WIDECHAR */
 
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+
+#define	_NCURSES_STRING(x) #x
+
+#define NCURSES_SUF_ABI60	"$NCURSES60"
+
+#define _NCURSES_EXPORT_ABI(sym) \
+    __asm("_" _NCURSES_STRING(sym))
+#define _NCURSES_EXPORT_ABI60(sym) \
+    __asm("_" _NCURSES_STRING(sym) NCURSES_SUF_ABI60)
+
+#ifndef NCURSES_WANT_BASEABI
+
+/*
+ * As a general rule, for all ABIs we added, this pattern needs to be followed.
+ * The NCURSES_EXPORT_ABI* declaration should be a nop if we're not targeting a
+ * relevant version so that we can still use the newer SDK to build applications
+ * that target older macOS.
+ *
+ * All of the declarations below with NCURSES_EXPORT_ABI tags will have a
+ * descending chain of ABI versions, and the first version at or under our
+ * deployment version will expand to just the appropriate __asm tag and ignore
+ * their varargs. Versions higher than it will expand to just its varargs so
+ * that the chaining works as intended.
+ */
+#if defined(MAC_OS_VERSION_15_0) && \
+    MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_15_0
+
+#define NCURSES_EXPORT_ABI60(sym, ...)	_NCURSES_EXPORT_ABI60(sym) \
+__OSX_AVAILABLE(15.0) __IOS_AVAILABLE(18.0) __WATCHOS_AVAILABLE(11.0) \
+__TVOS_AVAILABLE(18.0)
+
+#else
+
+#define	NCURSES_EXPORT_ABI60(sym, ...)	__VA_ARGS__
+
+#endif	/* MAC_OS_VERSION_15_0 */
+
+#else /* NCURSES_WANT_BASEABI */
+
+/*
+ * nc_abi.c will #define NCURSES_WANT_BASEABI so that it gets the declarations
+ * for the unsuffixed symbols.  It will use those to call into the actual
+ * implementation, escalating the ABI version around the call to let the
+ * internal bits know that it's safe to access later offsets.
+ */
+#define NCURSES_EXPORT_ABI60(sym, ...)	__VA_ARGS__
+
+#endif /* !NCURSES_WANT_BASEABI */
+
+#ifdef TAPI
+#define ifTAPI(stmt) stmt
+#else
+#define ifTAPI(stmt)
+#endif
+#endif /* __APPLE__ */
+
 #include <stdarg.h>	/* we need va_list */
 #if NCURSES_WIDECHAR
 #include <stddef.h>	/* we want wchar_t */
@@ -406,7 +464,7 @@ typedef struct
 {
     attr_t	attr;
     wchar_t	chars[CCHARW_MAX];
-#if 0
+#if 1
 #undef NCURSES_EXT_COLORS
 #define NCURSES_EXT_COLORS 20150808
     int		ext_color;	/* color pair, must be more than 16-bits */
@@ -468,7 +526,7 @@ struct _win_st
 
 #if NCURSES_WIDECHAR
 	cchar_t  _bkgrnd;	/* current background char/attribute pair */
-#if 0
+#if 1
 	int	_color;		/* current color-pair for non-space character */
 #endif
 #endif
@@ -803,15 +861,15 @@ extern NCURSES_EXPORT(int) vw_printw (WINDOW *, const char *,va_list);	/* genera
  */
 extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list)	/* implemented */
 		GCC_SCANFLIKE(2,0);
+extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)	/* generated */
+		GCC_SCANFLIKE(2,0);
+#else
 /*
  * Comment annotation on the declaration line dropped to avoid script picking
  * this up and generating a second definition.
  */
-extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)
-		GCC_SCANFLIKE(2,0);
-#else
-extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list);	/* implemented */
-extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list);	/* generated */
+extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list);
+extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list);
 #endif
 extern NCURSES_EXPORT(int) waddch (WINDOW *, const chtype);		/* implemented */
 extern NCURSES_EXPORT(int) waddchnstr (WINDOW *,const chtype *,int);	/* implemented */
@@ -1151,6 +1209,812 @@ extern NCURSES_EXPORT(int) NCURSES_SP_NAME(use_legacy_coding) (SCREEN*, int);	/*
 			} \
 		    } while(0)
 
+#ifdef __APPLE__
+/* Declarations from curses.h.in */
+extern NCURSES_EXPORT(int) addch (const chtype)
+		 NCURSES_EXPORT_ABI60(addch, );
+ifTAPI(extern NCURSES_EXPORT(int) addch (const chtype) _NCURSES_EXPORT_ABI60(addch));
+extern NCURSES_EXPORT(int) addchnstr (const chtype *, int)
+		 NCURSES_EXPORT_ABI60(addchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addchnstr (const chtype *, int) _NCURSES_EXPORT_ABI60(addchnstr));
+extern NCURSES_EXPORT(int) addchstr (const chtype *)
+		 NCURSES_EXPORT_ABI60(addchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addchstr (const chtype *) _NCURSES_EXPORT_ABI60(addchstr));
+extern NCURSES_EXPORT(int) addnstr (const char *, int)
+		 NCURSES_EXPORT_ABI60(addnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addnstr (const char *, int) _NCURSES_EXPORT_ABI60(addnstr));
+extern NCURSES_EXPORT(int) addstr (const char *)
+		 NCURSES_EXPORT_ABI60(addstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addstr (const char *) _NCURSES_EXPORT_ABI60(addstr));
+extern NCURSES_EXPORT(int) attroff (NCURSES_ATTR_T)
+		 NCURSES_EXPORT_ABI60(attroff, );
+ifTAPI(extern NCURSES_EXPORT(int) attroff (NCURSES_ATTR_T) _NCURSES_EXPORT_ABI60(attroff));
+extern NCURSES_EXPORT(int) attron (NCURSES_ATTR_T)
+		 NCURSES_EXPORT_ABI60(attron, );
+ifTAPI(extern NCURSES_EXPORT(int) attron (NCURSES_ATTR_T) _NCURSES_EXPORT_ABI60(attron));
+extern NCURSES_EXPORT(int) attrset (NCURSES_ATTR_T)
+		 NCURSES_EXPORT_ABI60(attrset, );
+ifTAPI(extern NCURSES_EXPORT(int) attrset (NCURSES_ATTR_T) _NCURSES_EXPORT_ABI60(attrset));
+extern NCURSES_EXPORT(int) attr_get (attr_t *, NCURSES_PAIRS_T *, void *)
+		 NCURSES_EXPORT_ABI60(attr_get, );
+ifTAPI(extern NCURSES_EXPORT(int) attr_get (attr_t *, NCURSES_PAIRS_T *, void *) _NCURSES_EXPORT_ABI60(attr_get));
+extern NCURSES_EXPORT(int) attr_off (attr_t, void *)
+		 NCURSES_EXPORT_ABI60(attr_off, );
+ifTAPI(extern NCURSES_EXPORT(int) attr_off (attr_t, void *) _NCURSES_EXPORT_ABI60(attr_off));
+extern NCURSES_EXPORT(int) attr_on (attr_t, void *)
+		 NCURSES_EXPORT_ABI60(attr_on, );
+ifTAPI(extern NCURSES_EXPORT(int) attr_on (attr_t, void *) _NCURSES_EXPORT_ABI60(attr_on));
+extern NCURSES_EXPORT(int) attr_set (attr_t, NCURSES_PAIRS_T, void *)
+		 NCURSES_EXPORT_ABI60(attr_set, );
+ifTAPI(extern NCURSES_EXPORT(int) attr_set (attr_t, NCURSES_PAIRS_T, void *) _NCURSES_EXPORT_ABI60(attr_set));
+extern NCURSES_EXPORT(int) bkgd (chtype)
+		 NCURSES_EXPORT_ABI60(bkgd, );
+ifTAPI(extern NCURSES_EXPORT(int) bkgd (chtype) _NCURSES_EXPORT_ABI60(bkgd));
+extern NCURSES_EXPORT(void) bkgdset (chtype)
+		 NCURSES_EXPORT_ABI60(bkgdset, );
+ifTAPI(extern NCURSES_EXPORT(void) bkgdset (chtype) _NCURSES_EXPORT_ABI60(bkgdset));
+extern NCURSES_EXPORT(int) border (chtype,chtype,chtype,chtype,chtype,chtype,chtype,chtype)
+		 NCURSES_EXPORT_ABI60(border, );
+ifTAPI(extern NCURSES_EXPORT(int) border (chtype,chtype,chtype,chtype,chtype,chtype,chtype,chtype) _NCURSES_EXPORT_ABI60(border));
+extern NCURSES_EXPORT(int) box (WINDOW *, chtype, chtype)
+		 NCURSES_EXPORT_ABI60(box, );
+ifTAPI(extern NCURSES_EXPORT(int) box (WINDOW *, chtype, chtype) _NCURSES_EXPORT_ABI60(box));
+extern NCURSES_EXPORT(int) chgat (int, attr_t, NCURSES_PAIRS_T, const void *)
+		 NCURSES_EXPORT_ABI60(chgat, );
+ifTAPI(extern NCURSES_EXPORT(int) chgat (int, attr_t, NCURSES_PAIRS_T, const void *) _NCURSES_EXPORT_ABI60(chgat));
+extern NCURSES_EXPORT(int) color_content (NCURSES_COLOR_T,NCURSES_COLOR_T*,NCURSES_COLOR_T*,NCURSES_COLOR_T*) NCURSES_EXPORT_ABI60(color_content, );
+ifTAPI(extern NCURSES_EXPORT(int) color_content (NCURSES_COLOR_T,NCURSES_COLOR_T*,NCURSES_COLOR_T*,NCURSES_COLOR_T*) _NCURSES_EXPORT_ABI60(color_content));
+extern NCURSES_EXPORT(int) color_set (NCURSES_PAIRS_T,void*)
+		 NCURSES_EXPORT_ABI60(color_set, );
+ifTAPI(extern NCURSES_EXPORT(int) color_set (NCURSES_PAIRS_T,void*) _NCURSES_EXPORT_ABI60(color_set));
+extern NCURSES_EXPORT(int) copywin (const WINDOW*,WINDOW*,int,int,int,int,int,int,int) NCURSES_EXPORT_ABI60(copywin, );
+ifTAPI(extern NCURSES_EXPORT(int) copywin (const WINDOW*,WINDOW*,int,int,int,int,int,int,int) _NCURSES_EXPORT_ABI60(copywin));
+extern NCURSES_EXPORT(int) delay_output (int) NCURSES_EXPORT_ABI60(delay_output, );
+ifTAPI(extern NCURSES_EXPORT(int) delay_output (int) _NCURSES_EXPORT_ABI60(delay_output));
+extern NCURSES_EXPORT(int) deleteln (void)
+		 NCURSES_EXPORT_ABI60(deleteln, );
+ifTAPI(extern NCURSES_EXPORT(int) deleteln (void) _NCURSES_EXPORT_ABI60(deleteln));
+extern NCURSES_EXPORT(WINDOW *) derwin (WINDOW *,int,int,int,int) NCURSES_EXPORT_ABI60(derwin, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) derwin (WINDOW *,int,int,int,int) _NCURSES_EXPORT_ABI60(derwin));
+extern NCURSES_EXPORT(int) doupdate (void) NCURSES_EXPORT_ABI60(doupdate, );
+ifTAPI(extern NCURSES_EXPORT(int) doupdate (void) _NCURSES_EXPORT_ABI60(doupdate));
+extern NCURSES_EXPORT(WINDOW *) dupwin (WINDOW *) NCURSES_EXPORT_ABI60(dupwin, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) dupwin (WINDOW *) _NCURSES_EXPORT_ABI60(dupwin));
+extern NCURSES_EXPORT(int) echochar (const chtype)
+		 NCURSES_EXPORT_ABI60(echochar, );
+ifTAPI(extern NCURSES_EXPORT(int) echochar (const chtype) _NCURSES_EXPORT_ABI60(echochar));
+extern NCURSES_EXPORT(int) endwin (void) NCURSES_EXPORT_ABI60(endwin, );
+ifTAPI(extern NCURSES_EXPORT(int) endwin (void) _NCURSES_EXPORT_ABI60(endwin));
+extern NCURSES_EXPORT(int) flushinp (void) NCURSES_EXPORT_ABI60(flushinp, );
+ifTAPI(extern NCURSES_EXPORT(int) flushinp (void) _NCURSES_EXPORT_ABI60(flushinp));
+extern NCURSES_EXPORT(chtype) getbkgd (WINDOW *)
+		 NCURSES_EXPORT_ABI60(getbkgd, );
+ifTAPI(extern NCURSES_EXPORT(chtype) getbkgd (WINDOW *) _NCURSES_EXPORT_ABI60(getbkgd));
+extern NCURSES_EXPORT(int) getch (void)
+		 NCURSES_EXPORT_ABI60(getch, );
+ifTAPI(extern NCURSES_EXPORT(int) getch (void) _NCURSES_EXPORT_ABI60(getch));
+extern NCURSES_EXPORT(int) getnstr (char *, int)
+		 NCURSES_EXPORT_ABI60(getnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) getnstr (char *, int) _NCURSES_EXPORT_ABI60(getnstr));
+extern NCURSES_EXPORT(int) getstr (char *)
+		 NCURSES_EXPORT_ABI60(getstr, );
+ifTAPI(extern NCURSES_EXPORT(int) getstr (char *) _NCURSES_EXPORT_ABI60(getstr));
+extern NCURSES_EXPORT(WINDOW *) getwin (FILE *) NCURSES_EXPORT_ABI60(getwin, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) getwin (FILE *) _NCURSES_EXPORT_ABI60(getwin));
+extern NCURSES_EXPORT(int) hline (chtype, int)
+		 NCURSES_EXPORT_ABI60(hline, );
+ifTAPI(extern NCURSES_EXPORT(int) hline (chtype, int) _NCURSES_EXPORT_ABI60(hline));
+extern NCURSES_EXPORT(chtype) inch (void)
+		 NCURSES_EXPORT_ABI60(inch, );
+ifTAPI(extern NCURSES_EXPORT(chtype) inch (void) _NCURSES_EXPORT_ABI60(inch));
+extern NCURSES_EXPORT(int) inchnstr (chtype *, int)
+		 NCURSES_EXPORT_ABI60(inchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) inchnstr (chtype *, int) _NCURSES_EXPORT_ABI60(inchnstr));
+extern NCURSES_EXPORT(int) inchstr (chtype *)
+		 NCURSES_EXPORT_ABI60(inchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) inchstr (chtype *) _NCURSES_EXPORT_ABI60(inchstr));
+extern NCURSES_EXPORT(WINDOW *) initscr (void) NCURSES_EXPORT_ABI60(initscr, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) initscr (void) _NCURSES_EXPORT_ABI60(initscr));
+extern NCURSES_EXPORT(int) init_color (NCURSES_COLOR_T,NCURSES_COLOR_T,NCURSES_COLOR_T,NCURSES_COLOR_T) NCURSES_EXPORT_ABI60(init_color, );
+ifTAPI(extern NCURSES_EXPORT(int) init_color (NCURSES_COLOR_T,NCURSES_COLOR_T,NCURSES_COLOR_T,NCURSES_COLOR_T) _NCURSES_EXPORT_ABI60(init_color));
+extern NCURSES_EXPORT(int) init_pair (NCURSES_PAIRS_T,NCURSES_COLOR_T,NCURSES_COLOR_T) NCURSES_EXPORT_ABI60(init_pair, );
+ifTAPI(extern NCURSES_EXPORT(int) init_pair (NCURSES_PAIRS_T,NCURSES_COLOR_T,NCURSES_COLOR_T) _NCURSES_EXPORT_ABI60(init_pair));
+extern NCURSES_EXPORT(int) innstr (char *, int)
+		 NCURSES_EXPORT_ABI60(innstr, );
+ifTAPI(extern NCURSES_EXPORT(int) innstr (char *, int) _NCURSES_EXPORT_ABI60(innstr));
+extern NCURSES_EXPORT(int) insch (chtype)
+		 NCURSES_EXPORT_ABI60(insch, );
+ifTAPI(extern NCURSES_EXPORT(int) insch (chtype) _NCURSES_EXPORT_ABI60(insch));
+extern NCURSES_EXPORT(int) insdelln (int)
+		 NCURSES_EXPORT_ABI60(insdelln, );
+ifTAPI(extern NCURSES_EXPORT(int) insdelln (int) _NCURSES_EXPORT_ABI60(insdelln));
+extern NCURSES_EXPORT(int) insertln (void)
+		 NCURSES_EXPORT_ABI60(insertln, );
+ifTAPI(extern NCURSES_EXPORT(int) insertln (void) _NCURSES_EXPORT_ABI60(insertln));
+extern NCURSES_EXPORT(int) insnstr (const char *, int)
+		 NCURSES_EXPORT_ABI60(insnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) insnstr (const char *, int) _NCURSES_EXPORT_ABI60(insnstr));
+extern NCURSES_EXPORT(int) insstr (const char *)
+		 NCURSES_EXPORT_ABI60(insstr, );
+ifTAPI(extern NCURSES_EXPORT(int) insstr (const char *) _NCURSES_EXPORT_ABI60(insstr));
+extern NCURSES_EXPORT(int) instr (char *)
+		 NCURSES_EXPORT_ABI60(instr, );
+ifTAPI(extern NCURSES_EXPORT(int) instr (char *) _NCURSES_EXPORT_ABI60(instr));
+extern NCURSES_EXPORT(int) intrflush (WINDOW *,bool) NCURSES_EXPORT_ABI60(intrflush, );
+ifTAPI(extern NCURSES_EXPORT(int) intrflush (WINDOW *,bool) _NCURSES_EXPORT_ABI60(intrflush));
+extern NCURSES_EXPORT(int) keypad (WINDOW *,bool) NCURSES_EXPORT_ABI60(keypad, );
+ifTAPI(extern NCURSES_EXPORT(int) keypad (WINDOW *,bool) _NCURSES_EXPORT_ABI60(keypad));
+extern NCURSES_EXPORT(int) mvaddch (int, int, const chtype)
+		 NCURSES_EXPORT_ABI60(mvaddch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddch (int, int, const chtype) _NCURSES_EXPORT_ABI60(mvaddch));
+extern NCURSES_EXPORT(int) mvaddchnstr (int, int, const chtype *, int)
+		 NCURSES_EXPORT_ABI60(mvaddchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddchnstr (int, int, const chtype *, int) _NCURSES_EXPORT_ABI60(mvaddchnstr));
+extern NCURSES_EXPORT(int) mvaddchstr (int, int, const chtype *)
+		 NCURSES_EXPORT_ABI60(mvaddchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddchstr (int, int, const chtype *) _NCURSES_EXPORT_ABI60(mvaddchstr));
+extern NCURSES_EXPORT(int) mvaddnstr (int, int, const char *, int)
+		 NCURSES_EXPORT_ABI60(mvaddnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddnstr (int, int, const char *, int) _NCURSES_EXPORT_ABI60(mvaddnstr));
+extern NCURSES_EXPORT(int) mvaddstr (int, int, const char *)
+		 NCURSES_EXPORT_ABI60(mvaddstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddstr (int, int, const char *) _NCURSES_EXPORT_ABI60(mvaddstr));
+extern NCURSES_EXPORT(int) mvchgat (int, int, int, attr_t, NCURSES_PAIRS_T, const void *)
+		 NCURSES_EXPORT_ABI60(mvchgat, );
+ifTAPI(extern NCURSES_EXPORT(int) mvchgat (int, int, int, attr_t, NCURSES_PAIRS_T, const void *) _NCURSES_EXPORT_ABI60(mvchgat));
+extern NCURSES_EXPORT(int) mvcur (int,int,int,int) NCURSES_EXPORT_ABI60(mvcur, );
+ifTAPI(extern NCURSES_EXPORT(int) mvcur (int,int,int,int) _NCURSES_EXPORT_ABI60(mvcur));
+extern NCURSES_EXPORT(int) mvderwin (WINDOW *, int, int) NCURSES_EXPORT_ABI60(mvderwin, );
+ifTAPI(extern NCURSES_EXPORT(int) mvderwin (WINDOW *, int, int) _NCURSES_EXPORT_ABI60(mvderwin));
+extern NCURSES_EXPORT(int) mvgetch (int, int)
+		 NCURSES_EXPORT_ABI60(mvgetch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvgetch (int, int) _NCURSES_EXPORT_ABI60(mvgetch));
+extern NCURSES_EXPORT(int) mvgetnstr (int, int, char *, int)
+		 NCURSES_EXPORT_ABI60(mvgetnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvgetnstr (int, int, char *, int) _NCURSES_EXPORT_ABI60(mvgetnstr));
+extern NCURSES_EXPORT(int) mvgetstr (int, int, char *)
+		 NCURSES_EXPORT_ABI60(mvgetstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvgetstr (int, int, char *) _NCURSES_EXPORT_ABI60(mvgetstr));
+extern NCURSES_EXPORT(int) mvhline (int, int, chtype, int)
+		 NCURSES_EXPORT_ABI60(mvhline, );
+ifTAPI(extern NCURSES_EXPORT(int) mvhline (int, int, chtype, int) _NCURSES_EXPORT_ABI60(mvhline));
+extern NCURSES_EXPORT(chtype) mvinch (int, int)
+		 NCURSES_EXPORT_ABI60(mvinch, );
+ifTAPI(extern NCURSES_EXPORT(chtype) mvinch (int, int) _NCURSES_EXPORT_ABI60(mvinch));
+extern NCURSES_EXPORT(int) mvinchnstr (int, int, chtype *, int)
+		 NCURSES_EXPORT_ABI60(mvinchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinchnstr (int, int, chtype *, int) _NCURSES_EXPORT_ABI60(mvinchnstr));
+extern NCURSES_EXPORT(int) mvinchstr (int, int, chtype *)
+		 NCURSES_EXPORT_ABI60(mvinchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinchstr (int, int, chtype *) _NCURSES_EXPORT_ABI60(mvinchstr));
+extern NCURSES_EXPORT(int) mvinnstr (int, int, char *, int)
+		 NCURSES_EXPORT_ABI60(mvinnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinnstr (int, int, char *, int) _NCURSES_EXPORT_ABI60(mvinnstr));
+extern NCURSES_EXPORT(int) mvinsch (int, int, chtype)
+		 NCURSES_EXPORT_ABI60(mvinsch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinsch (int, int, chtype) _NCURSES_EXPORT_ABI60(mvinsch));
+extern NCURSES_EXPORT(int) mvinsnstr (int, int, const char *, int)
+		 NCURSES_EXPORT_ABI60(mvinsnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinsnstr (int, int, const char *, int) _NCURSES_EXPORT_ABI60(mvinsnstr));
+extern NCURSES_EXPORT(int) mvinsstr (int, int, const char *)
+		 NCURSES_EXPORT_ABI60(mvinsstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinsstr (int, int, const char *) _NCURSES_EXPORT_ABI60(mvinsstr));
+extern NCURSES_EXPORT(int) mvinstr (int, int, char *)
+		 NCURSES_EXPORT_ABI60(mvinstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinstr (int, int, char *) _NCURSES_EXPORT_ABI60(mvinstr));
+extern NCURSES_EXPORT(int) mvprintw (int,int, const char *,...)
+		GCC_PRINTFLIKE(3,4) NCURSES_EXPORT_ABI60(mvprintw, );
+ifTAPI(extern NCURSES_EXPORT(int) mvprintw (int,int, const char *,...)
+		GCC_PRINTFLIKE(3,4) _NCURSES_EXPORT_ABI60(mvprintw));
+extern NCURSES_EXPORT(int) mvscanw (int,int, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(3,4) NCURSES_EXPORT_ABI60(mvscanw, );
+ifTAPI(extern NCURSES_EXPORT(int) mvscanw (int,int, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(3,4) _NCURSES_EXPORT_ABI60(mvscanw));
+extern NCURSES_EXPORT(int) mvvline (int, int, chtype, int)
+		 NCURSES_EXPORT_ABI60(mvvline, );
+ifTAPI(extern NCURSES_EXPORT(int) mvvline (int, int, chtype, int) _NCURSES_EXPORT_ABI60(mvvline));
+extern NCURSES_EXPORT(int) mvwaddch (WINDOW *, int, int, const chtype)
+		 NCURSES_EXPORT_ABI60(mvwaddch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddch (WINDOW *, int, int, const chtype) _NCURSES_EXPORT_ABI60(mvwaddch));
+extern NCURSES_EXPORT(int) mvwaddchnstr (WINDOW *, int, int, const chtype *, int)
+		 NCURSES_EXPORT_ABI60(mvwaddchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddchnstr (WINDOW *, int, int, const chtype *, int) _NCURSES_EXPORT_ABI60(mvwaddchnstr));
+extern NCURSES_EXPORT(int) mvwaddchstr (WINDOW *, int, int, const chtype *)
+		 NCURSES_EXPORT_ABI60(mvwaddchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddchstr (WINDOW *, int, int, const chtype *) _NCURSES_EXPORT_ABI60(mvwaddchstr));
+extern NCURSES_EXPORT(int) mvwaddnstr (WINDOW *, int, int, const char *, int)
+		 NCURSES_EXPORT_ABI60(mvwaddnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddnstr (WINDOW *, int, int, const char *, int) _NCURSES_EXPORT_ABI60(mvwaddnstr));
+extern NCURSES_EXPORT(int) mvwaddstr (WINDOW *, int, int, const char *)
+		 NCURSES_EXPORT_ABI60(mvwaddstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddstr (WINDOW *, int, int, const char *) _NCURSES_EXPORT_ABI60(mvwaddstr));
+extern NCURSES_EXPORT(int) mvwchgat (WINDOW *, int, int, int, attr_t, NCURSES_PAIRS_T, const void *)
+		 NCURSES_EXPORT_ABI60(mvwchgat, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwchgat (WINDOW *, int, int, int, attr_t, NCURSES_PAIRS_T, const void *) _NCURSES_EXPORT_ABI60(mvwchgat));
+extern NCURSES_EXPORT(int) mvwgetch (WINDOW *, int, int)
+		 NCURSES_EXPORT_ABI60(mvwgetch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwgetch (WINDOW *, int, int) _NCURSES_EXPORT_ABI60(mvwgetch));
+extern NCURSES_EXPORT(int) mvwgetnstr (WINDOW *, int, int, char *, int)
+		 NCURSES_EXPORT_ABI60(mvwgetnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwgetnstr (WINDOW *, int, int, char *, int) _NCURSES_EXPORT_ABI60(mvwgetnstr));
+extern NCURSES_EXPORT(int) mvwgetstr (WINDOW *, int, int, char *)
+		 NCURSES_EXPORT_ABI60(mvwgetstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwgetstr (WINDOW *, int, int, char *) _NCURSES_EXPORT_ABI60(mvwgetstr));
+extern NCURSES_EXPORT(int) mvwhline (WINDOW *, int, int, chtype, int)
+		 NCURSES_EXPORT_ABI60(mvwhline, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwhline (WINDOW *, int, int, chtype, int) _NCURSES_EXPORT_ABI60(mvwhline));
+extern NCURSES_EXPORT(int) mvwin (WINDOW *,int,int) NCURSES_EXPORT_ABI60(mvwin, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwin (WINDOW *,int,int) _NCURSES_EXPORT_ABI60(mvwin));
+extern NCURSES_EXPORT(chtype) mvwinch (WINDOW *, int, int)
+		 NCURSES_EXPORT_ABI60(mvwinch, );
+ifTAPI(extern NCURSES_EXPORT(chtype) mvwinch (WINDOW *, int, int) _NCURSES_EXPORT_ABI60(mvwinch));
+extern NCURSES_EXPORT(int) mvwinchnstr (WINDOW *, int, int, chtype *, int)
+		 NCURSES_EXPORT_ABI60(mvwinchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinchnstr (WINDOW *, int, int, chtype *, int) _NCURSES_EXPORT_ABI60(mvwinchnstr));
+extern NCURSES_EXPORT(int) mvwinchstr (WINDOW *, int, int, chtype *)
+		 NCURSES_EXPORT_ABI60(mvwinchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinchstr (WINDOW *, int, int, chtype *) _NCURSES_EXPORT_ABI60(mvwinchstr));
+extern NCURSES_EXPORT(int) mvwinnstr (WINDOW *, int, int, char *, int)
+		 NCURSES_EXPORT_ABI60(mvwinnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinnstr (WINDOW *, int, int, char *, int) _NCURSES_EXPORT_ABI60(mvwinnstr));
+extern NCURSES_EXPORT(int) mvwinsch (WINDOW *, int, int, chtype)
+		 NCURSES_EXPORT_ABI60(mvwinsch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinsch (WINDOW *, int, int, chtype) _NCURSES_EXPORT_ABI60(mvwinsch));
+extern NCURSES_EXPORT(int) mvwinsnstr (WINDOW *, int, int, const char *, int)
+		 NCURSES_EXPORT_ABI60(mvwinsnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinsnstr (WINDOW *, int, int, const char *, int) _NCURSES_EXPORT_ABI60(mvwinsnstr));
+extern NCURSES_EXPORT(int) mvwinsstr (WINDOW *, int, int, const char *)
+		 NCURSES_EXPORT_ABI60(mvwinsstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinsstr (WINDOW *, int, int, const char *) _NCURSES_EXPORT_ABI60(mvwinsstr));
+extern NCURSES_EXPORT(int) mvwinstr (WINDOW *, int, int, char *)
+		 NCURSES_EXPORT_ABI60(mvwinstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinstr (WINDOW *, int, int, char *) _NCURSES_EXPORT_ABI60(mvwinstr));
+extern NCURSES_EXPORT(int) mvwprintw (WINDOW*,int,int, const char *,...)
+		GCC_PRINTFLIKE(4,5) NCURSES_EXPORT_ABI60(mvwprintw, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwprintw (WINDOW*,int,int, const char *,...)
+		GCC_PRINTFLIKE(4,5) _NCURSES_EXPORT_ABI60(mvwprintw));
+extern NCURSES_EXPORT(int) mvwscanw (WINDOW *,int,int, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(4,5) NCURSES_EXPORT_ABI60(mvwscanw, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwscanw (WINDOW *,int,int, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(4,5) _NCURSES_EXPORT_ABI60(mvwscanw));
+extern NCURSES_EXPORT(int) mvwvline (WINDOW *,int, int, chtype, int)
+		 NCURSES_EXPORT_ABI60(mvwvline, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwvline (WINDOW *,int, int, chtype, int) _NCURSES_EXPORT_ABI60(mvwvline));
+extern NCURSES_EXPORT(WINDOW *) newpad (int,int) NCURSES_EXPORT_ABI60(newpad, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) newpad (int,int) _NCURSES_EXPORT_ABI60(newpad));
+extern NCURSES_EXPORT(SCREEN *) newterm (NCURSES_CONST char *,FILE *,FILE *) NCURSES_EXPORT_ABI60(newterm, );
+ifTAPI(extern NCURSES_EXPORT(SCREEN *) newterm (NCURSES_CONST char *,FILE *,FILE *) _NCURSES_EXPORT_ABI60(newterm));
+extern NCURSES_EXPORT(WINDOW *) newwin (int,int,int,int) NCURSES_EXPORT_ABI60(newwin, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) newwin (int,int,int,int) _NCURSES_EXPORT_ABI60(newwin));
+extern NCURSES_EXPORT(int) overlay (const WINDOW*,WINDOW *) NCURSES_EXPORT_ABI60(overlay, );
+ifTAPI(extern NCURSES_EXPORT(int) overlay (const WINDOW*,WINDOW *) _NCURSES_EXPORT_ABI60(overlay));
+extern NCURSES_EXPORT(int) overwrite (const WINDOW*,WINDOW *) NCURSES_EXPORT_ABI60(overwrite, );
+ifTAPI(extern NCURSES_EXPORT(int) overwrite (const WINDOW*,WINDOW *) _NCURSES_EXPORT_ABI60(overwrite));
+extern NCURSES_EXPORT(int) pair_content (NCURSES_PAIRS_T,NCURSES_COLOR_T*,NCURSES_COLOR_T*) NCURSES_EXPORT_ABI60(pair_content, );
+ifTAPI(extern NCURSES_EXPORT(int) pair_content (NCURSES_PAIRS_T,NCURSES_COLOR_T*,NCURSES_COLOR_T*) _NCURSES_EXPORT_ABI60(pair_content));
+extern NCURSES_EXPORT(int) pechochar (WINDOW *, const chtype) NCURSES_EXPORT_ABI60(pechochar, );
+ifTAPI(extern NCURSES_EXPORT(int) pechochar (WINDOW *, const chtype) _NCURSES_EXPORT_ABI60(pechochar));
+extern NCURSES_EXPORT(int) pnoutrefresh (WINDOW*,int,int,int,int,int,int) NCURSES_EXPORT_ABI60(pnoutrefresh, );
+ifTAPI(extern NCURSES_EXPORT(int) pnoutrefresh (WINDOW*,int,int,int,int,int,int) _NCURSES_EXPORT_ABI60(pnoutrefresh));
+extern NCURSES_EXPORT(int) prefresh (WINDOW *,int,int,int,int,int,int) NCURSES_EXPORT_ABI60(prefresh, );
+ifTAPI(extern NCURSES_EXPORT(int) prefresh (WINDOW *,int,int,int,int,int,int) _NCURSES_EXPORT_ABI60(prefresh));
+extern NCURSES_EXPORT(int) printw (const char *,...)
+		GCC_PRINTFLIKE(1,2) NCURSES_EXPORT_ABI60(printw, );
+ifTAPI(extern NCURSES_EXPORT(int) printw (const char *,...)
+		GCC_PRINTFLIKE(1,2) _NCURSES_EXPORT_ABI60(printw));
+extern NCURSES_EXPORT(int) putwin (WINDOW *, FILE *) NCURSES_EXPORT_ABI60(putwin, );
+ifTAPI(extern NCURSES_EXPORT(int) putwin (WINDOW *, FILE *) _NCURSES_EXPORT_ABI60(putwin));
+extern NCURSES_EXPORT(int) redrawwin (WINDOW *)
+		 NCURSES_EXPORT_ABI60(redrawwin, );
+ifTAPI(extern NCURSES_EXPORT(int) redrawwin (WINDOW *) _NCURSES_EXPORT_ABI60(redrawwin));
+extern NCURSES_EXPORT(int) refresh (void)
+		 NCURSES_EXPORT_ABI60(refresh, );
+ifTAPI(extern NCURSES_EXPORT(int) refresh (void) _NCURSES_EXPORT_ABI60(refresh));
+extern NCURSES_EXPORT(int) scanw (NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(1,2) NCURSES_EXPORT_ABI60(scanw, );
+ifTAPI(extern NCURSES_EXPORT(int) scanw (NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(1,2) _NCURSES_EXPORT_ABI60(scanw));
+extern NCURSES_EXPORT(int) scr_dump (const char *) NCURSES_EXPORT_ABI60(scr_dump, );
+ifTAPI(extern NCURSES_EXPORT(int) scr_dump (const char *) _NCURSES_EXPORT_ABI60(scr_dump));
+extern NCURSES_EXPORT(int) scr_init (const char *) NCURSES_EXPORT_ABI60(scr_init, );
+ifTAPI(extern NCURSES_EXPORT(int) scr_init (const char *) _NCURSES_EXPORT_ABI60(scr_init));
+extern NCURSES_EXPORT(int) scrl (int)
+		 NCURSES_EXPORT_ABI60(scrl, );
+ifTAPI(extern NCURSES_EXPORT(int) scrl (int) _NCURSES_EXPORT_ABI60(scrl));
+extern NCURSES_EXPORT(int) scroll (WINDOW *)
+		 NCURSES_EXPORT_ABI60(scroll, );
+ifTAPI(extern NCURSES_EXPORT(int) scroll (WINDOW *) _NCURSES_EXPORT_ABI60(scroll));
+extern NCURSES_EXPORT(int) scrollok (WINDOW *,bool) NCURSES_EXPORT_ABI60(scrollok, );
+ifTAPI(extern NCURSES_EXPORT(int) scrollok (WINDOW *,bool) _NCURSES_EXPORT_ABI60(scrollok));
+extern NCURSES_EXPORT(int) scr_restore (const char *) NCURSES_EXPORT_ABI60(scr_restore, );
+ifTAPI(extern NCURSES_EXPORT(int) scr_restore (const char *) _NCURSES_EXPORT_ABI60(scr_restore));
+extern NCURSES_EXPORT(int) scr_set (const char *) NCURSES_EXPORT_ABI60(scr_set, );
+ifTAPI(extern NCURSES_EXPORT(int) scr_set (const char *) _NCURSES_EXPORT_ABI60(scr_set));
+extern NCURSES_EXPORT(SCREEN *) set_term (SCREEN *) NCURSES_EXPORT_ABI60(set_term, );
+ifTAPI(extern NCURSES_EXPORT(SCREEN *) set_term (SCREEN *) _NCURSES_EXPORT_ABI60(set_term));
+extern NCURSES_EXPORT(int) slk_attroff (const chtype) NCURSES_EXPORT_ABI60(slk_attroff, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attroff (const chtype) _NCURSES_EXPORT_ABI60(slk_attroff));
+extern NCURSES_EXPORT(int) slk_attr_off (const attr_t, void *)
+		 NCURSES_EXPORT_ABI60(slk_attr_off, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attr_off (const attr_t, void *) _NCURSES_EXPORT_ABI60(slk_attr_off));
+extern NCURSES_EXPORT(int) slk_attron (const chtype) NCURSES_EXPORT_ABI60(slk_attron, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attron (const chtype) _NCURSES_EXPORT_ABI60(slk_attron));
+extern NCURSES_EXPORT(int) slk_attr_on (attr_t,void*)
+		 NCURSES_EXPORT_ABI60(slk_attr_on, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attr_on (attr_t,void*) _NCURSES_EXPORT_ABI60(slk_attr_on));
+extern NCURSES_EXPORT(int) slk_attrset (const chtype) NCURSES_EXPORT_ABI60(slk_attrset, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attrset (const chtype) _NCURSES_EXPORT_ABI60(slk_attrset));
+extern NCURSES_EXPORT(attr_t) slk_attr (void) NCURSES_EXPORT_ABI60(slk_attr, );
+ifTAPI(extern NCURSES_EXPORT(attr_t) slk_attr (void) _NCURSES_EXPORT_ABI60(slk_attr));
+extern NCURSES_EXPORT(int) slk_attr_set (const attr_t,NCURSES_PAIRS_T,void*) NCURSES_EXPORT_ABI60(slk_attr_set, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_attr_set (const attr_t,NCURSES_PAIRS_T,void*) _NCURSES_EXPORT_ABI60(slk_attr_set));
+extern NCURSES_EXPORT(int) slk_clear (void) NCURSES_EXPORT_ABI60(slk_clear, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_clear (void) _NCURSES_EXPORT_ABI60(slk_clear));
+extern NCURSES_EXPORT(int) slk_color (NCURSES_PAIRS_T) NCURSES_EXPORT_ABI60(slk_color, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_color (NCURSES_PAIRS_T) _NCURSES_EXPORT_ABI60(slk_color));
+extern NCURSES_EXPORT(int) slk_init (int) NCURSES_EXPORT_ABI60(slk_init, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_init (int) _NCURSES_EXPORT_ABI60(slk_init));
+extern NCURSES_EXPORT(char *) slk_label (int) NCURSES_EXPORT_ABI60(slk_label, );
+ifTAPI(extern NCURSES_EXPORT(char *) slk_label (int) _NCURSES_EXPORT_ABI60(slk_label));
+extern NCURSES_EXPORT(int) slk_noutrefresh (void) NCURSES_EXPORT_ABI60(slk_noutrefresh, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_noutrefresh (void) _NCURSES_EXPORT_ABI60(slk_noutrefresh));
+extern NCURSES_EXPORT(int) slk_refresh (void) NCURSES_EXPORT_ABI60(slk_refresh, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_refresh (void) _NCURSES_EXPORT_ABI60(slk_refresh));
+extern NCURSES_EXPORT(int) slk_restore (void) NCURSES_EXPORT_ABI60(slk_restore, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_restore (void) _NCURSES_EXPORT_ABI60(slk_restore));
+extern NCURSES_EXPORT(int) slk_set (int,const char *,int) NCURSES_EXPORT_ABI60(slk_set, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_set (int,const char *,int) _NCURSES_EXPORT_ABI60(slk_set));
+extern NCURSES_EXPORT(int) slk_touch (void) NCURSES_EXPORT_ABI60(slk_touch, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_touch (void) _NCURSES_EXPORT_ABI60(slk_touch));
+extern NCURSES_EXPORT(int) standout (void)
+		 NCURSES_EXPORT_ABI60(standout, );
+ifTAPI(extern NCURSES_EXPORT(int) standout (void) _NCURSES_EXPORT_ABI60(standout));
+extern NCURSES_EXPORT(int) standend (void)
+		 NCURSES_EXPORT_ABI60(standend, );
+ifTAPI(extern NCURSES_EXPORT(int) standend (void) _NCURSES_EXPORT_ABI60(standend));
+extern NCURSES_EXPORT(int) start_color (void) NCURSES_EXPORT_ABI60(start_color, );
+ifTAPI(extern NCURSES_EXPORT(int) start_color (void) _NCURSES_EXPORT_ABI60(start_color));
+extern NCURSES_EXPORT(WINDOW *) subpad (WINDOW *, int, int, int, int) NCURSES_EXPORT_ABI60(subpad, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) subpad (WINDOW *, int, int, int, int) _NCURSES_EXPORT_ABI60(subpad));
+extern NCURSES_EXPORT(WINDOW *) subwin (WINDOW *, int, int, int, int) NCURSES_EXPORT_ABI60(subwin, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) subwin (WINDOW *, int, int, int, int) _NCURSES_EXPORT_ABI60(subwin));
+extern NCURSES_EXPORT(int) ungetch (int) NCURSES_EXPORT_ABI60(ungetch, );
+ifTAPI(extern NCURSES_EXPORT(int) ungetch (int) _NCURSES_EXPORT_ABI60(ungetch));
+extern NCURSES_EXPORT(int) vidattr (chtype) NCURSES_EXPORT_ABI60(vidattr, );
+ifTAPI(extern NCURSES_EXPORT(int) vidattr (chtype) _NCURSES_EXPORT_ABI60(vidattr));
+extern NCURSES_EXPORT(int) vidputs (chtype, NCURSES_OUTC) NCURSES_EXPORT_ABI60(vidputs, );
+ifTAPI(extern NCURSES_EXPORT(int) vidputs (chtype, NCURSES_OUTC) _NCURSES_EXPORT_ABI60(vidputs));
+extern NCURSES_EXPORT(int) vline (chtype, int)
+		 NCURSES_EXPORT_ABI60(vline, );
+ifTAPI(extern NCURSES_EXPORT(int) vline (chtype, int) _NCURSES_EXPORT_ABI60(vline));
+extern NCURSES_EXPORT(int) vwprintw (WINDOW *, const char *,va_list) NCURSES_EXPORT_ABI60(vwprintw, );
+ifTAPI(extern NCURSES_EXPORT(int) vwprintw (WINDOW *, const char *,va_list) _NCURSES_EXPORT_ABI60(vwprintw));
+extern NCURSES_EXPORT(int) vw_printw (WINDOW *, const char *,va_list)
+		 NCURSES_EXPORT_ABI60(vw_printw, );
+ifTAPI(extern NCURSES_EXPORT(int) vw_printw (WINDOW *, const char *,va_list) _NCURSES_EXPORT_ABI60(vw_printw));
+extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list)
+		GCC_SCANFLIKE(2,0) NCURSES_EXPORT_ABI60(vwscanw, );
+ifTAPI(extern NCURSES_EXPORT(int) vwscanw (WINDOW *, NCURSES_CONST char *,va_list)
+		GCC_SCANFLIKE(2,0) _NCURSES_EXPORT_ABI60(vwscanw));
+extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)
+		GCC_SCANFLIKE(2,0) NCURSES_EXPORT_ABI60(vw_scanw, );
+ifTAPI(extern NCURSES_EXPORT(int) vw_scanw (WINDOW *, NCURSES_CONST char *,va_list)
+		GCC_SCANFLIKE(2,0) _NCURSES_EXPORT_ABI60(vw_scanw));
+extern NCURSES_EXPORT(int) waddch (WINDOW *, const chtype) NCURSES_EXPORT_ABI60(waddch, );
+ifTAPI(extern NCURSES_EXPORT(int) waddch (WINDOW *, const chtype) _NCURSES_EXPORT_ABI60(waddch));
+extern NCURSES_EXPORT(int) waddchnstr (WINDOW *,const chtype *,int) NCURSES_EXPORT_ABI60(waddchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddchnstr (WINDOW *,const chtype *,int) _NCURSES_EXPORT_ABI60(waddchnstr));
+extern NCURSES_EXPORT(int) waddchstr (WINDOW *,const chtype *)
+		 NCURSES_EXPORT_ABI60(waddchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddchstr (WINDOW *,const chtype *) _NCURSES_EXPORT_ABI60(waddchstr));
+extern NCURSES_EXPORT(int) waddnstr (WINDOW *,const char *,int) NCURSES_EXPORT_ABI60(waddnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddnstr (WINDOW *,const char *,int) _NCURSES_EXPORT_ABI60(waddnstr));
+extern NCURSES_EXPORT(int) waddstr (WINDOW *,const char *)
+		 NCURSES_EXPORT_ABI60(waddstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddstr (WINDOW *,const char *) _NCURSES_EXPORT_ABI60(waddstr));
+extern NCURSES_EXPORT(int) wattron (WINDOW *, int)
+		 NCURSES_EXPORT_ABI60(wattron, );
+ifTAPI(extern NCURSES_EXPORT(int) wattron (WINDOW *, int) _NCURSES_EXPORT_ABI60(wattron));
+extern NCURSES_EXPORT(int) wattroff (WINDOW *, int)
+		 NCURSES_EXPORT_ABI60(wattroff, );
+ifTAPI(extern NCURSES_EXPORT(int) wattroff (WINDOW *, int) _NCURSES_EXPORT_ABI60(wattroff));
+extern NCURSES_EXPORT(int) wattrset (WINDOW *, int)
+		 NCURSES_EXPORT_ABI60(wattrset, );
+ifTAPI(extern NCURSES_EXPORT(int) wattrset (WINDOW *, int) _NCURSES_EXPORT_ABI60(wattrset));
+extern NCURSES_EXPORT(int) wattr_get (WINDOW *, attr_t *, NCURSES_PAIRS_T *, void *)
+		 NCURSES_EXPORT_ABI60(wattr_get, );
+ifTAPI(extern NCURSES_EXPORT(int) wattr_get (WINDOW *, attr_t *, NCURSES_PAIRS_T *, void *) _NCURSES_EXPORT_ABI60(wattr_get));
+extern NCURSES_EXPORT(int) wattr_on (WINDOW *, attr_t, void *) NCURSES_EXPORT_ABI60(wattr_on, );
+ifTAPI(extern NCURSES_EXPORT(int) wattr_on (WINDOW *, attr_t, void *) _NCURSES_EXPORT_ABI60(wattr_on));
+extern NCURSES_EXPORT(int) wattr_off (WINDOW *, attr_t, void *) NCURSES_EXPORT_ABI60(wattr_off, );
+ifTAPI(extern NCURSES_EXPORT(int) wattr_off (WINDOW *, attr_t, void *) _NCURSES_EXPORT_ABI60(wattr_off));
+extern NCURSES_EXPORT(int) wattr_set (WINDOW *, attr_t, NCURSES_PAIRS_T, void *)
+		 NCURSES_EXPORT_ABI60(wattr_set, );
+ifTAPI(extern NCURSES_EXPORT(int) wattr_set (WINDOW *, attr_t, NCURSES_PAIRS_T, void *) _NCURSES_EXPORT_ABI60(wattr_set));
+extern NCURSES_EXPORT(int) wbkgd (WINDOW *, chtype) NCURSES_EXPORT_ABI60(wbkgd, );
+ifTAPI(extern NCURSES_EXPORT(int) wbkgd (WINDOW *, chtype) _NCURSES_EXPORT_ABI60(wbkgd));
+extern NCURSES_EXPORT(void) wbkgdset (WINDOW *,chtype) NCURSES_EXPORT_ABI60(wbkgdset, );
+ifTAPI(extern NCURSES_EXPORT(void) wbkgdset (WINDOW *,chtype) _NCURSES_EXPORT_ABI60(wbkgdset));
+extern NCURSES_EXPORT(int) wborder (WINDOW *,chtype,chtype,chtype,chtype,chtype,chtype,chtype,chtype) NCURSES_EXPORT_ABI60(wborder, );
+ifTAPI(extern NCURSES_EXPORT(int) wborder (WINDOW *,chtype,chtype,chtype,chtype,chtype,chtype,chtype,chtype) _NCURSES_EXPORT_ABI60(wborder));
+extern NCURSES_EXPORT(int) wchgat (WINDOW *, int, attr_t, NCURSES_PAIRS_T, const void *) NCURSES_EXPORT_ABI60(wchgat, );
+ifTAPI(extern NCURSES_EXPORT(int) wchgat (WINDOW *, int, attr_t, NCURSES_PAIRS_T, const void *) _NCURSES_EXPORT_ABI60(wchgat));
+extern NCURSES_EXPORT(int) wclear (WINDOW *) NCURSES_EXPORT_ABI60(wclear, );
+ifTAPI(extern NCURSES_EXPORT(int) wclear (WINDOW *) _NCURSES_EXPORT_ABI60(wclear));
+extern NCURSES_EXPORT(int) wcolor_set (WINDOW*,NCURSES_PAIRS_T,void*) NCURSES_EXPORT_ABI60(wcolor_set, );
+ifTAPI(extern NCURSES_EXPORT(int) wcolor_set (WINDOW*,NCURSES_PAIRS_T,void*) _NCURSES_EXPORT_ABI60(wcolor_set));
+extern NCURSES_EXPORT(int) wdeleteln (WINDOW *)
+		 NCURSES_EXPORT_ABI60(wdeleteln, );
+ifTAPI(extern NCURSES_EXPORT(int) wdeleteln (WINDOW *) _NCURSES_EXPORT_ABI60(wdeleteln));
+extern NCURSES_EXPORT(int) wechochar (WINDOW *, const chtype) NCURSES_EXPORT_ABI60(wechochar, );
+ifTAPI(extern NCURSES_EXPORT(int) wechochar (WINDOW *, const chtype) _NCURSES_EXPORT_ABI60(wechochar));
+extern NCURSES_EXPORT(int) wgetch (WINDOW *) NCURSES_EXPORT_ABI60(wgetch, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetch (WINDOW *) _NCURSES_EXPORT_ABI60(wgetch));
+extern NCURSES_EXPORT(int) wgetnstr (WINDOW *,char *,int) NCURSES_EXPORT_ABI60(wgetnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetnstr (WINDOW *,char *,int) _NCURSES_EXPORT_ABI60(wgetnstr));
+extern NCURSES_EXPORT(int) wgetstr (WINDOW *, char *)
+		 NCURSES_EXPORT_ABI60(wgetstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetstr (WINDOW *, char *) _NCURSES_EXPORT_ABI60(wgetstr));
+extern NCURSES_EXPORT(int) whline (WINDOW *, chtype, int) NCURSES_EXPORT_ABI60(whline, );
+ifTAPI(extern NCURSES_EXPORT(int) whline (WINDOW *, chtype, int) _NCURSES_EXPORT_ABI60(whline));
+extern NCURSES_EXPORT(chtype) winch (WINDOW *) NCURSES_EXPORT_ABI60(winch, );
+ifTAPI(extern NCURSES_EXPORT(chtype) winch (WINDOW *) _NCURSES_EXPORT_ABI60(winch));
+extern NCURSES_EXPORT(int) winchnstr (WINDOW *, chtype *, int) NCURSES_EXPORT_ABI60(winchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winchnstr (WINDOW *, chtype *, int) _NCURSES_EXPORT_ABI60(winchnstr));
+extern NCURSES_EXPORT(int) winchstr (WINDOW *, chtype *)
+		 NCURSES_EXPORT_ABI60(winchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winchstr (WINDOW *, chtype *) _NCURSES_EXPORT_ABI60(winchstr));
+extern NCURSES_EXPORT(int) winnstr (WINDOW *, char *, int) NCURSES_EXPORT_ABI60(winnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winnstr (WINDOW *, char *, int) _NCURSES_EXPORT_ABI60(winnstr));
+extern NCURSES_EXPORT(int) winsch (WINDOW *, chtype) NCURSES_EXPORT_ABI60(winsch, );
+ifTAPI(extern NCURSES_EXPORT(int) winsch (WINDOW *, chtype) _NCURSES_EXPORT_ABI60(winsch));
+extern NCURSES_EXPORT(int) winsdelln (WINDOW *,int) NCURSES_EXPORT_ABI60(winsdelln, );
+ifTAPI(extern NCURSES_EXPORT(int) winsdelln (WINDOW *,int) _NCURSES_EXPORT_ABI60(winsdelln));
+extern NCURSES_EXPORT(int) winsertln (WINDOW *)
+		 NCURSES_EXPORT_ABI60(winsertln, );
+ifTAPI(extern NCURSES_EXPORT(int) winsertln (WINDOW *) _NCURSES_EXPORT_ABI60(winsertln));
+extern NCURSES_EXPORT(int) winsnstr (WINDOW *, const char *,int) NCURSES_EXPORT_ABI60(winsnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winsnstr (WINDOW *, const char *,int) _NCURSES_EXPORT_ABI60(winsnstr));
+extern NCURSES_EXPORT(int) winsstr (WINDOW *, const char *)
+		 NCURSES_EXPORT_ABI60(winsstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winsstr (WINDOW *, const char *) _NCURSES_EXPORT_ABI60(winsstr));
+extern NCURSES_EXPORT(int) winstr (WINDOW *, char *)
+		 NCURSES_EXPORT_ABI60(winstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winstr (WINDOW *, char *) _NCURSES_EXPORT_ABI60(winstr));
+extern NCURSES_EXPORT(int) wnoutrefresh (WINDOW *) NCURSES_EXPORT_ABI60(wnoutrefresh, );
+ifTAPI(extern NCURSES_EXPORT(int) wnoutrefresh (WINDOW *) _NCURSES_EXPORT_ABI60(wnoutrefresh));
+extern NCURSES_EXPORT(int) wprintw (WINDOW *, const char *,...)
+		GCC_PRINTFLIKE(2,3) NCURSES_EXPORT_ABI60(wprintw, );
+ifTAPI(extern NCURSES_EXPORT(int) wprintw (WINDOW *, const char *,...)
+		GCC_PRINTFLIKE(2,3) _NCURSES_EXPORT_ABI60(wprintw));
+extern NCURSES_EXPORT(int) wredrawln (WINDOW *,int,int) NCURSES_EXPORT_ABI60(wredrawln, );
+ifTAPI(extern NCURSES_EXPORT(int) wredrawln (WINDOW *,int,int) _NCURSES_EXPORT_ABI60(wredrawln));
+extern NCURSES_EXPORT(int) wrefresh (WINDOW *) NCURSES_EXPORT_ABI60(wrefresh, );
+ifTAPI(extern NCURSES_EXPORT(int) wrefresh (WINDOW *) _NCURSES_EXPORT_ABI60(wrefresh));
+extern NCURSES_EXPORT(int) wscanw (WINDOW *, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(2,3) NCURSES_EXPORT_ABI60(wscanw, );
+ifTAPI(extern NCURSES_EXPORT(int) wscanw (WINDOW *, NCURSES_CONST char *,...)
+		GCC_SCANFLIKE(2,3) _NCURSES_EXPORT_ABI60(wscanw));
+extern NCURSES_EXPORT(int) wscrl (WINDOW *,int) NCURSES_EXPORT_ABI60(wscrl, );
+ifTAPI(extern NCURSES_EXPORT(int) wscrl (WINDOW *,int) _NCURSES_EXPORT_ABI60(wscrl));
+extern NCURSES_EXPORT(int) wstandout (WINDOW *)
+		 NCURSES_EXPORT_ABI60(wstandout, );
+ifTAPI(extern NCURSES_EXPORT(int) wstandout (WINDOW *) _NCURSES_EXPORT_ABI60(wstandout));
+extern NCURSES_EXPORT(int) wstandend (WINDOW *)
+		 NCURSES_EXPORT_ABI60(wstandend, );
+ifTAPI(extern NCURSES_EXPORT(int) wstandend (WINDOW *) _NCURSES_EXPORT_ABI60(wstandend));
+extern NCURSES_EXPORT(int) wvline (WINDOW *,chtype,int) NCURSES_EXPORT_ABI60(wvline, );
+ifTAPI(extern NCURSES_EXPORT(int) wvline (WINDOW *,chtype,int) _NCURSES_EXPORT_ABI60(wvline));
+extern NCURSES_EXPORT(int) putp (const char *) NCURSES_EXPORT_ABI60(putp, );
+ifTAPI(extern NCURSES_EXPORT(int) putp (const char *) _NCURSES_EXPORT_ABI60(putp));
+extern NCURSES_EXPORT(bool) is_term_resized (int, int) NCURSES_EXPORT_ABI60(is_term_resized, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_term_resized (int, int) _NCURSES_EXPORT_ABI60(is_term_resized));
+extern NCURSES_EXPORT(int) assume_default_colors (int, int) NCURSES_EXPORT_ABI60(assume_default_colors, );
+ifTAPI(extern NCURSES_EXPORT(int) assume_default_colors (int, int) _NCURSES_EXPORT_ABI60(assume_default_colors));
+extern NCURSES_EXPORT(int) resize_term (int, int) NCURSES_EXPORT_ABI60(resize_term, );
+ifTAPI(extern NCURSES_EXPORT(int) resize_term (int, int) _NCURSES_EXPORT_ABI60(resize_term));
+extern NCURSES_EXPORT(int) resizeterm (int, int) NCURSES_EXPORT_ABI60(resizeterm, );
+ifTAPI(extern NCURSES_EXPORT(int) resizeterm (int, int) _NCURSES_EXPORT_ABI60(resizeterm));
+extern NCURSES_EXPORT(int) use_default_colors (void) NCURSES_EXPORT_ABI60(use_default_colors, );
+ifTAPI(extern NCURSES_EXPORT(int) use_default_colors (void) _NCURSES_EXPORT_ABI60(use_default_colors));
+extern NCURSES_EXPORT(int) use_screen (SCREEN *, NCURSES_SCREEN_CB, void *) NCURSES_EXPORT_ABI60(use_screen, );
+ifTAPI(extern NCURSES_EXPORT(int) use_screen (SCREEN *, NCURSES_SCREEN_CB, void *) _NCURSES_EXPORT_ABI60(use_screen));
+extern NCURSES_EXPORT(int) use_window (WINDOW *, NCURSES_WINDOW_CB, void *) NCURSES_EXPORT_ABI60(use_window, );
+ifTAPI(extern NCURSES_EXPORT(int) use_window (WINDOW *, NCURSES_WINDOW_CB, void *) _NCURSES_EXPORT_ABI60(use_window));
+extern NCURSES_EXPORT(int) wresize (WINDOW *, int, int) NCURSES_EXPORT_ABI60(wresize, );
+ifTAPI(extern NCURSES_EXPORT(int) wresize (WINDOW *, int, int) _NCURSES_EXPORT_ABI60(wresize));
+extern NCURSES_EXPORT(WINDOW *) wgetparent (const WINDOW *) NCURSES_EXPORT_ABI60(wgetparent, );
+ifTAPI(extern NCURSES_EXPORT(WINDOW *) wgetparent (const WINDOW *) _NCURSES_EXPORT_ABI60(wgetparent));
+extern NCURSES_EXPORT(bool) is_cleared (const WINDOW *) NCURSES_EXPORT_ABI60(is_cleared, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_cleared (const WINDOW *) _NCURSES_EXPORT_ABI60(is_cleared));
+extern NCURSES_EXPORT(bool) is_idcok (const WINDOW *) NCURSES_EXPORT_ABI60(is_idcok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_idcok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_idcok));
+extern NCURSES_EXPORT(bool) is_idlok (const WINDOW *) NCURSES_EXPORT_ABI60(is_idlok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_idlok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_idlok));
+extern NCURSES_EXPORT(bool) is_immedok (const WINDOW *) NCURSES_EXPORT_ABI60(is_immedok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_immedok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_immedok));
+extern NCURSES_EXPORT(bool) is_keypad (const WINDOW *) NCURSES_EXPORT_ABI60(is_keypad, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_keypad (const WINDOW *) _NCURSES_EXPORT_ABI60(is_keypad));
+extern NCURSES_EXPORT(bool) is_leaveok (const WINDOW *) NCURSES_EXPORT_ABI60(is_leaveok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_leaveok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_leaveok));
+extern NCURSES_EXPORT(bool) is_nodelay (const WINDOW *) NCURSES_EXPORT_ABI60(is_nodelay, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_nodelay (const WINDOW *) _NCURSES_EXPORT_ABI60(is_nodelay));
+extern NCURSES_EXPORT(bool) is_notimeout (const WINDOW *) NCURSES_EXPORT_ABI60(is_notimeout, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_notimeout (const WINDOW *) _NCURSES_EXPORT_ABI60(is_notimeout));
+extern NCURSES_EXPORT(bool) is_pad (const WINDOW *) NCURSES_EXPORT_ABI60(is_pad, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_pad (const WINDOW *) _NCURSES_EXPORT_ABI60(is_pad));
+extern NCURSES_EXPORT(bool) is_scrollok (const WINDOW *) NCURSES_EXPORT_ABI60(is_scrollok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_scrollok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_scrollok));
+extern NCURSES_EXPORT(bool) is_subwin (const WINDOW *) NCURSES_EXPORT_ABI60(is_subwin, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_subwin (const WINDOW *) _NCURSES_EXPORT_ABI60(is_subwin));
+extern NCURSES_EXPORT(bool) is_syncok (const WINDOW *) NCURSES_EXPORT_ABI60(is_syncok, );
+ifTAPI(extern NCURSES_EXPORT(bool) is_syncok (const WINDOW *) _NCURSES_EXPORT_ABI60(is_syncok));
+extern NCURSES_EXPORT(int) wgetdelay (const WINDOW *) NCURSES_EXPORT_ABI60(wgetdelay, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetdelay (const WINDOW *) _NCURSES_EXPORT_ABI60(wgetdelay));
+extern NCURSES_EXPORT(int) wgetscrreg (const WINDOW *, int *, int *) NCURSES_EXPORT_ABI60(wgetscrreg, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetscrreg (const WINDOW *, int *, int *) _NCURSES_EXPORT_ABI60(wgetscrreg));
+
+#if NCURSES_WIDECHAR
+/* Declarations from curses.wide */
+extern NCURSES_EXPORT(int) add_wch (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(add_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) add_wch (const cchar_t *) _NCURSES_EXPORT_ABI60(add_wch));
+extern NCURSES_EXPORT(int) add_wchnstr (const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(add_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) add_wchnstr (const cchar_t *, int) _NCURSES_EXPORT_ABI60(add_wchnstr));
+extern NCURSES_EXPORT(int) add_wchstr (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(add_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) add_wchstr (const cchar_t *) _NCURSES_EXPORT_ABI60(add_wchstr));
+extern NCURSES_EXPORT(int) addnwstr (const wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(addnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addnwstr (const wchar_t *, int) _NCURSES_EXPORT_ABI60(addnwstr));
+extern NCURSES_EXPORT(int) addwstr (const wchar_t *)
+		 NCURSES_EXPORT_ABI60(addwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) addwstr (const wchar_t *) _NCURSES_EXPORT_ABI60(addwstr));
+extern NCURSES_EXPORT(int) bkgrnd (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(bkgrnd, );
+ifTAPI(extern NCURSES_EXPORT(int) bkgrnd (const cchar_t *) _NCURSES_EXPORT_ABI60(bkgrnd));
+extern NCURSES_EXPORT(void) bkgrndset (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(bkgrndset, );
+ifTAPI(extern NCURSES_EXPORT(void) bkgrndset (const cchar_t *) _NCURSES_EXPORT_ABI60(bkgrndset));
+extern NCURSES_EXPORT(int) border_set (const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*)
+		 NCURSES_EXPORT_ABI60(border_set, );
+ifTAPI(extern NCURSES_EXPORT(int) border_set (const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*) _NCURSES_EXPORT_ABI60(border_set));
+extern NCURSES_EXPORT(int) box_set (WINDOW *, const cchar_t *, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(box_set, );
+ifTAPI(extern NCURSES_EXPORT(int) box_set (WINDOW *, const cchar_t *, const cchar_t *) _NCURSES_EXPORT_ABI60(box_set));
+extern NCURSES_EXPORT(int) echo_wchar (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(echo_wchar, );
+ifTAPI(extern NCURSES_EXPORT(int) echo_wchar (const cchar_t *) _NCURSES_EXPORT_ABI60(echo_wchar));
+extern NCURSES_EXPORT(int) erasewchar (wchar_t*) NCURSES_EXPORT_ABI60(erasewchar, );
+ifTAPI(extern NCURSES_EXPORT(int) erasewchar (wchar_t*) _NCURSES_EXPORT_ABI60(erasewchar));
+extern NCURSES_EXPORT(int) get_wch (wint_t *)
+		 NCURSES_EXPORT_ABI60(get_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) get_wch (wint_t *) _NCURSES_EXPORT_ABI60(get_wch));
+extern NCURSES_EXPORT(int) get_wstr (wint_t *)
+		 NCURSES_EXPORT_ABI60(get_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) get_wstr (wint_t *) _NCURSES_EXPORT_ABI60(get_wstr));
+extern NCURSES_EXPORT(int) getbkgrnd (cchar_t *)
+		 NCURSES_EXPORT_ABI60(getbkgrnd, );
+ifTAPI(extern NCURSES_EXPORT(int) getbkgrnd (cchar_t *) _NCURSES_EXPORT_ABI60(getbkgrnd));
+extern NCURSES_EXPORT(int) getcchar (const cchar_t *, wchar_t*, attr_t*, NCURSES_PAIRS_T*, void*) NCURSES_EXPORT_ABI60(getcchar, );
+ifTAPI(extern NCURSES_EXPORT(int) getcchar (const cchar_t *, wchar_t*, attr_t*, NCURSES_PAIRS_T*, void*) _NCURSES_EXPORT_ABI60(getcchar));
+extern NCURSES_EXPORT(int) getn_wstr (wint_t *, int)
+		 NCURSES_EXPORT_ABI60(getn_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) getn_wstr (wint_t *, int) _NCURSES_EXPORT_ABI60(getn_wstr));
+extern NCURSES_EXPORT(int) hline_set (const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(hline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) hline_set (const cchar_t *, int) _NCURSES_EXPORT_ABI60(hline_set));
+extern NCURSES_EXPORT(int) in_wch (cchar_t *)
+		 NCURSES_EXPORT_ABI60(in_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) in_wch (cchar_t *) _NCURSES_EXPORT_ABI60(in_wch));
+extern NCURSES_EXPORT(int) in_wchnstr (cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(in_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) in_wchnstr (cchar_t *, int) _NCURSES_EXPORT_ABI60(in_wchnstr));
+extern NCURSES_EXPORT(int) in_wchstr (cchar_t *)
+		 NCURSES_EXPORT_ABI60(in_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) in_wchstr (cchar_t *) _NCURSES_EXPORT_ABI60(in_wchstr));
+extern NCURSES_EXPORT(int) innwstr (wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(innwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) innwstr (wchar_t *, int) _NCURSES_EXPORT_ABI60(innwstr));
+extern NCURSES_EXPORT(int) ins_nwstr (const wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(ins_nwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) ins_nwstr (const wchar_t *, int) _NCURSES_EXPORT_ABI60(ins_nwstr));
+extern NCURSES_EXPORT(int) ins_wch (const cchar_t *)
+		 NCURSES_EXPORT_ABI60(ins_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) ins_wch (const cchar_t *) _NCURSES_EXPORT_ABI60(ins_wch));
+extern NCURSES_EXPORT(int) ins_wstr (const wchar_t *)
+		 NCURSES_EXPORT_ABI60(ins_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) ins_wstr (const wchar_t *) _NCURSES_EXPORT_ABI60(ins_wstr));
+extern NCURSES_EXPORT(int) inwstr (wchar_t *)
+		 NCURSES_EXPORT_ABI60(inwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) inwstr (wchar_t *) _NCURSES_EXPORT_ABI60(inwstr));
+extern NCURSES_EXPORT(NCURSES_CONST char*) key_name (wchar_t) NCURSES_EXPORT_ABI60(key_name, );
+ifTAPI(extern NCURSES_EXPORT(NCURSES_CONST char*) key_name (wchar_t) _NCURSES_EXPORT_ABI60(key_name));
+extern NCURSES_EXPORT(int) killwchar (wchar_t *) NCURSES_EXPORT_ABI60(killwchar, );
+ifTAPI(extern NCURSES_EXPORT(int) killwchar (wchar_t *) _NCURSES_EXPORT_ABI60(killwchar));
+extern NCURSES_EXPORT(int) mvadd_wch (int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvadd_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvadd_wch (int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvadd_wch));
+extern NCURSES_EXPORT(int) mvadd_wchnstr (int, int, const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvadd_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvadd_wchnstr (int, int, const cchar_t *, int) _NCURSES_EXPORT_ABI60(mvadd_wchnstr));
+extern NCURSES_EXPORT(int) mvadd_wchstr (int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvadd_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvadd_wchstr (int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvadd_wchstr));
+extern NCURSES_EXPORT(int) mvaddnwstr (int, int, const wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvaddnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddnwstr (int, int, const wchar_t *, int) _NCURSES_EXPORT_ABI60(mvaddnwstr));
+extern NCURSES_EXPORT(int) mvaddwstr (int, int, const wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvaddwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvaddwstr (int, int, const wchar_t *) _NCURSES_EXPORT_ABI60(mvaddwstr));
+extern NCURSES_EXPORT(int) mvget_wch (int, int, wint_t *)
+		 NCURSES_EXPORT_ABI60(mvget_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvget_wch (int, int, wint_t *) _NCURSES_EXPORT_ABI60(mvget_wch));
+extern NCURSES_EXPORT(int) mvget_wstr (int, int, wint_t *)
+		 NCURSES_EXPORT_ABI60(mvget_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvget_wstr (int, int, wint_t *) _NCURSES_EXPORT_ABI60(mvget_wstr));
+extern NCURSES_EXPORT(int) mvgetn_wstr (int, int, wint_t *, int)
+		 NCURSES_EXPORT_ABI60(mvgetn_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvgetn_wstr (int, int, wint_t *, int) _NCURSES_EXPORT_ABI60(mvgetn_wstr));
+extern NCURSES_EXPORT(int) mvhline_set (int, int, const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvhline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) mvhline_set (int, int, const cchar_t *, int) _NCURSES_EXPORT_ABI60(mvhline_set));
+extern NCURSES_EXPORT(int) mvin_wch (int, int, cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvin_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvin_wch (int, int, cchar_t *) _NCURSES_EXPORT_ABI60(mvin_wch));
+extern NCURSES_EXPORT(int) mvin_wchnstr (int, int, cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvin_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvin_wchnstr (int, int, cchar_t *, int) _NCURSES_EXPORT_ABI60(mvin_wchnstr));
+extern NCURSES_EXPORT(int) mvin_wchstr (int, int, cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvin_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvin_wchstr (int, int, cchar_t *) _NCURSES_EXPORT_ABI60(mvin_wchstr));
+extern NCURSES_EXPORT(int) mvinnwstr (int, int, wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvinnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinnwstr (int, int, wchar_t *, int) _NCURSES_EXPORT_ABI60(mvinnwstr));
+extern NCURSES_EXPORT(int) mvins_nwstr (int, int, const wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvins_nwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvins_nwstr (int, int, const wchar_t *, int) _NCURSES_EXPORT_ABI60(mvins_nwstr));
+extern NCURSES_EXPORT(int) mvins_wch (int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvins_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvins_wch (int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvins_wch));
+extern NCURSES_EXPORT(int) mvins_wstr (int, int, const wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvins_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvins_wstr (int, int, const wchar_t *) _NCURSES_EXPORT_ABI60(mvins_wstr));
+extern NCURSES_EXPORT(int) mvinwstr (int, int, wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvinwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvinwstr (int, int, wchar_t *) _NCURSES_EXPORT_ABI60(mvinwstr));
+extern NCURSES_EXPORT(int) mvvline_set (int, int, const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvvline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) mvvline_set (int, int, const cchar_t *, int) _NCURSES_EXPORT_ABI60(mvvline_set));
+extern NCURSES_EXPORT(int) mvwadd_wch (WINDOW *, int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwadd_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwadd_wch (WINDOW *, int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvwadd_wch));
+extern NCURSES_EXPORT(int) mvwadd_wchnstr (WINDOW *, int, int, const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvwadd_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwadd_wchnstr (WINDOW *, int, int, const cchar_t *, int) _NCURSES_EXPORT_ABI60(mvwadd_wchnstr));
+extern NCURSES_EXPORT(int) mvwadd_wchstr (WINDOW *, int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwadd_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwadd_wchstr (WINDOW *, int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvwadd_wchstr));
+extern NCURSES_EXPORT(int) mvwaddnwstr (WINDOW *, int, int, const wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvwaddnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddnwstr (WINDOW *, int, int, const wchar_t *, int) _NCURSES_EXPORT_ABI60(mvwaddnwstr));
+extern NCURSES_EXPORT(int) mvwaddwstr (WINDOW *, int, int, const wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwaddwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwaddwstr (WINDOW *, int, int, const wchar_t *) _NCURSES_EXPORT_ABI60(mvwaddwstr));
+extern NCURSES_EXPORT(int) mvwget_wch (WINDOW *, int, int, wint_t *)
+		 NCURSES_EXPORT_ABI60(mvwget_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwget_wch (WINDOW *, int, int, wint_t *) _NCURSES_EXPORT_ABI60(mvwget_wch));
+extern NCURSES_EXPORT(int) mvwget_wstr (WINDOW *, int, int, wint_t *)
+		 NCURSES_EXPORT_ABI60(mvwget_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwget_wstr (WINDOW *, int, int, wint_t *) _NCURSES_EXPORT_ABI60(mvwget_wstr));
+extern NCURSES_EXPORT(int) mvwgetn_wstr (WINDOW *, int, int, wint_t *, int)
+		 NCURSES_EXPORT_ABI60(mvwgetn_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwgetn_wstr (WINDOW *, int, int, wint_t *, int) _NCURSES_EXPORT_ABI60(mvwgetn_wstr));
+extern NCURSES_EXPORT(int) mvwhline_set (WINDOW *, int, int, const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvwhline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwhline_set (WINDOW *, int, int, const cchar_t *, int) _NCURSES_EXPORT_ABI60(mvwhline_set));
+extern NCURSES_EXPORT(int) mvwin_wch (WINDOW *, int, int, cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwin_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwin_wch (WINDOW *, int, int, cchar_t *) _NCURSES_EXPORT_ABI60(mvwin_wch));
+extern NCURSES_EXPORT(int) mvwin_wchnstr (WINDOW *, int,int, cchar_t *,int)
+		 NCURSES_EXPORT_ABI60(mvwin_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwin_wchnstr (WINDOW *, int,int, cchar_t *,int) _NCURSES_EXPORT_ABI60(mvwin_wchnstr));
+extern NCURSES_EXPORT(int) mvwin_wchstr (WINDOW *, int, int, cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwin_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwin_wchstr (WINDOW *, int, int, cchar_t *) _NCURSES_EXPORT_ABI60(mvwin_wchstr));
+extern NCURSES_EXPORT(int) mvwinnwstr (WINDOW *, int, int, wchar_t *, int)
+		 NCURSES_EXPORT_ABI60(mvwinnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinnwstr (WINDOW *, int, int, wchar_t *, int) _NCURSES_EXPORT_ABI60(mvwinnwstr));
+extern NCURSES_EXPORT(int) mvwins_nwstr (WINDOW *, int,int, const wchar_t *,int)
+		 NCURSES_EXPORT_ABI60(mvwins_nwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwins_nwstr (WINDOW *, int,int, const wchar_t *,int) _NCURSES_EXPORT_ABI60(mvwins_nwstr));
+extern NCURSES_EXPORT(int) mvwins_wch (WINDOW *, int, int, const cchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwins_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwins_wch (WINDOW *, int, int, const cchar_t *) _NCURSES_EXPORT_ABI60(mvwins_wch));
+extern NCURSES_EXPORT(int) mvwins_wstr (WINDOW *, int, int, const wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwins_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwins_wstr (WINDOW *, int, int, const wchar_t *) _NCURSES_EXPORT_ABI60(mvwins_wstr));
+extern NCURSES_EXPORT(int) mvwinwstr (WINDOW *, int, int, wchar_t *)
+		 NCURSES_EXPORT_ABI60(mvwinwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwinwstr (WINDOW *, int, int, wchar_t *) _NCURSES_EXPORT_ABI60(mvwinwstr));
+extern NCURSES_EXPORT(int) mvwvline_set (WINDOW *, int,int, const cchar_t *,int)
+		 NCURSES_EXPORT_ABI60(mvwvline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) mvwvline_set (WINDOW *, int,int, const cchar_t *,int) _NCURSES_EXPORT_ABI60(mvwvline_set));
+extern NCURSES_EXPORT(int) pecho_wchar (WINDOW *, const cchar_t *) NCURSES_EXPORT_ABI60(pecho_wchar, );
+ifTAPI(extern NCURSES_EXPORT(int) pecho_wchar (WINDOW *, const cchar_t *) _NCURSES_EXPORT_ABI60(pecho_wchar));
+extern NCURSES_EXPORT(int) setcchar (cchar_t *, const wchar_t *, const attr_t, NCURSES_PAIRS_T, const void *) NCURSES_EXPORT_ABI60(setcchar, );
+ifTAPI(extern NCURSES_EXPORT(int) setcchar (cchar_t *, const wchar_t *, const attr_t, NCURSES_PAIRS_T, const void *) _NCURSES_EXPORT_ABI60(setcchar));
+extern NCURSES_EXPORT(int) slk_wset (int, const wchar_t *, int) NCURSES_EXPORT_ABI60(slk_wset, );
+ifTAPI(extern NCURSES_EXPORT(int) slk_wset (int, const wchar_t *, int) _NCURSES_EXPORT_ABI60(slk_wset));
+extern NCURSES_EXPORT(attr_t) term_attrs (void) NCURSES_EXPORT_ABI60(term_attrs, );
+ifTAPI(extern NCURSES_EXPORT(attr_t) term_attrs (void) _NCURSES_EXPORT_ABI60(term_attrs));
+extern NCURSES_EXPORT(int) unget_wch (const wchar_t) NCURSES_EXPORT_ABI60(unget_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) unget_wch (const wchar_t) _NCURSES_EXPORT_ABI60(unget_wch));
+extern NCURSES_EXPORT(int) vid_attr (attr_t, NCURSES_PAIRS_T, void *) NCURSES_EXPORT_ABI60(vid_attr, );
+ifTAPI(extern NCURSES_EXPORT(int) vid_attr (attr_t, NCURSES_PAIRS_T, void *) _NCURSES_EXPORT_ABI60(vid_attr));
+extern NCURSES_EXPORT(int) vid_puts (attr_t, NCURSES_PAIRS_T, void *, NCURSES_OUTC) NCURSES_EXPORT_ABI60(vid_puts, );
+ifTAPI(extern NCURSES_EXPORT(int) vid_puts (attr_t, NCURSES_PAIRS_T, void *, NCURSES_OUTC) _NCURSES_EXPORT_ABI60(vid_puts));
+extern NCURSES_EXPORT(int) vline_set (const cchar_t *, int)
+		 NCURSES_EXPORT_ABI60(vline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) vline_set (const cchar_t *, int) _NCURSES_EXPORT_ABI60(vline_set));
+extern NCURSES_EXPORT(int) wadd_wch (WINDOW *,const cchar_t *) NCURSES_EXPORT_ABI60(wadd_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) wadd_wch (WINDOW *,const cchar_t *) _NCURSES_EXPORT_ABI60(wadd_wch));
+extern NCURSES_EXPORT(int) wadd_wchnstr (WINDOW *,const cchar_t *,int) NCURSES_EXPORT_ABI60(wadd_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wadd_wchnstr (WINDOW *,const cchar_t *,int) _NCURSES_EXPORT_ABI60(wadd_wchnstr));
+extern NCURSES_EXPORT(int) wadd_wchstr (WINDOW *,const cchar_t *)
+		 NCURSES_EXPORT_ABI60(wadd_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wadd_wchstr (WINDOW *,const cchar_t *) _NCURSES_EXPORT_ABI60(wadd_wchstr));
+extern NCURSES_EXPORT(int) waddnwstr (WINDOW *,const wchar_t *,int) NCURSES_EXPORT_ABI60(waddnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddnwstr (WINDOW *,const wchar_t *,int) _NCURSES_EXPORT_ABI60(waddnwstr));
+extern NCURSES_EXPORT(int) waddwstr (WINDOW *,const wchar_t *)
+		 NCURSES_EXPORT_ABI60(waddwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) waddwstr (WINDOW *,const wchar_t *) _NCURSES_EXPORT_ABI60(waddwstr));
+extern NCURSES_EXPORT(int) wbkgrnd (WINDOW *,const cchar_t *) NCURSES_EXPORT_ABI60(wbkgrnd, );
+ifTAPI(extern NCURSES_EXPORT(int) wbkgrnd (WINDOW *,const cchar_t *) _NCURSES_EXPORT_ABI60(wbkgrnd));
+extern NCURSES_EXPORT(void) wbkgrndset (WINDOW *,const cchar_t *) NCURSES_EXPORT_ABI60(wbkgrndset, );
+ifTAPI(extern NCURSES_EXPORT(void) wbkgrndset (WINDOW *,const cchar_t *) _NCURSES_EXPORT_ABI60(wbkgrndset));
+extern NCURSES_EXPORT(int) wborder_set (WINDOW *,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*) NCURSES_EXPORT_ABI60(wborder_set, );
+ifTAPI(extern NCURSES_EXPORT(int) wborder_set (WINDOW *,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*,const cchar_t*) _NCURSES_EXPORT_ABI60(wborder_set));
+extern NCURSES_EXPORT(int) wecho_wchar (WINDOW *, const cchar_t *) NCURSES_EXPORT_ABI60(wecho_wchar, );
+ifTAPI(extern NCURSES_EXPORT(int) wecho_wchar (WINDOW *, const cchar_t *) _NCURSES_EXPORT_ABI60(wecho_wchar));
+extern NCURSES_EXPORT(int) wget_wch (WINDOW *, wint_t *) NCURSES_EXPORT_ABI60(wget_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) wget_wch (WINDOW *, wint_t *) _NCURSES_EXPORT_ABI60(wget_wch));
+extern NCURSES_EXPORT(int) wget_wstr (WINDOW *, wint_t *)
+		 NCURSES_EXPORT_ABI60(wget_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wget_wstr (WINDOW *, wint_t *) _NCURSES_EXPORT_ABI60(wget_wstr));
+extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *)
+		 NCURSES_EXPORT_ABI60(wgetbkgrnd, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *) _NCURSES_EXPORT_ABI60(wgetbkgrnd));
+extern NCURSES_EXPORT(int) wgetn_wstr (WINDOW *,wint_t *, int) NCURSES_EXPORT_ABI60(wgetn_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wgetn_wstr (WINDOW *,wint_t *, int) _NCURSES_EXPORT_ABI60(wgetn_wstr));
+extern NCURSES_EXPORT(int) whline_set (WINDOW *, const cchar_t *, int) NCURSES_EXPORT_ABI60(whline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) whline_set (WINDOW *, const cchar_t *, int) _NCURSES_EXPORT_ABI60(whline_set));
+extern NCURSES_EXPORT(int) win_wch (WINDOW *, cchar_t *) NCURSES_EXPORT_ABI60(win_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) win_wch (WINDOW *, cchar_t *) _NCURSES_EXPORT_ABI60(win_wch));
+extern NCURSES_EXPORT(int) win_wchnstr (WINDOW *, cchar_t *, int) NCURSES_EXPORT_ABI60(win_wchnstr, );
+ifTAPI(extern NCURSES_EXPORT(int) win_wchnstr (WINDOW *, cchar_t *, int) _NCURSES_EXPORT_ABI60(win_wchnstr));
+extern NCURSES_EXPORT(int) win_wchstr (WINDOW *, cchar_t *)
+		 NCURSES_EXPORT_ABI60(win_wchstr, );
+ifTAPI(extern NCURSES_EXPORT(int) win_wchstr (WINDOW *, cchar_t *) _NCURSES_EXPORT_ABI60(win_wchstr));
+extern NCURSES_EXPORT(int) winnwstr (WINDOW *, wchar_t *, int) NCURSES_EXPORT_ABI60(winnwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winnwstr (WINDOW *, wchar_t *, int) _NCURSES_EXPORT_ABI60(winnwstr));
+extern NCURSES_EXPORT(int) wins_nwstr (WINDOW *, const wchar_t *, int) NCURSES_EXPORT_ABI60(wins_nwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wins_nwstr (WINDOW *, const wchar_t *, int) _NCURSES_EXPORT_ABI60(wins_nwstr));
+extern NCURSES_EXPORT(int) wins_wch (WINDOW *, const cchar_t *) NCURSES_EXPORT_ABI60(wins_wch, );
+ifTAPI(extern NCURSES_EXPORT(int) wins_wch (WINDOW *, const cchar_t *) _NCURSES_EXPORT_ABI60(wins_wch));
+extern NCURSES_EXPORT(int) wins_wstr (WINDOW *, const wchar_t *)
+		 NCURSES_EXPORT_ABI60(wins_wstr, );
+ifTAPI(extern NCURSES_EXPORT(int) wins_wstr (WINDOW *, const wchar_t *) _NCURSES_EXPORT_ABI60(wins_wstr));
+extern NCURSES_EXPORT(int) winwstr (WINDOW *, wchar_t *) NCURSES_EXPORT_ABI60(winwstr, );
+ifTAPI(extern NCURSES_EXPORT(int) winwstr (WINDOW *, wchar_t *) _NCURSES_EXPORT_ABI60(winwstr));
+extern NCURSES_EXPORT(wchar_t*) wunctrl (cchar_t *) NCURSES_EXPORT_ABI60(wunctrl, );
+ifTAPI(extern NCURSES_EXPORT(wchar_t*) wunctrl (cchar_t *) _NCURSES_EXPORT_ABI60(wunctrl));
+extern NCURSES_EXPORT(int) wvline_set (WINDOW *, const cchar_t *, int) NCURSES_EXPORT_ABI60(wvline_set, );
+ifTAPI(extern NCURSES_EXPORT(int) wvline_set (WINDOW *, const cchar_t *, int) _NCURSES_EXPORT_ABI60(wvline_set));
+#endif /* NCURSE_WIDECHAR */
+#endif /* __APPLE__ */
+
 #ifndef NCURSES_NOMACROS
 
 /*
@@ -1189,7 +2053,7 @@ extern NCURSES_EXPORT(int) NCURSES_SP_NAME(use_legacy_coding) (SCREEN*, int);	/*
 #define wattroff(win,at)	wattr_off(win, NCURSES_CAST(attr_t, at), NULL)
 
 #if !NCURSES_OPAQUE
-#if NCURSES_WIDECHAR && 0
+#if NCURSES_WIDECHAR && 1
 #define wattrset(win,at)	((win) \
 				  ? ((win)->_color = NCURSES_CAST(int, PAIR_NUMBER(at)), \
                                      (win)->_attrs = NCURSES_CAST(attr_t, at), \
@@ -1337,7 +2201,7 @@ extern NCURSES_EXPORT(int) NCURSES_SP_NAME(use_legacy_coding) (SCREEN*, int);	/*
 #define slk_attr_on(a,v)		((v) ? ERR : slk_attron(a))
 
 #if !NCURSES_OPAQUE
-#if NCURSES_WIDECHAR && 0
+#if NCURSES_WIDECHAR && 1
 #define wattr_set(win,a,p,opts)		(((win) \
 					  ? ((win)->_attrs = ((a) & ~A_COLOR), \
 					     (win)->_color = (p)) \

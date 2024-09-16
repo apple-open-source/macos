@@ -30,6 +30,8 @@
 #ifndef __AVAILABILITY_INTERNAL_PRIVATE__
 #define __AVAILABILITY_INTERNAL_PRIVATE__
 
+#include <AvailabilityInternal.h>
+
 /*
  * SPI Availability
  *
@@ -65,21 +67,5 @@
    
  #endif /* __has_attribute(availability) */
 #endif /*  #if defined(__has_feature) && defined(__has_attribute) */
-
-/* 
- * Evaluate to nothing for compilers that don't support clang language extensions.
- */
-
-#ifndef __SPI_AVAILABLE
-  #define __SPI_AVAILABLE(...)
-#endif
-
-#ifndef __SPI_DEPRECATED
-  #define __SPI_DEPRECATED(...)
-#endif
-
-#ifndef __SPI_DEPRECATED_WITH_REPLACEMENT
-  #define __SPI_DEPRECATED_WITH_REPLACEMENT(...)
-#endif
 
 #endif /* __AVAILABILITY_INTERNAL_PRIVATE__ */

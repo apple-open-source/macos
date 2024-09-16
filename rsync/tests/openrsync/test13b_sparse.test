@@ -1,0 +1,36 @@
+#! /bin/sh
+
+set -e
+set -u
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf dir1 dir2 dir3
+# make the copy-from-here tree
+mkdir dir1
+cd dir1
+# True sparse file.
+${tstdir-.}/sparseme l
+# make the tree we want to compare to
+mkdir ../dir2
+cd ../dir2
+${tstdir-.}/sparseme l
+
+cd ..
+mkdir dir3
+
+rsync -a -- dir1/ dir3
+blocks1=`find dir3/sparsefile -ls | awk '{print $2}'`
+rm dir3/sparsefile
+rsync -a --sparse -- dir1/ dir3
+blocks2=`find dir3/sparsefile -ls | awk '{print $2}'`
+
+find dir[123]/sparsefile -ls
+printf "Number of blocks: plain %d, with --sparse %d\n" "$blocks1" "$blocks2"
+
+if [ ! "$blocks1" -gt "$blocks2" ] ; then
+    printf "rsync -S blocks not less than normal blocks - error\n" 2>&1
+    exit 1
+fi
+exit 0

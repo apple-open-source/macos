@@ -29,6 +29,7 @@
 
 #include "PageClient.h"
 #include "WebKitWebResourceLoadManager.h"
+#include "WebPageProxyInternals.h"
 #include "WebPreferences.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SearchPopupMenu.h>
@@ -50,12 +51,12 @@ String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent
     return WebCore::standardUserAgent(applicationNameForUserAgent);
 }
 
-void WebPageProxy::saveRecentSearches(const String&, const Vector<WebCore::RecentSearch>&)
+void WebPageProxy::saveRecentSearches(IPC::Connection&, const String&, const Vector<WebCore::RecentSearch>&)
 {
     notImplemented();
 }
 
-void WebPageProxy::loadRecentSearches(const String&, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
+void WebPageProxy::loadRecentSearches(IPC::Connection&, const String&, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
 {
     notImplemented();
     completionHandler({ });
@@ -83,6 +84,14 @@ void WebPageProxy::didFinishLoadForResource(WebCore::ResourceLoaderIdentifier re
 {
     if (auto* manager = pageClient().webResourceLoadManager())
         manager->didFinishLoad(resourceID, frameID, WTFMove(error));
+}
+
+void WebPageProxy::scheduleActivityStateUpdate()
+{
+    if (internals().activityStateChangeTimer.isActive())
+        return;
+
+    internals().activityStateChangeTimer.startOneShot(0_s);
 }
 
 } // namespace WebKit

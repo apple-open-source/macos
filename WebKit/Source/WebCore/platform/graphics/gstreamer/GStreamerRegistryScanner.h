@@ -34,6 +34,10 @@
 #include <wtf/text/AtomStringHash.h>
 #include <wtf/text/StringHash.h>
 
+#if USE(GSTREAMER_WEBRTC)
+#include <gst/rtp/rtp.h>
+#endif
+
 namespace WebCore {
 class ContentType;
 
@@ -109,6 +113,7 @@ public:
     RTCRtpCapabilities videoRtpCapabilities(Configuration);
     Vector<RTCRtpCapabilities::HeaderExtensionCapability> audioRtpExtensions();
     Vector<RTCRtpCapabilities::HeaderExtensionCapability> videoRtpExtensions();
+    RegistryLookupResult isRtpPacketizerSupported(const String& encoding);
 #endif
 
 protected:
@@ -135,7 +140,7 @@ protected:
         GList* factory(Type) const;
 
         enum class CheckHardwareClassifier : bool { No, Yes };
-        RegistryLookupResult hasElementForMediaType(Type, const char* capsString, CheckHardwareClassifier = CheckHardwareClassifier::No, std::optional<Vector<String>> disallowedList = std::nullopt) const;
+        RegistryLookupResult hasElementForMediaType(Type, const ASCIILiteral& capsString, CheckHardwareClassifier = CheckHardwareClassifier::No, std::optional<Vector<String>> disallowedList = std::nullopt) const;
         RegistryLookupResult hasElementForCaps(Type, const GRefPtr<GstCaps>&, CheckHardwareClassifier = CheckHardwareClassifier::No, std::optional<Vector<String>> disallowedList = std::nullopt) const;
 
         GList* audioDecoderFactories { nullptr };
@@ -158,7 +163,7 @@ protected:
 
     struct GstCapsWebKitMapping {
         ElementFactories::Type elementType;
-        const char* capsString;
+        ASCIILiteral capsString;
         Vector<AtomString> webkitMimeTypes;
         Vector<AtomString> webkitCodecPatterns;
     };
@@ -175,23 +180,26 @@ private:
     void fillAudioRtpCapabilities(Configuration, RTCRtpCapabilities&);
     void fillVideoRtpCapabilities(Configuration, RTCRtpCapabilities&);
 
-    Vector<const char*> m_allAudioRtpExtensions { "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-        "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
-        "urn:ietf:params:rtp-hdrext:sdes:mid",
-        "urn:ietf:params:rtp-hdrext:ssrc-audio-level"
+#define WEBRTC_EXPERIMENTS_HDREXT "http://www.webrtc.org/experiments/rtp-hdrext/"
+    Vector<const char*> m_commonRtpExtensions {
+        "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+        WEBRTC_EXPERIMENTS_HDREXT "abs-send-time",
+        GST_RTP_HDREXT_BASE "sdes:mid",
+        GST_RTP_HDREXT_BASE "sdes:repaired-rtp-stream-id",
+        GST_RTP_HDREXT_BASE "sdes:rtp-stream-id",
+        GST_RTP_HDREXT_BASE "toffset"
     };
-    Vector<const char*> m_allVideoRtpExtensions { "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-        "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
-        "http://www.webrtc.org/experiments/rtp-hdrext/color-space",
-        "http://www.webrtc.org/experiments/rtp-hdrext/playout-delay",
-        "http://www.webrtc.org/experiments/rtp-hdrext/video-content-type",
-        "http://www.webrtc.org/experiments/rtp-hdrext/video-timing",
-        "urn:3gpp:video-orientation",
-        "urn:ietf:params:rtp-hdrext:sdes:mid",
-        "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id",
-        "urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
-        "urn:ietf:params:rtp-hdrext:toffset",
+    Vector<const char*> m_allAudioRtpExtensions {
+        GST_RTP_HDREXT_BASE "ssrc-audio-level"
     };
+    Vector<const char*> m_allVideoRtpExtensions {
+        WEBRTC_EXPERIMENTS_HDREXT "color-space",
+        WEBRTC_EXPERIMENTS_HDREXT "playout-delay",
+        WEBRTC_EXPERIMENTS_HDREXT "video-content-type",
+        WEBRTC_EXPERIMENTS_HDREXT "video-timing",
+        "urn:3gpp:video-orientation"
+    };
+#undef WEBRTC_EXPERIMENTS_HDREXT
 
     std::optional<Vector<RTCRtpCapabilities::HeaderExtensionCapability>> m_audioRtpExtensions;
     std::optional<Vector<RTCRtpCapabilities::HeaderExtensionCapability>> m_videoRtpExtensions;

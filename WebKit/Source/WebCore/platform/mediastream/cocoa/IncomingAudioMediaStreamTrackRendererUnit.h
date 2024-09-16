@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
 
 #include "BaseAudioMediaStreamTrackRendererUnit.h"
 #include "CAAudioStreamDescription.h"
@@ -75,7 +75,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     // LoggerHelper.
     const Logger& logger() const final;
-    const char* logClassName() const final { return "IncomingAudioMediaStreamTrackRendererUnit"; }
+    ASCIILiteral logClassName() const final { return "IncomingAudioMediaStreamTrackRendererUnit"_s; }
     WTFLogChannel& logChannel() const final;
     const void* logIdentifier() const final;
 #endif
@@ -102,4 +102,4 @@ private:
 
 }
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)

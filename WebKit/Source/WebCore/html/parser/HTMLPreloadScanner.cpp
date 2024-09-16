@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
- * Copyright (C) 2010-2021 Google Inc. All Rights Reserved.
+ * Copyright (C) 2010-2023 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +46,9 @@
 #include "SecurityPolicy.h"
 #include "Settings.h"
 #include "SizesAttributeParser.h"
-#include <wtf/CheckedRef.h>
 #include <wtf/MainThread.h>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/WeakRef.h>
 
 namespace WebCore {
 
@@ -119,9 +119,8 @@ public:
 
         Ref document = protectedDocument();
         for (auto& attribute : attributes) {
-            auto knownAttributeName = AtomString::lookUp(attribute.name.data(), attribute.name.size());
-            StringView attributeValue { attribute.value.data(), static_cast<unsigned>(attribute.value.size()) };
-            processAttribute(knownAttributeName, attributeValue, pictureState);
+            auto knownAttributeName = AtomString::lookUp(attribute.name.span());
+            processAttribute(knownAttributeName, attribute.value.span(), pictureState);
         }
 
         if (m_tagId == TagId::Source && !pictureState.isEmpty() && !pictureState.last() && m_mediaMatched && m_typeMatched && !m_srcSetAttribute.isEmpty()) {
@@ -455,6 +454,8 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
                 --m_templateCount;
             return;
         }
+        if (m_templateCount)
+            return;
         if (tagId == TagId::Style) {
             if (m_inStyle)
                 m_cssScanner.reset();
@@ -468,8 +469,19 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
     case HTMLToken::Type::StartTag: {
         TagId tagId = tagIdFor(token.name());
         if (tagId == TagId::Template) {
-            ++m_templateCount;
-            return;
+            bool isDeclarativeShadowRoot = false;
+            static constexpr UChar shadowRootAsUChar[] = { 's', 'h', 'a', 'd', 'o', 'w', 'r', 'o', 'o', 't', 'm', 'o', 'd', 'e' };
+            const auto* shadowRootModeAttribute = findAttribute(token.attributes(), shadowRootAsUChar);
+            if (shadowRootModeAttribute) {
+                String shadowRootValue(shadowRootModeAttribute->value);
+                isDeclarativeShadowRoot = equalIgnoringASCIICase(shadowRootValue, "open"_s) || equalIgnoringASCIICase(shadowRootValue, "closed"_s);
+            }
+            // If this is a declarative shadow root <template shadowrootmode> element
+            // *and* we're not already inside a non-Declartive Shadow DOM (DSD)
+            // <template> element, then we leave the template count at zero.
+            // Otherwise, increment it.
+            if (!(isDeclarativeShadowRoot && !m_templateCount))
+                ++m_templateCount;
         }
         if (m_templateCount)
             return;
@@ -510,7 +522,7 @@ void TokenPreloadScanner::updatePredictedBaseURL(const HTMLToken& token, bool sh
         return;
     URL temp { m_documentURL, StringImpl::create8BitIfPossible(hrefAttribute->value) };
     if (!shouldRestrictBaseURLSchemes || SecurityPolicy::isBaseURLSchemeAllowed(temp))
-        m_predictedBaseElementURL = WTFMove(temp).isolatedCopy();
+        m_predictedBaseElementURL = WTFMove(temp).isValid() ? WTFMove(temp).isolatedCopy() : URL();
 }
 
 HTMLPreloadScanner::HTMLPreloadScanner(const HTMLParserOptions& options, const URL& documentURL, float deviceScaleFactor)
@@ -538,7 +550,7 @@ void HTMLPreloadScanner::scan(HTMLResourcePreloader& preloader, Document& docume
 
     while (auto token = m_tokenizer.nextToken(m_source)) {
         if (token->type() == HTMLToken::Type::StartTag)
-            m_tokenizer.updateStateFor(AtomString::lookUp(token->name().data(), token->name().size()));
+            m_tokenizer.updateStateFor(AtomString::lookUp(token->name().span()));
         m_scanner.scan(*token, requests, document);
     }
 

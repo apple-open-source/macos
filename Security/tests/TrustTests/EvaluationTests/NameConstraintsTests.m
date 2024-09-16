@@ -31,6 +31,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecTrustInternal.h>
 #include <Security/SecItem.h>
 #include <utilities/SecCFWrappers.h>
 
@@ -270,6 +271,38 @@ errOut:
     CFReleaseNull(leaf4);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
+}
+
+- (void)testNameConstraintsPlist {
+    NSURL *testPlist = nil;
+    NSArray *testsArray = nil;
+
+    testPlist = [[NSBundle bundleForClass:[self class]] URLForResource:@"debugging" withExtension:@"plist"
+                                                          subdirectory:@"TestTrustEvaluation-data"];
+    if (!testPlist) {
+        testPlist = [[NSBundle bundleForClass:[self class]] URLForResource:@"NameConstraints" withExtension:@"plist"
+                                                              subdirectory:@"TestTrustEvaluation-data"];
+    }
+    if (!testPlist) {
+        fail("Failed to get tests plist from %@", @"TestTrustEvaluation-data");
+        return;
+    }
+
+    testsArray = [NSArray arrayWithContentsOfURL: testPlist];
+    if (!testsArray) {
+        fail("Failed to create array from plist");
+        return;
+    }
+
+    [testsArray enumerateObjectsUsingBlock:^(NSDictionary *testDict, NSUInteger idx, BOOL * _Nonnull stop) {
+        TestTrustEvaluation *testObj = [[TestTrustEvaluation alloc] initWithTrustDictionary:testDict];
+        XCTAssertNotNil(testObj, "failed to create test object for %lu", (unsigned long)idx);
+
+        NSError *testError = nil;
+        XCTAssert([testObj evaluateForExpectedResults:&testError], "Test %@ failed: %@", testObj.fullTestName, testError);
+        NSString *failDesc = CFBridgingRelease(SecTrustCopyFailureDescription([testObj trust]));
+        XCTAssert([failDesc containsString:(id)kSecPolicyCheckNameConstraints]);
+    }];
 }
 
 /* MARK: BetterTLS tests */

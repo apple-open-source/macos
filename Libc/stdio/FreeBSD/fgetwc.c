@@ -77,7 +77,7 @@ __fgetwc(FILE *fp, locale_t loc)
 {
 	wchar_t wc;
 	size_t nconv;
-	struct __xlocale_st_runelocale *xrl = loc->__lc_ctype;
+	struct xlocale_ctype *xrl = XLOCALE_CTYPE(loc);
 	size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict, size_t, mbstate_t * __restrict, locale_t) = xrl->__mbrtowc;
 
 	if (fp->_r <= 0 && __srefill(fp))

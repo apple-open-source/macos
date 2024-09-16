@@ -35,6 +35,7 @@
 #import "SecDbKeychainSerializedSecretData.h"
 #import "SecDbKeychainSerializedAKSWrappedKey.h"
 #import "OTConstants.h"
+#import "Affordance_OTConstants.h"
 
 #import <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
@@ -1185,6 +1186,71 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(return_uuid);
     CFReleaseNull(second_return_uuid);
     CFReleaseNull(result);
+}
+
+- (void)testSecItemCopyMatchingHostorSubdomain
+{
+    NSString* baseUrl = @"origin.example.com";
+    
+    NSArray *allowedAccessGroups = @[
+        @"com.apple.password-manager.personal"
+    ];
+    SecurityClient client = {
+        .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
+    };
+
+    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccount : @"TestAccount",
+        (id)kSecAttrServer : baseUrl,
+        (id)kSecUseDataProtectionKeychain : @(YES)
+    }, &client, NULL, NULL), "Should insert item to find");
+    
+    CFTypeRef result = NULL;
+    CFErrorRef error = NULL;
+    NSDictionary* findHostQuery = @{ (id)kSecClass: (id)kSecClassInternetPassword,                                                       
+                                     (id)kSecMatchHostOrSubdomainOfHost : @"example.com",
+                                     (id)kSecReturnAttributes : @YES,
+                                     (id)kSecMatchLimit : (id)kSecMatchLimitOne
+    };
+    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
+    XCTAssertNil((__bridge id)error, @"error should be nil");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    CFStringRef server = CFDictionaryGetValue(result, kSecAttrServer);
+    XCTAssertTrue(CFEqual(server, (__bridge CFStringRef)baseUrl), "server should our input server");
+    CFReleaseNull(result);
+
+    result = NULL;
+    error = NULL;
+    findHostQuery = @{ (id)kSecClass: (id)kSecClassInternetPassword,
+                       (id)kSecMatchHostOrSubdomainOfHost : baseUrl,
+                       (id)kSecReturnAttributes : @YES,
+                       (id)kSecMatchLimit : (id)kSecMatchLimitOne
+    };
+    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
+    XCTAssertNil((__bridge id)error, @"error should be nil");
+    XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
+    XCTAssertTrue(isDictionary(result), "result should be a dictionary");
+    
+    server = CFDictionaryGetValue(result, kSecAttrServer);
+    XCTAssertTrue(CFEqual(server, (__bridge CFStringRef)baseUrl), "server should our input server");
+    CFReleaseNull(result);
+
+    result = NULL;
+    error = NULL;
+    findHostQuery = @{ (id)kSecClass: (id)kSecClassInternetPassword,                                                       
+                       (id)kSecMatchHostOrSubdomainOfHost : @"foobar.com",
+                       (id)kSecReturnAttributes : @YES,
+                       (id)kSecMatchLimit : (id)kSecMatchLimitOne
+    };
+    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), false, @"Should not found item in keychain");
+    XCTAssertNotNil((__bridge id)error, @"error should be populated");
+    XCTAssertEqual(errSecItemNotFound, CFErrorGetCode(error), "expecting no matching items found");
+    
+    CFReleaseNull(result);
+    CFReleaseNull(error);
 }
 
 - (void)testSecItemCopyMatchingDoesNotReturnPersistRefs

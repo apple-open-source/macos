@@ -46,9 +46,9 @@ public:
     using Cache = std::array<Slot, capacity>;
 
     template<typename CharacterType>
-    ALWAYS_INLINE Ref<AtomStringImpl> makeIdentifier(const CharacterType* characters, unsigned length)
+    ALWAYS_INLINE Ref<AtomStringImpl> makeIdentifier(std::span<const CharacterType> characters)
     {
-        return make(characters, length);
+        return make(characters);
     }
 
     ALWAYS_INLINE void clear()
@@ -60,7 +60,7 @@ public:
 
 private:
     template<typename CharacterType>
-    Ref<AtomStringImpl> make(const CharacterType*, unsigned length);
+    Ref<AtomStringImpl> make(std::span<const CharacterType>);
 
     ALWAYS_INLINE Slot& cacheSlot(UChar firstCharacter, UChar lastCharacter, UChar length)
     {

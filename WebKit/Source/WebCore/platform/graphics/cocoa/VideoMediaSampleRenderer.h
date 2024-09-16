@@ -25,8 +25,6 @@
 
 #pragma once
 
-OBJC_CLASS AVSampleBufferDisplayLayer;
-
 #include "ProcessIdentity.h"
 #include "SampleMap.h"
 #include <wtf/Function.h>
@@ -34,13 +32,21 @@ OBJC_CLASS AVSampleBufferDisplayLayer;
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
+OBJC_CLASS AVSampleBufferDisplayLayer;
+OBJC_PROTOCOL(WebSampleBufferVideoRendering);
+typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
+
+#if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
+typedef struct __CVBuffer* CVPixelBufferRef;
+#endif
+
 namespace WebCore {
 
 class WebCoreDecompressionSession;
 
 class VideoMediaSampleRenderer : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoMediaSampleRenderer> {
 public:
-    static Ref<VideoMediaSampleRenderer> create(AVSampleBufferDisplayLayer* layer) { return adoptRef(*new VideoMediaSampleRenderer(layer)); }
+    static Ref<VideoMediaSampleRenderer> create(WebSampleBufferVideoRendering *renderer) { return adoptRef(*new VideoMediaSampleRenderer(renderer)); }
     ~VideoMediaSampleRenderer();
 
     bool isReadyForMoreMediaData() const;
@@ -53,7 +59,8 @@ public:
     void expectMinimumUpcomingSampleBufferPresentationTime(const MediaTime&);
     void resetUpcomingSampleBufferPresentationTimeExpectations();
 
-    AVSampleBufferDisplayLayer* displayLayer() const { return m_displayLayer.get(); }
+    WebSampleBufferVideoRendering *renderer() const { return m_renderer.get(); }
+    AVSampleBufferDisplayLayer *displayLayer() const;
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     RetainPtr<CVPixelBufferRef> copyDisplayedPixelBuffer() const;
     CGRect bounds() const;
@@ -62,11 +69,11 @@ public:
     void setResourceOwner(const ProcessIdentity& resourceOwner) { m_resourceOwner = resourceOwner; }
 
 private:
-    VideoMediaSampleRenderer(AVSampleBufferDisplayLayer*);
+    VideoMediaSampleRenderer(WebSampleBufferVideoRendering *);
     void resetReadyForMoreSample();
     void initializeDecompressionSession();
 
-    RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
+    RetainPtr<WebSampleBufferVideoRendering> m_renderer;
     RefPtr<WebCoreDecompressionSession> m_decompressionSession;
     bool m_displayLayerReadyForMoreSample { false };
     bool m_decompressionSessionReadyForMoreSample { false };

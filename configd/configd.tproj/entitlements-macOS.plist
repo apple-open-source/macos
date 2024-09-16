@@ -10,6 +10,8 @@
 	<true/>
 	<key>com.apple.private.corewifi</key>
 	<true/>
+	<key>com.apple.private.IPConfigurationHelper.PvD</key>
+	<true/>
 	<key>com.apple.private.necp.match</key>
 	<true/>
 	<key>com.apple.private.necp.policies</key>
@@ -17,6 +19,8 @@
 	<key>com.apple.private.network.management.control</key>
 	<true/>
 	<key>com.apple.private.network.management.data</key>
+	<true/>
+	<key>com.apple.private.network.ultraconstrained</key>
 	<true/>
 	<key>com.apple.private.tcc.allow</key>
 	<array>

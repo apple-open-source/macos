@@ -26,10 +26,10 @@
 
 #pragma once
 
-#include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
+#include <wtf/WeakRef.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -38,6 +38,7 @@ namespace WebCore {
 class CSSCustomPropertyValue;
 class CSSVariableData;
 class Document;
+class WeakPtrImplWithEventTargetData;
 
 enum class ConstantProperty {
     SafeAreaInsetTop,

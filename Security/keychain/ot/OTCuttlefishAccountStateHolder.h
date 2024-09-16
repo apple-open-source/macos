@@ -11,7 +11,7 @@
 @class OTAccountSettings;
 
 extern NSString* _Nonnull OTCuttlefishContextErrorDomain;
-typedef NS_ENUM(uint32_t, OTCuttlefishContextErrors) {
+typedef NS_ERROR_ENUM(OTCuttlefishContextErrorDomain, OTCuttlefishContextErrors) {
     OTCCNoExistingPeerID = 0,
     OTCCNoAccountSettings = 1,
 };

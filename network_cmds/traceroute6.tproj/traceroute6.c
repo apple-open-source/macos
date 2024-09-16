@@ -295,8 +295,8 @@ __unused static char copyright[] =
 #define freehostent(x)
 #endif
 
-static u_char	packet[512];		/* last inbound (icmp) packet */
-static char 	*outpacket;		/* last output packet */
+static u_char	packet[MAXPACKET];		/* last inbound (icmp) packet */
+static u_char 	*outpacket;		/* last output packet */
 
 int	main(int, char *[]);
 int	wait_for_reply(int, pcap_t *, struct msghdr *, bool *);
@@ -314,7 +314,6 @@ int	packet_ok(struct msghdr *, int, int, u_char *, u_char *);
 int	tcp_packet_ok(struct msghdr *, int, int);
 void	print(struct msghdr *, int);
 const char *inetname(struct sockaddr *);
-u_int16_t in_cksum(u_int16_t *addr, int);
 u_int16_t udp_cksum(struct sockaddr_in6 *, struct sockaddr_in6 *,
     void *, u_int32_t);
 u_int16_t tcp_chksum(struct sockaddr_in6 *, struct sockaddr_in6 *,
@@ -421,7 +420,7 @@ main(argc, argv)
 	seq = 0;
 	ident = htons(getpid() & 0xffff); /* same as ping6 */
 
-	while ((ch = getopt(argc, argv, "aA:deEf:g:Ilm:nNp:q:rs:TUvw:")) != -1)
+	while ((ch = getopt(argc, argv, "aA:deEf:g:i:Ilm:nNp:q:rs:t:TUvw:")) != -1)
 		switch (ch) {
 		case 'a':
 			as_path = 1;
@@ -485,6 +484,18 @@ main(argc, argv)
 #endif
 			freehostent(hp);
 			break;
+		case 'i': {
+			ep = NULL;
+			errno = 0;
+			unsigned long val = strtoul(optarg, &ep, 0);
+			if (errno || !*optarg || *ep || val > 65535) {
+				fprintf(stderr,
+				    "traceroute6: invalid ident.\n");
+				exit(1);
+			}
+			ident = (u_int16_t)val;
+			break;
+		}
 		case 'I':
 			useproto = IPPROTO_ICMPV6;
 			break;
@@ -705,9 +716,9 @@ main(argc, argv)
 		    minlen, MAXPACKET);
 		exit(1);
 	}
-	outpacket = malloc(datalen);
-	if (!outpacket) {
-		perror("malloc");
+	outpacket = calloc(MAXPACKET, sizeof(u_char));
+	if (outpacket == NULL) {
+		perror("calloc");
 		exit(1);
 	}
 	(void) bzero((char *)outpacket, datalen);
@@ -1568,38 +1579,6 @@ inetname(struct sockaddr *sa)
 	    NI_NUMERICHOST) != 0)
 		strlcpy(line, "invalid", sizeof(line));
 	return line;
-}
-
-u_int16_t
-in_cksum(u_int16_t *addr, int len)
-{
-	int nleft = len;
-	u_int16_t *w = addr;
-	u_int16_t answer;
-	int sum = 0;
-
-	/*
-	 *  Our algorithm is simple, using a 32 bit accumulator (sum),
-	 *  we add sequential 16 bit words to it, and at the end, fold
-	 *  back all the carry bits from the top 16 bits into the lower
-	 *  16 bits.
-	 */
-	while (nleft > 1)  {
-		sum += *w++;
-		nleft -= 2;
-	}
-
-	/* mop up an odd byte, if necessary */
-	if (nleft == 1)
-		sum += *(u_char *)w;
-
-	/*
-	 * add back carry outs from top 16 bits to low 16 bits
-	 */
-	sum = (sum >> 16) + (sum & 0xffff);	/* add hi 16 to low 16 */
-	sum += (sum >> 16);			/* add carry */
-	answer = ~sum;				/* truncate to 16 bits */
-	return (answer);
 }
 
 u_int16_t

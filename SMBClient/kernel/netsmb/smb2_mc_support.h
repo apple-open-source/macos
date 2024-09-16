@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2019 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,16 +33,26 @@ void smb2_mc_destroy(
         struct session_network_interface_info* session_table);
 void smb2_mc_init(
         struct session_network_interface_info* session_table,
-        int32_t max_channels,
-        int32_t max_rss_channels,
+        uint32_t max_channels,
+        uint32_t srvr_rss_channels,
+        uint32_t clnt_rss_channels,
         uint32_t *ignored_client_nic,
         uint32_t ignored_client_nic_len,
         int32_t prefer_wired);
+
+typedef enum _SMB2_MC_CLIENT_INTERFACE_FLAGS {
+    CLIENT_RSS_FORCE_ON = 0x01
+} _SMB2_MC_CLIENT_INTERFACE_FLAGS;
+
 int smb2_mc_parse_client_interface_array(
         struct session_network_interface_info* session_table,
-        struct smbioc_client_interface* client_info);
+        struct smbioc_client_interface* client_info,
+        uint32_t flags);
 int smb2_mc_query_info_response_event(
         struct session_network_interface_info* session_table,
+        uint32_t max_channels,
+        uint32_t srvr_rss_channels,
+        uint32_t clnt_rss_channels,
         uint8_t* server_info_buffer,
         uint32_t buf_len);
 int smb2_mc_inform_connection_active_state_change(
@@ -55,7 +65,11 @@ int smb2_mc_update_nic_list_from_notifier(
         bool is_client);
 int smb2_mc_notifier_event(
         struct session_network_interface_info *psSessionTable,
-        struct smbioc_client_interface        *psNotifierClientInfo);
+        struct smbioc_client_interface        *psNotifierClientInfo,
+        int32_t                               max_channels,
+        int32_t                               srvr_rss_channels,
+        int32_t                               clnt_rss_channels,
+        uint32_t                              flags);
 int smb2_mc_reset_nic_list(struct session_network_interface_info *session_table);
 
 #define SMB2_IF_RSS_INDEX_MASK   (0xF00000000)
@@ -69,7 +83,7 @@ typedef enum _SMB2_MC_CON_TRIAL_STATUS {
     SMB2_MC_TRIAL_PASSED  = 0x01,
     SMB2_MC_TRIAL_FAILED  = 0x02,
     SMB2_MC_DISCONNECTED  = 0x04,
-}_SMB2_MC_CON_TRIAL_STATUS;
+} _SMB2_MC_CON_TRIAL_STATUS;
 
 /* smb2_mc_ask_for_new_connection_trial
  * According to the table data, need to find the available pairs of NICs,
@@ -124,12 +138,13 @@ smb2_mc_inform_connection_disconnected(
  * According to the table data, need to find the extra connections
  * that can be removed.
  * Output: removal_vector filled with connection to remove, with it's length.
+ *         curr number of active channels and their speed
  */
 int
 smb2_mc_return_excess_connections(
     struct session_network_interface_info *session_table,
-    struct session_con_entry** removal_vector,
-    int32_t max_out_len);
+    struct session_con_entry** removal_vector, int32_t max_out_len,
+    uint32_t *num_activep, uint64_t *connected_speedp);
 
 /*
  * smb2_mc_check_for_active_trials
@@ -167,8 +182,12 @@ int
 smb2_mc_resume_trials(
     struct session_network_interface_info* session_table);
 
-#ifdef SMB_DEBUG
-void smb2_mc_print_all_connections(struct session_network_interface_info *session_table);
-#endif
+void
+smb2_mc_print_all_connections(const char *display_string,
+                              struct session_network_interface_info *session_table);
+
+void
+smb2_mc_print_one_connection(const char *display_string,
+                             struct session_con_entry *con);
 
 #endif /* smb2_mc_support_h */

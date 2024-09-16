@@ -30,6 +30,7 @@
 #include "WebPageInspectorTargetFrontendChannel.h"
 #include <WebCore/InspectorController.h>
 #include <WebCore/Page.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebKit {
 
@@ -71,7 +72,7 @@ void WebPageInspectorTarget::sendMessageToTargetBackend(const String& message)
 
 String WebPageInspectorTarget::toTargetID(WebCore::PageIdentifier pageID)
 {
-    return makeString("page-", pageID.toUInt64());
+    return makeString("page-"_s, pageID.toUInt64());
 }
 
 

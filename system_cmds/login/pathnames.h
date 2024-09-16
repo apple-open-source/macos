@@ -27,9 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)pathnames.h	8.1 (Berkeley) 6/9/93
- * $FreeBSD: src/usr.bin/login/pathnames.h,v 1.6 2006/03/06 12:38:42 yar Exp $
  */
 
 #include <paths.h>

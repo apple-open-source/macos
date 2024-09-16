@@ -5,6 +5,7 @@
 #include "loader_additions.h"
 #include "dyld_shared_cache.h"
 #include "region.h"
+#include "notes.h"
 
 #include <mach-o/loader.h>
 #include <mach/mach.h>
@@ -36,6 +37,11 @@ extern native_segment_command_t *make_native_segment_command(void *, const struc
 
 extern native_mach_header_t *make_corefile_mach_header(void *);
 extern struct proto_coreinfo_command *make_coreinfo_command(native_mach_header_t *, void *, const uuid_t, uint64_t, uint64_t);
+
+extern struct note_command *make_task_crashinfo_note(native_mach_header_t *, struct note_command *, struct write_segment_data *, const struct task_crashinfo_note_data *);
+extern struct note_command *make_region_infos_note(native_mach_header_t *, struct note_command *, struct write_segment_data *, const struct region_infos_note_data *);
+
+extern void set_collect_phys_footprint(bool);
 
 static __inline void mach_header_inc_ncmds(native_mach_header_t *mh, uint32_t inc) {
     mh->ncmds += inc;

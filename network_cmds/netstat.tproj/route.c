@@ -69,6 +69,7 @@
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <net/route.h>
+#include <net/route_private.h>
 #include <net/radix.h>
 
 #include <netinet/in.h>
@@ -726,16 +727,12 @@ routename6(struct sockaddr_in6 *sa6)
 }
 #endif /*INET6*/
 
-/*
- * Print routing statistics
- */
-void
-rt_stats(void)
+static void
+rt_stats_compat(void)
 {
-	struct rtstat rtstat;
-	int rttrash;
 	int mib[6];
 	size_t len;
+	struct rtstat rtstat;
 
 	mib[0] = CTL_NET;
 	mib[1] = AF_ROUTE;
@@ -746,7 +743,64 @@ rt_stats(void)
 	len = sizeof(struct rtstat);
 	if (sysctl(mib, 6, &rtstat, &len, 0, 0) == -1)
 		return;
-		
+#define	p(f, m) if (rtstat.f || sflag <= 1) \
+	printf(m, rtstat.f, plural(rtstat.f))
+
+	p(rts_badredirect, "\t%d bad routing redirect%s\n");
+	p(rts_dynamic, "\t%d dynamically created route%s\n");
+	p(rts_newgateway, "\t%d new gateway%s due to redirects\n");
+	p(rts_unreach, "\t%d destination%s found unreachable\n");
+	p(rts_wildcard, "\t%d use%s of a wildcard route\n");
+	p(rts_badrtgwroute, "\t%d lookup%s returned indirect "
+	    "routes pointing to indirect gateway route\n");
+
+#undef p
+}
+
+/*
+ * Print routing statistics
+ */
+void
+rt_stats(void)
+{
+	int rttrash;
+	int mib[6];
+	size_t len;
+	u_int pcbcount;
+
+	printf("routing:\n");
+
+#ifdef NET_RT_STAT_64
+	struct rtstat_64 rtstat;
+
+	mib[0] = CTL_NET;
+	mib[1] = AF_ROUTE;
+	mib[2] = 0;
+	mib[3] = 0;
+	mib[4] = NET_RT_STAT_64;
+	mib[5] = 0;
+	len = sizeof(struct rtstat_64);
+
+	if (sysctl(mib, 6, &rtstat, &len, 0, 0) == -1) {
+		rt_stats_compat();
+	} else {
+#define	p(f, m) if (rtstat.f || sflag <= 1) \
+printf(m, rtstat.f, plural(rtstat.f))
+
+		p(rts_badredirect, "\t%llu bad routing redirect%s\n");
+		p(rts_dynamic, "\t%llu dynamically created route%s\n");
+		p(rts_newgateway, "\t%llu new gateway%s due to redirects\n");
+		p(rts_unreach, "\t%llu destination%s found unreachable\n");
+		p(rts_wildcard, "\t%llu use%s of a wildcard route\n");
+		p(rts_badrtgwroute, "\t%llu lookup%s returned indirect "
+		  "routes pointing to indirect gateway route\n");
+
+#undef p
+	}
+#else /* NET_RT_STAT_64 */
+	rt_stats_compat();
+#endif /* NET_RT_STAT_64 */
+
 	mib[0] = CTL_NET;
 	mib[1] = AF_ROUTE;
 	mib[2] = 0;
@@ -757,23 +811,17 @@ rt_stats(void)
 	if (sysctl(mib, 6, &rttrash, &len, 0, 0) == -1)
 		return;
 
-	printf("routing:\n");
-
-#define	p(f, m) if (rtstat.f || sflag <= 1) \
-	printf(m, rtstat.f, plural(rtstat.f))
-
-	p(rts_badredirect, "\t%u bad routing redirect%s\n");
-	p(rts_dynamic, "\t%u dynamically created route%s\n");
-	p(rts_newgateway, "\t%u new gateway%s due to redirects\n");
-	p(rts_unreach, "\t%u destination%s found unreachable\n");
-	p(rts_wildcard, "\t%u use%s of a wildcard route\n");
-	p(rts_badrtgwroute, "\t%u lookup%s returned indirect "
-	    "routes pointing to indirect gateway route\n");
-#undef p
-
 	if (rttrash || sflag <= 1)
 		printf("\t%u route%s not in table but not freed\n",
 		    rttrash, plural(rttrash));
+
+	len = sizeof(pcbcount);
+	if (sysctlbyname("net.route.pcbcount", &pcbcount, &len, 0, 0) == -1)
+		return;
+
+	if (pcbcount != 0 || sflag <= 1 ) {
+		printf("\t%u open routing socket%s\n", pcbcount, plural(pcbcount));
+	}
 }
 
 void

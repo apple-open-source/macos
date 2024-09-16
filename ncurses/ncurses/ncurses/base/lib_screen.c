@@ -340,7 +340,14 @@ decode_cchar(char *source, cchar_t *fillin, cchar_t *target)
     T(("decode_cchar  '%s'", source));
     *target = blank;
 #if NCURSES_EXT_COLORS
+#ifdef __APPLE__
+    if (NCURSES_ABI_PREREQ(6, 0))
+	color = fillin->ext_color;
+    else
+	color = (int) PAIR_NUMBER(attr);
+#else
     color = fillin->ext_color;
+#endif /* __APPLE__ */
 #else
     color = (int) PAIR_NUMBER(attr);
 #endif
@@ -691,7 +698,11 @@ encode_cell(char *target, CARG_CH_T source, CARG_CH_T previous)
     }
     target += strlen(target);
 #if NCURSES_EXT_COLORS
+#ifdef __APPLE__
+    if (NCURSES_ABI_PREREQ(6, 0) && previous->ext_color != source->ext_color) {
+#else
     if (previous->ext_color != source->ext_color) {
+#endif
 	sprintf(target, "%c%cC%d%c", MARKER, L_CURL, source->ext_color, R_CURL);
     }
 #endif

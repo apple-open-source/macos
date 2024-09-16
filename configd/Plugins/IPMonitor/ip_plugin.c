@@ -153,6 +153,19 @@ typedef uint8_t		ProtocolFlags;
 
 static dispatch_queue_t		__network_change_queue(void);
 
+static dispatch_queue_t
+IPMonitorQueue(void)
+{
+    static dispatch_once_t	once;
+    static dispatch_queue_t	q;
+
+    dispatch_once(&once, ^{
+	q = dispatch_queue_create("IPMonitorQueue", NULL);
+    });
+
+    return q;
+}
+
 
 #pragma mark -
 #pragma mark Logging
@@ -878,7 +891,7 @@ host_is_multiuser(void)
 
     kr = host_get_multiuser_config_flags(mach_host_self(), &value);
     if (kr != KERN_SUCCESS) {
-	my_log(LOG_ERR, "host_get_multiuser_config_flags() failed, %s (0x%x)",
+	my_log(LOG_ERR, "host_get_multiuser_config_flags() failed, %s (%d)",
 	       mach_error_string(kr), kr);
     }
     else if ((value & kIsMultiUserDevice) != 0) {
@@ -2124,7 +2137,7 @@ RouteListFinalize(RouteListInfoRef info, RouteListRef routes)
 	    /* try to find a route by excluding the interface */
 	    ifindex = scan->exclude_ifindex;
 	    flags = kRouteLookupFlagsExcludeInterface;
-	    my_log(LOG_DEBUG, "%s: trying again excluding %d",
+	    my_log(LOG_DEBUG, "%s: trying again excluding %u",
 		   __func__, ifindex);
 	    route = RouteListLookup(info, routes,
 				    (*info->route_destination)(scan),
@@ -6412,7 +6425,7 @@ get_service_index(CFDictionaryRef rank_entity,
 	/* ServiceIndex specified in service entity */
 	rank += n_order;
 	my_log(LOG_INFO,
-	       "%@ specifies ServiceIndex %@, effective index is %d",
+	       "%@ specifies ServiceIndex %@, effective index is %u",
 	       serviceID, service_index, rank);
     }
     else if (serviceID != NULL && order != NULL && n_order > 0) {
@@ -6631,7 +6644,7 @@ GetReachabilityFlagsFromTransientServices(CFDictionaryRef services_info,
 
 	    if (CFDictionaryContainsKey(services_info, key)) {
 		*reach_flags_v4 |= flags;
-		my_log(LOG_DEBUG, "Service %@ setting ipv4 reach flags: %d", service_id, *reach_flags_v4);
+		my_log(LOG_DEBUG, "Service %@ setting ipv4 reach flags: %u", service_id, *reach_flags_v4);
 	    }
 
 	    CFRelease(key);
@@ -6644,7 +6657,7 @@ GetReachabilityFlagsFromTransientServices(CFDictionaryRef services_info,
 
 	    if (CFDictionaryContainsKey(services_info, key)) {
 		*reach_flags_v6 |= flags;
-		my_log(LOG_DEBUG, "Service %@ setting ipv6 reach flags: %d", service_id, *reach_flags_v6);
+		my_log(LOG_DEBUG, "Service %@ setting ipv6 reach flags: %u", service_id, *reach_flags_v6);
 	    }
 	    CFRelease(key);
 
@@ -8778,7 +8791,7 @@ prefs_changed(_SCControlPrefsRef control)
 static void
 prefs_changed_callback_init(void)
 {
-    IPMonitorControlPrefsInit(CFRunLoopGetCurrent(), prefs_changed);
+    IPMonitorControlPrefsInit(IPMonitorQueue(), prefs_changed);
     prefs_changed(NULL);
     return;
 }
@@ -9104,19 +9117,12 @@ initialize_notifications(void)
 	       SCErrorString(SCError()));
     }
     else {
-	CFRunLoopSourceRef	rls;
-
-	rls = SCDynamicStoreCreateRunLoopSource(NULL, S_session, 0);
-	if (rls == NULL) {
+	if (!SCDynamicStoreSetDispatchQueue(S_session, IPMonitorQueue())) {
 	    my_log(LOG_ERR,
-		   "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		   "SCDynamicStoreSetDispatchQueue() failed: %s",
 		   SCErrorString(SCError()));
 	}
 	else {
-	    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls,
-			       kCFRunLoopDefaultMode);
-	    CFRelease(rls);
-
 	    /* catch any changes that happened before registering */
 	    prime_notifications(keys, patterns);
 	}
@@ -9130,6 +9136,8 @@ __private_extern__
 void
 prime_IPMonitor(void)
 {
+    dispatch_block_t	b;
+
     /* initialize multicast route */
     update_ipv4(NULL, NULL, NULL);
 
@@ -9138,10 +9146,10 @@ prime_IPMonitor(void)
     }
 
     /* initialize notifications */
-    CFRunLoopPerformBlock(CFRunLoopGetCurrent(),
-			  kCFRunLoopDefaultMode,
-			  ^{ initialize_notifications(); });
-
+    b = ^{
+	initialize_notifications();
+    };
+    dispatch_async(IPMonitorQueue(), b);
 #if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST)
     process_AgentMonitor();
 #endif // !TARGET_OS_SIMULATOR
@@ -9167,9 +9175,8 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
 #include "IPMonitorControlServer.h"
 
 static void
-InterfaceRankChanged(void * info)
+InterfaceRankChanged(void)
 {
-#pragma unused(info)
     CFDictionaryRef 	assertions = NULL;
     CFArrayRef		changes;
 
@@ -9189,24 +9196,22 @@ InterfaceRankChanged(void * info)
 static void
 StartIPMonitorControlServer(void)
 {
-    CFRunLoopSourceContext 	context;
-    CFRunLoopSourceRef	rls;
+    dispatch_block_t	b;
 
-    memset(&context, 0, sizeof(context));
-    context.perform = InterfaceRankChanged;
-    rls = CFRunLoopSourceCreate(NULL, 0, &context);
-    if (!IPMonitorControlServerStart(CFRunLoopGetCurrent(),
-				     rls,
-				     &S_bundle_logging_verbose)) {
+    b = ^{
+	InterfaceRankChanged();
+    };
+    if (!IPMonitorControlServerStart(IPMonitorQueue(), b)) {
 	my_log(LOG_ERR, "IPMonitorControlServerStart failed");
     }
-    else {
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls,
-			   kCFRunLoopDefaultMode);
-    }
-    CFRelease(rls);
     return;
 }
+
+#include <WatchdogClient/WatchdogService.h>
+
+/* "weak_import" to ensure that the compiler doesn't optimize out NULL check */
+void wd_endpoint_add_queue(dispatch_queue_t queue_to_monitor)
+	__attribute__((weak_import));
 
 #endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER) */
 
@@ -9221,10 +9226,12 @@ HandleDNSConfigurationChanged(void)
     CFRelease(keys);
 }
 
+
 __private_extern__
 void
 load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
+    dispatch_queue_t	queue = IPMonitorQueue();
     CFDictionaryRef	info_dict;
 
     info_dict = CFBundleGetInfoDictionary(bundle);
@@ -9286,15 +9293,21 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     ip_plugin_init();
 
     if (S_session != NULL) {
-	dns_configuration_monitor(HandleDNSConfigurationChanged);
+	dns_configuration_monitor(queue,
+				  HandleDNSConfigurationChanged);
     }
 
-#if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST)
-    load_hostname(TRUE);
+#if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS)
+    load_hostname(queue);
+
+    /* enable watchdog monitoring */
+    if (wd_endpoint_add_queue != NULL) { /* "weak_import" */
+	wd_endpoint_add_queue(queue);
+    }
 #endif /* TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) */
 
 #if	!TARGET_OS_IPHONE
-    load_smb_configuration(TRUE);
+    load_smb_configuration(queue);
 #endif	/* !TARGET_OS_IPHONE */
 
     return;
@@ -9320,7 +9333,7 @@ main(int argc, char * const argv[])
     load_IPMonitor(CFBundleGetMainBundle(), FALSE);
     prime_IPMonitor();
     S_IPMonitor_debug = kDebugFlag1;
-    CFRunLoopRun();
+    dispatch_main();
     /* not reached */
     exit(0);
     return 0;

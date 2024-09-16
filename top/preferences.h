@@ -2,13 +2,13 @@
  * Copyright (c) 2008 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.1 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #ifndef PREFERENCES_H
@@ -25,16 +25,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-enum {
-    STATMODE_ACCUM = 1,
-    STATMODE_DELTA,
-    STATMODE_EVENT,
-    STATMODE_NON_EVENT
-};
+enum { STATMODE_ACCUM = 1, STATMODE_DELTA, STATMODE_EVENT, STATMODE_NON_EVENT };
 
 void top_prefs_init(void);
 
-/* 
+/*
  * One of:
  * a accumulative mode
  * d delta mode
@@ -48,7 +43,7 @@ const char *top_prefs_get_mode_string(void);
 void top_prefs_set_sleep(int seconds);
 int top_prefs_get_sleep(void);
 
-/* Take a symbolic string such as "cpu" */ 
+/* Take a symbolic string such as "cpu" */
 bool top_prefs_set_sort(const char *sort);
 /* Return one of the TOP_SORT enum values from above. */
 int top_prefs_get_sort(void);
@@ -90,7 +85,7 @@ void top_prefs_set_nprocs(int n);
 void top_prefs_add_pid(pid_t pid);
 bool top_prefs_want_pid(pid_t pid);
 
-/* Returns true if the signal string is invalid. */ 
+/* Returns true if the signal string is invalid. */
 bool top_prefs_set_signal_string(char *s);
 int top_prefs_get_signal(const char **sptr);
 

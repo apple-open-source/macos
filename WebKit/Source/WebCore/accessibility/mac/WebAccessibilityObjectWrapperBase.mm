@@ -29,11 +29,11 @@
 #import "config.h"
 #import "WebAccessibilityObjectWrapperBase.h"
 
-#if ENABLE(ACCESSIBILITY)
-
 #import "AXCoreObject.h"
 #import "AXIsolatedObject.h"
 #import "AXObjectCache.h"
+#import "AXRemoteFrame.h"
+#import "AXSearchManager.h"
 #import "AccessibilityARIAGridRow.h"
 #import "AccessibilityList.h"
 #import "AccessibilityListBox.h"
@@ -267,13 +267,13 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
             return nil;
 
         auto wrapper = child->wrapper();
-
         // We want to return the attachment view instead of the object representing the attachment,
         // otherwise, we get palindrome errors in the AX hierarchy.
         if (child->isAttachment()) {
             if (id attachmentView = wrapper.attachmentView)
                 return attachmentView;
-        }
+        } else if (child->isRemoteFrame())
+            return child->remoteFramePlatformElement().get();
 
         return wrapper;
     }).autorelease();
@@ -283,7 +283,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 @synthesize identifier = _identifier;
 
-- (id)initWithAccessibilityObject:(AccessibilityObject*)axObject
+- (id)initWithAccessibilityObject:(AccessibilityObject&)axObject
 {
     ASSERT(isMainThread());
 
@@ -293,9 +293,9 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
     return self;
 }
 
-- (void)attachAXObject:(AccessibilityObject*)axObject
+- (void)attachAXObject:(AccessibilityObject&)axObject
 {
-    ASSERT(axObject && (!_identifier.isValid() || _identifier == axObject->objectID()));
+    ASSERT(!_identifier.isValid() || _identifier == axObject.objectID());
     m_axObject = axObject;
     if (!_identifier.isValid())
         _identifier = m_axObject->objectID();
@@ -391,7 +391,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 - (BOOL)isIsolatedObject
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    auto* backingObject = self.axBackingObject;
+    RefPtr backingObject = dynamicDowncast<AccessibilityObject>(self.baseUpdateBackingStore);
     return backingObject && backingObject->isAXIsolatedObjectInstance();
 #else
     return NO;
@@ -525,7 +525,7 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 
 - (CGRect)convertRectToSpace:(const WebCore::FloatRect&)rect space:(AccessibilityConversionSpace)space
 {
-    auto* backingObject = self.axBackingObject;
+    RefPtr backingObject = dynamicDowncast<AccessibilityObject>(self.baseUpdateBackingStore);
     if (!backingObject)
         return CGRectZero;
 
@@ -888,50 +888,57 @@ static std::optional<AccessibilitySearchKey> makeVectorElement(const Accessibili
     return { { accessibilitySearchKeyForString(arrayElement) } };
 }
 
-AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicateParameterizedAttribute(const NSDictionary *parameterizedAttribute)
+AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicate(AXCoreObject& object, const NSDictionary *parameter)
 {
-    NSString *directionParameter = [parameterizedAttribute objectForKey:@"AXDirection"];
-    NSNumber *immediateDescendantsOnlyParameter = [parameterizedAttribute objectForKey:NSAccessibilityImmediateDescendantsOnly];
-    NSNumber *resultsLimitParameter = [parameterizedAttribute objectForKey:@"AXResultsLimit"];
-    NSString *searchTextParameter = [parameterizedAttribute objectForKey:@"AXSearchText"];
-    WebAccessibilityObjectWrapperBase *startElementParameter = [parameterizedAttribute objectForKey:@"AXStartElement"];
-    NSNumber *visibleOnlyParameter = [parameterizedAttribute objectForKey:@"AXVisibleOnly"];
-    id searchKeyParameter = [parameterizedAttribute objectForKey:@"AXSearchKey"];
-    
-    AccessibilitySearchDirection direction = AccessibilitySearchDirection::Next;
-    if ([directionParameter isKindOfClass:[NSString class]])
-        direction = [directionParameter isEqualToString:@"AXDirectionNext"] ? AccessibilitySearchDirection::Next : AccessibilitySearchDirection::Previous;
-    
-    bool immediateDescendantsOnly = false;
-    if ([immediateDescendantsOnlyParameter isKindOfClass:[NSNumber class]])
-        immediateDescendantsOnly = [immediateDescendantsOnlyParameter boolValue];
-    
-    unsigned resultsLimit = 0;
-    if ([resultsLimitParameter isKindOfClass:[NSNumber class]])
-        resultsLimit = [resultsLimitParameter unsignedIntValue];
-    
-    String searchText;
-    if ([searchTextParameter isKindOfClass:[NSString class]])
-        searchText = searchTextParameter;
-    
-    AXCoreObject* startElement = nullptr;
-    if ([startElementParameter isKindOfClass:[WebAccessibilityObjectWrapperBase class]])
-        startElement = [startElementParameter axBackingObject];
+    AccessibilitySearchCriteria criteria;
+    criteria.anchorObject = &object;
 
-    bool visibleOnly = false;
-    if ([visibleOnlyParameter isKindOfClass:[NSNumber class]])
-        visibleOnly = [visibleOnlyParameter boolValue];
-    
-    AccessibilitySearchCriteria criteria = AccessibilitySearchCriteria(startElement, direction, searchText, resultsLimit, visibleOnly, immediateDescendantsOnly);
-    
-    if ([searchKeyParameter isKindOfClass:[NSString class]])
-        criteria.searchKeys.append(accessibilitySearchKeyForString(searchKeyParameter));
-    else if ([searchKeyParameter isKindOfClass:[NSArray class]])
-        criteria.searchKeys = makeVector<AccessibilitySearchKey>(searchKeyParameter);
+    WebAccessibilityObjectWrapperBase *startElement = [parameter objectForKey:@"AXStartElement"];
+    id startRange = [parameter objectForKey:@"AXStartRange"];
+    NSString *direction = [parameter objectForKey:@"AXDirection"];
+    NSNumber *immediateDescendantsOnly = [parameter objectForKey:NSAccessibilityImmediateDescendantsOnly];
+    NSNumber *resultsLimit = [parameter objectForKey:@"AXResultsLimit"];
+    NSString *searchText = [parameter objectForKey:@"AXSearchText"];
+    NSNumber *visibleOnly = [parameter objectForKey:@"AXVisibleOnly"];
+    id searchKey = [parameter objectForKey:@"AXSearchKey"];
+
+    if ([startElement isKindOfClass:[WebAccessibilityObjectWrapperBase class]])
+        criteria.startObject = startElement.axBackingObject;
+
+    if ([startRange isKindOfClass:[NSValue class]] && !strcmp([(NSValue *)startRange objCType], @encode(NSRange)))
+        criteria.startRange = [(NSValue *)startRange rangeValue];
+#if PLATFORM(MAC)
+    else if (startRange && CFGetTypeID((__bridge CFTypeRef)startRange) == AXTextMarkerRangeGetTypeID()) {
+        AXTextMarkerRange markerRange { (AXTextMarkerRangeRef)startRange };
+        if (auto nsRange = markerRange.nsRange())
+            criteria.startRange = *nsRange;
+
+        if (!criteria.startObject)
+            criteria.startObject = markerRange.start().object().get();
+    }
+#endif
+
+    if ([direction isKindOfClass:[NSString class]])
+        criteria.searchDirection = [direction isEqualToString:@"AXDirectionNext"] ? AccessibilitySearchDirection::Next : AccessibilitySearchDirection::Previous;
+
+    if ([immediateDescendantsOnly isKindOfClass:[NSNumber class]])
+        criteria.immediateDescendantsOnly = [immediateDescendantsOnly boolValue];
+
+    if ([resultsLimit isKindOfClass:[NSNumber class]])
+        criteria.resultsLimit = [resultsLimit unsignedIntValue];
+
+    if ([searchText isKindOfClass:[NSString class]])
+        criteria.searchText = searchText;
+
+    if ([visibleOnly isKindOfClass:[NSNumber class]])
+        criteria.visibleOnly = [visibleOnly boolValue];
+
+    if ([searchKey isKindOfClass:[NSString class]])
+        criteria.searchKeys.append(accessibilitySearchKeyForString(searchKey));
+    else if ([searchKey isKindOfClass:[NSArray class]])
+        criteria.searchKeys = makeVector<AccessibilitySearchKey>(searchKey);
 
     return criteria;
 }
 
 @end
-
-#endif // ENABLE(ACCESSIBILITY)

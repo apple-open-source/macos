@@ -61,10 +61,10 @@ public:
     }
 
 private:
-    void createNewPage(WebPageProxy& page, WebCore::WindowFeatures&& windowFeatures, Ref<API::NavigationAction>&& apiNavigationAction, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&& completionHandler) final
+    void createNewPage(WebPageProxy& page, Ref<API::PageConfiguration>&& configuration, WebCore::WindowFeatures&& windowFeatures, Ref<API::NavigationAction>&& apiNavigationAction, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&& completionHandler) final
     {
         WebKitNavigationAction navigationAction(WTFMove(apiNavigationAction));
-        completionHandler(webkitWebViewCreateNewPage(m_webView, windowFeatures, &navigationAction));
+        completionHandler(webkitWebViewCreateNewPage(m_webView, WTFMove(configuration), WTFMove(windowFeatures), &navigationAction));
     }
 
     void showPage(WebPageProxy*) final
@@ -257,9 +257,9 @@ private:
 #elif PLATFORM(WPE)
         // FIXME: I guess this is actually the view size in WPE. We need more refactoring here.
         WebCore::FloatRect rect;
-        auto& page = webkitWebViewGetPage(m_webView);
-        if (page.drawingArea())
-            rect.setSize(page.drawingArea()->size());
+        Ref page = webkitWebViewGetPage(m_webView);
+        if (page->drawingArea())
+            rect.setSize(page->drawingArea()->size());
         completionHandler(WTFMove(rect));
 #endif
     }
@@ -298,7 +298,7 @@ private:
 
     void checkUserMediaPermissionForOrigin(WebPageProxy& page, WebFrameProxy&, API::SecurityOrigin& userMediaDocumentOrigin, API::SecurityOrigin& topLevelDocumentOrigin, UserMediaPermissionCheckProxy& permissionRequest) override
     {
-        auto deviceInfoPermissionRequest = adoptGRef(webkitDeviceInfoPermissionRequestCreate(permissionRequest, &page.websiteDataStore().deviceIdHashSaltStorage()));
+        auto deviceInfoPermissionRequest = adoptGRef(webkitDeviceInfoPermissionRequestCreate(permissionRequest, page.websiteDataStore().ensureProtectedDeviceIdHashSaltStorage().ptr()));
         webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(deviceInfoPermissionRequest.get()));
     }
 

@@ -377,6 +377,13 @@ to 0.
 .It Cm nonegnamecache
 Disable negative name caching.
 .Pp
+.It Cm accesscache Ns = Ns Aq Ar size
+Sets the number of users that can store their access information in the
+.Xr access 2
+cache. The cache operates in a First-In-First-Out (FIFO) order, retaining the most recently accessed user information.
+When the cache reaches its maximum size, older information is evicted.
+The default cache size is 3, allowing three users to store their access information in the cache simultaneously.
+.Pp
 .It Cm locallocks
 For NFSv2/v3 mounts, perform all file locking operations locally on the NFS client (in the VFS
 layer) instead of on the NFS server.  This option can provide file locking

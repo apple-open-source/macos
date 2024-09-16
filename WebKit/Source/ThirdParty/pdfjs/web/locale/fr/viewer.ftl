@@ -297,8 +297,25 @@ pdfjs-editor-ink-button-label = Dessiner
 pdfjs-editor-stamp-button =
     .title = Ajouter ou modifier des images
 pdfjs-editor-stamp-button-label = Ajouter ou modifier des images
-pdfjs-editor-remove-button =
-    .title = Supprimer
+pdfjs-editor-highlight-button =
+    .title = Surligner
+pdfjs-editor-highlight-button-label = Surligner
+pdfjs-highlight-floating-button =
+    .title = Surligner
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Supprimer le dessin
+pdfjs-editor-remove-freetext-button =
+    .title = Supprimer le texte
+pdfjs-editor-remove-stamp-button =
+    .title = Supprimer l’image
+pdfjs-editor-remove-highlight-button =
+    .title = Supprimer le surlignage
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Couleur
 pdfjs-editor-free-text-size-input = Taille
@@ -308,6 +325,10 @@ pdfjs-editor-ink-opacity-input = Opacité
 pdfjs-editor-stamp-add-image-button =
     .title = Ajouter une image
 pdfjs-editor-stamp-add-image-button-label = Ajouter une image
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Épaisseur
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Modifier l’épaisseur pour le surlignage d’éléments non textuels
 pdfjs-free-text =
     .aria-label = Éditeur de texte
 pdfjs-free-text-default-content = Commencer à écrire…
@@ -345,3 +366,29 @@ pdfjs-editor-resizer-label-bottom-right = Coin inférieur droit — redimensionn
 pdfjs-editor-resizer-label-bottom-middle = Centre bas — redimensionner
 pdfjs-editor-resizer-label-bottom-left = Coin inférieur gauche — redimensionner
 pdfjs-editor-resizer-label-middle-left = Milieu gauche — redimensionner
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Couleur de surlignage
+pdfjs-editor-colorpicker-button =
+    .title = Changer de couleur
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Choix de couleurs
+pdfjs-editor-colorpicker-yellow =
+    .title = Jaune
+pdfjs-editor-colorpicker-green =
+    .title = Vert
+pdfjs-editor-colorpicker-blue =
+    .title = Bleu
+pdfjs-editor-colorpicker-pink =
+    .title = Rose
+pdfjs-editor-colorpicker-red =
+    .title = Rouge
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Tout afficher
+pdfjs-editor-highlight-show-all-button =
+    .title = Tout afficher

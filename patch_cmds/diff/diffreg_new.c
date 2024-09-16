@@ -238,12 +238,14 @@ diffreg_new(char *file1, char *file2, int flags, int capsicum)
 	if (flags & D_PROTOTYPE)
 		diff_flags |= DIFF_FLAG_SHOW_PROTOTYPES;
 
-	rc = diff_atomize_file(&left, cfg, f1, (uint8_t *)str1, st1.st_size, diff_flags);
-	if (rc)
+	if (diff_atomize_file(&left, cfg, f1, (uint8_t *)str1, st1.st_size, diff_flags)) {
+		rc = D_ERROR;
 		goto done;
-	rc = diff_atomize_file(&right, cfg, f2, (uint8_t *)str2, st2.st_size, diff_flags);
-	if (rc)
+	}
+	if (diff_atomize_file(&right, cfg, f2, (uint8_t *)str2, st2.st_size, diff_flags)) {
+		rc = D_ERROR;
 		goto done;
+	}
 
 	result = diff_main(cfg, &left, &right);
 	if (result->rc != DIFF_RC_OK) {
@@ -283,6 +285,7 @@ diffreg_new(char *file1, char *file2, int flags, int capsicum)
 		rc = D_ERROR;
 		status |= 2;
 	} else {
+		rc = D_DIFFER;
 		status |= 1;
 	}
 done:

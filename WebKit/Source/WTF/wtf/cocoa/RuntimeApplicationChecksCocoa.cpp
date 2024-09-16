@@ -164,7 +164,6 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
     if (linkedBefore(dyld_fall_2021_os_versions, DYLD_IOS_VERSION_15_0, DYLD_MACOSX_VERSION_12_00)) {
         disableBehavior(SDKAlignedBehavior::NullOriginForNonSpecialSchemedURLs);
         disableBehavior(SDKAlignedBehavior::DOMWindowReuseRestriction);
-        disableBehavior(SDKAlignedBehavior::ApplicationCacheDisabledByDefault);
         disableBehavior(SDKAlignedBehavior::NoExpandoIndexedPropertiesOnWindow);
         disableBehavior(SDKAlignedBehavior::DoesNotDrainTheMicrotaskQueueWhenCallingObjC);
     }
@@ -205,6 +204,24 @@ static SDKAlignedBehaviors computeSDKAlignedBehaviors()
     if (linkedBefore(dyld_2023_SU_C_os_versions, DYLD_IOS_VERSION_17_2, DYLD_MACOSX_VERSION_14_2)) {
         disableBehavior(SDKAlignedBehavior::OnlyLoadWellKnownAboutURLs);
         disableBehavior(SDKAlignedBehavior::ThrowIfCanDeclareGlobalFunctionFails);
+    }
+
+    if (linkedBefore(dyld_spring_2024_os_versions, DYLD_IOS_VERSION_17_4, DYLD_MACOSX_VERSION_14_4)) {
+        disableBehavior(SDKAlignedBehavior::AsyncFragmentNavigationPolicyDecision);
+        disableBehavior(SDKAlignedBehavior::DoNotLoadStyleSheetIfHTTPStatusIsNotOK);
+        disableBehavior(SDKAlignedBehavior::ScrollViewSubclassImplementsAddGestureRecognizer);
+    }
+
+    if (linkedBefore(dyld_fall_2024_os_versions, DYLD_IOS_VERSION_18_0, DYLD_MACOSX_VERSION_15_0)) {
+        disableBehavior(SDKAlignedBehavior::FullySuspendsBackgroundContentImmediately);
+        disableBehavior(SDKAlignedBehavior::NoGetElementsByNameQuirk);
+        disableBehavior(SDKAlignedBehavior::ApplicationStateTrackerDoesNotObserveWindow);
+        disableBehavior(SDKAlignedBehavior::ThrowOnKVCInstanceVariableAccess);
+        disableBehavior(SDKAlignedBehavior::BlockOptionallyBlockableMixedContent);
+        disableBehavior(SDKAlignedBehavior::LaxCookieSameSiteAttribute);
+        disableBehavior(SDKAlignedBehavior::UseCFNetworkNetworkLoader);
+        disableBehavior(SDKAlignedBehavior::BrowsingContextControllerSPIAccessRemoved);
+        disableBehavior(SDKAlignedBehavior::BlockCrossOriginRedirectDownloads);
     }
 
     disableAdditionalSDKAlignedBehaviors(behaviors);

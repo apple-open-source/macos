@@ -1,0 +1,4 @@
+module notifyPrivate [system] {
+  header "notify_private.h"
+  export *
+}

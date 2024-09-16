@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,6 @@
 #include <SystemConfiguration/SCValidation.h>
 #include "symbol_scope.h"
 #include "CGA.h"
-#include "RSAKey.h"
 #include "ipconfigd_globals.h"
 #include "mylog.h"
 #include "util.h"
@@ -84,6 +83,9 @@
     (sizeof(struct in6_cga_prepare)			\
      + (2 * (sizeof(uint16_t) + IN6_CGA_KEY_MAXSIZE)))
 
+#define PUBLIC_RANDOM_SIZE         140  /* bytes */
+#define PRIVATE_RANDOM_SIZE        4    /* bytes */
+
 STATIC CFDictionaryRef		S_GlobalModifier;
 STATIC CFMutableDictionaryRef	S_LinkLocalModifiers;
 STATIC CFMutableDictionaryRef	S_InterfaceModifiers;
@@ -92,13 +94,14 @@ STATIC CFDataRef
 CGAModifierDictGetModifier(CFDictionaryRef dict, uint8_t * security_level);
 
 STATIC CFDataRef
-my_CFDataCreateWithRandomBytes(CFIndex size)
+my_CFDataCreateWithRandomBytes(size_t size)
 {
     CFMutableDataRef	data;
 
     data = CFDataCreateMutable(NULL, size);
     CFDataSetLength(data, size);
-    fill_with_random(CFDataGetMutableBytePtr(data), (int)size);
+    /* fill with random bytes */
+    arc4random_buf(CFDataGetMutableBytePtr(data), size);
     return (data);
 }
 
@@ -394,11 +397,15 @@ CGAParametersCreate(CFDataRef host_uuid)
     uint8_t		security_level;
     bool		success = FALSE;
 
-    /* generate key pair */
-    priv = RSAKeyPairGenerate(1024, &pub);
-    if (priv == NULL) {
-	goto done;
-    }
+    /*
+     * Use random bytes in place of an RSA key pair since:
+     * - we don't implement SeND (Secure Neighbor Discovery)
+     *   and don't actually need a key pair
+     * - generating the RSA key pair can take a very long time
+     *   leading to watchdog panics on some platforms
+     */
+    priv = my_CFDataCreateWithRandomBytes(PRIVATE_RANDOM_SIZE);
+    pub = my_CFDataCreateWithRandomBytes(PUBLIC_RANDOM_SIZE);
 
     /* generate global modifier */
     security_level = kCGASecurityLevelZero;
@@ -412,7 +419,6 @@ CGAParametersCreate(CFDataRef host_uuid)
 	success = cga_parameters_set(priv, pub, modifier, security_level);
     }
 
- done:
     if (success == FALSE) {
 	my_CFRelease(&global_modifier);
     }
@@ -422,7 +428,7 @@ CGAParametersCreate(CFDataRef host_uuid)
     return (global_modifier);
 }
 
-STATIC bool
+STATIC void
 CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
 {
     CFDictionaryRef	interface_modifiers = NULL;
@@ -471,6 +477,7 @@ CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
 	if (keys_info != NULL) {
 	    my_log_fl(LOG_NOTICE, "%s is not a dictionary", CGA_KEYS_FILE);
 	}
+	global_modifier = NULL;
 	goto done;
     }
 
@@ -478,6 +485,7 @@ CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
     priv = CFDictionaryGetValue(keys_info, kPrivateKey);
     if (isA_CFData(priv) == NULL) {
 	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kPrivateKey);
+	global_modifier = NULL;
 	goto done;
     }
 
@@ -485,6 +493,7 @@ CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
     pub = CFDictionaryGetValue(keys_info, kPublicKey);
     if (isA_CFData(pub) == NULL) {
 	my_log_fl(LOG_NOTICE, "%@ missing/invalid", kPublicKey);
+	global_modifier = NULL;
 	goto done;
     }
 
@@ -554,7 +563,7 @@ CGAParametersLoad(CFDataRef host_uuid, bool expire_ipv6ll_modifiers)
  failed:
     my_CFRelease(&keys_info);
     my_CFRelease(&parameters);
-    return (S_GlobalModifier != NULL);
+    return;
 }
 
 STATIC CFDataRef
@@ -669,11 +678,8 @@ CGAInit(bool expire_ipv6ll_modifiers)
 	my_log_fl(LOG_NOTICE, "Failed to get HostUUID");
 	return;
     }
-    if (!CGAParametersLoad(host_uuid, expire_ipv6ll_modifiers)) {
-	return;
-    }
+    CGAParametersLoad(host_uuid, expire_ipv6ll_modifiers);
     return;
-    
 }
 
 #ifdef TEST_CGA

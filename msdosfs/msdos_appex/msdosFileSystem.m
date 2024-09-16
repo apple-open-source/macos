@@ -1,46 +1,43 @@
-//
-//  msdosFileSystem.m
-//  fsmodule
-//
-//  Created by Noa Osherovich on 27/07/2022.
-//
+/*
+ * Copyright (c) 2023 Apple Inc. All rights reserved.
+ */
 
-#import <FSKit/FSBlockDeviceResource_private.h>
-#include <sys/_types/_size_t.h>
 #import <FSKit/FSResource.h>
+#include <sys/_types/_size_t.h>
 #import "msdosFileSystem.h"
+#import "msdosProgressHelper.h"
 #import "bootsect.h"
 #import "bpb.h"
 
-#include  <CommonCrypto/CommonDigest.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <pwd.h>
 
 #include "newfs_data_types.h"
-#include "lib_newfs_msdos.h"
 #include "lib_fsck_msdos.h"
-#include "direntry.h"
 #include "format.h"
 #include "dosfs.h"
 #include "ext.h"
 
-#define	CLUST_FIRST	2                                   /* 2 is the minimum valid cluster number */
-#define	CLUST_RSRVD	0xfffffff6                          /* start of reserved clusters */
-#define LABEL_LENGTH 11                                 /* Maximal volume label length */
 #define NEWFS_LOC_TABLE "newfs_appex"
+
+#define EXFAT_SIGNATURE_LENGTH (11)
+
 #define TASK_PROGRESS_TIMER_INTERVAL (1 * NSEC_PER_SEC) /* 1 sec interval to track a task's progress */
 #define CHECK_MAX_TIME 200                              /* checkfilesys should take 200 seconds or less */
 
-/** Simple struct to hold required resource and filesystem to call wipeFS method from FSSimpleFileSystem */
+/** Simple struct to hold required resource and filesystem to call wipeFS method from FSUnaryFileSystem */
 typedef struct {
     FSMessageConnection *fsMsgConn;
-    FSResource* resource;
-    FSSimpleFileSystem* fs;
+    FSBlockDeviceResource* resource;
+    FSUnaryFileSystem* fs;
 } NewfsCtxAppex;
 
 void startCallback(char* description, int64_t parentUnitCount, int64_t totalCount, unsigned int *completedCount, void *updater);
 void endCallback(char* description, void *updater);
+size_t readHelper(void *resource, void *buffer, size_t nbytes, off_t offset);
+size_t writeHelper(void *resource, void *buffer, size_t nbytes, off_t offset);
+off_t lseekHelper(void *resource, off_t offset);
+int fstatHelper(void *resour, struct stat *buffer);
 
 /** Print function to log messages from lib fsck msdos.*/
 static void
@@ -61,6 +58,32 @@ fsckPrintFunction(fsck_client_ctx_t ctx, int level, const char *fmt, va_list ap)
     } else {
         os_log_error(fskit_std_log(), "%s: Context is null, can't log message", __FUNCTION__);
     }
+}
+
+static int
+fsckAskFunction(fsck_client_ctx_t ctx, int def, const char *fmt, va_list ap)
+{
+    NSString *message = [[NSString alloc] initWithFormat:[NSString stringWithUTF8String:fmt] arguments:ap];
+    __block BOOL answer = YES;
+
+    if (fsck_preen()) {
+        if (fsck_rdonly()) {
+            def = 0;
+        }
+        if (def) {
+            fsck_print(fsck_ctx, LOG_INFO, "FIXED\n");
+        }
+        return def;
+    }
+
+    if (fsck_alwaysyes() || fsck_rdonly()) {
+        if (!fsck_quiet()) {
+            fsck_print(fsck_ctx, LOG_INFO, "%s? %s\n", message.UTF8String, fsck_rdonly() ? "no" : "yes");
+        }
+        return !fsck_rdonly();
+    }
+
+    return (answer == YES);
 }
 
 /** Print function to log messages from lib newfs msdos.*/
@@ -85,14 +108,14 @@ newfsPrintFunction(newfs_client_ctx_t ctx, int level, const char *fmt, va_list a
     }
 }
 
-/** WipeFS function, de-references the wipe fs context object, and calls FSSimpleFileSystem wipeResource method */
-static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
+/** WipeFS function, de-references the wipe fs context object, and calls FSUnaryFileSystem wipeResource method */
+int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
 {
     NewfsCtxAppex *newfsCtx;
-    FSSimpleFileSystem *fsSimpleFS;
-    FSResource *resource;
-    NSSet<NSString *> *including = nil;
-    NSSet<NSString *> *excluding = nil;
+    FSUnaryFileSystem *fsSimpleFS;
+    FSBlockDeviceResource *resource;
+    NSMutableIndexSet *including = [NSMutableIndexSet indexSet];
+    NSMutableIndexSet *excluding = [NSMutableIndexSet indexSet];
     if(!ctx) {
         os_log_error(fskit_std_log(), "%s: Context is null, can't wipe resource", __FUNCTION__);
         return EINVAL;
@@ -104,21 +127,16 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     }
     fsSimpleFS = newfsCtx->fs;
     resource = newfsCtx->resource;
-    FSBlockDeviceResource *device = nil;
-    if (resource == nil || resource.kind != FSResourceKindBlockDevice) {
+    if (resource == nil) {
         os_log_error(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
         return EINVAL;
     }
-    device = [FSBlockDeviceResource dynamicCast:resource];
-    if (device.fileDescriptor != wipeFSProps.fd) {
-        os_log_error(fskit_std_log(), "%s: Given resource (%d) and file descriptor (%d) aren't the same, can't preform wipefs", __FUNCTION__, device.fileDescriptor, wipeFSProps.fd);
-        return EINVAL;
-    }
+
     if (wipeFSProps.include_block_length) {
-        including = [NSSet setWithObject:NSStringFromRange(NSMakeRange(wipeFSProps.include_block_start, wipeFSProps.include_block_length))];
+        [including addIndexesInRange:NSMakeRange(wipeFSProps.include_block_start, wipeFSProps.include_block_length)];
     }
     if (wipeFSProps.except_block_length) {
-        excluding = [NSSet setWithObject:NSStringFromRange(NSMakeRange(wipeFSProps.except_block_start, wipeFSProps.except_block_length))];
+        [excluding addIndexesInRange:NSMakeRange(wipeFSProps.except_block_start, wipeFSProps.except_block_length)];
     }
     __block NSError *error = nil;
     dispatch_group_t group = dispatch_group_create();
@@ -126,7 +144,7 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     [fsSimpleFS wipeResource:resource
              includingRanges:including
              excludingRanges:excluding
-                       reply:^(NSError * _Nullable err) {
+           completionHandler:^(NSError * _Nullable err) {
         error = err;
         if (error) {
             os_log_error(fskit_std_log(), "%s: got reply from send wipe resource request with err: %@", __FUNCTION__, error);
@@ -144,6 +162,12 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     return 0;
 }
 
+@interface msdosFileSystem ()
+
+@property (strong) FSProbeResult *probeResult;
+
+@end
+
 @implementation msdosFileSystem
 
 -(void)didFinishLaunching
@@ -151,16 +175,63 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     os_log_info(fskit_std_log(), "%s: Finished launching", __FUNCTION__);
 }
 
--(void)loadVolume:(FSResource *)device
-            reply:(void(^)(FSVolume * _Nullable newVolume, NSError * _Nullable error))reply
-{
-    return reply(nil, fs_errorForPOSIXError(ENOTSUP));
-}
-
 -(void)didFinishLoading
 {
     os_log_info(fskit_std_log(), "%s: Finished loading", __FUNCTION__);
 }
+
+- (void)loadResource:(nonnull FSResource *)resource
+             options:(FSTaskParameters *)options
+        replyHandler:(nonnull void (^)(FSVolume * _Nullable, NSError * _Nullable))reply
+{
+    os_log_info(fskit_std_log(), "%s:start", __FUNCTION__);
+    _resource = nil;
+    if ([resource isKindOfClass:[FSBlockDeviceResource class]]) {
+        _resource                       = (FSBlockDeviceResource *)resource;
+    }
+
+    for (NSString *opt in options) {
+        if ([opt containsString:@"-f"]) {
+            return reply(nil, nil);
+        }
+    }
+
+    __block NSError *error = nil;
+    if (!_probeResult) {
+        os_log_info(fskit_std_log(), "%s: No probeResult cached, probe to find volumeID", __FUNCTION__);
+        [self probeResource:resource
+               replyHandler:^(FSProbeResult * _Nullable result,
+                              NSError * _Nullable innerError) {
+            if (innerError) {
+                error = innerError;
+            } else {
+                self.probeResult = result;
+            }
+        }];
+    }
+    if (error) {
+        // Return probe error
+        return reply(nil, error);
+    }
+
+    if (_probeResult.result != FSMatchResultUsable) {
+        // Resource can't be used for MSDOS module
+        return reply(nil, fs_errorForPOSIXError(EINVAL));
+    }
+
+    _volume = [[msdosVolume alloc] initWithResource:resource
+                                           volumeID:_probeResult.containerID.volumeIdentifier
+                                         volumeName:_probeResult.name];
+
+    if (_volume != nil) {
+        os_log_info(fskit_std_log(), "%s: loaded resource with volume ID (%@)", __FUNCTION__, _probeResult.containerID);
+        return reply(self.volume, nil);
+    } else {
+        /* init isn't supposed to fail, assume EIO if it did */
+        return reply(nil, fs_errorForPOSIXError(EIO));
+    }
+}
+
 
 -(NSError *_Nullable)syncRead:(FSBlockDeviceResource *)device
                          into:(void *)buffer
@@ -172,7 +243,7 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     [device synchronousReadInto:buffer
                      startingAt:offset
                          length:nbyte
-                          reply:^(size_t actuallyRead, NSError * _Nullable innerError) {
+                   replyHandler:^(size_t actuallyRead, NSError * _Nullable innerError) {
         if (innerError) {
             os_log_error(fskit_std_log(), "%s: Failed to read, error %@", __FUNCTION__, innerError);
             error = innerError;
@@ -190,299 +261,13 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     return error;
 }
 
--(BOOL)isLabelLegal:(char *)label
-{
-    int i = 0;
-    int c = 0;
-
-    for (i = 0, c = 0; i < LABEL_LENGTH; i++) {
-        c = (u_char)label[i];
-        /* First charachter can't be a blank space */
-        if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c)) {
-            return false;
-        }
-    }
-    return true;
-}
-
--(CFStringEncoding)getDefaultDOSEncoding
-{
-    CFStringEncoding encoding = kCFStringEncodingMacRoman; /* Default */
-    char buffer[MAXPATHLEN + 1] = {0};
-    struct passwd *passwdp = NULL;
-    ssize_t size = 0;
-    int fd = -1;
-
-    if ((passwdp = getpwuid(getuid()))) {
-        strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
-        strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
-
-        if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
-            size = read(fd, buffer, MAXPATHLEN);
-            buffer[(size < 0 ? 0 : size)] = '\0';
-            close(fd);
-            encoding = (CFStringEncoding)strtol(buffer, NULL, 0);
-        }
-    }
-
-    /* Convert the Mac encoding to DOS/Windows one */
-    switch (encoding) {
-        case kCFStringEncodingMacRoman:
-            return kCFStringEncodingDOSLatin1;
-        case kCFStringEncodingMacJapanese:
-            return kCFStringEncodingDOSJapanese;
-        case kCFStringEncodingMacChineseTrad:
-            return kCFStringEncodingDOSChineseTrad;
-        case kCFStringEncodingMacKorean:
-            return kCFStringEncodingDOSKorean;
-        case kCFStringEncodingMacArabic:
-            return kCFStringEncodingDOSArabic;
-        case kCFStringEncodingMacHebrew:
-            return kCFStringEncodingDOSHebrew;
-        case kCFStringEncodingMacGreek:
-            return kCFStringEncodingDOSGreek;
-        case kCFStringEncodingMacCyrillic:
-        case kCFStringEncodingMacUkrainian:
-            return kCFStringEncodingDOSCyrillic;
-        case kCFStringEncodingMacThai:
-            return kCFStringEncodingDOSThai;
-        case kCFStringEncodingMacChineseSimp:
-            return kCFStringEncodingDOSChineseSimplif;
-        case kCFStringEncodingMacCentralEurRoman:
-        case kCFStringEncodingMacCroatian:
-        case kCFStringEncodingMacRomanian:
-            return kCFStringEncodingDOSLatin2;
-        case kCFStringEncodingMacTurkish:
-            return kCFStringEncodingDOSTurkish;
-        case kCFStringEncodingMacIcelandic:
-            return kCFStringEncodingDOSIcelandic;
-        case kCFStringEncodingMacFarsi:
-            return kCFStringEncodingDOSArabic;
-        default:
-            return kCFStringEncodingInvalidId;
-    }
-}
-
-- (NSString*)getVolumeName:(FSBlockDeviceResource *)device
-                       bps:(uint16_t)bps
-                       spc:(uint8_t)spc
-                bootsector:(union bootsector * _Nonnull)bootSector
-{
-    struct byte_bpb710 *b710 = (struct byte_bpb710 *)bootSector->bs710.bsBPB;
-    struct byte_bpb33 *b33 = (struct byte_bpb33 *)bootSector->bs33.bsBPB;
-    struct byte_bpb50 *b50 = (struct byte_bpb50 *)bootSector->bs50.bsBPB;
-    char diskLabel[LABEL_LENGTH] = {0};
-    unsigned int rootDirSectors = 0;
-    struct dosdirentry *dirp;
-    NSString *volName = nil;
-    BOOL finished = false;
-    NSError *error = nil;
-    int i = 0;
-
-    rootDirSectors = ((getuint16(b50->bpbRootDirEnts) * sizeof(struct dosdirentry)) + (bps-1)) / bps;
-    if (rootDirSectors) {
-        /* This is FAT12/16 */
-        char rootdirbuf[MAX_DOS_BLOCKSIZE];
-        unsigned firstRootDirSecNum;
-        int j = 0;
-
-        firstRootDirSecNum = getuint16(b33->bpbResSectors) + (b33->bpbFATs * getuint16(b33->bpbFATsecs));
-        for (i=0; i< rootDirSectors; i++) {
-            error = [self syncRead:device
-                               into:rootdirbuf
-                         startingAt:((firstRootDirSecNum+i)*bps)
-                             length:bps];
-            if (error != nil) {
-                return nil;
-            }
-            dirp = (struct dosdirentry *)rootdirbuf;
-            for (j = 0; j < bps; j += sizeof(struct dosdirentry), dirp++) {
-                if ((dirp)->deName[0] == SLOT_EMPTY) {
-                    finished = true;
-                    break;
-                } else if ((dirp)->deAttributes & ATTR_VOLUME) {
-                    strncpy(diskLabel, (char*)dirp->deName, LABEL_LENGTH);
-                    finished = true;
-                    break;
-                }
-            }
-            if (finished) {
-                break;
-            }
-        }
-    } else {
-        /* This is FAT32 */
-        uint32_t bytesPerCluster = (uint32_t)bps * (uint32_t)spc;
-        uint8_t *rootDirBuffer = (uint8_t*)malloc(bytesPerCluster);
-        uint32_t cluster = getuint32(b710->bpbRootClust);
-        off_t readOffset;
-
-        if (!rootDirBuffer) {
-            os_log_error(fskit_std_log(), "%s: failed to malloc rootDirBuffer\n", __FUNCTION__);
-            error = fs_errorForPOSIXError(ENOMEM);
-        }
-
-        while (!finished && cluster >= CLUST_FIRST && cluster < CLUST_RSRVD) {
-            /* Find sector where clusters start */
-            readOffset = getuint16(b710->bpbResSectors) + (b710->bpbFATs * getuint32(b710->bpbBigFATsecs));
-            /* Find sector where "cluster" starts */
-            readOffset += ((off_t) cluster - CLUST_FIRST) * (off_t) spc;
-            /* Convert to byte offset */
-            readOffset *= (off_t) bps;
-
-            /* Read the cluster */
-            error = [self syncRead:device
-                               into:rootDirBuffer
-                         startingAt:readOffset
-                             length:bytesPerCluster];
-            if (error != nil) {
-                return nil;
-            }
-            dirp = (struct dosdirentry *)rootDirBuffer;
-
-            /* iterate the directory entries looking for volume label */
-            for (i = 0; i < bytesPerCluster; i += sizeof(struct dosdirentry), dirp++) {
-                if ((dirp)->deName[0] == SLOT_EMPTY) {
-                    finished = true;
-                    break;
-                } else if ((dirp)->deAttributes & ATTR_VOLUME) {
-                    strncpy(diskLabel, (char *)dirp->deName, LABEL_LENGTH);
-                    finished = true;
-                    break;
-                }
-            }
-            if (finished) {
-                break;
-            }
-
-            /* Find next cluster in the chain by reading the FAT: */
-            /* First FAT sector */
-            readOffset = getuint16(b710->bpbResSectors);
-            /* Find sector containing "cluster" entry in FAT */
-            readOffset += (cluster * 4) / bps;
-            /* Convert to byte offset */
-            readOffset *= bps;
-            /* Now read one sector of the FAT */
-            error = [self syncRead:device
-                               into:rootDirBuffer
-                         startingAt:readOffset
-                             length:bps];
-            if (error != nil) {
-                return nil;
-            }
-
-            cluster = getuint32(rootDirBuffer + ((cluster * 4) % bps));
-            cluster &= 0x0FFFFFFF; /* Ignore reserved upper bits */
-        }
-        free(rootDirBuffer);
-
-        /* If volume label wasn't found, look in the boot blocks */
-        if (diskLabel[0] == 0) {
-            if (getuint16(b50->bpbRootDirEnts) == 0) {
-                /* FAT32 */
-                if (((struct extboot*)bootSector->bs710.bsExt)->exBootSignature == EXBOOTSIG) {
-                    strncpy(diskLabel, (char *)((struct extboot *)bootSector->bs710.bsExt)->exVolumeLabel, LABEL_LENGTH);
-                }
-            } else if (((struct extboot *)bootSector->bs50.bsExt)->exBootSignature == EXBOOTSIG) {
-                strncpy(diskLabel, (char *)((struct extboot *)bootSector->bs50.bsExt)->exVolumeLabel, LABEL_LENGTH);
-            }
-        }
-    }
-    /* Set the file system name */
-
-    /* Convert leading 0x05 to 0xE5 for multibyte languages like Japanese */
-    if (diskLabel[0] == 0x05) {
-        diskLabel[0] = 0x0E5;
-    }
-
-    /* Check for illegal characters */
-    if (![self isLabelLegal: diskLabel]) {
-        diskLabel[0] = 0;
-    }
-
-    /* Remove trailing spaces */
-    for (i = LABEL_LENGTH - 1; i >= 0; i--) {
-        if (diskLabel[i] == ' ') {
-            diskLabel[i] = 0;
-        } else {
-            break;
-        }
-    }
-
-    /* Convert the label to UTF-8 */
-    NSStringEncoding encoding = CFStringConvertEncodingToNSStringEncoding([self getDefaultDOSEncoding]);
-    volName = [[NSString alloc] initWithBytes:diskLabel length:LABEL_LENGTH encoding:encoding];
-
-    return volName;
-}
-
--(NSUUID *)getVolumeUUID:(union bootsector * _Nonnull)bootSector
-                    uuid:(unsigned char *)uuid
-{
-    struct byte_bpb50 *b50 = (struct byte_bpb50 *)bootSector->bs50.bsBPB;
-    struct extboot *extboot;
-    NSUUID *result = nil;
-    char uuid_out[40];
-
-    if (getuint16(b50->bpbRootDirEnts) == 0){
-        /* FAT32 */
-        extboot = (struct extboot *)((char*)bootSector + 64);
-    } else {
-        /* FAT12 or FAT16 */
-        extboot = (struct extboot *)((char*)bootSector + 36);
-    }
-
-    /* If there's a non-zero volume ID, convert it to UUID */
-    if (extboot->exBootSignature == EXBOOTSIG &&
-        (extboot->exVolumeID[0] || extboot->exVolumeID[1] ||
-         extboot->exVolumeID[2] || extboot->exVolumeID[3])) {
-        /* Get the total sectors as a 32-bit value */
-        uint32_t total_sectors = getuint16(b50->bpbSectors);
-        if (total_sectors == 0) {
-            total_sectors = getuint32(b50->bpbHugeSectors);
-        }
-        CC_MD5_CTX c;
-        uint8_t sectorsLittleEndian[4];
-
-        UUID_DEFINE( kFSUUIDNamespaceSHA1, 0xB3, 0xE2, 0x0F, 0x39, 0xF2, 0x92, 0x11, 0xD6, 0x97, 0xA4, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC );
-
-        /*
-         * Normalize totalSectors to a little endian value so that this returns the
-         * same UUID regardless of endianness.
-         */
-        putuint32(sectorsLittleEndian, total_sectors);
-
-        /*
-         * Generate an MD5 hash of our "name space", and our unique bits of data
-         * (the volume ID and total sectors).
-         */
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        CC_MD5_Init(&c);
-        CC_MD5_Update(&c, kFSUUIDNamespaceSHA1, sizeof(uuid_t));
-        CC_MD5_Update(&c, extboot->exVolumeID, 4);
-        CC_MD5_Update(&c, sectorsLittleEndian, sizeof(sectorsLittleEndian));
-        CC_MD5_Final(uuid, &c);
-    #pragma clang diagnostic pop
-
-        /* Force the resulting UUID to be a version 3 UUID. */
-        uuid[6] = (uuid[6] & 0x0F) | 0x30;
-        uuid[8] = (uuid[8] & 0x3F) | 0x80;
-    }
-    uuid_unparse(uuid, uuid_out);
-    result = [[NSUUID alloc] initWithUUIDString:[[NSString alloc] initWithUTF8String:uuid_out]];
-    return result;
-}
-
 -(void)probeResource:(FSResource *)resource
-               reply:(void(^)(FSMatchResult result,
-                              NSString * _Nullable name,
-                              NSUUID * _Nullable containerUUID,
+        replyHandler:(void(^)(FSProbeResult * _Nullable result,
                               NSError * _Nullable error))reply
 {
-    FSMatchResult matchResult = FSMatchNotRecognized;
-    FSBlockDeviceResource *device;
-    void *bootSectorBuffer = NULL;
+    FSMatchResult matchResult = FSMatchResultNotRecognized;
+    NSMutableData *bootSectorBuffer = nil;
+    FSBlockDeviceResource *device = nil;
     unsigned char *volUuid = NULL;
     union bootsector *bootSector;
     __block NSError *error = nil;
@@ -490,26 +275,21 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     NSString *volName = nil;
     NSUUID *nsuuid = NULL;
 
-    if (resource.kind != FSResourceKindBlockDevice) {
+    if ([resource isKindOfClass:[FSBlockDeviceResource class]]) {
+        device = (FSBlockDeviceResource *)resource;
+    }
+    if (!device) {
         os_log(fskit_std_log(), "%s: Given device is not a block device", __FUNCTION__);
         goto out;
     }
-    device = [FSBlockDeviceResource dynamicCast:resource];
-    os_log(fskit_std_log(), "%s: Device matches!", __FUNCTION__);
 
     blockSize = device.blockSize;
 
     // Read boot sector
-    bootSectorBuffer = malloc(blockSize);
-    if (bootSectorBuffer == NULL)
-    {
-        os_log_error(fskit_std_log(), "%s: failed to malloc pvBootSector\n", __FUNCTION__);
-        error = fs_errorForPOSIXError(ENOMEM);
-        goto out;
-    }
+    bootSectorBuffer = [[NSMutableData alloc] initWithLength:blockSize];
 
     error = [self syncRead:device
-                      into:bootSectorBuffer
+                      into:bootSectorBuffer.mutableBytes
                 startingAt:0
                     length:blockSize];
     if (error != nil) {
@@ -528,9 +308,9 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
      *
      * If Exfat signiture exsits in boot sector, return failure.
      */
-    bootSector = (union bootsector *) bootSectorBuffer;
+    bootSector = (union bootsector *)bootSectorBuffer.bytes;//bootSectorBuffer;
     if (((bootSector->bs50.bsJump[0] != 0xE9) && (bootSector->bs50.bsJump[0] != 0xEB)) ||
-        !memcmp(bootSectorBuffer, "\xEB\x76\x90""EXFAT   ", EXFAT_SIGNITURE_LENGTH)) {
+        !memcmp(bootSectorBuffer.bytes, "\xEB\x76\x90""EXFAT   ", EXFAT_SIGNATURE_LENGTH)) {
         goto out;
     }
 
@@ -571,34 +351,41 @@ static int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
     }
 
     /* Get volume name and UUID */
-    volName = [self getVolumeName:device bps:bps spc:spc bootsector:bootSector];
+    volName = [Utilities getVolumeName:device
+                                   bps:bps
+                                   spc:spc
+                            bootsector:bootSector
+                                 flags:LABEL_FROM_DIRENTRY | LABEL_FROM_BOOTSECT];
+
     volUuid = (unsigned char*)calloc(16, sizeof(unsigned char));
     if (!volUuid) {
         error = fs_errorForPOSIXError(ENOMEM);
         goto out;
     }
-    nsuuid = [self getVolumeUUID:bootSector uuid:volUuid];
+    nsuuid = [Utilities generateVolumeUuid:bootSector uuid:volUuid];
 
-    matchResult = FSMatchUsable;
-
+    matchResult = FSMatchResultUsable;
 out:
-    if (bootSectorBuffer) {
-        free(bootSectorBuffer);
+    os_log_debug(fskit_std_log(), "%s: Setting up probeResult (%@)", __FUNCTION__, nsuuid);
+    if (error) {
+        return reply(nil, error);
     }
-
-    reply(matchResult, volName, nsuuid, error);
+    _probeResult = [FSProbeResult resultWithResult:matchResult
+                                              name:volName
+                                       containerID:nsuuid.fs_containerIdentifier];
+    reply(_probeResult, error);
 }
 
--(void)checkResource:(FSResource *)resource
-             options:(FSTaskOptionsBundle *)options
-          connection:(FSMessageConnection *)connection
-              taskID:(NSUUID *)taskID
-            progress:(NSProgress *)progress
-               reply:(void (^)(NSError * _Nullable))reply
+-(void)checkWithParameters:(FSTaskParameters *)parameters
+                connection:(FSMessageConnection *)connection
+                    taskID:(NSUUID *)taskID
+              replyHandler:(void (^)(NSProgress * _Nullable progress,
+                            NSError * _Nullable err))reply
 {
-    FSTaskProgressUpdater *updater = [FSTaskProgressUpdater newWithProgress:progress];
-    struct check_context_t context = {0};
-    FSBlockDeviceResource *device;
+    NSProgress          *progress = [[NSProgress alloc] init];
+    msdosProgressHelper *updater = [[msdosProgressHelper alloc] initWithProgress:progress];
+    check_context context = {0};
+    FSBlockDeviceResource *device = _resource;
     int preCheckResult = 0;
     int result = 0;
 
@@ -606,31 +393,39 @@ out:
 
     progress.totalUnitCount = 100;
 
-    device = [FSBlockDeviceResource dynamicCast:resource];
     fsck_client_ctx_t ctx = (__bridge_retained void *)connection;
-    fsck_set_context_properties(fsckPrintFunction, NULL, ctx);
+    fsck_set_context_properties(fsckPrintFunction, fsckAskFunction, ctx);
     fsck_set_maxmem(20 * 1024 * 1024);
 
-    for (FSTaskOption* option in options.options) {
-        if ([option.option isEqualToString:@"q"]) {
+    for (NSUInteger i = 0; i < parameters.count; i++) {
+        NSString *option = parameters[i];
+        if ([option isEqualToString:@"-q"]) {
             fsck_set_quick(true);
-        } else if ([option.option isEqualToString:@"n"]) {
+        } else if ([option isEqualToString:@"-n"]) {
             fsck_set_alwaysno(true);
             fsck_set_alwaysyes(false);
             fsck_set_preen(false);
-        } else if ([option.option isEqualToString:@"y"]) {
+        } else if ([option isEqualToString:@"-y"]) {
             fsck_set_alwaysyes(true);
             fsck_set_alwaysno(false);
             fsck_set_preen(false);
-        } else if ([option.option isEqualToString:@"p"]) {
+        } else if ([option isEqualToString:@"-p"]) {
             fsck_set_preen(true);
             fsck_set_alwaysno(false);
             fsck_set_alwaysyes(false);
-        } else if ([option.option isEqualToString:@"M"]) {
+        } else if ([option isEqualToString:@"-M"]) {
             int offset;
             size_t maxmem = 0;
             char errorStr[1024] = {0};
-            const char * value = [option.optionValue UTF8String];
+            const char * value;
+            if ((i + 1) == parameters.count) {
+                snprintf(errorStr, sizeof(errorStr), "Size argument missing\n");
+                fsckPrintFunction(ctx, LOG_CRIT, errorStr, NULL);
+                preCheckResult = EINVAL;
+                goto exit;
+            }
+            option = parameters[++i];
+            value = [option UTF8String];
             if (sscanf(value, "%zi%n", &maxmem, &offset) == 0)
             {
                 snprintf(errorStr, sizeof(errorStr), "Size argument '%s' not recognized\n", value);
@@ -663,23 +458,30 @@ bad_multiplier:
             fsck_set_maxmem(maxmem);
         } else {
             char errorStr[1024] = {0};
-            snprintf(errorStr, sizeof(errorStr), "Option '%s' not recognized\n", [option.option UTF8String]);
+            snprintf(errorStr, sizeof(errorStr), "Option '%s' not recognized\n", [option UTF8String]);
             fsckPrintFunction(ctx, LOG_CRIT, errorStr, NULL);
             preCheckResult = EINVAL;
             goto exit;
         }
     }
 
-    fsck_set_fd([device fileDescriptor]);
-    fsck_set_dev([[device bsdName] UTF8String]);
+    fsck_set_dev([[device BSDName] UTF8String]);
 
     // No errors found start checking file system.
-    reply(nil);
+    /*
+     Once we call the reply block, we officially transition from preparing to check
+     to actually checking. After this point, a UI can throw up a progress bar.
+     */
+    reply(progress, nil);
 
     context.updater = (__bridge_retained void*)updater;
     context.startPhase = startCallback;
     context.endPhase = endCallback;
-    result = checkfilesys([[device bsdName] UTF8String], &context);
+    context.resource = (__bridge_retained void*)_resource;
+    context.readHelper = readHelper;
+    context.writeHelper = writeHelper;
+    context.fstatHelper = fstatHelper;
+    result = checkfilesys([[device BSDName] UTF8String], &context);
 
     if (progress.totalUnitCount > progress.completedUnitCount) {
         progress.completedUnitCount = progress.totalUnitCount;
@@ -693,27 +495,26 @@ bad_multiplier:
 exit:
     // If error was found before starting to check the filesystem, reply about that error
     if(preCheckResult) {
-        reply(fs_errorForPOSIXError(preCheckResult));
+        reply(nil, fs_errorForPOSIXError(preCheckResult));
     } else {
-        [connection completed:result ? fs_errorForPOSIXError(result) : nil
-                        reply:^(int res, NSError * _Nullable err) {
+        [connection didCompleteWithError:result ? fs_errorForPOSIXError(result) : nil
+                       completionHandler:^(NSError * _Nullable err) {
+            // Nothing
         }];
     }
 
     os_log(fskit_std_log(), "%s: done", __FUNCTION__);
 }
 
--(void)formatResource:(FSResource *)resource
-              options:(FSTaskOptionsBundle *)options
-           connection:(FSMessageConnection *)connection
-               taskID:(NSUUID *)taskID
-             progress:(NSProgress *)progress
-                reply:(void (^)(NSError * _Nullable))reply
+-(void)formatWithParameters:(FSTaskParameters *)parameters
+                         connection:(FSMessageConnection *)connection
+                             taskID:(NSUUID *)taskID
+                       replyHandler:(void (^)(NSProgress * _Nullable p, NSError * _Nullable))reply
 {
-    FSTaskProgressUpdater *updater = [FSTaskProgressUpdater newWithProgress:progress];
-    FSBlockDeviceResource *device = [FSBlockDeviceResource dynamicCast:resource];
-    NSString *localizedFailureReason = nil;
-    struct format_context_t context = {0};
+    NSProgress  *progress = [[NSProgress alloc] init];
+    msdosProgressHelper *updater = [[msdosProgressHelper alloc] initWithProgress:progress];
+    FSBlockDeviceResource *device = _resource;
+    struct format_context_s context = {0};
     newfs_client_ctx_t client_ctx = NULL;
     NSString *errFormatStr = nil;
     NewfsProperties newfsProps;
@@ -723,7 +524,6 @@ exit:
     char buf[MAXPATHLEN];
     NewfsOptions sopts;
     int bootFD = -1;
-    struct stat sb;
     int result = 0;
 
     os_log(fskit_std_log(), "%s: started to format resource", __FUNCTION__);
@@ -739,7 +539,7 @@ exit:
         goto exit;
     }
     newfsCtx->fsMsgConn = connection;
-    newfsCtx->resource = resource;
+    newfsCtx->resource = (FSBlockDeviceResource*)_resource;
     newfsCtx->fs = self;
 
     client_ctx = (void *)newfsCtx;
@@ -754,83 +554,101 @@ exit:
     
     newfs_set_client(client_ctx);
 
-    for (FSTaskOption* option in options.options) {
-        NSString* key = option.option;
-        const char * value = [option.optionValue UTF8String];
-        if ([key isEqualToString:@"N"]) {
+    for (NSUInteger i = 0; i < parameters.count; i++) {
+        NSString *key = parameters[i];
+        const char * value = (i + 1) < parameters.count ? parameters[i+1].UTF8String : NULL;
+        if ([key isEqualToString:@"-N"]) {
             sopts.dryRun = 1;
-        } else if ([key isEqualToString:@"B"]) {
+        } else if ([key isEqualToString:@"-B"]) {
             sopts.bootStrapFromFile = value;
-        } else if ([key isEqualToString:@"F"]) {
+        } else if ([key isEqualToString:@"-F"]) {
+            if (value == NULL) {
+            missing_value:
+                errFormatStr = @"Option %@ requires a value";
+                logMsg = [[NSString alloc] initWithFormat:errFormatStr, key];
+                newfsPrintFunction(client_ctx, LOG_ERR, [logMsg UTF8String], NULL);
+                preFormatResult = EINVAL;
+                goto exit;
+            }
             if (strcmp(value, "12") && strcmp(value, "16") && strcmp(value, "32")) {
-                errFormatStr = @"Invalid FAT type (%@), must be 12/16 or 32";
-                logMsg = [[NSString alloc] initWithFormat:errFormatStr, option.optionValue];
-                localizedFailureReason = [connection localizedMessage:errFormatStr
-                                                                table:@NEWFS_LOC_TABLE
-                                                               bundle:[NSBundle bundleForClass:[self class]], option.optionValue];
+                errFormatStr = @"Invalid FAT type (%s), must be 12/16 or 32";
+                logMsg = [[NSString alloc] initWithFormat:errFormatStr, value];
                 newfsPrintFunction(client_ctx, LOG_ERR, [logMsg UTF8String], NULL);
                 preFormatResult = EINVAL;
                 goto exit;
             }
             sopts.FATType = atoi(value);
-        } else if ([key isEqualToString:@"I"]) {
+        } else if ([key isEqualToString:@"-I"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.volumeID = argto4(value, 0, "volume ID");
             sopts.volumeIDFlag = 1;
-        } else if ([key isEqualToString:@"O"]) {
+        } else if ([key isEqualToString:@"-O"]) {
+            if (value == NULL) { goto missing_value; }
             if (strlen(value) > 8) {
-                errFormatStr = @"Bad OEM string (%@)";
-                logMsg = [[NSString alloc] initWithFormat:errFormatStr, option.optionValue];
-                localizedFailureReason = [connection localizedMessage:errFormatStr
-                                                                table:@NEWFS_LOC_TABLE
-                                                               bundle:[NSBundle bundleForClass:[self class]], option.optionValue];
+                errFormatStr = @"Bad OEM string (%s)";
+                logMsg = [[NSString alloc] initWithFormat:errFormatStr, value];
                 newfsPrintFunction(client_ctx, LOG_ERR, [logMsg UTF8String], NULL);
                 preFormatResult = EINVAL;
                 goto exit;
             }
             sopts.OEMString = value;
-        } else if ([key isEqualToString:@"S"]) {
+        } else if ([key isEqualToString:@"-S"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.sectorSize = argto2(value, 1, "bytes/sector");
-        } else if ([key isEqualToString:@"P"]) {
+        } else if ([key isEqualToString:@"-P"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.physicalBytes = argto2(value, 1, "physical bytes/sector");
-        } else if ([key isEqualToString:@"a"]) {
+        } else if ([key isEqualToString:@"-a"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numOfSectorsPerFAT = argto4(value, 1, "sectors/FAT");
-        } else if ([key isEqualToString:@"b"]) {
+        } else if ([key isEqualToString:@"-b"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.blockSize = argtox(value, 1, "block size");
             sopts.clusterSize = 0;
-        } else if ([key isEqualToString:@"c"]) {
+        } else if ([key isEqualToString:@"-c"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.clusterSize = argto1(value, 1, "sectors/cluster");
             sopts.blockSize = 0;
-        } else if ([key isEqualToString:@"e"]) {
+        } else if ([key isEqualToString:@"-e"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numOfRootDirEnts = argto2(value, 1, "directory entries");
-        } else if ([key isEqualToString:@"f"]) {
+        } else if ([key isEqualToString:@"-f"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.standardFormat = value;
-        } else if ([key isEqualToString:@"h"]) {
+        } else if ([key isEqualToString:@"-h"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numDriveHeads = argto2(value, 1, "drive heads");
-        } else if ([key isEqualToString:@"i"]) {
+        } else if ([key isEqualToString:@"-i"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.systemSectorLocation = argto2(value, 1, "info sector");
-        } else if ([key isEqualToString:@"k"]) {
+        } else if ([key isEqualToString:@"-k"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.backupSectorLocation = argto2(value, 1, "backup sector");
-        } else if ([key isEqualToString:@"m"]) {
+        } else if ([key isEqualToString:@"-m"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.mediaDescriptor = argto1(value, 0, "media descriptor");
             sopts.mediaDescriptorFlag = 1;
-        } else if ([key isEqualToString:@"n"]) {
+        } else if ([key isEqualToString:@"-n"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numbOfFATs = argto1(value, 1, "number of FATs");
-        } else if ([key isEqualToString:@"o"]) {
+        } else if ([key isEqualToString:@"-o"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numOfHiddenSectors = argto4(value, 0, "hidden sectors");
             sopts.hiddenSectorsFlag = 1;
-        } else if ([key isEqualToString:@"r"]) {
+        } else if ([key isEqualToString:@"-r"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numOfReservedSectors = argto2(value, 1, "reserved sectors");
-        } else if ([key isEqualToString:@"s"]) {
+        } else if ([key isEqualToString:@"-s"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.fsSizeInSectors = argto4(value, 1, "file system size (in sectors)");
-        } else if ([key isEqualToString:@"u"]) {
+        } else if ([key isEqualToString:@"-u"]) {
+            if (value == NULL) { goto missing_value; }
             sopts.numOfSectorsPerTrack = argto2(value, 1, "sectors/track");
-        } else if ([key isEqualToString:@"v"]) {
+        } else if ([key isEqualToString:@"-v"]) {
+            if (value == NULL) { goto missing_value; }
             if (!oklabel(value)) {
-                errFormatStr = @"Given volume name (%@) is invalid for this file system";
-                logMsg = [[NSString alloc] initWithFormat:errFormatStr, option.optionValue];
-                localizedFailureReason = [connection localizedMessage:errFormatStr
-                                                                table:@NEWFS_LOC_TABLE
-                                                               bundle:[NSBundle bundleForClass:[self class]], option.optionValue];
+                errFormatStr = @"Given volume name (%s) is invalid for this file system";
+                logMsg = [[NSString alloc] initWithFormat:errFormatStr, value];
                 newfsPrintFunction(client_ctx, LOG_ERR, [logMsg UTF8String], NULL);
                 preFormatResult = EINVAL;
                 goto exit;
@@ -839,15 +657,7 @@ exit:
         }
     }
 
-    const char * fname = [device.bsdName UTF8String];
-
-    int fd = [device fileDescriptor];
-    if (fstat(fd, &sb)) {
-        NSString* errMsg = [NSString stringWithFormat:@"%s: %s", strerror(errno), fname];
-        newfsPrintFunction(client_ctx, LOG_ERR, [errMsg UTF8String], NULL);
-        preFormatResult = EINVAL;
-        goto exit;
-    }
+    const char * fname = [device.BSDName UTF8String];
 
     const char *bname = NULL;
     if (sopts.bootStrapFromFile) {
@@ -868,22 +678,26 @@ exit:
         } */
     }
 
-    reply(nil);
+    /*
+     Once we call the reply block, we officially transition from preparing to format
+     to actually formatting. After this point, a UI can throw up a progress bar.
+     */
+    reply(progress, nil);
 
     // Setup the newfs properties
-    newfsProps.fd = fd;
     newfsProps.devName = fname;
-    newfsProps.partitionBase = device.partitionBase;
     newfsProps.blockSize = (uint32_t)device.blockSize;
     newfsProps.blockCount = device.blockCount;
     newfsProps.physBlockSize = (uint32_t)device.physicalBlockSize;
     newfsProps.bname = bname;
     newfsProps.bootFD = bootFD;
-    newfsProps.sb = sb;
 
     context.updater = (__bridge_retained void*)updater;
     context.startPhase = startCallback;
     context.endPhase = endCallback;
+    context.resource = (__bridge_retained void*)_resource;
+    context.readHelper = readHelper;
+    context.writeHelper = writeHelper;
     result = format(sopts, newfsProps, &context);
     if (progress.totalUnitCount > progress.completedUnitCount) {
         progress.completedUnitCount = progress.totalUnitCount;
@@ -897,15 +711,11 @@ exit:
     }
     // If error was found before starting to check the filesystem, reply about that error
     if(preFormatResult) {
-        if (localizedFailureReason) {
-            return reply([NSError errorWithDomain:NSPOSIXErrorDomain
-                                                 code:preFormatResult
-                                             userInfo:@{NSLocalizedFailureReasonErrorKey:localizedFailureReason}]);
-        }
-        reply(fs_errorForPOSIXError(preFormatResult));
+        reply(nil, fs_errorForPOSIXError(preFormatResult));
     } else {
-        [connection completed:result ? fs_errorForPOSIXError(result) : nil
-                        reply:^(int res, NSError * _Nullable err) {
+        [connection didCompleteWithError:result ? fs_errorForPOSIXError(result) : nil
+                       completionHandler:^(NSError * _Nullable err) {
+            // Nothing
         }];
     }
 
@@ -915,7 +725,11 @@ exit:
 
 void startCallback(char* description, int64_t parentUnitCount, int64_t totalCount, unsigned int *completedCount, void *updater)
 {
-    FSTaskProgressUpdater *progressUpdater = (__bridge FSTaskProgressUpdater*)updater;
+    if (!description) {
+        os_log_error(fskit_std_log(), "%s: Invalid description (null)", __FUNCTION__);
+        return;
+    }
+    msdosProgressHelper *progressUpdater = (__bridge msdosProgressHelper *)updater;
     NSError *updaterError = nil;
 
     updaterError = [progressUpdater startPhase:[[NSString alloc] initWithUTF8String:description]
@@ -929,8 +743,62 @@ void startCallback(char* description, int64_t parentUnitCount, int64_t totalCoun
 
 void endCallback(char* description, void *updater)
 {
-    FSTaskProgressUpdater *progressUpdater = (__bridge FSTaskProgressUpdater*)updater;
+    if (!description) {
+        os_log_error(fskit_std_log(), "%s: Invalid description (null)", __FUNCTION__);
+        return;
+    }
+    msdosProgressHelper *progressUpdater = (__bridge msdosProgressHelper *)updater;
     [progressUpdater endPhase:[[NSString alloc] initWithUTF8String:description]];
+}
+
+size_t readHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    FSBlockDeviceResource *device = (__bridge FSBlockDeviceResource*)resource;
+    __block size_t read = 0;
+
+    [device synchronousReadInto:buffer
+                     startingAt:offset
+                         length:nbytes
+                   replyHandler:^(size_t actuallyRead,
+                                  NSError * _Nullable error) {
+        if (error) {
+            errno = (int)error.code;
+        } else {
+            read = actuallyRead;
+        }
+    }];
+
+    return read;
+}
+
+size_t writeHelper(void *resource, void *buffer, size_t nbytes, off_t offset)
+{
+    FSBlockDeviceResource *device = (__bridge FSBlockDeviceResource*)resource;
+    __block size_t written = 0;
+
+    [device synchronousWriteFrom:buffer
+                      startingAt:offset
+                          length:nbytes
+                    replyHandler:^(size_t actuallyWritten,
+                                   NSError * _Nullable error) {
+        if (error) {
+            errno = (int)error.code;
+        } else {
+            written = actuallyWritten;
+        }
+    }];
+
+    return written;
+}
+
+off_t lseekHelper(void *resource, off_t offset)
+{
+    return offset;
+}
+
+int fstatHelper(void *resource, struct stat *buffer)
+{
+    return 0;
 }
 
 @end

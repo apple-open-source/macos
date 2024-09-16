@@ -49,6 +49,7 @@
 #include <sys/kauth.h>
 #include <sys/codesign.h>
 #include <sys/code_signing.h>
+#include <vm/vm_kern_xnu.h>
 
 #include <mach/sdt.h>
 #include <os/hash.h>
@@ -135,7 +136,7 @@ do { \
 
 extern "C" {
 #include <mach/mach_traps.h>
-#include <vm/vm_map.h>
+#include <vm/vm_map_xnu.h>
 } /* extern "C" */
 
 struct IOMachPortHashList;
@@ -6265,7 +6266,8 @@ is_io_catalog_get_data(
 		unsigned int size;
 
 		size = s->getLength();
-		kr = mach_vm_allocate_kernel(kernel_map, &data, size, VM_FLAGS_ANYWHERE, VM_KERN_MEMORY_IOKIT);
+		kr = mach_vm_allocate_kernel(kernel_map, &data, size,
+		    VM_MAP_KERNEL_FLAGS_ANYWHERE(.vm_tag = VM_KERN_MEMORY_IOKIT));
 		if (kr == kIOReturnSuccess) {
 			bcopy(s->text(), (void *)data, size);
 			kr = vm_map_copyin(kernel_map, data, size, true, &copy);

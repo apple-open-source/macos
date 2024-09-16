@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -690,7 +690,7 @@ DNSNameListDataCreateWithArray(CFArrayRef list, Boolean compact)
 {
     CFDataRef	data = NULL;
     uint8_t *	encoded;
-    int		encoded_length;
+    int		encoded_length = 0;
     char * *	strlist;
     int		strlist_count;
 
@@ -717,7 +717,7 @@ DNSNameListDataCreateWithString(CFStringRef cfstr)
 {
     CFDataRef	data = NULL;
     uint8_t *	encoded;
-    int		encoded_length;
+    int		encoded_length = 0;
     char *	str;
 
     str = my_CFStringToCString(cfstr, kCFStringEncodingUTF8);
@@ -769,7 +769,7 @@ DNSNameListDataCreateWithString(CFStringRef cfstr)
  */
 STATIC int
 DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
-			DNSBufRef name_buf_p)
+			DNSBufRef name_buf_p, Boolean single_name)
 {
     DNSNameOffsets	buffer_offsets;
     bool		first;
@@ -791,6 +791,10 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
 
 	if ((buffer[read_head] & DNS_PTR_PATTERN_BYTE_MASK) 
 	    == DNS_PTR_PATTERN_BYTE_MASK) {
+	    if (single_name) {
+		fprintf(stderr, "single name with pointers\n");
+		goto failed;
+	    }
 	    /* got a pointer, validate it */
 	    if (read_head >= scan) {
 		if (left < 2) {
@@ -847,6 +851,9 @@ DNSNameListCreateCommon(const uint8_t * buffer, int buffer_size,
 		list_count++;
 		/* start on the next domain name */
 		first = TRUE;
+		if (single_name) {
+		    break;
+		}
 	    }
 	    else {
 		/* got a label */
@@ -918,7 +925,8 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size, int * names_count)
     DNSBuf		name_buf;
 
     DNSBufInit(&name_buf, NULL, 0);
-    list_count = DNSNameListCreateCommon(buffer, buffer_size, &name_buf);
+    list_count = DNSNameListCreateCommon(buffer, buffer_size, &name_buf,
+					 FALSE);
     if (list_count == 0) {
 	goto failed;
     }
@@ -965,7 +973,7 @@ DNSNameListCreateArray(const uint8_t * buffer, int buffer_size)
 
     DNSBufInit(&name_buf, NULL, 0);
     list_count = DNSNameListCreateCommon(buffer, buffer_size,
-					 &name_buf);
+					 &name_buf, FALSE);
     if (list_count == 0) {
 	return (NULL);
     }
@@ -995,6 +1003,33 @@ DNSNameListCreateArray(const uint8_t * buffer, int buffer_size)
     }
     DNSBufFreeElements(&name_buf);
     return (array);
+}
+
+PRIVATE_EXTERN CFStringRef
+DNSNameStringCreate(const uint8_t * buffer, int buffer_size)
+{
+    int			list_count;
+    DNSBuf		name_buf;
+    const char *	name_start;
+    CFStringRef		str;
+
+    DNSBufInit(&name_buf, NULL, 0);
+    list_count = DNSNameListCreateCommon(buffer, buffer_size,
+					 &name_buf, TRUE);
+    if (list_count == 0) {
+	return (NULL);
+    }
+    name_start = (const char *)DNSBufBuffer(&name_buf);
+    str = CFStringCreateWithCString(NULL, name_start,
+				    kCFStringEncodingUTF8);
+    if (str == NULL) {
+#ifdef TEST_DNSNAMELIST
+	fprintf(stderr, "failed to convert '%s' to UTF8\n",
+		name_start);
+#endif /* TEST_DNSNAMELIST */
+    }
+    DNSBufFreeElements(&name_buf);
+    return (str);
 }
 
 #ifdef TEST_DNSNAMELIST
@@ -1031,6 +1066,14 @@ const uint8_t	bad_buf8[] = {
     0x15, 0x15, 0x02, 0x10, 0x11, 0x00
 };
 
+const uint8_t	bad_buf9[] = {
+    16, 'g', 'o', 'o'
+};
+
+const uint8_t	bad_buf10[] = {
+    5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0xc0, 0x01
+};
+
 const uint8_t good_buf1[] = {
 	4, 'e', 'u', 'r', 'o', 5, 'a', 'p', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, 
 	9, 'm', 'a', 'r', 'k', 'e', 't', 'i', 'n', 'g', 0xc0, 0x0b,
@@ -1046,6 +1089,40 @@ const uint8_t good_buf2[] = {
 	1, 'w', 0xc0, 0x07,
 	1, 'w', 1, 'x', 1, 'y', 1, 'z', 0xc0, 0x0b,
 	
+};
+
+/*
+ * good_buf4
+ * - aligned to 8 bytes, multiple end labels, trailing non-zeroes
+ *   that should be ignored when doing a single label
+ */
+const uint8_t good_buf4[] = {
+	5, 'm', 'u', 'l', 't', 'i', 3, 'c', 'o', 'm', 0,
+	0, 0, 0, 0xff, 0xee
+};
+
+const uint8_t good_buf5[] = {
+    0x0d, 0x73, 0x63, 0x70, 0x73, 0x2d, 0x70, 0x76, 0x64, 0x73, 0x2d, 0x64, 
+    0x65, 0x76, 0x06, 0x73, 0x63, 0x70, 0x73, 0x63, 0x6c, 0x0b, 0x64, 0x65,
+    0x76, 0x2d, 0x63, 0x68, 0x61, 0x72, 0x74, 0x65, 0x72, 0x03, 0x6e, 0x65,
+    0x74, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+/*
+ * The following is the good and the bad way to write
+ * "device-services.comcast.net" on the wire.
+ * Showcases difference between pure ASCII and valid FQDN (rdar://127255898)
+ */
+const uint8_t good_buf6[] = {
+    0x0f, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x2d, 0x73, 0x65, 0x72, 0x76, 
+    0x69, 0x63, 0x65, 0x73, 0x07, 0x63, 0x6f, 0x6d, 0x63, 0x61, 0x73, 0x74,
+    0x03, 0x6e, 0x65, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+const uint8_t bad_buf11[] = {
+    0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x2d, 0x73, 0x65, 0x72, 0x76, 0x69,
+    0x63, 0x65, 0x73, 0x2e, 0x63, 0x6f, 0x6d, 0x63, 0x61, 0x73, 0x74, 0x2e,
+    0x6e, 0x65, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
 struct test {
@@ -1066,6 +1143,17 @@ STATIC const struct test all_tests[] = {
     { "bad chars", bad_buf8, sizeof(bad_buf8), FALSE },
     { "apple.com", good_buf1, sizeof(good_buf1), TRUE },
     { "w.x", good_buf2, sizeof(good_buf2), TRUE },
+    { "scps-pvds-dev.scpscl.dev-charter.net", good_buf5, sizeof(good_buf5), TRUE },
+    { "device-services.comcast.net", good_buf6, sizeof(good_buf6), TRUE },
+    { "bad 'device-services.comcast.net'",  bad_buf11, sizeof(bad_buf11), FALSE },
+    { NULL, NULL, 0}
+};
+
+STATIC const struct test all_string_tests[] = {
+    { "no end label", bad_buf7, sizeof(bad_buf7), FALSE },
+    { "truncated label", bad_buf9, sizeof(bad_buf9), FALSE },
+    { "contains pointer", bad_buf10, sizeof(bad_buf10), FALSE },
+    { "multi.com", good_buf4, sizeof(good_buf1), TRUE },
     { NULL, NULL, 0}
 };
 
@@ -1204,7 +1292,24 @@ main(int argc, const char * argv[])
 	    CFShow(array);
 	    CFRelease(array);
 	}
+    }
+    for (i = 0, test = all_string_tests; test->name != NULL; i++, test++) {
+	CFStringRef	str;
 
+	str = DNSNameStringCreate(test->buf, test->buf_size);
+	printf("String Test %d '%s' ", i + 1, test->name);
+	if (test->expect_success == (str != NULL)) {
+	    printf("PASSED\n");
+	}
+	else {
+	    printf("FAILED\n");
+	    printf("Halting tests\n");
+	    exit(2);
+	}
+	if (str != NULL) {
+	    CFShow(str);
+	    CFRelease(str);
+	}
     }
     exit(0);
 }

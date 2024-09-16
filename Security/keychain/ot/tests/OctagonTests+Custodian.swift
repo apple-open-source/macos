@@ -284,6 +284,45 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
     }
 
+    func testAddCustodianRecoveryKeyNotUploadedViews() throws {
+        try self.skipOnRecoveryKeyNotSupported()
+
+        self.defaultCKKS.suggestTLKUpload = nil
+        self.holdCloudKitFetches()
+
+        self.startCKAccountStatusMock()
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
+
+        _ = try self.createClique()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.defaultCKKS.suggestTLKUpload = nil
+        self.releaseCloudKitFetchHold()
+
+        OctagonSetSOSFeatureEnabled(true)
+
+        self.fakeCuttlefishServer.addCustodianRecoveryKeyListener = { request in
+            self.fakeCuttlefishServer.addCustodianRecoveryKeyListener = nil
+            XCTAssertEqual(request.tlkShares.count, 0, "request should not have any tlkshares to upload")
+            return nil
+        }
+
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        self.manager.createCustodianRecoveryKey(OTControlArguments(configuration: self.otcliqueContext), uuid: nil) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertNotNil(crk!.uuid, "uuid should be non-nil")
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+    }
+
     func testAddCustodianRecoveryKeyAndCKKSTLKSharesHappen() throws {
         try self.skipOnRecoveryKeyNotSupported()
         self.startCKAccountStatusMock()
@@ -520,10 +559,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -648,10 +686,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                               otControl: self.otControl,
+                                                                               altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -672,10 +709,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         // Now, join from a new device
-        let newCliqueContext = OTConfigurationContext()
-        newCliqueContext.context = OTDefaultContext
-        newCliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        newCliqueContext.otControl = self.otControl
+        let newCliqueContext = self.createOTConfigurationContextForTests(contextID: OTDefaultContext,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
@@ -781,10 +817,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -857,10 +892,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -933,10 +967,9 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
         let clique = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1024,7 +1057,7 @@ class OctagonCustodianTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // For this test, the fetchRecoverableTLKShares endpoint is suffering an outage. This should break custodian join.
-        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { request in
+        self.fakeCuttlefishServer.fetchRecoverableTLKSharesListener = { _ in
             return NSError(domain: CKErrorDomain,
                            code: CKError.serverRejectedRequest.rawValue,
                            userInfo: [:])
@@ -1230,10 +1263,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1291,10 +1324,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1359,10 +1392,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1423,10 +1456,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -1627,10 +1660,10 @@ class OctagonCustodianTests: OctagonTestsBase {
         XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        let bottlerotcliqueContext = OTConfigurationContext()
-        bottlerotcliqueContext.context = establishContextID
-        bottlerotcliqueContext.altDSID = try XCTUnwrap(self.mockAuthKit2.primaryAltDSID())
-        bottlerotcliqueContext.otControl = self.otControl
+        let bottlerotcliqueContext = self.createOTConfigurationContextForTests(contextID: establishContextID,
+                                                                         otControl: self.otControl,
+                                                                         altDSID: try XCTUnwrap(self.mockAuthKit2.primaryAltDSID()))
+
         _ = try self.createClique(contextData: bottlerotcliqueContext)
 
         self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

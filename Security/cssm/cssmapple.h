@@ -154,8 +154,8 @@ enum {
 /* Parameters and structures for Apple-defined ACL subjects and samples */
 
 enum {	/* types of code signatures - item 1 of CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE subjects */
-    CSSM_ACL_CODE_SIGNATURE_INVALID = 0, /* standard OS X code signature */
-    CSSM_ACL_CODE_SIGNATURE_OSX = 1		/* standard OS X code signature */
+    CSSM_ACL_CODE_SIGNATURE_INVALID = 0, /* standard macOS code signature */
+    CSSM_ACL_CODE_SIGNATURE_OSX = 1		/* standard macOS code signature */
 };
 
 /* ACL subjects of type PROCESS */

@@ -156,6 +156,8 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool displayIsOff)
 
 __private_extern__ void SystemLoadDominoStateHasChanged(bool _dominoState);
 
+__private_extern__ void SystemLoadOnenessStateHasChanged(bool _onenessState);
+
 __private_extern__ void SystemLoadPrefsHaveChanged(void);
 
 __private_extern__ void SystemLoadSystemPowerStateHasChanged(void);
@@ -181,6 +183,7 @@ __private_extern__ void registerUserActivityClient(xpc_object_t peer, xpc_object
 __private_extern__ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg);
 __private_extern__ void deRegisterUserActivityClient(xpc_object_t peer);
 __private_extern__ void updateDominoState(xpc_object_t connection, xpc_object_t msg);
+__private_extern__ void updateOnenessState(xpc_object_t connection, xpc_object_t msg);
 
 bool getUserActiveAssertionValid(void);
 

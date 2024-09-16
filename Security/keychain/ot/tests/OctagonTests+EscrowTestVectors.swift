@@ -108,6 +108,10 @@
                 </data>
                 <key>serial</key>
                 <string>C39V209AJ9L5</string>
+                <key>build</key>
+                <string>18A214</string>
+                <key>passcodeGeneration</key>
+                <integer>140</integer>
             </dict>
             <key>osVersion</key>
             <string>18A214</string>
@@ -1850,6 +1854,10 @@
                 </data>
                 <key>serial</key>
                 <string>C39V209AJ9L5</string>
+                <key>build</key>
+                <string>18A214</string>
+                <key>passcodeGeneration</key>
+                <integer>140</integer>
             </dict>
             <key>osVersion</key>
             <string>18A214</string>

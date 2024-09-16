@@ -28,6 +28,8 @@
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #include "PlatformMediaSession.h"
+#include "VideoReceiverEndpoint.h"
+#include <WebCore/NowPlayingMetadataObserver.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
@@ -35,10 +37,17 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
+class PlaybackSessionModel;
+class PlaybackSessionModelClient;
+}
+
+namespace WebCore {
 
 class TimeRanges;
 class PlaybackSessionModelClient;
 struct MediaSelectionOption;
+
+enum class AudioSessionSoundStageSize : uint8_t;
 
 enum class PlaybackSessionModelExternalPlaybackTargetType : uint8_t {
     TargetTypeNone,
@@ -57,6 +66,12 @@ public:
     virtual void addClient(PlaybackSessionModelClient&) = 0;
     virtual void removeClient(PlaybackSessionModelClient&) = 0;
 
+    // CheckedPtr interface
+    virtual uint32_t ptrCount() const = 0;
+    virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
+    virtual void incrementPtrCount() const = 0;
+    virtual void decrementPtrCount() const = 0;
+
     virtual void play() = 0;
     virtual void pause() = 0;
     virtual void togglePlayState() = 0;
@@ -72,11 +87,24 @@ public:
     virtual void selectAudioMediaOption(uint64_t index) = 0;
     virtual void selectLegibleMediaOption(uint64_t index) = 0;
     virtual void togglePictureInPicture() = 0;
+    virtual void enterInWindowFullscreen() = 0;
+    virtual void exitInWindowFullscreen() = 0;
+    virtual void enterFullscreen() = 0;
+    virtual void exitFullscreen() = 0;
     virtual void toggleMuted() = 0;
     virtual void setMuted(bool) = 0;
     virtual void setVolume(double) = 0;
     virtual void setPlayingOnSecondScreen(bool) = 0;
     virtual void sendRemoteCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument&) { };
+    virtual void setVideoReceiverEndpoint(const VideoReceiverEndpoint&) = 0;
+
+#if HAVE(SPATIAL_TRACKING_LABEL)
+    virtual const String& spatialTrackingLabel() const { return emptyString(); }
+    virtual void setSpatialTrackingLabel(const String&) { }
+#endif
+
+    virtual void addNowPlayingMetadataObserver(const WebCore::NowPlayingMetadataObserver&) { }
+    virtual void removeNowPlayingMetadataObserver(const WebCore::NowPlayingMetadataObserver&) { }
 
     using ExternalPlaybackTargetType = PlaybackSessionModelExternalPlaybackTargetType;
 
@@ -108,6 +136,12 @@ public:
     virtual double volume() const = 0;
     virtual bool isPictureInPictureSupported() const = 0;
     virtual bool isPictureInPictureActive() const = 0;
+    virtual bool isInWindowFullscreenActive() const { return false; }
+    virtual AudioSessionSoundStageSize soundStageSize() const = 0;
+    virtual void setSoundStageSize(AudioSessionSoundStageSize) = 0;
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    virtual bool supportsLinearMediaPlayer() const { return false; }
+#endif
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* logIdentifier() const { return nullptr; }
@@ -115,9 +149,16 @@ public:
 #endif
 };
 
-class PlaybackSessionModelClient : public CanMakeWeakPtr<PlaybackSessionModelClient>, public CanMakeCheckedPtr {
+class PlaybackSessionModelClient : public CanMakeWeakPtr<PlaybackSessionModelClient> {
 public:
     virtual ~PlaybackSessionModelClient() { };
+
+    // CheckedPtr interface
+    virtual uint32_t ptrCount() const = 0;
+    virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
+    virtual void incrementPtrCount() const = 0;
+    virtual void decrementPtrCount() const = 0;
+
     virtual void durationChanged(double) { }
     virtual void currentTimeChanged(double /* currentTime */, double /* anchorTime */) { }
     virtual void bufferedTimeChanged(double) { }
@@ -135,6 +176,10 @@ public:
     virtual void volumeChanged(double) { }
     virtual void isPictureInPictureSupportedChanged(bool) { }
     virtual void pictureInPictureActiveChanged(bool) { }
+    virtual void isInWindowFullscreenActiveChanged(bool) { }
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    virtual void supportsLinearMediaPlayerChanged(bool) { }
+#endif
     virtual void ensureControlsManager() { }
     virtual void modelDestroyed() { }
 };

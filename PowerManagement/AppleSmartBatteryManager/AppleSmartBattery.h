@@ -63,6 +63,7 @@ typedef struct {
     SMCKey      key;
     int32_t     byteCnt;
     int pathBits;
+    enum asbUcKeyType keyType;
 } smcToRegistry;
 
 typedef struct {

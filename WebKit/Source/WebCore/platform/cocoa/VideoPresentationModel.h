@@ -43,6 +43,15 @@ OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIViewController;
 #endif
 
+namespace WebCore {
+class VideoPresentationModelClient;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::VideoPresentationModelClient> : std::true_type { };
+}
+
 namespace WTF {
 class MachSendRight;
 }
@@ -61,6 +70,7 @@ public:
     virtual void requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenMode, bool finishedWithMedia = false) = 0;
     virtual void setVideoLayerFrame(FloatRect) = 0;
     virtual void setVideoLayerGravity(MediaPlayerEnums::VideoGravity) = 0;
+    virtual void setVideoFullscreenFrame(FloatRect) = 0;
     virtual void fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode) = 0;
 
     virtual FloatSize videoDimensions() const = 0;
@@ -83,6 +93,8 @@ public:
     virtual void didExitFullscreen() { };
     virtual void didCleanupFullscreen() { };
     virtual void fullscreenMayReturnToInline() { };
+    virtual void setRequiresTextTrackRepresentation(bool) { }
+    virtual void setTextTrackRepresentationBounds(const IntRect&) { }
 
     virtual void requestRouteSharingPolicyAndContextUID(CompletionHandler<void(RouteSharingPolicy, String)>&& completionHandler) { completionHandler(RouteSharingPolicy::Default, emptyString()); }
 
@@ -98,9 +110,16 @@ public:
 #endif
 };
 
-class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient>, public CanMakeCheckedPtr {
+class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient> {
 public:
     virtual ~VideoPresentationModelClient() = default;
+
+    // CheckedPtr interface
+    virtual uint32_t ptrCount() const = 0;
+    virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
+    virtual void incrementPtrCount() const = 0;
+    virtual void decrementPtrCount() const = 0;
+
     virtual void hasVideoChanged(bool) { }
     virtual void videoDimensionsChanged(const FloatSize&) { }
     virtual void willEnterPictureInPicture() { }
@@ -109,8 +128,9 @@ public:
     virtual void willExitPictureInPicture() { }
     virtual void didExitPictureInPicture() { }
     virtual void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) { }
+    virtual void documentVisibilityChanged(bool) { }
 };
-    
+
 } // namespace WebCore
 
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)

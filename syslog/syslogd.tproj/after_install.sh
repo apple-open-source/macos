@@ -7,6 +7,7 @@ elif [[ "${PLATFORM_NAME}" == "macosx" ]] ; then
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.osx
     SYSLOG_CONF="${SRCROOT}"/syslogd.tproj/syslog.conf
+    NEWSYSLOG_CONF=${SRCROOT}"/newsyslog/newsyslog.conf"
 elif [[ "${PLATFORM_NAME}" == "bridgeos" ]] ; then
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.disabled.plist
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios
@@ -24,6 +25,9 @@ install -d -m 0755 -o root -g wheel "${DESTDIR}"
 install -m 0644 -o root -g wheel "${ASL_CONF}" "${DESTDIR}"/asl.conf
 if [[ -n "${SYSLOG_CONF}" ]] ; then
     install -m 0644 -o root -g wheel "${SYSLOG_CONF}" "${DESTDIR}"
+fi
+if [[ -n "${NEWSYSLOG_CONF}" ]] ; then
+    install -m 0644 -o root -g wheel "${NEWSYSLOG_CONF}" "${DESTDIR}"
 fi
 
 DESTDIR="${DSTROOT}"/System/Library/LaunchDaemons

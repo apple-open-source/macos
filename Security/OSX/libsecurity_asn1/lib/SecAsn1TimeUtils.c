@@ -69,23 +69,56 @@ errOut:
     return status;
 }
 
+static CFStringRef _SecAsn1CreateDateString(CFAbsoluteTime date) {
+    // Prefer CFDateFormatter when it's available, as it's the highest fidelity answer.
+    CFDateFormatterRef dateFormatter = CFDateFormatterCreateISO8601Formatter(NULL, 0);
+    if (dateFormatter) {
+        CFStringRef dateString = NULL;
+        CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
+
+        CFDateFormatterSetProperty(dateFormatter, kCFDateFormatterTimeZone, timeZone);
+        CFDateFormatterSetFormat(dateFormatter, CFSTR("yyyyMMddHHmmss'Z'"));
+        dateString = CFDateFormatterCreateStringWithAbsoluteTime(NULL, dateFormatter, date);
+
+        CFRelease(timeZone);
+        CFRelease(dateFormatter);
+        return dateString;
+    }
+
+    // Fall back to parsing a POSIX timestamp using libSystem.
+    const time_t timestamp = date + kCFAbsoluteTimeIntervalSince1970;
+    struct tm parsed = {};
+    if (gmtime_r(&timestamp, &parsed) == &parsed) {
+        return CFStringCreateWithFormat(
+            NULL, NULL, CFSTR("%04d%02d%02d%02d%02d%02dZ"),
+            parsed.tm_year + 1900, parsed.tm_mon + 1, parsed.tm_mday,
+            parsed.tm_hour, parsed.tm_min, parsed.tm_sec);
+    };
+
+    return NULL;
+}
+
 OSStatus SecAsn1EncodeTime(PLArenaPool *poolp, CFAbsoluteTime date, NSS_Time* asn1Time) {
     OSStatus result = errSecSuccess;
-    CFLocaleRef locale = CFLocaleCreate(kCFAllocatorDefault, CFSTR("en_US"));
-    CFDateFormatterRef dateFormatter = CFDateFormatterCreate(NULL, locale, kCFDateFormatterShortStyle, kCFDateFormatterShortStyle);
-    CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
-    CFDateFormatterSetProperty(dateFormatter, kCFDateFormatterTimeZone, timeZone);
+    CFStringRef dateString = NULL;
+    CFStringRef fullString = _SecAsn1CreateDateString(date);
+    CFRange shortRange = CFRangeMake(2, CFStringGetLength(fullString) - 2);
+    if (!fullString) {
+        result = errSecAllocate;
+        goto errOut;
+    }
 
     if (date < -1609459200.0 || //19500101000000Z
         date > 1546300799.0) {  //20491231235959Z
-        CFDateFormatterSetFormat(dateFormatter, CFSTR("yyyyMMddHHmmss'Z'"));
+        // Format: "yyyyMMddHHmmss'Z'"
+        dateString = CFRetain(fullString);
         asn1Time->tag = SEC_ASN1_GENERALIZED_TIME;
     } else {
-        CFDateFormatterSetFormat(dateFormatter, CFSTR("yyMMddHHmmss'Z'"));
+        // Format: "yyMMddHHmmss'Z'", so discard the leading year digits.
+        dateString = CFStringCreateWithSubstring(NULL, fullString, shortRange);
         asn1Time->tag = SEC_ASN1_UTC_TIME;
     }
 
-    CFStringRef dateString = CFDateFormatterCreateStringWithAbsoluteTime(NULL, dateFormatter, date);
     CFIndex stringLen = CFStringGetLength(dateString);
     if (stringLen < 0) {
         result = errSecAllocate;
@@ -104,9 +137,7 @@ OSStatus SecAsn1EncodeTime(PLArenaPool *poolp, CFAbsoluteTime date, NSS_Time* as
     }
 
 errOut:
-    CFReleaseNull(locale);
-    CFReleaseNull(dateFormatter);
-    CFReleaseNull(timeZone);
+    CFReleaseNull(fullString);
     CFReleaseNull(dateString);
     return result;
 }

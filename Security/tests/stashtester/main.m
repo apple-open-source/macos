@@ -20,17 +20,28 @@ static void usage(void) {
 }
 
 static bool performStash(void) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
     NSLog(@"attempting stash");
     OSStatus result = SecKeychainStash();
+
     NSLog(@"result from stash: %ld", (long)result);
     return result == errSecSuccess;
+
+#pragma clang diagnostic pop
 }
 
 static bool performLoad(void) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
     NSLog(@"attempting load");
     OSStatus result = SecKeychainLogin(0, NULL, 0, NULL);
     NSLog(@"result from load: %ld", (long)result);
     return result == errSecSuccess;
+
+#pragma clang diagnostic pop
 }
 
 static NSMutableDictionary* makeQuery(bool includeData) {
@@ -60,6 +71,9 @@ static bool performTest(void) {
         return false;
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
     NSLog(@"Locking legacy keychain");
     SecKeychainRef loginkc = NULL;
     SecKeychainCopyLogin(&loginkc);
@@ -81,6 +95,9 @@ static bool performTest(void) {
         NSLog(@"Unable to get login keychain status; aborting test");
         return false;
     }
+
+
+#pragma clang diagnostic pop
 
     if (status & kSecUnlockStateStatus) {
         NSLog(@"Login keychain not locked after locking; aborting test");

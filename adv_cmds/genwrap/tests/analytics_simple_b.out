@@ -1,2 +1,3 @@
 arguments
-	-ad
+	-a 1
+	-d 1

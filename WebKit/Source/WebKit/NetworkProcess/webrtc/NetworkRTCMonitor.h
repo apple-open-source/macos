@@ -39,6 +39,15 @@ ALLOW_COMMA_BEGIN
 ALLOW_COMMA_END
 
 
+namespace WebKit {
+class NetworkRTCMonitor;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::NetworkRTCMonitor> : std::true_type { };
+}
+
 namespace IPC {
 class Connection;
 class Decoder;
@@ -59,6 +68,9 @@ public:
     NetworkRTCProvider& rtcProvider() { return m_rtcProvider; }
 
     void onNetworksChanged(const Vector<RTCNetwork>&, const RTCNetwork::IPAddress&, const RTCNetwork::IPAddress&);
+
+    const RTCNetwork::IPAddress& ipv4() const;
+    const RTCNetwork::IPAddress& ipv6()  const;
 
 private:
     void startUpdatingIfNeeded();

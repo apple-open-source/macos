@@ -45,7 +45,7 @@ wctomb_l(char *s, wchar_t wchar, locale_t loc)
 		loc->__mbs_wctomb = initial;
 		return (0);
 	}
-	if ((rval = loc->__lc_ctype->__wcrtomb(s, wchar, &loc->__mbs_wctomb, loc)) == (size_t)-1)
+	if ((rval = XLOCALE_CTYPE(loc)->__wcrtomb(s, wchar, &loc->__mbs_wctomb, loc)) == (size_t)-1)
 		return (-1);
 	return ((int)rval);
 }

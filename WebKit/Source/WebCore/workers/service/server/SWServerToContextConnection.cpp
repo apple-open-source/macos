@@ -33,14 +33,8 @@
 
 namespace WebCore {
 
-static SWServerToContextConnectionIdentifier generateServerToContextConnectionIdentifier()
-{
-    return SWServerToContextConnectionIdentifier::generate();
-}
-
 SWServerToContextConnection::SWServerToContextConnection(SWServer& server, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier)
     : m_server(server)
-    , m_identifier(generateServerToContextConnectionIdentifier())
     , m_registrableDomain(WTFMove(registrableDomain))
     , m_serviceWorkerPageIdentifier(serviceWorkerPageIdentifier)
 {
@@ -51,6 +45,11 @@ SWServerToContextConnection::~SWServerToContextConnection()
 }
 
 SWServer* SWServerToContextConnection::server() const
+{
+    return m_server.get();
+}
+
+RefPtr<SWServer> SWServerToContextConnection::protectedServer() const
 {
     return m_server.get();
 }
@@ -111,7 +110,7 @@ void SWServerToContextConnection::findClientByVisibleIdentifier(ServiceWorkerIde
 void SWServerToContextConnection::claim(ServiceWorkerIdentifier serviceWorkerIdentifier, CompletionHandler<void(std::optional<ExceptionData>&&)>&& callback)
 {
     RefPtr worker = SWServerWorker::existingWorkerForIdentifier(serviceWorkerIdentifier);
-    auto* server = worker ? worker->server() : nullptr;
+    RefPtr server = worker ? worker->server() : nullptr;
     callback(server ? server->claim(*worker) : std::nullopt);
 }
 
@@ -138,7 +137,7 @@ void SWServerToContextConnection::terminateWhenPossible()
     m_shouldTerminateWhenPossible = true;
 
     bool hasServiceWorkerWithPendingEvents = false;
-    server()->forEachServiceWorker([&](auto& worker) {
+    protectedServer()->forEachServiceWorker([&](auto& worker) {
         if (worker.isRunning() && worker.topRegistrableDomain() == m_registrableDomain && worker.hasPendingEvents()) {
             hasServiceWorkerWithPendingEvents = true;
             return false;

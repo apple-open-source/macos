@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+# SPDX-License-Identifier: BSD-2-Clause
 #
 # Copyright (c) 2016 Alan Somers
 #
@@ -23,7 +23,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $FreeBSD$
 
 atf_test_case empty_r
 empty_r_head()
@@ -337,10 +336,28 @@ follow_stdin_body()
 	atf_check kill $pid
 }
 
+atf_test_case follow_create
+follow_create_head()
+{
+	atf_set "descr" "Verify that -F works when a file is created"
+}
+follow_create_body()
+{
+	local pid
+
+	rm -f infile
+	tail -F infile > outfile &
+	pid=$!
+	seq 1 5 >infile
+	sleep 2
+	atf_check cmp infile outfile
+	atf_check kill $pid
+}
+
 atf_test_case follow_rename
 follow_rename_head()
 {
-	atf_set "descr" "Verify that -F works"
+	atf_set "descr" "Verify that -F works when a file is replaced"
 }
 follow_rename_body()
 {
@@ -477,6 +494,7 @@ atf_init_test_cases()
 	atf_add_test_case stdin
 	atf_add_test_case follow
 	atf_add_test_case follow_stdin
+	atf_add_test_case follow_create
 	atf_add_test_case follow_rename
 	atf_add_test_case silent_header
 	atf_add_test_case verbose_header

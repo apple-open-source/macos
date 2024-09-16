@@ -221,7 +221,14 @@ extern const CFStringRef kSecPolicyAppleXROSApplicationSigning
     API_AVAILABLE(macos(14.0), ios(17.0), watchos(10.0), tvos(17.0));
 extern const CFStringRef kSecPolicyAppleEDPSigning
     API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
-
+extern const CFStringRef kSecPolicyAppleVerifiedMark
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+extern const CFStringRef kSecPolicyAppleParakeetSigning
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+extern const CFStringRef kSecPolicyAppleParakeetService
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+extern const CFStringRef kSecPolicyAppleiAPAuthV4
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -248,6 +255,7 @@ extern const CFStringRef kSecPolicyAppleEDPSigning
     @constant kSecPolicyNameApplePushCertPortal
     @constant kSecPolicyNameApplePotluckService
     @constant kSecPolicyNameAppleMacOSSoftwareUpdate
+    @constant kSecPolicyNameAppleIssued
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -291,6 +299,8 @@ extern const CFStringRef kSecPolicyNameApplePotluckService
     API_AVAILABLE(macos(12.0), ios(15.0), watchos(8.0), tvos(15.0));
 extern const CFStringRef kSecPolicyNameAppleMacOSSoftwareUpdate
     API_AVAILABLE(macos(13.0), ios(16.1), watchos(9.1), tvos(16.1));
+extern const CFStringRef kSecPolicyNameAppleIssued
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 
 /*!
  @enum Policy Value Constants
@@ -939,7 +949,7 @@ SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void);
 
 /*!
  @function SecPolicyCreateOSXProvisioningProfileSigning
- @abstract  Returns a policy object for evaluating certificate chains for signing OS X
+ @abstract  Returns a policy object for evaluating certificate chains for signing macOS
  Provisioning Profiles.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
@@ -2160,8 +2170,88 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef  SecPolicyCreatePPMAggregatorConfigSigning(bool isApple)
     API_AVAILABLE(macos(13.1), ios(16.2), watchos(9.2), tvos(16.2));
 
+/*!
+ @function SecPolicyCreateVerifiedMark
+ @abstract Returns a policy object for verifying a Verified Mark Certificate.
+ @param hostname Required; hostname to verify the certificate name against.
+ @param markRepresentation Required; image data in SVG+XML format which
+ conforms to the VMC Requirements specification, 7.1.2.3(h).
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+      * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+      * The leaf and intermediate certificates must contain a certificatePolicies extension with the policy OID 1.3.6.1.4.1.53087.1.1.
+      * The leaf and intermediate certificates must contain an extendedKeyUsage extension with the purpose OID 1.3.6.1.5.5.7.3.31, and no other purpose.
+      * The leaf certificate must match the input hostname in its subjectAlternativeName extension.
+      * The leaf certificate must contain a logotype extension (OID 1.3.6.1.5.5.7.1.12) with an embedded mark representation that matches the input image data.
+ Note that if the VMC chain is anchored by a root which is outside the system root trust store, as is currently the case, the caller is expected to provide this root by calling SecTrustSetAnchorCertificates.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateVerifiedMark(CFStringRef hostname, CFDataRef markRepresentation)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
+/*!
+ @function SecPolicyCreateParakeetSigning
+ @abstract Returns a policy object for verifying Parakeet signatures.
+ @discussion The resulting policy uses the Basic X.509 policy with temporal validity (date) check, and verifies the following requirements:
+     * Certificate chain length is 3
+     * Certificates use ECC 256 keys (or larger) and SHA-256 signature algorithm (or larger)
+     * Leaf certificate validity must not exceed 74 days
+     * Leaf certificate must contain a critical KeyUsage with the keyAgreement purpose
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateParakeetSigning(void)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
+/*!
+ @function SecPolicyCreateParakeetService
+ @abstract Returns a policy object for verifying Parakeet certificates with hostname and freshness.
+ @param hostname Required; leaf certificate must contain this string in its subjectAltName extension.
+ @param context Optional; if present, the key string "fresh" with value kCFBooleanTrue will require
+ that the current time is not greater than 48 hours from the leaf certificate's notBefore value.
+ @discussion The resulting policy uses the Basic X.509 policy with temporal validity (date) check, and verifies the following requirements:
+     * Certificate chain length is 3
+     * Certificates use ECC 256 keys (or larger) and SHA-256 signature algorithm (or larger)
+     * Leaf certificate validity must not exceed 74 days
+     * Leaf certificate must contain a critical KeyUsage with the keyAgreement purpose
+     * Leaf certificate must contain the supplied name string in its subjectAltName extension
+     * If "fresh" parameter is true, leaf notBefore value must be 48 hours or less from current time
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateParakeetService(CFStringRef hostname, CFDictionaryRef __nullable context)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
+typedef CF_ENUM(uint32_t, SeciAPAuthV4Type) {
+    SeciAPAuthV4TypeInvalid = 0,
+    SeciAPAuthV4TypeAccessory = 1,
+    SeciAPAuthV4TypeAttestation = 2,
+    SeciAPAuthV4TypeProvisioning = 3,
+} API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
+/*!
+ @function SecPolicyCreateiAPAuthV4
+ @abstract Returns a policy object for verifying iAP AuthV4 certificates
+ @param type Expected AuthV4 type
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.71.1
+     * The intermediate common name begins with a string according to the specified type
+ The intended use of this policy is that the caller pass in the
+ AuthV4 root to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
 /*
- *  Legacy functions (OS X only)
+ *  Legacy functions (macOS only)
  */
 #if TARGET_OS_OSX
 
@@ -2221,6 +2311,7 @@ extern const CFStringRef kSecPolicyCheckBasicConstraintsCA;
 extern const CFStringRef kSecPolicyCheckBasicConstraintsPathLen;
 extern const CFStringRef kSecPolicyCheckBlackListedKey;
 extern const CFStringRef kSecPolicyCheckBlackListedLeaf;
+extern const CFStringRef kSecPolicyCheckSinglePurposeChainEKU;
 extern const CFStringRef kSecPolicyCheckCertificatePolicy;
 extern const CFStringRef kSecPolicyCheckChainLength;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
@@ -2243,6 +2334,7 @@ extern const CFStringRef kSecPolicyCheckIntermediateOrganization;
 extern const CFStringRef kSecPolicyCheckIntermediateSPKISHA256;
 extern const CFStringRef kSecPolicyCheckCAspkiSHA256;
 extern const CFStringRef kSecPolicyCheckIssuerCommonName;
+extern const CFStringRef kSecPolicyCheckIssuerCommonNamePrefix;
 extern const CFStringRef kSecPolicyCheckIssuerPolicyConstraints;
 extern const CFStringRef kSecPolicyCheckIssuerNameConstraints;
 extern const CFStringRef kSecPolicyCheckKeySize;
@@ -2250,6 +2342,7 @@ extern const CFStringRef kSecPolicyCheckKeyUsage;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOidWithoutValueCheck;
 extern const CFStringRef kSecPolicyCheckLeafMarkersProdAndQA;
+extern const CFStringRef kSecPolicyCheckMarkRepresentation;
 extern const CFStringRef kSecPolicyCheckMissingIntermediate;
 extern const CFStringRef kSecPolicyCheckNameConstraints;
 extern const CFStringRef kSecPolicyCheckNoNetworkAccess;
@@ -2357,6 +2450,26 @@ SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(void)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateEDPSigning(void)
     API_AVAILABLE(macos(14.4), ios(17.4), watchos(10.4), tvos(17.4));
+
+/*!
+ @function SecPolicySetSSLHostname
+ @abstract Adds/Changes SSL hostname to be checked by policy
+ @param policy Policy to update
+ @param hostname Hostname to set
+ @result Returns false if inputs are invalid (null)
+ */
+bool SecPolicySetSSLHostname(SecPolicyRef __nonnull policy, CFStringRef __nonnull hostname)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+
+/*!
+ @function SecPolicySetATSPinning
+ @abstract Adds ATS pinning rules to on policy
+ @param policy Policy to update
+ @param nsAppTransportSecurityDict ATS dictionary from bundle
+ @result Returns false if inputs are invalid (null) or if policy doesn't already have an SSL hostname check set.
+ */
+bool SecPolicySetATSPinning(SecPolicyRef __nonnull policy, CFDictionaryRef __nonnull nsAppTransportSecurityDict)
+    API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 
 /*
  * MARK: SecPolicyCheckCert functions

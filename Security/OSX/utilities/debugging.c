@@ -229,29 +229,31 @@ static CFMutableArrayRef CFSetOfCFObjectsCopyValues(CFSetRef setOfCFs)
 CFPropertyListRef CopyCurrentScopePlist(void)
 {
     CFMutableArrayRef result = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    with_scopes_read(^{
-        CFArrayForEach(sLogSettings, ^(const void *value) {
-            if (isSet(value)) {
-                CFArrayRef values = CFSetOfCFObjectsCopyValues((CFSetRef) value);
-                CFArrayAppendValue(result, values);
-                CFReleaseNull(values);
-            } else if (isDictionary(value)) {
-                CFMutableDictionaryRef levels = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    if (sLogSettings) {
+        with_scopes_read(^{
+            CFArrayForEach(sLogSettings, ^(const void *value) {
+                if (isSet(value)) {
+                    CFArrayRef values = CFSetOfCFObjectsCopyValues((CFSetRef) value);
+                    CFArrayAppendValue(result, values);
+                    CFReleaseNull(values);
+                } else if (isDictionary(value)) {
+                    CFMutableDictionaryRef levels = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
 
-                CFDictionaryForEach((CFDictionaryRef) value, ^(const void *key, const void *value) {
-                    if (isSet(value)) {
-                        CFArrayRef values = CFSetOfCFObjectsCopyValues((CFSetRef) value);
-                        CFDictionaryAddValue(levels, key, values);
-                        CFReleaseNull(values);
-                    }
-                });
+                    CFDictionaryForEach((CFDictionaryRef) value, ^(const void *key, const void *value) {
+                        if (isSet(value)) {
+                            CFArrayRef values = CFSetOfCFObjectsCopyValues((CFSetRef) value);
+                            CFDictionaryAddValue(levels, key, values);
+                            CFReleaseNull(values);
+                        }
+                    });
 
-                CFArrayAppendValue(result, levels);
-            } else {
-                CFArrayAppendValue(result, kCFNull);
-            }
+                    CFArrayAppendValue(result, levels);
+                } else {
+                    CFArrayAppendValue(result, kCFNull);
+                }
+            });
         });
-    });
+    }
     return result;
 }
 

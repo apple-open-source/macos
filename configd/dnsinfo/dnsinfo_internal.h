@@ -283,7 +283,7 @@ _dns_configuration_buffer_create(const void *dataRef, size_t dataLen)
 	assert(bufLen <= DNS_CONFIG_BUF_MAX);
 #else	// DEBUG
 	if (bufLen > DNS_CONFIG_BUF_MAX) {
-		my_log(LOG_ERR, "DNS configuration: length error (%zu > %u)",
+		my_log(LOG_ERR, "DNS configuration: length error (%zu > %d)",
 		       bufLen,
 		       DNS_CONFIG_BUF_MAX);
 		return NULL;

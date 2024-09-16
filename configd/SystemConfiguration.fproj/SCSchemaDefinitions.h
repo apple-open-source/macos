@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -344,21 +344,27 @@
  *   kSCPropNetProxiesFTPPassive                        "FTPPassive"                   CFNumber (0 or 1)
  *   kSCPropNetProxiesFTPPort                           "FTPPort"                      CFNumber
  *   kSCPropNetProxiesFTPProxy                          "FTPProxy"                     CFString
+ *   kSCPropNetProxiesFTPUser                           "FTPUser"                      CFString
  *   kSCPropNetProxiesGopherEnable                      "GopherEnable"                 CFNumber (0 or 1)
  *   kSCPropNetProxiesGopherPort                        "GopherPort"                   CFNumber
  *   kSCPropNetProxiesGopherProxy                       "GopherProxy"                  CFString
+ *   kSCPropNetProxiesGopherUser                        "GopherUser"                   CFString
  *   kSCPropNetProxiesHTTPEnable                        "HTTPEnable"                   CFNumber (0 or 1)
  *   kSCPropNetProxiesHTTPPort                          "HTTPPort"                     CFNumber
  *   kSCPropNetProxiesHTTPProxy                         "HTTPProxy"                    CFString
+ *   kSCPropNetProxiesHTTPUser                          "HTTPUser"                     CFString
  *   kSCPropNetProxiesHTTPSEnable                       "HTTPSEnable"                  CFNumber (0 or 1)
  *   kSCPropNetProxiesHTTPSPort                         "HTTPSPort"                    CFNumber
  *   kSCPropNetProxiesHTTPSProxy                        "HTTPSProxy"                   CFString
+ *   kSCPropNetProxiesHTTPSUser                         "HTTPSUser"                    CFString
  *   kSCPropNetProxiesRTSPEnable                        "RTSPEnable"                   CFNumber (0 or 1)
  *   kSCPropNetProxiesRTSPPort                          "RTSPPort"                     CFNumber
  *   kSCPropNetProxiesRTSPProxy                         "RTSPProxy"                    CFString
+ *   kSCPropNetProxiesRTSPUser                          "RTSPUser"                     CFString
  *   kSCPropNetProxiesSOCKSEnable                       "SOCKSEnable"                  CFNumber (0 or 1)
  *   kSCPropNetProxiesSOCKSPort                         "SOCKSPort"                    CFNumber
  *   kSCPropNetProxiesSOCKSProxy                        "SOCKSProxy"                   CFString
+ *   kSCPropNetProxiesSOCKSUser                         "SOCKSUser"                    CFString
  *   kSCPropNetProxiesProxyAutoConfigEnable             "ProxyAutoConfigEnable"        CFNumber (0 or 1)
  *   kSCPropNetProxiesProxyAutoConfigJavaScript         "ProxyAutoConfigJavaScript"    CFString
  *   kSCPropNetProxiesProxyAutoConfigURLString          "ProxyAutoConfigURLString"     CFString
@@ -661,7 +667,7 @@ extern const CFStringRef kSCEntNetPPPSerial                                 API_
   @const kSCEntNetPPTP
   @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPTP                                      API_DEPRECATED("No longer supported", macos(10.3,10.12)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+extern const CFStringRef kSCEntNetPPTP                                      API_DEPRECATED("No longer supported", macos(10.3,10.12)) SPI_DEPRECATED("No longer supported", ios(2.0, 10.0));
 #define kSCEntNetPPTP kSCEntNetPPTP
 
 /*!
@@ -1008,7 +1014,7 @@ extern const CFStringRef kSCValNetInterfaceSubTypePPPSerial                 API_
 /*!
   @const kSCValNetInterfaceSubTypePPTP
  */
-extern const CFStringRef kSCValNetInterfaceSubTypePPTP                      API_DEPRECATED("No longer supported", macos(10.2,10.12)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+extern const CFStringRef kSCValNetInterfaceSubTypePPTP                      API_DEPRECATED("No longer supported", macos(10.2,10.12)) SPI_DEPRECATED("No longer supported", ios(2.0, 10.0));
 #define kSCValNetInterfaceSubTypePPTP kSCValNetInterfaceSubTypePPTP
 
 /*!
@@ -2015,6 +2021,13 @@ extern const CFStringRef kSCPropNetProxiesFTPProxy                          API_
 #define kSCPropNetProxiesFTPProxy kSCPropNetProxiesFTPProxy
 
 /*!
+  @const kSCPropNetProxiesFTPUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesFTPUser                           API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesFTPUser kSCPropNetProxiesFTPUser
+
+/*!
   @const kSCPropNetProxiesGopherEnable
   @discussion Value is a CFNumber (0 or 1)
  */
@@ -2034,6 +2047,13 @@ extern const CFStringRef kSCPropNetProxiesGopherPort                        API_
  */
 extern const CFStringRef kSCPropNetProxiesGopherProxy                       API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetProxiesGopherProxy kSCPropNetProxiesGopherProxy
+
+/*!
+  @const kSCPropNetProxiesGopherUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesGopherUser                        API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesGopherUser kSCPropNetProxiesGopherUser
 
 /*!
   @const kSCPropNetProxiesHTTPEnable
@@ -2057,6 +2077,13 @@ extern const CFStringRef kSCPropNetProxiesHTTPProxy                         API_
 #define kSCPropNetProxiesHTTPProxy kSCPropNetProxiesHTTPProxy
 
 /*!
+  @const kSCPropNetProxiesHTTPUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesHTTPUser                          API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesHTTPUser kSCPropNetProxiesHTTPUser
+
+/*!
   @const kSCPropNetProxiesHTTPSEnable
   @discussion Value is a CFNumber (0 or 1)
  */
@@ -2076,6 +2103,13 @@ extern const CFStringRef kSCPropNetProxiesHTTPSPort                         API_
  */
 extern const CFStringRef kSCPropNetProxiesHTTPSProxy                        API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetProxiesHTTPSProxy kSCPropNetProxiesHTTPSProxy
+
+/*!
+  @const kSCPropNetProxiesHTTPSUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesHTTPSUser                         API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesHTTPSUser kSCPropNetProxiesHTTPSUser
 
 /*!
   @const kSCPropNetProxiesRTSPEnable
@@ -2099,6 +2133,13 @@ extern const CFStringRef kSCPropNetProxiesRTSPProxy                         API_
 #define kSCPropNetProxiesRTSPProxy kSCPropNetProxiesRTSPProxy
 
 /*!
+  @const kSCPropNetProxiesRTSPUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesRTSPUser                          API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesRTSPUser kSCPropNetProxiesRTSPUser
+
+/*!
   @const kSCPropNetProxiesSOCKSEnable
   @discussion Value is a CFNumber (0 or 1)
  */
@@ -2118,6 +2159,13 @@ extern const CFStringRef kSCPropNetProxiesSOCKSPort                         API_
  */
 extern const CFStringRef kSCPropNetProxiesSOCKSProxy                        API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetProxiesSOCKSProxy kSCPropNetProxiesSOCKSProxy
+
+/*!
+  @const kSCPropNetProxiesSOCKSUser
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetProxiesSOCKSUser                         API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));
+#define kSCPropNetProxiesSOCKSUser kSCPropNetProxiesSOCKSUser
 
 /*!
   @const kSCPropNetProxiesProxyAutoConfigEnable

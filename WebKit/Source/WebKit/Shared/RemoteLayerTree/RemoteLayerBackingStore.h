@@ -40,6 +40,15 @@
 
 OBJC_CLASS CALayer;
 
+namespace WebKit {
+class RemoteLayerBackingStore;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerBackingStore> : std::true_type { };
+}
+
 // FIXME: Make PlatformCALayerRemote.cpp Objective-C so we can include WebLayer.h here and share the typedef.
 namespace WebCore {
 class NativeImage;
@@ -66,12 +75,20 @@ enum class BackingStoreNeedsDisplayReason : uint8_t {
     HasDirtyRegion,
 };
 
+enum class LayerContentsType : uint8_t {
+    IOSurface,
+    CAMachPort,
+    CachedIOSurface,
+};
+
 class RemoteLayerBackingStore : public CanMakeWeakPtr<RemoteLayerBackingStore> {
     WTF_MAKE_NONCOPYABLE(RemoteLayerBackingStore);
     WTF_MAKE_FAST_ALLOCATED;
 public:
     RemoteLayerBackingStore(PlatformCALayerRemote*);
     virtual ~RemoteLayerBackingStore();
+
+    static std::unique_ptr<RemoteLayerBackingStore> createForLayer(PlatformCALayerRemote*);
 
     enum class Type : bool {
         IOSurface,
@@ -84,6 +101,10 @@ public:
 
     virtual bool isRemoteLayerWithRemoteRenderingBackingStore() const { return false; }
     virtual bool isRemoteLayerWithInProcessRenderingBackingStore() const { return false; }
+
+    enum class ProcessModel : uint8_t { InProcess, Remote };
+    virtual ProcessModel processModel() const = 0;
+    static ProcessModel processModelForLayer(PlatformCALayerRemote*);
 
     struct Parameters {
         Type type { Type::Bitmap };
@@ -109,6 +130,7 @@ public:
 
     // Returns true if we need to encode the buffer.
     bool layerWillBeDisplayed();
+    bool layerWillBeDisplayedWithRenderingSuppression();
     bool needsDisplay() const;
 
     bool performDelegatedLayerDisplay();
@@ -123,7 +145,7 @@ public:
     float scale() const { return m_parameters.scale; }
     bool usesDeepColorBackingStore() const;
     WebCore::DestinationColorSpace colorSpace() const { return m_parameters.colorSpace; }
-    WebCore::PixelFormat pixelFormat() const;
+    WebCore::ImageBufferPixelFormat pixelFormat() const;
     Type type() const { return m_parameters.type; }
     bool isOpaque() const { return m_parameters.isOpaque; }
     unsigned bytesPerPixel() const;
@@ -164,6 +186,10 @@ public:
 
     virtual void dump(WTF::TextStream&) const = 0;
 
+    void purgeFrontBufferForTesting();
+    void purgeBackBufferForTesting();
+    void markFrontBufferVolatileForTesting();
+
 protected:
     RemoteLayerBackingStoreCollection* backingStoreCollection() const;
 
@@ -202,9 +228,6 @@ public:
     RemoteLayerBackingStoreProperties() = default;
     RemoteLayerBackingStoreProperties(RemoteLayerBackingStoreProperties&&) = default;
 
-    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, RemoteLayerBackingStoreProperties&);
-
-    enum class LayerContentsType { IOSurface, CAMachPort, CachedIOSurface };
     void applyBackingStoreToLayer(CALayer *, LayerContentsType, std::optional<WebCore::RenderingResourceIdentifier>, bool replayDynamicContentScalingDisplayListsIntoBackingStore);
 
     void updateCachedBuffers(RemoteLayerTreeNode&, LayerContentsType);
@@ -221,6 +244,7 @@ public:
     void setBackendHandle(BufferSetBackendHandle&);
 
 private:
+    friend struct IPC::ArgumentCoder<RemoteLayerBackingStoreProperties, void>;
     std::optional<ImageBufferBackendHandle> m_bufferHandle;
     RetainPtr<id> m_contentsBuffer;
 

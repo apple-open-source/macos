@@ -31,6 +31,7 @@
 #include "config.h"
 #include "FileReader.h"
 
+#include "ContextDestructionObserverInlines.h"
 #include "DOMException.h"
 #include "EventLoop.h"
 #include "EventNames.h"
@@ -67,11 +68,6 @@ FileReader::~FileReader()
 {
     if (m_loader)
         m_loader->cancel();
-}
-
-const char* FileReader::activeDOMObjectName() const
-{
-    return "FileReader";
 }
 
 void FileReader::stop()

@@ -27,6 +27,7 @@
 #pragma once
 
 #include "ExceptionOr.h"
+#include "HitTestSource.h"
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/UniqueRef.h>
@@ -90,7 +91,7 @@ public:
 
     Document& documentScope() const { return m_documentScope.get(); }
     Ref<Document> protectedDocumentScope() const;
-    static ptrdiff_t documentScopeMemoryOffset() { return OBJECT_OFFSETOF(TreeScope, m_documentScope); }
+    static constexpr ptrdiff_t documentScopeMemoryOffset() { return OBJECT_OFFSETOF(TreeScope, m_documentScope); }
 
     // https://dom.spec.whatwg.org/#retarget
     Ref<Node> retargetToScope(Node&) const;
@@ -112,9 +113,8 @@ public:
     void removeLabel(const AtomString& forAttributeValue, HTMLLabelElement&);
     const Vector<WeakRef<Element, WeakPtrImplWithEventTargetData>>* labelElementsForId(const AtomString& forAttributeValue);
 
-    WEBCORE_EXPORT RefPtr<Element> elementFromPoint(double clientX, double clientY);
-    WEBCORE_EXPORT Vector<RefPtr<Element>> elementsFromPoint(double clientX, double clientY);
-    WEBCORE_EXPORT Vector<RefPtr<Element>> elementsFromPoint(const FloatPoint&);
+    WEBCORE_EXPORT RefPtr<Element> elementFromPoint(double clientX, double clientY, HitTestSource = HitTestSource::Script);
+    WEBCORE_EXPORT Vector<RefPtr<Element>> elementsFromPoint(double clientX, double clientY, HitTestSource = HitTestSource::Script);
 
     // Find first anchor with the given name.
     // First searches for an element with the given ID, but if that fails, then looks
@@ -132,8 +132,8 @@ public:
     RadioButtonGroups& radioButtonGroups();
 
     JSC::JSValue adoptedStyleSheetWrapper(JSDOMGlobalObject&);
-    std::span<const RefPtr<CSSStyleSheet>> adoptedStyleSheets() const;
-    ExceptionOr<void> setAdoptedStyleSheets(Vector<RefPtr<CSSStyleSheet>>&&);
+    std::span<const Ref<CSSStyleSheet>> adoptedStyleSheets() const;
+    ExceptionOr<void> setAdoptedStyleSheets(Vector<Ref<CSSStyleSheet>>&&);
 
     void addSVGResource(const AtomString& id, LegacyRenderSVGResourceContainer&);
     void removeSVGResource(const AtomString& id);
@@ -159,7 +159,7 @@ protected:
         m_documentScope = document;
     }
 
-    RefPtr<Node> nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoint* localPoint);
+    RefPtr<Node> nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoint* localPoint, HitTestSource);
 
 private:
     IdTargetObserverRegistry& ensureIdTargetObserverRegistry();

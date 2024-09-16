@@ -21,12 +21,13 @@ install-local: FORCE
 		$(srcdir)/ldap.h $(srcdir)/ldap_cdefs.h \
 		$(srcdir)/ldap_schema.h $(srcdir)/ldap_utf8.h \
 		$(srcdir)/slapi-plugin.h ldap_features.h \
-		$(srcdir)/ldif.h ; \
+		$(srcdir)/ldif.h $(srcdir)/ldap.modulemap ; \
 	do \
 		$(INSTALL) $(INSTALLFLAGS) -m 644 $$header $(DESTDIR)$(includedir); \
 	done
 	-$(MKDIR) $(DSTROOT)/usr/local/include
 	$(INSTALL) $(INSTALLFLAGS) -m 644 $(srcdir)/ldap_private.h $(DSTROOT)/usr/local/include;
+	$(INSTALL) $(INSTALLFLAGS) -m 644 $(srcdir)/ldap_private.modulemap $(DSTROOT)/usr/local/include;
 
 clean-local: FORCE 
 	$(RM) ldap_config.h

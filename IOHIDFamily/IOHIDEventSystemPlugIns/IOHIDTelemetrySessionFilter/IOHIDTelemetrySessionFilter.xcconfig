@@ -1,0 +1,5 @@
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/SessionFilters
+
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDTelemetrySessionFilter
+
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDTelemetrySessionFilter/Info.plist

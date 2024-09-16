@@ -26,6 +26,7 @@
 #include "config.h"
 #include "PlatformCAAnimation.h"
 
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/text/TextStream.h>
 
@@ -101,7 +102,7 @@ String PlatformCAAnimation::makeKeyPath(AnimatedProperty animatedProperty, Filte
     case AnimatedProperty::BackgroundColor:
         return backgroundColorKeyPath;
     case AnimatedProperty::Filter:
-        return makeString(filterKeyPathPrefix, index, ".", PlatformCAFilters::animatedFilterPropertyName(filterOperationType));
+        return makeString(filterKeyPathPrefix, index, '.', PlatformCAFilters::animatedFilterPropertyName(filterOperationType));
     case AnimatedProperty::WebkitBackdropFilter:
         return backdropFiltersKeyPath;
     case AnimatedProperty::Invalid:

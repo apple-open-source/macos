@@ -2165,6 +2165,10 @@ _dispatch_event_loop_wake_owner(dispatch_sync_context_t dsc,
 	// sometimes borrow the refcount of the waiter which we will wake up.
 	//
 	if (_dispatch_kq_poll(wlh, ke, n, ke, n, NULL, NULL, kev_flags)) {
+		if (unlikely(waiter_wlh != DISPATCH_WLH_ANON && waiter_wlh != wlh)) {
+			_dispatch_bug_deprecated("Changing target queue hierarchy "
+				"with a dispatch_sync in flight");
+		}
 		_dispatch_kevent_workloop_drain_error(&ke[0], 0);
 		__builtin_unreachable();
 	}
@@ -2490,6 +2494,9 @@ const dispatch_source_type_s _dispatch_source_type_vfs = {
 #endif
 #if HAVE_DECL_VQ_FREE_SPACE_CHANGE
 			|VQ_FREE_SPACE_CHANGE
+#endif
+#if HAVE_DECL_VQ_PURGEABLE_SPACE_CHANGE
+			|VQ_PURGEABLE_SPACE_CHANGE
 #endif
 			,
 	.dst_action     = DISPATCH_UNOTE_ACTION_SOURCE_OR_FFLAGS,

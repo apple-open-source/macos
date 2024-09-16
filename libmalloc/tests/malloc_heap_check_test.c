@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE);
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true), T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
 
 static void
 run_heap_test(int iterations)
@@ -15,10 +15,10 @@ run_heap_test(int iterations)
 	const int MAX_POINTERS = 1024;
 	void **pointers = (void **)calloc(MAX_POINTERS, sizeof(void *));
 	for (int iteration = 0; iteration < iterations; iteration++) {
-		int index = random() % MAX_POINTERS;
-		size_t size = 1 << (random() % 20);
+		int index = rand() % MAX_POINTERS;
+		size_t size = 1 << (rand() % 20);
 		if (pointers[index]) {
-			if (random() % 4 == 0) {
+			if (rand() % 4 == 0) {
 				pointers[index] = realloc(pointers[index], size);
 				continue;
 			}

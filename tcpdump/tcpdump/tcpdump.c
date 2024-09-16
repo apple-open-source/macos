@@ -124,6 +124,7 @@ The Regents of the University of California.  All rights reserved.\n";
 #include <net/iptap.h>
 #include <pcap/pcap-ng.h>
 #include <pcap/pcap-util.h>
+#include <os/log.h>
 #endif /* __APPLE__ */
 
 #include <signal.h>
@@ -476,6 +477,39 @@ reset_signal(int sig)
 
 	new.sa_handler = SIG_DFL;
 	(void) sigaction(sig, &new, &old);
+}
+
+static void
+log_arguments(int argc, char **argv)
+{
+	int i;
+	char *log_line;
+	char *ptr;
+	size_t remaining_size = LINE_MAX;
+
+	log_line = calloc(LINE_MAX, sizeof(char));
+
+	if (log_line == NULL) {
+		os_log(OS_LOG_DEFAULT, "cannot log arguments - calloc(LINE_MAX, 1) failed");
+		return;
+	}
+
+	ptr = log_line;
+
+	for (i = 0; i < argc; i++) {
+		int result = snprintf(ptr, remaining_size, "%s ", argv[i]);
+
+		if (result >= remaining_size) {
+			break;
+		}
+		remaining_size -= result;
+		ptr += result;
+
+	}
+
+	os_log(OS_LOG_DEFAULT, "%s", log_line);
+
+	free(log_line);
 }
 #endif /* __APPLE__ */
 
@@ -1507,22 +1541,18 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 	if (truncation_mode != 0) {
 		pcap_set_truncation_mode(pc, 1);
 	}
-#ifdef HAS_PCAP_SET_COMPRESSION
 	if (compression_mode != 0) {
 		if (pcap_set_compression(pc, compression_mode) != 0) {
 			error("Can't set compression mode: %d", compression_mode);
 		}
 	}
-#endif /* HAS_PCAP_SET_COMPRESSION */
 	if (pktapv2 != 0) {
 		ndo->ndo_pktapv2 = 1;
 		pcap_set_pktap_hdr_v2(pc, true);
 	}
-#if HAS_PCAP_HEAD_DROP
 	if (head_drop != 0) {
 		pcap_set_head_drop(pc, 1);
 	}
-#endif /* HAS_PCAP_HEAD_DROP */
 #endif /* __APPLE__ */
 
 	status = pcap_activate(pc);
@@ -1680,11 +1710,13 @@ main(int argc, char **argv)
 	ndo_set_function_pointers(ndo);
 
 #ifdef __APPLE__
-    int on = 1;
-    int no_loopkupnet_warning = 0;
-    ndo->ndo_ext_fmt = 1;
-    ndo->ndo_tflag = 0;
-    ndo->ndo_t0flag = 0;
+	int on = 1;
+	int no_loopkupnet_warning = 0;
+	ndo->ndo_ext_fmt = 1;
+	ndo->ndo_tflag = 0;
+	ndo->ndo_t0flag = 0;
+
+	log_arguments(argc, argv);
 #endif /* __APPLE__ */
 
 	cnt = -1;
@@ -2569,6 +2601,7 @@ main(int argc, char **argv)
 			device = PKTAP_IFNAME;
 		if (strncmp(device, PKTAP_IFNAME, strlen(PKTAP_IFNAME)) == 0 ||
 			strncmp(device, IPTAP_IFNAME, strlen(IPTAP_IFNAME)) == 0 ||
+			strncmp(device, DROPTAP_IFNAME, strlen(DROPTAP_IFNAME)) == 0 ||
 			strcmp(device, "any") == 0 ||
 			strcmp(device, "all") == 0) {
 
@@ -3455,12 +3488,18 @@ info(int verbose)
 		putc('\n', stderr);
 
 #ifdef __APPLE__
-#ifdef HAS_PCAP_SET_COMPRESSION
+	if (verbose) {
+		os_log(OS_LOG_DEFAULT, "%lu packet%s captured, %u packet%s received by filter, %u packet%s dropped by kernel, %u drop%s by metadata filter",
+		       packets_captured, PLURAL_SUFFIX(packets_captured),
+		       stats.ps_recv, PLURAL_SUFFIX(stats.ps_recv),
+		       stats.ps_drop, PLURAL_SUFFIX(stats.ps_drop),
+		       packets_mtdt_fltr_drop, PLURAL_SUFFIX(packets_mtdt_fltr_drop));
+	}
+
 	char buffer[256];
 	if (pcap_get_compression_stats(pd, buffer, sizeof(buffer)) == 0) {
 		(void)fprintf(stderr, "comp_stats: %s\n", buffer);
 	}
-#endif /* HAS_PCAP_SET_COMPRESSION */
 #endif /* __APPLE */
 	infoprint = 0;
 }
@@ -4518,6 +4557,11 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 #ifdef PCAPNG_EPB_TRACE_TAG
 	uint16_t trace_tag = 0;
 #endif /* PCAPNG_EPB_TRACE_TAG */
+	bool droptap_used = false;
+	uint32_t drop_reason = 0;
+	const char *drop_func = NULL;
+	uint16_t drop_line = 0;
+	uint16_t drop_func_len = 0;
 	struct pcapng_option_info option_info;
 
 	block = pcap_ng_block_alloc_with_raw_block(ndo->ndo_pcap, (u_char *)sp);
@@ -4671,7 +4715,34 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				}
 			}
 #endif /* PCAPNG_EPB_TRACE_TAG */
-
+			/*
+			 * PCAPNG_EPB_DROP_REASON option is set only for droptap.
+			 */
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_DROP_REASON, &option_info) == 1) {
+				if (option_info.length != 4) {
+					warning("%s: Drop reason option length %u != 4", __func__, option_info.length);
+					goto done;
+				}
+				drop_reason = *(uint32_t *)(option_info.value);
+				droptap_used = true;
+				if (pcap_is_swapped(ndo->ndo_pcap)) {
+					drop_reason = SWAPLONG(drop_reason);
+				}
+			}
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_DROP_LINE, &option_info) == 1) {
+				if (option_info.length != 2) {
+					warning("%s: Drop line option length %u != 2", __func__, option_info.length);
+					goto done;
+				}
+				drop_line = *(uint16_t *)(option_info.value);
+				if (pcap_is_swapped(ndo->ndo_pcap)) {
+					drop_line = SWAPSHORT(drop_line);
+				}
+			}
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_DROP_FUNC, &option_info) == 1) {
+				drop_func = (const char *)(option_info.value);
+				drop_func_len = option_info.length;
+			}
 			if_id = epbp->interface_id;
 
 			pack_flags_code = PCAPNG_EPB_FLAGS;
@@ -4959,7 +5030,30 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				}
 			}
 		}
-
+		if (droptap_used) {
+			if (ndo->ndo_kflag & PRMD_DROP_REASON) {
+				ND_PRINT("%s" "%s",
+					 prsep,
+					 drop_reason_str(drop_reason));
+				prsep = ", ";
+			}
+			/*
+			 * Function name and line number where the drop happened.
+			 * Do not print this if drop_func_len is 0, which means
+			 * we intended not to store function name and line number
+			 * in the first place.
+			 */
+			if (ndo->ndo_kflag & PRMD_DROP_FUNC &&
+			    ndo->ndo_kflag & PRMD_DROP_LINE &&
+			    drop_func_len > 0) {
+				ND_PRINT("%s" "%.*s:%u",
+					 prsep,
+					 drop_func_len,
+					 drop_func,
+					 drop_line);
+				prsep = ", ";
+			}
+		}
 		ND_PRINT(") ");
 	}
 

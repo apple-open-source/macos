@@ -1,7 +1,7 @@
 /*
 	File:		MBCGameInfo.h
 	Contains:	Managing information about the current game
-	Copyright:	© 2003-2012 by Apple Inc., all rights reserved.
+	Copyright:	Â© 2003-2024 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -60,6 +60,10 @@
     IBOutlet NSPopUpButton *fAlternateVoiceMenu;
     IBOutlet NSPopUpButton *fBoardStyle;
     IBOutlet NSPopUpButton *fPieceStyle;
+    IBOutlet NSTextField   *fBoardStyleText;
+    IBOutlet NSTextField   *fPieceStyleText;
+    IBOutlet NSLayoutConstraint *fBoardStyleTrailingConstraint;
+    IBOutlet NSLayoutConstraint *fPieceStyleTrailingConstraint;
 
     NSMutableDictionary *   fStyleLocMap;
     NSMutableDictionary *   fEditedProperties;
@@ -77,7 +81,7 @@
 - (int)numberOfRowsInTableView:(NSTableView *)aTableView;
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex;
 - (IBAction) editInfo:(id)sender;
-- (void)editPreferencesForWindow:(NSWindow *)window;
+- (void)editPreferencesForWindow:(NSWindow *)window hidePiecesStyle:(BOOL)hidePiecesStyle;
 - (IBAction) cancelProperties:(id)sender;
 - (IBAction) updateProperties:(id)sender;
 - (IBAction) updateVoices:(id)sender;

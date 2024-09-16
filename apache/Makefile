@@ -25,7 +25,9 @@ Patch_List = patch-config.layout \
              man.diff \
              patch-server__Makefile.in \
              ManagedConfiguration.diff \
-             fix_apr_path.patch
+             fix_apr_path.patch \
+             apr-use-toolchain-path.patch
+
 
 
 Configure_Flags = CPPFLAGS="-iwithsysroot /usr/local/libressl/include" \
@@ -116,7 +118,7 @@ post-install:
 	$(MKDIR) $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/man/man1
 	$(MKDIR) $(DSTROOT)/usr/local/bin
 	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
-	sed -e "/get_config_vars/s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
+	sed 's,XCODE_PATH_HERE,$(TOOLCHAIN_INSTALL_DIR),g'  < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/AppleInternal/Library/BuildRoots/[^/]*/,/,g' -e 's,/AppleInternal/BuildRoot,,g' -e 's,/System/Volumes/Data/SWE/[^/]*/BuildRoots/[^/]*/,/,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config_vars.mk

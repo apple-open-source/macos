@@ -40,8 +40,6 @@
 #include <stdint.h>
 #include <os/base.h>
 
-#include <libxnuproxy/messages.h>
-
 #include "kern/exclaves.tightbeam.h"
 
 __BEGIN_DECLS
@@ -141,14 +139,16 @@ typedef struct {
  * Every resource has an associated name and some other common state.
  * Additionally there may be type specific data associated with the resource.
  */
+#define EXCLAVES_RESOURCE_NAME_MAX 128
 typedef struct exclaves_resource {
-	char                r_name[XNUPROXY_RESOURCE_NAME_MAX];
-	xnuproxy_resource_t r_type;
+	char                r_name[EXCLAVES_RESOURCE_NAME_MAX];
+	xnuproxy_resourcetype_s r_type;
 	uint64_t            r_id;
 	_Atomic uint32_t    r_usecnt;
 	ipc_port_t          r_port;
 	lck_mtx_t           r_mutex;
 	bool                r_active;
+	bool                r_connected;
 
 	union {
 		conclave_resource_t     r_conclave;
@@ -479,9 +479,6 @@ exclaves_audio_buffer_copyout(exclaves_resource_t *resource,
  * Attach a conclave to a task. The conclave must not already be attached to any
  * task. Once attached, this conclave is exclusively associated with the task.
  *
- * @param domain
- * The domain to search.
- *
  * @param name
  * The name of conclave resource.
  *
@@ -492,7 +489,7 @@ exclaves_audio_buffer_copyout(exclaves_resource_t *resource,
  * KERN_SUCCESS on success, error code otherwise.
  */
 extern kern_return_t
-exclaves_conclave_attach(const char *domain, const char *name, task_t task);
+exclaves_conclave_attach(const char *name, task_t task);
 
 /*!
  * @function exclaves_conclave_detach
@@ -839,6 +836,10 @@ exclaves_notification_lookup_by_id(const char *domain, uint64_t id);
 /* -------------------------------------------------------------------------- */
 #pragma mark Services
 
+/*
+ * Indicates an invalid service. */
+#define  EXCLAVES_INVALID_ID UINT64_C(~0)
+
 /*!
  * @function exclaves_service_lookup
  *
@@ -852,7 +853,7 @@ exclaves_notification_lookup_by_id(const char *domain, uint64_t id);
  * The name of the service resource.
  *
  * @return
- * ID of service or -1 if the service cannot be found.
+ * ID of service or EXCLAVES_INVALID_ID if the service cannot be found.
  */
 extern uint64_t
 exclaves_service_lookup(const char *domain, const char *name);
@@ -1051,10 +1052,7 @@ exclaves_resource_audio_memory_copyout(exclaves_resource_t *resource,
 
 extern exclaves_resource_t *
 exclaves_resource_lookup_by_name(const char *domain_name, const char *name,
-    xnuproxy_resource_t type);
-
-kern_return_t
-exclaves_xnu_proxy_check_mem_usage(void);
+    xnuproxy_resourcetype_s type);
 
 __END_DECLS
 

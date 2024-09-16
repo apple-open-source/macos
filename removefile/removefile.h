@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-22 Apple Inc.  All rights reserved.
+ * Copyright (c) 2015-23 Apple Inc.  All rights reserved.
  */
 
 #ifndef __REMOVEFILE_H__
@@ -28,7 +28,7 @@ enum {
 	REMOVEFILE_SECURE_1_PASS_ZERO = (1 << 6),   // Single-pass overwrite, with 0 instead of random data
 	REMOVEFILE_CROSS_MOUNT = (1 << 7),          // Cross mountpoints when deleting recursively.
 	REMOVEFILE_ALLOW_LONG_PATHS = (1 << 8),     // Paths may be longer than PATH_MAX - requires temporarily changing cwd
-	REMOVEFILE_CLEAR_PURGEABLE = (1 << 9),      // Clear purgeable any directory encountered before deletion
+	REMOVEFILE_CLEAR_PURGEABLE = (1 << 9),      // Clear purgeable on any directory encountered before deletion
 };
 
 /*
@@ -50,6 +50,7 @@ enum {
 	REMOVEFILE_STATE_ERRNO = 5,					// int (read-only)
 	REMOVEFILE_STATE_STATUS_CALLBACK = 6,		// removefile_callback_t
 	REMOVEFILE_STATE_STATUS_CONTEXT = 7,		// void*
+	REMOVEFILE_STATE_FTSENT = 8,				// FTSENT*
 };
 
 typedef int (*removefile_callback_t)(removefile_state_t state, const char *__unsafe_indexable path, void* context);

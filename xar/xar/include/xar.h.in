@@ -157,6 +157,8 @@ typedef void (*xar_progress_callback)(xar_t x, xar_file_t f, size_t sizeread);
 
 xar_t xar_open(const char *file, int32_t flags) API_DEPRECATED("xar is a deprecated file format and should not be used.", macos(10.4,12.0));
 xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len) API_DEPRECATED("xar is a deprecated file format and should not be used.", macos(10.14.4,12.0));
+xar_t xar_fdopen_digest_verify(int fd, int32_t flags, void *expected_toc_digest, size_t expected_toc_digest_len) API_DEPRECATED("xar is a deprecated file format and should not be used.", macos(15.0,15.0));
+
 int xar_close(xar_t x);
 
 xar_header_t xar_header_get(xar_t x);

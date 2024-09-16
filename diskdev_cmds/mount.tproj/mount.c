@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -78,6 +78,7 @@
 
 #include "edt_fstab.h"
 #include "fsck.h"
+#include "fskit_support.h"
 #include "mount_flags.h"
 #include "mount_tmpfs.h"
 #include "pathnames.h"
@@ -96,12 +97,11 @@
  * first phase:
  *      TARGET_OS_OSX: Call `apfs_boot_util 1`.
  *      TARGET_OS_IPHONE: Mount System, Preboot and xART volumes (if present)
-                          and setup required bindfs mounts.
  *
  * second phase:
  *      TARGET_OS_OSX: Upgrade System volume to RW or call `apfs_boot_util 2`
  *                     (on ROSV config).
- *      TARGET_OS_IPHONE: Mount remaining volumes and setup additional bindfs mounts.
+ *      TARGET_OS_IPHONE: Mount remaining volumes.
  *                        Call `apfs_boot_util 2` if needed.
  *
  * For more info on mount phases, see apfs_boot_util.
@@ -114,6 +114,8 @@
 #define BADTYPE(type) (strcmp(type, FSTAB_RO) && \
                        strcmp(type, FSTAB_RW) && \
                        strcmp(type, FSTAB_RQ))
+
+#define MAX_MOUNT_ARGS 100
 
 // Globals
 int bootstrap_macos = 0;
@@ -130,13 +132,14 @@ extern mountopt_t extoptnames[];
 struct statfs *getmntpt(const char *name);
 int hasopt(const char *mntopts, const char *option);
 char *catopt(char *s0, const char *s1);
-void mangle(char *options, int *argcp, const char **argv);
+void mangle(char *options, int *argcp, const char **argv, int max_argc);
 void usage(void);
 void prmount(struct statfs *sfp);
 void print_mount(const char **vfslist);
 int ismounted(const char *fs_spec, const char *fs_file, long *flags);
 int mountfs(const char *vfstype, const char *fs_spec, const char *fs_file,
-			int flags, const char *options, const char *mntopts);
+			int flags, const char *options, const char *mntopts,
+			bool force_fskit);
 int upgrade_mount(const char *mountpt, int init_flags, char *options);
 
 /*
@@ -178,100 +181,7 @@ booted_rosv(void) {
 
 	return 0;
 }
-#else /* !TARGET_OS_OSX */
-
-#define BINDFS_MOUNT_TYPE       "bindfs"
-#define PREBOOT_VOL_MOUNTPOINT  "/private/preboot"
-#define HARDWARE_VOL_MOUNTPOINT "/private/var/hardware"
-
-#define BOOT_MANIFEST_HASH_LEN  256
-
-typedef struct bind_mount {
-	char *bm_mnt_prefix;
-	char *bm_mnt_to;
-	bool bm_mandatory;
-} bind_mount_t;
-
-static void
-do_bindfs_mount(char *from, const char *to, bool required)
-{
-	struct statfs sfs;
-	uint32_t mnt_flags = MNT_RDONLY | MNT_NODEV | MNT_NOSUID | MNT_DONTBROWSE;
-	int err = 0;
-	
-	if (debug) {
-		printf("call: mount %s %s %x %s", BINDFS_MOUNT_TYPE, to, mnt_flags, from);
-		return;
-	}
-	
-	if ((statfs(from, &sfs) == 0) &&
-		(strncmp(sfs.f_fstypename, BINDFS_MOUNT_TYPE, sizeof(BINDFS_MOUNT_TYPE)) == 0)) {
-		return;
-	}
-	
-	err = mount(BINDFS_MOUNT_TYPE, to, mnt_flags, from);
-	if (err) {
-		if ((errno == ENOENT) && !required) {
-			err = 0;
-		} else {
-			errx(errno_or_sysexit(errno, -1), "failed to mount %s -> %s - %s(%d)",
-				 from, to, strerror(errno), errno);
-		}
-	}
-}
-
-static void
-setup_preboot_mounts(int pass, uint32_t os_env)
-{
-	int err = 0;
-	const char *mnt_to;
-	char mnt_from[MAXPATHLEN], boot_manifest_hash[BOOT_MANIFEST_HASH_LEN];
-	// For other boot environments allow these to fail
-	// as they aren't necessarily needed there.
-	bool required = (os_env == EDT_OS_ENV_MAIN);
-
-	err = get_boot_manifest_hash(boot_manifest_hash, sizeof(boot_manifest_hash));
-	if (err) {
-		errx(errno_or_sysexit(err, -1), "failed to get boot manifest hash - %s",
-			 strerror(err));
-	}
-
-	const bind_mount_t preboot_mnts[] = {
-		{.bm_mnt_prefix = PREBOOT_VOL_MOUNTPOINT,
-			.bm_mnt_to = "/usr/standalone/firmware",
-			.bm_mandatory = true}
-	};
-
-	const bind_mount_t hw_mnts[] = {
-		{.bm_mnt_prefix = HARDWARE_VOL_MOUNTPOINT "/Pearl",
-			.bm_mnt_to = "/System/Library/Pearl/ReferenceFrames",
-			.bm_mandatory = false},
-		{.bm_mnt_prefix = HARDWARE_VOL_MOUNTPOINT "/FactoryData",
-			.bm_mnt_to = "/System/Library/Caches/com.apple.factorydata",
-			.bm_mandatory = true}
-	};
-
-	// Skip preboot bindfs mounts for EDT_OS_ENV_OTHER,
-	// they aren't needed in that boot environment.
-	if (pass == ROOT_PASSNO && (os_env != EDT_OS_ENV_OTHER)) {
-		for (int i = 0; i < (sizeof(preboot_mnts) / sizeof(preboot_mnts[0])); i++) {
-			mnt_to = preboot_mnts[i].bm_mnt_to;
-			snprintf(mnt_from, sizeof(mnt_from), "%s/%s%s",
-					 preboot_mnts[i].bm_mnt_prefix, boot_manifest_hash, mnt_to);
-
-			do_bindfs_mount(mnt_from, mnt_to, required && preboot_mnts[i].bm_mandatory);
-		}
-	} else {
-		for (int i = 0; i < (sizeof(hw_mnts) / sizeof(hw_mnts[0])); i++) {
-			mnt_to = hw_mnts[i].bm_mnt_to;
-			snprintf(mnt_from, sizeof(mnt_from), "%s%s",
-					 hw_mnts[i].bm_mnt_prefix, mnt_to);
-
-			do_bindfs_mount(mnt_from, mnt_to, required && hw_mnts[i].bm_mandatory);
-		}
-	}
-}
-#endif /* !TARGET_OS_OSX */
+#endif /* TARGET_OS_OSX */
 
 static void
 bootstrap_apfs(int phase)
@@ -296,13 +206,14 @@ main(int argc, char *argv[])
 	int mount_phase = 0;
 	char fs_file[MAXPATHLEN] = {};
 	char *fs_spec = NULL;
+	bool force_fskit = false;
 
 	all = init_flags = 0;
 	options = NULL;
 	vfslist = NULL;
 	vfstype = NULL;
 
-	while ((ch = getopt(argc, argv, "headfko:rwt:uvP:")) != EOF)
+	while ((ch = getopt(argc, argv, "headfFko:rwt:uvP:")) != EOF)
 		switch (ch) {
 			case 'a':
 				all = 1;
@@ -312,6 +223,9 @@ main(int argc, char *argv[])
 				break;
 			case 'f':
 				init_flags |= MNT_FORCE;
+				break;
+			case 'F':
+				force_fskit = true;
 				break;
 			case 'o':
 				if (*optarg) {
@@ -500,15 +414,12 @@ main(int argc, char *argv[])
 
 					if ((err = mountfs(fs->fs_vfstype, fs->fs_spec,
 									   fs->fs_file, init_flags, options,
-									   fs->fs_mntops)))
+									   fs->fs_mntops, force_fskit)))
 						rval = err;
 				}
 				endfsent();
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-				/* Setup bindfs mounts */
-				setup_preboot_mounts(passno, os_env);
-
 				/* Hand the rest of the process over to apfs_boot_util */
 				if (mount_phase == MOUNT_PHASE_2) {
 					bootstrap_apfs(MOUNT_PHASE_2);
@@ -595,7 +506,7 @@ main(int argc, char *argv[])
 			}
 #endif
 			rval = mountfs(fs->fs_vfstype, fs->fs_spec, fs->fs_file,
-						   init_flags, options, fs->fs_mntops);
+						   init_flags, options, fs->fs_mntops, force_fskit);
 			break;
 		case 2:
 			fs_spec = argv[0];
@@ -611,7 +522,18 @@ main(int argc, char *argv[])
 					errx(errno_or_sysexit(ENAMETOOLONG, EX_DATAERR),
 						 "file system %s too long.", argv[1]);
 				}
-			} else if (realpath(argv[1], fs_file) == NULL) {
+			}
+#if TARGET_OS_IOS
+			else if (strlen(argv[1]) == 0) {
+				/* FSKit iOS mount paths include the volume UUID, which is awkward to
+				 * type. Allow "" as a shortcut for FSKit mounts. Implies -F
+				 * Also imply -k so we don't try to call realpath() on ""
+				 */
+				force_fskit = true;
+				init_flags |= MNT_NOFOLLOW;
+			}
+#endif /* TARGET_OS_IOS */
+			else if (realpath(argv[1], fs_file) == NULL) {
 				errx(errno_or_sysexit(errno , -1),
 					"%s: invalid file system.", argv[1]);
 			}
@@ -643,7 +565,7 @@ main(int argc, char *argv[])
 						 "unknown special file or file system %s.",
 						 *argv);
 				rval = mountfs(mntbuf->f_fstypename, mntbuf->f_mntfromname,
-							   mntbuf->f_mntonname, init_flags, options, 0);
+							   mntbuf->f_mntonname, init_flags, options, 0, force_fskit);
 			}
 			else {
 				/*
@@ -654,7 +576,7 @@ main(int argc, char *argv[])
 					errx (errno_or_sysexit(EINVAL, EX_USAGE),
 						  "You must specify a filesystem type with -t.");
 				}
-				rval = mountfs(vfstype, fs_spec, fs_file, init_flags, options, NULL);
+				rval = mountfs(vfstype, fs_spec, fs_file, init_flags, options, NULL, force_fskit);
 			}
 			break;
 		default:
@@ -707,7 +629,7 @@ upgrade_mount(const char *mountpt, int init_flags, char *options)
 
 	/* Do the update mount */
 	return mountfs(mntbuf->f_fstypename, mntfromname,
-				   mntbuf->f_mntonname, init_flags, options, 0);
+				   mntbuf->f_mntonname, init_flags, options, 0, false);
 }
 
 int
@@ -773,7 +695,7 @@ print_mount(const char **vfslist)
 // returns 0 upon success and a valid sysexit or errno code upon failure
 int
 mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags,
-		const char *options, const char *mntopts)
+		const char *options, const char *mntopts, bool force_fskit)
 {
 	/* List of directories containing mount_xxx subcommands. */
 	static const char *edirs[] = {
@@ -791,7 +713,7 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 		NULL
 	};
 
-	const char *argv[100];
+	const char *argv[MAX_MOUNT_ARGS];
 	const char **edir;
 	const char **bdir;
 	struct statfs sf;
@@ -804,6 +726,7 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 	char execname[MAXPATHLEN + 1];
 	char mntpath[MAXPATHLEN];
 	bool prepared_userfs = false;
+	bool found_binary = false;
 
 	if (flags & MNT_NOFOLLOW) {
 		size_t sz = strlcpy (mntpath, fs_file, MAXPATHLEN);
@@ -864,9 +787,77 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 		optbuf = catopt(optbuf, "nofollow");
 	}
 
+	/*
+	 * figure out if there is an executable. If there isn't and FSKit is present, try it instead.
+	 * Means building all the paths now.
+	 */
+	do {
+		struct stat sb;
+
+		edir = edirs;
+		do {
+			(void)snprintf(execname, sizeof(execname),
+			               "%s/mount_%s", *edir, vfstype);
+
+			if (stat(execname, &sb) == 0) {
+				// Found a binary.
+				found_binary = true;
+				break;
+			}
+		} while (*++edir != NULL);
+		if (found_binary)
+			break;
+
+		bdir = bdirs;
+		do {
+			/* Special case file system bundle executable path */
+			(void)snprintf(execname, sizeof(execname),
+			               "%s/%s.fs/%s/mount_%s", *bdir,
+			               vfstype, _PATH_FSBNDLBIN, vfstype);
+
+			if (stat(execname, &sb) == 0) {
+				// Found a binary.
+				found_binary = true;
+				break;
+			}
+	   } while (*++bdir != NULL);
+	} while (0);
+	if (!found_binary || force_fskit) {
+		// launch the mount tool functionality with the "userspace" (i.e. 3rd party-safe)
+		// options
+		int return_value;
+
+		argc = 0;
+		argv[argc++] = vfstype;
+		mangle(optbuf_userfs, &argc, argv, MAX_MOUNT_ARGS - 3);
+		argv[argc++] = fs_spec;
+		argv[argc++] = fs_file;
+		argv[argc] = NULL;
+
+		return_value = invoke_tool_from_fskit(mount_fs_op, flags, argc, argv);
+		if (return_value == 0) {
+			return (EX_OK);
+		} else if (force_fskit) {
+			// We were told just to use FSKit, and it didn't work. Parse the return and exit
+			if (return_value == ENOENT) {
+				warnx("File system named %s not found", vfstype);
+				return (errno_or_sysexit(ENOENT, EX_UNAVAILABLE));
+			} else if (return_value == ENOEXEC) {
+				warnx("File system named %s unable to mount", vfstype);
+				return (errno_or_sysexit(ENOEXEC, EX_UNAVAILABLE));
+			} else if (return_value == ENOTSUP) {
+				warnx("FSKit unavailable");
+				return (errno_or_sysexit(ENOTSUP, EX_UNAVAILABLE));
+			} else {
+				warnx("Unable to invoke task");
+				return (errno_or_sysexit(EINVAL, EX_UNAVAILABLE));
+			}
+		}
+	}
+
 	argc = 0;
 	argv[argc++] = vfstype;
-	mangle(optbuf, &argc, argv);
+	mangle(optbuf, &argc, argv, MAX_MOUNT_ARGS - 3);
 	argv[argc++] = fs_spec;
 	argv[argc++] = fs_file;
 	argv[argc] = NULL;
@@ -913,7 +904,7 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 					//re-mangle the args as we switch to the user volume
 					argc = 0;
 					argv[argc++] = vfstype;
-					mangle(optbuf_userfs, &argc, argv);
+					mangle(optbuf_userfs, &argc, argv, MAX_MOUNT_ARGS - 3);
 					argv[argc++] = fs_spec;
 					argv[argc++] = fs_file;
 					argv[argc] = NULL;
@@ -1053,13 +1044,13 @@ catopt(char *s0, const char *s1)
 }
 
 void
-mangle(char *options, int *argcp, const char **argv)
+mangle(char *options, int *argcp, const char **argv, int max_argc)
 {
 	char *p, *s;
 	int argc;
 
 	argc = *argcp;
-	for (s = options; (p = strsep(&s, ",")) != NULL;)
+	for (s = options; (p = strsep(&s, ",")) != NULL;) {
 		if (*p != '\0') {
 			if (*p == '-') {
 				if (*(p+1) == '-' && *(p+2) == '\0') {
@@ -1076,7 +1067,12 @@ mangle(char *options, int *argcp, const char **argv)
 				argv[argc++] = "-o";
 				argv[argc++] = p;
 			}
+			if (argc > (max_argc - 1)) {
+				errc(errno_or_sysexit(E2BIG, EX_USAGE),
+					 E2BIG, "too many mount arguments");
+			}
 		}
+	}
 	*argcp = argc;
 }
 
@@ -1085,9 +1081,9 @@ usage(void)
 {
 	fprintf(stderr,
 			"usage: mount %s %s\n       mount %s\n       mount %s\n",
-			"[-dfrkuvw] [-o options] [-t external_type]",
+			"[-dfFrkuvw] [-o options] [-t external_type]",
 			"special mount_point",
-			"[-adfrkuvw] [-t external_type]",
+			"[-adfFrkuvw] [-t external_type]",
 			"[-dfrkuvw] special | mount_point");
 	exit(errno_or_sysexit(EINVAL, EX_USAGE));
 }

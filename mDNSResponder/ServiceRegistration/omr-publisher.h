@@ -41,6 +41,8 @@ void omr_publisher_start(omr_publisher_t *NONNULL publisher);
 omr_prefix_t *NULLABLE omr_publisher_published_prefix_get(omr_publisher_t *NONNULL publisher);
 void omr_publisher_force_publication(omr_publisher_t *NONNULL publisher, omr_prefix_priority_t priority);
 void omr_publisher_interface_configuration_changed(omr_publisher_t *NONNULL publisher);
+bool omr_publisher_publishing_dhcp(omr_publisher_t *NONNULL publisher);
+bool omr_publisher_publishing_ula(omr_publisher_t *NONNULL publisher);
 bool omr_publisher_publishing_prefix(omr_publisher_t *NONNULL publisher);
 
 // The OMR publisher knows whether the prefix being published can be used for routing, even if it's not publishing it itself.

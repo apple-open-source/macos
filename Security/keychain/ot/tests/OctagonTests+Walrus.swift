@@ -9,6 +9,44 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.otControlEntitlementBearer.entitlements[kSecEntitlementPrivateOctagonWalrus] = true
     }
 
+    func fetchAccountSettings(context: OTCuttlefishContext) throws -> OTAccountSettings? {
+        var ret: OTAccountSettings?
+        let fetchExpectation = self.expectation(description: "fetch account settings")
+        context.rpcFetchAccountSettings { setting, _ in
+            XCTAssertNotNil(setting, "setting should not be nil")
+            ret = setting
+            fetchExpectation.fulfill()
+        }
+        self.wait(for: [fetchExpectation], timeout: 10)
+        return ret
+    }
+
+    func XCTAssertCachedAccountSettings(context: OTCuttlefishContext,
+                                        _ message: String,
+                                        file: StaticString = #file,
+                                        line: UInt = #line) throws {
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
+        container.moc.performAndWait {
+            XCTAssertNotNil(container.containerMO.accountSettings, "\(message): should have account settings", file: file, line: line)
+            XCTAssertNotNil(container.containerMO.accountSettingsDate, "\(message): should have account settings date", file: file, line: line)
+        }
+    }
+
+    func setAccountSettings(context: OTCuttlefishContext, settings: OTAccountSettings) throws {
+        let expectation = self.expectation(description: "setaccount expectation")
+
+        context.rpcSetAccountSetting(settings) { error in
+            XCTAssertNil(error, "error should be nil")
+            expectation.fulfill()
+        }
+        self.wait(for: [expectation], timeout: 10)
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(context.activeAccount))
+        container.moc.performAndWait {
+            XCTAssertNil(container.containerMO.accountSettings, "should not have account settings")
+            XCTAssertNil(container.containerMO.accountSettingsDate, "should not have account settings date")
+        }
+    }
+
     func makeAccountSettings(walrus: Bool) -> OTAccountSettings {
         let ret = OTAccountSettings()!
         ret.walrus = OTWalrus()!
@@ -376,12 +414,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let secondSetExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            secondSetExpectation.fulfill()
-        }
-        self.wait(for: [secondSetExpectation], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting2)
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -613,50 +646,20 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let secondSetExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcSetAccountSetting(setting) { error in
-            XCTAssertNil(error, "error should be nil")
-            secondSetExpectation.fulfill()
-        }
-        self.wait(for: [secondSetExpectation], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting)
         self.wait(for: [peer2SetExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
-        var retSetting: OTAccountSettings?
-        var fetchExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        var retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertFalse(retSetting!.walrus!.enabled, "walrus should be disabled")
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertFalse(retSetting!.walrus!.enabled, "walrus should not be enabled")
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "walrus expectation again")
-        self.cuttlefishContext.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
-        XCTAssertFalse(retSetting!.walrus!.enabled, "walrus should not be enabled")
+        retSetting = try self.fetchAccountSettings(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
     }
 
@@ -719,40 +722,16 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        var retSetting: OTAccountSettings?
-        var fetchExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        var retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertTrue(retSetting!.walrus!.enabled, "walrus should be enabled")
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "walrus expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertTrue(retSetting!.walrus!.enabled, "walrus should be enabled")
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "walrus expectation again")
-        self.cuttlefishContext.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: self.cuttlefishContext)
         XCTAssertTrue(retSetting!.walrus!.enabled, "walrus should be enabled")
 
         self.verifyDatabaseMocks()
@@ -1107,12 +1086,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let secondSetExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            secondSetExpectation.fulfill()
-        }
-        self.wait(for: [secondSetExpectation], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting2)
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -1415,49 +1389,20 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let secondSetExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            secondSetExpectation.fulfill()
-        }
-        self.wait(for: [secondSetExpectation], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting2)
         self.wait(for: [peer2SetExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
-        var retSetting: OTAccountSettings?
-        var fetchExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        var retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertFalse(retSetting!.webAccess!.enabled, "webAccess should be disabled")
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertFalse(retSetting!.walrus!.enabled, "webAccess should not be enabled")
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "webAccess expectation again")
-        self.cuttlefishContext.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: self.cuttlefishContext)
         XCTAssertFalse(retSetting!.webAccess!.enabled, "webAccess should not be enabled")
 
         self.verifyDatabaseMocks()
@@ -1522,40 +1467,16 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        var retSetting: OTAccountSettings?
-        var fetchExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        var retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertTrue(retSetting!.webAccess!.enabled, "webAccess should be enabled")
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "webAccess expectation again")
-        peer2.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: peer2)
         XCTAssertTrue(retSetting!.webAccess!.enabled, "webAccess should be enabled")
 
-        retSetting = nil
-        fetchExpectation = self.expectation(description: "webAccess expectation again")
-        self.cuttlefishContext.rpcFetchAccountSettings { setting, _ in
-            XCTAssertNotNil(setting, "setting should not be nil")
-            retSetting = setting
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        retSetting = try self.fetchAccountSettings(context: self.cuttlefishContext)
         XCTAssertTrue(retSetting!.webAccess!.enabled, "webAccess should be enabled")
 
         self.verifyDatabaseMocks()
@@ -1584,6 +1505,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext)
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
     }
 
     func testFetchAccountWideSettingsTwoPeerSet() throws {
@@ -1633,13 +1555,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let secondSetExpectation = self.expectation(description: "walrus expectation again")
-        joiningContext.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            secondSetExpectation.fulfill()
-        }
-
-        self.wait(for: [secondSetExpectation], timeout: 10)
+        try self.setAccountSettings(context: joiningContext, settings: setting2)
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -1648,14 +1564,16 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettings(self.otcliqueContext)
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
 
-        let secondPeerContext = OTConfigurationContext()
-        secondPeerContext.context = "peer2"
-        secondPeerContext.altDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
-        secondPeerContext.otControl = self.otControl
+        let secondPeerContext = self.createOTConfigurationContextForTests(contextID: "peer2",
+                                                                          otControl: self.otControl,
+                                                                          altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         let fetchedSetting2 = try OctagonTrustCliqueBridge.fetchAccountWideSettings(secondPeerContext)
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting2), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
+        let secondPeerCF = self.manager.context(forContainerName: OTCKContainerName, contextID: secondPeerContext.context)
+        try XCTAssertCachedAccountSettings(context: secondPeerCF, "cached account settings after fetchAccountWide")
     }
 
     func testFetchAccountWideSettingsNoPeers() throws {
@@ -1672,6 +1590,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
         XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
         XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
     }
 
     func testFetchAccountWideSettingsForceFalse() throws {
@@ -1688,6 +1607,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
         XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
         XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
     }
 
     func testFetchAccountWideSettingsForceTrue() throws {
@@ -1704,6 +1624,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         fetchedSetting = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: true, configuration: self.otcliqueContext)
         XCTAssertEqual(false, fetchedSetting?.walrus.enabled)
         XCTAssertEqual(true, fetchedSetting?.webAccess.enabled)
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
     }
 
     func testFetchAccountWideSettingsForceTrueNetworkFailure() throws {
@@ -1725,6 +1646,86 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         XCTAssertNil(fetchedSetting, "fetched setting should be nil")
         self.wait(for: [fetchChangesExpectations], timeout: 10)
+    }
+
+    func testBadAccountCache() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let settings = makeAccountSettings(walrus: true, webAccess: false)
+        try self.setAccountSettings(context: self.cuttlefishContext, settings: settings)
+        let fetchedSettings = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
+        XCTAssertEqualAccountSettings(settings, fetchedSettings, "settings should be equal after fetch")
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
+
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
+        let (data0, date0) = container.moc.performAndWait {
+            return (container.containerMO.accountSettings, container.containerMO.accountSettingsDate)
+        }
+        try container.moc.performAndWait {
+            container.containerMO.accountSettings = try XCTUnwrap("foobar".data(using: .utf8))
+        }
+        let refetchedSettings = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
+        XCTAssertEqualAccountSettings(settings, refetchedSettings, "settings should be equal after fetch")
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
+        let (data1, date1) = container.moc.performAndWait {
+            return (container.containerMO.accountSettings, container.containerMO.accountSettingsDate)
+        }
+        let a = try Container.accountSettingsToDict(data: try XCTUnwrap(data0))
+        let b = try Container.accountSettingsToDict(data: try XCTUnwrap(data1))
+        XCTAssertEqual(a, b, "cached data should be identical")
+        XCTAssertLessThan(try XCTUnwrap(date0), try XCTUnwrap(date1), "timestamp should be updated")
+    }
+
+    func testDumpCache() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let settings = makeAccountSettings(walrus: true, webAccess: false)
+        try self.setAccountSettings(context: self.cuttlefishContext, settings: settings)
+
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
+            do {
+                let dump = try XCTUnwrap(dump)
+                XCTAssertNil(error, "error should be nil")
+                XCTAssertNil(dump["accountSettings"], "dump should not have accountSettings")
+                XCTAssertNil(dump["accountSettingsDate"], "dump should not have accountSettingsDate")
+            } catch {
+                XCTFail("dump failed: \(error)")
+            }
+            dumpCallback.fulfill()
+        }
+        self.wait(for: [dumpCallback], timeout: 10)
+
+        let t0 = Date()
+
+        let fetchedSettings = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
+        XCTAssertEqualAccountSettings(settings, fetchedSettings, "settings should be equal after fetch")
+        try XCTAssertCachedAccountSettings(context: self.cuttlefishContext, "cached account settings after fetchAccountWide")
+
+        let dump2Callback = self.expectation(description: "dump2Callback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
+            do {
+                let dump = try XCTUnwrap(dump)
+                XCTAssertNil(error, "error should be nil")
+                let accountSettings = try XCTUnwrap(dump["accountSettings"] as? NSDictionary)
+                let walrus = try XCTUnwrap(accountSettings["walrus"] as? NSDictionary)
+                let webAccess = try XCTUnwrap(accountSettings["webAccess"] as? NSDictionary)
+                XCTAssertEqual(try XCTUnwrap(walrus["clock"] as? Int), 0, "walrus clock should be 0")
+                XCTAssertEqual(try XCTUnwrap(walrus["value"] as? Int), 1, "walrus value should be 1")
+                XCTAssertEqual(try XCTUnwrap(webAccess["clock"] as? Int), 0, "webAccess clock should be 0")
+                XCTAssertEqual(try XCTUnwrap(webAccess["value"] as? Int), 0, "webAccess value should be 0")
+                let t1 = Date()
+                let cacheTimestamp = try XCTUnwrap(dump["accountSettingsDate"] as? Date)
+                XCTAssertGreaterThan(cacheTimestamp, t0, "timestamp should be greater")
+                XCTAssertGreaterThan(t1, cacheTimestamp, "timestamp should be greater")
+            } catch {
+                XCTFail("dump failed: \(error)")
+            }
+            dump2Callback.fulfill()
+        }
+        self.wait(for: [dump2Callback], timeout: 10)
     }
 
     func testFailToSetSettingsWithNetworkFailure() throws {
@@ -1810,15 +1811,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let fetchedSetting = try cliqueBridge.fetchAccountSettings()
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
 
-        let otcliqueContext = OTConfigurationContext()
-        otcliqueContext.context = self.cuttlefishContext.contextID
-        otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
-        otcliqueContext.otControl = self.otControl
-        otcliqueContext.authenticationAppleID = "appleID"
-        otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
-        otcliqueContext.ckksControl = self.ckksControl
-        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let otcliqueContext = self.createOTConfigurationContextForTests(contextID: self.cuttlefishContext.contextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID),
+                                                                        sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                        authenticationAppleID: "appleID",
+                                                                        passwordEquivalentToken: "petpetpetpetpet",
+                                                                        ckksControl: self.ckksControl)
         let newClique: OTClique
         do {
             newClique = try OTClique.resetProtectedData(otcliqueContext)
@@ -1868,15 +1867,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let fetchedSetting = try cliqueBridge.fetchAccountSettings()
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: true), "settings not as expected")
 
-        let otcliqueContext = OTConfigurationContext()
-        otcliqueContext.context = self.cuttlefishContext.contextID
-        otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
-        otcliqueContext.otControl = self.otControl
-        otcliqueContext.authenticationAppleID = "appleID"
-        otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
-        otcliqueContext.ckksControl = self.ckksControl
-        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let otcliqueContext = self.createOTConfigurationContextForTests(contextID: self.cuttlefishContext.contextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID),
+                                                                        sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                        authenticationAppleID: "appleID",
+                                                                        passwordEquivalentToken: "petpetpetpetpet",
+                                                                        ckksControl: self.ckksControl)
         let newClique: OTClique
         do {
             newClique = try OTClique.resetProtectedData(otcliqueContext)
@@ -1927,15 +1924,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let fetchedSetting = try cliqueBridge.fetchAccountSettings()
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: true), "settings not as expected")
 
-        let otcliqueContext = OTConfigurationContext()
-        otcliqueContext.context = self.cuttlefishContext.contextID
-        otcliqueContext.altDSID = try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID)
-        otcliqueContext.otControl = self.otControl
-        otcliqueContext.authenticationAppleID = "appleID"
-        otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
-        otcliqueContext.ckksControl = self.ckksControl
-        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
-
+        let otcliqueContext = self.createOTConfigurationContextForTests(contextID: self.cuttlefishContext.contextID,
+                                                                        otControl: self.otControl,
+                                                                        altDSID: try XCTUnwrap(self.cuttlefishContext.activeAccount?.altDSID),
+                                                                        sbd: OTMockSecureBackup(bottleID: nil, entropy: nil),
+                                                                        authenticationAppleID: "appleID",
+                                                                        passwordEquivalentToken: "petpetpetpetpet",
+                                                                        ckksControl: self.ckksControl)
         let newClique: OTClique
         do {
             newClique = try OTClique.resetProtectedData(otcliqueContext)
@@ -2007,12 +2002,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let peer2SetExpectation1 = self.expectation(description: "peer2 first walrus set")
-        peer2.rpcSetAccountSetting(setting) { error in
-            XCTAssertNil(error, "error should be nil")
-            peer2SetExpectation1.fulfill()
-        }
-        self.wait(for: [peer2SetExpectation1], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting)
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2028,12 +2018,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let peer2SetExpectation2 = self.expectation(description: "peer2 walrus unset")
-        peer2.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            peer2SetExpectation2.fulfill()
-        }
-        self.wait(for: [peer2SetExpectation2], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting2)
         self.wait(for: [unsetExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2069,16 +2054,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
 
-        var retSettings: OTAccountSettings?
-        let fetchExpectation = self.expectation(description: "account setting fetch")
-        self.cuttlefishContext.rpcFetchAccountSettings { settings, error in
-            XCTAssertNotNil(settings, "setting should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            retSettings = settings
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        let retSettings = try self.fetchAccountSettings(context: self.cuttlefishContext)
         XCTAssertTrue(retSettings!.walrus!.enabled, "walrus should be enabled")
 
         self.verifyDatabaseMocks()
@@ -2132,12 +2108,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let peer2SetExpectation1 = self.expectation(description: "peer2 first walrus set")
-        peer2.rpcSetAccountSetting(setting) { error in
-            XCTAssertNil(error, "error should be nil")
-            peer2SetExpectation1.fulfill()
-        }
-        self.wait(for: [peer2SetExpectation1], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting)
         self.wait(for: [setExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2153,12 +2124,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             return nil
         }
 
-        let peer2SetExpectation2 = self.expectation(description: "peer2 walrus unset")
-        peer2.rpcSetAccountSetting(setting2) { error in
-            XCTAssertNil(error, "error should be nil")
-            peer2SetExpectation2.fulfill()
-        }
-        self.wait(for: [peer2SetExpectation2], timeout: 10)
+        try self.setAccountSettings(context: peer2, settings: setting2)
         self.wait(for: [unsetExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
@@ -2189,16 +2155,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        var retSettings: OTAccountSettings?
-        let fetchExpectation = self.expectation(description: "account setting fetch")
-        self.cuttlefishContext.rpcFetchAccountSettings { settings, error in
-            XCTAssertNotNil(settings, "setting should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            retSettings = settings
-            fetchExpectation.fulfill()
-        }
-        self.wait(for: [fetchExpectation], timeout: 10)
-
+        let retSettings = try self.fetchAccountSettings(context: self.cuttlefishContext)
         XCTAssertTrue(retSettings!.walrus!.enabled, "walrus should be enabled")
 
         self.verifyDatabaseMocks()

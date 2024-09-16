@@ -7,12 +7,69 @@
 
 #include <DarwinDirectory/RecordStore_priv.h>
 #include <os/cleanup.h>
-#include <os/feature_private.h>
 #include <si_data.h>
 #include <si_module.h>
 #include <sys/reason.h>
 
+#include "darwin_directory_enabled.h"
 #include "darwin_directory_helpers.h"
+
+#pragma mark - Cache Validation
+
+// Darwin Directory uses a single validation field. The upper 8 bits are flags.
+// The lower 16 bits store a generation number. All other bits are currently
+// unused.
+
+#define DD_VALIDATION_FLAGS_MASK 0xff00000000000000
+#define DD_VALIDATION_FLAG_IMMUTABLE 0x100000000000000
+
+#define DD_VALIDATION_GENERATION_MASK 0xffff
+
+static uint64_t
+_dd_cache_validation_for_record(darwin_directory_record_t record)
+{
+	uint64_t validation = 0;
+
+	if (!record->isMutable) {
+		// Don't even bother looking up the generation for immutable entries.
+		validation = DD_VALIDATION_FLAG_IMMUTABLE;
+	} else {
+		validation = record->generation;
+	}
+
+	return validation;
+}
+
+static bool
+_dd_cache_validation_is_valid(uint64_t validation)
+{
+	if ((validation & DD_VALIDATION_FLAG_IMMUTABLE) != 0) {
+		// Immutable entries are always valid.
+		return true;
+	}
+
+	uint16_t generation = DarwinDirectoryGetGeneration();
+
+	return (validation & DD_VALIDATION_GENERATION_MASK) == generation;
+}
+
+static int
+darwin_directory_cached_item_is_valid(si_mod_t *si, si_item_t *item)
+{
+	si_mod_t *src;
+
+	if (si == NULL) return 0;
+	if (item == NULL) return 0;
+	if (si->name == NULL) return 0;
+	if (item->src == NULL) return 0;
+
+	src = (si_mod_t *)item->src;
+
+	if (src->name == NULL) return 0;
+	if (string_not_equal(si->name, src->name)) return 0;
+
+	return _dd_cache_validation_is_valid(item->validation_a) ? 1 : 0;
+}
 
 #pragma mark - Users
 
@@ -33,7 +90,9 @@ _dd_extract_user(si_mod_t *si, darwin_directory_record_t user)
 	};
 
 
-	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, 0, 0,
+	uint64_t validation = _dd_cache_validation_for_record(user);
+
+	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, validation, 0,
 									  p.pw_name, p.pw_passwd, p.pw_uid, p.pw_gid, p.pw_change,
 									  p.pw_class, p.pw_gecos, p.pw_dir, p.pw_shell, p.pw_expire);
 }
@@ -109,7 +168,9 @@ _dd_extract_group(si_mod_t *si, darwin_directory_record_t group)
 		.gr_mem = (char **)group->attributes.group.memberNames,
 	};
 
-	si_item_t *item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, 0, 0,
+	uint64_t validation = _dd_cache_validation_for_record(group);
+
+	si_item_t *item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, validation, 0,
 												 g.gr_name, g.gr_passwd, g.gr_gid, g.gr_mem);
 
 	return item;
@@ -172,22 +233,6 @@ darwin_directory_group_all(si_mod_t *si)
 	});
 
 	return list;
-}
-
-static bool
-_dd_user_is_member_of_group(const char *userName, darwin_directory_record_t group)
-{
-	// Check the list of member names to see if the user is a member.
-
-	__block bool isMember = false;
-	for (size_t i = 0; group->attributes.group.memberNames[i] != NULL; i++) {
-		if (strcmp(group->attributes.group.memberNames[i], userName) == 0) {
-			isMember = true;
-			break;
-		}
-	}
-
-	return isMember;
 }
 
 // get_grouplist
@@ -259,6 +304,8 @@ si_mod_t *
 si_module_static_darwin_directory(void)
 {
 	static struct si_mod_vtable_s darwin_directory_vtable = {
+		.sim_is_valid = &darwin_directory_cached_item_is_valid,
+
 		.sim_user_byname = &darwin_directory_user_byname,
 		.sim_user_byuid = &darwin_directory_user_byuid,
 		.sim_user_byuuid = &darwin_directory_user_byuuid,
@@ -271,11 +318,11 @@ si_module_static_darwin_directory(void)
 		.sim_grouplist = &darwin_directory_grouplist,
 	};
 
-	// If the feature flag isn't set, NULL the vtable so this module is skipped
+	// If Darwin Directory isn't enabled, NULL the vtable so this module is skipped
 	// for all lookups.  Once the module is built into the libinfo search list
 	// it must return a non-NULL si_mod_t * to avoid contaminating errno with a
 	// failed attempt to load the module from disk.
-	if (!os_feature_enabled_simple(DarwinDirectory, LibinfoLookups, false)) {
+	if (!_darwin_directory_enabled()) {
 		memset(&darwin_directory_vtable, 0, sizeof(darwin_directory_vtable));
 	}
 

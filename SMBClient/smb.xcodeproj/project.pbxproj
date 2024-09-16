@@ -262,6 +262,7 @@
 		D7115B662372C79F00A32BEC /* smb2_mc.h in Headers */ = {isa = PBXBuildFile; fileRef = D7115B652372C79F00A32BEC /* smb2_mc.h */; };
 		D797CB0B23BA021F00AF97C2 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D797CB0A23BA021F00AF97C2 /* Network.framework */; };
 		D797CB1923BA273500AF97C2 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D797CB0A23BA021F00AF97C2 /* Network.framework */; };
+		DD15AF472B86B55000FBF1E1 /* SMBClientAriadne.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = DD15AF462B86B51E00FBF1E1 /* SMBClientAriadne.plist */; };
 		DD1789512170FB93008D17BB /* SMBClientTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DD1789502170FB93008D17BB /* SMBClientTests.m */; };
 		DD178961217100D7008D17BB /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = DD178960217100D7008D17BB /* main.m */; };
 		DD17896C217102E2008D17BB /* FakeXCTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = DD178967217102E2008D17BB /* FakeXCTestCase.m */; };
@@ -598,6 +599,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		DD15AF452B86B48E00FBF1E1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Library/Ariadne/Plists;
+			dstSubfolderSpec = 0;
+			files = (
+				DD15AF472B86B55000FBF1E1 /* SMBClientAriadne.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		DD17895C217100D7008D17BB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -825,6 +836,7 @@
 		D7115B652372C79F00A32BEC /* smb2_mc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smb2_mc.h; sourceTree = "<group>"; };
 		D797CB0A23BA021F00AF97C2 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/Network.framework; sourceTree = DEVELOPER_DIR; };
 		D797CB1123BA264800AF97C2 /* mc_notifier */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mc_notifier; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD15AF462B86B51E00FBF1E1 /* SMBClientAriadne.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = SMBClientAriadne.plist; sourceTree = "<group>"; };
 		DD17894E2170FB93008D17BB /* SMBClientTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SMBClientTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD1789502170FB93008D17BB /* SMBClientTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SMBClientTests.m; sourceTree = "<group>"; };
 		DD1789522170FB93008D17BB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -1091,6 +1103,7 @@
 				4568141A09E1EBFB0028549B /* Info-smb_fs.plist */,
 				DD8277811EEB348400DED795 /* kext.xcconfig */,
 				DDC45B1420C6FA9700731219 /* smb-client-diagnose */,
+				DD15AF462B86B51E00FBF1E1 /* SMBClientAriadne.plist */,
 				DD17894F2170FB93008D17BB /* SMBClientTests */,
 				DD17895F217100D7008D17BB /* smbclient_test */,
 				D70368DE23BE45BA003A0982 /* mc_notifier */,
@@ -1805,6 +1818,7 @@
 				456813A009E1E9D80028549B /* Sources */,
 				456813BE09E1E9D80028549B /* Resources */,
 				456813C709E1E9D80028549B /* Frameworks */,
+				DD15AF452B86B48E00FBF1E1 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -4942,7 +4956,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = NO;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -5006,6 +5020,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
@@ -5069,6 +5084,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",

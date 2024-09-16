@@ -56,7 +56,9 @@ public:
 
     virtual ~ScriptProcessorNode();
 
-    const char* activeDOMObjectName() const override { return "ScriptProcessorNode"; }
+    // ActiveDOMObject.
+    void ref() const final { AudioNode::ref(); }
+    void deref() const final { AudioNode::deref(); }
 
     // AudioNode
     void process(size_t framesToProcess) override;
@@ -75,7 +77,9 @@ private:
 
     ScriptProcessorNode(BaseAudioContext&, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels);
 
+    // ActiveDOMObject.
     bool virtualHasPendingActivity() const final;
+
     void eventListenersDidChange() final;
     void fireProcessEvent(unsigned bufferIndex);
 

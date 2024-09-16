@@ -2,15 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>SecKeychainStaticPersistentRefs</key>
+	<key>RollIdentityOnMIDRotation</key>
 	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>SecErrorNestedErrorCapping</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
+		<key>DisplayName</key>
+		<string>Roll the local Octagon identity when its machine ID changes</string>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
 	</dict>
 	<key>EnableSecureObjectSync</key>
 	<dict>
@@ -22,47 +19,7 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
-	<key>LegacyAPICounts</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>SecCodeOCSPDefault</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>SOSMonitorMode</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>KeychainKeyDiversification</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>TrustSettingsUseXPC</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>TrustSettingsUseTrustStore</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-		<string>FeatureComplete</string>
-	</dict>
-	<key>TrustStoreUsesUUID</key>
-	<dict>
-		<key>DevelopmentPhase</key>
-		<string>FeatureComplete</string>
-	</dict>
 	<key>WarnTooManyPeers</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
-	<key>OctagonEscrowMove</key>
 	<dict>
 		<key>Enabled</key>
 		<true/>
@@ -97,33 +54,12 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
-	<key>KCSharingAutomaticSyncing</key>
-	<dict>
-		<key>DisplayName</key>
-		<string>Sync shared items automatically</string>
-		<key>DevelopmentPhase</key>
-		<string>FeatureComplete</string>
-		<key>Radar</key>
-		<real>83175376</real>
-	</dict>
-	<key>SecCMSMessageSecurityShim</key>
-	<dict>
-		<key>Enabled</key>
-		<true/>
-	</dict>
 	<key>KCSharingUsePrototypeIDSService</key>
 	<dict>
 		<key>DisplayName</key>
 		<string>Use a prototype IDS service for kcsharing invites</string>
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
-	</dict>
-	<key>CKKSHighPriorityOperations</key>
-	<dict>
-		<key>DisplayName</key>
-		<string>Use high priority CloudKit operations for Keychain Sync</string>
-		<key>Enabled</key>
-		<true/>
 	</dict>
 	<key>TTRTrustLossOnHomePod</key>
 	<dict>
@@ -132,6 +68,8 @@
 	</dict>
 	<key>TTROnCRKRemoval</key>
 	<dict>
+		<key>Display Name</key>
+		<string>Affordance for QA so that they can disable TTR</string>
 		<key>Enabled</key>
 		<true/>
 	</dict>

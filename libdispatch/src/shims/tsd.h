@@ -102,8 +102,14 @@ _Static_assert(__PTK_LIBDISPATCH_KEY13 == __TSD_MACH_MSG_AUX,
 		"libsyscall and libdispatch mach msgv TSD value mismatch");
 #endif
 static const unsigned long dispatch_msgv_aux_key = __PTK_LIBDISPATCH_KEY13;
+static const unsigned long dispatch_set_threadname_key = __PTK_LIBDISPATCH_KEY14;
 
-static const unsigned long os_workgroup_key = __PTK_LIBDISPATCH_WORKGROUP_KEY0;
+// It is important that os_workgroup_join_token_key & os_workgroup_key
+// appear in this order for the order of destruction.
+// The token_key destruction takes care of leaving the os workgroup tied up
+// with the token.
+static const unsigned long os_workgroup_join_token_key = __PTK_LIBDISPATCH_WORKGROUP_KEY0;
+static const unsigned long os_workgroup_key = __PTK_LIBDISPATCH_WORKGROUP_KEY1;
 
 DISPATCH_TSD_INLINE
 static inline void
@@ -165,7 +171,9 @@ struct dispatch_tsd {
 	void *dispatch_dsc_key;
 	void *dispatch_enqueue_key;
 	void *dispatch_msgv_aux_key;
+	void *dispatch_set_threadname_key;
 
+	void *os_workgroup_join_token_key;
 	void *os_workgroup_key;
 };
 
@@ -227,7 +235,9 @@ extern pthread_key_t dispatch_quantum_key;
 extern pthread_key_t dispatch_dsc_key;
 extern pthread_key_t dispatch_enqueue_key;
 extern pthread_key_t dispatch_msgv_aux_key;
+extern pthread_key_t dispatch_set_threadname_key;
 
+extern pthread_key_t os_workgroup_join_token_key;
 extern pthread_key_t os_workgroup_key;
 
 DISPATCH_TSD_INLINE

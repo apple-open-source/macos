@@ -42,9 +42,10 @@ class NetworkLoadMetrics;
 class ResourceError;
 class FragmentedSharedBuffer;
 
-class CurlRequest : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient {
+class CurlRequest final : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient, public CanMakeThreadSafeCheckedPtr<CurlRequest> {
     WTF_MAKE_NONCOPYABLE(CurlRequest);
-
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CurlRequest);
 public:
     enum class CaptureNetworkLoadMetrics : uint8_t {
         Basic,
@@ -63,6 +64,7 @@ public:
     WEBCORE_EXPORT void setUserPass(const String&, const String&);
     bool isServerTrustEvaluationDisabled() { return m_shouldDisableServerTrustEvaluation; }
     void disableServerTrustEvaluation() { m_shouldDisableServerTrustEvaluation = true; }
+    void enableLocalhostAlias() { m_localhostAlias = CurlHandle::LocalhostAlias::Enable; }
 
     WEBCORE_EXPORT void resume();
     WEBCORE_EXPORT void cancel();
@@ -80,6 +82,12 @@ public:
 
 private:
     WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, CaptureNetworkLoadMetrics);
+
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeThreadSafeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeThreadSafeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeThreadSafeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeThreadSafeCheckedPtr::decrementPtrCount(); }
 
     void retain() override { ref(); }
     void release() override { deref(); }
@@ -104,7 +112,7 @@ private:
     void didCancelTransfer() override;
     void finalizeTransfer();
 
-    int didReceiveDebugInfo(curl_infotype, char*, size_t);
+    int didReceiveDebugInfo(curl_infotype, std::span<const char>);
 
     // For setup 
     void appendAcceptLanguageHeader(HTTPHeaderMap&);
@@ -118,6 +126,7 @@ private:
     void invokeDidReceiveResponse(const CurlResponse&, Function<void()>&& completionHandler = { });
 
     NetworkLoadMetrics networkLoadMetrics();
+    std::optional<long long> getContentLength();
 
     // Callback functions for curl
     static size_t willSendDataCallback(char*, size_t, size_t, void*);
@@ -136,6 +145,7 @@ private:
     String m_password;
     unsigned long m_authType { CURLAUTH_ANY };
     bool m_shouldDisableServerTrustEvaluation { false };
+    CurlHandle::LocalhostAlias m_localhostAlias { CurlHandle::LocalhostAlias::Disable };
 
     std::unique_ptr<CurlHandle> m_curlHandle;
     CurlFormDataStream m_formDataStream;
@@ -150,6 +160,7 @@ private:
     Function<void()> m_responseCompletionHandler;
 
     bool m_captureExtraMetrics;
+    size_t m_requestHeaderSize { 0 };
     HTTPHeaderMap m_requestHeaders;
     MonotonicTime m_performStartTime;
     size_t m_totalReceivedSize { 0 };

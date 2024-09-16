@@ -684,6 +684,18 @@ typeerr:		LABEL;
 			}
 		}
 	}
+	if (s->flags & F_PROTECTION_CLASS) {
+		uint32_t calculated_protection_class = get_protection_class(p->fts_accpath);
+		if (calculated_protection_class != s->protection_class) {
+			LABEL;
+			(void)printf("%sprotectionclass expected %d found %d for file %s\n",
+				     tab, s->protection_class, calculated_protection_class, p->fts_accpath);
+			tab = "\t";
+			if (mflag) {
+				RECORD_FAILURE(1875701, EINVAL);
+			}
+		}
+	}
 	
 	return (label);
 }

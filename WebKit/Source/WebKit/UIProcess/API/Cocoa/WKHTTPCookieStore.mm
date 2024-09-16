@@ -45,7 +45,7 @@ static NSArray<NSHTTPCookie *> *coreCookiesToNSCookies(const Vector<WebCore::Coo
     }).autorelease();
 }
 
-class WKHTTPCookieStoreObserver : public API::HTTPCookieStore::Observer {
+class WKHTTPCookieStoreObserver : public API::HTTPCookieStoreObserver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WKHTTPCookieStoreObserver(id<WKHTTPCookieStoreObserver> observer)
@@ -56,7 +56,8 @@ public:
 private:
     void cookiesDidChange(API::HTTPCookieStore& cookieStore) final
     {
-        [m_observer cookiesDidChangeInCookieStore:wrapper(cookieStore)];
+        if ([m_observer respondsToSelector:@selector(cookiesDidChangeInCookieStore:)])
+            [m_observer cookiesDidChangeInCookieStore:wrapper(cookieStore)];
     }
 
     WeakObjCPtr<id<WKHTTPCookieStoreObserver>> m_observer;
@@ -65,6 +66,8 @@ private:
 @implementation WKHTTPCookieStore {
     HashMap<CFTypeRef, std::unique_ptr<WKHTTPCookieStoreObserver>> _observers;
 }
+
+WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (void)dealloc
 {

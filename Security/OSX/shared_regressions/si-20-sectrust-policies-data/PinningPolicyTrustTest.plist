@@ -2652,6 +2652,8 @@
 		<integer>3</integer>
 		<key>VerifyDate</key>
 		<date>2020-09-15T00:00:00Z</date>
+		<key>DisableCT</key>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -3041,7 +3043,9 @@
 		<key>Anchors</key>
 		<string>EscrowServiceRootCA100</string>
 		<key>ExpectedResult</key>
-		<integer>5</integer>
+		<integer>4</integer>
+		<key>ChainLength</key>
+		<integer>2</integer>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -3471,6 +3475,38 @@
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
+		<string>ISTCrossSign</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>p02-ckdatabasews.icloud.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>ckdatabasews</string>
+		<key>Intermediates</key>
+		<string>AppleISTCA2G1-Baltimore</string>
+		<key>Anchors</key>
+		<string>BaltimoreCyberTrustRoot</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2022-06-01T00:00:00Z</date>
+		<key>ChainLength</key>
+		<integer>3</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
 		<string>ISTCrossSignCA8Baltimore</string>
 		<key>MinorTestName</key>
 		<string>PositiveTest</string>
@@ -3496,6 +3532,8 @@
 		<date>2019-06-01T00:00:00Z</date>
 		<key>ChainLength</key>
 		<integer>3</integer>
+		<key>DisableCT</key>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -3524,6 +3562,81 @@
 		<integer>4</integer>
 		<key>VerifyDate</key>
 		<date>2019-06-01T00:00:00Z</date>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>ISTCrossSign</string>
+		<key>MinorTestName</key>
+		<string>BothPositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>p02-ckdatabasews.icloud.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>ckdatabasews</string>
+		<key>Intermediates</key>
+		<array>
+			<string>AppleISTCA2G1-Baltimore</string>
+			<string>AppleISTCA2G1</string>
+		</array>
+		<key>Anchors</key>
+		<array>
+			<string>AppleRootCA</string>
+			<string>GeoTrustGlobalCA</string>
+		</array>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2022-06-01T00:00:00Z</date>
+		<key>ChainLength</key>
+		<integer>3</integer>
+		<key>DisableCT</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>ISTCrossSign</string>
+		<key>MinorTestName</key>
+		<string>BothPositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>p02-ckdatabasews.icloud.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>ckdatabasews</string>
+		<key>Intermediates</key>
+		<array>
+			<string>AppleISTCA2G1-Baltimore</string>
+			<string>AppleISTCA2G1</string>
+		</array>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>Anchors</key>
+		<string>BaltimoreCyberTrustRoot</string>
+		<key>VerifyDate</key>
+		<date>2022-06-01T00:00:00Z</date>
+		<key>ChainLength</key>
+		<integer>3</integer>
+		<key>DisableCT</key>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>

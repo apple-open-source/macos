@@ -7,8 +7,8 @@
 #include <unistd.h>
 
 struct attr_buffer {
-	uint32_t	length;
-	uint32_t	mount_flags;
+	uint32_t        length;
+	uint32_t        mount_flags;
 };
 
 int
@@ -36,7 +36,7 @@ main(int argc, char **argv)
 		}
 		printf("%s %s a trigger\n", argv[i],
 		    (attrbuf.mount_flags & DIR_MNTSTATUS_TRIGGER) ?
-		        "is" : "is not");
+		    "is" : "is not");
 	}
 	return 0;
 }

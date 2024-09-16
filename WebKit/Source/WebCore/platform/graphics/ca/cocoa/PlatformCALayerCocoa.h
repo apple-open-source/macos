@@ -47,6 +47,7 @@ public:
 
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const FloatRect& dirtyRect) override;
+    bool needsDisplay() const override;
 
     void copyContentsFromLayer(PlatformCALayer*) override;
 
@@ -87,7 +88,9 @@ public:
     TransformationMatrix sublayerTransform() const override;
     void setSublayerTransform(const TransformationMatrix&) override;
 
-    void setIsBackdropRoot(bool) override;
+    void setIsBackdropRoot(bool) final;
+    bool backdropRootIsOpaque() const final;
+    void setBackdropRootIsOpaque(bool) final;
 
     bool isHidden() const override;
     void setHidden(bool) override;
@@ -144,9 +147,7 @@ public:
     WEBCORE_EXPORT static bool filtersCanBeComposited(const FilterOperations&);
     void copyFiltersFrom(const PlatformCALayer&) override;
 
-#if ENABLE(CSS_COMPOSITING)
     void setBlendMode(BlendMode) override;
-#endif
 
     void setName(const String&) override;
 
@@ -227,11 +228,12 @@ private:
     GraphicsLayer::CustomAppearance m_customAppearance { GraphicsLayer::CustomAppearance::None };
     std::unique_ptr<FloatRoundedRect> m_shapeRoundedRect;
 #if ENABLE(SCROLLING_THREAD)
-    ScrollingNodeID m_scrollingNodeID { 0 };
+    ScrollingNodeID m_scrollingNodeID;
 #endif
     EventRegion m_eventRegion;
     bool m_wantsDeepColorBackingStore { false };
     bool m_backingStoreAttached { true };
+    bool m_backdropRootIsOpaque { false };
 };
 
 } // namespace WebCore

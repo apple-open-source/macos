@@ -69,7 +69,7 @@ public:
 private:
     explicit LaunchGrant(ExtensionProcess&);
 
-    RetainPtr<BEProcessCapabilityGrant> m_grant;
+    ExtensionCapabilityGrant m_grant;
 };
 #endif
 
@@ -84,6 +84,7 @@ public:
         virtual bool isJITEnabled() const { return true; }
         virtual bool shouldEnableSharedArrayBuffer() const { return false; }
         virtual bool shouldEnableLockdownMode() const { return false; }
+        virtual bool shouldDisableJITCage() const { return false; }
 #if PLATFORM(COCOA)
         virtual RefPtr<XPCEventHandler> xpcEventHandler() const { return nullptr; }
 #endif
@@ -97,6 +98,9 @@ public:
 #endif
 #if ENABLE(BUBBLEWRAP_SANDBOX)
         DBusProxy,
+#endif
+#if ENABLE(MODEL_PROCESS)
+        Model,
 #endif
     };
 
@@ -138,16 +142,18 @@ public:
     void setIsRetryingLaunch() { m_isRetryingLaunch = true; }
     bool isRetryingLaunch() const { return m_isRetryingLaunch; }
     void releaseLaunchGrant() { m_launchGrant = nullptr; }
+    static bool hasExtensionsInAppBundle();
 #endif
 
 private:
     ProcessLauncher(Client*, LaunchOptions&&);
 
     void launchProcess();
-    void finishLaunchingProcess(const char* name);
+    void finishLaunchingProcess(ASCIILiteral name);
     void didFinishLaunchingProcess(ProcessID, IPC::Connection::Identifier);
 
     void platformInvalidate();
+    void platformDestroy();
 
 #if PLATFORM(COCOA)
     void terminateXPCConnection();

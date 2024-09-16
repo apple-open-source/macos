@@ -26,8 +26,8 @@ pdfjs-zoom-out-button =
     .title = Uzaklaştır
 pdfjs-zoom-out-button-label = Uzaklaştır
 pdfjs-zoom-in-button =
-    .title = Yaklaştır
-pdfjs-zoom-in-button-label = Yaklaştır
+    .title = Yakınlaştır
+pdfjs-zoom-in-button-label = Yakınlaştır
 pdfjs-zoom-select =
     .title = Yakınlaştırma
 pdfjs-presentation-mode-button =
@@ -85,10 +85,10 @@ pdfjs-scroll-page-button =
     .title = Sayfa kaydırmayı kullan
 pdfjs-scroll-page-button-label = Sayfa kaydırma
 pdfjs-scroll-vertical-button =
-    .title = Dikey kaydırma kullan
+    .title = Dikey kaydırmayı kullan
 pdfjs-scroll-vertical-button-label = Dikey kaydırma
 pdfjs-scroll-horizontal-button =
-    .title = Yatay kaydırma kullan
+    .title = Yatay kaydırmayı kullan
 pdfjs-scroll-horizontal-button-label = Yatay kaydırma
 pdfjs-scroll-wrapped-button =
     .title = Yan yana kaydırmayı kullan
@@ -122,7 +122,7 @@ pdfjs-document-properties-title = Başlık:
 pdfjs-document-properties-author = Yazar:
 pdfjs-document-properties-subject = Konu:
 pdfjs-document-properties-keywords = Anahtar kelimeler:
-pdfjs-document-properties-creation-date = Oluturma tarihi:
+pdfjs-document-properties-creation-date = Oluşturma tarihi:
 pdfjs-document-properties-modification-date = Değiştirme tarihi:
 # Variables:
 #   $date (Date) - the creation/modification date of the PDF file
@@ -301,8 +301,29 @@ pdfjs-editor-ink-button-label = Çiz
 pdfjs-editor-stamp-button =
     .title = Resim ekle veya düzenle
 pdfjs-editor-stamp-button-label = Resim ekle veya düzenle
-pdfjs-editor-remove-button =
-    .title = Kaldır
+pdfjs-editor-highlight-button =
+    .title = Vurgula
+pdfjs-editor-highlight-button-label = Vurgula
+pdfjs-highlight-floating-button =
+    .title = Vurgula
+pdfjs-highlight-floating-button1 =
+    .title = Vurgula
+    .aria-label = Vurgula
+pdfjs-highlight-floating-button-label = Vurgula
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Çizimi kaldır
+pdfjs-editor-remove-freetext-button =
+    .title = Metni kaldır
+pdfjs-editor-remove-stamp-button =
+    .title = Resmi kaldır
+pdfjs-editor-remove-highlight-button =
+    .title = Vurgulamayı kaldır
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Renk
 pdfjs-editor-free-text-size-input = Boyut
@@ -312,6 +333,10 @@ pdfjs-editor-ink-opacity-input = Saydamlık
 pdfjs-editor-stamp-add-image-button =
     .title = Resim ekle
 pdfjs-editor-stamp-add-image-button-label = Resim ekle
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Kalınlık
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Metin dışındaki öğeleri vurgularken kalınlığı değiştir
 pdfjs-free-text =
     .aria-label = Metin düzenleyicisi
 pdfjs-free-text-default-content = Yazmaya başlayın…
@@ -349,3 +374,29 @@ pdfjs-editor-resizer-label-bottom-right = Sağ alt köşe — yeniden boyutland�
 pdfjs-editor-resizer-label-bottom-middle = Alt orta — yeniden boyutlandır
 pdfjs-editor-resizer-label-bottom-left = Sol alt köşe — yeniden boyutlandır
 pdfjs-editor-resizer-label-middle-left = Orta sol — yeniden boyutlandır
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Vurgu rengi
+pdfjs-editor-colorpicker-button =
+    .title = Rengi değiştir
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Renk seçenekleri
+pdfjs-editor-colorpicker-yellow =
+    .title = Sarı
+pdfjs-editor-colorpicker-green =
+    .title = Yeşil
+pdfjs-editor-colorpicker-blue =
+    .title = Mavi
+pdfjs-editor-colorpicker-pink =
+    .title = Pembe
+pdfjs-editor-colorpicker-red =
+    .title = Kırmızı
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Tümünü göster
+pdfjs-editor-highlight-show-all-button =
+    .title = Tümünü göster

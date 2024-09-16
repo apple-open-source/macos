@@ -38,6 +38,7 @@
 #include "WasmTag.h"
 #include "WebAssemblyModuleRecord.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/MakeString.h>
 
 namespace JSC {
 
@@ -65,6 +66,11 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
     vm.heap.reportExtraMemoryAllocated(this, m_instance->extraMemoryAllocated());
+}
+
+JSWebAssemblyInstance::~JSWebAssemblyInstance()
+{
+    clearJSCallICs(*m_vm);
 }
 
 void JSWebAssemblyInstance::destroy(JSCell* cell)
@@ -132,13 +138,13 @@ void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObjec
     // results, so that later when memory imports become available, the appropriate CalleeGroup can be used.
     // If LLInt is disabled, we instead defer compilation to module evaluation.
     // If the code is already compiled, e.g. the module was already instantiated before, we do not re-initialize.
-    if (Options::useWasmLLInt() && module()->moduleInformation().hasMemoryImport())
+    if (Options::useWebAssemblyLLInt() && module()->moduleInformation().hasMemoryImport())
         module()->module().copyInitialCalleeGroupToAllMemoryModes(memoryMode());
 
     for (unsigned importFunctionNum = 0; importFunctionNum < instance().numImportFunctions(); ++importFunctionNum) {
         auto* info = instance().importFunctionInfo(importFunctionNum);
         if (!info->targetInstance)
-            info->importFunctionStub = m_module->importFunctionStub(importFunctionNum);
+            info->importFunctionStub = m_module->module().importFunctionStub(importFunctionNum);
         else
             info->importFunctionStub = wasmCalleeGroup->wasmToWasmExitStub(importFunctionNum);
     }
@@ -192,8 +198,8 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, JSGlobalObject* 
     {
         IdentifierSet specifiers;
         for (auto& import : moduleInformation.imports) {
-            Identifier moduleName = Identifier::fromString(vm, String::fromUTF8(import.module));
-            Identifier fieldName = Identifier::fromString(vm, String::fromUTF8(import.field));
+            auto moduleName = Identifier::fromString(vm, makeAtomString(import.module));
+            auto fieldName = Identifier::fromString(vm, makeAtomString(import.field));
             auto result = specifiers.add(moduleName.impl());
             if (result.isNewEntry)
                 moduleRecord->appendRequestedModule(moduleName, nullptr);
@@ -235,6 +241,22 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, JSGlobalObject* 
     }
     
     return jsInstance;
+}
+
+void JSWebAssemblyInstance::clearJSCallICs(VM& vm)
+{
+    for (unsigned index = 0; index < instance().numImportFunctions(); ++index) {
+        auto* info = instance().importFunctionInfo(index);
+        info->callLinkInfo.unlinkOrUpgrade(vm, nullptr, nullptr);
+    }
+}
+
+void JSWebAssemblyInstance::finalizeUnconditionally(VM& vm, CollectionScope)
+{
+    for (unsigned index = 0; index < instance().numImportFunctions(); ++index) {
+        auto* info = instance().importFunctionInfo(index);
+        info->callLinkInfo.visitWeak(vm);
+    }
 }
 
 } // namespace JSC

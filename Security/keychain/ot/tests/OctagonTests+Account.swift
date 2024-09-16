@@ -170,7 +170,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .unknown, "CDP status should be 'unknown'")
@@ -253,7 +253,7 @@ class OctagonAccountTests: OctagonTestsBase {
         let peer3AltDSID = try XCTUnwrap(self.mockAuthKit3.primaryAltDSID())
         self.mockAuthKit3.removePrimaryAccount()
 
-        XCTAssertNoThrow(try peer3.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(peer3.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: peer3, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: peer3)
 
@@ -333,7 +333,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -368,7 +368,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -391,6 +391,7 @@ class OctagonAccountTests: OctagonTestsBase {
         // Now set the CDP state, but using the OTClique API (and not configuring the context)
         let unconfigured = OTConfigurationContext()
         unconfigured.otControl = self.otControl
+        unconfigured.testsEnabled = true
         XCTAssertNoThrow(try OTClique.setCDPEnabled(unconfigured))
 
         // Sign in occurs, but HSA2 status isn't here yet
@@ -414,7 +415,7 @@ class OctagonAccountTests: OctagonTestsBase {
 
         // On sign-out, octagon should go back to 'no account'
         self.mockAuthKit.removePrimaryAccount()
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "sign-out shouldn't error")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
@@ -568,6 +569,66 @@ class OctagonAccountTests: OctagonTestsBase {
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .unknown, "CDP status should be 'unknown'")
     }
 
+    func testDetermineCDPStateFromNetworkFailure() throws {
+        self.startCKAccountStatusMock()
+
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter!.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        // default context comes up, but CDP should end up unknown if it can't fetch changes
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateDetermineCDPState)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateDetermineCDPState, within: 10 * NSEC_PER_SEC)
+
+        let container = try! self.tphClient.getContainer(with: try XCTUnwrap(self.cuttlefishContext.activeAccount))
+        container.moc.performAndWait {
+            container.containerMO.changeToken = nil
+        }
+
+        let ckError = NSError(domain: NSURLErrorDomain,
+                              code: -1009,
+                              userInfo: [NSLocalizedDescriptionKey: "The Internet connection appears to be offline."])
+
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+        self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
+
+        let fetchChangesExpectation = self.expectation(description: "fetchChanges")
+        fetchChangesExpectation.expectedFulfillmentCount = 20
+        fetchChangesExpectation.isInverted = true
+        self.fakeCuttlefishServer.fetchChangesListener = { _ in
+            fetchChangesExpectation.fulfill()
+            return nil
+        }
+
+        self.reachabilityTracker.setNetworkReachability(false)
+
+        self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateDetermineCDPState)
+        self.wait(for: [fetchChangesExpectation], timeout: 20)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .unknown, "CDP status should be 'unknown'")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Octagon should have not posted a repair CFU while waiting for CDP")
+
+        var error: NSError?
+        let cdpstatus = self.cuttlefishContext.getCDPStatus(&error)
+        XCTAssertEqual(cdpstatus, .unknown, "cdpstatus should be unknown")
+        XCTAssertNil(error, "Should have no error fetching CDP status")
+
+        self.fakeCuttlefishServer.nextFetchErrors.removeAll()
+        self.reachabilityTracker.setNetworkReachability(true)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateDetermineCDPState, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .disabled, "CDP status should be 'disabled'")
+        self.assertConsidersSelfWaitingForCDP(context: self.cuttlefishContext)
+    }
+
     func testSignOut() throws {
         self.startCKAccountStatusMock()
 
@@ -678,7 +739,7 @@ class OctagonAccountTests: OctagonTestsBase {
         self.accountStatus = .noAccount
         self.accountStateTracker.notifyCKAccountStatusChangeAndWaitForSignal()
 
-        XCTAssertNoThrow(try self.cuttlefishContext.accountNoLongerAvailable(), "Should be no issue signing out")
+        XCTAssertNoThrow(self.cuttlefishContext.accountNoLongerAvailable(), "Should be no issue signing out")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
         XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .unknown, "CDP status should be 'unknown'")

@@ -276,7 +276,7 @@ void TY_(AddCharToOriginalText)(StreamIn *in, tchar c)
 uint TY_(ReadChar)( StreamIn *in )
 {
     uint c = EndOfStream;
-    uint tabsize = cfg( in->doc, TidyTabSize );
+    uint tabsize = (uint)cfg( in->doc, TidyTabSize );
 #ifdef TIDY_STORE_ORIGINAL_TEXT
     Bool added = no;
 #endif

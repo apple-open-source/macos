@@ -26,10 +26,9 @@
 #import "config.h"
 #import "WebPreferences.h"
 
-#import "StringUtilities.h"
 #import "WebPreferencesKeys.h"
 #import <WebCore/RealtimeMediaSourceCenter.h>
-#import <wtf/text/StringConcatenate.h>
+#import <wtf/text/MakeString.h>
 
 #if ENABLE(MEDIA_STREAM)
 #include "UserMediaPermissionRequestManagerProxy.h"
@@ -40,7 +39,7 @@ namespace WebKit {
 static inline NSString *makeKey(const String& identifier, const String& keyPrefix, const String& key)
 {
     ASSERT(!identifier.isEmpty());
-    return String(identifier + keyPrefix + key);
+    return makeString(identifier, keyPrefix, key);
 }
 
 bool WebPreferences::platformGetStringUserValueForKey(const String& key, String& userValue)
@@ -180,7 +179,7 @@ void WebPreferences::platformUpdateStringValueForKey(const String& key, const St
     if (!m_identifier)
         return;
 
-    [[NSUserDefaults standardUserDefaults] setObject:nsStringFromWebCoreString(value) forKey:makeKey(m_identifier, m_keyPrefix, key)];
+    [[NSUserDefaults standardUserDefaults] setObject:value forKey:makeKey(m_identifier, m_keyPrefix, key)];
 }
 
 void WebPreferences::platformUpdateBoolValueForKey(const String& key, bool value)

@@ -84,7 +84,9 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
  *	Disallow Null Pointers
 */
 	if (ptDescriptor==NULL)
-		return kHIDNullPointerErr;
+    {
+        return kHIDNullPointerErr;
+    }
 /*
  *	Use local pointers
 */
@@ -96,7 +98,9 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
  *	Don't go past the end of the buffer
 */
 	if (*piX >= (UInt32)iLength)
-		return kHIDEndOfDescriptorErr;
+    {
+        return kHIDEndOfDescriptorErr;
+    }
 /*
  *	Get the header byte
 */
@@ -105,16 +109,24 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
  *	Don't go past the end of the buffer
 */
 	if (*piX > (UInt32)iLength)
-		return kHIDEndOfDescriptorErr;
+    {
+        return kHIDEndOfDescriptorErr;
+    }
 	ptItem->itemType = iHeader;
 	ptItem->itemType &= kHIDItemTypeMask;
 	ptItem->itemType >>= kHIDItemTypeShift;
 /*
  *	Long Item Header
  *	Skip Long Items!
+ *  If this is a long item header, it's possible we could have an out of bounds access here,
+ *  so check if we are at the boundary (rdar://131048343 (Off-by-one when parsing HID Items)).
 */
-	if (iHeader==kHIDLongItemHeader)
+	if (iHeader == kHIDLongItemHeader)
 	{
+        if (*piX == (UInt32)iLength)
+        {
+            return kHIDEndOfDescriptorErr;
+        }
 		iSize = psD[(*piX)++];
 		ptItem->tag = (*piX)++;
 	}
@@ -125,8 +137,10 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 	{
 		iSize = iHeader;
 		iSize &= kHIDItemSizeMask;
-		if (iSize==3)
-			iSize = 4;
+		if (iSize == 3)
+        {
+            iSize = 4;
+        }
 		ptItem->byteCount = iSize;
 		ptItem->tag = iHeader;
 		ptItem->tag &= kHIDItemTagMask;
@@ -136,12 +150,14 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
  *	Don't go past the end of the buffer
 */
 	if ((*piX + iSize) > (UInt32)iLength)
-		return kHIDEndOfDescriptorErr;
+    {
+        return kHIDEndOfDescriptorErr;
+    }
 /*
  *	Pick up the data
 */
 	ptItem->unsignedValue = 0;
-	if (iSize==0)
+	if (iSize == 0)
 	{
 		ptItem->signedValue = 0;
 		return kHIDSuccess;
@@ -152,7 +168,7 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 	for (i = 0; i < iSize; i++)
 	{
 		iByte = psD[(*piX)++];
-		ptItem->unsignedValue |= (iByte << (i*8));
+		ptItem->unsignedValue |= (iByte << (i * 8));
 	}
 /*
  *	Keep one value unsigned
@@ -164,7 +180,9 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 	if ((iByte & 0x80) != 0)
 	{
 		while (i < (int)sizeof(int))
-			ptItem->signedValue |= (0xFF << ((i++)*8));
+        {
+            ptItem->signedValue |= (0xFF << ((i++) * 8));
+        }
 	}
 	return kHIDSuccess;
 }

@@ -63,8 +63,8 @@ int list_tests_with_mdata = 0;
 #include <CoreFoundation/CoreFoundation.h>
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_netfs.h>
-#import <netsmb/smb_dev.h>
-#import <netsmb/smb_dev_2.h>
+#import "smb_dev.h"
+#import "smb_dev_2.h"
 #include <NetFS/NetFS.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <sys/paths.h>
@@ -93,6 +93,7 @@ int list_tests_with_mdata = 0;
 #include <dirent.h>
 #include <unistd.h>
 #include <copyfile.h>
+#include <time.h>
 
 char default_test_filename[] = "testfile";
 
@@ -9986,8 +9987,6 @@ done:
     char mp1[PATH_MAX];
     char mp2[PATH_MAX];
     struct smbStatPB pb = {0};
-    struct stat stat_buffer = {0};
-    struct stat saved_stat_buffer = {0};
     struct smb_update_lease pb2 = {0};
     int max_wait = 5, i;
 
@@ -10113,16 +10112,6 @@ done:
         }
     }
 
-    /*
-     * Save current mod date on mp1 so we know when its been updated
-     */
-    error = fstat(fd1, &saved_stat_buffer);
-    if (error) {
-        XCTFail("Save fstat failed %d:%s \n",
-                errno, strerror(errno));
-        goto done;
-    }
-
     /* Write/Read data on mp2 to completely break the lease on mp1 */
     printf("Write data on mp2 \n");
     error = write_and_verify(fd2, data1, sizeof(data1), 0);
@@ -10136,48 +10125,30 @@ done:
 
     /*
      * Wait for lease break on mp2 or for meta data cache to expire
-     *
-     * When lease break arrives, it will invalidate the meta data cache and the
-     * fstat() will get the newer mod date. Then we know the lease break has
-     * occurred.
      */
     for (i = 0; i < max_wait; i++) {
-        error = fstat(fd1, &stat_buffer);
+        bzero(&pb, sizeof(pb));
+        error = fsctl(file_path1, smbfsStatFSCTL, &pb, 0);
         if (error) {
-            XCTFail("Waiting fstat failed %d:%s \n",
+            XCTFail("Waiting fsctl failed %d:%s \n",
                     errno, strerror(errno));
             goto done;
         }
 
-        if ((saved_stat_buffer.st_mtimespec.tv_sec == stat_buffer.st_mtimespec.tv_sec) &&
-            (saved_stat_buffer.st_mtimespec.tv_nsec == stat_buffer.st_mtimespec.tv_nsec)) {
-            /* mod time the same, so keep waiting */
+        if (pb.lease_flags & SMB2_LEASE_GRANTED) {
+            /* Still have the lease, so keep waiting */
+            printf("Still have the lease, sleep and try again \n");
             sleep(1);
-            printf("Waiting %d secs \n", i);
         }
         else {
-            printf("Done waiting after %d secs \n", i);
+            printf("Lease is broken after waiting %d secs \n", i);
             break;
         }
     }
     
-    printf("Verify lease is broken on mp1 \n");
-    bzero(&pb, sizeof(pb));
-    error = fsctl(file_path1, smbfsStatFSCTL, &pb, 0);
-    if (error != 0) {
-        XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
-        goto done;
-    }
-
-    if (pb.lease_flags & SMB2_LEASE_GRANTED) {
-        XCTFail("Failed to lose lease. lease_flags 0x%llx \n",
-                pb.lease_flags);
-        goto done;
-    }
-
-    if (pb.lease_curr_state != 0x00) {
-        XCTFail("Failed to get lease state. lease_curr_state 0x%x != 0x00 \n",
-                pb.lease_curr_state);
+    if (i == max_wait) {
+        XCTFail("Failed to lose lease. lease_flags 0x%llx lease_curr_state 0x%x \n",
+                pb.lease_flags, pb.lease_curr_state);
         goto done;
     }
 
@@ -10202,33 +10173,49 @@ done:
     remove(file_path2);
     /* Dont care about an error */
     
-    /* Force file on mp1 to try to update its lease now */
-    printf("Force lease update on mp1 \n");
-    bzero(&pb2, sizeof(pb2));
-    error = fsctl(file_path1, smbfsUpdateLeaseFSCTL, &pb2, 0);
-    if (error != 0) {
-        XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
-        goto done;
-    }
+    /* Give time for server state to settle down */
+    sleep(1);
+    
+    /* Try a few times to get the server to update the lease */
+    for (i = 0; i < max_wait; i++) {
+        printf("Force lease update on mp1, attempt %d \n", i);
+        bzero(&pb2, sizeof(pb2));
+        error = fsctl(file_path1, smbfsUpdateLeaseFSCTL, &pb2, 0);
+        if (error != 0) {
+            XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
+            goto done;
+        }
 
-    /* Verify we got full lease back on mp1 */
-    printf("Verify got RWH lease again on mp1 \n");
-    bzero(&pb, sizeof(pb));
-    error = fsctl(file_path1, smbfsStatFSCTL, &pb, 0);
-    if (error != 0) {
-        XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
-        goto done;
-    }
+        /* Verify we got full lease back on mp1 */
+        printf("Verify got RWH lease again on mp1 \n");
+        bzero(&pb, sizeof(pb));
+        error = fsctl(file_path1, smbfsStatFSCTL, &pb, 0);
+        if (error != 0) {
+            XCTFail("fsctl failed %d (%s)\n\n", errno, strerror (errno));
+            goto done;
+        }
 
-    if (!(pb.lease_flags & SMB2_LEASE_GRANTED)) {
-        XCTFail("Failed to get lease. lease_flags 0x%llx \n",
-                pb.lease_flags);
-        goto done;
-    }
+        if (!(pb.lease_flags & SMB2_LEASE_GRANTED)) {
+            printf("Still no lease granted, sleep and try again \n");
+            sleep(1);
+            continue;
+        }
 
-    if (pb.lease_curr_state != 0x7) {
-        XCTFail("Failed to get lease state. lease_curr_state 0x%x != 0x07 \n",
-                pb.lease_curr_state);
+        if (pb.lease_curr_state != 0x7) {
+            printf("Still wrong lease_curr_state 0x%x != 0x07, sleep and try again \n",
+                   pb.lease_curr_state);
+            sleep(1);
+            continue;
+        }
+        else {
+            printf("Lease succesfully updated after waiting %d secs \n", i);
+            break;
+        }
+    }
+    
+    if (i == max_wait) {
+        XCTFail("Failed to update lease. lease_flags 0x%llx lease_curr_state 0x%x \n",
+                pb.lease_flags, pb.lease_curr_state);
         goto done;
     }
 
@@ -17550,7 +17537,7 @@ done:
     printf("Verifying that file got deleted on last close \n");
     error = remove(file_path);
     if ((error != -1) && (errno != ENOENT)) {
-        XCTFail("do_delete on <%s> did not fail as expected <%s (%d)>",
+        XCTFail("do_delete on <%s> did not fail as expected <%s (%d)> \n",
                 file_path, strerror(errno), errno);
         goto done;
     }
@@ -17566,6 +17553,723 @@ done:
         XCTFail("unmount failed for first url %d\n", errno);
     }
 
+    rmdir(mp1);
+}
+
+
+char* dir25kName = "static-25k_dirs";
+/*
+ * Note: this test takes a long time
+ * this can be reduced by lowering entry_cnt
+ */
+-(void)testreaddir
+{
+    int error = 0;
+    char mp[PATH_MAX] = {0};
+    uint32_t entry_idx = 0;
+    struct dirent *dp = NULL;
+    DIR * dirp = NULL;
+    char dir_path[PATH_MAX];
+    uint32_t entry_cnt = 25000;
+    uint8_t entries_arr[entry_cnt + 1];
+    char *idx_ptr = NULL;
+    memset(entries_arr, 0, sizeof(entries_arr));
+    int dot = 0, dotdot = 0;
+    int i = 0;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test for correct readdir behavior",
+                               "opendir,closedir,readdir",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+
+    do_create_mount_path(mp, sizeof(mp), "testreaddir");
+
+    error = mount_two_sessions(mp, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto error;
+    }
+    
+    strlcpy(dir_path, mp, sizeof(dir_path));
+    strlcat(dir_path, "/", sizeof(dir_path));
+    strlcat(dir_path, dir25kName, sizeof(dir_path));
+    
+
+    for (i = 0; i < 2; i++) {
+        dirp = opendir(dir_path);
+        if (dirp == NULL) {
+            XCTFail("opendir on <%s> failed %d:%s \n",
+                    dir_path, errno, strerror(errno));
+            goto error;
+        }
+
+        dot = dotdot = 0;
+        memset(entries_arr, 0, sizeof(entries_arr));
+
+        while ((dp = readdir(dirp)) != NULL) {
+            if (strcmp(dp->d_name, ".") == 0) {
+                dot++;
+                continue;
+            } else if (strcmp(dp->d_name, "..") == 0) {
+                dotdot++;
+                continue;
+            }
+            if (strncmp(dp->d_name, "dir.", 4) != 0) {
+                XCTFail("entry <%s> not in correct format dir.<index> \n", dp->d_name);
+                continue;
+            }
+
+            idx_ptr = strchr(dp->d_name, '.') + 1;
+            entry_idx = atoi(idx_ptr);
+            if (entry_idx < 1 || entry_idx > entry_cnt) {
+                XCTFail("entry <%s> has unexpected index \n", dp->d_name);
+                continue;
+            }
+            if (entries_arr[entry_idx] != 0) {
+                XCTFail("directory <%s> seen %d times already \n", dp->d_name, entries_arr[entry_idx]);
+            }
+            entries_arr[entry_idx]++;
+        }
+        if (dot != 1) {
+            XCTFail("dot was seen %d times", dot);
+        }
+        if (dotdot != 1) {
+            XCTFail("dotdot was seen %d times", dot);
+        }
+        for (entry_idx = 1; entry_idx <= entry_cnt; entry_idx++){
+            if (entries_arr[entry_idx] != 1) {
+                XCTFail("directory dir.%05d was seen %d times \n", entry_idx, entries_arr[entry_idx]);
+            }
+        }
+        closedir(dirp);
+        dirp = NULL;
+    }
+
+error:
+    if (dirp != NULL) {
+        closedir(dirp);
+        dirp = NULL;
+    }
+    if (unmount(mp, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+
+    rmdir(mp);
+}
+
+/*
+ * Note: this test takes a long time
+ * this can be reduced by lowering entry_cnt
+ */
+-(void)testgetattrlistbulk
+{
+    int error = 0;
+    char mp[PATH_MAX] = {0};
+    DIR * dirp = NULL;
+    char dir_path[PATH_MAX];
+    uint32_t entry_cnt = 25000;
+    uint8_t entries_arr[entry_cnt];
+    memset(entries_arr, 0, sizeof(entries_arr));
+    int numReturnedBulk = 0;
+    int total_returned = 0;
+    int dirBulkReplySize = 0;
+    char *dirBulkReplyPtr = NULL;
+    attribute_set_t req_attrs = {0};
+    time_t current_time = 0;
+    char *time_str;
+    int i = 0;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
+                               "opendir,closedir,getAttrListBulk",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp, sizeof(mp), "testGetattrlistbulk");
+
+    error = mount_two_sessions(mp, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto error;
+    }
+
+    strlcpy(dir_path, mp, sizeof(dir_path));
+    strlcat(dir_path, "/", sizeof(dir_path));
+    strlcat(dir_path, dir25kName, sizeof(dir_path));
+    
+    for (i = 0; i < 2; i++) {
+        dirp = opendir(dir_path);
+        if (dirp == NULL) {
+            XCTFail("opendir on <%s> failed %d:%s \n",
+                    dir_path, errno, strerror(errno));
+            goto error;
+        }
+
+        current_time = time(NULL);
+        time_str = ctime(&current_time);
+        time_str[strlen(time_str)-1] = '\0';
+        if (gVerbose) {
+            printf("Starting enumeration at: %s\n", time_str);
+        }
+
+        dirBulkReplySize = kEntriesPerCall * (sizeof(struct replyData)) + 1024;
+        dirBulkReplyPtr = malloc(dirBulkReplySize);
+        total_returned = 0;
+        while ((numReturnedBulk = getAttrListBulk(dirp->__dd_fd, dirBulkReplySize,
+                                                  dirBulkReplyPtr, &req_attrs)) > 0) {
+            total_returned += numReturnedBulk;
+            if (gVerbose) {
+                current_time = time(NULL);
+                char * time_str = ctime(&current_time);
+                time_str[strlen(time_str)-1] = '\0';
+                printf("Time: %s Got %d entries. Total %d\n",
+                       time_str, numReturnedBulk, total_returned);
+            }
+        }
+        current_time = time(NULL);
+        time_str = ctime(&current_time);
+        time_str[strlen(time_str)-1] = '\0';
+        if (gVerbose) {
+            printf("Finished enumeration at: %s\n", time_str);
+        }
+        if (numReturnedBulk < 0) {
+            XCTFail("getAttrListBulk returned %d \n", numReturnedBulk);
+        }
+        if (entry_cnt != total_returned) {
+            XCTFail("expected %d entries, but getAttrListBulk returned %d \n", entry_cnt, total_returned);
+        }
+        closedir(dirp);
+        dirp = NULL;
+    }
+
+error:
+    if (dirBulkReplyPtr) {
+        free(dirBulkReplyPtr);
+        dirBulkReplyPtr = NULL;
+    }
+
+    if (dirp != NULL) {
+        closedir(dirp);
+    }
+
+    if (unmount(mp, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+
+    rmdir(mp);
+}
+
+-(void)testSymlinkXattr
+{
+    int error = 0;
+    char xattr_value[] = "test_value";
+    char file_path[PATH_MAX];
+    char mp1[PATH_MAX];
+    char buffer[PATH_MAX];
+    ssize_t ret = 0;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test that xattr operations work on a symlink",
+                               "open,close,symlink,reparse_point,xattr",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testSymlinkXattr");
+
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+
+    /* Create the test dirs */
+    error = do_create_test_dirs(mp1);
+    if (error) {
+        XCTFail("do_create_test_dirs on <%s> failed %d:%s \n", mp1,
+                error, strerror(error));
+        goto done;
+    }
+
+    /* Set up file path */
+    strlcpy(file_path, mp1, sizeof(file_path));
+    strlcat(file_path, "/", sizeof(file_path));
+    strlcat(file_path, cur_test_dir, sizeof(file_path));
+    strlcat(file_path, "/", sizeof(file_path));
+    strlcat(file_path, default_test_filename, sizeof(file_path));
+
+    /* Create the symlink with junk path */
+    printf("Create symlink \n");
+    error = symlink("foo/bar", file_path);
+    if (error) {
+        XCTFail("symlink on <%s> failed %d:%s \n", file_path,
+                error, strerror(error));
+        goto done;
+    }
+
+    /* Set xattr on the symlink */
+    printf("Set xattr on symlink \n");
+    error = setxattr(file_path, "test_xattr", xattr_value, sizeof(xattr_value), 0, XATTR_NOFOLLOW);
+    if (error) {
+        XCTFail("setxattr on <%s> failed %d:%s \n", file_path,
+                error, strerror(error));
+        goto done;
+    }
+
+    /* List xattr on the symlink */
+    printf("List xattrs on symlink \n");
+    ret = listxattr(file_path, buffer, sizeof(buffer), XATTR_NOFOLLOW);
+    if ((ret == -1) || (ret == 0)) {
+        if (ret == 0) {
+            XCTFail("listxattr on <%s> returned %zd meaning no xattrs found \n", file_path,
+                    ret);
+        }
+        else {
+            XCTFail("listxattr on <%s> failed %d:%s \n", file_path,
+                    errno, strerror(errno));
+        }
+        goto done;
+    }
+
+    /* Remove xattr on the symlink */
+    printf("Delete xattr on symlink \n");
+    error = removexattr(file_path, "test_xattr", XATTR_NOFOLLOW);
+    if (error) {
+        XCTFail("removexattr on <%s> failed %d:%s \n", file_path,
+                error, strerror(error));
+        goto done;
+    }
+
+    /* Do the Delete on test file */
+    error = remove(file_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)> \n",
+                file_path, strerror(errno), errno);
+        goto done;
+    }
+
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+
+done:
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+
+    rmdir(mp1);
+}
+
+#define LARGE_XATTR_SIZE 1024*1024*8
+-(void)testLargeXattr
+{
+    int error = 0, i = 0;
+    char file_path[PATH_MAX] = {0};
+    char mp1[PATH_MAX] = {0};
+    ssize_t ret = 0;
+    uint8_t* xattr_value = NULL;
+    uint8_t* returned_xattr_value = NULL;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test reading and writing large xattr",
+                               "open,close,xattr",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testLargeXattr");
+
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+
+    error = setup_file_paths(mp1, NULL, default_test_filename, file_path, PATH_MAX, NULL, 0);
+    if (error) {
+        goto done;
+    }
+
+    xattr_value = malloc(LARGE_XATTR_SIZE);
+    returned_xattr_value = malloc(LARGE_XATTR_SIZE);
+    if (xattr_value == NULL || returned_xattr_value == NULL) {
+        XCTFail("failed to allocate xattr_value:<%p> returned_xattr_value:<%p> \n",
+                xattr_value, returned_xattr_value);
+        goto cleanup;
+    }
+
+    for (i = 0; i < LARGE_XATTR_SIZE; i++) {
+        xattr_value[i] = i % sizeof(xattr_value[i]);
+    }
+
+    error = setxattr(file_path, "test_xattr", xattr_value, LARGE_XATTR_SIZE, 0, 0);
+    if (error) {
+        XCTFail("setxattr failed errno:%d\n", errno);
+        goto cleanup;
+    }
+
+    ret = getxattr(file_path, "test_xattr", returned_xattr_value, LARGE_XATTR_SIZE, 0, 0);
+    if (ret != LARGE_XATTR_SIZE) {
+        XCTFail("getxattr returned %zd, expected %d\n", ret, LARGE_XATTR_SIZE);
+        goto cleanup;
+    }
+
+    for (i = 0; i < LARGE_XATTR_SIZE; i++) {
+        if (xattr_value[i] != returned_xattr_value[i]) {
+            XCTFail("byte#%d is %u, expected is %u\n", i, returned_xattr_value[i], xattr_value[i]);
+            break;
+        }
+    }
+cleanup:
+    /* Do the Delete on test file */
+    error = remove(file_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)> \n",
+                file_path, strerror(errno), errno);
+        goto done;
+    }
+
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+
+done:
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+    if (xattr_value) {
+        free(xattr_value);
+    }
+    if (returned_xattr_value) {
+        free(returned_xattr_value);
+    }
+
+    rmdir(mp1);
+}
+
+-(void)testXattr
+{
+    /* Make sure BUFSZ is a multiple of 10 please */
+    #define RSRC_XATTR_NAME_LENGTH 23
+    #define BUF_SIZE (100 + RSRC_XATTR_NAME_LENGTH)
+    #define SMALL_BUF_SIZE (BUF_SIZE / 2)
+    #define LARGE_BUF_SIZE (BUF_SIZE * 2)
+    #define NAME_SIZE 10
+    #define KEY "sizecheck"
+    #define VALUE "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    #define VALUE_SIZE sizeof(VALUE)//-1
+
+    int error = 0;
+    char file_path[PATH_MAX] = {0};
+    char mp1[PATH_MAX] = {0};
+    int options = 0;
+    char name_buf[NAME_SIZE] = {0};
+    char recvbuf[BUF_SIZE] = {0};
+    char small_recvbuf[SMALL_BUF_SIZE] = {0};
+    char large_recvbuf[LARGE_BUF_SIZE] = {0};
+    int i = 0;
+    ssize_t xa_size = 0;
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test various xattr operations",
+                               "open,close,xattr,listxattr,getxattr,setxattr,removexattr",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp1, sizeof(mp1), "testXattr");
+    
+    error = mount_two_sessions(mp1, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        goto done;
+    }
+    
+    error = setup_file_paths(mp1, NULL, default_test_filename, file_path, PATH_MAX, NULL, 0);
+    if (error) {
+        XCTFail("setup_file_paths failed %d \n", error);
+        goto done;
+    }
+    
+    /* Test that listxattr returns correctly on file with no xattrs */
+    xa_size = listxattr(file_path, recvbuf, BUF_SIZE, options);
+    if (xa_size != 0) {
+        XCTFail("listxattr() with no xattrs failed %zd, errno %d \n",
+            xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() on file with no xattrs worked \n");
+
+    
+    /* Test that getxattr returns correctly on file with no xattrs */
+    xa_size = getxattr(file_path, "KeyName", recvbuf, BUF_SIZE, 0, options);
+    if (xa_size == -1) {
+        if ((errno != ENOATTR)) {
+            XCTFail("getxattr() with no xattrs failed %zd, but has wrong errno %d \n",
+                    xa_size, errno);
+            goto done;
+        }
+    }
+    else {
+        XCTFail("getxattr() with no xattrs failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() on file with no xattrs worked \n");
+
+    
+    /*
+     * Add xattr names (10 byte long names) enough to equal BUFSZ
+     * Dont forget there is one byte for null terminator
+     */
+    bzero(name_buf, sizeof(name_buf));
+    for (i = 0; i < ((BUF_SIZE - RSRC_XATTR_NAME_LENGTH) / NAME_SIZE); i++) {
+        sprintf(name_buf, "12345%04d", i);
+        
+        if ((xa_size = setxattr(file_path, name_buf, VALUE, VALUE_SIZE, 0, options)) < 0) {
+            XCTFail("setxattr() failed %d", errno);
+            goto done;
+        }
+    }
+    fprintf(stdout, "Added <%d> test xattrs with values \n", i);
+
+    
+    /* Add Resource Fork xattr */
+    if ((xa_size = setxattr(file_path, XATTR_RESOURCEFORK_NAME, VALUE, VALUE_SIZE, 0, options)) < 0) {
+        XCTFail("setxattr() failed %d for resource fork \n", errno);
+        goto done;
+    }
+    fprintf(stdout, "Added resource fork with set value \n");
+
+    
+    /* Test correct size is returned for listxattr with NULL buffer */
+    xa_size = listxattr(file_path, NULL, 0, options);
+    if (xa_size != BUF_SIZE) {
+        XCTFail("listxattr() to get buffer size failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() returned correct size of xattrs with NULL buffer \n");
+
+    
+    /* Test correct size is returned for getxattr with NULL buffer */
+    xa_size = getxattr(file_path, name_buf, NULL, 0, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() to get buffer size failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() returned correct size for one ext attr with NULL buffer \n");
+
+
+    /* Test correct size is returned for getxattr for resource fork with NULL buffer */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, NULL, 0, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() to get buffer size failed %zd for resource fork, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() returned correct size for resource fork with NULL buffer \n");
+
+    
+    /* Test for ERANGE with a too small buffer with listxattr */
+    xa_size = listxattr(file_path, small_recvbuf, SMALL_BUF_SIZE, options);
+    if (xa_size == -1) {
+        if ((errno != ERANGE)) {
+            XCTFail("listxattr() with too small buffer failed %zd, but has wrong errno %d \n",
+                    xa_size, errno);
+            goto done;
+        }
+    }
+    else {
+        XCTFail("listxattr() with too small buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() returned correct ERANGE when given too small of a buffer \n");
+    
+
+    /* Test for ERANGE with a too small buffer with getxattr */
+    xa_size = getxattr(file_path, name_buf, small_recvbuf, (VALUE_SIZE) / 2, 0, options);
+    if (xa_size == -1) {
+        if ((errno != ERANGE)) {
+            XCTFail("getxattr() with too small buffer failed %zd, but has wrong errno %d \n",
+                    xa_size, errno);
+            goto done;
+        }
+    }
+    else {
+        XCTFail("getxattr() with too small buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() returned correct ERANGE when given too small of a buffer \n");
+
+    
+    /* Test for ERANGE with a too small buffer with getxattr on resource fork */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, small_recvbuf, (VALUE_SIZE) / 2, 0, options);
+    if (xa_size == -1) {
+        if ((errno != ERANGE)) {
+            XCTFail("getxattr() with too small buffer failed %zd for resource fork, but has wrong errno %d \n",
+                    xa_size, errno);
+            goto done;
+        }
+    }
+    else {
+        /* Hmm, resource forks dont get ERANGE errors??? */
+        if (xa_size == (VALUE_SIZE) / 2) {
+            fprintf(stdout, "getxattr() did not get ERANGE error for resource fork, but got (VALUE_SIZE) / 2 returned instead \n");
+        }
+        else {
+            XCTFail("getxattr() with too small buffer failed %zd for resource fork, errno %d \n",
+                    xa_size, errno);
+            goto done;
+        }
+    }
+    fprintf(stdout, "getxattr() returned correct ERANGE when given too small of a buffer for resource fork \n");
+
+    
+    /* Test with just right sized buffer with listxattr */
+    xa_size = listxattr(file_path, recvbuf, BUF_SIZE, options);
+    if (xa_size != BUF_SIZE) {
+        XCTFail("listxattr() with just right buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() worked with just right buffer size \n");
+
+    
+    /* Test with just right sized buffer with getxattr */
+    xa_size = getxattr(file_path, name_buf, recvbuf, VALUE_SIZE, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() with just right buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() worked with just right buffer size \n");
+
+    
+    /* Test with just right sized buffer with getxattr for resource fork */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, recvbuf, VALUE_SIZE, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() with just right buffer failed %zd for resource fork, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() worked with just right buffer size for resource fork \n");
+    
+    
+    /* Test with just larger than needed sized buffer */
+    xa_size = listxattr(file_path, large_recvbuf, LARGE_BUF_SIZE, options);
+    if (xa_size != BUF_SIZE) {
+        XCTFail("listxattr() with extra large buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() worked with too big of a buffer size \n");
+
+    
+    /* Test with just larger than needed sized buffer with getxattr */
+    xa_size = getxattr(file_path, name_buf, recvbuf, VALUE_SIZE * 2, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() with extra large buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() worked with too big of a buffer size \n");
+
+        
+    /* Test with just larger than needed sized buffer with getxattr */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, recvbuf, VALUE_SIZE * 2, 0, options);
+    if (xa_size != VALUE_SIZE) {
+        XCTFail("getxattr() with extra large buffer failed %zd for resource fork, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() worked with too big of a buffer size for resource fork \n");
+
+    
+    /* Test trying to delete non existent xattr */
+    error = removexattr(file_path, "KeyName", options);
+    if (error == -1) {
+        if ((errno != ENOATTR)) {
+            XCTFail("removexattr() with non existent xattr failed %d, but has wrong errno %d \n",
+                    error, errno);
+            goto done;
+        }
+    }
+    else {
+        XCTFail("removexattr() with non existent xattr failed %d, errno %d \n",
+                error, errno);
+        goto done;
+    }
+    fprintf(stdout, "removexattr() worked with non existent xattr \n");
+
+    
+    /* Test trying to delete xattr */
+    error = removexattr(file_path, name_buf, options);
+    if (error == -1) {
+        XCTFail("removexattr() failed %d for xattr \n", errno);
+        goto done;
+    }
+    fprintf(stdout, "removexattr() worked with xattr \n");
+
+    
+    /* Test trying to delete resource fork xattr */
+    error = removexattr(file_path, XATTR_RESOURCEFORK_NAME, options);
+    if (error == -1) {
+        XCTFail("removexattr() failed %d for resource fork \n", errno);
+        goto done;
+    }
+    fprintf(stdout, "removexattr() worked with resource fork \n");
+
+     
+    /* Do the Delete on test file */
+    error = remove(file_path);
+    if (error) {
+        fprintf(stderr, "do_delete on <%s> failed <%s (%d)> \n",
+                file_path, strerror(errno), errno);
+        goto done;
+    }
+    
+    /*
+     * If no errors, attempt to delete test dirs. This could fail if a
+     * previous test failed and thats fine.
+     */
+    do_delete_test_dirs(mp1);
+    
+done:
+    if (unmount(mp1, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d \n", errno);
+    }
+    
     rmdir(mp1);
 }
 

@@ -34,6 +34,16 @@
 #import "SecABC.h"
 #import "SecTapToRadar.h"
 
+static os_log_t
+getOSLog(void) {
+    static os_log_t sfaLog = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sfaLog = os_log_create("SFA", "log");
+    });
+    return sfaLog;
+}
+
 static NSString* SFCollectionConfig = @"SFCollectionConfig";
 
 typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> SFAMatchingRules;
@@ -46,7 +56,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithSFARule:(SECSFARule *)rule logger:(SFAnalytics*)logger;
 
-- (BOOL)matchAttributes:(NSDictionary *)attributes logger:(SFAnalytics *)logger;
+- (BOOL)matchAttributes:(NSDictionary *)attributes;
 
 - (BOOL)valueMatch:(id)vKey target:(id)vTarget;
 - (BOOL)isSubsetMatch:(NSDictionary *)match target:(NSDictionary *)target;
@@ -65,6 +75,10 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<SFAnalyticsMatchingRule: %@ match: %@ %@>",
+            self.eventName, [self cachedMatchDictionary], self.lastMatch];
+}
 
 // match one item
 - (BOOL)valueMatch:(id)vKey target:(id)vTarget {
@@ -114,28 +128,36 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     return [NSString stringWithFormat:@"SFA-LastMatchRule-%@-", self.rule.eventType];
 }
 
+- (NSDictionary * _Nullable)cachedMatchDictionary {
+    @synchronized(self) {
+        if (self.matchingDictionary == nil) {
+            NSError *error = nil;
+            NSDictionary *d = [NSPropertyListSerialization propertyListWithData:self.rule.match options:0 format:nil error:&error];
+            if (d == nil || error != nil) {
+                os_log_error(getOSLog(), "SFAnalyticsMatchingRule match dictionary wrong: %@", error);
+                return nil;
+            }
+            if (![d isKindOfClass:[NSDictionary class]]) {
+                os_log_error(getOSLog(), "SFAnalyticsMatchingRule match not dictionary");
+                return nil;
+            }
+            self.matchingDictionary = d;
+        }
+    }
+    return self.matchingDictionary;
+}
+
 - (BOOL)matchAttributes:(NSDictionary *)attributes
-                 logger:(SFAnalytics *)logger
 {
     if (self.rule.hasMatch) {
-        @synchronized (self) {
-            if (self.matchingDictionary == nil) {
-                NSError *error = nil;
-                NSDictionary *d = [NSPropertyListSerialization propertyListWithData:self.rule.match options:0 format:nil error:&error];
-                if (d == nil || error != nil) {
-                    os_log_error(OS_LOG_DEFAULT, "SFAnalyticsMatchingRule dictionary wrong");
-                    return NO;
-                }
-                if (![d isKindOfClass:[NSDictionary class]]) {
-                    return NO;
-                }
-                self.matchingDictionary = d;
-            }
+        NSDictionary *match = [self cachedMatchDictionary];
+        if (match == nil) {
+            return NO;
+        }
 
-            /* check if `matchingDictionary' is a subset of `attributes' */
-            if (![self isSubsetMatch:self.matchingDictionary target:attributes]) {
-                return NO;
-            }
+        /* check if `matchingDictionary' is a subset of `attributes' */
+        if (![self isSubsetMatch:match target:attributes]) {
+            return NO;
         }
     }
 
@@ -161,32 +183,37 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 }
 
 
-- (SFAnalyticsMetricsHookActions)doAction:(id<SFAnalyticsCollectionAction>)actions logger:(SFAnalytics *)logger  {
-
+- (SFAnalyticsMetricsHookActions)doAction:(id<SFAnalyticsCollectionAction>)actions
+                               attributes:(NSDictionary* _Nullable)attributes
+                                   logger:(SFAnalytics *)logger
+{
     SECSFAAction *action = self.rule.action;
     if (action == nil) {
         return 0;
     }
 
     if (action.hasTtr) {
-        os_log(OS_LOG_DEFAULT, "SFACollection action trigger ttr: %@", self.rule.eventType);
         if ([self shouldRatelimit:logger]) {
+            os_log_info(getOSLog(), "SFACollection ratelimit ttr: %@", self.rule.eventType);
             return 0;
         }
+        os_log(getOSLog(), "SFACollection action trigger ttr: %@: %@", self.rule.eventType, self.cachedMatchDictionary);
 
         SECSFAActionTapToRadar *ttr = action.ttr;
         [actions tapToRadar:ttr.alert
-         description:ttr.description
+                description:ttr.description
                       radar:action.radarnumber
               componentName:ttr.componentName
            componentVersion:ttr.componentVersion
-                componentID:ttr.componentID];
+                componentID:ttr.componentID
+                 attributes:attributes];
         return 0;
     } else if (action.hasAbc) {
-        os_log(OS_LOG_DEFAULT, "SFACollection action trigger abc: %@", self.rule.eventType);
         if ([self shouldRatelimit:logger]) {
+            os_log_info(getOSLog(), "SFACollection ratelimit abc: %@", self.rule.eventType);
             return 0;
         }
+        os_log(getOSLog(), "SFACollection action trigger abc: %@ %@", self.rule.eventType, self.cachedMatchDictionary);
 
         SECSFAActionAutomaticBugCapture *abc = action.abc;
         if (abc.domain == nil && abc.type == nil){
@@ -195,7 +222,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         [actions autoBugCaptureWithType:abc.type subType:abc.subtype domain:abc.domain];
         return 0;
     } else if (action.hasDrop) {
-        os_log(OS_LOG_DEFAULT, "SFACollection action trigger drop: %@", self.rule.eventType);
+        os_log(getOSLog(), "SFACollection action trigger drop: %@", self.rule.eventType);
         SFAnalyticsMetricsHookActions dropActions = 0;
         SECSFAActionDropEvent *drop = action.drop;
         if (drop.excludeEvent) {
@@ -206,7 +233,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         }
         return dropActions;
     } else {
-        os_log(OS_LOG_DEFAULT, "SFACollection unknown action: %@", self.rule.eventType);
+        os_log(getOSLog(), "SFACollection unknown action: %@", self.rule.eventType);
     }
     return 0;
 }
@@ -242,6 +269,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
      componentName:(NSString*)componentName
   componentVersion:(NSString*)componentVersion
        componentID:(NSString*)componentID
+        attributes:(NSDictionary * _Nullable)attributes
 {
     /**TODO: *submit a new TTR on next unlock though xpc_activities, possible with help of supd */
 
@@ -253,7 +281,14 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         ttr.componentVersion = componentVersion;
         ttr.componentID = componentID;
     }
-
+    if (attributes && [NSJSONSerialization isValidJSONObject:attributes]) {
+        NSData *json = [NSJSONSerialization dataWithJSONObject:attributes
+                                                       options:(NSJSONWritingSortedKeys|NSJSONWritingPrettyPrinted)
+                                                         error:nil];
+        if (json) {
+            ttr.reason = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+        }
+    }
     [ttr trigger];
 }
 
@@ -308,12 +343,14 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 }
 
 - (void)setupMetricsHook:(SFAnalytics *)logger {
-    __block SFAnalyticsMetricsHook metricsHook = NULL;
     dispatch_async(self.queue, ^{
+        SFAnalyticsMetricsHook metricsHook = NULL;
+
         // Dont setup metrics hook if it's already done
         if (self.tearDownMetricsHook != nil) {
             return;
         }
+
         __weak typeof(logger) weakLogger = logger;
         __weak typeof(self) weakSelf = self;
 
@@ -328,10 +365,10 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         self.tearDownMetricsHook = ^{
             [weakLogger removeMetricsHook:metricsHook];
         };
+        if (metricsHook) {
+            [logger addMetricsHook:metricsHook];
+        }
     });
-    if (metricsHook) {
-        [logger addMetricsHook:metricsHook];
-    }
 }
 
 - (void)onQueue_stopMetricCollection {
@@ -359,6 +396,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     dispatch_sync(self.queue, ^{
         self.matchingRules = newRules;
     });
+    os_log(getOSLog(), "Loading matching rules: %@", newRules);
     [self setupMetricsHook:logger];
 }
 
@@ -372,6 +410,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         self.matchingRules = newRules;
     });
     if (logger && rulesChanged) {
+        os_log(getOSLog(), "Setting up new rules");
         [logger setDataProperty:data forKey:SFCollectionConfig];
         [self setupMetricsHook:logger];
     }
@@ -384,14 +423,16 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
                                 logger:(SFAnalytics *)logger
 {
     __block SFAnalyticsMetricsHookActions actions = SFAnalyticsMetricsHookNoAction;
+    os_log_debug(getOSLog(), "matching rules %@", eventName);
     dispatch_sync(self.queue, ^{
         NSSet<SFAnalyticsMatchingRule*>* rules = self.matchingRules[eventName];
         if (rules == nil || rules.count == 0) {
+            os_log_debug(getOSLog(), "no rules %@", eventName);
             return;
         }
         for (SFAnalyticsMatchingRule* rule in rules) {
-            if ([rule matchAttributes:attributes logger:logger]) {
-                actions |= [rule doAction:self.actions logger:logger];
+            if ([rule matchAttributes:attributes]) {
+                actions |= [rule doAction:self.actions attributes:attributes logger:logger];
             }
         }
     });

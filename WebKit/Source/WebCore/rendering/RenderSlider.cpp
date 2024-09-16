@@ -80,8 +80,11 @@ void RenderSlider::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, La
         }
         return;
     }
-    maxLogicalWidth = defaultTrackLength * style().effectiveZoom();
-    if (!style().width().isPercentOrCalculated())
+    maxLogicalWidth = defaultTrackLength * style().usedZoom();
+    auto& logicalWidth = style().logicalWidth();
+    if (logicalWidth.isCalculated())
+        minLogicalWidth = std::max(0_lu, valueForLength(logicalWidth, 0_lu));
+    else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
 

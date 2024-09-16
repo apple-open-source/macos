@@ -23,13 +23,14 @@
 messages -> NetworkProcessConnection LegacyReceiver {
 
 #if ENABLE(SHAREABLE_RESOURCE)
-    DidCacheResource(WebCore::ResourceRequest request, WebKit::ShareableResource::Handle resource)
+    DidCacheResource(WebCore::ResourceRequest request, WebCore::ShareableResourceHandle resource)
 #endif
 
     DidFinishPingLoad(WebCore::ResourceLoaderIdentifier pingLoadIdentifier, WebCore::ResourceError error, WebCore::ResourceResponse response)
     DidFinishPreconnection(WebCore::ResourceLoaderIdentifier preconnectionIdentifier, WebCore::ResourceError error)
     SetOnLineState(bool isOnLine);
     CookieAcceptPolicyChanged(enum:uint8_t WebCore::HTTPCookieAcceptPolicy policy);
+    UpdateCachedCookiesEnabled();
 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
     CookiesAdded(String host, Vector<WebCore::Cookie> cookies);
@@ -44,6 +45,5 @@ messages -> NetworkProcessConnection LegacyReceiver {
     MessagesAvailableForPort(struct WebCore::MessagePortIdentifier port)
 
     BroadcastConsoleMessage(enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message)
-
-    AddAllowedFirstPartyForCookies(WebCore::RegistrableDomain firstPartyForCookies)
+    LoadCancelledDownloadRedirectRequestInFrame(WebCore::ResourceRequest request, WebCore::FrameIdentifier frameID, WebCore::PageIdentifier pageID)
 }

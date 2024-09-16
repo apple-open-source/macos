@@ -44,7 +44,7 @@ public:
         virtual void graphicsLayerAdded(GraphicsLayerWC&) = 0;
         virtual void graphicsLayerRemoved(GraphicsLayerWC&) = 0;
         virtual void commitLayerUpdateInfo(WCLayerUpdateInfo&&) = 0;
-        virtual RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize) = 0;
+        virtual RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize, float deviceScaleFactor) = 0;
     };
 
     GraphicsLayerWC(Type layerType, WebCore::GraphicsLayerClient&, Observer&);
@@ -68,9 +68,11 @@ public:
     void setReplicatedLayer(GraphicsLayer*) override;
     void setReplicatedByLayer(RefPtr<GraphicsLayer>&&) override;
     void setPosition(const WebCore::FloatPoint&) override;
+    void syncPosition(const WebCore::FloatPoint&) override;
     void setAnchorPoint(const WebCore::FloatPoint3D&) override;
     void setSize(const WebCore::FloatSize&) override;
     void setBoundsOrigin(const WebCore::FloatPoint&) override;
+    void syncBoundsOrigin(const WebCore::FloatPoint&) override;
     void setTransform(const WebCore::TransformationMatrix&) override;
     void setChildrenTransform(const WebCore::TransformationMatrix&) override;
     void setPreserves3D(bool) override;
@@ -102,7 +104,7 @@ public:
 protected:
     friend WCTiledBacking;
 
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize);
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(WebCore::FloatSize, float deviceScaleFactor);
     
 private:
     struct VisibleAndCoverageRects {

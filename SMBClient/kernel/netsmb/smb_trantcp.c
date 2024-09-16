@@ -62,13 +62,25 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_subr.h>
+#include <smbfs/smbfs.h>
 
 #include <netsmb/smb_sleephandler.h>
 
 #define M_NBDATA	M_PCB
 
-static uint32_t smb_tcpsndbuf = 8 * 1024 * 1024; /* Try for 8 MB */
-static uint32_t smb_tcprcvbuf = 8 * 1024 * 1024;
+/* 
+ * Set smb_tcpsndbuf and smb_tcprcvbuf for 2 MB now that we dont set SO_RCVBUF
+ * or SO_SNDBUF anymore. Previous code was fine with getting 2 MB...
+ *
+ * smb_tcpsndbuf gets stored in nbp->nbp_sndbuf where its used for calculating
+ * max write and transaction size
+ *
+ * smb_tcprcvbuf gets stored in nbp->nbp_rcvbuf and nbp->nbp_rcvchunk.
+ * nbp_rcvbuf is used for calculating max read size.
+ * nbp_rcvchunk is the max read size used when reading data from the TCP socket
+ */
+static uint32_t smb_tcpsndbuf = 2 * 1024 * 1024;
+static uint32_t smb_tcprcvbuf = 2 * 1024 * 1024;
 
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
@@ -166,8 +178,6 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to, struct timeval ti
 	socket_t so;
 	int error;
 	struct timeval  tv;
-	int optlen;
-	uint32_t bufsize, default_size;
 	
     if (!nbp->nbp_iod) {
         SMBERROR("no nbp_iod. Abort.\n");
@@ -213,41 +223,10 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to, struct timeval ti
     }
 
     /*
-	 * The default socket buffer size can vary depending on system pressure.
-	 * Set SO_RCVBUF as large as we can get.
+     * <14422729> We no longer set the SO_RCV_BUF and SO_SNDBUF sizes as that
+     * disables the TCP auto windows scaling.
 	 */
-	bufsize = nbp->nbp_rcvbuf;
-	optlen = sizeof(bufsize);
-	error = sock_getsockopt(so, SOL_SOCKET, SO_RCVBUF, &bufsize, &optlen);
-	if (error) {
-		/* Not sure what else we can do here, should never happen */
-		SMBERROR("sock_getsockopt failed %d\n", error);
-		goto bad;
-	}
-	default_size = bufsize;
 
-	if (bufsize < nbp->nbp_rcvbuf) {
-		do {
-			/* Not big enough, try to make it bigger */
-			bufsize = nbp->nbp_rcvbuf;
-			optlen = sizeof(bufsize);
-			error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &bufsize, optlen);
-			if ((error == 0) && (bufsize > 0x200000)) {
-				/* Currently, 2 MB seems to work fine */
-				break;
-			} else {
-				/* Reduce by 64K and try again */
-				nbp->nbp_rcvbuf -= 0x10000;
-			}
-		} while (nbp->nbp_rcvbuf >= 0x200000);
-	}
-	if (error) {
-		nbp->nbp_rcvbuf = default_size;
-	}
-	else {
-		nbp->nbp_rcvbuf = bufsize;
-	}
-	
 	/* ??? Max size we want to read off the buffer at a time, always half the socket size */
 	//nbp->nbp_rcvchunk = nbp->nbp_rcvbuf / 2;
 	nbp->nbp_rcvchunk = nbp->nbp_rcvbuf;
@@ -255,42 +234,6 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to, struct timeval ti
 	/* Never let it go below 8K */
 	if (nbp->nbp_rcvchunk < NB_SORECEIVE_CHUNK) {
 		nbp->nbp_rcvchunk = NB_SORECEIVE_CHUNK;
-	}
-	
-	/*
-	 * The default socket buffer size can vary depending on system pressure. 
-     * Set SO_SNDBUF as large as we can get.
-	 */
-	bufsize = nbp->nbp_sndbuf;
-	optlen = sizeof(bufsize);
-	error = sock_getsockopt(so, SOL_SOCKET, SO_SNDBUF, &bufsize, &optlen);
-	if (error) {
-		/* Not sure what else we can do here, should never happen */
-        SMBERROR("sock_getsockopt failed %d\n", error);
-		goto bad;
-	}
-    default_size = bufsize;
-
-	if (bufsize < nbp->nbp_sndbuf) {
-        do {
-            /* Not big enough, try to make it bigger */
-            bufsize = nbp->nbp_sndbuf;
-            optlen = sizeof(bufsize);
-            error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &bufsize, optlen);
-            if ((error == 0) && (bufsize > 0x200000)) {
-				/* Currently, 2 MB seems to work fine */
-				break;
-			} else {
-				/* Reduce by 64K and try again */
-				nbp->nbp_sndbuf -= 0x10000;
-			}
-        } while (nbp->nbp_sndbuf >= 0x200000);
-	}
-    if (error) {
-        nbp->nbp_sndbuf = default_size;
-    }
-    else {
-        nbp->nbp_sndbuf = bufsize;
     }
 	
 	if ((nbp->nbp_sndbuf < smb_tcpsndbuf) ||
@@ -961,7 +904,10 @@ static int
 smb_nbst_send(struct smbiod *iod, mbuf_t m0)
 {
 	struct nbpcb *nbp = iod->iod_tdata;
-	int error;
+	int error = 0;
+    struct msghdr msg = {0};
+
+    SMB_LOG_KTRACE(SMB_DBG_NBST_SEND | DBG_FUNC_START, iod->iod_id, m0, 0, 0, 0);
 
 	/* Should never happen, but just in case */
 	if ((nbp == NULL) || (nbp->nbp_state != NBST_SESSION)) {
@@ -970,14 +916,28 @@ smb_nbst_send(struct smbiod *iod, mbuf_t m0)
 	}
     
     /* Add in the NetBIOS 4 byte header */
-	if (mbuf_prepend(&m0, 4, MBUF_WAITOK))
-		return (ENOBUFS);
+	if (mbuf_prepend(&m0, 4, MBUF_WAITOK)) {
+		error = ENOBUFS;
+		goto exit;
+	}
+	
 	nb_sethdr(nbp, m0, NB_SSN_MESSAGE, (uint32_t)(m_fixhdr(m0) - 4));
-	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)m0, 0, NULL);
-	return (error);
+
+    /* These fields get copied by sock_sendmbuf_can_wait() so explicity set them */
+    msg.msg_name = NULL;
+    msg.msg_namelen = 0;
+    msg.msg_control = NULL;
+    msg.msg_controllen = 0;
+
+    error = sock_sendmbuf_can_wait(nbp->nbp_tso, &msg, (mbuf_t)m0, 0, NULL);
+    goto exit;
+
 abort:
-	if (m0)
+    if (m0) {
 		mbuf_freem(m0);
+    }
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_NBST_SEND | DBG_FUNC_END, error, iod->iod_id, 0, 0, 0);
 	return (error);
 }
 
@@ -987,14 +947,20 @@ smb_nbst_recv(struct smbiod *iod, mbuf_t *mpp)
 	struct nbpcb *nbp = iod->iod_tdata;
 	uint8_t rpcode, *hp;
 	int error, rplen;
-	/* Should never happen, but just in case */
-	if (nbp == NULL)
-		return (ENOTCONN);
+
+    SMB_LOG_KTRACE(SMB_DBG_NBST_RECV | DBG_FUNC_START, iod->iod_id, 0, 0, 0, 0);
+
+    if (nbp == NULL) {
+		error = ENOTCONN;
+		goto exit;
+    }
+
     error = nbssn_recv(nbp, mpp, &rplen, &rpcode, NULL);
     if (!error) {
         /* Handle case when first mbuf is zero-length */
         error = mbuf_pullup(mpp, 1);
     }
+
     // Check for a transform header (encrypted msg)
     if (!error) {
         hp = mbuf_data(*mpp);
@@ -1002,9 +968,13 @@ smb_nbst_recv(struct smbiod *iod, mbuf_t *mpp)
             error = smb3_msg_decrypt(iod->iod_session, mpp);
         }
     }
+    
     if (error) {
         *mpp = NULL;
     }
+    
+exit:
+    SMB_LOG_KTRACE(SMB_DBG_NBST_RECV | DBG_FUNC_END, error, iod->iod_id, 0, 0, 0);
     return (error);
 }
 

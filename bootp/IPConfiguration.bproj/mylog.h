@@ -36,8 +36,46 @@
  * - split out from ipconfigd.c
  */
 
+#if MYLOG_STDOUT
+#include <SystemConfiguration/SCPrivate.h>
+
+#define my_log(pri, format, ...)	do {		\
+	struct timeval	tv;				\
+	struct tm       tm;				\
+	time_t		t;				\
+							\
+	(void)gettimeofday(&tv, NULL);					\
+	t = tv.tv_sec;							\
+	(void)localtime_r(&t, &tm);					\
+									\
+	SCPrint(TRUE, stdout,						\
+		CFSTR("%04d/%02d/%02d %2d:%02d:%02d.%06d " format "\n"), \
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,		\
+		tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,		\
+		## __VA_ARGS__ );					\
+    } while (0)
+
+#define my_log_fl(pri, format, ...)	do {		\
+	struct timeval	tv;				\
+	struct tm       tm;				\
+	time_t		t;				\
+							\
+	(void)gettimeofday(&tv, NULL);					\
+	t = tv.tv_sec;							\
+	(void)localtime_r(&t, &tm);					\
+									\
+	SCPrint(TRUE, stdout,						\
+		CFSTR("%04d/%02d/%02d %2d:%02d:%02d.%06d " format "\n"), \
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,		\
+		tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,		\
+		## __VA_ARGS__ );					\
+    } while (0)
+
+#else /* MYLOG_STDOUT */
+
 #include "IPConfigurationLog.h"
 #define my_log		SC_log
 #define my_log_fl	SC_log
+#endif /* MYLOG_STDOUT */
 
 #endif /* _S_MYLOG_H */

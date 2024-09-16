@@ -35,6 +35,8 @@ enum Command {
     case drop(Set<String>)
     case join(Data, Data)
     case establish
+    case fetchCurrentItem([CuttlefishCurrentItemSpecifier])
+    case fetchPCSIdentityByKey([CuttlefishPCSServiceIdentifier])
     case localReset
     case prepare
     case update
@@ -61,6 +63,8 @@ func printUsage() {
     print("  distrust PEERID ...       Distrust one or more peers by peer ID")
     print("  drop PEERID ...           Drop (delete) one or more peers by peer ID (but keep them in excluded/distrust list")
     print("  establish                 Calls Cuttlefish Establish, creating a new account-wide trust arena with a single peer (previously generated with prepare")
+    print("  fetchCurrentItem          Calls Cuttlefish FetchCurrentItem, fetching a CKKS Item given the Current Item Pointer")
+    print("  fetchPCSIdentityByKey     Calls Cuttlefish FetchPCSIdentityByKey, fetching a PCSIdentity for the service and corresponding public key")
     print("  join VOUCHER VOUCHERSIG   Join a circle using this (base64) voucher and voucherSig")
     print("  local-reset               Resets the local cuttlefish database, and ignores all previous information. Does not change anything off-device")
     print("  performATOPRVActions      Call the ATOPRV action in Cuttlefish")
@@ -84,7 +88,7 @@ func printUsage() {
     print("  --os-version VERSION      Sets the OS version string.")
     print("  --policy-version VERSION  Sets the policy version.")
     print("  --policy-secret NAME DATA Adds a name-value pair to policy secrets. DATA must be base-64.")
-    print("Options applying to `vouch' and `join'")
+    print("Options applying to `vouch', `join', `fetchCurrentItem', and `fetchPCSIdentityByKey'")
     print("  --config FILE             Configuration file with json data.")
     print()
 }
@@ -244,7 +248,7 @@ while let arg = argIterator.next() {
         osVersion = newOsVersion
 
     case "--policy-version":
-        guard let _ = UInt64(argIterator.next() ?? "") else {
+        guard UInt64(argIterator.next() ?? "") != nil else {
             print("Error: --policy-version takes an integer argument")
             exitUsage(1)
         }
@@ -301,6 +305,41 @@ while let arg = argIterator.next() {
 
     case "establish":
         commands.append(.establish)
+
+    case "fetchCurrentItem":
+        if let configuration = configurationData {
+            guard let listOfCIPs = configuration["currentItemSpecifiers"] as? [[String: String]] else {
+                print("Error: JSON file needs to be structured as {'currentItemSpecifiers': [{'zone': <zone-name>, 'item_pointer_name': <record-ID>}, ...]}")
+                exitUsage(EXIT_FAILURE)
+            }
+
+            // Map each dictionary in the array to the type specified in Cuttlefish Proto
+            let currentItemSpecifiers = listOfCIPs.map { CuttlefishCurrentItemSpecifier($0["item_pointer_name"] ?? "", zoneID: $0["zone"] ?? "") }
+            commands.append(.fetchCurrentItem(currentItemSpecifiers))
+        } else {
+            print("Error: fetchCurrentItem requires the --config option specified along with a filename")
+            print()
+            exitUsage(1)
+        }
+
+    case "fetchPCSIdentityByKey":
+        if let configuration = configurationData {
+            guard let listOfPCSIdentities = configuration["directPCSIdentities"] as? [[String: String]] else {
+                print("Error: JSON file needs to be structured as {'directPCSIdentities': [{'service_identifier': <pcs-service-number>, 'public_key': <base64-encoded-pcs-public-key>, 'zone': <zone-name>}, ...]}")
+                exitUsage(EXIT_FAILURE)
+            }
+
+            // Map each dictionary in the array to the type specified in Cuttlefish Proto
+            let pcsServices = listOfPCSIdentities.map {
+                CuttlefishPCSServiceIdentifier(NSNumber(value: Int32($0["service_identifier"]!)!), pcsPublicKey: Data(base64Encoded: $0["public_key"]!)!, zoneID: $0["zone"] ?? "")
+            }
+
+            commands.append(.fetchPCSIdentityByKey(pcsServices))
+        } else {
+            print("Error: fetchPCSIdentityByKey requires the --config option specified along with a filename")
+            print()
+            exitUsage(1)
+        }
 
     case "join":
         let voucher: Data
@@ -649,6 +688,59 @@ for command in commands {
                             print("Establish successful. Peer ID:", peerID!)
         }
 
+    case let .fetchCurrentItem(currentItemSpecifiers):
+        logger.log("fetchCurrentItem (\(container), \(context))")
+        tpHelper.fetchCurrentItem(with: specificUser, items: currentItemSpecifiers) { currentItems, synckeys, error in
+            // Ensure that there is no error
+            guard error == nil else {
+                print("Error fetching currentItem:", error!)
+                return
+            }
+
+            let synckeysAsList: [String] = synckeys?.map { $0.recordID.recordName } ?? []
+            let currentItemsAsList: [[String: String?]] =
+                currentItems?.map { currentItem in
+                    return ["item_id": currentItem.item.recordID.recordName,
+                            "item_pointer_name": currentItem.itemPtr.itemPtrName,
+                            "zone": currentItem.itemPtr.zoneID, ]
+                } ?? [:] as! [[String: String?]]
+            do {
+                print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON([
+                    "synckeys": synckeysAsList,
+                    "currentItems": currentItemsAsList,
+                ])))
+            } catch {
+                print("Error encoding JSON: \(error)")
+            }
+        }
+
+    case let .fetchPCSIdentityByKey(PCSServices):
+        logger.log("fetchPCSIdentityByKey (\(container), \(context))")
+        tpHelper.fetchPCSIdentityByPublicKey(with: specificUser, pcsservices: PCSServices) { pcsIdentities, synckeys, error in
+            // Ensure that there is no error
+            guard error == nil else {
+                print("Error fetching pcsIdentityByKey:", error!)
+                return
+            }
+
+            let synckeysAsList: [String] = synckeys?.map { $0.recordID.recordName } ?? []
+            let pcsIdentitiesAsList: [[String: String?]] =
+                pcsIdentities?.map { pcsIdentity in
+                    return ["pcs_identity": pcsIdentity.item.recordID.recordName,
+                            "pcs_service": pcsIdentity.service.pcsServiceID?.stringValue,
+                            "pcs_public_key": pcsIdentity.service.pcsPublicKey?.base64EncodedString(),
+                            "zone": pcsIdentity.service.zoneID, ]
+                } ?? [:] as! [[String: String?]]
+            do {
+                print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON([
+                    "synckeys": synckeysAsList,
+                    "pcsIdentities": pcsIdentitiesAsList,
+                ])))
+            } catch {
+                print("Error encoding JSON: \(error)")
+            }
+        }
+
     case .localReset:
         logger.log("local-reset (\(container), \(context))")
         tpHelper.localReset(with: specificUser) { error in
@@ -781,7 +873,10 @@ for command in commands {
 
     case .viableBottles:
         logger.log("viableBottles (\(container), \(context))")
-        tpHelper.fetchViableBottles(with: specificUser, source: .default) { sortedBottleIDs, partialBottleIDs, error in
+        tpHelper.fetchViableBottles(with: specificUser,
+                                    source: .default,
+                                    flowID: "tpctl-flowID-" + NSUUID().uuidString,
+                                    deviceSessionID: "tpctl-deviceSessionID-" + NSUUID().uuidString) { sortedBottleIDs, partialBottleIDs, error in
             guard error == nil else {
                 print("Error fetching viable bottles:", error!)
                 return

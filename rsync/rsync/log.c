@@ -332,7 +332,11 @@ void rwrite(enum logcode code, char *buf, int len)
 
 /* This is the rsync debugging function. Call it with FINFO, FERROR or
  * FLOG. */
+#ifdef __APPLE__
+void (rprintf)(enum logcode code, const char *format, ...)
+#else
 void rprintf(enum logcode code, const char *format, ...)
+#endif
 {
 	va_list ap;
 	char buf[BIGPATHBUFLEN];
@@ -379,7 +383,11 @@ void rprintf(enum logcode code, const char *format, ...)
  *
  * Note that since strerror might involve dynamically loading a
  * message catalog we need to call it once before chroot-ing. */
+#ifdef __APPLE__
+void (rsyserr)(enum logcode code, int errcode, const char *format, ...)
+#else
 void rsyserr(enum logcode code, int errcode, const char *format, ...)
+#endif
 {
 	va_list ap;
 	char buf[BIGPATHBUFLEN];

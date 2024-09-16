@@ -45,6 +45,7 @@ class SVGPropertyAnimatorFactory;
 class SVGResourceElementClient;
 class SVGSVGElement;
 class SVGUseElement;
+class Settings;
 class Timer;
 
 class SVGElement : public StyledElement, public SVGPropertyOwner {
@@ -58,7 +59,7 @@ public:
 
     String title() const override;
     virtual bool supportsMarkers() const { return false; }
-    bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.isEmptyIgnoringNullReferences(); }
+    bool hasRelativeLengths() const { return m_selfHasRelativeLengths || !m_childElementsWithRelativeLengths.isEmptyIgnoringNullReferences(); }
     virtual bool needsPendingResourceHandling() const { return true; }
     bool instanceUpdatesBlocked() const;
     void setInstanceUpdatesBlocked(bool);
@@ -154,8 +155,9 @@ public:
     RefPtr<SVGAttributeAnimator> createAnimator(const QualifiedName&, AnimationMode, CalcMode, bool isAccumulated, bool isAdditive);
     void animatorWillBeDeleted(const QualifiedName&);
 
-    const RenderStyle* computedStyle(PseudoId = PseudoId::None) final;
-    
+    using Node::computedStyle;
+    const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&) final;
+
     ColorInterpolation colorInterpolation() const;
 
     // These are needed for the RenderTree, animation and DOM.
@@ -180,7 +182,7 @@ protected:
     SVGElementRareData& ensureSVGRareData();
 
     void reportAttributeParsingError(SVGParsingError, const QualifiedName&, const AtomString&);
-    static CSSPropertyID cssPropertyIdForSVGAttributeName(const QualifiedName&);
+    static CSSPropertyID cssPropertyIdForSVGAttributeName(const QualifiedName&, const Settings&);
 
     bool hasPresentationalHintsForAttribute(const QualifiedName&) const override;
     void collectPresentationalHintsForAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) override;
@@ -189,8 +191,8 @@ protected:
     void removedFromAncestor(RemovalType, ContainerNode&) override;
     void childrenChanged(const ChildChange&) override;
     virtual bool selfHasRelativeLengths() const { return false; }
-    void updateRelativeLengthsInformation() { updateRelativeLengthsInformation(selfHasRelativeLengths(), *this); }
-    void updateRelativeLengthsInformation(bool hasRelativeLengths, SVGElement&);
+    void updateRelativeLengthsInformation();
+    void updateRelativeLengthsInformationForChild(bool hasRelativeLengths, SVGElement&);
 
     void willRecalcStyle(Style::Change) override;
 
@@ -208,7 +210,10 @@ private:
 
     std::unique_ptr<SVGElementRareData> m_svgRareData;
 
-    WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_elementsWithRelativeLengths;
+    WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_childElementsWithRelativeLengths;
+    bool m_hasRegisteredWithParentForRelativeLengths { false };
+    bool m_selfHasRelativeLengths { false };
+    bool m_hasInitializedRelativeLengthsState { false };
 
     std::unique_ptr<SVGPropertyAnimatorFactory> m_propertyAnimatorFactory;
 
@@ -221,7 +226,7 @@ public:
     InstanceInvalidationGuard(SVGElement&);
     ~InstanceInvalidationGuard();
 private:
-    SVGElement& m_element;
+    WeakRef<SVGElement, WeakPtrImplWithEventTargetData> m_element;
 };
 
 class SVGElement::InstanceUpdateBlocker {
@@ -229,7 +234,7 @@ public:
     InstanceUpdateBlocker(SVGElement&);
     ~InstanceUpdateBlocker();
 private:
-    SVGElement& m_element;
+    WeakRef<SVGElement, WeakPtrImplWithEventTargetData> m_element;
 };
 
 inline SVGElement::InstanceInvalidationGuard::InstanceInvalidationGuard(SVGElement& element)
@@ -239,18 +244,18 @@ inline SVGElement::InstanceInvalidationGuard::InstanceInvalidationGuard(SVGEleme
 
 inline SVGElement::InstanceInvalidationGuard::~InstanceInvalidationGuard()
 {
-    m_element.invalidateInstances();
+    m_element->invalidateInstances();
 }
 
 inline SVGElement::InstanceUpdateBlocker::InstanceUpdateBlocker(SVGElement& element)
     : m_element(element)
 {
-    m_element.setInstanceUpdatesBlocked(true);
+    m_element->setInstanceUpdatesBlocked(true);
 }
 
 inline SVGElement::InstanceUpdateBlocker::~InstanceUpdateBlocker()
 {
-    m_element.setInstanceUpdatesBlocked(false);
+    m_element->setInstanceUpdatesBlocked(false);
 }
 
 
@@ -261,4 +266,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SVGElement)
     static bool isType(const WebCore::EventTarget& eventTarget) { return eventTarget.isNode() && static_cast<const WebCore::Node&>(eventTarget).isSVGElement(); }
     static bool isType(const WebCore::Node& node) { return node.isSVGElement(); }
 SPECIALIZE_TYPE_TRAITS_END()
-

@@ -464,14 +464,14 @@ sudoers_audit_accept(const char *plugin_name, unsigned int plugin_type,
     if (plugin_type != SUDO_FRONT_END)
         debug_return_int(true);
 
-    if (!def_log_allowed)
-        debug_return_int(true);
 #ifdef __APPLE_AUDIT__
     if (__builtin_available(macOS 14.0, *)) {
         es_accept(command_info, run_argv, run_envp);
     }
 #endif /* __APPLE_AUDIT__ */
 
+    if (!def_log_allowed)
+        debug_return_int(true);
     if (audit_success(run_argv) != 0 && !def_ignore_audit_errors)
     ret = false;
 

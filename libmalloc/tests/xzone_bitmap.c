@@ -262,7 +262,6 @@ static void chunk_init(xzm_chunk_t chunk, xzm_slice_count_t slice_count,
 	chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity);
 	chunk->xzc_used = 0;
 	chunk->xzc_bits.xzcb_kind = XZM_SLICE_KIND_SMALL_CHUNK;
-	chunk->xzc_bits.xzcb_has_aligned = false;
 	chunk->xzc_bits.xzcb_is_pristine = true;
 	chunk->xzc_bits.xzcb_enqueued = false;
 	chunk->xzcs_slice_count = slice_count;
@@ -285,10 +284,10 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 	xzm_chunk_t chunk = &chunks[chunk_idx];
 
 	/*
-	 * slice: |<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|
-	 * block: |<-14KiB>|<-14KiB>|<-14KiB>|<-14KiB>|<14KiB->|<14KiB->|<14KiB->|<14KiB->|<14KiB->|
-	 * free:  |    1   |    0   |    1   |    0   |   1    |   1    |   0    |   1    |   0    |
-	 * vm op: |    0   |    0   |    0   |    0   |   1    |   1    |   0    |   0    |   0    |
+	 * slice: |<-16KiB->|<-16KiB->|<-16KiB->|<-16KiB->|
+	 * block: |<-14KiB>|<-14KiB>|<-14KiB>|<-14KiB>|
+	 * free:  |    0   |   1    |   1    |   0    |
+	 * vm op: |    0   |   1    |   1    |   0    |
 	 */
 	puts("Checking block size smaller than slice size...");
 	{
@@ -297,9 +296,8 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 				"Block smaller than slice size");
 		const uint32_t chunk_capacity = XZM_SMALL_CHUNK_SIZE / block_size;
 		chunk_init(chunks, slice_count, chunk_capacity);
-		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b010110101;
-		const expected_t expected[] = {{0, 0}, {0, 0}, {0, 0}, {0, 0},
-				{4, 1}, {4, 1},  {0, 0}, {0, 0}, {0, 0}};
+		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b0110;
+		const expected_t expected[] = {{0, 0}, {1, 1}, {1, 1},  {0, 0}};
 		_Static_assert(countof(expected) == chunk_capacity,
 				"Correct number of expected results");
 		for (xzm_block_index_t idx = 0; idx < chunk_capacity; ++idx) {
@@ -325,10 +323,10 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 	}
 
 	/*
-	 * slice: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|
-	 * block: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|
-	 * free:  |   1   |   0   |   1   |   0   |   1   |   0   |   1   |   0   |
-	 * vm op: |   1   |   0   |   1   |   0   |   1   |   0   |   1   |   0   |
+	 * slice: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|
+	 * block: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|
+	 * free:  |   1   |   0   |   1   |   0   |
+	 * vm op: |   1   |   0   |   1   |   0   |
 	 */
 	puts("Checking block size equal to slice size...");
 	{
@@ -337,9 +335,8 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 				"Block equal to slice size");
 		const uint32_t chunk_capacity = XZM_SMALL_CHUNK_SIZE / block_size;
 		chunk_init(chunks, slice_count, chunk_capacity);
-		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b01010101;
-		const expected_t expected[] = {{0, 1}, {0, 0}, {2, 1}, {0, 0},
-				{4, 1}, {0, 0},  {6, 1}, {0, 0}};
+		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b0101;
+		const expected_t expected[] = {{0, 1}, {0, 0}, {2, 1}, {0, 0}};
 		_Static_assert(countof(expected) == chunk_capacity,
 				"Correct number of expected results");
 		for (xzm_block_index_t idx = 0; idx < chunk_capacity; ++idx) {
@@ -365,10 +362,10 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 	}
 
 	/*
-	 * slice: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|<16KiB>|
-	 * block: |<-20KiB->|<-20KiB->|<-20KiB->|<-20KiB->|<-20KiB->|<-20KiB->|
-	 * free:  |    1    |    0    |    1    |    0    |    1    |    0    |
-	 * vm op: |    1    |    0    |    0    |    0    |    1    |    0    |
+	 * slice: |<16KiB>|<16KiB>|<16KiB>|<16KiB>|
+	 * block: |<-20KiB->|<-20KiB->|<-20KiB->|
+	 * free:  |    1    |    0    |    1    |
+	 * vm op: |    1    |    0    |    1    |
 	 */
 	puts("Checking block size greater than slice size...");
 	{
@@ -377,9 +374,8 @@ static void run_manual_tests(xzm_chunk_t chunks, xzm_slice_count_t slice_count,
 				"Block greater than slice size");
 		const uint32_t chunk_capacity = XZM_SMALL_CHUNK_SIZE / block_size;
 		chunk_init(chunks, slice_count, chunk_capacity);
-		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b010101;
-		const expected_t expected[] = {{0, 1}, {0, 0}, {0, 0}, {0, 0},
-				{5, 1}, {0, 0}};
+		chunk->xzc_free = _xzm_xzone_free_mask(NULL, chunk_capacity) & 0b101;
+		const expected_t expected[] = {{0, 1}, {0, 0}, {3, 1}};
 		_Static_assert(countof(expected) == chunk_capacity,
 				"Correct number of expected results");
 		for (xzm_block_index_t idx = 0; idx < chunk_capacity; ++idx) {

@@ -434,6 +434,50 @@ ATF_TC_BODY(test_wchar_1t1, tc)
 }
 
 /*
+ * rdar://problem/129340034 - In conversions *to* wchar_t, we end up eating
+ * large chunks of the input buffer and mis-reporting the situation if we have
+ * a short output buffer.
+ */
+ATF_TC_WITHOUT_HEAD(test_wchar_short);
+ATF_TC_BODY(test_wchar_short, tc)
+{
+	iconv_t cd;
+	char str[] = "The quick brown fox tried to jump high.";
+	char *inbuf = str, *outbuf, *outptr;
+	size_t chunksz, insz, outwritten, outsz, res;
+
+	/* We won't be converting the NUL terminator. */
+	insz = sizeof(str) - 1;
+	outsz = sizeof(wchar_t) * insz;
+	outptr = outbuf = malloc(outsz + sizeof(wchar_t));
+	ATF_REQUIRE(outbuf != NULL);
+
+	cd = iconv_open("WCHAR_T", "ASCII");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	outwritten = 0;
+	while (insz != 0) {
+		chunksz = sizeof(wchar_t);
+
+		res = iconv(cd, &inbuf, &insz, &outptr, &chunksz);
+		ATF_REQUIRE(res != (size_t)(iconv_t)-1 || errno == E2BIG);
+
+		outwritten += sizeof(wchar_t);
+	}
+
+	/*
+	 * We shouldn't have stopped writing early, and our output should match
+	 * our input.  The input was all ASCII, so we should be able to get away
+	 * with a 1:1 byte comparison.
+	 */
+	ATF_REQUIRE_INTEQ(outsz, outwritten);
+	for (size_t i = 0; i < sizeof(str); i++)
+		ATF_REQUIRE_INTEQ((wchar_t)str[i], outbuf[i * sizeof(wchar_t)]);
+
+	iconv_close(cd);
+}
+
+/*
  * Noticed while working on wchar_t, "char" should be case insensitive.  While
  * we're here, it should also yield UTF-8 by default.
  */
@@ -680,7 +724,7 @@ ATF_TC_BODY(test_eilseq_out, tc)
 	memset(outptr, '\0', outsz);
 
 	res = iconv(cd, &inbuf, &insz, &outptr, &outsz);
-	ATF_REQUIRE(res == 0);
+	ATF_REQUIRE(res == 1);
 	/* Should have consumed the entire input buffer. */
 	ATF_REQUIRE_INTEQ(0, insz);
 
@@ -994,6 +1038,66 @@ ATF_TC_BODY(test_utf7_ascii, tc)
 	iconv_close(cd);
 }
 
+ATF_TC_WITHOUT_HEAD(test_short_error_combo);
+ATF_TC_BODY(test_short_error_combo, tc)
+{
+	char in[] = "Hello\x80";
+	char out[16];
+	iconv_t cd;
+	size_t inval, inleft, outleft;
+	char *inbuf, *outbuf;
+
+	inbuf = &in[0];
+	inleft = sizeof(in) - 1;
+	outbuf = &out[0];
+
+	cd = iconv_open("UTF-8", "ASCII");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	outleft = inleft - 1;	/* No room for \x80 */
+	inval = iconv(cd, &inbuf, &inleft, &outbuf, &outleft);
+
+	/*
+	 * EILSEQ overrides the E2BIG that we could have gotten from only being
+	 * able to fit the first five bytes into it.
+	 */
+	ATF_REQUIRE(inval == (size_t)-1);
+	ATF_REQUIRE(errno == EILSEQ);
+	ATF_REQUIRE(outleft == 0);
+
+	iconv_close(cd);
+}
+
+ATF_TC_WITHOUT_HEAD(test_short_error_combo_wchar);
+ATF_TC_BODY(test_short_error_combo_wchar, tc)
+{
+	char in[] = "Hello\x80";
+	wchar_t out[8];
+	iconv_t cd;
+	size_t inval, inleft, outleft;
+	char *inbuf, *outbuf;
+
+	inbuf = &in[0];
+	inleft = sizeof(in) - 1;
+	outbuf = (char *)&out[0];
+
+	cd = iconv_open("WCHAR_T", "ASCII");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	outleft = (inleft - 1) * sizeof(out[0]);	/* No room for \x80 */
+	inval = iconv(cd, &inbuf, &inleft, &outbuf, &outleft);
+
+	/*
+	 * EILSEQ overrides the E2BIG that we could have gotten from only being
+	 * able to fit the first five bytes into it.
+	 */
+	ATF_REQUIRE(outleft == 0);
+	ATF_REQUIRE(inval == (size_t)-1);
+	ATF_REQUIRE(errno == EILSEQ);
+
+	iconv_close(cd);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -1007,6 +1111,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_wchar_t);
 	ATF_TP_ADD_TC(tp, test_wchar_t_gb2312);
 	ATF_TP_ADD_TC(tp, test_wchar_1t1);
+	ATF_TP_ADD_TC(tp, test_wchar_short);
 	ATF_TP_ADD_TC(tp, test_char);
 	ATF_TP_ADD_TC(tp, test_utf8mac);
 	ATF_TP_ADD_TC(tp, test_utf8mac_short);
@@ -1019,6 +1124,8 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_invalid_ignore);
 	ATF_TP_ADD_TC(tp, test_utf16_unpaired_surrogates);
 	ATF_TP_ADD_TC(tp, test_utf7_ascii);
+	ATF_TP_ADD_TC(tp, test_short_error_combo);
+	ATF_TP_ADD_TC(tp, test_short_error_combo_wchar);
 	return (atf_no_error());
 }
 

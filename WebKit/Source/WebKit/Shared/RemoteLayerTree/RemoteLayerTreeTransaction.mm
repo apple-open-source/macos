@@ -37,6 +37,7 @@
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/TimingFunction.h>
 #import <wtf/text/CString.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 
 namespace WebKit {
@@ -201,7 +202,7 @@ static void dumpChangedLayers(TextStream& ts, const LayerPropertiesMap& changedL
 
         if (layerProperties.changedProperties & LayerChange::AnimationsChanged) {
             for (const auto& keyAnimationPair : layerProperties.animationChanges.addedAnimations)
-                ts.dumpProperty("animation " +  keyAnimationPair.first, keyAnimationPair.second);
+                ts.dumpProperty(makeString("animation "_s, keyAnimationPair.first), keyAnimationPair.second);
 
             for (const auto& name : layerProperties.animationChanges.keysOfAnimationsToRemove)
                 ts.dumpProperty("removed animation", name);
@@ -422,6 +423,14 @@ void ArgumentCoder<WebKit::ChangedLayers>::encode(Encoder& encoder, const WebKit
         encoder << layer->properties();
     }
 }
+
+template<> struct ArgumentCoder<WebKit::RemoteLayerBackingStore> {
+    static void encode(Encoder& encoder, const WebKit::RemoteLayerBackingStore& store)
+    {
+        store.encode(encoder);
+    }
+    // This intentionally has no decode because it is only decoded as a RemoteLayerBackingStoreProperties.
+};
 
 void ArgumentCoder<WebKit::RemoteLayerBackingStoreOrProperties>::encode(Encoder& encoder, const WebKit::RemoteLayerBackingStoreOrProperties& instance)
 {

@@ -710,7 +710,11 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
                     if (swca_select_item(items, client, accessGroups, &result, &error) && result) {
 #if TARGET_OS_IOS
                         LAContext *ctx = [LAContext new];
+#if TARGET_OS_VISION
                         if ([ctx canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:nil] &&
+#else
+                        if ([ctx canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometricsOrCompanion error:nil] &&
+#endif
                             [[MCProfileConnection sharedConnection] isAuthenticationBeforeAutoFillRequired]) {
                             NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
                             dispatch_semaphore_t sema = dispatch_semaphore_create(0);

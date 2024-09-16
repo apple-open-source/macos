@@ -4,6 +4,7 @@
 #include <Security/SecEntitlements.h>
 #include <ipc/server_security_helpers.h>
 #import "OTConstants.h"
+#import "Affordance_OTConstants.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include "keychain/securityd/SecItemServer.h"
 #include "keychain/securityd/SecItemDb.h"

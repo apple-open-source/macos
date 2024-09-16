@@ -40,7 +40,7 @@ typedef enum
 struct _Dict
 {
     TidyTagId       id;
-    tmbstr          name;
+    ctmbstr         name;
     uint            versions;
     AttrVersion const *    attrvers;
     uint            model;

@@ -29,6 +29,7 @@
 #include "codesigning_dtrace.h"
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecFramework.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/logging.h>
 #include <sys/csr.h>
@@ -772,7 +773,7 @@ bool Requirement::Interpreter::Match::inequality(CFTypeRef candidate, CFStringCo
 //
 Fragments::Fragments()
 {
-	mMyBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security"));
+	mMyBundle = SecFrameworkGetBundle();
 }
 
 

@@ -45,6 +45,10 @@ class Worklet : public RefCounted<Worklet>, public ScriptWrappable, public CanMa
     WTF_MAKE_ISO_ALLOCATED(Worklet);
 public:
     virtual ~Worklet();
+
+    // ActiveDOMOject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
     
     virtual void addModule(const String& moduleURL, WorkletOptions&&, DOMPromiseDeferred<void>&&);
 
@@ -59,9 +63,6 @@ protected:
 
 private:
     virtual Vector<Ref<WorkletGlobalScopeProxy>> createGlobalScopes() = 0;
-
-    // ActiveDOMObject.
-    const char* activeDOMObjectName() const final;
 
     String m_identifier;
     Vector<Ref<WorkletGlobalScopeProxy>> m_proxies;

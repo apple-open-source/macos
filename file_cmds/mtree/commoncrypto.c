@@ -404,3 +404,29 @@ get_xattr_count(const char *path)
 
 	return xattrs_count;
 }
+
+uint32_t
+get_protection_class(const char *path)
+{
+	static struct attrlist req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_DATA_PROTECT_FLAGS | ATTR_CMN_RETURNED_ATTRS
+	};
+	struct {
+		uint32_t len;
+		attribute_set_t returned;
+		uint32_t prot_class;
+	} __attribute__((packed, aligned(4))) attrs;
+	int error = getattrlist(path, (void *)&req, &attrs, sizeof(attrs), FSOPT_NOFOLLOW);
+	if (error == -1 || attrs.len != sizeof(attrs) || attrs.returned.commonattr != req.commonattr) {
+		if (error == -1) {
+			error = errno;
+		} else {
+			// We weren't able to read the DATA_PROTECT flag, this happens when the underlying FS doesn't support it
+			error = ENOTSUP;
+			errno = ENOTSUP;
+		}
+		err(error, "get_protection_class: getattrlist failed for path <%s>", path);
+	}
+	return attrs.prot_class;
+}

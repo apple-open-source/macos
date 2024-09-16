@@ -42,7 +42,7 @@ wctob_l(wint_t c, locale_t loc)
 	char buf[MB_LEN_MAX];
 
 	NORMALIZE_LOCALE(loc);
-	if (c == WEOF || loc->__lc_ctype->__wcrtomb(buf, c, &mbs, loc) != 1)
+	if (c == WEOF || XLOCALE_CTYPE(loc)->__wcrtomb(buf, c, &mbs, loc) != 1)
 		return (EOF);
 	return ((unsigned char)*buf);
 }

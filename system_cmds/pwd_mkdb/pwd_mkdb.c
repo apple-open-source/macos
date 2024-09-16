@@ -1,10 +1,8 @@
-/*	$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:14:55 millert Exp $	*/
-
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
- * Portions Copyright (c) 1994, Jason Downs.  All rights reserved.
- * Portions Copyright (c) 1998, Todd C. Miller.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,29 +29,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
-__unused static const char copyright[] =
-"@(#) Copyright (c) 1991, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static const char sccsid[] = "from: @(#)pwd_mkdb.c	8.5 (Berkeley) 4/20/94";
-#else
-__unused static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:14:55 millert Exp $";
-#endif
-#endif /* not lint */
-
 #include <sys/param.h>
+#ifndef __APPLE__
+#include <sys/endian.h>
+#endif
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 #include <db.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <grp.h>
+#include <libgen.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
@@ -61,100 +48,143 @@ __unused static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <util.h>
-#include <sys/param.h>
+
 #include "pw_scan.h"
 
 #define	INSECURE	1
 #define	SECURE		2
 #define	PERM_INSECURE	(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
 #define	PERM_SECURE	(S_IRUSR|S_IWUSR)
+#define LEGACY_VERSION(x)  _PW_VERSIONED(x, 3)
+#define CURRENT_VERSION(x) _PW_VERSIONED(x, 4)
 
-#define FILE_SECURE	0x01
-#define FILE_INSECURE	0x02
-#define FILE_ORIG	0x04
-
-#define	SHADOW_GROUP	"wheel"
-
-HASHINFO openinfo = {
-	.bsize = 4096,
-	.ffactor = 32,
-	.nelem = 256,
-	.cachesize = 2048 * 1024,
-	.hash = NULL,
-	.lorder = 0
+static HASHINFO openinfo = {
+	4096,		/* bsize */
+	32,		/* ffactor */
+	256,		/* nelem */
+	2048 * 1024,	/* cachesize */
+	NULL,		/* hash() */
+	BIG_ENDIAN	/* lorder */
 };
 
+static enum state { FILE_INSECURE, FILE_SECURE, FILE_ORIG } clean;
+static struct passwd pwd;			/* password structure */
 static char *pname;				/* password file name */
-static char *basedir;				/* dir holding master.passwd */
-static int clean;				/* what to remove on cleanup */
-static int hasyp;				/* are we running YP? */
+static char prefix[MAXPATHLEN];
+
+static int is_comment;	/* flag for comments */
+static char line[LINE_MAX];
 
 void	cleanup(void);
-void	error(char *);
-void	errorx(char *);
-void	cp(char *, char *, mode_t);
+void	error(const char *);
+void	cp(char *, char *, mode_t mode);
 void	mv(char *, char *);
-int	scan(FILE *, struct passwd *, int *);
-void	usage(void);
-char	*changedir(char *path, char *dir);
-void	db_store(FILE *, FILE *, DB *, DB *,struct passwd *, int, char *, uid_t);
+int	scan(FILE *, struct passwd *);
+static void	usage(void);
 
 int
-main(int argc, char **argv)
+main(int argc, char *argv[])
 {
-	DB *dp, *edp;
-	DBT data, key;
-	FILE *fp, *oldfp = NULL;
-	struct stat st;
-	struct passwd pwd;
-	struct group *grp;
+#ifndef __APPLE__
+	static char verskey[] = _PWD_VERSION_KEY;
+	char version = _PWD_CURRENT_VERSION;
+	DB *dp, *sdp, *pw_db;
+	DBT data, sdata, key;
+#endif /* !__APPLE__ */
+	FILE *fp, *oldfp;
 	sigset_t set;
-	uid_t olduid = UID_MAX;
-	gid_t shadow;
-	int ch, tfd, makeold, secureonly, flags, checkonly;
-	char *username, buf[MAX(MAXPATHLEN, LINE_MAX * 2)];
+	int ch, cnt, ypcnt, makeold, tfd, yp_enabled = 0;
+#ifndef __APPLE__
+	unsigned int len;
+	uint32_t store;
+	const char *t;
+	char *p;
+#endif /* !__APPLE__ */
+	char buf[MAX(MAXPATHLEN, LINE_MAX * 2)];
+#ifndef __APPLE__
+	char sbuf[MAX(MAXPATHLEN, LINE_MAX * 2)];
+#endif /* !__APPLE__ */
+	char buf2[MAXPATHLEN];
+#ifndef __APPLE__
+	char sbuf2[MAXPATHLEN];
+	char tbuf[1024];
+#endif /* !__APPLE__ */
+	char *username;
+#ifndef __APPLE__
+	u_int method, methoduid;
+#endif /* !__APPLE__ */
+	int Cflag, dflag, iflag;
+	int nblock = 0;
+#ifdef __APPLE__
+	int sflag = 0;
+#endif /* __APPLE__ */
 
-	flags = checkonly = makeold = secureonly = 0;
+	iflag = dflag = Cflag = 0;
+	strcpy(prefix, _PATH_PWD);
+	makeold = 0;
 	username = NULL;
-	while ((ch = getopt(argc, argv, "cd:psu:v")) != -1)
-		switch (ch) {
-		case 'c':			/* verify only */
-			checkonly = 1;
+	oldfp = NULL;
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "cd:iNpS:su:v")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "Cd:iNps:u:v")) != -1)
+#endif /* __APPLE__ */
+		switch(ch) {
+#ifdef __APPLE__
+		case 'c':                       /* verify only */
+#else
+		case 'C':                       /* verify only */
+#endif /* __APPLE__ */
+			Cflag = 1;
 			break;
 		case 'd':
-			basedir = optarg;
-			if (strlen(basedir) > MAXPATHLEN - 40)
-				errx(1, "basedir too long");
+			dflag++;
+			strlcpy(prefix, optarg, sizeof(prefix));
+			break;
+		case 'i':
+			iflag++;
+			break;
+		case 'N':			/* do not wait for lock	*/
+			nblock = LOCK_NB;	/* will fail if locked */
 			break;
 		case 'p':			/* create V7 "file.orig" */
+#ifdef __APPLE__
+			if (sflag)
+				usage();
+#endif /* __APPLE__ */
 			makeold = 1;
 			break;
-		case 's':			/* only update spwd.db */
-			secureonly = 1;
+#ifdef __APPLE__
+		case 'S':			/* change default cachesize */
+#else
+		case 's':			/* change default cachesize */
+#endif /* __APPLE__ */
+			openinfo.cachesize = atoi(optarg) * 1024 * 1024;
 			break;
+#ifdef __APPLE__
+		case 's':			/* only update secure version */
+			if (makeold)
+				usage();
+			sflag = 1;
+			break;
+#endif /* __APPLE__ */
 		case 'u':			/* only update this record */
 			username = optarg;
-			if (strlen(username) > _PW_NAME_LEN)
-				errx(1, "username too long");
 			break;
-		case 'v':			/* backward compatible */
+		case 'v':                       /* backward compatible */
 			break;
-		case '?':
 		default:
 			usage();
 		}
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 1 || (makeold && secureonly) ||
-	    (username && (*username == '+' || *username == '-')))
+	if (argc != 1 || (username && (*username == '+' || *username == '-')))
 		usage();
-
-	if ((grp = getgrnam(SHADOW_GROUP)) == NULL)
-		errx(1, "cannot find `%s' in the group database, aborting",
-		    SHADOW_GROUP);
-	shadow = grp->gr_gid;
+#ifdef __APPLE__
+	if (sflag)
+		warnx("-s has no effect");
+#endif /* !__APPLE__ */
 
 	/*
 	 * This could be changed to allow the user to interrupt.
@@ -171,92 +201,134 @@ main(int argc, char **argv)
 	/* We don't care what the user wants. */
 	(void)umask(0);
 
-	if (**argv != '/' && basedir == NULL)
-		errx(1, "%s must be specified as an absolute path", *argv);
+	pname = *argv;
 
-	if ((pname = strdup(changedir(*argv, basedir))) == NULL)
-		err(1, NULL);
-	/* Open the original password file */
-	if (!(fp = fopen(pname, "r")))
-		error(pname);
+	/*
+	 * Open and lock the original password file.  We have to check
+	 * the hardlink count after we get the lock to handle any potential
+	 * unlink/rename race.
+	 *
+	 * This lock is necessary when someone runs pwd_mkdb manually, directly
+	 * on master.passwd, to handle the case where a user might try to
+	 * change his password while pwd_mkdb is running. 
+	 */
+	for (;;) {
+		struct stat st;
 
-	/* Check only if password database is valid */
-	if (checkonly) {
-		u_int cnt;
+		if (!(fp = fopen(pname, "r")))
+			error(pname);
+		if (flock(fileno(fp), LOCK_EX|nblock) < 0 && !(dflag && iflag))
+			error("flock");
+		if (fstat(fileno(fp), &st) < 0)
+			error(pname);
+		if (st.st_nlink != 0)
+			break;
+		fclose(fp);
+		fp = NULL;
+	}
 
-		for (cnt = 1; scan(fp, &pwd, &flags); ++cnt)
-			;
+	/* check only if password database is valid */
+	if (Cflag) {
+		while (scan(fp, &pwd))
+			if (!is_comment && strlen(pwd.pw_name) >= MAXLOGNAME) {
+				warnx("%s: username too long", pwd.pw_name);
+				exit(1);
+			}
 		exit(0);
 	}
 
-	if (fstat(fileno(fp), &st) == -1)
-		error(pname);
-
-	/* Tweak openinfo values for large passwd files. */
-	if (st.st_size > (off_t)100*1024)
-		openinfo.cachesize = (u_int)MIN(st.st_size * 20, (off_t)12*1024*1024);
-	if (st.st_size / 128 > openinfo.nelem)
-		openinfo.nelem = (u_int)(st.st_size / 128);
-
-        /* If only updating a single record, stash the old uid */
-	if (username) {
-		dp = dbopen(_PATH_MP_DB, O_RDONLY, 0, DB_HASH, NULL);
-		if (dp == NULL)
-			error(_PATH_MP_DB);
-		buf[0] = _PW_KEYBYNAME;
-		strlcpy(buf + 1, username, sizeof(buf) - 1);
-		key.data = (u_char *)buf;
-		key.size = strlen(buf + 1) + 1;
-		if ((dp->get)(dp, &key, &data, 0) == 0) {
-			char *p = (char *)data.data;
-			/* Skip to uid field */
-			while (*p++ != '\0')
-				;
-			while (*p++ != '\0')
-				;
-			memcpy(&olduid, p, sizeof(olduid));
-		} else
-			olduid = UID_MAX;
-		(dp->close)(dp);
-	}
-
-	/* Open the temporary encrypted password database. */
-	(void)snprintf(buf, sizeof(buf), "%s.tmp",
-	    changedir(_PATH_SMP_DB, basedir));
-	if (username) {
-		cp(changedir(_PATH_SMP_DB, basedir), buf, PERM_SECURE);
-		edp = dbopen(buf,
-		    O_RDWR, PERM_SECURE, DB_HASH, &openinfo);
-	} else {
-		edp = dbopen(buf,
-		    O_RDWR|O_CREAT|O_EXCL, PERM_SECURE, DB_HASH, &openinfo);
-	}
-	if (!edp)
-		error(buf);
-	if (fchown(edp->fd(edp), (uid_t)-1, shadow) != 0)
-		warn("%s: unable to set group to %s", _PATH_SMP_DB,
-		    SHADOW_GROUP);
-	else if (fchmod(edp->fd(edp), PERM_SECURE|S_IRGRP) != 0)
-		warn("%s: unable to make group readable", _PATH_SMP_DB);
-	clean |= FILE_SECURE;
-
+#ifndef __APPLE__
 	/* Open the temporary insecure password database. */
-	if (!secureonly) {
-		(void)snprintf(buf, sizeof(buf), "%s.tmp",
-		    changedir(_PATH_MP_DB, basedir));
-		if (username) {
-			cp(changedir(_PATH_MP_DB, basedir), buf, PERM_INSECURE);
-			dp = dbopen(buf, O_RDWR, PERM_INSECURE, DB_HASH,
-			    &openinfo);
-		} else {
-			dp = dbopen(buf, O_RDWR|O_CREAT|O_EXCL, PERM_INSECURE,
-			    DB_HASH, &openinfo);
-		}
+	(void)snprintf(buf, sizeof(buf), "%s/%s.tmp", prefix, _MP_DB);
+	(void)snprintf(sbuf, sizeof(sbuf), "%s/%s.tmp", prefix, _SMP_DB);
+	if (username) {
+		int use_version;
+
+		(void)snprintf(buf2, sizeof(buf2), "%s/%s", prefix, _MP_DB);
+		(void)snprintf(sbuf2, sizeof(sbuf2), "%s/%s", prefix, _SMP_DB);
+
+		clean = FILE_INSECURE;
+		cp(buf2, buf, PERM_INSECURE);
+		dp = dbopen(buf,
+		    O_RDWR|O_EXCL, PERM_INSECURE, DB_HASH, &openinfo);
 		if (dp == NULL)
 			error(buf);
-		clean |= FILE_INSECURE;
-	} else
-		dp = NULL;
+
+		clean = FILE_SECURE;
+		cp(sbuf2, sbuf, PERM_SECURE);
+		sdp = dbopen(sbuf,
+		    O_RDWR|O_EXCL, PERM_SECURE, DB_HASH, &openinfo);
+		if (sdp == NULL)
+			error(sbuf);
+
+		/*
+		 * Do some trouble to check if we should store this users 
+		 * uid. Don't use getpwnam/getpwuid as that interferes 
+		 * with NIS.
+		 */
+		pw_db = dbopen(_PATH_MP_DB, O_RDONLY, 0, DB_HASH, NULL);
+		if (!pw_db)
+			error(_MP_DB);
+
+		key.data = verskey;
+		key.size = sizeof(verskey)-1;
+		if ((pw_db->get)(pw_db, &key, &data, 0) == 0)
+			use_version = *(unsigned char *)data.data;
+		else
+			use_version = 3;
+		buf[0] = _PW_VERSIONED(_PW_KEYBYNAME, use_version);
+		len = strlen(username);
+
+		/* Only check that username fits in buffer */
+		memmove(buf + 1, username, MIN(len, sizeof(buf) - 1));
+		key.data = (u_char *)buf;
+		key.size = len + 1;
+		if ((pw_db->get)(pw_db, &key, &data, 0) == 0) {
+			p = (char *)data.data;
+
+			/* jump over pw_name and pw_passwd, to get to pw_uid */
+			while (*p++)
+				;
+			while (*p++)
+				;
+
+			buf[0] = _PW_VERSIONED(_PW_KEYBYUID, use_version);
+			memmove(buf + 1, p, sizeof(store));
+			key.data = (u_char *)buf;
+			key.size = sizeof(store) + 1;
+
+			if ((pw_db->get)(pw_db, &key, &data, 0) == 0) {
+				/* First field of data.data holds pw_pwname */
+				if (!strcmp(data.data, username))
+					methoduid = 0;
+				else
+					methoduid = R_NOOVERWRITE;
+			} else {
+				methoduid = R_NOOVERWRITE;
+			}
+		} else {
+			methoduid = R_NOOVERWRITE;
+		}
+		if ((pw_db->close)(pw_db))
+			error("close pw_db");
+		method = 0;
+	} else {
+		dp = dbopen(buf,
+		    O_RDWR|O_CREAT|O_EXCL, PERM_INSECURE, DB_HASH, &openinfo);
+		if (dp == NULL)
+			error(buf);
+		clean = FILE_INSECURE;
+
+		sdp = dbopen(sbuf,
+		    O_RDWR|O_CREAT|O_EXCL, PERM_SECURE, DB_HASH, &openinfo);
+		if (sdp == NULL)
+			error(sbuf);
+		clean = FILE_SECURE;
+
+		method = R_NOOVERWRITE;
+		methoduid = R_NOOVERWRITE;
+	}
+#endif /* !__APPLE__ */
 
 	/*
 	 * Open file for old password file.  Minor trickiness -- don't want to
@@ -272,9 +344,10 @@ main(int argc, char **argv)
 			error(buf);
 		if ((oldfp = fdopen(tfd, "w")) == NULL)
 			error(buf);
-		clean |= FILE_ORIG;
+		clean = FILE_ORIG;
 	}
 
+#ifndef __APPLE__
 	/*
 	 * The databases actually contain three copies of the original data.
 	 * Each password file entry is converted into a rough approximation
@@ -285,82 +358,245 @@ main(int argc, char **argv)
 	 * _PW_KEYBYUID character.  The third key is the line number in the
 	 * original file prepended by the _PW_KEYBYNUM character.  (The special
 	 * characters are prepended to ensure that the keys do not collide.)
-	 *
-	 * If we see something go by that looks like YP, we save a special
-	 * pointer record, which if YP is enabled in the C lib, will speed
-	 * things up.
 	 */
-
-	/*
-	 * Write the .db files.
-	 * We do this three times, one per key type (for getpw{nam,uid,ent}).
-	 * The first time through we also check for YP, issue warnings
-	 * and save the V7 format passwd file if necessary.
+	/* In order to transition this file into a machine-independent
+	 * form, we have to change the format of entries.  However, since
+	 * older binaries will still expect the old MD format entries, we 
+	 * create those as usual and use versioned tags for the new entries.
 	 */
-	db_store(fp, oldfp, edp, dp, &pwd, _PW_KEYBYNAME, username, olduid);
-	db_store(fp, oldfp, edp, dp, &pwd, _PW_KEYBYUID, username, olduid);
-	db_store(fp, oldfp, edp, dp, &pwd, _PW_KEYBYNUM, username, olduid);
-
-	/* Store YP token, if needed. */
-	if (hasyp && !username) {
-		key.data = (u_char *)_PW_YPTOKEN;
-		key.size = strlen(_PW_YPTOKEN);
-		data.data = (u_char *)NULL;
-		data.size = 0;
-
-		if ((edp->put)(edp, &key, &data, R_NOOVERWRITE) == -1)
+	if (username == NULL) {
+		/* Do not add the VERSION tag when updating a single
+		 * user.  When operating on `old format' databases, this
+		 * would result in applications `seeing' only the updated
+		 * entries.
+		 */
+		key.data = verskey;
+		key.size = sizeof(verskey)-1;
+		data.data = &version;
+		data.size = 1;
+		if ((dp->put)(dp, &key, &data, 0) == -1)
 			error("put");
+		if ((sdp->put)(sdp, &key, &data, 0) == -1)
+			error("put");
+	}
+#endif /* !__APPLE__ */
+	ypcnt = 0;
+#ifndef __APPLE__
+	data.data = (u_char *)buf;
+	sdata.data = (u_char *)sbuf;
+	key.data = (u_char *)tbuf;
+#endif /* !__APPLE__ */
+	for (cnt = 1; scan(fp, &pwd); ++cnt) {
+		if (!is_comment && 
+		    (pwd.pw_name[0] == '+' || pwd.pw_name[0] == '-')) {
+			yp_enabled = 1;
+			ypcnt++;
+		}
+		if (is_comment)
+			--cnt;
+#ifndef __APPLE__
+#define	COMPACT(e)	t = e; while ((*p++ = *t++));
+#define SCALAR(e)	store = htonl((uint32_t)(e));      \
+			memmove(p, &store, sizeof(store)); \
+			p += sizeof(store);
+#define	LSCALAR(e)	store = HTOL((uint32_t)(e));       \
+			memmove(p, &store, sizeof(store)); \
+			p += sizeof(store);
+#define	HTOL(e)		(openinfo.lorder == BYTE_ORDER ? \
+			(uint32_t)(e) : \
+			bswap32((uint32_t)(e)))
+		if (!is_comment && 
+		    (!username || (strcmp(username, pwd.pw_name) == 0))) {
+			/* Create insecure data. */
+			p = buf;
+			COMPACT(pwd.pw_name);
+			COMPACT("*");
+			SCALAR(pwd.pw_uid);
+			SCALAR(pwd.pw_gid);
+			SCALAR(pwd.pw_change);
+			COMPACT(pwd.pw_class);
+			COMPACT(pwd.pw_gecos);
+			COMPACT(pwd.pw_dir);
+			COMPACT(pwd.pw_shell);
+			SCALAR(pwd.pw_expire);
+			SCALAR(pwd.pw_fields);
+			data.size = p - buf;
 
-		if (dp && (dp->put)(dp, &key, &data, R_NOOVERWRITE) == -1)
+			/* Create secure data. */
+			p = sbuf;
+			COMPACT(pwd.pw_name);
+			COMPACT(pwd.pw_passwd);
+			SCALAR(pwd.pw_uid);
+			SCALAR(pwd.pw_gid);
+			SCALAR(pwd.pw_change);
+			COMPACT(pwd.pw_class);
+			COMPACT(pwd.pw_gecos);
+			COMPACT(pwd.pw_dir);
+			COMPACT(pwd.pw_shell);
+			SCALAR(pwd.pw_expire);
+			SCALAR(pwd.pw_fields);
+			sdata.size = p - sbuf;
+
+			/* Store insecure by name. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYNAME);
+			len = strlen(pwd.pw_name);
+			memmove(tbuf + 1, pwd.pw_name, len);
+			key.size = len + 1;
+			if ((dp->put)(dp, &key, &data, method) == -1)
+				error("put");
+
+			/* Store insecure by number. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYNUM);
+			store = htonl(cnt);
+			memmove(tbuf + 1, &store, sizeof(store));
+			key.size = sizeof(store) + 1;
+			if ((dp->put)(dp, &key, &data, method) == -1)
+				error("put");
+
+			/* Store insecure by uid. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYUID);
+			store = htonl(pwd.pw_uid);
+			memmove(tbuf + 1, &store, sizeof(store));
+			key.size = sizeof(store) + 1;
+			if ((dp->put)(dp, &key, &data, methoduid) == -1)
+				error("put");
+
+			/* Store secure by name. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYNAME);
+			len = strlen(pwd.pw_name);
+			memmove(tbuf + 1, pwd.pw_name, len);
+			key.size = len + 1;
+			if ((sdp->put)(sdp, &key, &sdata, method) == -1)
+				error("put");
+
+			/* Store secure by number. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYNUM);
+			store = htonl(cnt);
+			memmove(tbuf + 1, &store, sizeof(store));
+			key.size = sizeof(store) + 1;
+			if ((sdp->put)(sdp, &key, &sdata, method) == -1)
+				error("put");
+
+			/* Store secure by uid. */
+			tbuf[0] = CURRENT_VERSION(_PW_KEYBYUID);
+			store = htonl(pwd.pw_uid);
+			memmove(tbuf + 1, &store, sizeof(store));
+			key.size = sizeof(store) + 1;
+			if ((sdp->put)(sdp, &key, &sdata, methoduid) == -1)
+				error("put");
+
+			/* Store insecure and secure special plus and special minus */
+			if (pwd.pw_name[0] == '+' || pwd.pw_name[0] == '-') {
+				tbuf[0] = CURRENT_VERSION(_PW_KEYYPBYNUM);
+				store = htonl(ypcnt);
+				memmove(tbuf + 1, &store, sizeof(store));
+				key.size = sizeof(store) + 1;
+				if ((dp->put)(dp, &key, &data, method) == -1)
+					error("put");
+				if ((sdp->put)(sdp, &key, &sdata, method) == -1)
+					error("put");
+			}
+		}
+#endif /* !__APPLE__ */
+		/*
+		 * Create original style password file entry.
+		 *
+		 * Don't copy comments since this could reveal encrypted
+		 * passwords if entries have been simply commented out
+		 * in master.passwd.
+		 */
+		if (makeold && !is_comment) {
+			char uidstr[20];
+			char gidstr[20];
+
+#ifdef __APPLE__
+			/* make sure nobody comes out as -2 and not UINT_MAX - 2 */
+			snprintf(uidstr, sizeof(uidstr), "%d", (int)pwd.pw_uid);
+			snprintf(gidstr, sizeof(gidstr), "%d", (int)pwd.pw_gid);
+#else /* !__APPLE__ */
+			snprintf(uidstr, sizeof(uidstr), "%u", pwd.pw_uid);
+			snprintf(gidstr, sizeof(gidstr), "%u", pwd.pw_gid);
+#endif /* !__APPLE__ */
+
+			if (fprintf(oldfp, "%s:*:%s:%s:%s:%s:%s\n",
+#ifdef __APPLE__
+			    pwd.pw_name, uidstr, gidstr,
+#else /* !__APPLE__ */
+			    pwd.pw_name, pwd.pw_fields & _PWF_UID ? uidstr : "",
+			    pwd.pw_fields & _PWF_GID ? gidstr : "",
+#endif /* !__APPLE__ */
+			    pwd.pw_gecos, pwd.pw_dir, pwd.pw_shell) < 0)
+				error("write old");
+		}
+	}
+#ifndef __APPLE__
+	/* If YP enabled, set flag. */
+	if (yp_enabled) {
+		buf[0] = yp_enabled + 2;
+		data.size = 1;
+		key.size = 1;
+		tbuf[0] = CURRENT_VERSION(_PW_KEYYPENABLED);
+		if ((dp->put)(dp, &key, &data, method) == -1)
+			error("put");
+		if ((sdp->put)(sdp, &key, &data, method) == -1)
 			error("put");
 	}
 
-	if ((edp->close)(edp))
-		error("close edp");
-	if (dp && (dp->close)(dp))
-		error("close dp");
+	if ((dp->close)(dp) == -1)
+		error("close");
+	if ((sdp->close)(sdp) == -1)
+		error("close");
+#endif /* !__APPLE__ */
 	if (makeold) {
+		(void)fflush(oldfp);
 		if (fclose(oldfp) == EOF)
 			error("close old");
 	}
 
 	/* Set master.passwd permissions, in case caller forgot. */
 	(void)fchmod(fileno(fp), S_IRUSR|S_IWUSR);
-	if (fclose(fp) != 0)
-		error("fclose");
 
+#ifndef __APPLE__
 	/* Install as the real password files. */
-	if (!secureonly) {
-		(void)snprintf(buf, sizeof(buf), "%s.tmp",
-		    changedir(_PATH_MP_DB, basedir));
-		mv(buf, changedir(_PATH_MP_DB, basedir));
-	}
-	(void)snprintf(buf, sizeof(buf), "%s.tmp",
-	    changedir(_PATH_SMP_DB, basedir));
-	mv(buf, changedir(_PATH_SMP_DB, basedir));
+	(void)snprintf(buf, sizeof(buf), "%s/%s.tmp", prefix, _MP_DB);
+	(void)snprintf(buf2, sizeof(buf2), "%s/%s", prefix, _MP_DB);
+	mv(buf, buf2);
+	(void)snprintf(buf, sizeof(buf), "%s/%s.tmp", prefix, _SMP_DB);
+	(void)snprintf(buf2, sizeof(buf2), "%s/%s", prefix, _SMP_DB);
+	mv(buf, buf2);
+#endif /* !__APPLE__ */
 	if (makeold) {
+		(void)snprintf(buf2, sizeof(buf2), "%s/%s", prefix, _PASSWD);
 		(void)snprintf(buf, sizeof(buf), "%s.orig", pname);
-		mv(buf, changedir(_PATH_PASSWD, basedir));
+		mv(buf, buf2);
 	}
-
 	/*
 	 * Move the master password LAST -- chpass(1), passwd(1) and vipw(8)
 	 * all use flock(2) on it to block other incarnations of themselves.
 	 * The rename means that everything is unlocked, as the original file
 	 * can no longer be accessed.
 	 */
-	mv(pname, changedir(_PATH_MASTERPASSWD, basedir));
+	(void)snprintf(buf, sizeof(buf), "%s/%s", prefix, _MASTERPASSWD);
+	mv(pname, buf);
+
+	/*
+	 * Close locked password file after rename()
+	 */
+	if (fclose(fp) == EOF)
+		error("close fp");
+
 	exit(0);
 }
 
 int
-scan(FILE *fp, struct passwd *pw, int *flags)
+scan(FILE *fp, struct passwd *pw)
 {
 	static int lcnt;
-	static char line[LINE_MAX];
+	size_t len;
 	char *p;
 
-	if (fgets(line, sizeof(line), fp) == NULL)
+	p = fgetln(fp, &len);
+	if (p == NULL)
 		return (0);
 	++lcnt;
 	/*
@@ -368,14 +604,28 @@ scan(FILE *fp, struct passwd *pw, int *flags)
 	 * throat...''
 	 *	-- The Who
 	 */
-	p = line;
-	if (*p != '\0' && *(p += strlen(line) - 1) != '\n') {
-		warnx("line too long");
+	if (len > 0 && p[len - 1] == '\n')
+		len--;
+	if (len >= sizeof(line) - 1) {
+		warnx("line #%d too long", lcnt);
 		goto fmt;
 	}
-	*p = '\0';
-	*flags = 0;
-	if (!pw_scan(line, pw, flags)) {
+	memcpy(line, p, len);
+	line[len] = '\0';
+
+	/* 
+	 * Ignore comments: ^[ \t]*#
+	 */
+	for (p = line; *p != '\0'; p++)
+		if (*p != ' ' && *p != '\t')
+			break;
+	if (*p == '#' || *p == '\0') {
+		is_comment = 1;
+		return(1);
+	} else
+		is_comment = 0;
+
+	if (!__pw_scan(line, pw, _PWSCAN_WARN|_PWSCAN_MASTER)) {
 		warnx("at line #%d", lcnt);
 fmt:		errno = EFTYPE;	/* XXX */
 		error(pname);
@@ -384,12 +634,16 @@ fmt:		errno = EFTYPE;	/* XXX */
 	return (1);
 }
 
-void
-cp(char *from, char *to, mode_t mode)
-{
+void                    
+cp(char *from, char *to, mode_t mode)              
+{               
 	static char buf[MAXBSIZE];
-	int from_fd, to_fd;
+#ifdef __APPLE__
 	ssize_t rcount, wcount;
+	int from_fd, to_fd;
+#else
+	int from_fd, rcount, to_fd, wcount;
+#endif /* __APPLE__ */
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0)
 		error(from);
@@ -414,32 +668,39 @@ cp(char *from, char *to, mode_t mode)
 	}
 }
 
+
 void
 mv(char *from, char *to)
 {
-	char buf[MAXPATHLEN * 2];
+	char buf[MAXPATHLEN];
+	char *to_dir;
+	int to_dir_fd = -1;
 
-	if (rename(from, to)) {
+	/*
+	 * Make sure file is safe on disk. To improve performance we will call
+	 * fsync() to the directory where file lies
+	 */
+	if (rename(from, to) != 0 ||
+	    (to_dir = dirname(to)) == NULL ||
+	    (to_dir_fd = open(to_dir, O_RDONLY|O_DIRECTORY)) == -1 ||
+	    fsync(to_dir_fd) != 0) {
 		int sverrno = errno;
-
 		(void)snprintf(buf, sizeof(buf), "%s to %s", from, to);
 		errno = sverrno;
+		if (to_dir_fd != -1)
+			close(to_dir_fd);
 		error(buf);
 	}
+
+	if (to_dir_fd != -1)
+		close(to_dir_fd);
 }
 
 void
-error(char *name)
+error(const char *name)
 {
+
 	warn("%s", name);
-	cleanup();
-	exit(1);
-}
-
-void
-errorx(char *name)
-{
-	warnx("%s", name);
 	cleanup();
 	exit(1);
 }
@@ -449,177 +710,30 @@ cleanup(void)
 {
 	char buf[MAXPATHLEN];
 
-	if (clean & FILE_ORIG) {
+	switch(clean) {
+	case FILE_ORIG:
 		(void)snprintf(buf, sizeof(buf), "%s.orig", pname);
 		(void)unlink(buf);
-	}
-	if (clean & FILE_SECURE) {
-		(void)snprintf(buf, sizeof(buf), "%s.tmp",
-		    changedir(_PATH_SMP_DB, basedir));
+		/* FALLTHROUGH */
+	case FILE_SECURE:
+		(void)snprintf(buf, sizeof(buf), "%s/%s.tmp", prefix, _SMP_DB);
 		(void)unlink(buf);
-	}
-	if (clean & FILE_INSECURE) {
-		(void)snprintf(buf, sizeof(buf), "%s.tmp",
-		    changedir(_PATH_MP_DB, basedir));
+		/* FALLTHROUGH */
+	case FILE_INSECURE:
+		(void)snprintf(buf, sizeof(buf), "%s/%s.tmp", prefix, _MP_DB);
 		(void)unlink(buf);
 	}
 }
 
-void
+static void
 usage(void)
 {
+
 	(void)fprintf(stderr,
-	    "usage: pwd_mkdb [-c] [-p | -s] [-d basedir] [-u username] file\n");
-	exit(1);
-}
-
-char *
-changedir(char *path, char *dir)
-{
-	static char fixed[MAXPATHLEN];
-	char *p;
-
-	if (!dir)
-		return (path);
-
-	if ((p = strrchr(path, '/')) != NULL)
-		path = p + 1;
-	snprintf(fixed, sizeof(fixed), "%s/%s", dir, path);
-	return (fixed);
-}
-
-void
-db_store(FILE *fp, FILE *oldfp, DB *edp, DB *dp, struct passwd *pw,
-	 int keytype, char *username, uid_t olduid)
-{
-	int flags = 0;
-	int dbmode, found = 0;
-	u_int cnt;
-	char *p, *t, buf[LINE_MAX * 2], tbuf[1024];
-	DBT data, key;
-	size_t len;
-	static int firsttime = 1;
-
-	/* If given a username just add that record to the existing db. */
-	dbmode = username ? 0 : R_NOOVERWRITE;
-
-	rewind(fp);
-	data.data = (u_char *)buf;
-	key.data = (u_char *)tbuf;
-	for (cnt = 1; scan(fp, pw, &flags); ++cnt) {
-
 #ifdef __APPLE__
-		if (pw->pw_name == NULL)
-			continue;
-#endif
-
-		if (firsttime) {
-			/* Look like YP? */
-			if ((pw->pw_name[0] == '+') || (pw->pw_name[0] == '-'))
-				hasyp++;
-
-			/* Warn about potentially unsafe uid/gid overrides. */
-			if (pw->pw_name[0] == '+') {
-				if (!(flags & _PASSWORD_NOUID) && !pw->pw_uid)
-					warnx("line %d: superuser override in "
-					    "YP inclusion", cnt);
-				if (!(flags & _PASSWORD_NOGID) && !pw->pw_gid)
-					warnx("line %d: wheel override in "
-					    "YP inclusion", cnt);
-			}
-
-			/* Create V7 format password file entry. */
-			if (oldfp != NULL)
-				if (fprintf(oldfp, "%s:*:%u:%u:%s:%s:%s\n",
-				    pw->pw_name, pw->pw_uid, pw->pw_gid,
-				    pw->pw_gecos, pw->pw_dir, pw->pw_shell)
-				    == EOF)
-					error("write old");
-		}
-
-		/* Are we updating a specific record? */
-		if (username) {
-			if (strcmp(username, pw->pw_name) != 0)
-				continue;
-			found = 1;
-			/* If the uid changed, remove the old record by uid. */
-			if (olduid != UID_MAX && olduid != pw->pw_uid) {
-				tbuf[0] = _PW_KEYBYUID;
-				memcpy(tbuf + 1, &olduid, sizeof(olduid));
-				key.size = sizeof(olduid) + 1;
-				(edp->del)(edp, &key, 0);
-				if (dp)
-					(dp->del)(dp, &key, 0);
-			}
-			/* XXX - should check to see if line number changed. */
-		}
-
-		/* Build the key. */
-		tbuf[0] = keytype;
-		switch (keytype) {
-		case _PW_KEYBYNUM:
-			memmove(tbuf + 1, &cnt, sizeof(cnt));
-			key.size = sizeof(cnt) + 1;
-			break;
-
-		case _PW_KEYBYNAME:
-			len = strlen(pw->pw_name);
-			memmove(tbuf + 1, pw->pw_name, len);
-			key.size = len + 1;
-			break;
-
-		case _PW_KEYBYUID:
-			memmove(tbuf + 1, &pw->pw_uid, sizeof(pw->pw_uid));
-			key.size = sizeof(pw->pw_uid) + 1;
-			break;
-		}
-
-#define	COMPACT(e)	t = e; while ((*p++ = *t++));
-		/* Create the secure record. */
-		p = buf;
-		COMPACT(pw->pw_name);
-		COMPACT(pw->pw_passwd);
-		memmove(p, &pw->pw_uid, sizeof(uid_t));
-		p += sizeof(uid_t);
-		memmove(p, &pw->pw_gid, sizeof(gid_t));
-		p += sizeof(gid_t);
-		memmove(p, &pw->pw_change, sizeof(time_t));
-		p += sizeof(time_t);
-		COMPACT(pw->pw_class);
-		COMPACT(pw->pw_gecos);
-		COMPACT(pw->pw_dir);
-		COMPACT(pw->pw_shell);
-		memmove(p, &pw->pw_expire, sizeof(time_t));
-		p += sizeof(time_t);
-		memmove(p, &flags, sizeof(int));
-		p += sizeof(int);
-		data.size = p - buf;
-
-		/* Write the secure record. */
-		if ((edp->put)(edp, &key, &data, dbmode) == -1)
-			error("put");
-
-		if (dp == NULL)
-			continue;
-
-		/* Star out password to make insecure record. */
-		p = buf + strlen(pw->pw_name) + 1;	/* skip pw_name */
-		len = strlen(pw->pw_passwd);
-		memset(p, 0, len);			/* zero pw_passwd */
-		t = p + len + 1;			/* skip pw_passwd */
-		if (len != 0)
-			*p++ = '*';
-		*p++ = '\0';
-		memmove(p, t, data.size - (t - buf));
-		data.size -= len - 1;
-
-		/* Write the insecure record. */
-		if ((dp->put)(dp, &key, &data, dbmode) == -1)
-			error("put");
-	}
-	if (firsttime) {
-		firsttime = 0;
-		if (username && !found && olduid != UID_MAX)
-			errorx("can't find user in master.passwd");
-	}
+"usage: pwd_mkdb [-ciNp] [-d directory] [-S cachesize] [-u username] file\n");
+#else
+"usage: pwd_mkdb [-CiNp] [-d directory] [-s cachesize] [-u username] file\n");
+#endif /* __APPLE__ */
+	exit(1);
 }

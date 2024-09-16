@@ -45,16 +45,23 @@ public:
     AtomString inBandMetadataTrackDispatchType() const override { return m_inBandMetadataTrackDispatchType; }
     void setInBandMetadataTrackDispatchType(const AtomString& value) { m_inBandMetadataTrackDispatchType = value; }
 
-    void addDataCue(const MediaTime& start, const MediaTime& end, const void* data, unsigned length)
+    void addDataCue(const MediaTime& start, const MediaTime& end, std::span<const uint8_t> data)
     {
+        ASSERT(isMainThread());
         ASSERT(cueFormat() == CueFormat::Data);
-        client()->addDataCue(start, end, data, length);
+
+        notifyMainThreadClient([&](auto& client) {
+            downcast<InbandTextTrackPrivateClient>(client).addDataCue(start, end, data);
+        });
     }
 
     void addGenericCue(InbandGenericCue& data)
     {
+        ASSERT(isMainThread());
         ASSERT(cueFormat() == CueFormat::Generic);
-        client()->addGenericCue(data);
+        notifyMainThreadClient([&](auto& client) {
+            downcast<InbandTextTrackPrivateClient>(client).addGenericCue(data);
+        });
     }
 
 private:

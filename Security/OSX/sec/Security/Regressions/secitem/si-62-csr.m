@@ -595,6 +595,24 @@ static void test_algs(void) {
                 is(3600*24*365, SecCertificateNotValidAfter(leaf_cert) - SecCertificateNotValidBefore(leaf_cert), "default leaf lifetime does not match");
             }
 
+            /* Check the lifetimes with API */
+            CFDateRef caValidBefore = SecCertificateCopyNotValidBeforeDate(ca_cert);
+            CFDateRef caValidAfter = SecCertificateCopyNotValidAfterDate(ca_cert);
+            CFDateRef leafValidBefore = SecCertificateCopyNotValidBeforeDate(leaf_cert);
+            CFDateRef leafValidAfter = SecCertificateCopyNotValidAfterDate(leaf_cert);
+
+            if (ca_lifetime) {
+                is(ca_lifetime, CFDateGetAbsoluteTime(caValidAfter) - CFDateGetAbsoluteTime(caValidBefore), "configured ca lifetime does not match");
+            } else {
+                is(3600*24*365, CFDateGetAbsoluteTime(caValidAfter) - CFDateGetAbsoluteTime(caValidBefore), "default ca lifetime does not match");
+            }
+
+            if (leaf_lifetime) {
+                is(leaf_lifetime, CFDateGetAbsoluteTime(leafValidAfter) - CFDateGetAbsoluteTime(leafValidBefore), "configured leaf lifetime does not match");
+            } else {
+                is(3600*24*365, CFDateGetAbsoluteTime(leafValidAfter) - CFDateGetAbsoluteTime(leafValidBefore), "default leaf lifetime does not match");
+            }
+
             out:
             CFReleaseNull(ca_cert);
             CFReleaseNull(ca_identity);
@@ -602,6 +620,10 @@ static void test_algs(void) {
             CFReleaseNull(csr_pub_key);
             CFReleaseNull(csr_subject);
             CFReleaseNull(csr_extensions);
+            CFReleaseNull(caValidBefore);
+            CFReleaseNull(caValidAfter);
+            CFReleaseNull(leafValidBefore);
+            CFReleaseNull(leafValidAfter);
         }
 
         CFReleaseNull(ca_priv);
@@ -789,9 +811,111 @@ static void test_algs(void) {
         CFReleaseNull(leaf_pub);
     }
 
+    static void test_self_signed_failure(NSArray *rdns, NSDictionary *parameters, SecKeyRef priv) {
+        CFErrorRef error = NULL;
+        SecCertificateRef cert = SecGenerateSelfSignedCertificateWithError((__bridge CFArrayRef)rdns,
+                                                                           (__bridge CFDictionaryRef)parameters,
+                                                                           NULL, priv, 
+                                                                           &error);
+        is(NULL, cert);
+        isnt(NULL, error);
+        CFReleaseNull(cert);
+        CFReleaseNull(error);
+    }
+
+    static void test_gen_self_signed_with_error(void) {
+        SecKeyRef cert_priv = NULL;
+        NSDictionary *ec_parameters = @{
+            (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge NSString*)kSecAttrKeySizeInBits : @384,
+        };
+        cert_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        isnt(NULL, cert_priv, "Failed to generate CA EC key");
+
+        NSDictionary *parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+        };
+
+        // wrong data type in ATV OID
+        NSArray *rdns = @[
+             @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+             @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc."]],
+             @[@[@[], @"Self-signed WithError Test"]]
+         ];
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        // only one ATV
+        rdns = @[
+             @[@[(__bridge NSString*)kSecOidCommonName]]
+         ];
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        rdns = @[
+             @[@[(__bridge NSString*)kSecOidCountryName, @"US"]],
+             @[@[(__bridge NSString*)kSecOidOrganization, @"Apple Inc."]],
+             @[@[(__bridge NSString*)kSecOidCommonName, @"Self-signed WithError Test"]]
+         ];
+
+        // wrong SAN key type
+        parameters = @{
+            (__bridge NSString*)kSecSubjectAltName: @{
+                @[] : @"valid.apple.com"
+            },
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        // eku is not OID string
+        parameters = @{
+            (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[@"not an OID"]
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        // custom extension with wrong value type
+        parameters = @{
+            (__bridge NSString*)kSecCertificateExtensions : @{
+                @"1.2.840.113635.6.10000": @[@"not an extension value"]
+            },
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        // path len + CA=false
+        parameters = @{
+            (__bridge NSString *)kSecCSRBasicContraintsPathLen: @1,
+            (__bridge NSString *)kSecCSRBasicConstraintsCA: @NO
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        // key usage wrong type
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @"not a key usage",
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        parameters = @{
+            (__bridge NSString*)kSecCertificateKeyUsage: @(kSecKeyUsageDigitalSignature),
+        };
+
+        // unsupported ec public key curve? or key type
+        ec_parameters = @{
+            (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+            (__bridge NSString*)kSecAttrKeySizeInBits : @224,
+        };
+        SecKeyRef unsupported_priv = SecKeyCreateRandomKey((__bridge CFDictionaryRef)ec_parameters, NULL);
+        test_self_signed_failure(rdns, parameters, unsupported_priv);
+        CFReleaseNull(unsupported_priv);
+
+        // unsupported signature algorithm (ECDSA with SHA1)
+        parameters = @{
+            (__bridge NSString*)kSecCMSSignHashAlgorithm: (__bridge NSString*)kSecCMSHashingAlgorithmSHA1,
+        };
+        test_self_signed_failure(rdns, parameters, cert_priv);
+
+        CFReleaseNull(cert_priv);
+    }
+
 int si_62_csr(int argc, char *const *argv)
 {
-	plan_tests(72);
+	plan_tests(95);
 
 	tests();
     test_ec_csr();
@@ -799,6 +923,7 @@ int si_62_csr(int argc, char *const *argv)
     test_lifetimes();
     test_ekus();
     test_ca_extensions();
+    test_gen_self_signed_with_error();
 
 	return 0;
 }

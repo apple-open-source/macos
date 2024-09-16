@@ -1,4 +1,5 @@
 #import "keychain/TrustedPeersHelper/TPHObjcTranslation.h"
+#include "utilities/SecCFRelease.h"
 
 #import <Security/SecKey.h>
 #import <Security/SecKeyPriv.h>
@@ -15,10 +16,20 @@
 
 + (SFECKeyPair* _Nullable)fetchKeyPairWithPrivateKeyPersistentRef:(NSData *)persistentRef error:(NSError**)error
 {
-    SecKeyRef seckey = NULL;
-    OSStatus status = SecKeyFindWithPersistentRef((__bridge CFDataRef)persistentRef, &seckey);
+    NSDictionary* query = @{
+        (id)kSecReturnRef : @YES,
+        (id)kSecClass : (id)kSecClassKey,
+        (id)kSecValuePersistentRef : persistentRef,
+    };
 
-    if(status) {
+    CFTypeRef foundRef = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &foundRef);
+
+    if (status == errSecSuccess && CFGetTypeID(foundRef) == SecKeyGetTypeID()) {
+        SFECKeyPair* keyPair = [[SFECKeyPair alloc] initWithSecKey:(SecKeyRef)foundRef];
+        CFReleaseNull(foundRef);
+        return keyPair;
+    } else {
         if(error) {
             *error = [NSError errorWithDomain:NSOSStatusErrorDomain
                                          code:status
@@ -26,8 +37,6 @@
         }
         return nil;
     }
-
-    return [[SFECKeyPair alloc] initWithSecKey: seckey];
 }
 
 #pragma clang diagnostic pop

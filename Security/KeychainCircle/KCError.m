@@ -6,8 +6,7 @@
 
 #import "KCError.h"
 
-static NSString* KCErrorDomain = @"com.apple.security.keychaincircle";
-
+NSString* KCErrorDomain = @"com.apple.security.keychaincircle";
 
 @implementation NSError(KCJoiningError)
 

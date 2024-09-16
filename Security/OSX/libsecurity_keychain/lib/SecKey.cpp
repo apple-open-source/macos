@@ -926,6 +926,17 @@ Boolean SecKeyIsCDSAKey(SecKeyRef ref) {
     return ref->key_class == &kSecCDSAKeyDescriptor;
 }
 
+Boolean SecKeyIsLegacyInstance(SecKeyRef keyRef) {
+    if (keyRef == NULL) {
+        return false;
+    }
+    CFTypeID typeID = CFGetTypeID(keyRef);
+    if (typeID == _kCFRuntimeNotATypeID) {
+        return false;
+    }
+    return ((typeID == SecKeyGetTypeID() && SecKeyIsCDSAKey(keyRef)) ||
+            (typeID == SecKeychainItemGetTypeID())) ? true : false;
+}
 
 static OSStatus SecKeyCreatePairInternal(
 	SecKeychainRef keychainRef,
@@ -1615,77 +1626,31 @@ static CFDictionaryRef CopyFullKeyParameters(CFDictionaryRef baseDictionary, CFS
     return merged;
 }
 
-extern "C" OSStatus SecKeyGeneratePair_ios(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey);
-OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag);
+static SecKeyRef _SecCDSAKeyCreateRandomKey(bool alwaysPermanent, CFDictionaryRef parameters, SecKeyRef *publicKey, CFErrorRef *error) {
+    CSSM_ALGORITHMS algorithms;
+    uint32 keySizeInBits;
+    CSSM_KEYUSE publicKeyUse;
+    uint32 publicKeyAttr;
+    CFTypeRef publicKeyLabelRef;
+    CFDataRef publicKeyAttributeTagRef;
+    CSSM_KEYUSE privateKeyUse;
+    uint32 privateKeyAttr;
+    CFTypeRef privateKeyLabelRef;
+    CFDataRef privateKeyAttributeTagRef;
+    SecAccessRef initialAccess;
+    SecKeychainRef keychain;
 
-/* new in 10.6 */
-/* Generate a private/public keypair. */
-static OSStatus
-SecKeyGeneratePairInternal(
-    bool alwaysPermanent,
-	CFDictionaryRef parameters,
-	SecKeyRef *publicKey,
-	SecKeyRef *privateKey)
-{
-	BEGIN_SECAPI
+    OSStatus status = MakeKeyGenParametersFromDictionary(parameters, algorithms, keySizeInBits, publicKeyUse, publicKeyAttr, publicKeyLabelRef, publicKeyAttributeTagRef, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef, initialAccess);
 
-	Required(parameters);
-    Required(publicKey);
-    Required(privateKey);
-    OSStatus result;
-
-    bool privateCanTargetIOS = false, privateCanTargetMacOS = false, unused;
-    CFDictionaryRef merged = CopyFullKeyParameters(parameters, kSecPrivateKeyAttrs);
-    result = SecItemCategorizeQuery(merged, privateCanTargetIOS, privateCanTargetMacOS, unused);
-    CFRelease(merged);
-    if (result != errSecSuccess) {
-        return result;
+    if (status != errSecSuccess) {
+        SecError(status, error, CFSTR("inconsistent parameters for CDSA key generation"));
+        return nil;
     }
 
-    bool publicCanTargetIOS = false, publicCanTargetMacOS = false;
-    merged = CopyFullKeyParameters(parameters, kSecPublicKeyAttrs);
-    result = SecItemCategorizeQuery(merged, publicCanTargetIOS, publicCanTargetMacOS, unused);
-    CFRelease(merged);
-    if (result != errSecSuccess) {
-        return result;
-    }
-
-    // CDSA keys have precedence unless we are told otherwise.
-    if (!publicCanTargetMacOS || !privateCanTargetMacOS) {
-        if (publicCanTargetIOS && privateCanTargetIOS) {
-            // Generate keys in iOS keychain.
-            return SecKeyGeneratePair_ios(parameters, publicKey, privateKey);
-        } else {
-            // Inconsistent query, cannot be generated neither on iOS or macOS.
-            return errSecParam;
-        }
-    }
-
-	CSSM_ALGORITHMS algorithms;
-	uint32 keySizeInBits;
-	CSSM_KEYUSE publicKeyUse;
-	uint32 publicKeyAttr;
-	CFTypeRef publicKeyLabelRef;
-	CFDataRef publicKeyAttributeTagRef;
-	CSSM_KEYUSE privateKeyUse;
-	uint32 privateKeyAttr;
-	CFTypeRef privateKeyLabelRef;
-	CFDataRef privateKeyAttributeTagRef;
-	SecAccessRef initialAccess;
-	SecKeychainRef keychain;
-
-	result = MakeKeyGenParametersFromDictionary(parameters, algorithms, keySizeInBits, publicKeyUse, publicKeyAttr, publicKeyLabelRef,
-                                                publicKeyAttributeTagRef, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef,
-                                                initialAccess);
-
-	if (result != errSecSuccess) {
-		return result;
-	}
-
-	// verify keychain parameter
+    // verify keychain parameter
     keychain = (SecKeychainRef)CFDictionaryGetValue(parameters, kSecUseKeychain);
     if (keychain != NULL && SecKeychainGetTypeID() != CFGetTypeID(keychain)) {
-		keychain = NULL;
+        keychain = NULL;
     }
 
     if (alwaysPermanent) {
@@ -1693,34 +1658,104 @@ SecKeyGeneratePairInternal(
         privateKeyAttr |= CSSM_KEYATTR_PERMANENT;
     }
 
-	// do the key generation
-	result = SecKeyCreatePair(keychain, algorithms, keySizeInBits, 0, publicKeyUse, publicKeyAttr, privateKeyUse, privateKeyAttr, initialAccess, publicKey, privateKey);
-	if (result != errSecSuccess) {
-		return result;
-	}
+    // do the key generation
+    SecKeyRef privateKey = NULL;
+    status = SecKeyCreatePair(keychain, algorithms, keySizeInBits, 0, publicKeyUse, publicKeyAttr, privateKeyUse, privateKeyAttr, initialAccess, publicKey, &privateKey);
+    if (status != errSecSuccess) {
+        SecError(status, error, CFSTR("failed to generate CDSA key"));
+        return nil;
+    }
 
-	// set the label and print attributes on the keys
+    // set the label and print attributes on the keys
     SetKeyLabelAndTag(*publicKey, publicKeyLabelRef, publicKeyAttributeTagRef);
-    SetKeyLabelAndTag(*privateKey, privateKeyLabelRef, privateKeyAttributeTagRef);
-	return result;
+    SetKeyLabelAndTag(privateKey, privateKeyLabelRef, privateKeyAttributeTagRef);
+    return privateKey;
+}
 
-	END_SECAPI
+extern "C" SecKeyRef SecKeyCreateRandomKey_ios(CFDictionaryRef parameters, CFErrorRef *error);
+OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag);
+
+/* new in 10.6 */
+/* Generate a private/public keypair. */
+static SecKeyRef _SecKeyCreateRandomKey(bool alwaysPermanent, CFDictionaryRef parameters, SecKeyRef *publicKey, CFErrorRef *error) {
+	BEGIN_SECKEYAPI(SecKeyRef, NULL)
+
+	Required(parameters);
+    Required(publicKey);
+
+    bool privateCanTargetIOS = false, privateCanTargetMacOS = false, unused;
+    CFDictionaryRef merged = CopyFullKeyParameters(parameters, kSecPrivateKeyAttrs);
+    OSStatus status = SecItemCategorizeQuery(merged, privateCanTargetIOS, privateCanTargetMacOS, unused);
+    CFRelease(merged);
+    if (status != errSecSuccess) {
+        SecError(status, error, CFSTR("inconsistent private key parameters for key generation"));
+        return nil;
+    }
+
+    bool publicCanTargetIOS = false, publicCanTargetMacOS = false;
+    merged = CopyFullKeyParameters(parameters, kSecPublicKeyAttrs);
+    status = SecItemCategorizeQuery(merged, publicCanTargetIOS, publicCanTargetMacOS, unused);
+    CFRelease(merged);
+    if (status != errSecSuccess) {
+        SecError(status, error, CFSTR("inconsistent public key parameters for key generation"));
+        return nil;
+    }
+
+    // CDSA keys have precedence unless we are told otherwise.
+    if (!publicCanTargetMacOS || !privateCanTargetMacOS) {
+        if (publicCanTargetIOS && privateCanTargetIOS) {
+            // Generate keys in iOS keychain.
+            *publicKey = NULL;
+            result = SecKeyCreateRandomKey_ios(parameters, error);
+        } else {
+            // Inconsistent query, cannot be generated neither on iOS or macOS.
+            SecError(errSecParam, error, CFSTR("inconsistent key parameters, cannot target neither modern nor legacy key implementation"));
+        }
+    } else {
+        result = _SecCDSAKeyCreateRandomKey(alwaysPermanent, parameters, publicKey, error);
+    }
+	END_SECKEYAPI
 }
 
 OSStatus
 SecKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
-    return SecKeyGeneratePairInternal(true, parameters, publicKey, privateKey);
+    CFErrorRef error = NULL;
+    SecKeyRef pubKey;
+    SecKeyRef privKey = _SecKeyCreateRandomKey(true, parameters, &pubKey, &error);
+    if (privKey == NULL) {
+        OSStatus status = errSecInternal;
+        if (error != NULL) {
+            status = (OSStatus)CFErrorGetCode(error);
+            CFRelease(error);
+        }
+        return status;
+    }
+
+    if (publicKey != NULL) {
+        if (pubKey == NULL) {
+            *publicKey = SecKeyCopyPublicKey(privKey);
+        } else {
+            *publicKey = pubKey;
+        }
+    } else if (pubKey != NULL) {
+        CFRelease(pubKey);
+    }
+    if (privateKey != NULL) {
+        *privateKey = privKey;
+    } else {
+        CFRelease(privKey);
+    }
+    return errSecSuccess;
 }
 
 SecKeyRef
 SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
-    SecKeyRef privateKey = NULL, publicKey = NULL;
-    OSStatus status = SecKeyGeneratePairInternal(false, parameters, &publicKey, &privateKey);
-    SecError(status, error, CFSTR("failed to generate asymmetric keypair"));
-    if (publicKey != NULL) {
+    SecKeyRef publicKey = NULL;
+    SecKeyRef privKey = _SecKeyCreateRandomKey(false, parameters, &publicKey, error);
+    if (privKey != NULL && publicKey != NULL) {
         CFRelease(publicKey);
     }
-    return privateKey;
+    return privKey;
 }
 
 OSStatus SecKeyRawVerifyOSX(

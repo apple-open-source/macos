@@ -27,6 +27,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "CallLinkInfo.h"
 #include "WasmFormat.h"
 #include "WasmGlobal.h"
 #include "WasmMemory.h"
@@ -64,10 +65,10 @@ public:
     JS_EXPORT_PRIVATE ~Instance();
 
     JSWebAssemblyInstance* owner() const { return m_owner; }
-    static ptrdiff_t offsetOfOwner() { return OBJECT_OFFSETOF(Instance, m_owner); }
-    static ptrdiff_t offsetOfVM() { return OBJECT_OFFSETOF(Instance, m_vm); }
-    static ptrdiff_t offsetOfSoftStackLimit() { return OBJECT_OFFSETOF(Instance, m_softStackLimit); }
-    static ptrdiff_t offsetOfGlobalObject() { return OBJECT_OFFSETOF(Instance, m_globalObject); }
+    static constexpr ptrdiff_t offsetOfOwner() { return OBJECT_OFFSETOF(Instance, m_owner); }
+    static constexpr ptrdiff_t offsetOfVM() { return OBJECT_OFFSETOF(Instance, m_vm); }
+    static constexpr ptrdiff_t offsetOfSoftStackLimit() { return OBJECT_OFFSETOF(Instance, m_softStackLimit); }
+    static constexpr ptrdiff_t offsetOfGlobalObject() { return OBJECT_OFFSETOF(Instance, m_globalObject); }
 
     void updateSoftStackLimit(void* softStackLimit) { m_softStackLimit = softStackLimit; }
 
@@ -83,8 +84,8 @@ public:
     const Element* elementAt(unsigned) const;
 
     void initElementSegment(uint32_t tableIndex, const Element& segment, uint32_t dstOffset, uint32_t srcOffset, uint32_t length);
-    template<typename T> bool copyDataSegment(uint32_t segmentIndex, uint32_t offset, uint32_t lengthInBytes, FixedVector<T>& values);
-    void copyElementSegment(const Element& segment, uint32_t srcOffset, uint32_t length, FixedVector<uint64_t>& values);
+    bool copyDataSegment(uint32_t segmentIndex, uint32_t offset, uint32_t lengthInBytes, uint8_t* values);
+    void copyElementSegment(const Element& segment, uint32_t srcOffset, uint32_t length, uint64_t* values);
 
     bool isImportFunction(uint32_t functionIndex) const
     {
@@ -201,20 +202,30 @@ public:
         return &Wasm::Global::fromBinding(*pointer);
     }
 
-    static ptrdiff_t offsetOfMemory() { return OBJECT_OFFSETOF(Instance, m_memory); }
-    static ptrdiff_t offsetOfGlobals() { return OBJECT_OFFSETOF(Instance, m_globals); }
-    static ptrdiff_t offsetOfCachedMemory() { return OBJECT_OFFSETOF(Instance, m_cachedMemory); }
-    static ptrdiff_t offsetOfCachedBoundsCheckingSize() { return OBJECT_OFFSETOF(Instance, m_cachedBoundsCheckingSize); }
-    static ptrdiff_t offsetOfTemporaryCallFrame() { return OBJECT_OFFSETOF(Instance, m_temporaryCallFrame); }
+    static constexpr ptrdiff_t offsetOfMemory() { return OBJECT_OFFSETOF(Instance, m_memory); }
+    static constexpr ptrdiff_t offsetOfGlobals() { return OBJECT_OFFSETOF(Instance, m_globals); }
+    static constexpr ptrdiff_t offsetOfCachedMemory() { return OBJECT_OFFSETOF(Instance, m_cachedMemory); }
+    static constexpr ptrdiff_t offsetOfCachedBoundsCheckingSize() { return OBJECT_OFFSETOF(Instance, m_cachedBoundsCheckingSize); }
+    static constexpr ptrdiff_t offsetOfTemporaryCallFrame() { return OBJECT_OFFSETOF(Instance, m_temporaryCallFrame); }
 
     // Tail accessors.
     static constexpr size_t offsetOfTail() { return WTF::roundUpToMultipleOf<sizeof(uint64_t)>(sizeof(Instance)); }
+
+    static constexpr uintptr_t NullWasmCallee = 0;
+
     struct ImportFunctionInfo {
         // Target instance and entrypoint are only set for wasm->wasm calls, and are otherwise nullptr. The js-specific logic occurs through import function.
         Instance* targetInstance { nullptr };
         WasmToWasmImportableFunction::LoadLocation wasmEntrypointLoadLocation { nullptr };
         CodePtr<WasmEntryPtrTag> importFunctionStub;
         WriteBarrier<JSObject> importFunction { };
+        // This is only used when we need to jump directly into the LLInt/IPInt.
+        const uintptr_t* boxedTargetCalleeLoadLocation { &NullWasmCallee };
+        DataOnlyCallLinkInfo callLinkInfo;
+#if CPU(ADDRESS32)
+        void* _ { nullptr }; // padding
+#endif
+        static constexpr ptrdiff_t offsetOfCallLinkInfo() { return OBJECT_OFFSETOF(ImportFunctionInfo, callLinkInfo); }
     };
     unsigned numImportFunctions() const { return m_numImportFunctions; }
     ImportFunctionInfo* importFunctionInfo(size_t importFunctionNum)
@@ -224,8 +235,10 @@ public:
     }
     static size_t offsetOfTargetInstance(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + OBJECT_OFFSETOF(ImportFunctionInfo, targetInstance); }
     static size_t offsetOfWasmEntrypointLoadLocation(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + OBJECT_OFFSETOF(ImportFunctionInfo, wasmEntrypointLoadLocation); }
+    static size_t offsetOfBoxedTargetCalleeLoadLocation(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + OBJECT_OFFSETOF(ImportFunctionInfo, boxedTargetCalleeLoadLocation); }
     static size_t offsetOfImportFunctionStub(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + OBJECT_OFFSETOF(ImportFunctionInfo, importFunctionStub); }
     static size_t offsetOfImportFunction(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + OBJECT_OFFSETOF(ImportFunctionInfo, importFunction); }
+    static size_t offsetOfCallLinkInfo(size_t importFunctionNum) { return offsetOfTail() + importFunctionNum * sizeof(ImportFunctionInfo) + ImportFunctionInfo::offsetOfCallLinkInfo(); }
     WriteBarrier<JSObject>& importFunction(unsigned importFunctionNum) { return importFunctionInfo(importFunctionNum)->importFunction; }
 
     static_assert(sizeof(ImportFunctionInfo) == WTF::roundUpToMultipleOf<sizeof(uint64_t)>(sizeof(ImportFunctionInfo)), "We rely on this for the alignment to be correct");

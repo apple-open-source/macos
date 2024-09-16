@@ -283,6 +283,7 @@ struct vtd_free_queued_t
 	ppnum_t  addr;
 	ppnum_t  size;
 	uint32_t stamp[kMaxUnits];
+	struct vtd_space *space;
 };
 
 enum
@@ -307,14 +308,10 @@ struct vtd_space
 	uint8_t             max_level;
 	uint8_t             waiting_space;
 	uint8_t             bheads_count;
+	uint32_t            pending_free;
 	vtd_table_entry_t * bheads;
 	
 	vtd_space_stats_t   stats;
-	
-	vtd_free_queued_t   free_queue[kFreeQCount][kFreeQElems];
-	volatile uint32_t   free_head[kFreeQCount];
-	volatile uint32_t   free_tail[kFreeQCount];
-	uint32_t            free_mask;
 
 	uint32_t            rentries;
 	struct vtd_rbaddr_list rbaddr_list;
@@ -364,6 +361,11 @@ public:
 
 	vtd_space_t     * fAMDSpace;
     IOLock          * fAMDMapperLock;
+
+	vtd_free_queued_t   free_queue[kFreeQCount][kFreeQElems];
+	volatile uint32_t   free_head[kFreeQCount];
+	volatile uint32_t   free_tail[kFreeQCount];
+	uint32_t            free_mask;
 
 	static void install(IOWorkLoop * wl, uint32_t flags,
 						IOService * provider, const OSData * data,

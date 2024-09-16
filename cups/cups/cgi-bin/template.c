@@ -396,6 +396,8 @@ cgi_copy(FILE *out,			/* I - Output file */
       * See if the terminating character requires another test...
       */
 
+      fprintf(stderr, "DEBUG2: %*s\"{%s}\"  mapped to \"%s\"...\n", indent, "", name, outptr);
+
       if (ch == '}')
       {
        /*

@@ -33,8 +33,6 @@ a Certificate from a Certificate Authority</a> <br>
 6. <a href="#Displaying%20a%20Certificate">Displaying a Certificate</a> <br>
 7. <a href="#Certificate%20Authorities%20and%20CSRs">Certificate Authorities 
 and CSRs</a> <br>
-8. <a href="#5._Importing_a_CRL">Importing a CRL</a> <br>
-9. <a href="#6._Displaying_a_CRL">Displaying a CRL</a> 
 <h2> 1.&nbsp;<a name="Introduction"></a>Introduction</h2>
   
 <blockquote>CertTool is a UNIX command-line program which is used to create 
@@ -334,46 +332,6 @@ of whom recognize your root cert.</blockquote>
   
 <blockquote>&nbsp;</blockquote>
    
-<h2><a name="5._Importing_a_CRL"></a> 5.&nbsp;<a name="Importing_a_CRL"></a>Importing 
-a CRL</h2>
-  
-<blockquote>This command is used to add a Certificate Revocation List (CRL)
-to a keychain.<i></i> 
-  <p>The format of this command is </p>
-  <p># <b>CertTool I inFileName [options]</b> </p>
-  <p>The CRL to import is obtained from "inFileName".&nbsp; </p>
-  <p>The available options are: </p>
-  <p>k=keyChainName </p>
-  <blockquote>Where "KeyChainName" is the name of the keychain to which the
-CRL will be added. If no keychain is specified, the cert is added to the default
-keychain.&nbsp; If the keychain is not open when this command is executed,
-you will be prompted by the Keychain system for its passphrase.</blockquote>
- d 
-  <blockquote>Specifies DER format as described above. The default is PEM 
-format.<br>
-  </blockquote>
-  c   
-  <blockquote>Specifies that the designated keychain is to be created.<br>
-  </blockquote>
-  <blockquote>
-    <blockquote>      <br>
-   </blockquote>
-  <br>
-  </blockquote>
- </blockquote>
-  
-<h2><a name="6._Displaying_a_CRL"></a> 6.&nbsp;<a
- name="Displaying_a_CRL"></a>Displaying a CRL</h2>
-  
-<blockquote>This displays the contents of an existing&nbsp;Certificate Revocation
-List (CRL) , obtained from a file. 
-  <p>The format of this command is </p>
-  <p># <b>CertTool D inFileName [options]</b> </p>
-  <p>The cert to display is obtained from "inFileName". </p>
-  <p>The only available option is the 'd' flag, specifying DER format as described
-above. The default is PEM format <br>
-&nbsp;</p>
-</blockquote>
 <br>
 </body>
 </html>

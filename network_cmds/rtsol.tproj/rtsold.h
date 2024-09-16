@@ -39,7 +39,7 @@ struct ifinfo {
 	int active;		/* interface status */
 	int probeinterval;	/* interval of probe timer(if necessary) */
 	int probetimer;		/* rest of probe timer */
-	int mediareqok;		/* wheter the IF supports SIOCGIFMEDIA */
+	int mediareqok;		/* whether the IF supports SIOCGIFMEDIA */
 	int state;
 	int probes;
 	int dadcount;
@@ -85,8 +85,7 @@ extern void sendpacket __P((struct ifinfo *ifinfo));
 extern void rtsol_input __P((int s));
 
 /* probe.c */
-extern int probe_init __P((void));
-extern void defrouter_probe __P((int ifindex));
+extern int defrouter_probe __P((uint32_t ifindex, uint32_t linkid));
 
 /* dump.c */
 extern void rtsold_dump_file __P((char *));

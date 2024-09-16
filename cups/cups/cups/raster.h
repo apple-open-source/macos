@@ -142,8 +142,10 @@ typedef enum cups_cspace_e		/**** cupsColorSpace attribute values ****/
   CUPS_CSPACE_RGBW = 17,		/* Red, green, blue, white (DeviceRGB, sRGB by default) @since CUPS 1.2/macOS 10.5@ */
   CUPS_CSPACE_SW = 18,			/* Luminance (gamma 2.2) @since CUPS 1.4.5@ */
   CUPS_CSPACE_SRGB = 19,		/* Red, green, blue (sRGB) @since CUPS 1.4.5@ */
-  CUPS_CSPACE_ADOBERGB = 20,		/* Red, green, blue (Adobe RGB) @since CUPS 1.4.5@ */
-
+  CUPS_CSPACE_ADOBERGB = 20,	/* Red, green, blue (Adobe RGB) @since CUPS 1.4.5@ */
+  CUPS_CSPACE_P3E = 21,			/* Red, green, blue floats, Display P3 extended */
+  CUPS_CSPACE_GRAYE = 22,         /* Extended linear gray for monochrome */
+	
   CUPS_CSPACE_ICC1 = 32,		/* ICC-based, 1 color @since CUPS 1.1.19/macOS 10.3@ */
   CUPS_CSPACE_ICC2 = 33,		/* ICC-based, 2 colors @since CUPS 1.1.19/macOS 10.3@ */
   CUPS_CSPACE_ICC3 = 34,		/* ICC-based, 3 colors @since CUPS 1.1.19/macOS 10.3@ */

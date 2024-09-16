@@ -146,13 +146,13 @@ nfs4_access_rpc(nfsnode_t np, u_int32_t *access, int rpcflags, vfs_context_t ctx
 		uid = kauth_cred_getuid(vfs_context_ucred(ctx));
 	}
 	slot = nfs_node_access_slot(np, uid, 1);
-	np->n_accessuid[slot] = uid;
+	np->n_accessuid(slot) = uid;
 	microuptime(&now);
-	np->n_accessstamp[slot] = now.tv_sec;
-	np->n_access[slot] = access_result;
+	np->n_accessstamp(slot) = now.tv_sec;
+	np->n_access(slot) = access_result;
 
 	/* pass back the access returned with this request */
-	*access = np->n_access[slot];
+	*access = np->n_access(slot);
 nfsmout:
 	if (!lockerror) {
 		nfs_node_unlock(np);
@@ -2016,6 +2016,7 @@ tryagain:
 		newnoop = kalloc_type(struct nfs_open_owner,
 		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 		lck_mtx_init(&newnoop->noo_lock, get_lck_group(NLG_OPEN), LCK_ATTR_NULL);
+		lck_mtx_init(&newnoop->noo_opens_lock, get_lck_group(NLG_OPEN), LCK_ATTR_NULL);
 		newnoop->noo_mount = nmp;
 		kauth_cred_ref(cred);
 		newnoop->noo_cred = cred;
@@ -2053,6 +2054,7 @@ nfs_open_owner_destroy(struct nfs_open_owner *noop)
 		kauth_cred_unref(&noop->noo_cred);
 	}
 	lck_mtx_destroy(&noop->noo_lock, get_lck_group(NLG_OPEN));
+	lck_mtx_destroy(&noop->noo_opens_lock, get_lck_group(NLG_OPEN));
 	kfree_type(struct nfs_open_owner, noop);
 }
 
@@ -2242,9 +2244,9 @@ alloc:
 		newnofp->nof_owner = noop;
 		nfs_open_owner_ref(noop);
 		newnofp->nof_np = np;
-		lck_mtx_lock(&noop->noo_lock);
+		lck_mtx_lock(&noop->noo_opens_lock);
 		TAILQ_INSERT_HEAD(&noop->noo_opens, newnofp, nof_oolink);
-		lck_mtx_unlock(&noop->noo_lock);
+		lck_mtx_unlock(&noop->noo_opens_lock);
 		if (np) {
 			goto tryagain;
 		}
@@ -2278,9 +2280,9 @@ alloc:
 void
 nfs_open_file_destroy(struct nfs_open_file *nofp)
 {
-	lck_mtx_lock(&nofp->nof_owner->noo_lock);
+	lck_mtx_lock(&nofp->nof_owner->noo_opens_lock);
 	TAILQ_REMOVE(&nofp->nof_owner->noo_opens, nofp, nof_oolink);
-	lck_mtx_unlock(&nofp->nof_owner->noo_lock);
+	lck_mtx_unlock(&nofp->nof_owner->noo_opens_lock);
 	nfs_open_owner_rele(nofp->nof_owner);
 	lck_mtx_destroy(&nofp->nof_lock, get_lck_group(NLG_OPEN));
 	kfree_type(struct nfs_open_file, nofp);
@@ -3713,6 +3715,63 @@ nfs_file_lock_conflict(struct nfs_file_lock *nflp1, struct nfs_file_lock *nflp2,
 	return 1;
 }
 
+/*
+ * A potential for deadlock occurs if a process controlling a locked region
+ * is put to sleep by attempting to lock another process' locked region.
+ * If the system detects that sleeping until a locked region is unlocked would
+ * cause a deadlock, fcntl() shall fail with an [EDEADLK] error.
+ *
+ * Assume np->n_openlock lock is held.
+ */
+int
+nfs_file_lock_deadlock(struct nfs_open_owner *noop, nfsnode_t np, pid_t newnfl_pid, pid_t nflp_pid)
+{
+	int error = 0;
+	struct nfs_open_file *nofp = NULL;
+	struct nfs_file_lock *nflp1 = NULL, *nflp2 = NULL;
+
+	/* Get the open owner, and iterate over it's open files */
+	lck_mtx_lock(&noop->noo_opens_lock);
+	TAILQ_FOREACH(nofp, &noop->noo_opens, nof_oolink) {
+		if (nofp->nof_np == NULL) {
+			/* nfs node was not assigned to this open-file */
+			continue;
+		}
+		if (nofp->nof_np == np) {
+			/* We dont need to check the lock of the current file */
+			continue;
+		}
+		/* For each file, iterate over it's locks */
+		lck_mtx_lock(&nofp->nof_np->n_openlock);
+		TAILQ_FOREACH(nflp1, &nofp->nof_np->n_locks, nfl_link) {
+			/* Find the lock of the current process, make sure it is not blocked or dead, and at least single process is blocked on it */
+			if (nflp1->nfl_pid == newnfl_pid && !ISSET(nflp1->nfl_flags, NFS_FILE_LOCK_BLOCKED | NFS_FILE_LOCK_DEAD) && nflp1->nfl_blockcnt) {
+				/* Find a lock of the other process, make sure it is blocked on the current process, but not dead */
+				TAILQ_FOREACH(nflp2, &nofp->nof_np->n_locks, nfl_link) {
+					if (nflp2->nfl_pid == nflp_pid && nflp1 == nflp2->nfl_blocked && ISSET(nflp2->nfl_flags, NFS_FILE_LOCK_BLOCKED) && !ISSET(nflp2->nfl_flags, NFS_FILE_LOCK_DEAD)) {
+						/* Check for conflict for the two locks */
+						if (nfs_file_lock_conflict(nflp1, nflp2, NULL)) {
+							error = EDEADLK;
+							NP2(np, nofp->nof_np, "nfs_file_lock_deadlock: Deadlock avoided between pids [%d, %d]", newnfl_pid, nflp_pid);
+							break;
+						}
+					}
+				}
+				if (error) {
+					break;
+				}
+			}
+		}
+		lck_mtx_unlock(&nofp->nof_np->n_openlock);
+		if (error) {
+			break;
+		}
+	}
+	lck_mtx_unlock(&noop->noo_opens_lock);
+
+	return error;
+}
+
 #if CONFIG_NFS4
 /*
  * Send an NFSv4 LOCK RPC to the server.
@@ -4137,6 +4196,7 @@ nfs_advlock_setlock(
 	}
 	newnflp->nfl_flags |= style;
 	newnflp->nfl_flags |= NFS_FILE_LOCK_BLOCKED;
+	newnflp->nfl_pid = proc_pid(vfs_context_proc(ctx));
 
 	if ((style == NFS_FILE_LOCK_STYLE_FLOCK) && (type == F_WRLCK)) {
 		/*
@@ -4203,7 +4263,16 @@ restart:
 			error = ENOLCK;
 			break;
 		}
+		/* Check for potential deadlock only if nflp is acquired (not blocked) */
+		if (nflp->nfl_blocked == NULL && newnflp->nfl_pid && nflp->nfl_pid) {
+			error = nfs_file_lock_deadlock(nofp->nof_owner, np, newnflp->nfl_pid, nflp->nfl_pid);
+			if (error) {
+				break;
+			}
+		}
+
 		nflp->nfl_blockcnt++;
+		newnflp->nfl_blocked = nflp;
 		do {
 			if (flocknflp) {
 				/* release any currently held shared lock before sleeping */
@@ -4243,6 +4312,7 @@ restart:
 			}
 		} while (!error && nfs_file_lock_conflict(newnflp, nflp, NULL));
 		nflp->nfl_blockcnt--;
+		newnflp->nfl_blocked = NULL;
 		if ((nflp->nfl_flags & NFS_FILE_LOCK_DEAD) && !nflp->nfl_blockcnt) {
 			TAILQ_REMOVE(&np->n_locks, nflp, nfl_link);
 			nfs_file_lock_destroy(np, nflp, vfs_context_thread(ctx), vfs_context_ucred(ctx));
@@ -4478,6 +4548,7 @@ error_out:
 			nflp2->nfl_start = newnflp->nfl_end + 1;
 			nflp2->nfl_end = nflp->nfl_end;
 			nflp->nfl_end = newnflp->nfl_start - 1;
+			nflp2->nfl_pid = nflp->nfl_pid;
 			TAILQ_INSERT_AFTER(&np->n_locks, nflp, nflp2, nfl_link);
 			nfs_lock_owner_insert_held_lock(nlop, nflp2);
 			nextnflp = nflp2;
@@ -4777,6 +4848,7 @@ restart:
 			newnflp->nfl_type = nflp->nfl_type;
 			newnflp->nfl_start = end + 1;
 			newnflp->nfl_end = nflp->nfl_end;
+			newnflp->nfl_pid = nflp->nfl_pid;
 			nflp->nfl_end = start - 1;
 			TAILQ_INSERT_AFTER(&np->n_locks, nflp, newnflp, nfl_link);
 			nfs_lock_owner_insert_held_lock(nlop, newnflp);
@@ -5314,7 +5386,7 @@ nfs4_open_rpc_internal(
 	struct nfsmount *nmp;
 	struct nfs_open_owner *noop = nofp->nof_owner;
 	struct nfs_vattr *nvattr;
-	int error = 0, open_error = EIO, lockerror = ENOENT, status, ciflag = 0;
+	int error = 0, open_error = EIO, lockerror = ENOENT, status;
 	int nfsvers, namedattrs, numops, exclusive = 0, gotuid, gotgid, flags = R_NOINTR;
 	u_int64_t xid, savedxid = 0;
 	nfsnode_t dnp = VTONFS(dvp);
@@ -5413,11 +5485,9 @@ again:
 		if (exclusive) {
 			nfsm_chain_add_32(error, &nmreq, NFS_CREATE_EXCLUSIVE);
 			error = nfsm_chaim_add_exclusive_create_verifier(error, &nmreq, nmp);
-			ciflag = NFS_CREATE_EXCLUSIVE;
 		} else {
 			nfsm_chain_add_32(error, &nmreq, NFS_CREATE_UNCHECKED);
 			nfsm_chain_add_fattr4(error, &nmreq, vap, nmp);
-			ciflag = NFS_CREATE_UNCHECKED;
 		}
 	}
 	nfsm_chain_add_32(error, &nmreq, NFS_CLAIM_NULL);
@@ -5462,7 +5532,7 @@ again:
 		error = lockerror;
 	}
 	nfsmout_if(error);
-	nfsm_chain_check_change_info_open(error, &nmrep, dnp, ciflag);
+	nfsm_chain_check_change_info(error, &nmrep, dnp);
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
 	nfsm_chain_get_bitmap(error, &nmrep, bitmap, bmlen);
@@ -5894,7 +5964,7 @@ nfs4_claim_delegated_open_rpc(
 		error = lockerror;
 	}
 	nfsmout_if(error);
-	nfsm_chain_check_change_info_open(error, &nmrep, VTONFS(dvp), 0);
+	nfsm_chain_check_change_info(error, &nmrep, VTONFS(dvp));
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
 	nfsm_chain_get_bitmap(error, &nmrep, bitmap, bmlen);
@@ -6135,7 +6205,7 @@ nfs4_open_reclaim_rpc(
 	 *
 	 * For more info see rdar://113492594
 	 */
-	nfsm_chain_check_change_info_open(error, &nmrep, (nfsnode_t)NULL, 0);
+	nfsm_chain_check_change_info(error, &nmrep, (nfsnode_t)NULL);
 
 	nfsm_chain_get_32(error, &nmrep, rflags);
 	bmlen = NFS_ATTR_BITMAP_LEN;
@@ -6357,7 +6427,7 @@ nfs4_close_rpc(
 
 	// Sanity check - don't send CLOSE operation with zero state id
 	if (!memcmp(&zstateid, &nofp->nof_stateid, sizeof(nofp->nof_stateid))) {
-		NP(np, "nfs4_close_rpc was called with zero stateid: np %p, nofp %p", np, nofp);
+		NP(np, "nfs4_close_rpc was called with zero stateid: nofp 0x%lx", nfs_kernel_hideaddr(nofp));
 		return 0;
 	}
 
@@ -6751,7 +6821,7 @@ nfs_revoke_open_state_for_node(nfsnode_t np)
 	nfs_node_unlock(np);
 
 	nfs_release_open_state_for_node(np, 0);
-	NP(np, "nfs: state lost for %p 0x%x", np, np->n_flag);
+	NP(np, "nfs: state lost 0x%x", np->n_flag);
 
 	/* mark mount as needing a revoke scan and have the socket thread do it. */
 	if ((nmp = NFSTONMP(np))) {
@@ -8115,7 +8185,7 @@ nfs4_named_attr_get(
 		/* nfs_getattr() will check changed and purge caches */
 		error = nfs_getattr(adnp, NULL, ctx, NGA_CACHED);
 		nfsmout_if(error);
-		error = cache_lookup(NFSTOV(adnp), &avp, cnp);
+		error = cache_lookup_ext(NFSTOV(adnp), &avp, cnp, CACHE_LOOKUP_ALLHITS);
 		switch (error) {
 		case ENOENT:
 			/* negative cache entry */
@@ -8399,7 +8469,7 @@ restart:
 		nfsm_chain_op_check(error, &nmrep, NFS_OP_OPEN);
 		nfs_owner_seqid_increment(noop, NULL, error);
 		nfsm_chain_get_stateid(error, &nmrep, &newnofp->nof_stateid);
-		nfsm_chain_check_change_info_open(error, &nmrep, adnp, create ? NFS_CREATE_UNCHECKED : 0);
+		nfsm_chain_check_change_info(error, &nmrep, adnp);
 		nfsm_chain_get_32(error, &nmrep, rflags);
 		bmlen = NFS_ATTR_BITMAP_LEN;
 		nfsm_chain_get_bitmap(error, &nmrep, bitmap, bmlen);

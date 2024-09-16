@@ -54,10 +54,18 @@
 #define PASTEBOARD_SUPPORTS_ITEM_PROVIDERS (PLATFORM(IOS_FAMILY) && !(PLATFORM(WATCHOS) || PLATFORM(APPLETV)))
 #define PASTEBOARD_SUPPORTS_PRESENTATION_STYLE_AND_TEAM_DATA (PASTEBOARD_SUPPORTS_ITEM_PROVIDERS && !PLATFORM(MACCATALYST))
 
+@interface UIPasteboard () <AbstractPasteboard>
+@end
+
 namespace WebCore {
 
+static UIPasteboard *generalUIPasteboard()
+{
+    return static_cast<UIPasteboard *>([PAL::getUIPasteboardClass() generalPasteboard]);
+}
+
 PlatformPasteboard::PlatformPasteboard()
-    : m_pasteboard([PAL::getUIPasteboardClass() generalPasteboard])
+    : m_pasteboard(generalUIPasteboard())
 {
 }
 
@@ -67,11 +75,11 @@ PlatformPasteboard::PlatformPasteboard(const String& name)
     if (name == Pasteboard::nameOfDragPasteboard())
         m_pasteboard = [WebItemProviderPasteboard sharedInstance];
     else
-        m_pasteboard = [PAL::getUIPasteboardClass() generalPasteboard];
+        m_pasteboard = generalUIPasteboard();
 }
 #else
 PlatformPasteboard::PlatformPasteboard(const String&)
-    : m_pasteboard([PAL::getUIPasteboardClass() generalPasteboard])
+    : m_pasteboard(generalUIPasteboard())
 {
 }
 #endif

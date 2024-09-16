@@ -40,11 +40,11 @@ class DrawingAreaProxyWC final : public DrawingAreaProxy {
 public:
     DrawingAreaProxyWC(WebPageProxy&, WebProcessProxy&);
 
-    void paint(cairo_t*, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
+    void paint(PlatformPaintContextPtr, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
 
 private:
     // DrawingAreaProxy
-    void deviceScaleFactorDidChange() override { }
+    void deviceScaleFactorDidChange() override;
     void sizeDidChange() override;
     bool shouldSendWheelEventsToEventDispatcher() const final { return true; }
 

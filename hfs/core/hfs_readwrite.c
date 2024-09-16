@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,9 @@
 
 #include <sys/kdebug.h>
 
+#define CONFIG_MACF 1
+#include <security/mac_framework.h>
+
 #include	"hfs.h"
 #include	"hfs_attrlist.h"
 #include	"hfs_endian.h"
@@ -79,6 +82,7 @@
 #endif
 
 #define can_cluster(size) ((((size & (4096-1))) == 0) && (size <= (MAXPHYSIO/2)))
+#define MAX_AUTHORIZE_RETRIES 5
 
 enum {
 	MAXHFSFILESIZE = 0x7FFFFFFF		/* this needs to go in the mount structure */
@@ -1641,6 +1645,31 @@ out_unlock:
 	return 0;
 }
 
+static int
+authorize_bsd_flags(vnode_t vp, vfs_context_t ctx, uint32_t flags)
+{
+	struct vnode_attr va;
+	kauth_action_t action = 0;
+	int error;
+
+	if ((error = mac_vnode_check_setflags(ctx, vp, flags))) {
+		return error;
+	}
+
+	VATTR_INIT(&va);
+	VATTR_SET(&va, va_flags, flags);
+
+	if ((error = vnode_authattr(vp, &va, &action, ctx)) != 0) {
+		return error;
+	}
+
+	if (action && ((error = vnode_authorize(vp, NULL, action, ctx)) != 0)) {
+		return error;
+	}
+
+	return 0;
+}
+
 /*
  * Control filesystem operating characteristics.
  */
@@ -1811,6 +1840,9 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		struct fileproc *to_fp;
 		struct vnode *to_vp;
 		struct cnode *to_cp;
+		uint32_t from_bsd_flags, to_bsd_flags;
+		int authorize_retries = MAX_AUTHORIZE_RETRIES;
+		int need_unlock = 0;
 
 		cp = VTOC(vp);
 
@@ -1828,14 +1860,45 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 			goto transfer_cleanup;
 		}
 
-		int need_unlock = 1;
 		to_cp = VTOC(to_vp);
+
+do_authorize_flags:
+
+		from_bsd_flags = cp->c_bsdflags;
+		to_bsd_flags = to_cp->c_bsdflags;
+
+		// authorize setting bsdflags without holding the inodes locks
+		// we're holding an iocount on the vnodes, this prevents recycling/reclaim
+		// from happening concurrently
+		error = authorize_bsd_flags(vp, ap->a_context, (from_bsd_flags & ~UF_TRACKED));
+		if (error) {
+			goto transfer_cleanup;
+		}
+
+		error = authorize_bsd_flags(to_vp, ap->a_context, (to_bsd_flags | UF_TRACKED));
+		if (error) {
+			goto transfer_cleanup;
+		}
+
 		error = hfs_lockpair(cp, to_cp, HFS_EXCLUSIVE_LOCK);
 		if (error != 0) {
 			//printf("could not lock the pair of cnodes (error %d)\n", error);
 			goto transfer_cleanup;
 		}
-			
+		need_unlock = 1;
+
+		// make sure that the UF_TRACKED bits are still the same now that we hold the locks
+		if (((cp->c_bsdflags & UF_TRACKED) != (from_bsd_flags & UF_TRACKED))
+			|| ((to_cp->c_bsdflags & UF_TRACKED) != (to_bsd_flags & UF_TRACKED))) {
+			if (authorize_retries--) {
+				hfs_unlockpair(cp, to_cp);
+				need_unlock = 0;
+				goto do_authorize_flags;
+			}
+			error = EAGAIN;
+			goto transfer_cleanup;
+		}
+
 		if (!(cp->c_bsdflags & UF_TRACKED)) {
 			error = EINVAL;
 		} else if (to_cp->c_bsdflags & UF_TRACKED) {
@@ -1858,7 +1921,8 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 				uint32_t new_id;
 
 				hfs_unlockpair(cp, to_cp);  // have to unlock to be able to get a new-id
-				
+				need_unlock = 0;
+
 				if ((error = hfs_generate_document_id(hfsmp, &new_id)) == 0) {
 					//
 					// re-lock the pair now that we have the document-id
@@ -1869,7 +1933,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 					goto transfer_cleanup;
 				}
 			}
-					
+
 			to_extinfo->document_id = f_extinfo->document_id;
 			f_extinfo->document_id = 0;
 			//printf("TRANSFERRING: doc-id %d from ino %d to ino %d\n", to_extinfo->document_id, cp->c_fileid, to_cp->c_fileid);
@@ -1911,12 +1975,12 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 				add_fsevent(FSE_STAT_CHANGED, context, FSE_ARG_VNODE, to_vp, FSE_ARG_DONE);
 			}
 		}
-		
+
+	transfer_cleanup:
 		if (need_unlock) {
 			hfs_unlockpair(cp, to_cp);
 		}
 
-	transfer_cleanup:
 		vnode_put(to_vp);
 		file_drop(to_fd);
 
@@ -2635,12 +2699,12 @@ fail_change_next_allocation:
 	}
 
 	case HFSIOC_GET_VOL_CREATE_TIME_32: {
-		*(user32_time_t *)(ap->a_data) = (user32_time_t) (to_bsd_time(VTOVCB(vp)->localCreateDate));
+		*(user32_time_t *)(ap->a_data) = (user32_time_t) (to_bsd_time(VTOVCB(vp)->localCreateDate, (VTOHFS(vp)->hfs_flags & HFS_EXPANDED_TIMES)));
 		return 0;
 	}
 
 	case HFSIOC_GET_VOL_CREATE_TIME_64: {
-		*(user64_time_t *)(ap->a_data) = (user64_time_t) (to_bsd_time(VTOVCB(vp)->localCreateDate));
+		*(user64_time_t *)(ap->a_data) = (user64_time_t) (to_bsd_time(VTOVCB(vp)->localCreateDate, (VTOHFS(vp)->hfs_flags & HFS_EXPANDED_TIMES)));
 		return 0;
 	}
 

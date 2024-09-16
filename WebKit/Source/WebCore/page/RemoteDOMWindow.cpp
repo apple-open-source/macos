@@ -31,6 +31,7 @@
 #include "LocalDOMWindow.h"
 #include "MessagePort.h"
 #include "NavigationScheduler.h"
+#include "Page.h"
 #include "RemoteFrame.h"
 #include "RemoteFrameClient.h"
 #include "SecurityOrigin.h"
@@ -44,7 +45,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RemoteDOMWindow);
 
 RemoteDOMWindow::RemoteDOMWindow(RemoteFrame& frame, GlobalWindowIdentifier&& identifier)
-    : DOMWindow(WTFMove(identifier))
+    : DOMWindow(WTFMove(identifier), DOMWindowType::Remote)
     , m_frame(frame)
 {
 }
@@ -58,18 +59,16 @@ WindowProxy* RemoteDOMWindow::self() const
     return &m_frame->windowProxy();
 }
 
-void RemoteDOMWindow::close(Document&)
+void RemoteDOMWindow::closePage()
 {
-    // FIXME: <rdar://117381050> Add security checks here equivalent to LocalDOMWindow::close (both with and without Document& parameter).
-    // Or refactor to share code.
-    if (m_frame && m_frame->isMainFrame())
-        m_frame->client().close();
+    if (!m_frame)
+        return;
+    m_frame->client().closePage();
 }
 
-bool RemoteDOMWindow::closed() const
+void RemoteDOMWindow::frameDetached()
 {
-    // FIXME: This is probably not completely correct. <rdar://116203970>
-    return !m_frame;
+    m_frame = nullptr;
 }
 
 void RemoteDOMWindow::focus(LocalDOMWindow&)
@@ -81,7 +80,9 @@ void RemoteDOMWindow::focus(LocalDOMWindow&)
 
 void RemoteDOMWindow::blur()
 {
-    // FIXME: Implemented this. <rdar://116203970>
+    // FIXME(268121): Add security checks here equivalent to LocalDOMWindow::blur().
+    if (m_frame && m_frame->isMainFrame())
+        m_frame->client().unfocus();
 }
 
 unsigned RemoteDOMWindow::length() const
@@ -92,42 +93,10 @@ unsigned RemoteDOMWindow::length() const
     return m_frame->tree().childCount();
 }
 
-WindowProxy* RemoteDOMWindow::top() const
-{
-    if (!m_frame)
-        return nullptr;
-
-    return &m_frame->tree().top().windowProxy();
-}
-
-WindowProxy* RemoteDOMWindow::opener() const
-{
-    if (!m_frame)
-        return nullptr;
-
-    RefPtr openerFrame = m_frame->opener();
-    if (!openerFrame)
-        return nullptr;
-
-    return &openerFrame->windowProxy();
-}
-
 void RemoteDOMWindow::setOpener(WindowProxy*)
 {
     // FIXME: <rdar://118263373> Implement.
-    // JSLocalDOMWindow::setOpener has some security checks. Are they needed here?
-}
-
-WindowProxy* RemoteDOMWindow::parent() const
-{
-    if (!m_frame)
-        return nullptr;
-
-    RefPtr parent = m_frame->tree().parent();
-    if (!parent)
-        return nullptr;
-
-    return &parent->windowProxy();
+    // JSDOMWindow::setOpener has some security checks. Are they needed here?
 }
 
 ExceptionOr<void> RemoteDOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObject, LocalDOMWindow& incumbentWindow, JSC::JSValue message, WindowPostMessageOptions&& options)
@@ -148,7 +117,7 @@ ExceptionOr<void> RemoteDOMWindow::postMessage(JSC::JSGlobalObject& lexicalGloba
     if (auto origin = targetSecurityOrigin.releaseReturnValue())
         target = origin->data();
 
-    Vector<RefPtr<MessagePort>> ports;
+    Vector<Ref<MessagePort>> ports;
     auto messageData = SerializedScriptValue::create(lexicalGlobalObject, message, WTFMove(options.transfer), ports, SerializationForStorage::No, SerializationContext::WindowPostMessage);
     if (messageData.hasException())
         return messageData.releaseException();
@@ -167,7 +136,7 @@ ExceptionOr<void> RemoteDOMWindow::postMessage(JSC::JSGlobalObject& lexicalGloba
     return { };
 }
 
-void RemoteDOMWindow::setLocation(LocalDOMWindow& activeWindow, const URL& completedURL, SetLocationLocking locking)
+void RemoteDOMWindow::setLocation(LocalDOMWindow& activeWindow, const URL& completedURL, NavigationHistoryBehavior historyHandling, SetLocationLocking locking)
 {
     // FIXME: Add some or all of the security checks in LocalDOMWindow::setLocation. <rdar://116500603>
     // FIXME: Refactor this duplicate code to share with LocalDOMWindow::setLocation. <rdar://116500603>
@@ -176,13 +145,18 @@ void RemoteDOMWindow::setLocation(LocalDOMWindow& activeWindow, const URL& compl
     if (!activeDocument)
         return;
 
+    RefPtr frame = this->frame();
+    if (!activeDocument->canNavigate(frame.get(), completedURL))
+        return;
+
     // We want a new history item if we are processing a user gesture.
     LockHistory lockHistory = (locking != SetLocationLocking::LockHistoryBasedOnGestureState || !UserGestureIndicator::processingUserGesture()) ? LockHistory::Yes : LockHistory::No;
     LockBackForwardList lockBackForwardList = (locking != SetLocationLocking::LockHistoryBasedOnGestureState) ? LockBackForwardList::Yes : LockBackForwardList::No;
-    frame()->navigationScheduler().scheduleLocationChange(*activeDocument, activeDocument->securityOrigin(),
+    frame->navigationScheduler().scheduleLocationChange(*activeDocument, activeDocument->securityOrigin(),
         // FIXME: What if activeDocument()->frame() is 0?
         completedURL, activeDocument->frame()->loader().outgoingReferrer(),
-        lockHistory, lockBackForwardList);
+        lockHistory, lockBackForwardList,
+        historyHandling);
 }
 
 } // namespace WebCore

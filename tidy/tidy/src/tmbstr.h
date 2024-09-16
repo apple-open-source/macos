@@ -25,20 +25,20 @@ extern "C"
 tmbstr TY_(tmbstrdup)( ctmbstr str );
 
 /* like strndup but using MemAlloc */
-tmbstr TY_(tmbstrndup)( ctmbstr str, uint len);
+tmbstr TY_(tmbstrndup)( ctmbstr str, size_t len);
 
 /* exactly same as strncpy */
-uint TY_(tmbstrncpy)( tmbstr s1, ctmbstr s2, uint size );
+size_t TY_(tmbstrncpy)( tmbstr s1, ctmbstr s2, size_t size );
 
-uint TY_(tmbstrcpy)( tmbstr s1, ctmbstr s2 );
+size_t TY_(tmbstrcpy)( tmbstr s1, ctmbstr s2 );
 
-uint TY_(tmbstrcat)( tmbstr s1, ctmbstr s2 );
+size_t TY_(tmbstrcat)( tmbstr s1, ctmbstr s2 );
 
 /* exactly same as strcmp */
 int TY_(tmbstrcmp)( ctmbstr s1, ctmbstr s2 );
 
 /* returns byte count, not char count */
-uint TY_(tmbstrlen)( ctmbstr str );
+size_t TY_(tmbstrlen)( ctmbstr str );
 
 /*
   MS C 4.2 doesn't include strcasecmp.
@@ -53,17 +53,17 @@ uint TY_(tmbstrlen)( ctmbstr str );
 */
 int TY_(tmbstrcasecmp)( ctmbstr s1, ctmbstr s2 );
 
-int TY_(tmbstrncmp)( ctmbstr s1, ctmbstr s2, uint n );
+int TY_(tmbstrncmp)( ctmbstr s1, ctmbstr s2, size_t n );
 
-int TY_(tmbstrncasecmp)( ctmbstr s1, ctmbstr s2, uint n );
+int TY_(tmbstrncasecmp)( ctmbstr s1, ctmbstr s2, size_t n );
 
 /* return offset of cc from beginning of s1,
 ** -1 if not found.
 */
-/* int TY_(tmbstrnchr)( ctmbstr s1, uint len1, tmbchar cc ); */
+/* int TY_(tmbstrnchr)( ctmbstr s1, size_t len1, tmbchar cc ); */
 
-ctmbstr TY_(tmbsubstrn)( ctmbstr s1, uint len1, ctmbstr s2 );
-/* ctmbstr TY_(tmbsubstrncase)( ctmbstr s1, uint len1, ctmbstr s2 ); */
+ctmbstr TY_(tmbsubstrn)( ctmbstr s1, size_t len1, ctmbstr s2 );
+/* ctmbstr TY_(tmbsubstrncase)( ctmbstr s1, size_t len1, ctmbstr s2 ); */
 ctmbstr TY_(tmbsubstr)( ctmbstr s1, ctmbstr s2 );
 
 /* transform string to lower case */

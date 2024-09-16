@@ -44,7 +44,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	int				sc_status	= kSCStatusOK;
 	CFStringRef			sessionKey;
 
-	SC_trace("%s : %5d : %@",
+	SC_trace("%s : %5u : %@",
 		 internal ? "*remove" : "remove ",
 		 storePrivate->server,
 		 key);
@@ -148,7 +148,7 @@ _configremove(mach_port_t		server,
 #ifdef	DEBUG
 		SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)mySession->store;
 
-		SC_trace("!remove : %5d : %@",
+		SC_trace("!remove : %5u : %@",
 			 storePrivate->server,
 			 key);
 #endif	// DEBUG

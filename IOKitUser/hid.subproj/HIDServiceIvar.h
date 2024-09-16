@@ -28,6 +28,7 @@ IONotificationPortRef       notificationPort; \
 io_object_t                 notification; \
 CFMutableSetRef             removalNotificationSet; \
 CFMutableSetRef             propertyNotificationSet; \
+CFMutableSetRef             requestTerminationNotificationSet; \
 void *                      eventTarget; \
 void *                      eventRefcon; \
 IOHIDServiceEventCallback   eventCallback; \

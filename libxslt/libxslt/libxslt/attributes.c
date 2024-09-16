@@ -508,7 +508,8 @@ xsltParseStylesheetAttributeSet(xsltStylesheetPtr style, xmlNodePtr cur) {
 		break;
 	    endval = curval;
 	    while ((*endval != 0) && (!IS_BLANK(*endval))) endval++;
-	    curval = xmlDictLookup(style->dict, curval, endval - curval);
+	    long curval_len = endval - curval;
+	    curval = xmlDictLookup(style->dict, curval, CLAMP_TO_INT_MAX(curval_len));
 	    if (curval) {
 		const xmlChar *ncname2 = NULL;
 		const xmlChar *prefix2 = NULL;
@@ -1163,7 +1164,8 @@ xsltApplyAttributeSet(xsltTransformContextPtr ctxt, xmlNodePtr node,
         endstr = curstr;
         while ((*endstr != 0) && (!IS_BLANK(*endstr)))
             endstr++;
-        curstr = xmlDictLookup(ctxt->dict, curstr, endstr - curstr);
+        long curstr_len = endstr - curstr;
+        curstr = xmlDictLookup(ctxt->dict, curstr, CLAMP_TO_INT_MAX(curstr_len));
         if (curstr) {
             xmlNsPtr ns;
             const xmlChar *nsUri = NULL;

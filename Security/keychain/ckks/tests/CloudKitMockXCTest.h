@@ -131,7 +131,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSSet<NSString*>*)currentDeviceList;
 - (void)fetchCurrentDeviceListByAltDSID:(NSString *)altDSID
-                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs, 
+                                 flowID:(NSString *)flowID
+                        deviceSessionID:(NSString *)deviceSessionID
+                                  reply:(void (^)(NSSet<NSString *> * _Nullable machineIDs,
                                                   NSSet<NSString*>* _Nullable userInitiatedRemovals,
                                                   NSSet<NSString*>* _Nullable evictedRemovals,
                                                   NSSet<NSString*>* _Nullable unknownReasonRemovals,

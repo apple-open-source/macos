@@ -5,6 +5,7 @@
 #include <regressions/test/testmore.h>
 
 ONE_TEST(kc_01_keychain_creation)
+ONE_TEST(kc_01_corrupt_keychain)
 ONE_TEST(kc_02_unlock_noui)
 ONE_TEST(kc_03_status)
 ONE_TEST(kc_03_keychain_list)

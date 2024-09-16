@@ -76,11 +76,13 @@ public:
 
     static double getNativeFramebufferScaleFactor(const WebXRSession&);
 
-    const WebXRSession& session() { return m_session; }
+    const WebXRSession* session() { return m_session.get(); }
 
     bool isCompositionEnabled() const { return m_isCompositionEnabled; }
 
     HTMLCanvasElement* canvas() const;
+
+    void sessionEnded();
 
     // WebXRLayer
     void startFrame(const PlatformXR::FrameData&) final;
@@ -96,7 +98,7 @@ private:
     void canvasChanged(CanvasBase&, const FloatRect&) final { };
     void canvasResized(CanvasBase&) final;
     void canvasDestroyed(CanvasBase&) final { };
-    Ref<WebXRSession> m_session;
+    RefPtr<WebXRSession> m_session;
     WebXRRenderingContext m_context;
 
     struct ViewportData {
@@ -110,7 +112,6 @@ private:
     bool m_antialias { false };
     bool m_ignoreDepthValues { false };
     bool m_isCompositionEnabled { true };
-    bool m_viewportsDirty { true };
 };
 
 } // namespace WebCore

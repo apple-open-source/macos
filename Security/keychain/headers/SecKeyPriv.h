@@ -349,6 +349,7 @@ enum {
     kSecX25519AlgorithmID = 5,
     kSecEd448AlgorithmID = 6,
     kSecX448AlgorithmID = 7,
+    kSecKyberAlgorithmID = 8,
 };
 
 /*!
@@ -366,7 +367,7 @@ SPI_AVAILABLE(macos(10.8), ios(9.0));
      @abstract Returns an enumerated constant value which identifies the algorithm for the given key.
      @param key A key reference.
      @result An algorithm identifier.
-     @discussion Deprecated in iOS 9.0. Note that SecKeyGetAlgorithmID also exists on OS X
+     @discussion Deprecated in iOS 9.0. Note that SecKeyGetAlgorithmID also exists on macOS
      with different arguments for CDSA-based SecKeyRefs, and returns different values.
      For compatibility, your code should migrate to use SecKeyGetAlgorithmId instead.
 */
@@ -502,7 +503,7 @@ SPI_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.5)) API_UNAVAILA
     @discussion Warning: this function is NOT intended for use outside the Security stack in its current state. <rdar://3201885>
     IMPORTANT: on Mac OS X 10.5 and earlier, the SecKeyCreate function had a different parameter list.
     The current parameter list matches the iPhone OS implementation. Existing clients of this function
-    on Mac OS X (and there should not be any outside the Security stack, per the warning above) must
+    on macOS (and there should not be any outside the Security stack, per the warning above) must
     migrate to the replacement function, SecKeyCreateWithCSSMKey.
 */
 SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
@@ -519,6 +520,10 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
 */
 OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef)
 SPI_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
+
+/* Convenience function to determine type of key instance. */
+Boolean SecKeyIsLegacyInstance(SecKeyRef keyRef)
+SPI_AVAILABLE(macos(15.0)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #if TARGET_OS_OSX
 // Alias macOS versions of this deprecated SPI to unique macOS names. Undecorated names are used for macCatalyst.
@@ -744,6 +749,19 @@ extern const CFStringRef kSecKeyApplePayEnabled
 SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
 
 /*!
+ @constant kSecKeyOSBound If set to kCFBooleanTrue during SecKeyCreateRandomKey, then the SEP-based key is OS-bound (AKS option).
+ This option is not supported and silently ignored on Intel-based platforms.
+ */
+extern const CFStringRef kSecKeyOSBound
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+ @constant kSecKeySealedHashesBound If set to kCFBooleanTrue during SecKeyCreateRandomKey, then the SEP-based key is sealed-hashes-bound (AKS option)
+ */
+extern const CFStringRef kSecKeySealedHashesBound
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
  @constant kSecKeyEncryptionParameterSymmetricKeySizeInBits CFNumberRef with size in bits for ephemeral
  symmetric key used for encryption/decryption.
  */
@@ -819,6 +837,35 @@ CFDataRef SecKeyCreateDecryptedDataWithParameters(SecKeyRef key, SecKeyAlgorithm
 SPI_AVAILABLE(macos(10.14.4), ios(12.2), tvos(12.2), watchos(5.2));
 
 /*!
+ @function SecKeyCreateEncapsulatedKey
+ @abstract Creates a new shared key and returns its encapsulated form.
+ @param key Public key of receiver who will be able to decapsulate encapsulated key.
+ @param algorithm One of SecKeyAlgorithm constants suitable to perform encapsulation of this key.
+ @param sharedKey Output parameter, will be filled with resulting plaintext shared key.
+ @param error On error, will be populated with an error object describing the failure.
+ See "Security Error Codes" (SecBase.h).
+ @result Encapsulated key.
+ @discussion Generates new shared key and returns its encapsulated form.
+ */
+
+CFDataRef SecKeyCreateEncapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef *sharedKey, CFErrorRef *error)
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
+ @function SecKeyCreateDecapsulatedKey
+ @abstract Decapsulates shared key encapsulated by equal algorithm and public key belonging to private key used in this call.
+ @param key Private key belonging to public key which was used to encapsulate the shared key.
+ @param algorithm One of SecKeyAlgorithm constants suitable to perform encapsulation of this key.
+ @param encapsulatedKey Encapsulated form of shared key, typically created by SecKeyCreateEncapsulatedKey.
+ @param error On error, will be populated with an error object describing the failure.
+ See "Security Error Codes" (SecBase.h).
+ @result Plaintext shared key.
+ @discussion Decapsulates shared key encapsulated by equal algorithm and public key belonging to private key used in this call.
+ */
+CFDataRef SecKeyCreateDecapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef encapsulatedKey, CFErrorRef *error)
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+/*!
  @enum SecKeySystemKeyType
  @abstract Defines types of builtin system keys.
 */
@@ -837,6 +884,7 @@ typedef CF_ENUM(uint32_t, SecKeySystemKeyType)
     kSecKeySystemKeyTypeHavenProposed = 10,
     kSecKeySystemKeyTypeSDAKCommitted = 11,
     kSecKeySystemKeyTypeSDAKProposed = 12,
+    kSecKeySystemKeyTypeDCIK SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0)) = 13,
 } SPI_AVAILABLE(macos(12.0), ios(15.0), tvos(15.0), watchos(8.0));
 
 /*!
@@ -964,6 +1012,27 @@ SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0));
  */
 extern const SecKeyAlgorithm kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256
 SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0));
+
+/*!
+ @constant kSecKeyOperationTypeEncapsulate
+ KEM encapsulation operation.
+ */
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0))
+static const SecKeyOperationType kSecKeyOperationTypeEncapsulate = (SecKeyOperationType)5;
+
+/*!
+ @constant kSecKeyOperationTypeDecapsulate
+ KEM decapsulation operation.
+ */
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0))
+static const SecKeyOperationType kSecKeyOperationTypeDecapsulate = (SecKeyOperationType)6;
+
+/*!
+ @constant kSecKeyAlgorithmKEMKyber
+ KEM (Key Encapsulation Mechanism) Kyber algorithm.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmKEMKyber
+SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
 
 __END_DECLS
 

@@ -197,8 +197,8 @@ __BEGIN_DECLS
 #define SEC_CK_DONT_ALLOW           SecStringWithDefaultValue("Don’t Allow", "CloudKeychain", 0, "Don’t Allow", "Don’t Allow button")
 #define SEC_CK_ICLOUD_PASSWORD      SecStringWithDefaultValue("Password", "CloudKeychain", 0, "password", "Password prompt text")
 
-#define SEC_CK_PWD_REQUIRED_TITLE		SecStringWithDefaultValue("Apple ID Password Required", "CloudKeychain", 0, "Apple ID Password Required", "Title for alert when iCloud keychain was disabled or reset")
-#define SEC_CK_PWD_REQUIRED_BODY_OSX	SecStringWithDefaultValue("Enter your password in Apple ID Preferences.", "CloudKeychain", 0, "Enter your password in Apple ID Preferences.", "macOS alert text when iCloud keychain was disabled or reset")
+#define SEC_CK_PWD_REQUIRED_TITLE		SecStringWithDefaultValue("Apple Account Password Required", "CloudKeychain", 0, "Apple Account Password Required", "Title for alert when iCloud keychain was disabled or reset")
+#define SEC_CK_PWD_REQUIRED_BODY_OSX	SecStringWithDefaultValue("Enter your password in Apple Account Preferences.", "CloudKeychain", 0, "Enter your password in Apple Account Preferences.", "macOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_PWD_REQUIRED_BODY_IOS	SecStringWithDefaultValue("Enter your password in iCloud Settings.", "CloudKeychain", 0, "Enter your password in iCloud Settings.", "iOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_CR_REASON_INTERNAL		SecStringWithDefaultValue(" (AppleInternal: departure reason %s)", "CloudKeychain", 0, " (AppleInternal: departure reason %s)", "Display departure reason code on internal devices")
 #define SEC_CK_CONTINUE					SecStringWithDefaultValue("Continue", "CloudKeychain", 0, "Continue", "Button text to continue to iCloud settings (iOS)")
@@ -213,11 +213,11 @@ __BEGIN_DECLS
 #define SEC_CK_APPROVE                  SecStringWithDefaultValue("Approve", "CloudKeychain", 0, "Approve", "Button text to approve iCloud sign in request")
 #define SEC_CK_DECLINE                  SecStringWithDefaultValue("Decline", "CloudKeychain", 0, "Decline", "Button text to decline iCloud sign in request")
 
-#define SEC_CK_APPROVAL_BODY_IOS_IPAD	SecStringWithDefaultValue("Enter the password for the Apple ID “%@” to allow this new iPad to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple ID “%@” to allow this new iPad to use your iCloud account.", "Body text when approving an iPad")
-#define SEC_CK_APPROVAL_BODY_IOS_IPHONE	SecStringWithDefaultValue("Enter the password for the Apple ID “%@” to allow this new iPhone to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple ID “%@” to allow this new iPhone to use your iCloud account.", "Body text when approving an iPhone")
-#define SEC_CK_APPROVAL_BODY_IOS_IPOD	SecStringWithDefaultValue("Enter the password for the Apple ID “%@” to allow this new iPod to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple ID “%@” to allow this new iPod to use your iCloud account.", "Body text when approving an iPod")
-#define SEC_CK_APPROVAL_BODY_IOS_MAC	SecStringWithDefaultValue("Enter the password for the Apple ID “%@” to allow this new Mac to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple ID “%@” to allow this new Mac to use your iCloud account.", "Body text when approving another Mac")
-#define SEC_CK_APPROVAL_BODY_IOS_GENERIC	SecStringWithDefaultValue("Enter the password for the Apple ID “%@” to allow this new device to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple ID “%@” to allow this new device to use your iCloud account.", "Body text when approving another (generic) device")
+#define SEC_CK_APPROVAL_BODY_IOS_IPAD	SecStringWithDefaultValue("Enter the password for the Apple Account “%@” to allow this new iPad to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple Account “%@” to allow this new iPad to use your iCloud account.", "Body text when approving an iPad")
+#define SEC_CK_APPROVAL_BODY_IOS_IPHONE	SecStringWithDefaultValue("Enter the password for the Apple Account “%@” to allow this new iPhone to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple Account “%@” to allow this new iPhone to use your iCloud account.", "Body text when approving an iPhone")
+#define SEC_CK_APPROVAL_BODY_IOS_IPOD	SecStringWithDefaultValue("Enter the password for the Apple Account “%@” to allow this new iPod to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple Account “%@” to allow this new iPod to use your iCloud account.", "Body text when approving an iPod")
+#define SEC_CK_APPROVAL_BODY_IOS_MAC	SecStringWithDefaultValue("Enter the password for the Apple Account “%@” to allow this new Mac to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple Account “%@” to allow this new Mac to use your iCloud account.", "Body text when approving another Mac")
+#define SEC_CK_APPROVAL_BODY_IOS_GENERIC	SecStringWithDefaultValue("Enter the password for the Apple Account “%@” to allow this new device to use your iCloud account.", "CloudKeychain", 0, "Enter the password for the Apple Account “%@” to allow this new device to use your iCloud account.", "Body text when approving another (generic) device")
 
 #define SEC_CK_REMINDER_TITLE_OSX		SecStringWithDefaultValue("iCloud Approval Required", "CloudKeychain", 0, "iCloud Approval Required", "Title for reminder that iCloud Keychain Application (from this device) is still pending")
 #define SEC_CK_REMINDER_BODY_OSX		SecStringWithDefaultValue("This Mac is still waiting for approval by another device.", "CloudKeychain", 0, "This Mac is still waiting for approval by another device.", "Body text for reminder that iCloud Keychain Application (from this device) is still pending")
@@ -278,6 +278,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_LeafSPKISHA256              SecStringWithDefaultValue("Public key does not match pinned value", "Trust", 0, "Public key does not match pinned value", "Error for leaf public key pin")
 #define SEC_TRUST_ERROR_NotCA                      SecStringWithDefaultValue("Leaf certificate is a CA", "Trust", 0, "Leaf certificate is a CA", "Error for leaf CA")
 #define SEC_TRUST_ERROR_IssuerCommonName            SecStringWithDefaultValue("Common Name does not match expected name", "Trust", 0, "Common Name does not match expected name", "Error for issuer common name mismatch")
+#define SEC_TRUST_ERROR_IssuerCommonNamePrefix      SecStringWithDefaultValue("Common Name does not match expected name", "Trust", 0, "Common Name does not match expected name", "Error for issuer common name mismatch")
 #define SEC_TRUST_ERROR_BasicConstraints            SecStringWithDefaultValue("Basic constraints are required but missing", "Trust", 0, "Basic constraints are required but missing", "Error for missing basic constraints")
 #define SEC_TRUST_ERROR_BasicConstraintsCA          SecStringWithDefaultValue("Non-CA certificate used as a CA", "Trust", 0, "Non-CA certificate used as a CA", "Error for CA basic constraints")
 #define SEC_TRUST_ERROR_BasicConstraintsPathLen     SecStringWithDefaultValue("Chain exceeded constrained path length", "Trust", 0, "Chain exceeded constrained path length", "Error for path length basic constraints")
@@ -327,7 +328,9 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_UnparseableExtension        SecStringWithDefaultValue("Unable to parse known extension", "Trust", 0, "Unable to parse known extension", "Error for unparseable known extensions")
 #define SEC_TRUST_ERROR_NonTlsCTRequired            SecStringWithDefaultValue("Certificate Transparency validation required but missing", "Trust", 0, "Certificate Transparency validation required but missing", "Error for missing Certificate Transparency validation")
 #define SEC_TRUST_ERROR_DuplicateExtension          SecStringWithDefaultValue("Multiple extensions with the same extension ID", "Trust", 0, "Multiple extensions with the same extension ID", "Error for duplicate extensions")
-#define SEC_TRUST_ERROR_EmailProtectionEKU               SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
+#define SEC_TRUST_ERROR_EmailProtectionEKU          SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
+#define SEC_TRUST_ERROR_SinglePurposeChainEKU       SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
+#define SEC_TRUST_ERROR_MarkRepresentation          SecStringWithDefaultValue("SVG data does not match logotype extension", "Trust", 0, "SVG data does not match logotype extension", "Error for SVG logotype mismatch")
 
 __END_DECLS
 

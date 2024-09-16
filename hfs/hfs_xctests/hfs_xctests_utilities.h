@@ -8,15 +8,17 @@
 #ifndef hfs_xctests_utilities_h
 #define hfs_xctests_utilities_h
 
+#import <FSKitTesting/FSKitTesting.h>
 #import <UVFSPluginTesting/UVFSPluginTests.h>
-#import <UVFSPluginTesting/UVFSPluginTestingUtilities.h>
+#import <UVFSPluginTesting/UVFSPluginFilesystem.h>
+#import <UVFSPluginTesting/UVFSPluginPerformanceTests.h>
 #include "lf_hfs_fsops_handler.h"
 
-@interface HFSFactory : UVFSPluginInterfacesFactory
+@interface HFSFactory : FSPluginInterfacesFactory
 @end
 
 
-@interface HFSSetupDelegate : UVFSPluginSetupDelegate
+@interface HFSSetupDelegate : FSPluginSetupDelegate
 
 @property  TestVolumeUtils* volumeUtils;
 

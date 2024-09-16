@@ -585,6 +585,7 @@ if (yypcb->pcb_token != 0) {
 
 <S1>"/*"	yyerror("/* encountered inside a comment\n");
 <S1>"*/"	BEGIN(yypcb->pcb_cstate);
+<S1>\0		BEGIN(yypcb->pcb_cstate);
 <S1>.|\n	; /* discard */
 
 <S1L>"/*"	yyerror("/* encountered inside a one-line comment\n");

@@ -22,22 +22,38 @@
  */
 
 #include "xlocale_private.h"
+#include <assert.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
+#include "collate.h"
 #include "ldpart.h"
+#include "lmonetary.h"
+#include "lnumeric.h"
+#include "mblocal.h"
+
+extern struct xlocale_collate __xlocale_C_collate;
+
+#ifndef nitems
+#define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
+#endif
 
 #define NMBSTATET	10
 #define C_LOCALE_INITIALIZER	{	\
-	0, XPERMANENT,			\
+	{ 1, NULL },			\
 	{}, {}, {}, {}, {},		\
 	{}, {}, {}, {}, {},		\
 	OS_UNFAIR_LOCK_INIT,		\
 	XMAGIC,				\
-	1, 0, 0, 0, 0, 0, 1, 1, 0,	\
-	NULL,				\
-	&_DefaultRuneXLocale,		\
+	0, 0, 0, 0, 1, 1, 0,	\
+	{				\
+		[XLC_COLLATE] = (void *)&__xlocale_C_collate,	\
+		[XLC_CTYPE] = (void *)&_DefaultRuneXLocale,	\
+	},				\
 }
+
+#define	LDPART_BUFFER(x)	\
+    (((struct xlocale_ldpart *)(x))->buffer)
 
 static char C[] = "C";
 static struct _xlocale __c_locale = C_LOCALE_INITIALIZER;
@@ -54,7 +70,7 @@ extern int __numeric_load_locale(const char *, locale_t);
 extern int __setrunelocale(const char *, locale_t);
 extern int __time_load_locale(const char *, locale_t);
 
-static void _releaselocale(locale_t loc);
+static void destruct_locale(void *v);
 
 /*
  * check that the encoding is the right size, isn't . or .. and doesn't
@@ -103,8 +119,8 @@ _duplocale(locale_t loc)
 
 	if ((new = (locale_t)malloc(sizeof(struct _xlocale))) == NULL)
 		return NULL;
-	new->__refcount = 1;
-	new->__free_extra = (__free_extra_t)_releaselocale;
+	new->header.retain_count = 1;
+	new->header.destructor = destruct_locale;
 	new->__lock = OS_UNFAIR_LOCK_INIT;
 	if (loc == NULL)
 		loc = __current_locale();
@@ -112,8 +128,8 @@ _duplocale(locale_t loc)
 		loc = &__global_locale;
 	else if (loc == &__c_locale) {
 		*new = __c_locale;
-		new->__refcount = 1;
-		new->__free_extra = (__free_extra_t)_releaselocale;
+		new->header.retain_count = 1;
+		new->header.destructor = destruct_locale;
 		new->__lock = OS_UNFAIR_LOCK_INIT;
 		return new;
 	}
@@ -123,19 +139,12 @@ _duplocale(locale_t loc)
 	/* __mbs_mblen is the first of NMBSTATET mbstate_t buffers */
 	bzero(&new->__mbs_mblen, offsetof(struct _xlocale, __magic)
 	    - offsetof(struct _xlocale, __mbs_mblen));
-	/* collate */
-	XL_RETAIN(new->__lc_collate);
-	/* ctype */
-	XL_RETAIN(new->__lc_ctype);
-	/* messages */
-	XL_RETAIN(new->__lc_messages);
-	/* monetary */
-	XL_RETAIN(new->__lc_monetary);
-	/* numeric */
-	XL_RETAIN(new->__lc_numeric);
-	XL_RETAIN(new->__lc_numeric_loc);
-	/* time */
-	XL_RETAIN(new->__lc_time);
+
+	for (int i = XLC_COLLATE; i < XLC_LAST; i++) {
+		xlocale_retain(new->components[i]);
+	}
+
+	xlocale_retain(new->__lc_numeric_loc);
 
 	return new;
 }
@@ -175,9 +184,12 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				oenc = (loc->__collate_load_error ? C : loc->__lc_collate->__encoding);
+				oenc = (XLOCALE_COLLATE(loc)->__collate_load_error ? C :
+				    loc->components[XLC_COLLATE]->locale);
 				if (strcmp(enc, oenc) != 0 && __collate_load_tables(enc, loc) == _LDP_ERROR)
 					return -1;
+				xlocale_fill_name(loc->components[XLC_COLLATE],
+				    enc);
 				break;
 			case LC_CTYPE_MASK:
 				if (!*locale) {
@@ -187,11 +199,13 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				if (strcmp(enc, loc->__lc_ctype->__ctype_encoding) != 0) {
+				if (strcmp(enc, loc->components[XLC_CTYPE]->locale) != 0) {
 					if ((ret = __setrunelocale(enc, loc)) != 0) {
 						errno = ret;
 						return -1;
 					}
+					xlocale_fill_name(loc->components[XLC_CTYPE],
+					    enc);
 					if (loc->__numeric_fp_cvt == LC_NUMERIC_FP_SAME_LOCALE)
 						loc->__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
 				}
@@ -204,9 +218,12 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				oenc = (loc->_messages_using_locale ? loc->__lc_messages->_messages_locale_buf : C);
+				oenc = (loc->_messages_using_locale ?
+				    LDPART_BUFFER(XLOCALE_MESSAGES(loc)) : C);
 				if (strcmp(enc, oenc) != 0 && __messages_load_locale(enc, loc) == _LDP_ERROR)
 					return -1;
+				xlocale_fill_name(loc->components[XLC_MESSAGES],
+				    enc);
 				break;
 			case LC_MONETARY_MASK:
 				if (!*locale) {
@@ -216,9 +233,12 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				oenc = (loc->_monetary_using_locale ? loc->__lc_monetary->_monetary_locale_buf : C);
+				oenc = (loc->_monetary_using_locale ?
+				    LDPART_BUFFER(XLOCALE_MONETARY(loc)) : C);
 				if (strcmp(enc, oenc) != 0 && __monetary_load_locale(enc, loc) == _LDP_ERROR)
 					return -1;
+				xlocale_fill_name(loc->components[XLC_MONETARY],
+				    enc);
 				break;
 			case LC_NUMERIC_MASK:
 				if (!*locale) {
@@ -228,12 +248,15 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				oenc = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
+				oenc = (loc->_numeric_using_locale ?
+				    LDPART_BUFFER(XLOCALE_NUMERIC(loc)) : C);
 				if (strcmp(enc, oenc) != 0) {
 					if (__numeric_load_locale(enc, loc) == _LDP_ERROR)
 						return -1;
+					xlocale_fill_name(loc->components[XLC_NUMERIC],
+					    enc);
 					loc->__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
-					XL_RELEASE(loc->__lc_numeric_loc);
+					xlocale_release(loc->__lc_numeric_loc);
 					loc->__lc_numeric_loc = NULL;
 				}
 				break;
@@ -245,9 +268,12 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				oenc = (loc->_time_using_locale ? loc->__lc_time->_time_locale_buf : C);
+				oenc = (loc->_time_using_locale ?
+				    LDPART_BUFFER(XLOCALE_TIME(loc)) : C);
 				if (strcmp(enc, oenc) != 0 && __time_load_locale(enc, loc) == _LDP_ERROR)
 					return -1;
+				xlocale_fill_name(loc->components[XLC_TIME],
+				    enc);
 				break;
 			}
 		}
@@ -260,21 +286,14 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
  * becomes zero)
  */
 static void
-_releaselocale(locale_t loc)
+destruct_locale(void *v)
 {
-	/* collate */
-	XL_RELEASE(loc->__lc_collate);
-	/* ctype */
-	XL_RELEASE(loc->__lc_ctype);
-	/* messages */
-	XL_RELEASE(loc->__lc_messages);
-	/* monetary */
-	XL_RELEASE(loc->__lc_monetary);
-	/* numeric */
-	XL_RELEASE(loc->__lc_numeric);
-	XL_RELEASE(loc->__lc_numeric_loc);
-	/* time */
-	XL_RELEASE(loc->__lc_time);
+	locale_t loc = v;
+
+	for (int i = XLC_COLLATE; i < XLC_LAST; i++)
+		xlocale_release(loc->components[i]);
+	xlocale_release(loc->__lc_numeric_loc);
+	free(loc);
 }
 
 /*
@@ -304,7 +323,7 @@ freelocale(locale_t loc)
 		errno = EINVAL;
 		return -1;
 	}
-	XL_RELEASE(loc);
+	xlocale_release(loc);
 	return 0;
 }
 
@@ -352,8 +371,9 @@ __numeric_ctype(locale_t loc)
 {
 	switch(loc->__numeric_fp_cvt) {
 	case LC_NUMERIC_FP_UNINITIALIZED: {
-		const char *ctype = loc->__lc_ctype->__ctype_encoding;
-		const char *numeric = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
+		const char *ctype = loc->components[XLC_CTYPE]->locale;
+		const char *numeric = (loc->_numeric_using_locale ?
+		    LDPART_BUFFER(XLOCALE_NUMERIC(loc)) : C);
 		if (strcmp(ctype, numeric) == 0) {
 			loc->__numeric_fp_cvt = LC_NUMERIC_FP_SAME_LOCALE;
 			return loc;
@@ -377,6 +397,19 @@ __numeric_ctype(locale_t loc)
 }
 
 /*
+ * Darwin's querylocale(3) mask's assigned bits are in alphabetical order of the
+ * category name, so map these back to XLC_* constants.
+ */
+static int querylocale_mapping[] = {
+	[0] = XLC_COLLATE,
+	[1] = XLC_CTYPE,
+	[2] = XLC_MESSAGES,
+	[3] = XLC_MONETARY,
+	[4] = XLC_NUMERIC,
+	[5] = XLC_TIME,
+};
+
+/*
  * EXTERNAL: Returns the locale string for the part specified in mask.  The
  * least significant bit is used.  If loc is NULL, the current per-thread
  * locale is used.
@@ -384,7 +417,7 @@ __numeric_ctype(locale_t loc)
 const char *
 querylocale(int mask, locale_t loc)
 {
-	int m;
+	int type;
 	const char *ret;
 
 	if (_checklocale(loc) < 0 || (mask & LC_ALL_MASK) == 0) {
@@ -392,37 +425,27 @@ querylocale(int mask, locale_t loc)
 		return NULL;
 	}
 	DEFAULT_CURRENT_LOCALE(loc);
-	m = ffs(mask);
-	if (m == 0 || m > _LC_NUM_MASK) {
+
+	/* XXX VERSION_MASK */
+	type = ffs(mask) - 1;
+	if (type >= nitems(querylocale_mapping)) {
 		errno = EINVAL;
 		return NULL;
 	}
+
+	type = querylocale_mapping[type];
+	assert(type < XLC_LAST);
+
+	/*
+	 * We don't need to consult _numeric_using_locale, et al., here, because
+	 * if its components[type] is set and we're not using it, it should be
+	 * populated as the C locale and we'll still return C.
+	 */
 	XL_LOCK(loc);
-	switch(1 << (m - 1)) {
-	case LC_COLLATE_MASK:
-		ret = (loc->__collate_load_error ? C : loc->__lc_collate->__encoding);
-		break;
-	case LC_CTYPE_MASK:
-		ret = loc->__lc_ctype->__ctype_encoding;
-		break;
-	case LC_MESSAGES_MASK:
-		ret = (loc->_messages_using_locale ? loc->__lc_messages->_messages_locale_buf : C);
-		break;
-	case LC_MONETARY_MASK:
-		ret = (loc->_monetary_using_locale ? loc->__lc_monetary->_monetary_locale_buf : C);
-		break;
-	case LC_NUMERIC_MASK:
-		ret = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
-		break;
-	case LC_TIME_MASK:
-		ret = (loc->_time_using_locale ? loc->__lc_time->_time_locale_buf : C);
-		break;
-	default:
-		/* should never get here */
-		XL_UNLOCK(loc);
-		errno = EINVAL;
-		return NULL;
-	}
+	if (loc->components[type] != NULL)
+		ret = loc->components[type]->locale;
+	else
+		ret = C;
 	XL_UNLOCK(loc);
 	return ret;
 }
@@ -449,10 +472,10 @@ uselocale(locale_t loc)
 		if (loc == LC_GLOBAL_LOCALE ||
 		    loc == &__global_locale)	/* should never happen */
 			loc = NULL;
-		XL_RETAIN(loc);
+		xlocale_retain(loc);
 		orig = pthread_getspecific(__locale_key);
 		pthread_setspecific(__locale_key, loc);
-		XL_RELEASE(orig);
+		xlocale_release(orig);
 	}
 	return (orig ? orig : LC_GLOBAL_LOCALE);
 }
@@ -464,7 +487,7 @@ uselocale(locale_t loc)
 int
 ___mb_cur_max(void)
 {
-	return __current_locale()->__lc_ctype->__mb_cur_max;
+	return XLOCALE_CTYPE(__current_locale())->__mb_cur_max;
 }
 
 /*
@@ -474,14 +497,14 @@ ___mb_cur_max(void)
 int
 ___mb_cur_max_l(locale_t loc)
 {
-	return __locale_ptr(loc)->__lc_ctype->__mb_cur_max;
+	return XLOCALE_CTYPE(__locale_ptr(loc))->__mb_cur_max;
 }
 
 static void
 __xlocale_release(void *loc)
 {
 	locale_t l = loc;
-	XL_RELEASE(l);
+	xlocale_release(l);
 }
 
 /*

@@ -20,10 +20,15 @@
 #include "config.h"
 #include "WebKitWebView.h"
 
+#include "PageClientImpl.h"
+#include "WebInspectorUIProxy.h"
 #include "WebKitColorPrivate.h"
 #include "WebKitScriptDialogPrivate.h"
 #include "WebKitWebViewPrivate.h"
 
+#if ENABLE(WPE_PLATFORM)
+#include <wpe/wpe-platform.h>
+#endif
 
 gboolean webkitWebViewAuthenticate(WebKitWebView*, WebKitAuthenticationRequest*)
 {
@@ -225,7 +230,17 @@ void webkit_web_view_set_background_color(WebKitWebView* webView, WebKitColor* b
     g_return_if_fail(backgroundColor);
 
     auto& page = webkitWebViewGetPage(webView);
-    page.setBackgroundColor(webkitColorToWebCoreColor(backgroundColor));
+    auto color = webkitColorToWebCoreColor(backgroundColor);
+    page.setBackgroundColor(color);
+#if ENABLE(WPE_PLATFORM)
+    if (auto* view = static_cast<WebKit::PageClientImpl&>(page.pageClient()).wpeView()) {
+        if (color.isOpaque()) {
+            WPERectangle rect { 0, 0, wpe_view_get_width(view), wpe_view_get_height(view) };
+            wpe_view_set_opaque_rectangles(view, &rect, 1);
+        } else
+            wpe_view_set_opaque_rectangles(view, nullptr, 0);
+    }
+#endif
 }
 
 /**
@@ -278,4 +293,34 @@ guint createShowOptionMenuSignal(WebKitWebViewClass* webViewClass)
         G_TYPE_BOOLEAN, 2,
         WEBKIT_TYPE_OPTION_MENU,
         WEBKIT_TYPE_RECTANGLE | G_SIGNAL_TYPE_STATIC_SCOPE);
+}
+
+/**
+ * webkit_web_view_toggle_inspector:
+ * @web_view: a #WebKitWebView
+ *
+ * Show or hide the web inspector of @web_view
+ * Note that local inspector is only supported by
+ * WPEWebKit when using WPE Platform API.
+ *
+ * Since: 2.46
+ */
+void webkit_web_view_toggle_inspector(WebKitWebView* webView)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    auto& page = webkitWebViewGetPage(webView);
+    if (!page.wpeView()) {
+        g_warning("Local inspector is only supported by WPEWebKit when using WPE Platform API");
+        return;
+    }
+
+    auto* inspector = page.inspector();
+    if (!inspector)
+        return;
+
+    if (inspector->isVisible())
+        inspector->close();
+    else
+        inspector->show();
 }

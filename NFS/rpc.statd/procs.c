@@ -116,7 +116,7 @@ sm_check_hostname(struct svc_req * req, char *arg)
 
 	if (claddr == NULL || dst == NULL) {
 		ret = 0;
-	} else if (strvis(dst, arg, VIS_WHITE) != len) {
+	} else if (strnvis(dst, dstlen, arg, VIS_WHITE) != len) {
 		log(LOG_ERR, "sm_stat: client %s hostname %s contained invalid characters.",
 		    addrstr(claddr), dst);
 		ret = 0;

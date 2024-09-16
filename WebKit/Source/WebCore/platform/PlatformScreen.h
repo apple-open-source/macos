@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include <wtf/EnumTraits.h>
 #include <wtf/Forward.h>
 
 #if PLATFORM(MAC)
@@ -73,7 +72,8 @@ WEBCORE_EXPORT DestinationColorSpace screenColorSpace(Widget* = nullptr);
 bool screenHasInvertedColors();
 
 #if USE(GLIB)
-double screenDPI();
+double fontDPI(); // dpi to use for font scaling
+double screenDPI(PlatformDisplayID); // dpi of the display device, corrected for device scaling
 #endif
 
 FloatRect screenRect(Widget*);
@@ -106,7 +106,7 @@ struct ScreenData;
 WEBCORE_EXPORT ScreenProperties collectScreenProperties();
 WEBCORE_EXPORT void setScreenProperties(const ScreenProperties&);
 const ScreenProperties& getScreenProperties();
-const ScreenData* screenData(PlatformDisplayID screendisplayID);
+WEBCORE_EXPORT const ScreenData* screenData(PlatformDisplayID screendisplayID);
 WEBCORE_EXPORT PlatformDisplayID primaryScreenDisplayID();
     
 #if PLATFORM(MAC)
@@ -145,6 +145,7 @@ float screenPPIFactor();
 WEBCORE_EXPORT FloatSize screenSize();
 WEBCORE_EXPORT FloatSize availableScreenSize();
 WEBCORE_EXPORT FloatSize overrideScreenSize();
+WEBCORE_EXPORT FloatSize overrideAvailableScreenSize();
 WEBCORE_EXPORT float screenScaleFactor(UIScreen * = nullptr);
 
 #endif

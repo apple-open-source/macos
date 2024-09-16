@@ -23,10 +23,10 @@
 #include "ElementInlines.h"
 #include "LegacyRenderSVGResourceContainer.h"
 #include "RenderSVGGradientStopInlines.h"
+#include "RenderSVGResourceGradient.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGradientElement.h"
 #include "SVGNames.h"
-#include "SVGResourcesCache.h"
 #include "SVGStopElement.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
@@ -53,13 +53,18 @@ void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderSty
 
     // <stop> elements should only be allowed to make renderers under gradient elements
     // but I can imagine a few cases we might not be catching, so let's not crash if our parent isn't a gradient.
-    const auto* gradient = gradientElement();
+    RefPtr gradient = gradientElement();
     if (!gradient)
         return;
 
-    RenderElement* renderer = gradient->renderer();
+    CheckedPtr renderer = gradient->renderer();
     if (!renderer)
         return;
+
+    if (auto* gradientRenderer = dynamicDowncast<RenderSVGResourceGradient>(renderer.get())) {
+        gradientRenderer->invalidateGradient();
+        return;
+    }
 
     downcast<LegacyRenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
 }
@@ -72,7 +77,7 @@ void RenderSVGGradientStop::layout()
 
 SVGGradientElement* RenderSVGGradientStop::gradientElement()
 {
-    return dynamicDowncast<SVGGradientElement>(element().parentElement());
+    return dynamicDowncast<SVGGradientElement>(element().protectedParentElement().get());
 }
 
 }

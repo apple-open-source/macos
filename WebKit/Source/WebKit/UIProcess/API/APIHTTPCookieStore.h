@@ -37,6 +37,15 @@
 #include "SoupCookiePersistentStorageType.h"
 #endif
 
+namespace API {
+class HTTPCookieStoreObserver;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<API::HTTPCookieStoreObserver> : std::true_type { };
+}
+
 namespace WebCore {
 struct Cookie;
 enum class HTTPCookieAcceptPolicy : uint8_t;
@@ -49,6 +58,14 @@ class WebsiteDataStore;
 
 namespace API {
 
+class HTTPCookieStore;
+
+class HTTPCookieStoreObserver : public CanMakeWeakPtr<HTTPCookieStoreObserver> {
+public:
+    virtual ~HTTPCookieStoreObserver() { }
+    virtual void cookiesDidChange(HTTPCookieStore&) = 0;
+};
+
 class HTTPCookieStore final : public ObjectImpl<Object::Type::HTTPCookieStore> {
 public:
     static Ref<HTTPCookieStore> create(WebKit::WebsiteDataStore& websiteDataStore)
@@ -58,7 +75,7 @@ public:
 
     virtual ~HTTPCookieStore();
 
-    void cookies(CompletionHandler<void(const Vector<WebCore::Cookie>&)>&&);
+    void cookies(CompletionHandler<void(Vector<WebCore::Cookie>&&)>&&);
     void cookiesForURL(WTF::URL&&, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&&);
     void setCookies(Vector<WebCore::Cookie>&&, CompletionHandler<void()>&&);
     void deleteCookie(const WebCore::Cookie&, CompletionHandler<void()>&&);
@@ -69,14 +86,8 @@ public:
     void getHTTPCookieAcceptPolicy(CompletionHandler<void(const WebCore::HTTPCookieAcceptPolicy&)>&&);
     void flushCookies(CompletionHandler<void()>&&);
 
-    class Observer : public CanMakeWeakPtr<Observer> {
-    public:
-        virtual ~Observer() { }
-        virtual void cookiesDidChange(HTTPCookieStore&) = 0;
-    };
-
-    void registerObserver(Observer&);
-    void unregisterObserver(Observer&);
+    void registerObserver(HTTPCookieStoreObserver&);
+    void unregisterObserver(HTTPCookieStoreObserver&);
 
     void cookiesDidChange();
 
@@ -96,7 +107,7 @@ private:
 
     PAL::SessionID m_sessionID;
     WeakPtr<WebKit::WebsiteDataStore> m_owningDataStore;
-    WeakHashSet<Observer> m_observers;
+    WeakHashSet<HTTPCookieStoreObserver> m_observers;
 };
 
 }

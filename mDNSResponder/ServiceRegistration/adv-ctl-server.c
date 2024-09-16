@@ -1,6 +1,6 @@
 /* adv-ctl-proxy.c
  *
- * Copyright (c) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@
 #include "thread-tracker.h"
 #include "service-tracker.h"
 #include "route-tracker.h"
+#include "ifpermit.h"
 
 #include "cti-proto.h"
 #include "adv-ctl-common.h"
@@ -136,7 +137,7 @@ adv_ctl_stop_advertising_service(void *context)
 
 #if STUB_ROUTER
     if (server_state->stub_router_enabled) {
-        partition_discontinue_srp_service(server_state->route_state);
+        partition_discontinue_all_srp_service(server_state->route_state);
     } else
 #endif
     {
@@ -293,6 +294,7 @@ adv_ctl_start_thread_shutdown(xpc_object_t request, xpc_connection_t connection,
         if (server_state->service_tracker != NULL &&
             service_tracker_local_service_seen(server_state->service_tracker))
         {
+            service_tracker_cancel_probes(server_state->service_tracker); // This is a no-op for now.
             server_state->awaiting_service_removal = true;
         }
         if (server_state->route_state->omr_publisher != NULL &&
@@ -315,6 +317,9 @@ adv_ctl_start_thread_shutdown(xpc_object_t request, xpc_connection_t connection,
 #endif
 #if THREAD_DEVICE
     } else {
+        if (server_state->service_tracker != NULL) {
+            service_tracker_cancel_probes(server_state->service_tracker);
+        }
         if (server_state->dnssd_client != NULL) {
             dnssd_client_cancel(server_state->dnssd_client);
             dnssd_client_release(server_state->dnssd_client);
@@ -467,7 +472,6 @@ adv_ctl_set_variable(void *context, const uint8_t *data, size_t data_len)
     }
     return kDNSSDAdvertisingProxyStatus_NoError;
 }
-
 
 
 static void

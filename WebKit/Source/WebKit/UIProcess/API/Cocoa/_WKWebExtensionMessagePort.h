@@ -30,23 +30,25 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /*! @abstract Indicates a `_WKWebExtensionMessagePort` error. */
-WK_EXTERN NSErrorDomain const _WKWebExtensionMessagePortErrorDomain WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+WK_EXTERN NSErrorDomain const _WKWebExtensionMessagePortErrorDomain WK_API_AVAILABLE(macos(14.4), ios(17.4), visionos(1.1));
 
 /*!
  @abstract Constants used by NSError to indicate errors in the `_WKWebExtensionMessagePort` domain.
  @constant WKWebExtensionMessagePortErrorUnknown  Indicates that an unknown error occurred.
  @constant WKWebExtensionMessagePortErrorNotConnected  Indicates that the message port is disconnected.
+ @constant WKWebExtensionMessagePortErrorMessageInvalid Indicates that the message is invalid. The message must be an object that is JSON-serializable.
  */
 typedef NS_ERROR_ENUM(_WKWebExtensionMessagePortErrorDomain, _WKWebExtensionMessagePortError) {
     _WKWebExtensionMessagePortErrorUnknown,
     _WKWebExtensionMessagePortErrorNotConnected,
-} NS_SWIFT_NAME(_WKWebExtensionMessagePort.Error) WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+    _WKWebExtensionMessagePortErrorMessageInvalid,
+} NS_SWIFT_NAME(_WKWebExtensionMessagePort.Error) WK_API_AVAILABLE(macos(14.4), ios(17.4), visionos(1.1));
 
 /*!
  @abstract A `WKWebExtensionMessagePort` object manages message-based communication with a web extension.
  @discussion Contains properties and methods to handle message exchanges with a web extension.
 */
-WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
+WK_CLASS_AVAILABLE(macos(14.4), ios(17.4), visionos(1.1))
 NS_SWIFT_NAME(_WKWebExtension.MessagePort)
 @interface _WKWebExtensionMessagePort : NSObject
 
@@ -80,7 +82,7 @@ NS_SWIFT_NAME(_WKWebExtension.MessagePort)
  @param message The message that needs to be sent, which must be JSON-serializable.
  @param completionHandler An optional block to be invoked after the message is sent, taking a boolean and an optional error object as parameters.
  */
-- (void)sendMessage:(id)message completionHandler:(void (^ _Nullable)(BOOL success, NSError * _Nullable error))completionHandler WK_SWIFT_ASYNC_THROWS_ON_FALSE(1);
+- (void)sendMessage:(nullable id)message completionHandler:(void (^ _Nullable)(BOOL success, NSError * _Nullable error))completionHandler WK_SWIFT_ASYNC_THROWS_ON_FALSE(1);
 
 /*!
  @abstract Disconnects the port, terminating all further messages.

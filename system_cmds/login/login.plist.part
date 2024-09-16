@@ -2,11 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>login</string>
 		<key>OpenSourceVersion</key>
-		<string>2021-10-05</string>
+		<string>2024-01-12</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/usr.bin/login?id=7f4bb501768b9b3f856f91fbc8b9c80a2a4aaa04</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/login?id=1e25eb287f3fdd763df98065dbf2e1eb201e4000</string>
 		<key>OpenSourceImportDate</key>
-		<string>2021-10-05</string>
+		<string>2024-01-12</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>pathnames.h: revert motd path (83865228)</string>
@@ -20,6 +20,9 @@
 			<string>login.c: replace closefrom (83865228)</string>
 			<string>login.c: look for .hushlogin in home directory (112854361)</string>
 			<string>login_audit.c: use setaudit_addr (8907611)</string>
+			<string>login.1: Document added / changed options</string>
+			<string>login.1: Remove references to login classes and login.conf</string>
+			<string>login.1: Link to telnetd(8) since we still have it</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

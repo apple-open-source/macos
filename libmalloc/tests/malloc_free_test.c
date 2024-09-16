@@ -47,28 +47,28 @@ test_malloc_free_random(size_t min, size_t max, size_t incr, size_t n)
 	void *ptrs[P] = {};
 	for (size_t i = 0, j = 0, k = 0; i < n + P; i++, j = k, k = (k + 1) % P) {
 		void *ptr = NULL;
-		if (i < n) ptr = t_malloc(min + arc4random_uniform(r) * incr);
+		if (i < n) ptr = t_malloc(min + (arc4random() % r) * incr);
 		free(ptrs[j]);
 		ptrs[k] = ptr;
 	}
 }
 
 T_DECL(malloc_free_nano, "nanomalloc and free all sizes <= 256",
-	   T_META_ENVVAR("MallocNanoZone=1"))
+	   T_META_ENVVAR("MallocNanoZone=1"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(0, 256, 1); // NANO_MAX_SIZE
 	test_malloc_free_random(0, 256, 1, 10000);
 }
 
 T_DECL(malloc_free_tiny, "tiny malloc and free 16b increments <= 1008",
-	   T_META_ENVVAR("MallocNanoZone=0"))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(0, TINY_LIMIT_THRESHOLD, 16);
 	test_malloc_free_random(0, TINY_LIMIT_THRESHOLD, 16, 10000);
 }
 
 T_DECL(malloc_free, "malloc and free all 512b increments <= 256kb",
-	   T_META_ENVVAR("MallocNanoZone=0"))
+	   T_META_ENVVAR("MallocNanoZone=0"), T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(1024, 256 * 1024, 512); // > LARGE_THRESHOLD_LARGEMEM
 	test_malloc_free_random(1024, 256 * 1024, 512, 100000);
@@ -77,13 +77,14 @@ T_DECL(malloc_free, "malloc and free all 512b increments <= 256kb",
 T_DECL(malloc_free_medium, "medium malloc and free all 32kb increments <= 8mb",
 	   T_META_ENVVAR("MallocMediumZone=1"),
 	   T_META_ENVVAR("MallocMediumActivationThreshold=1"),
-	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(SMALL_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD, 32 * 1024);
 	test_malloc_free_random(SMALL_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD, 32 * 1024, 1000);
 }
 
-T_DECL(malloc_free_null, "free(NULL)")
+T_DECL(malloc_free_null, "free(NULL)", T_META_TAG_VM_PREFERRED)
 {
 	free(NULL);
 	T_PASS("Survived free(NULL)");
@@ -97,7 +98,8 @@ T_DECL(malloc_free_null, "free(NULL)")
 T_DECL(malloc_free_tiny_aggressive_madvise, "tiny malloc and free all 16b increments with aggressive madvise",
 	   T_META_ENVVAR("MallocNanoZone=0"),
 	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
-	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE))
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(0, TINY_LIMIT_THRESHOLD, 16);
 	test_malloc_free_random(0, TINY_LIMIT_THRESHOLD, 16, 10000);
@@ -106,7 +108,8 @@ T_DECL(malloc_free_tiny_aggressive_madvise, "tiny malloc and free all 16b increm
 T_DECL(malloc_free_small_aggressive_madvise, "small malloc and free all 512b with aggressive madvise",
 	   T_META_ENVVAR("MallocNanoZone=0"),
 	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
-	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE))
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(TINY_LIMIT_THRESHOLD, SMALL_LIMIT_THRESHOLD, 512);
 	test_malloc_free_random(TINY_LIMIT_THRESHOLD, SMALL_LIMIT_THRESHOLD, 512, 100000);
@@ -117,7 +120,8 @@ T_DECL(malloc_free_medium_aggressive_madvise, "medium malloc and free all 32kb i
 	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
 	   T_META_ENVVAR("MallocMediumActivationThreshold=1"),
 	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),
-	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE))
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(SMALL_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD, 32 * 1024);
 	test_malloc_free_random(SMALL_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD, 32 * 1024, 1000);
@@ -127,7 +131,8 @@ T_DECL(malloc_free_medium_aggressive_madvise, "medium malloc and free all 32kb i
 
 T_DECL(malloc_free_large_no_cache, "large malloc and free 1mb increments of first 8mb with large cache disabled",
 	   T_META_ENVVAR("MallocLargeCache=0"),
-	   T_META_ENABLED(CONFIG_LARGE_CACHE))
+	   T_META_ENABLED(CONFIG_LARGE_CACHE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(MEDIUM_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD + (8 * 1024 * 1024), 1024 * 1024);
 	test_malloc_free_random(MEDIUM_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD + (8 * 1024 * 1024), 1024 * 1024, 1000);
@@ -138,7 +143,8 @@ T_DECL(malloc_free_large_no_cache, "large malloc and free 1mb increments of firs
 T_DECL(malloc_free_space_efficient, "malloc and free all 512b increments <= 256kb with MallocSpaceEfficient=1",
 	   T_META_ENVVAR("MallocNanoZone=0"),
 	   T_META_ENVVAR("MallocSpaceEfficient=1"),
-	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE))
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(0, 256 * 1024, 512); // > LARGE_THRESHOLD_LARGEMEM
 	test_malloc_free_random(0, 256 * 1024, 512, 100000);
@@ -146,7 +152,8 @@ T_DECL(malloc_free_space_efficient, "malloc and free all 512b increments <= 256k
 
 T_DECL(malloc_free_large_space_efficient, "large malloc and free 1mb increments of first 8mb with MallocSpaceEfficient=1",
 	   T_META_ENVVAR("MallocSpaceEfficient=1"),
-	   T_META_ENABLED(CONFIG_LARGE_CACHE))
+	   T_META_ENABLED(CONFIG_LARGE_CACHE),
+	   T_META_TAG_VM_NOT_PREFERRED)
 {
 	test_malloc_free(MEDIUM_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD + (8 * 1024 * 1024), 1024 * 1024);
 	test_malloc_free_random(MEDIUM_LIMIT_THRESHOLD, MEDIUM_LIMIT_THRESHOLD + (8 * 1024 * 1024), 1024 * 1024, 1000);

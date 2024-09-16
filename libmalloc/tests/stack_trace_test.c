@@ -7,11 +7,12 @@
 
 #include <darwintest.h>
 
-T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE));
+T_GLOBAL_META(T_META_RUN_CONCURRENTLY(TRUE), T_META_TAG_VM_PREFERRED);
 
 #include "../src/stack_trace.c"
 
 #include <stdlib.h>  // arc4random_buf()
+#include <thread_stack_pcs.h>
 
 
 T_DECL(zigzag_encode, "zigzag_encode")

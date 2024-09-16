@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -250,11 +250,11 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 
 	vcb->vcbSigWord	= signature;
 	vcb->vcbJinfoBlock = SWAP_BE32(vhp->journalInfoBlock);
-	vcb->vcbLsMod	= to_bsd_time(SWAP_BE32(vhp->modifyDate));
 	vcb->vcbAtrb	= SWAP_BE32(vhp->attributes);
+	vcb->vcbLsMod	= to_bsd_time(SWAP_BE32(vhp->modifyDate), (vcb->vcbAtrb & kHFSExpandedTimesMask));
 	vcb->vcbClpSiz	= SWAP_BE32(vhp->rsrcClumpSize);
 	vcb->vcbNxtCNID	= SWAP_BE32(vhp->nextCatalogID);
-	vcb->vcbVolBkUp	= to_bsd_time(SWAP_BE32(vhp->backupDate));
+	vcb->vcbVolBkUp	= to_bsd_time(SWAP_BE32(vhp->backupDate), (vcb->vcbAtrb & kHFSExpandedTimesMask));
 	vcb->vcbWrCnt	= SWAP_BE32(vhp->writeCount);
 	vcb->vcbFilCnt	= SWAP_BE32(vhp->fileCount);
 	vcb->vcbDirCnt	= SWAP_BE32(vhp->folderCount);
@@ -809,6 +809,36 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 	if ( !(vcb->vcbAtrb & kHFSVolumeHardwareLockMask) )	// if the disk is not write protected
 	{
 		MarkVCBDirty( vcb );	// mark VCB dirty so it will be written
+	}
+
+	/*
+	 * Evaluate for expanded timestamp support.
+	 *
+	 * Expanded timestamps implies support for storing on-disk (e.g. cnode / volhdr)
+	 * timestamps in a manner different from the original definition and on-disk
+	 * format of classic MacOS and MacOS X.   In particular, HFS times are normally
+	 * written to disk in Mac Time (seconds since 00:00:00 Jan 1, 1904 (GMT)) 
+	 * as a uint32_t.
+	 *
+	 * To forestall a variant of the Y2038 problem, we allow the HFS on-disk format to support
+	 * standard BSD timestamps (seconds since 00:00:00 1 Jan 1970) if requested.
+	 * While the standard MacOS time would hit wraparound in 2040 (2^32 seconds since Jan 1, 1904),
+	 * expanded times will carry HFS+ until 2106 (reintroducing the 66 years from 1904-1970).
+	 *
+	 * NOTE: By electing to retain a uint32_t as the on-disk timestamp field, it means that
+	 * HFS+ with expanded timestamps is UNABLE to record times earlier than 1/1/1970.  This is an
+	 * intentional trade-off to re-utilize as many of the 66 years as possible.
+	 *
+	 * If this bit is toggled `on` it implies that the FS is CAPABLE of supporting expanded
+	 * times and that new files will be created in such a manner.  However, each individual
+	 * file/folder record must be written independently with the kHFSCatExpandedTimesMask bit in
+	 * order for this to be active. Doing it in this manner allows for a rolling enablement of
+	 * this feature, with only the volume header / alt-VH flags being mandatory in the enabling
+	 * transaction. It also implies that a future implementation of HFS may elect to update
+	 * individual catalog records without setting this bit as well (in some kind of rolling fashion).
+	 */
+	if (vcb->vcbAtrb & kHFSExpandedTimesMask) {
+		hfsmp->hfs_flags |= HFS_EXPANDED_TIMES;
 	}
 
 	if (hfsmp->hfs_flags & HFS_CS_METADATA_PIN) {

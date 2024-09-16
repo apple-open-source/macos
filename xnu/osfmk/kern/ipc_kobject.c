@@ -138,10 +138,6 @@
 #include <kern/hv_support.h>
 #endif
 
-#if CONFIG_CSR
-#include <sys/csr.h>
-#endif
-
 #include <vm/vm_protos.h>
 
 #include <security/mac_mach_internal.h>

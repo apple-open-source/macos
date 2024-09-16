@@ -176,6 +176,7 @@ xsltSetAttrVTsegment(xsltAttrVTPtr avt, void *val) {
 void
 xsltCompileAttr(xsltStylesheetPtr style, xmlAttrPtr attr) {
     const xmlChar *str;
+    long str_len;
     const xmlChar *cur;
     xmlChar *ret = NULL;
     xmlChar *expr = NULL;
@@ -228,19 +229,22 @@ xsltCompileAttr(xsltStylesheetPtr style, xmlAttrPtr attr) {
 	if (*cur == '{') {
 	    if (*(cur+1) == '{') {	/* escaped '{' */
 	        cur++;
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		cur++;
 		str = cur;
 		continue;
 	    }
 	    if (*(cur+1) == '}') {	/* skip empty AVT */
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 	        cur += 2;
 		str = cur;
 		continue;
 	    }
 	    if ((ret != NULL) || (cur - str > 0)) {
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		str = cur;
 		if (avt->nb_seg == 0)
 		    avt->strstart = 1;
@@ -271,7 +275,8 @@ xsltCompileAttr(xsltStylesheetPtr style, xmlAttrPtr attr) {
 		goto error;
 	    }
 	    str++;
-	    expr = xmlStrndup(str, cur - str);
+	    str_len = cur - str;
+	    expr = xmlStrndup(str, CLAMP_TO_INT_MAX(str_len));
 	    if (expr == NULL) {
 		/*
 		* TODO: What needs to be done here?
@@ -313,7 +318,8 @@ xsltCompileAttr(xsltStylesheetPtr style, xmlAttrPtr attr) {
 	} else if (*cur == '}') {
 	    cur++;
 	    if (*cur == '}') {	/* escaped '}' */
-		ret = xmlStrncat(ret, str, cur - str);
+		str_len = cur - str;
+		ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 		cur++;
 		str = cur;
 		continue;
@@ -327,7 +333,8 @@ xsltCompileAttr(xsltStylesheetPtr style, xmlAttrPtr attr) {
 	    cur++;
     }
     if ((ret != NULL) || (cur - str > 0)) {
-	ret = xmlStrncat(ret, str, cur - str);
+	str_len = cur - str;
+	ret = xmlStrncat(ret, str, CLAMP_TO_INT_MAX(str_len));
 	str = cur;
 	if (avt->nb_seg == 0)
 	    avt->strstart = 1;

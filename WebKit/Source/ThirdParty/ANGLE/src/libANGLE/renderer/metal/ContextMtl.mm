@@ -263,6 +263,8 @@ void ContextMtl::onDestroy(const gl::Context *context)
     mIncompleteTextures.onDestroy(context);
     mProvokingVertexHelper.onDestroy(this);
     mDummyXFBRenderTexture = nullptr;
+    mRasterizationRateMap.reset();
+    mRasterizationRateMapTexture = nil;
 
     mContextDevice.reset();
 }
@@ -291,6 +293,31 @@ angle::Result ContextMtl::flush(const gl::Context *context)
 angle::Result ContextMtl::finish(const gl::Context *context)
 {
     ANGLE_TRY(finishCommandBuffer());
+    return angle::Result::Continue;
+}
+
+ANGLE_INLINE angle::Result ContextMtl::resyncDrawFramebufferIfNeeded(const gl::Context *context)
+{
+    // Resync the draw framebuffer if
+    // - it has incompatible attachments; OR
+    // - it had incompatible attachments during the previous operation.
+    if (ANGLE_UNLIKELY(mIncompatibleAttachments.any() || mForceResyncDrawFramebuffer))
+    {
+        if (mIncompatibleAttachments.any())
+        {
+            ANGLE_PERF_WARNING(context->getState().getDebug(), GL_DEBUG_SEVERITY_LOW,
+                               "Resyncing the draw framebuffer because it has active attachments "
+                               "incompatible with the current program outputs.");
+        }
+
+        // Ensure sync on the next operation if the current state has incompatible attachments.
+        mForceResyncDrawFramebuffer = mIncompatibleAttachments.any();
+
+        FramebufferMtl *fbo = mtl::GetImpl(getState().getDrawFramebuffer());
+        ASSERT(fbo != nullptr);
+        return fbo->syncState(context, GL_DRAW_FRAMEBUFFER, gl::Framebuffer::DirtyBits(),
+                              gl::Command::Draw);
+    }
     return angle::Result::Continue;
 }
 
@@ -372,7 +399,7 @@ angle::Result ContextMtl::drawTriFanArrays(const gl::Context *context,
 {
     if (count <= 3 && baseInstance == 0)
     {
-        return drawArraysInstanced(context, gl::PrimitiveMode::Triangles, first, count, instances);
+        return drawArraysImpl(context, gl::PrimitiveMode::Triangles, first, count, instances, 0);
     }
     if (getDisplay()->getFeatures().hasBaseVertexInstancedDraw.enabled)
     {
@@ -508,6 +535,7 @@ angle::Result ContextMtl::drawArrays(const gl::Context *context,
                                      GLint first,
                                      GLsizei count)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     return drawArraysImpl(context, mode, first, count, 0, 0);
 }
 
@@ -520,6 +548,7 @@ angle::Result ContextMtl::drawArraysInstanced(const gl::Context *context,
     // Instanced draw calls with zero instances are skipped in the frontend.
     // The drawArraysImpl function would treat them as non-instanced.
     ASSERT(instances > 0);
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     return drawArraysImpl(context, mode, first, count, instances, 0);
 }
 
@@ -533,6 +562,7 @@ angle::Result ContextMtl::drawArraysInstancedBaseInstance(const gl::Context *con
     // Instanced draw calls with zero instances are skipped in the frontend.
     // The drawArraysImpl function would treat them as non-instanced.
     ASSERT(instanceCount > 0);
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     return drawArraysImpl(context, mode, first, count, instanceCount, baseInstance);
 }
 
@@ -579,17 +609,8 @@ angle::Result ContextMtl::drawTriFanElements(const gl::Context *context,
 
         return angle::Result::Continue;
     }  // if (count > 3)
-    if (baseVertex == 0 && baseInstance == 0)
-    {
-        return drawElementsInstanced(context, gl::PrimitiveMode::Triangles, count, type, indices,
-                                     instances);
-    }
-    else
-    {
-        return drawElementsInstancedBaseVertexBaseInstance(context, gl::PrimitiveMode::Triangles,
-                                                           count, type, indices, instances,
-                                                           baseVertex, baseInstance);
-    }
+    return drawElementsImpl(context, gl::PrimitiveMode::Triangles, count, type, indices, instances,
+                            baseVertex, baseInstance);
 }
 
 angle::Result ContextMtl::drawLineLoopElementsNonInstancedNoPrimitiveRestart(
@@ -658,17 +679,8 @@ angle::Result ContextMtl::drawLineLoopElements(const gl::Context *context,
 
         return angle::Result::Continue;
     }  // if (count >= 2)
-    if (baseVertex == 0 && baseInstance == 0)
-    {
-        return drawElementsInstanced(context, gl::PrimitiveMode::Lines, count, type, indices,
-                                     instances);
-    }
-    else
-    {
-        return drawElementsInstancedBaseVertexBaseInstance(context, gl::PrimitiveMode::Lines, count,
-                                                           type, indices, instances, baseVertex,
-                                                           baseInstance);
-    }
+    return drawElementsImpl(context, gl::PrimitiveMode::Lines, count, type, indices, instances,
+                            baseVertex, baseInstance);
 }
 
 angle::Result ContextMtl::drawArraysProvokingVertexImpl(const gl::Context *context,
@@ -876,6 +888,7 @@ angle::Result ContextMtl::drawElements(const gl::Context *context,
                                        gl::DrawElementsType type,
                                        const void *indices)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     return drawElementsImpl(context, mode, count, type, indices, 0, 0, 0);
 }
 
@@ -897,6 +910,7 @@ angle::Result ContextMtl::drawElementsInstanced(const gl::Context *context,
                                                 const void *indices,
                                                 GLsizei instanceCount)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     // Instanced draw calls with zero instances are skipped in the frontend.
     // The drawElementsImpl function would treat them as non-instanced.
     ASSERT(instanceCount > 0);
@@ -911,6 +925,7 @@ angle::Result ContextMtl::drawElementsInstancedBaseVertex(const gl::Context *con
                                                           GLsizei instanceCount,
                                                           GLint baseVertex)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     // Instanced draw calls with zero instances are skipped in the frontend.
     // The drawElementsImpl function would treat them as non-instanced.
     ASSERT(instanceCount > 0);
@@ -926,6 +941,7 @@ angle::Result ContextMtl::drawElementsInstancedBaseVertexBaseInstance(const gl::
                                                                       GLint baseVertex,
                                                                       GLuint baseInstance)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     // Instanced draw calls with zero instances are skipped in the frontend.
     // The drawElementsImpl function would treat them as non-instanced.
     ASSERT(instances > 0);
@@ -941,6 +957,7 @@ angle::Result ContextMtl::drawRangeElements(const gl::Context *context,
                                             gl::DrawElementsType type,
                                             const void *indices)
 {
+    ANGLE_TRY(resyncDrawFramebufferIfNeeded(context));
     return drawElementsImpl(context, mode, count, type, indices, 0, 0, 0);
 }
 
@@ -1109,6 +1126,23 @@ angle::Result ContextMtl::pushDebugGroup(const gl::Context *context,
 angle::Result ContextMtl::popDebugGroup(const gl::Context *context)
 {
     return angle::Result::Continue;
+}
+
+void ContextMtl::updateIncompatibleAttachments(const gl::State &glState)
+{
+    const gl::ProgramExecutable *programExecutable = glState.getProgramExecutable();
+    gl::Framebuffer *drawFramebuffer               = glState.getDrawFramebuffer();
+    if (programExecutable == nullptr || drawFramebuffer == nullptr)
+    {
+        mIncompatibleAttachments.reset();
+        return;
+    }
+
+    // Cache a mask of incompatible attachments ignoring unused outputs and disabled draw buffers.
+    mIncompatibleAttachments =
+        gl::GetComponentTypeMaskDiff(drawFramebuffer->getDrawBufferTypeMask(),
+                                     programExecutable->getFragmentOutputsTypeMask()) &
+        drawFramebuffer->getDrawBufferMask() & programExecutable->getActiveOutputVariablesMask();
 }
 
 // State sync with dirty bits.
@@ -1292,6 +1326,7 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
             case gl::state::DIRTY_BIT_READ_FRAMEBUFFER_BINDING:
                 break;
             case gl::state::DIRTY_BIT_DRAW_FRAMEBUFFER_BINDING:
+                updateIncompatibleAttachments(glState);
                 updateDrawFrameBufferBinding(context);
                 break;
             case gl::state::DIRTY_BIT_RENDERBUFFER_BINDING:
@@ -1311,6 +1346,7 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
                 break;
             case gl::state::DIRTY_BIT_PROGRAM_EXECUTABLE:
             {
+                updateIncompatibleAttachments(glState);
                 const gl::ProgramExecutable *executable = mState.getProgramExecutable();
                 ASSERT(executable);
                 mExecutable = mtl::GetImpl(executable);
@@ -1398,6 +1434,9 @@ void ContextMtl::updateExtendedState(const gl::State &glState,
             case gl::state::EXTENDED_DIRTY_BIT_POLYGON_OFFSET_LINE_ENABLED:
                 mDirtyBits.set(DIRTY_BIT_DEPTH_BIAS);
                 break;
+            case gl::state::EXTENDED_DIRTY_BIT_VARIABLE_RASTERIZATION_RATE:
+                mDirtyBits.set(DIRTY_BIT_VARIABLE_RASTERIZATION_RATE);
+                break;
             default:
                 break;
         }
@@ -1414,7 +1453,7 @@ GLint ContextMtl::getGPUDisjoint()
 GLint64 ContextMtl::getTimestamp()
 {
     // Timestamps are currently unsupported. An implementation
-    // strategy is written up in anglebug.com/7828 if they're needed
+    // strategy is written up in anglebug.com/42266300 if they're needed
     // in the future.
     return 0;
 }
@@ -1437,7 +1476,7 @@ angle::Result ContextMtl::onUnMakeCurrent(const gl::Context *context)
     // Note: this 2nd flush is needed because if there is a query in progress
     // then during flush, new command buffers are allocated that also need
     // to be flushed. This is a temporary fix and we should probably refactor
-    // this later. See TODO(anglebug.com/7138)
+    // this later. See TODO(anglebug.com/42265611)
     flushCommandBuffer(mtl::WaitUntilScheduled);
     gl::Query *query = mState.getActiveQuery(gl::QueryType::TimeElapsed);
     if (query)
@@ -1648,6 +1687,36 @@ angle::Result ContextMtl::memoryBarrierByRegion(const gl::Context *context, GLbi
     return angle::Result::Stop;
 }
 
+angle::Result ContextMtl::bindMetalRasterizationRateMap(gl::Context *context,
+                                                        RenderbufferImpl *renderbuffer,
+                                                        GLMTLRasterizationRateMapANGLE map)
+{
+    id<MTLRasterizationRateMap> rateMap = (__bridge id<MTLRasterizationRateMap>)(map);
+    if (rateMap && rateMap.device != mContextDevice.get())
+    {
+        return angle::Result::Stop;
+    }
+
+    if (auto *metalRenderbuffer = static_cast<RenderbufferMtl*>(renderbuffer))
+    {
+        FramebufferAttachmentRenderTarget *rtOut = nullptr;
+        gl::ImageIndex index;
+        GLenum binding = 0;
+        if (angle::Result::Continue == metalRenderbuffer->getAttachmentRenderTarget(context, binding, index, 1, &rtOut))
+        {
+            if (auto *renderTargetMetal = static_cast<RenderTargetMtl*>(rtOut))
+            {
+                mtl::RenderPassAttachmentDesc desc;
+                renderTargetMetal->toRenderPassAttachmentDesc(&desc);
+                mRasterizationRateMapTexture = desc.texture.get()->get();
+            }
+        }
+    }
+
+    mRasterizationRateMap = std::move(rateMap);
+    return angle::Result::Continue;
+}
+
 // override mtl::ErrorHandler
 void ContextMtl::handleError(GLenum glErrorCode,
                              const char *message,
@@ -1693,7 +1762,7 @@ void ContextMtl::invalidateDefaultAttributes(const gl::AttributesMask &dirtyMask
         mDirtyBits.set(DIRTY_BIT_DEFAULT_ATTRIBS);
     }
 
-    // TODO(anglebug.com/5505): determine how to merge this.
+    // TODO(anglebug.com/40096755): determine how to merge this.
 #if 0
     if (getDisplay()->getFeatures().hasExplicitMemBarrier.enabled)
     {
@@ -1796,6 +1865,8 @@ void ContextMtl::endRenderEncoding(mtl::RenderCommandEncoder *encoder)
     {
         mBlitEncoder.endEncoding();
     }
+
+    mOcclusionQueryPool.prepareRenderPassVisibilityPoolBuffer(this);
 
     encoder->endEncoding();
 
@@ -2224,7 +2295,14 @@ void ContextMtl::updateDrawFrameBufferBinding(const gl::Context *context)
 {
     const gl::State &glState = getState();
 
-    mDrawFramebuffer = mtl::GetImpl(glState.getDrawFramebuffer());
+    FramebufferMtl *newDrawFramebuffer = mtl::GetImpl(glState.getDrawFramebuffer());
+    if (newDrawFramebuffer != mDrawFramebuffer)
+    {
+        // Reset this flag if the framebuffer has changed to not sync it twice
+        mForceResyncDrawFramebuffer = false;
+    }
+
+    mDrawFramebuffer = newDrawFramebuffer;
 
     mDrawFramebuffer->onStartedDrawingToFrameBuffer(context);
 
@@ -2345,7 +2423,7 @@ angle::Result ContextMtl::startOcclusionQueryInRenderPass(QueryMtl *query, bool 
     // We need to mark the query's buffer as being written in this command buffer now. Since the
     // actual writing is deferred until the render pass ends and user could try to read the query
     // result before the render pass ends.
-    mCmdBuffer.setWriteDependency(query->getVisibilityResultBuffer());
+    mCmdBuffer.setWriteDependency(query->getVisibilityResultBuffer(), /*isRenderCommand=*/true);
 
     return angle::Result::Continue;
 }
@@ -2619,10 +2697,10 @@ angle::Result ContextMtl::setupDrawImpl(const gl::Context *context,
                     mState.getBlendColor().blue, mState.getBlendColor().alpha);
                 break;
             case DIRTY_BIT_VIEWPORT:
-                mRenderEncoder.setViewport(mViewport);
+                mRenderEncoder.setViewport(mViewport, mRenderEncoder.rasterizationRateMapForPass(mRasterizationRateMap, mRasterizationRateMapTexture));
                 break;
             case DIRTY_BIT_SCISSOR:
-                mRenderEncoder.setScissorRect(mScissorRect);
+                mRenderEncoder.setScissorRect(mScissorRect, mRenderEncoder.rasterizationRateMapForPass(mRasterizationRateMap, mRasterizationRateMapTexture));
                 break;
             case DIRTY_BIT_DRAW_FRAMEBUFFER:
                 // Already handled.
@@ -2646,6 +2724,12 @@ angle::Result ContextMtl::setupDrawImpl(const gl::Context *context,
                 break;
             case DIRTY_BIT_RASTERIZER_DISCARD:
                 // Already handled.
+                break;
+            case DIRTY_BIT_VARIABLE_RASTERIZATION_RATE:
+                if (getState().privateState().isVariableRasterizationRateEnabled() && mRasterizationRateMap)
+                {
+                    mRenderEncoder.setRasterizationRateMap(mRenderEncoder.rasterizationRateMapForPass(mRasterizationRateMap, mRasterizationRateMapTexture));
+                }
                 break;
             default:
                 UNREACHABLE();
@@ -2963,59 +3047,4 @@ angle::Result ContextMtl::checkIfPipelineChanged(const gl::Context *context,
     return angle::Result::Continue;
 }
 
-angle::Result ContextMtl::copy2DTextureSlice0Level0ToWorkTexture(const mtl::TextureRef &srcTexture)
-{
-    if (!mWorkTexture || !mWorkTexture->sameTypeAndDimemsionsAs(srcTexture))
-    {
-        auto formatId = mtl::Format::MetalToAngleFormatID(srcTexture->pixelFormat());
-        auto format   = getPixelFormat(formatId);
-
-        ANGLE_TRY(mtl::Texture::Make2DTexture(this, format, srcTexture->widthAt0(),
-                                              srcTexture->heightAt0(), srcTexture->mipmapLevels(),
-                                              false, true, &mWorkTexture));
-    }
-    auto *blitEncoder = getBlitCommandEncoder();
-    blitEncoder->copyTexture(srcTexture,
-                             0,                          // srcStartSlice
-                             mtl::MipmapNativeLevel(0),  // MipmapNativeLevel
-                             mWorkTexture,               // dst
-                             0,                          // dstStartSlice
-                             mtl::MipmapNativeLevel(0),  // dstStartLevel
-                             1,                          // sliceCount,
-                             1);                         // levelCount
-
-    return angle::Result::Continue;
-}
-
-angle::Result ContextMtl::copyTextureSliceLevelToWorkBuffer(
-    const gl::Context *context,
-    const mtl::TextureRef &srcTexture,
-    const mtl::MipmapNativeLevel &mipNativeLevel,
-    uint32_t layerIndex)
-{
-    auto formatId                    = mtl::Format::MetalToAngleFormatID(srcTexture->pixelFormat());
-    const mtl::Format &metalFormat   = getPixelFormat(formatId);
-    const angle::Format &angleFormat = metalFormat.actualAngleFormat();
-
-    uint32_t width       = srcTexture->width(mipNativeLevel);
-    uint32_t height      = srcTexture->height(mipNativeLevel);
-    uint32_t sizeInBytes = width * height * angleFormat.pixelBytes;
-
-    // Expand the buffer if it is not big enough.
-    if (!mWorkBuffer || mWorkBuffer->size() < sizeInBytes)
-    {
-        ANGLE_TRY(mtl::Buffer::MakeBufferWithStorageMode(
-            this, mtl::Buffer::getStorageModeForSharedBuffer(this), sizeInBytes, nullptr,
-            &mWorkBuffer));
-    }
-
-    gl::Rectangle region(0, 0, width, height);
-    uint32_t bytesPerRow = angleFormat.pixelBytes * width;
-    uint32_t destOffset  = 0;
-    ANGLE_TRY(mtl::ReadTexturePerSliceBytesToBuffer(context, srcTexture, bytesPerRow, region,
-                                                    mipNativeLevel, layerIndex, destOffset,
-                                                    mWorkBuffer));
-
-    return angle::Result::Continue;
-}
 }  // namespace rx

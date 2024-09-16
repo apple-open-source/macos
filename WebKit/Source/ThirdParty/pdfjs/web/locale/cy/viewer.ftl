@@ -23,11 +23,11 @@ pdfjs-of-pages = o { $pagesCount }
 #   $pagesCount (Number) - the total number of pages in the document
 pdfjs-page-of-pages = ({ $pageNumber } o { $pagesCount })
 pdfjs-zoom-out-button =
-    .title = Chwyddo Allan
-pdfjs-zoom-out-button-label = Chwyddo Allan
+    .title = Lleihau
+pdfjs-zoom-out-button-label = Lleihau
 pdfjs-zoom-in-button =
-    .title = Chwyddo Mewn
-pdfjs-zoom-in-button-label = Chwyddo Mewn
+    .title = Cynyddu
+pdfjs-zoom-in-button-label = Cynyddu
 pdfjs-zoom-select =
     .title = Chwyddo
 pdfjs-presentation-mode-button =
@@ -44,10 +44,10 @@ pdfjs-save-button =
 pdfjs-save-button-label = Cadw
 # Used in Firefox for Android as a tooltip for the download button (“download” is a verb).
 pdfjs-download-button =
-    .title = Llwytho i Lawr
+    .title = Llwytho i lawr
 # Used in Firefox for Android as a label for the download button (“download” is a verb).
 # Length of the translation matters since we are in a mobile context, with limited screen estate.
-pdfjs-download-button-label = Llwytho i Lawr
+pdfjs-download-button-label = Llwytho i lawr
 pdfjs-bookmark-button =
     .title = Tudalen Gyfredol (Gweld URL o'r Dudalen Gyfredol)
 pdfjs-bookmark-button-label = Tudalen Gyfredol
@@ -309,8 +309,25 @@ pdfjs-editor-ink-button-label = Lluniadu
 pdfjs-editor-stamp-button =
     .title = Ychwanegu neu olygu delweddau
 pdfjs-editor-stamp-button-label = Ychwanegu neu olygu delweddau
-pdfjs-editor-remove-button =
-    .title = Tynnu
+pdfjs-editor-highlight-button =
+    .title = Amlygu
+pdfjs-editor-highlight-button-label = Amlygu
+pdfjs-highlight-floating-button =
+    .title = Amlygu
+
+## Remove button for the various kind of editor.
+
+pdfjs-editor-remove-ink-button =
+    .title = Dileu lluniad
+pdfjs-editor-remove-freetext-button =
+    .title = Dileu testun
+pdfjs-editor-remove-stamp-button =
+    .title = Dileu delwedd
+pdfjs-editor-remove-highlight-button =
+    .title = Tynnu amlygiad
+
+##
+
 # Editor Parameters
 pdfjs-editor-free-text-color-input = Lliw
 pdfjs-editor-free-text-size-input = Maint
@@ -320,6 +337,10 @@ pdfjs-editor-ink-opacity-input = Didreiddedd
 pdfjs-editor-stamp-add-image-button =
     .title = Ychwanegu delwedd
 pdfjs-editor-stamp-add-image-button-label = Ychwanegu delwedd
+# This refers to the thickness of the line used for free highlighting (not bound to text)
+pdfjs-editor-free-highlight-thickness-input = Trwch
+pdfjs-editor-free-highlight-thickness-title =
+    .title = Newid trwch wrth amlygu eitemau heblaw testun
 pdfjs-free-text =
     .aria-label = Golygydd Testun
 pdfjs-free-text-default-content = Cychwyn teipio…
@@ -357,3 +378,29 @@ pdfjs-editor-resizer-label-bottom-right = Y gornel dde isaf — newid maint
 pdfjs-editor-resizer-label-bottom-middle = Canol gwaelod — newid maint
 pdfjs-editor-resizer-label-bottom-left = Y gornel chwith isaf — newid maint
 pdfjs-editor-resizer-label-middle-left = Chwith canol — newid maint
+
+## Color picker
+
+# This means "Color used to highlight text"
+pdfjs-editor-highlight-colorpicker-label = Lliw amlygu
+pdfjs-editor-colorpicker-button =
+    .title = Newid lliw
+pdfjs-editor-colorpicker-dropdown =
+    .aria-label = Dewisiadau lliw
+pdfjs-editor-colorpicker-yellow =
+    .title = Melyn
+pdfjs-editor-colorpicker-green =
+    .title = Gwyrdd
+pdfjs-editor-colorpicker-blue =
+    .title = Glas
+pdfjs-editor-colorpicker-pink =
+    .title = Pinc
+pdfjs-editor-colorpicker-red =
+    .title = Coch
+
+## Show all highlights
+## This is a toggle button to show/hide all the highlights.
+
+pdfjs-editor-highlight-show-all-button-label = Dangos y cyfan
+pdfjs-editor-highlight-show-all-button =
+    .title = Dangos y cyfan

@@ -30,7 +30,7 @@ endif
 # Mac OS X or iOS internal SDK
 SDK=$(PLATFORM)internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
-CC = xcrun -sdk $(SDK) cc
+CC = xcrun -sdk $(SDK) cc  -fno-color-diagnostics
 
 
 all : ifnamer snapshot
@@ -56,8 +56,15 @@ snapshot.o: ifnamer.c Makefile
 snapshot: snapshot.o InterfaceNamerControlPrefs.o Makefile
 	$(CC) -o snapshot snapshot.o InterfaceNamerControlPrefs.o ${EXTRA} -framework CoreFoundation -framework SystemConfiguration -framework IOKit
 
+
+# ---------- ---------- ---------- ---------- ----------
+
+NetworkInterfaceUtil: NetworkInterfaceUtil.c
+	$(CC) -I../../SystemConfiguration.fproj -DTEST_NETWORKINTERFACEUTIL  $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -framework CoreFoundation -framework SystemConfiguration -framework IOKit -Wall -O0 -g -o $@ $^
+	codesign -s - $@
+
 # ---------- ---------- ---------- ---------- ----------
 
 clean:
-	rm -rf *.o ifnamer ifnamer.dSYM snapshot snapshot.dSYM
+	rm -rf *.o ifnamer ifnamer.dSYM snapshot snapshot.dSYM NetworkInterfaceUtil
 

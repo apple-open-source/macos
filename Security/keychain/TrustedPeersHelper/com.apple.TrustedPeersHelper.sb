@@ -30,6 +30,7 @@
 
 (allow mach-lookup
     (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.accountsd.accountmanager")
     (global-name "com.apple.apsd")
     (global-name "com.apple.cdp.daemon")
     (global-name "com.apple.cloudd")

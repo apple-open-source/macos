@@ -32,11 +32,11 @@
 #include "IPCStreamTesterIdentifier.h"
 #include "MessageReceiver.h"
 #include "ScopedActiveMessageReceiveQueue.h"
-#include "SharedMemory.h"
 #include "StreamConnectionBuffer.h"
 #include "StreamConnectionWorkQueue.h"
 #include "StreamMessageReceiver.h"
 #include "StreamServerConnection.h"
+#include <WebCore/SharedMemory.h>
 #include <atomic>
 #include <wtf/HashMap.h>
 #include <wtf/WorkQueue.h>
@@ -71,9 +71,10 @@ private:
     void sendSameSemaphoreBack(IPC::Connection&, IPC::Semaphore&&);
     void sendSemaphoreBackAndSignalProtocol(IPC::Connection&, IPC::Semaphore&&);
     void sendAsyncMessageToReceiver(IPC::Connection&, uint32_t);
-    void asyncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&&);
+    void asyncPing(uint32_t value, CompletionHandler<void(uint32_t)>&&);
     void syncPing(IPC::Connection&, uint32_t value, CompletionHandler<void(uint32_t)>&&);
     void syncPingEmptyReply(IPC::Connection&, uint32_t value, CompletionHandler<void()>&&);
+    void asyncOptionalExceptionData(IPC::Connection&, bool sendEngaged, CompletionHandler<void(std::optional<WebCore::ExceptionData>, String)>&&);
 
     void stopIfNeeded();
 

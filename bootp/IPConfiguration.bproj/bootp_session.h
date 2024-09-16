@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,38 +57,34 @@ typedef struct {
  */
 typedef void (bootp_receive_func_t)(void * arg1, void * arg2, void * arg3);
 
-typedef struct bootp_session bootp_session_t;
-typedef struct bootp_client bootp_client_t;
+typedef struct bootp_client * bootp_client_t;
 
-bootp_client_t *
-bootp_client_init(bootp_session_t * slist, interface_t * if_p);
-
-void
-bootp_client_free(bootp_client_t * * session);
+bootp_client_t
+bootp_client_init(interface_t * if_p);
 
 void
-bootp_client_enable_receive(bootp_client_t * client,
+bootp_client_free(bootp_client_t * session);
+
+void
+bootp_client_enable_receive(bootp_client_t client,
 			    bootp_receive_func_t * func, 
 			    void * arg1, void * arg2);
 
 void
-bootp_client_disable_receive(bootp_client_t * client);
+bootp_client_disable_receive(bootp_client_t client);
 
 int
-bootp_client_transmit(bootp_client_t * client,
+bootp_client_transmit(bootp_client_t client,
 		      struct in_addr dest_ip,
 		      struct in_addr src_ip,
 		      uint16_t dest_port,
 		      uint16_t src_port,
 		      void * data, int len);
 
-bootp_session_t * 
+void
 bootp_session_init(uint16_t client_port);
 
 void
 bootp_session_set_verbose(bool verbose);
-
-void
-bootp_session_free(bootp_session_t * * slist);
 
 #endif /* _S_BOOTP_SESSION_H */

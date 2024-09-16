@@ -70,7 +70,7 @@ wctype_l(const char *property, locale_t loc)
 		return (props[i].mask);
 
 	NORMALIZE_LOCALE(loc);
-	rl = &loc->__lc_ctype->_CurrentRuneLocale;
+	rl = XLOCALE_CTYPE(loc)->_CurrentRuneLocale;
 	if ((i = rl->__ncharclasses) > 0) {
 		_RuneCharClass *rp;
 		for (rp = rl->__charclasses; i-- > 0; rp++) {

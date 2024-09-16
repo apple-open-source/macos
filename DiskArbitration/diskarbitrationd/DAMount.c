@@ -1255,6 +1255,8 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
             {
                 if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
+                    DALogInfo( " No console users yet, delaying mount of %@", disk );
+
                     automatic = kCFBooleanFalse;
                 }
             }

@@ -59,6 +59,7 @@
 
 #import "mockaksxcbase.h"
 #import "OTConstants.h"
+#import "Affordance_OTConstants.h"
 
 @interface secdmockaks : mockaksxcbase
 @end

@@ -104,9 +104,9 @@ public:
                         continue;
                 
                     if (dominates(fromBlock, toBlock) != naiveDominates(fromBlock, toBlock))
-                        context.reportError(fromBlock, toBlock, "Range-based domination check is broken");
+                        context.reportError(fromBlock, toBlock, "Range-based domination check is broken"_s);
                     if (dominates(fromBlock, toBlock) != context.naiveDominators.dominates(fromBlock, toBlock))
-                        context.reportError(fromBlock, toBlock, "Lengauer-Tarjan domination is broken");
+                        context.reportError(fromBlock, toBlock, "Lengauer-Tarjan domination is broken"_s);
                 }
             }
         
@@ -285,11 +285,11 @@ public:
             if (m_data[blockIndex].preNumber == UINT_MAX)
                 continue;
             
-            out.print("    Block #", blockIndex, ": idom = ", m_graph.dump(m_data[blockIndex].idomParent), ", idomKids = [");
+            out.print("    Block #"_s, blockIndex, ": idom = "_s, m_graph.dump(m_data[blockIndex].idomParent), ", idomKids = ["_s);
             CommaPrinter comma;
             for (unsigned i = 0; i < m_data[blockIndex].idomKids.size(); ++i)
                 out.print(comma, m_graph.dump(m_data[blockIndex].idomKids[i]));
-            out.print("], pre/post = ", m_data[blockIndex].preNumber, "/", m_data[blockIndex].postNumber, "\n");
+            out.print("], pre/post = "_s, m_data[blockIndex].preNumber, "/"_s, m_data[blockIndex].postNumber, "\n"_s);
         }
     }
     
@@ -620,7 +620,7 @@ private:
         {
         }
     
-        void reportError(typename Graph::Node from, typename Graph::Node to, const char* message)
+        void reportError(typename Graph::Node from, typename Graph::Node to, ASCIILiteral message)
         {
             Error error;
             error.from = from;
@@ -681,7 +681,7 @@ private:
 
             typename Graph::Node from;
             typename Graph::Node to;
-            const char* message;
+            ASCIILiteral message;
         };
     
         Vector<Error> errors;

@@ -37,11 +37,12 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WorkQueue.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 
 ALLOW_UNUSED_PARAMETERS_BEGIN
 ALLOW_COMMA_BEGIN
 
+#include <webrtc/api/environment/environment_factory.h>
 #include <webrtc/modules/video_coding/codecs/vp8/include/vp8.h>
 #include <webrtc/modules/video_coding/codecs/vp9/include/vp9.h>
 #include <webrtc/sdk/WebKit/WebKitDecoder.h>
@@ -56,7 +57,7 @@ namespace WebCore {
 
 static WorkQueue& vpxDecoderQueue()
 {
-    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("VPx VideoDecoder Queue"));
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("VPx VideoDecoder Queue"_s));
     return queue.get();
 }
 
@@ -150,7 +151,7 @@ void LibWebRTCVPXInternalVideoDecoder::decode(std::span<const uint8_t> data, boo
             return;
 
         if (error)
-            protectedThis->m_outputCallback(makeUnexpected(makeString("VPx decoding failed with error ", error)));
+            protectedThis->m_outputCallback(makeUnexpected(makeString("VPx decoding failed with error "_s, error)));
 
         callback({ });
     });
@@ -160,13 +161,15 @@ static UniqueRef<webrtc::VideoDecoder> createInternalDecoder(LibWebRTCVPXVideoDe
 {
     switch (type) {
     case LibWebRTCVPXVideoDecoder::Type::VP8:
-        return makeUniqueRefFromNonNullUniquePtr(webrtc::VP8Decoder::Create());
+        return makeUniqueRefFromNonNullUniquePtr(webrtc::CreateVp8Decoder(webrtc::EnvironmentFactory().Create()));
     case LibWebRTCVPXVideoDecoder::Type::VP9:
         return makeUniqueRefFromNonNullUniquePtr(webrtc::VP9Decoder::Create());
     case LibWebRTCVPXVideoDecoder::Type::VP9_P2:
         return makeUniqueRefFromNonNullUniquePtr(webrtc::VP9Decoder::Create());
+#if ENABLE(AV1)
     case LibWebRTCVPXVideoDecoder::Type::AV1:
         return createLibWebRTCDav1dDecoder();
+#endif
     }
 }
 

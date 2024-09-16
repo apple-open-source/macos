@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2019 - 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,15 +26,7 @@
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb2_mc_support.h>
-
-#define SMB2_QUERY_NETWORK_RESPONSE_IPV4_FAMILY     0x0002
-#define SMB2_QUERY_NETWORK_RESPONSE_IPV6_FAMILY     0x0017
-
-#define SMB2_MC_IPV4_LEN (0x10)
-#define SMB2_MC_IPV6_LEN (0x1C)
-
-#define SMB2_IF_CAP_RSS_CAPABLE  (0x01)
-#define SMB2_IF_CAP_RDMA_CAPABLE (0x02)
+#include <netsmb/smb_2.h>
 
 static int	smb2_mc_add_new_interface_info_to_list(
             struct interface_info_list* list,
@@ -111,14 +103,14 @@ struct conn_states_results {
 /*
  * Count the number of active and inactive session connections.
  * The interface_table_lck is expected to be held before entering this function
+ *
+ * Also returns the next potential connection that can be used for multichannel
  */
 static int
-smb2_mc_count_connection_stats(
-    struct session_network_interface_info* session_table,
-    struct conn_states_results *results  )
+smb2_mc_count_connection_stats(struct session_network_interface_info* session_table,
+                               struct conn_states_results *results)
 {
-    int error = 0;
-    
+    int error = 0, check_for_faster_rss = 0, check_speed = 0;
     uint32_t local_active_cnt = 0;
     uint32_t local_inactive_cnt = 0;
     uint64_t local_active_speed = 0;
@@ -129,86 +121,220 @@ smb2_mc_count_connection_stats(
     struct session_con_entry *local_potential_con_with_max_speed = NULL;
     struct session_con_entry *local_potential_wired_con_with_max_speed = NULL;
     struct session_con_entry *local_fastest_inactive = NULL;
-    
-    if (session_table == NULL)
-    {
+    char active_spd[20] = {0}, inactive_spd[20] = {0};
+    char pot_spd[20] = {0}, pot_wired_spd[20] = {0};
+    struct session_con_entry *con = NULL;
+
+    if (session_table == NULL) {
         SMBERROR("NULL pointer");
         error = EINVAL;
         goto exit;
     }
 
-    struct session_con_entry *con;
     TAILQ_FOREACH(con, &session_table->session_con_list, next) {
-
         if (con->state == SMB2_MC_STATE_CONNECTED) {
-            
             if (con->active_state == SMB2_MC_FUNC_ACTIVE) {
                 local_active_cnt++;
-                if (con->con_speed > local_active_speed)
+                if (con->con_speed > local_active_speed) {
                     local_active_speed = con->con_speed;
-            } else if (con->active_state == SMB2_MC_FUNC_INACTIVE) {
+                }
+            }
+            else {
+                if (con->active_state == SMB2_MC_FUNC_INACTIVE) {
                     local_inactive_cnt++;
-                if (con->con_speed > local_inactive_speed) {
-                    local_inactive_speed   = con->con_speed;
-                    local_fastest_inactive = con;
-                }
-                if (con->con_client_nic->nic_type == IFM_ETHER)
-                {
-                    local_wired_inactive_cnt++;
+                    
+                    if (con->con_speed > local_inactive_speed) {
+                        local_inactive_speed = con->con_speed;
+                        local_fastest_inactive = con;
+                    }
+                    
+                    if (con->con_client_nic->nic_type == IFM_ETHER) {
+                        local_wired_inactive_cnt++;
+                    }
                 }
             }
-            
-        } else if ((con->state == SMB2_MC_STATE_POTENTIAL) &&
-                   (con->con_client_nic->nic_state == SMB2_MC_STATE_IDLE) &&
-                   (con->con_server_nic->nic_state == SMB2_MC_STATE_IDLE)) {
-            con->con_speed = MIN(con->con_client_nic->nic_link_speed, con->con_server_nic->nic_link_speed);
-            if (con->con_speed > local_potential_speed) {
-                local_potential_speed = con->con_speed;
-                local_potential_con_with_max_speed = con;
-            }
+        }
+        else {
             /*
-             * <72204412> if should prefer wired channels, find the best wired
-             * potential in case it is not the global potential.
+             * Ok to check a server nic that is in use (most likely by
+             * current active or inactive channels) so that we can potentially
+             * get a faster channel to the server than the current channels.
              */
-            if (session_table->prefer_wired &&
-                (con->con_client_nic->nic_type == IFM_ETHER) &&
-                (con->con_speed > local_potential_wired_speed)) {
-                local_potential_wired_speed = con->con_speed;
-                local_potential_wired_con_with_max_speed = con;
+        	if ((con->state == SMB2_MC_STATE_POTENTIAL) &&
+                (con->con_client_nic->nic_state == SMB2_MC_STATE_IDLE) &&
+                (con->con_server_nic->nic_state == SMB2_MC_STATE_IDLE)) {
+                
+            	con->con_speed = MIN(con->con_client_nic->nic_link_speed,
+                                     con->con_server_nic->nic_link_speed);
+            	if (con->con_speed > local_potential_speed) {
+                	local_potential_speed = con->con_speed;
+                	local_potential_con_with_max_speed = con;
+            	}
+            	
+				/*
+				 * <72204412> if should prefer wired channels, find the best wired
+				 * potential in case it is not the global potential.
+				 */
+				if (session_table->prefer_wired &&
+					(con->con_client_nic->nic_type == IFM_ETHER) &&
+					(con->con_speed > local_potential_wired_speed)) {
+					local_potential_wired_speed = con->con_speed;
+					local_potential_wired_con_with_max_speed = con;
+				}
+			}
+        }
+    }
+    
+    /* Should we check for a possible faster RSS connection? */
+    if (local_active_cnt > 0) {
+        if (session_table->prefer_wired) {
+            if (local_potential_wired_con_with_max_speed == NULL) {
+                check_for_faster_rss = 1;
+            }
+        }
+        else {
+            if (local_potential_con_with_max_speed == NULL) {
+                check_for_faster_rss = 1;
             }
         }
     }
+    
+    /*
+     * Check to see if we can upgrade an "in use" connection to a faster
+     * speed connection possibly using the same client or server nic.
+     *
+     * For a non RSS server NIC, its possible we may end up with one active
+     * channel at a higher speed and one inactive channel at a lower speed
+     * connected to that one server NIC which is technically wrong, but since
+     * we dont send traffic over the inactive, it should be ok. ;-)
+     */
+    if (check_for_faster_rss == 1) {
+        TAILQ_FOREACH(con, &session_table->session_con_list, next) {
+            if ((con->state == SMB2_MC_STATE_SURPLUS) || (con->state == SMB2_MC_STATE_POTENTIAL)) {
+                /* One nic has to be in use and the other has to be idle */
+                check_speed = 0;
+                if ((con->con_client_nic->nic_state == SMB2_MC_STATE_USED) &&
+                    (con->con_server_nic->nic_state == SMB2_MC_STATE_IDLE)) {
+                    check_speed = 1;
+                }
+                
+                if ((con->con_client_nic->nic_state == SMB2_MC_STATE_IDLE) &&
+                    (con->con_server_nic->nic_state == SMB2_MC_STATE_USED)) {
+                    check_speed = 1;
+                }
 
-    results->active_cnt          = local_active_cnt;
-    results->inactive_cnt        = local_inactive_cnt;
-    results->max_active_speed    = local_active_speed;
-    results->max_inactive_speed  = local_inactive_speed;
-    results->fastest_inactive    = local_fastest_inactive;
-    results->max_potential_speed = local_potential_speed;
-    results->potential_con_with_max_speed = local_potential_con_with_max_speed;
-    results->max_potential_wired_speed = local_potential_wired_speed;
-    results->potential_wired_con_with_max_speed = local_potential_wired_con_with_max_speed;
+                if (check_speed == 0) {
+                    continue;
+                }
+
+                /* Would this conn be faster than current active conns? */
+                con->con_speed = MIN(con->con_client_nic->nic_link_speed,
+                                     con->con_server_nic->nic_link_speed);
+                
+                if ((session_table->prefer_wired) &&
+                    (con->con_client_nic->nic_type != IFM_ETHER)) {
+                    continue;
+                }
+
+                if ((con->con_speed > local_active_speed) &&
+                    (con->con_server_nic->nic_state != SMB2_MC_STATE_ON_TRIAL)) {
+                    SMB_LOG_MC("Found potential or surplus that is faster than actives: client nic %llu (RSS_%llu) (state 0x%x) - server nic %llu (RSS_%llu) (state 0x%x) con->state 0x%x \n",
+                               con->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
+                               con->con_client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                               con->con_client_nic->nic_state,
+                               con->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
+                               con->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                               con->con_server_nic->nic_state,
+                               con->state);
+
+                    con->state = SMB2_MC_STATE_POTENTIAL;
+
+                    local_potential_speed = con->con_speed;
+                    local_potential_con_with_max_speed = con;
+                    
+                    local_potential_wired_speed = con->con_speed;
+                    local_potential_wired_con_with_max_speed = con;
+                    
+                    break;
+                }
+            }
+        }
+    }
+ 
+    results->active_cnt         = local_active_cnt;
+    results->inactive_cnt       = local_inactive_cnt;
     results->wired_inactive_cnt = local_wired_inactive_cnt;
+
+    SMB_LOG_MC("active_cnt %d inactive_cnt %d wired_inactive_cnt %d \n",
+               results->active_cnt, results->inactive_cnt, results->wired_inactive_cnt);
+    
+    results->max_active_speed           = local_active_speed;
+    results->max_inactive_speed         = local_inactive_speed;
+    results->max_potential_speed        = local_potential_speed;
+    results->max_potential_wired_speed  = local_potential_wired_speed;
+
+    smb2_spd_to_txt(results->max_active_speed, active_spd, sizeof(active_spd));
+    smb2_spd_to_txt(results->max_inactive_speed, inactive_spd, sizeof(inactive_spd));
+    smb2_spd_to_txt(results->max_potential_speed, pot_spd, sizeof(pot_spd));
+    smb2_spd_to_txt(results->max_potential_wired_speed, pot_wired_spd, sizeof(pot_wired_spd));
+    SMB_LOG_MC("max_active_speed %s max_inactive_speed %s max_potential_speed %s max_potential_wired_speed %s\n",
+               active_spd, inactive_spd, pot_spd, pot_wired_spd);
+
+    results->potential_con_with_max_speed       = local_potential_con_with_max_speed;
+    results->potential_wired_con_with_max_speed = local_potential_wired_con_with_max_speed;
+    results->fastest_inactive                   = local_fastest_inactive;
+
+    smb2_mc_print_one_connection("smb2_mc_count_connection_stats: potential_con_with_max_speed", local_potential_con_with_max_speed);
+    smb2_mc_print_one_connection("smb2_mc_count_connection_stats: local_potential_wired_con_with_max_speed", local_potential_wired_con_with_max_speed);
+    smb2_mc_print_one_connection("smb2_mc_count_connection_stats: local_fastest_inactive", local_fastest_inactive);
 
 exit:
     return error;
 }
 
-int
-smb2_mc_return_excess_connections(
-    struct session_network_interface_info *session_table,
-    struct session_con_entry** removal_vector,
-    int32_t max_out_len)
+static int
+con_client_or_server_on_active(struct session_network_interface_info *session_table,
+                               struct complete_nic_info_entry *client_nic,
+                               struct complete_nic_info_entry *server_nic)
 {
-    struct session_con_entry* con_entry;
-    struct conn_states_results con_stats;
+    /* Check if client_nic or server_nic is already on the active list */
+    struct session_con_entry *con = NULL;
+
+    TAILQ_FOREACH(con, &session_table->session_con_list, next) {
+        if (con->active_state == SMB2_MC_FUNC_ACTIVE) {
+            if ((con->con_client_nic == client_nic) ||
+                (con->con_server_nic == server_nic)) {
+                /* It matches some active conn, return 1 */
+                return(1);
+            }
+        }
+    }
+    
+    /* client or server nic is not on any of current active conns */
+    return(0);
+}
+
+int
+smb2_mc_return_excess_connections(struct session_network_interface_info *session_table,
+                                  struct session_con_entry** removal_vector, int32_t max_out_len,
+                                  uint32_t *num_activep, uint64_t *connected_speedp)
+{
+    struct session_con_entry* con_entry = NULL;
+    struct conn_states_results con_stats = {0};
     int ret_val = 0;
+    uint64_t max_connected_speed = 0;
+    uint64_t max_connected_wired_speed = 0;
+    struct session_con_entry *con = NULL;
+    uint64_t max_inactive_speed = 0;
+    uint64_t max_inactive_wired_speed = 0;
+    uint32_t num_of_inactives = 0, num_of_actives = 0;
+    struct session_con_entry *fastest_inactive = NULL;
+    struct session_con_entry *fastest_wired_inactive = NULL;
+
     lck_mtx_lock(&session_table->interface_table_lck);
 
     // Sort through connections and set active/inactive/redundant accordingly.
-    uint64_t max_connected_speed = 0;
-    uint64_t max_connected_wired_speed = 0;
-    struct session_con_entry *con;
+
     TAILQ_FOREACH(con, &session_table->successful_con_list, success_next) {
         // <72204412> if set to prefer wired, find the max wired speed
         if (session_table->prefer_wired &&
@@ -227,16 +353,10 @@ smb2_mc_return_excess_connections(
      * and session was set to prefer wired so we should use the wired max speed
      * as the global max to make sure any wireless connection will be marked inactive.
      */
-    if (max_connected_wired_speed)
-    {
+    if (max_connected_wired_speed) {
         max_connected_speed = max_connected_wired_speed;
     }
 
-    uint64_t max_inactive_speed = 0;
-    uint64_t max_inactive_wired_speed = 0;
-    uint32_t num_of_inactives = 0;
-    struct session_con_entry *fastest_inactive = NULL;
-    struct session_con_entry *fastest_wired_inactive = NULL;
     TAILQ_FOREACH(con, &session_table->successful_con_list, success_next) {
         /*
          * 2) mark all connections at max_speed as active, and inactive otherwise.
@@ -250,40 +370,62 @@ smb2_mc_return_excess_connections(
                 con->active_state = SMB2_MC_FUNC_ACTIVE;
                 smb_iod_active(con->iod);
             }
-        } else {
+        }
+        else {
             if (con->active_state != SMB2_MC_FUNC_INACTIVE) {
                 con->active_state = SMB2_MC_FUNC_INACTIVE;
                 smb_iod_inactive(con->iod);
             }
         }
+
+        if (con->active_state == SMB2_MC_FUNC_ACTIVE) {
+            num_of_actives++;
+        }
+        
         /*
          * 3) Find the highest inactive connection. <72204412> if set to prefer
          * wired, also find the highest inactive wired connection
          */
         if (con->active_state == SMB2_MC_FUNC_INACTIVE) {
             num_of_inactives++;
-            if (con->con_speed > max_inactive_speed) {
+            
+            /* 
+             * If its the fastest inactive so far and the client and server nic
+             * are not already being used in an active con, then save this as
+             * the current fastest inactive con.
+             */
+            if ((con->con_speed > max_inactive_speed) &&
+                (con_client_or_server_on_active(session_table, con->con_client_nic, con->con_server_nic) == 0)) {
                 max_inactive_speed = con->con_speed;
-                fastest_inactive   = con;
+                fastest_inactive = con;
             }
             
-            if (session_table->prefer_wired &&
+            if ((session_table->prefer_wired) &&
                 (con->con_client_nic->nic_type == IFM_ETHER) &&
-                (con->con_speed > max_inactive_wired_speed)) {
+                (con->con_speed > max_inactive_wired_speed) &&
+                (con_client_or_server_on_active(session_table, con->con_client_nic, con->con_server_nic) == 0)) {
                 max_inactive_wired_speed = con->con_speed;
                 fastest_wired_inactive = con;
             }
         }
     }
 
+    /* Return number of active channels and what speed they are using */
+    if (num_activep != NULL) {
+        *num_activep = num_of_actives;
+    }
+    
+    if (connected_speedp != NULL) {
+        *connected_speedp = max_connected_speed;
+    }
+
     // 4) Set all inactive other than the fastest for removal
     if (num_of_inactives > 1) {
         /*
          * <72204412> in case fastest_wired_inactive is not NULL, session was
-         * set to preffer wired and have a wired inactive connection so use it.
+         * set to prefer wired and have a wired inactive connection so use it.
          */
-        if (fastest_wired_inactive)
-        {
+        if (fastest_wired_inactive) {
             fastest_inactive = fastest_wired_inactive;
         }
 
@@ -291,9 +433,11 @@ smb2_mc_return_excess_connections(
             if ((con != fastest_inactive) &&
                 (con->active_state == SMB2_MC_FUNC_INACTIVE)) {
                 con->active_state = SMB2_MC_FUNC_INACTIVE_REDUNDANT;
+                smb2_mc_print_one_connection("smb2_mc_return_excess_connections: set Inactive Redundant", con);
                 num_of_inactives--;
-                if (num_of_inactives == 1)
+                if (num_of_inactives == 1) {
                     break;
+                }
             }
         }
     }
@@ -310,15 +454,16 @@ smb2_mc_return_excess_connections(
         goto exit;
     }
 
-    uint32_t   active_cnt = con_stats.active_cnt;
+    uint32_t active_cnt = con_stats.active_cnt;
     uint32_t inactive_cnt = con_stats.inactive_cnt;
     bool remove_active_conn = ((inactive_cnt + active_cnt) > session_table->max_channels);
 
-    TAILQ_FOREACH(con_entry,
-                  &session_table->successful_con_list,
-                  success_next) {
-        /* Skip connection waiting to be removed */
-        if (con_entry->state == SMB2_MC_STATE_IN_REMOVAL) continue;
+    TAILQ_FOREACH(con_entry, &session_table->successful_con_list, success_next) {
+        /* Skip connections waiting to be removed */
+        if (con_entry->state == SMB2_MC_STATE_IN_REMOVAL) {
+            continue;
+        }
+        
         bool remove_conn = false;
         
         if (remove_active_conn &&
@@ -326,11 +471,13 @@ smb2_mc_return_excess_connections(
             remove_conn = true;
             active_cnt--;
             remove_active_conn = ((inactive_cnt + active_cnt) > session_table->max_channels);
-        } else if (con_entry->active_state == SMB2_MC_FUNC_INACTIVE_REDUNDANT){
+        } else if (con_entry->active_state == SMB2_MC_FUNC_INACTIVE_REDUNDANT) {
             remove_conn = true;
         }
         
-        if (!remove_conn) continue;
+        if (!remove_conn) {
+            continue;
+        }
         
         // Ask iod to terminate and remove con_entry from successful_con_list
         con_entry->state = SMB2_MC_STATE_IN_REMOVAL;
@@ -340,12 +487,13 @@ smb2_mc_return_excess_connections(
         max_out_len--;
 
         /* Check we are not overflowing the array */
-        if (!max_out_len) goto exit;
+        if (!max_out_len) {
+            goto exit;
+        }
     }
     
     /* If we got here we must enforce the limit (can be removed in the future) */
-    if ((inactive_cnt + active_cnt) > session_table->max_channels)
-    {
+    if ((inactive_cnt + active_cnt) > session_table->max_channels) {
         SMBERROR("failed to remove enough channels to enforce the limit");
     }
     
@@ -355,30 +503,35 @@ exit:
 }
 
 int
-smb2_mc_ask_for_new_connection_trial(
-    struct session_network_interface_info* session_table,
-    struct session_con_entry** trial_vector,
-    uint32_t max_out_len)
+smb2_mc_ask_for_new_connection_trial(struct session_network_interface_info* session_table,
+                                     struct session_con_entry** trial_vector,
+                                     uint32_t max_out_len)
 {
     int ret_val = 0;
     bool potential_inactive_added = false;
 
     lck_mtx_lock(&session_table->interface_table_lck);
 
-    if (session_table->pause_trials)
+    if (session_table->pause_trials) {
         goto exit;
+    }
 
     /* Limit the number of on_trial to max_channels */
-    if (session_table->active_on_trial_connections > session_table->max_channels)
+    if (session_table->active_on_trial_connections > session_table->max_channels) {
         goto exit;
+    }
 
-    while(max_out_len) {
-        struct conn_states_results con_stats;
+    smb2_mc_print_all_connections("smb2_mc_ask_for_new_connection_trial: print_all",
+                                  session_table);
+
+    while (max_out_len) {
+        struct conn_states_results con_stats = {0};
         struct session_con_entry *con_to_add = NULL;
         struct session_con_entry* potential_con = NULL;
         uint64_t potential_speed = 0;
         int dont_test_for_active = 0;
 
+        /* Get the next potential connection to try to connect to */
         int error = smb2_mc_count_connection_stats(session_table, &con_stats);
 
         /* In case of error, return the number of connection trials as 0 */
@@ -388,7 +541,7 @@ smb2_mc_ask_for_new_connection_trial(
         }
 
         // if we lost all active channels, convert an inactive to active
-        if ((con_stats.active_cnt == 0) && (con_stats.inactive_cnt)) {
+        if ((con_stats.active_cnt == 0) && (con_stats.inactive_cnt != 0)) {
             if (con_stats.fastest_inactive && con_stats.fastest_inactive->iod) {
                 con_stats.fastest_inactive->active_state = SMB2_MC_FUNC_ACTIVE;
                 smb_iod_active(con_stats.fastest_inactive->iod);
@@ -399,7 +552,12 @@ smb2_mc_ask_for_new_connection_trial(
         /* Return if reached the max number of connections */
         if ((con_stats.inactive_cnt + con_stats.active_cnt) >= session_table->max_channels) {
             if ((con_stats.max_active_speed >= con_stats.max_potential_speed) &&
-                (con_stats.max_active_speed >  con_stats.max_inactive_speed)  ) {
+                (con_stats.max_active_speed > con_stats.max_inactive_speed)) {
+                SMB_LOG_MC("Reached max nbr connections %d. max_active_speed %llu max_potential_speed %llu max_inactive_speed %llu \n",
+                           session_table->max_channels,
+                           con_stats.max_active_speed,
+                           con_stats.max_potential_speed,
+                           con_stats.max_inactive_speed);
                 goto exit;
             }
         }
@@ -411,8 +569,7 @@ smb2_mc_ask_for_new_connection_trial(
          * is no inactive channel but anyway it should not be a main candidate.
          * o.w just use the highest potential connection.
          */
-        if (session_table->prefer_wired)
-        {
+        if (session_table->prefer_wired) {
             if (con_stats.potential_wired_con_with_max_speed) {
                 potential_con = con_stats.potential_wired_con_with_max_speed;
                 potential_speed = con_stats.max_potential_wired_speed;
@@ -421,7 +578,8 @@ smb2_mc_ask_for_new_connection_trial(
                 potential_speed = con_stats.max_potential_speed;
                 dont_test_for_active = 1;
             }
-        } else {
+        }
+        else {
             potential_con = con_stats.potential_con_with_max_speed;
             potential_speed = con_stats.max_potential_speed;
         }
@@ -453,7 +611,8 @@ smb2_mc_ask_for_new_connection_trial(
         }
         
         if (con_to_add) {
-    
+            smb2_mc_print_one_connection("smb2_mc_ask_for_new_connection_trial: Adding conn", con_to_add);
+
             /* We found a potential connection */
             con_to_add->state = SMB2_MC_STATE_IN_TRIAL;
             con_to_add->con_client_nic->nic_state = SMB2_MC_STATE_ON_TRIAL;
@@ -466,8 +625,8 @@ smb2_mc_ask_for_new_connection_trial(
             // going to attempt to connect to, concurently.
             session_table->active_on_trial_connections++;
             max_out_len--;
-            
-        } else {
+        }
+        else {
             break;
         }
     }
@@ -482,15 +641,15 @@ exit:
  * complete_interface_info
  */
 int
-smb2_mc_parse_client_interface_array(
-    struct session_network_interface_info* session_table,
-    struct smbioc_client_interface* client_info)
+smb2_mc_parse_client_interface_array(struct session_network_interface_info* session_table,
+                                     struct smbioc_client_interface* client_info,
+                                     uint32_t flags)
 {
 	struct network_nic_info *client_info_array = NULL;
 	int error = 0;
     bool in_ignorelist = false;
-    uint64_t current_offset;
-
+    uint64_t current_offset = 0;
+    uint32_t rss_nic_index = 0;
 	uint32_t array_size = client_info->total_buffer_size;
     
     lck_mtx_lock(&session_table->interface_table_lck);
@@ -533,22 +692,46 @@ smb2_mc_parse_client_interface_array(
 
         in_ignorelist = false;
 
-        for (uint32_t i = 0; i < session_table->client_if_ignorelist_len; i++)
-        {
-            if (session_table->client_if_ignorelist[i] == client_info_entry->nic_index)
-            {
+        for (uint32_t i = 0; i < session_table->client_if_ignorelist_len; i++) {
+            if (session_table->client_if_ignorelist[i] == client_info_entry->nic_index) {
                 in_ignorelist = true;
                 break;
             }
         }
 
+        /* Flags is only used for forcing client side RSS for now */
+        if (flags & CLIENT_RSS_FORCE_ON) {
+            client_info_entry->nic_caps |= SMB2_IF_CAP_RSS_CAPABLE;
+            SMB_LOG_MC("Forcing RSS on client nic %u \n",
+                       client_info_entry->nic_index);
+        }
+        
         error = smb2_mc_add_new_interface_info_to_list(&session_table->client_nic_info_list,
                                                        &session_table->client_nic_count,
                                                        client_info_entry, 0, in_ignorelist);
         if (error) {
-            SMBERROR("Adding new interface info ended with error %d!", error);
+            SMBERROR("Adding new client interface info ended with error %d!", error);
             smb2_mc_release_interface_list(&session_table->client_nic_info_list);
             break;
+        }
+
+        if ((in_ignorelist == false) && (client_info_entry->nic_caps & SMB2_IF_CAP_RSS_CAPABLE)) {
+            for (rss_nic_index = 1; rss_nic_index < session_table->clnt_rss_channels; rss_nic_index++) {
+                struct network_nic_info* rss_nic = NULL;
+                SMB_MALLOC_TYPE(rss_nic, struct network_nic_info, Z_WAITOK_ZERO);
+
+                if (rss_nic == NULL) {
+                    error = ENOMEM;
+                    goto exit;
+                }
+
+                memcpy(rss_nic, client_info_entry, sizeof(struct network_nic_info));
+                error = smb2_mc_add_new_interface_info_to_list(&session_table->client_nic_info_list,
+                                                               &session_table->client_nic_count,
+                                                               rss_nic, rss_nic_index, in_ignorelist);
+                if (error)
+                    break;
+            }
         }
 
         if (client_info_entry->next_offset < sizeof(struct network_nic_info)) {
@@ -575,19 +758,27 @@ exit:
  * complete_interface_info
  */
 int
-smb2_mc_query_info_response_event(
-    struct session_network_interface_info *session_table,
-    uint8_t *server_info_buffer,
-    uint32_t buf_len)
+smb2_mc_query_info_response_event(struct session_network_interface_info *session_table,
+                                  uint32_t max_channels,
+                                  uint32_t srvr_rss_channels,
+                                  uint32_t clnt_rss_channels,
+                                  uint8_t *server_info_buffer,
+                                  uint32_t buf_len)
 {
 	int error = 0;
-    uint32_t rss_nic_index;
+    uint32_t rss_nic_index = 0;
 
-	if (server_info_buffer == NULL)
-		return EINVAL;
+    if (server_info_buffer == NULL) {
+        return EINVAL;
+    }
 
-    struct session_network_interface_info updated_interface_table;
-    smb2_mc_init(&updated_interface_table, 0, 0, NULL, 0, 0);
+    struct session_network_interface_info updated_interface_table = {0};
+    
+    SMB_LOG_MC("Calling smb2_mc_init, max_channels %d srvr_rss_channels %d clnt_rss_channels %d \n",
+               max_channels, srvr_rss_channels, clnt_rss_channels);
+    smb2_mc_init(&updated_interface_table, max_channels,
+                 srvr_rss_channels, clnt_rss_channels,
+                 NULL, 0, 0);
 
     uint32_t next_offset = 0;
 	uint8_t* buf_end = server_info_buffer + buf_len;
@@ -605,18 +796,28 @@ smb2_mc_query_info_response_event(
 		uint8_t* interface_data = server_info_buffer;
 
 		/* Extract the data from the buffer */
-		if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &next_offset)) { goto bad_offset; }
+        if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &next_offset)) {
+            goto bad_offset;
+        }
 
-		if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &new_info->nic_index)) { goto bad_offset; }
+        if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &new_info->nic_index)) {
+            goto bad_offset;
+        }
 
-		if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &new_info->nic_caps)) { goto bad_offset; }
+        if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &new_info->nic_caps)) {
+            goto bad_offset;
+        }
 
-		uint32_t reserved;
-		if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &reserved)) { goto bad_offset; }
+		uint32_t reserved = 0;
+        if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &reserved)) {
+            goto bad_offset;
+        }
 
-		if (!smb2_mc_safe_buffer_get_and_advance_64(&interface_data, buf_end, &new_info->nic_link_speed)) { goto bad_offset; }
+        if (!smb2_mc_safe_buffer_get_and_advance_64(&interface_data, buf_end, &new_info->nic_link_speed)) {
+            goto bad_offset;
+        }
 
-		uint16_t family;
+		uint16_t family = 0;
 		if (!smb2_mc_safe_buffer_get_and_advance_16(&interface_data, buf_end, &family)) { goto bad_offset; }
 		new_info->addr.sa_family = smb2_mc_protocol_family_to_inet(family);
 
@@ -630,12 +831,12 @@ smb2_mc_query_info_response_event(
 			new_info->addr.sa_len = SMB2_MC_IPV6_LEN;
 			if (!smb2_mc_safe_buffer_get_and_advance_16(&interface_data, buf_end, &new_info->addr_16.sin6_port)) { goto bad_offset; }
 
-			uint32_t flow_info;
+			uint32_t flow_info = 0;
 			if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &flow_info)) { goto bad_offset; }
 
 			if (!smb2_mc_safe_buffer_get_and_advance_in6_addr(&interface_data, buf_end, &new_info->addr_16.sin6_addr)) { goto bad_offset; }
 
-			uint32_t scope_id;
+			uint32_t scope_id = 0;
 			if (!smb2_mc_safe_buffer_get_and_advance_32(&interface_data, buf_end, &scope_id)) { goto bad_offset; }
 		} else {
 			/* We don't support other kinds */
@@ -646,12 +847,13 @@ smb2_mc_query_info_response_event(
 		error = smb2_mc_add_new_interface_info_to_list(&updated_interface_table.server_nic_info_list,
                                                        &updated_interface_table.server_nic_count,
                                                        new_info, 0, false);
-		if (error)
-			break;
+        if (error) {
+            SMBERROR("Adding new server interface info ended with error %d!", error);
+            break;
+        }
 
         if (new_info->nic_caps & SMB2_IF_CAP_RSS_CAPABLE) {
-            for (rss_nic_index = 1; rss_nic_index < session_table->max_rss_channels; rss_nic_index++)
-            {
+            for (rss_nic_index = 1; rss_nic_index < session_table->srvr_rss_channels; rss_nic_index++) {
                 /* SNIA-Feb-2020:
                  * Samba & Azure use RSS NICs and can safely connect multiple
                  * connections to each RSS-NIC
@@ -668,8 +870,10 @@ smb2_mc_query_info_response_event(
                 error = smb2_mc_add_new_interface_info_to_list(&updated_interface_table.server_nic_info_list,
                                                                &updated_interface_table.server_nic_count,
                                                                rss_nic, rss_nic_index, false);
-                if (error)
+                if (error) {
+                    SMBERROR("Adding new server interface info ended with error %d!", error);
                     break;
+                }
             }
         }
     } while (next_offset);
@@ -677,7 +881,7 @@ smb2_mc_query_info_response_event(
 
     error = smb2_mc_update_nic_list_from_notifier(session_table, &updated_interface_table, false);
     if (error) {
-        printf("smb2_mc_update_client_interface_array returned %d.\n", error);
+        SMBERROR("smb2_mc_update_client_interface_array returned %d.\n", error);
         goto done;
     }
 
@@ -699,15 +903,15 @@ done:
 * remove it.
 */
 static int
-smb2_mc_remove_nic_if_unused(
-        struct session_network_interface_info *session_table,
-        struct complete_nic_info_entry        *nic,
-        bool is_client)
+smb2_mc_remove_nic_if_unused(struct session_network_interface_info *session_table,
+                             struct complete_nic_info_entry *nic,
+                             bool is_client)
 {
     
-    struct session_con_entry *con;
-    uint32_t *nic_cnt_p;
-    struct interface_info_list *nic_list_p;
+    struct session_con_entry *con = NULL;
+    uint32_t *nic_cnt_p = NULL;
+    struct interface_info_list *nic_list_p = NULL;
+    char str[128] = {0};
 
     if (is_client) {
         nic_cnt_p          = (&session_table->client_nic_count);
@@ -740,16 +944,14 @@ smb2_mc_remove_nic_if_unused(
     // If there are connections, and all of them are invalid (failed or no-pot)
     // then the nic is useless. remove it to free some space. 
     if (num_of_cons && can_remove) {
-        #ifdef SMB_DEBUG
-            char str[128];
-            smb2_sockaddr_to_str(nic->addr_list.tqh_first->addr, str, sizeof(str));
-            SMBDEBUG("Removing if %llu (RSS_%llu) addr %s.\n",
-                     nic->nic_index  & SMB2_IF_INDEX_MASK,
-                     nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-                     str);
-        #endif
+        smb2_sockaddr_to_str(nic->addr_list.tqh_first->addr, str, sizeof(str));
+        SMB_LOG_MC("Removing if %llu (RSS_%llu) addr %s.\n",
+                   nic->nic_index & SMB2_IF_INDEX_MASK,
+                   nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                   str);
+
         // Remove all associated connections
-        struct session_con_entry *con_t;
+        struct session_con_entry *con_t = NULL;
         TAILQ_FOREACH_SAFE(con, &session_table->session_con_list, next, con_t) {
             
             if ((( is_client) && (con->con_client_nic == nic)) ||
@@ -774,12 +976,11 @@ smb2_mc_remove_nic_if_unused(
 }
 
 static bool
-smb2_mc_update_ip_list(
-        struct complete_nic_info_entry *existing_nic,
-        struct complete_nic_info_entry *new_nic)
+smb2_mc_update_ip_list(struct complete_nic_info_entry *existing_nic,
+                       struct complete_nic_info_entry *new_nic)
 {
     
-    struct sock_addr_entry *existing_addr, *new_addr, *existing_addr_t;
+    struct sock_addr_entry *existing_addr = NULL, *new_addr = NULL, *existing_addr_t = NULL;
     bool ret_val = false;
 
     // 1) Remove IP addresses that are not in new
@@ -811,24 +1012,24 @@ smb2_mc_update_ip_list(
  * smb2_mc_update_nic_list_from_notifier
  * Handle notifier updates on the client interfaces:
  * 1) If a NIC does not already exist, add it.
- * 2) If a NIC exists: update its parameters (speed, capablibities).
+ * 2) If a NIC exists: update its parameters (speed, capabilities).
  * 3) If we have a NIC in the session table but it isn't on the notifier list,
  *    (and it is in IDLE state and all of its connections are FAILED_TO_CONNECT),
  *    then we remove it from the session_table.
  */
 int
-smb2_mc_update_nic_list_from_notifier(
-    struct session_network_interface_info *session_table,
-    struct session_network_interface_info *updated_session_table,
-    bool is_client)
+smb2_mc_update_nic_list_from_notifier(struct session_network_interface_info *session_table,
+                                      struct session_network_interface_info *updated_session_table,
+                                      bool is_client)
 {
-    int error = 0;
-    struct complete_nic_info_entry *updated_nic;
-    struct complete_nic_info_entry *nic, *nic_t, *updated_nic_t;
-    uint32_t *nic_cnt_p, *updated_nic_cnt_p;
-    struct interface_info_list *nic_list_p;
-    struct interface_info_list *updated_nic_list_p;
+    int error = 0, need_update = 0;
+    struct complete_nic_info_entry *updated_nic = NULL;
+    struct complete_nic_info_entry *nic = NULL, *nic_t = NULL, *updated_nic_t = NULL;
+    uint32_t *nic_cnt_p = NULL, *updated_nic_cnt_p = NULL;
+    struct interface_info_list *nic_list_p = NULL;
+    struct interface_info_list *updated_nic_list_p = NULL;
     bool exists = false;
+    char spd[20] = {0}, upd_spd[20] = {0};
 
     lck_mtx_lock(&session_table->interface_table_lck);
     
@@ -837,13 +1038,12 @@ smb2_mc_update_nic_list_from_notifier(
         nic_list_p         = (&session_table->client_nic_info_list);
         updated_nic_list_p = (&updated_session_table->client_nic_info_list);
         updated_nic_cnt_p  = (&updated_session_table->client_nic_count);
-
-    } else {
+    }
+    else {
         nic_cnt_p          = (&session_table->server_nic_count);
         nic_list_p         = (&session_table->server_nic_info_list);
         updated_nic_list_p = (&updated_session_table->server_nic_info_list);
         updated_nic_cnt_p  = (&updated_session_table->server_nic_count);
-
     }
         
     // Add or update existing nics
@@ -859,16 +1059,14 @@ smb2_mc_update_nic_list_from_notifier(
                                            (nic->nic_type       != updated_nic->nic_type);
                 
                 if (ip_addr_list_change || nic_params_change) {
-
-                    char spd[20], upd_spd[20];
                     smb2_spd_to_txt(nic->nic_link_speed, spd, sizeof(spd));
                     smb2_spd_to_txt(updated_nic->nic_link_speed, upd_spd, sizeof(upd_spd));
-                    SMBDEBUG("%s nic idx %llu (RSS_%llu) changed: speed %s %s type 0x%x 0x%x.\n",
-                             is_client?"client":"server",
-                             nic->nic_index  & SMB2_IF_INDEX_MASK,
-                             nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-                             spd,           upd_spd,
-                             nic->nic_type, updated_nic->nic_type);
+                    SMB_LOG_MC("%s nic idx %llu (RSS_%llu) changed: speed %s %s type 0x%x 0x%x.\n",
+                               is_client ? "client" : "server",
+                               nic->nic_index & SMB2_IF_INDEX_MASK,
+                               nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                               spd, upd_spd,
+                               nic->nic_type, updated_nic->nic_type);
                     
                     nic->nic_link_speed = updated_nic->nic_link_speed;
                     nic->nic_type       = updated_nic->nic_type;
@@ -890,21 +1088,24 @@ smb2_mc_update_nic_list_from_notifier(
             TAILQ_REMOVE(updated_nic_list_p, updated_nic, next);
             (*updated_nic_cnt_p)--;
             
-            char spd[20];
             smb2_spd_to_txt(updated_nic->nic_link_speed, spd, sizeof(spd));
-            SMBDEBUG("Adding %s nic idx %llu (RSS_%llu) spd %s.\n",
-                     is_client?"client":"server",
-                     updated_nic->nic_index  & SMB2_IF_INDEX_MASK,
-                     updated_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-                     spd);
+            SMB_LOG_MC("Adding %s nic idx %llu (RSS_%llu) spd %s.\n",
+                       is_client ? "client" : "server",
+                       updated_nic->nic_index & SMB2_IF_INDEX_MASK,
+                       updated_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                       spd);
             
             smb2_mc_insert_new_nic_by_speed(nic_list_p,
                                             nic_cnt_p,
                                             updated_nic, NULL);
 
-            error = smb2_mc_update_con_list(session_table);
-            
-        } else {
+            /*
+             * Wait until after we add all the new NICs before updating
+             * the conn list
+             */
+            need_update = 1;
+        }
+        else {
             /* Remove updated_nic from the update table and free */
             smb2_mc_release_interface(updated_nic_list_p,
                                       updated_nic,
@@ -913,8 +1114,13 @@ smb2_mc_update_nic_list_from_notifier(
 
     }
 
+    if (need_update) {
+        /* If we added any new NICs, update the conn table */
+        error = smb2_mc_update_con_list(session_table);
+    }
+
     // Remove excess NICs
-    // (ie NICs that are in session_table but no in the update_table)
+    // (ie NICs that are in session_table but not in the update_table)
     TAILQ_FOREACH_SAFE(nic, nic_list_p, next, nic_t) {
 
         exists = false;
@@ -941,8 +1147,7 @@ smb2_mc_update_nic_list_from_notifier(
 }
 
 void
-smb2_mc_destroy(
-    struct session_network_interface_info* session_table)
+smb2_mc_destroy(struct session_network_interface_info* session_table)
 {
     lck_mtx_lock(&session_table->interface_table_lck);
 
@@ -961,21 +1166,23 @@ smb2_mc_destroy(
 }
 
 void
-smb2_mc_init(
-    struct session_network_interface_info* session_table,
-    int32_t max_channels,
-    int32_t max_rss_channels,
-    uint32_t* client_if_ignorelist,
-    uint32_t client_if_ignorelist_len,
-    int32_t prefer_wired)
+smb2_mc_init(struct session_network_interface_info* session_table,
+             uint32_t max_channels,
+             uint32_t srvr_rss_channels,
+             uint32_t clnt_rss_channels,
+             uint32_t* client_if_ignorelist,
+             uint32_t client_if_ignorelist_len,
+             int32_t prefer_wired)
 {
-    size_t array_size;
+    size_t array_size = 0;
 
-    SMBDEBUG("init mc\n");
+    SMB_LOG_MC("Init mc, max_channels %d, srvr_rss_channels %d, clnt_rss_channels %d  \n",
+               max_channels, srvr_rss_channels, clnt_rss_channels);
     session_table->client_nic_count = 0;
     session_table->server_nic_count = 0;
-    session_table->max_channels = max_channels ? max_channels : 9;
-    session_table->max_rss_channels = max_rss_channels ? max_rss_channels : 4;
+    session_table->max_channels = max_channels ? max_channels : 17;
+    session_table->srvr_rss_channels = srvr_rss_channels ? srvr_rss_channels : 4;
+    session_table->clnt_rss_channels = clnt_rss_channels ? clnt_rss_channels : 4;
     session_table->prefer_wired = prefer_wired;
     session_table->pause_trials = 0;
     session_table->client_if_ignorelist = NULL;
@@ -1021,12 +1228,12 @@ smb2_mc_init(
  * to try this connection again.
  */
 int
-smb2_mc_inform_connection_disconnected(
-     struct session_network_interface_info *session_table,
-     struct session_con_entry *con_entry)
+smb2_mc_inform_connection_disconnected(struct session_network_interface_info *session_table,
+                                       struct session_con_entry *con_entry)
 {
 
     int error = 0;
+    struct session_con_entry *con = NULL;
 
     if ((!session_table) || (!con_entry)) {
         return EINVAL;
@@ -1048,6 +1255,26 @@ smb2_mc_inform_connection_disconnected(
     con_entry->con_server_nic->nic_state = SMB2_MC_STATE_IDLE;
     con_entry->iod = NULL;
 
+    /*
+     * Make sure all nic states are set correctly. Trying to upgrade an
+     * "in use" connection can mess up the nic states.
+     */
+    TAILQ_FOREACH(con, &session_table->session_con_list, next) {
+        switch(con->state) {
+            case SMB2_MC_STATE_CONNECTED:
+                con->con_client_nic->nic_state = SMB2_MC_STATE_USED;
+                con->con_server_nic->nic_state = SMB2_MC_STATE_USED;
+                break;
+            case SMB2_MC_STATE_IN_TRIAL:
+                con->con_client_nic->nic_state = SMB2_MC_STATE_ON_TRIAL;
+                con->con_server_nic->nic_state = SMB2_MC_STATE_ON_TRIAL;
+                break;
+            default:
+                /* Ignore other states */
+                break;
+        }
+    }
+
     error = smb2_mc_update_con_list(session_table);
 
     lck_mtx_unlock(&session_table->interface_table_lck);
@@ -1055,10 +1282,9 @@ smb2_mc_inform_connection_disconnected(
 }
 
 int
-smb2_mc_inform_connection_active_state_change(
-     struct session_network_interface_info *session_table,
-     struct session_con_entry *con_entry,
-     bool active)
+smb2_mc_inform_connection_active_state_change(struct session_network_interface_info *session_table,
+                                              struct session_con_entry *con_entry,
+                                              bool active)
 {
     int error = 0;
     
@@ -1081,12 +1307,11 @@ smb2_mc_inform_connection_active_state_change(
 
 
 int
-smb2_mc_update_main_channel(
-    struct session_network_interface_info* session_table,
-    struct sockaddr* client_ip,
-    struct sockaddr* server_ip,
-    struct session_con_entry **con_entry_p,
-    struct smbiod* iod)
+smb2_mc_update_main_channel(struct session_network_interface_info* session_table,
+                            struct sockaddr* client_ip,
+                            struct sockaddr* server_ip,
+                            struct session_con_entry **con_entry_p,
+                            struct smbiod* iod)
 {
     int error = 0;
 
@@ -1111,13 +1336,13 @@ smb2_mc_update_main_channel(
         goto exit;
     }
 
-    SMBDEBUG("Update main connection trial id %d [c- %llu, s- %llu (RSS %llu)] passed, trials %u.\n",
-             iod->iod_id,
-             client_nic->nic_index,
-             server_nic->nic_index  & SMB2_IF_INDEX_MASK,
-             server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-             session_table->active_on_trial_connections);
-
+    SMB_LOG_MC("Update main connection trial id %d [c- %llu (RSS %llu), s- %llu (RSS %llu)] passed, trials %u.\n",
+               iod->iod_id,
+               client_nic->nic_index & SMB2_IF_INDEX_MASK,
+               client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               server_nic->nic_index & SMB2_IF_INDEX_MASK,
+               server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               session_table->active_on_trial_connections);
 
     error = smb2_mc_update_new_connection(session_table, client_nic->nic_index, server_nic->nic_index, con_entry_p, iod);
 
@@ -1127,13 +1352,14 @@ exit:
 }
 
 int
-smb2_mc_report_connection_trial_results(
-    struct session_network_interface_info* session_table,
-    _SMB2_MC_CON_TRIAL_STATUS status,
-    struct session_con_entry *con_entry_p)
+smb2_mc_report_connection_trial_results(struct session_network_interface_info* session_table,
+                                        _SMB2_MC_CON_TRIAL_STATUS status,
+                                        struct session_con_entry *con_entry_p)
 {
-    struct complete_nic_info_entry* client_nic;
-    struct complete_nic_info_entry* server_nic;
+    struct complete_nic_info_entry* client_nic = NULL;
+    struct complete_nic_info_entry* server_nic = NULL;
+    int error = 0;
+    struct session_con_entry *con = NULL;
 
     if (con_entry_p == NULL) {
         SMBERROR("got bad con_entry_p");
@@ -1142,27 +1368,28 @@ smb2_mc_report_connection_trial_results(
 
     lck_mtx_lock(&session_table->interface_table_lck);
 
-    int error = 0;
 
     session_table->active_on_trial_connections--;
 
     client_nic = con_entry_p->con_client_nic;
     server_nic = con_entry_p->con_server_nic;
 
-    SMB_LOG_MC("trial id %d [c- %llu, s- %llu (RSS %llu)], status %d (%s), trials %u.\n",
-             (con_entry_p->iod) ? (con_entry_p->iod->iod_id) : -1,
-             client_nic->nic_index,
-             con_entry_p->con_server_nic->nic_index &  SMB2_IF_INDEX_MASK,
-             con_entry_p->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-             status,(status&SMB2_MC_TRIAL_PASSED)?"passed":(status&SMB2_MC_TRIAL_FAILED)?"failed":"??",
-             session_table->active_on_trial_connections);
+    SMB_LOG_MC("trial id %d [c- %llu (RSS %llu), s- %llu (RSS %llu)], status %d (%s), trials %u.\n",
+               (con_entry_p->iod) ? (con_entry_p->iod->iod_id) : -1,
+               client_nic->nic_index & SMB2_IF_INDEX_MASK,
+               client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               server_nic->nic_index & SMB2_IF_INDEX_MASK,
+               server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               status, (status & SMB2_MC_TRIAL_PASSED) ? "passed" : (status & SMB2_MC_TRIAL_FAILED) ? "failed" : "??",
+               session_table->active_on_trial_connections);
 
     if (status & SMB2_MC_TRIAL_PASSED) {
         error = smb2_mc_update_new_connection(session_table,
                                               client_nic->nic_index,
                                               server_nic->nic_index,
                                               NULL, NULL);
-    } else {
+    }
+    else {
         // Trial failed - ie we were not able to connect those two NICs
         client_nic->nic_state = SMB2_MC_STATE_IDLE;
         server_nic->nic_state = SMB2_MC_STATE_IDLE;
@@ -1174,10 +1401,9 @@ smb2_mc_report_connection_trial_results(
         uint64_t client_nic_idx = client_nic->nic_index;
         
         TAILQ_FOREACH(con, &session_table->session_con_list, next) {
-            if (con->con_client_nic->nic_index == client_nic_idx) {
+            if ((con->con_client_nic->nic_index & SMB2_IF_INDEX_MASK) == (client_nic_idx & SMB2_IF_INDEX_MASK)) {
                 // there is no need trying to connect the client NIC to all of the RSS permutations.
-                if ((con->con_server_nic->nic_index & SMB2_IF_INDEX_MASK) ==
-                    (server_nic_idx & SMB2_IF_INDEX_MASK)) {
+                if ((con->con_server_nic->nic_index & SMB2_IF_INDEX_MASK) == (server_nic_idx & SMB2_IF_INDEX_MASK)) {
                         // If one RSS failed, we can fail all the rest.
                         con->state = SMB2_MC_STATE_FAILED_TO_CONNECT;
 
@@ -1194,25 +1420,47 @@ smb2_mc_report_connection_trial_results(
             }
         }
     }
+    
+    /*
+     * Make sure all nic states are set correctly. Trying to upgrade an
+     * "in use" connection can mess up the nic states.
+     */
+    TAILQ_FOREACH(con, &session_table->session_con_list, next) {
+        switch(con->state) {
+            case SMB2_MC_STATE_CONNECTED:
+                con->con_client_nic->nic_state = SMB2_MC_STATE_USED;
+                con->con_server_nic->nic_state = SMB2_MC_STATE_USED;
+                break;
+            case SMB2_MC_STATE_IN_TRIAL:
+                con->con_client_nic->nic_state = SMB2_MC_STATE_ON_TRIAL;
+                con->con_server_nic->nic_state = SMB2_MC_STATE_ON_TRIAL;
+                break;
+            default:
+                /* Ignore other states */
+                break;
+        }
+    }
+
     if (!error) {
         error = smb2_mc_update_con_list(session_table);
     }
+
     lck_mtx_unlock(&session_table->interface_table_lck);
     return error;
 }
 
 static int
-smb2_mc_add_new_interface_info_to_list(
-    struct interface_info_list* list,
-    uint32_t* list_counter,
-    struct network_nic_info* new_info,
-    uint32_t rss_val,
-    bool in_ignore_list)
+smb2_mc_add_new_interface_info_to_list(struct interface_info_list* list,
+                                       uint32_t* list_counter,
+                                       struct network_nic_info* new_info,
+                                       uint32_t rss_val,
+                                       bool in_ignore_list)
 {
     int error = 0;
     uint64_t nic_index = ((uint64_t)rss_val << SMB2_IF_RSS_INDEX_SHIFT) | new_info->nic_index;
     struct complete_nic_info_entry* nic_info = smb2_mc_get_nic_by_index(list, nic_index);
     bool new_nic = false;
+
     if (nic_info == NULL) { // Need to create a new nic element in the list
         new_nic = true;
         SMB_MALLOC_TYPE(nic_info, struct complete_nic_info_entry, Z_WAITOK_ZERO);
@@ -1253,13 +1501,14 @@ smb2_mc_add_new_interface_info_to_list(
     return error;
 }
 
-static struct session_con_entry *find_con_by_nics(
-                            struct session_network_interface_info *session_table,
-                            struct complete_nic_info_entry *client_nic,
-                            struct complete_nic_info_entry *server_nic)
+static struct
+session_con_entry *find_con_by_nics(struct session_network_interface_info *session_table,
+                                    struct complete_nic_info_entry *client_nic,
+                                    struct complete_nic_info_entry *server_nic)
 {
     
-    struct session_con_entry *con;
+    struct session_con_entry *con = NULL;
+
     TAILQ_FOREACH(con, &session_table->session_con_list, next) {
         if ((con->con_client_nic == client_nic) &&
             (con->con_server_nic == server_nic)) {
@@ -1279,7 +1528,8 @@ smb2_mc_reset_con_status(struct session_network_interface_info *session_table,
                          bool is_client)
 {
 
-    struct session_con_entry *con;
+    struct session_con_entry *con = NULL;
+
     TAILQ_FOREACH(con, &session_table->session_con_list, next) {
         if ((( is_client) && (con->con_client_nic == nic)) ||
             ((!is_client) && (con->con_server_nic == nic))) {
@@ -1296,7 +1546,8 @@ smb2_mc_reset_con_status(struct session_network_interface_info *session_table,
     }
 }
 
-int smb2_mc_pause_trials(struct session_network_interface_info* session_table)
+int
+smb2_mc_pause_trials(struct session_network_interface_info* session_table)
 {
     lck_mtx_lock(&session_table->interface_table_lck);
     session_table->pause_trials += 1;
@@ -1304,9 +1555,10 @@ int smb2_mc_pause_trials(struct session_network_interface_info* session_table)
     return 0;
 }
 
-int smb2_mc_abort_trials(struct session_network_interface_info* session_table)
+int
+smb2_mc_abort_trials(struct session_network_interface_info* session_table)
 {
-    struct session_con_entry *con;
+    struct session_con_entry *con = NULL;
 
     lck_mtx_lock(&session_table->interface_table_lck);
 
@@ -1328,7 +1580,8 @@ int smb2_mc_abort_trials(struct session_network_interface_info* session_table)
     return 0;
 }
 
-int smb2_mc_resume_trials(struct session_network_interface_info* session_table)
+int
+smb2_mc_resume_trials(struct session_network_interface_info* session_table)
 {
     lck_mtx_lock(&session_table->interface_table_lck);
     if (session_table->pause_trials) {
@@ -1339,10 +1592,12 @@ int smb2_mc_resume_trials(struct session_network_interface_info* session_table)
     return 0;
 }
 
-int smb2_mc_check_for_active_trials(struct session_network_interface_info* session_table)
+int
+smb2_mc_check_for_active_trials(struct session_network_interface_info* session_table)
 {
-    struct session_con_entry *con;
+    struct session_con_entry *con = NULL;
     int trials_cnt = 0;
+
     lck_mtx_lock(&session_table->interface_table_lck);
     TAILQ_FOREACH(con, &session_table->session_con_list, next) {
         if (con->state == SMB2_MC_STATE_IN_TRIAL) {
@@ -1367,16 +1622,13 @@ int smb2_mc_check_for_active_trials(struct session_network_interface_info* sessi
 static int
 smb2_mc_update_con_list(struct session_network_interface_info *session_table)
 {
-    struct complete_nic_info_entry *server_nic, *client_nic;
-    struct session_con_entry *con;
+    struct complete_nic_info_entry *server_nic = NULL, *client_nic = NULL;
+    struct session_con_entry *con = NULL;
     
-    TAILQ_FOREACH(client_nic,
-                 &session_table->client_nic_info_list, next) {
+    TAILQ_FOREACH(client_nic, &session_table->client_nic_info_list, next) {
 
-        TAILQ_FOREACH(server_nic,
-                     &session_table->server_nic_info_list, next) {
+        TAILQ_FOREACH(server_nic, &session_table->server_nic_info_list, next) {
 
-            
             con = find_con_by_nics(session_table, client_nic, server_nic);
             if (con == NULL) {
                 /* in con does not exist, create one */
@@ -1392,17 +1644,31 @@ smb2_mc_update_con_list(struct session_network_interface_info *session_table)
                 // If there is no common ip-version or if ignore-listed,
                 // mark as no_potential
                 if (((client_nic->nic_ip_types & server_nic->nic_ip_types) == 0) ||
-                    (client_nic->nic_flags & SMB2_MC_NIC_IN_IGNORELIST))
+                    (client_nic->nic_flags & SMB2_MC_NIC_IN_IGNORELIST)) {
                     con->state = SMB2_MC_STATE_NO_POTENTIAL;
-                else if (server_nic->nic_state == SMB2_MC_STATE_USED)
+                }
+                else if (server_nic->nic_state == SMB2_MC_STATE_USED) {
+                    if ((con->con_client_nic != NULL) &&
+                        (con->con_server_nic != NULL)) {
+                        SMB_LOG_MC("Set surplus for server nic: client nic %llu (RSS_%llu) (state 0x%x) - server nic %llu (RSS_%llu) (state 0x%x) con->state 0x%x \n",
+                                   con->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
+                                   con->con_client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                                   con->con_client_nic->nic_state,
+                                   con->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
+                                   con->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                                   con->con_server_nic->nic_state,
+                                   con->state);
+                    }
                     con->state = SMB2_MC_STATE_SURPLUS;
-                else
+                }
+                else {
                     con->state = SMB2_MC_STATE_POTENTIAL;
+                }
 
                 TAILQ_INSERT_TAIL(&session_table->session_con_list, con, next);
                 TAILQ_INSERT_TAIL(&client_nic->possible_connections, con, client_next);
-            
-            } else { // connection exists
+            }
+            else { // connection exists
                 if ((client_nic->nic_state == SMB2_MC_STATE_IDLE) &&
                     (server_nic->nic_state == SMB2_MC_STATE_IDLE) &&
                     (con->state == SMB2_MC_STATE_SURPLUS)) {
@@ -1416,7 +1682,8 @@ smb2_mc_update_con_list(struct session_network_interface_info *session_table)
 }
 
 static struct complete_nic_info_entry*
-smb2_mc_get_nic_by_index(struct interface_info_list* list, uint64_t index)
+smb2_mc_get_nic_by_index(struct interface_info_list* list,
+                         uint64_t index)
 {
 	struct complete_nic_info_entry* info = NULL;
 
@@ -1430,7 +1697,8 @@ smb2_mc_get_nic_by_index(struct interface_info_list* list, uint64_t index)
 }
 
 static struct complete_nic_info_entry*
-smb2_mc_get_nic_by_ip(struct interface_info_list* list, struct sockaddr* ip)
+smb2_mc_get_nic_by_ip(struct interface_info_list* list,
+                      struct sockaddr* ip)
 {
 	struct complete_nic_info_entry* info = NULL;
 
@@ -1446,11 +1714,10 @@ smb2_mc_get_nic_by_ip(struct interface_info_list* list, struct sockaddr* ip)
 }
 
 static void
-smb2_mc_insert_new_nic_by_speed(
-    struct interface_info_list* list,
-    uint32_t* list_counter,
-    struct complete_nic_info_entry* nic_info,
-    struct complete_nic_info_entry** prev_nic_info)
+smb2_mc_insert_new_nic_by_speed(struct interface_info_list* list,
+                                uint32_t* list_counter,
+                                struct complete_nic_info_entry* nic_info,
+                                struct complete_nic_info_entry** prev_nic_info)
 {
     if (TAILQ_EMPTY(list)) {
         TAILQ_INSERT_HEAD(list, nic_info, next);
@@ -1466,23 +1733,26 @@ smb2_mc_insert_new_nic_by_speed(
             break;
         }
         
-        if (prev_nic_info) *prev_nic_info = info;
+        if (prev_nic_info) {
+            *prev_nic_info = info;
+        }
     }
 
-    if (!inserted)
+    if (!inserted) {
         TAILQ_INSERT_TAIL(list, nic_info, next);
+    }
 
 end:
-    if (list_counter)
+    if (list_counter) {
         (*list_counter)++;
+    }
 }
 
 struct sock_addr_entry*
-smb2_mc_does_ip_belong_to_interface(
-    struct complete_nic_info_entry* info,
-    struct sockaddr* ip)
+smb2_mc_does_ip_belong_to_interface(struct complete_nic_info_entry* info,
+                                    struct sockaddr* ip)
 {
-	struct sock_addr_entry* addr;
+	struct sock_addr_entry* addr = NULL;
 
 	TAILQ_FOREACH(addr, &info->addr_list, next) {
 		if (smb2_mc_sockaddr_cmp(addr->addr, ip)) {
@@ -1497,8 +1767,13 @@ smb2_mc_does_ip_belong_to_interface(
 static uint8_t
 smb2_mc_protocol_family_to_inet(uint16_t family)
 {
-	if (family == SMB2_QUERY_NETWORK_RESPONSE_IPV4_FAMILY) return AF_INET;
-	if (family == SMB2_QUERY_NETWORK_RESPONSE_IPV6_FAMILY) return AF_INET6;
+    if (family == SMB2_QUERY_NETWORK_RESPONSE_IPV4_FAMILY) {
+        return AF_INET;
+    }
+    
+    if (family == SMB2_QUERY_NETWORK_RESPONSE_IPV6_FAMILY) {
+        return AF_INET6;
+    }
 
 	return 0;
 }
@@ -1511,8 +1786,11 @@ smb2_mc_protocol_family_to_inet(uint16_t family)
 static void
 smb2_mc_release_connection_list(struct session_network_interface_info* session_table)
 {
-    struct session_con_entry* con;
-    if (TAILQ_EMPTY(&session_table->session_con_list)) return;
+    struct session_con_entry* con = NULL;
+
+    if (TAILQ_EMPTY(&session_table->session_con_list)) {
+        return;
+    }
 
     while ((con = TAILQ_FIRST(&session_table->session_con_list)) != NULL) {
         /* remove it from the main list */
@@ -1522,27 +1800,29 @@ smb2_mc_release_connection_list(struct session_network_interface_info* session_t
 }
 
 static void
-smb2_mc_release_interface(
-    struct interface_info_list* list,
-    struct complete_nic_info_entry* interface,
-    uint32_t *p_nic_count)
+smb2_mc_release_interface(struct interface_info_list* list,
+                          struct complete_nic_info_entry* interface,
+                          uint32_t *p_nic_count)
 {
-    struct sock_addr_entry* addr;
+    struct sock_addr_entry* addr = NULL;
+
     while ((addr = TAILQ_FIRST(&interface->addr_list)) != NULL) {
         TAILQ_REMOVE(&interface->addr_list, addr, next);
         SMB_FREE_DATA(addr->addr, addr->addr->sa_len);
         SMB_FREE_TYPE(struct sock_addr_entry, addr);
     }
 
-    if (list != NULL)
+    if (list != NULL) {
         TAILQ_REMOVE(list, interface, next);
+    }
     
-    if (p_nic_count)
+    if (p_nic_count) {
         (*p_nic_count)--;
+    }
     
     SMB_LOG_MC("freeing nic idx %llu(RSS_%llu).\n",  
-             interface->nic_index  & SMB2_IF_INDEX_MASK,
-             interface->nic_index >> SMB2_IF_RSS_INDEX_SHIFT);
+               interface->nic_index & SMB2_IF_INDEX_MASK,
+               interface->nic_index >> SMB2_IF_RSS_INDEX_SHIFT);
     
     SMB_FREE_TYPE(struct complete_nic_info_entry, interface);
 }
@@ -1550,10 +1830,11 @@ smb2_mc_release_interface(
 static void
 smb2_mc_release_interface_list(struct interface_info_list* list)
 {
-    struct complete_nic_info_entry* info;
+    struct complete_nic_info_entry* info = NULL;
 
-    if (TAILQ_EMPTY(list))
+    if (TAILQ_EMPTY(list)) {
         return;
+    }
 
     while ((info = TAILQ_FIRST(list)) != NULL) {
         smb2_mc_release_interface(list, info, NULL);
@@ -1576,7 +1857,7 @@ int
 smb2_mc_reset_nic_list(struct session_network_interface_info *session_table)
 {
     int error = 0;
-    struct complete_nic_info_entry *nic, *nic_t;
+    struct complete_nic_info_entry *nic = NULL, *nic_t = NULL;
 
     lck_mtx_lock(&session_table->interface_table_lck);
     
@@ -1620,13 +1901,13 @@ smb2_mc_sockaddr_cmp(struct sockaddr *x, struct sockaddr *y)
 }
 
 static bool
-    smb2_mc_safe_buffer_get_and_advance_16(
-    uint8_t** buff,
-    uint8_t* buff_end,
-    uint16_t* res)
+smb2_mc_safe_buffer_get_and_advance_16(uint8_t** buff,
+                                       uint8_t* buff_end,
+                                       uint16_t* res)
 {
-	if ((uint32_t)(buff_end - *buff) < sizeof(uint16_t))
-		return false;
+    if ((uint32_t)(buff_end - *buff) < sizeof(uint16_t)) {
+        return false;
+    }
 
 	*res = *((uint16_t*) *buff);
 	*buff= *buff+ sizeof(uint16_t);
@@ -1634,13 +1915,13 @@ static bool
 }
 
 static bool
-smb2_mc_safe_buffer_get_and_advance_32(
-    uint8_t** buff,
-    uint8_t* buff_end,
-    uint32_t* res)
+smb2_mc_safe_buffer_get_and_advance_32(uint8_t** buff,
+                                       uint8_t* buff_end,
+                                       uint32_t* res)
 {
-	if ((uint32_t)(buff_end - *buff) < sizeof(uint32_t))
-		return false;
+    if ((uint32_t)(buff_end - *buff) < sizeof(uint32_t)) {
+        return false;
+    }
 
 	*res = *((uint32_t*) *buff);
 	*buff= *buff+sizeof(uint32_t);
@@ -1648,13 +1929,13 @@ smb2_mc_safe_buffer_get_and_advance_32(
 }
 
 static bool
-smb2_mc_safe_buffer_get_and_advance_64(
-    uint8_t** buff,
-    uint8_t* buff_end,
-    uint64_t* res)
+smb2_mc_safe_buffer_get_and_advance_64(uint8_t** buff,
+                                       uint8_t* buff_end,
+                                       uint64_t* res)
 {
-	if ((uint32_t)(buff_end - *buff) < sizeof(uint64_t))
-		return false;
+    if ((uint32_t)(buff_end - *buff) < sizeof(uint64_t)) {
+        return false;
+    }
 
 	*res = *((uint64_t*) *buff);
 	*buff= *buff+sizeof(uint64_t);
@@ -1662,13 +1943,13 @@ smb2_mc_safe_buffer_get_and_advance_64(
 }
 
 static bool
-smb2_mc_safe_buffer_get_and_advance_in6_addr(
-    uint8_t** buff,
-    uint8_t* buff_end,
-    in6_addr_t* addr)
+smb2_mc_safe_buffer_get_and_advance_in6_addr(uint8_t** buff,
+                                             uint8_t* buff_end,
+                                             in6_addr_t* addr)
 {
-	if ((uint32_t)(buff_end - *buff) < sizeof(in6_addr_t))
-		return false;
+    if ((uint32_t)(buff_end - *buff) < sizeof(in6_addr_t)) {
+        return false;
+    }
 
 	memcpy((void*)addr, *buff, sizeof(in6_addr_t));
 	*buff= *buff+sizeof(in6_addr_t);
@@ -1676,17 +1957,20 @@ smb2_mc_safe_buffer_get_and_advance_in6_addr(
 }
 
 static int
-smb2_mc_update_info_with_ip(
-    struct complete_nic_info_entry* nic_info,
-    struct sockaddr *addr,
-    bool *changed)
+smb2_mc_update_info_with_ip(struct complete_nic_info_entry* nic_info,
+                            struct sockaddr *addr,
+                            bool *changed)
 {
+    char str[128] = {0};
+    char spd[20] = {0};
+    struct sock_addr_entry* new_addr = NULL;
+
     /* No need to add new existing IP */
-    if (smb2_mc_does_ip_belong_to_interface(nic_info, addr))
+    if (smb2_mc_does_ip_belong_to_interface(nic_info, addr)) {
         return 0;
+    }
 
     /* Make sure the params are the same */
-    struct sock_addr_entry* new_addr;
     SMB_MALLOC_TYPE(new_addr, struct sock_addr_entry, Z_WAITOK_ZERO);
     if (new_addr == NULL) {
         SMBERROR("failed to allocate struct sock_addr_entry!");
@@ -1703,29 +1987,34 @@ smb2_mc_update_info_with_ip(
 
     if (addr->sa_family == AF_INET) {
         nic_info->nic_ip_types |= SMB2_MC_IPV4;
-    } else {
+    }
+    else {
         nic_info->nic_ip_types |= SMB2_MC_IPV6;
     }
 
-    TAILQ_INSERT_HEAD(&nic_info->addr_list, new_addr, next);
+    /*
+     * Insert at tail so that we try the server addresses in the same order
+     * they were given to us
+     */
+    TAILQ_INSERT_TAIL(&nic_info->addr_list, new_addr, next);
 
-#ifdef SMB_DEBUG
-    char str[128];
     smb2_sockaddr_to_str(new_addr->addr, str, sizeof(str));
-    char spd[20];
     smb2_spd_to_txt(nic_info->nic_link_speed, spd, sizeof(spd));
-    SMBDEBUG("Inserting if %3llu (RSS_%llu) addr %s (spd: %s).\n",
-             nic_info->nic_index  & SMB2_IF_INDEX_MASK,
-             nic_info->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-             str, spd);
-#endif
-    if (changed) (*changed) = true;
+    SMB_LOG_MC("Inserting if %3llu (RSS_%llu) addr %s (spd: %s).\n",
+               nic_info->nic_index & SMB2_IF_INDEX_MASK,
+               nic_info->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               str, spd);
+
+    if (changed) {
+        (*changed) = true;
+    }
     return 0;
 }
 
 /*
  * smb2_mc_update_new_connection
- * This function is being used to create new connection entry.
+ * This function is being used to create new connection entry after a successful
+ * creation of a channel.
  * It gets 2 nic index (client & server) and create a connection according
  * to the NIC's info.
  * This function should define the functionality of the new connection
@@ -1735,36 +2024,52 @@ smb2_mc_update_info_with_ip(
  * The update will include any changes that accured due to the new connection.
  */
 static int   
-smb2_mc_update_new_connection(
-    struct session_network_interface_info* session_table,
-    uint64_t client_idx,
-    uint64_t server_idx,
-    struct session_con_entry **con_entry_p,
-    struct smbiod* iod)
+smb2_mc_update_new_connection(struct session_network_interface_info* session_table,
+                              uint64_t client_idx,
+                              uint64_t server_idx,
+                              struct session_con_entry **con_entry_p,
+                              struct smbiod* iod)
 {
     struct complete_nic_info_entry* client_nic = smb2_mc_get_nic_by_index(&session_table->client_nic_info_list, client_idx);
     struct complete_nic_info_entry* server_nic = smb2_mc_get_nic_by_index(&session_table->server_nic_info_list, server_idx);
     if (client_nic == NULL || server_nic == NULL) {
-		SMBERROR("couldn't find one of the nics [c- %llu, s-%llu (RSS %llu)]!\n",
-                 client_idx,
-                 server_idx  & SMB2_IF_INDEX_MASK,
+		SMBERROR("couldn't find one of the nics [c- %llu (RSS %llu), s-%llu (RSS %llu)]!\n",
+                 client_idx & SMB2_IF_INDEX_MASK,
+                 client_idx >> SMB2_IF_RSS_INDEX_SHIFT,
+                 server_idx & SMB2_IF_INDEX_MASK,
                  server_idx >> SMB2_IF_RSS_INDEX_SHIFT);
 		return EINVAL;
 	}
 
     /* Set proper state for all client possible connections */
-    struct session_con_entry* con_entry;
+    struct session_con_entry* con_entry = NULL;
     TAILQ_FOREACH(con_entry, &client_nic->possible_connections, client_next) {
         if (con_entry->con_server_nic->nic_index == server_idx) {
-            if (iod) con_entry->iod = iod;
+            if (iod) {
+                con_entry->iod = iod;
+            }
             con_entry->state = SMB2_MC_STATE_CONNECTED;
             con_entry->con_client_nic->nic_state = SMB2_MC_STATE_USED;
             con_entry->con_server_nic->nic_state = SMB2_MC_STATE_USED;
             con_entry->con_speed = MIN(con_entry->con_client_nic->nic_link_speed, con_entry->con_server_nic->nic_link_speed);
             TAILQ_INSERT_TAIL(&session_table->successful_con_list, con_entry, success_next);
-            if (con_entry_p) *con_entry_p = con_entry;
+            if (con_entry_p) {
+                *con_entry_p = con_entry;
+            }
             
-        } else if ( con_entry->state == SMB2_MC_STATE_POTENTIAL) {
+        } else if (con_entry->state == SMB2_MC_STATE_POTENTIAL) {
+            /* Set surplus on other possible client conns from this client NIC */
+            if ((con_entry->con_client_nic != NULL) &&
+                (con_entry->con_server_nic != NULL)) {
+                SMB_LOG_MC("Set surplus for client nic: client nic %llu (RSS_%llu) (state 0x%x) - server nic %llu (RSS_%llu) (state 0x%x) con->state 0x%x \n",
+                           con_entry->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
+                           con_entry->con_client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                           con_entry->con_client_nic->nic_state,
+                           con_entry->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
+                           con_entry->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                           con_entry->con_server_nic->nic_state,
+                           con_entry->state);
+            }
             con_entry->state = SMB2_MC_STATE_SURPLUS;
         }
     }
@@ -1773,6 +2078,17 @@ smb2_mc_update_new_connection(
     TAILQ_FOREACH(con_entry, &session_table->session_con_list, next) {
         if ((con_entry->con_server_nic->nic_index == server_idx) &&
             (con_entry->state == SMB2_MC_STATE_POTENTIAL)) {
+            if ((con_entry->con_client_nic != NULL) &&
+                (con_entry->con_server_nic != NULL)) {
+                SMB_LOG_MC("Set surplus for server nic: client nic %llu (RSS_%llu) (state 0x%x) - server nic %llu (RSS_%llu) (state 0x%x) con->state 0x%x \n",
+                           con_entry->con_client_nic->nic_index & SMB2_IF_INDEX_MASK,
+                           con_entry->con_client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                           con_entry->con_client_nic->nic_state,
+                           con_entry->con_server_nic->nic_index & SMB2_IF_INDEX_MASK,
+                           con_entry->con_server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+                           con_entry->con_server_nic->nic_state,
+                           con_entry->state);
+            }
             con_entry->state = SMB2_MC_STATE_SURPLUS;
         }
     }
@@ -1780,13 +2096,20 @@ smb2_mc_update_new_connection(
     return 0;
 }
 
-int smb2_mc_notifier_event(struct session_network_interface_info *session_table,
-                           struct smbioc_client_interface        *client_info) {
+int
+smb2_mc_notifier_event(struct session_network_interface_info *session_table,
+                       struct smbioc_client_interface *client_info,
+                       int32_t max_channels, int32_t srvr_rss_channels, int32_t clnt_rss_channels,
+                       uint32_t flags)
+{
     int error = 0;
-    struct session_network_interface_info updated_interface_table;
+    struct session_network_interface_info updated_interface_table = {0};
 
-    smb2_mc_init(&updated_interface_table, 0, 0, NULL, 0, 0);
-    error = smb2_mc_parse_client_interface_array(&updated_interface_table, client_info);
+    SMB_LOG_MC("Calling smb2_mc_init, max_channels %d srvr_rss_channels %d  clnt_rss_channels %d \n",
+               max_channels, srvr_rss_channels, clnt_rss_channels);
+    smb2_mc_init(&updated_interface_table, max_channels, srvr_rss_channels, clnt_rss_channels, NULL, 0, 0);
+    error = smb2_mc_parse_client_interface_array(&updated_interface_table,
+                                                 client_info, flags);
 
     if (error) {
         SMBDEBUG("smb2_mc_parse_client_interface_array returned %d.\n", error);
@@ -1807,8 +2130,9 @@ exit:
 
 
 
-#ifdef SMB_DEBUG
-static const char *smb2_mc_state_to_str(enum _SMB2_MC_CON_STATE state) {
+static const char *
+smb2_mc_state_to_str(enum _SMB2_MC_CON_STATE state)
+{
     switch(state) {
         case SMB2_MC_STATE_POTENTIAL:
             return("Potential");
@@ -1829,10 +2153,12 @@ static const char *smb2_mc_state_to_str(enum _SMB2_MC_CON_STATE state) {
     }
 }
 
-static const char *smb2_mc_active_state_to_str(enum _SMB2_MC_CON_STATE state,
-                                enum _SMB2_MC_CON_ACTIVE_STATE active_state) {
-    
-    if (state == SMB2_MC_STATE_CONNECTED) {
+static const char *
+smb2_mc_active_state_to_str(enum _SMB2_MC_CON_STATE state,
+                            enum _SMB2_MC_CON_ACTIVE_STATE active_state)
+{
+    if ((state == SMB2_MC_STATE_CONNECTED) ||
+        (state == SMB2_MC_STATE_IN_REMOVAL)) {
         switch(active_state) {
             case SMB2_MC_FUNC_ACTIVE:
                 return("Active");
@@ -1847,28 +2173,62 @@ static const char *smb2_mc_active_state_to_str(enum _SMB2_MC_CON_STATE state,
     return("");
 }
 
-
-void smb2_mc_print_all_connections(struct session_network_interface_info *session_table) {
-    struct session_con_entry *con;
-    struct complete_nic_info_entry *client_nic;
-    struct complete_nic_info_entry *server_nic;
-    char spd[30];
-    TAILQ_FOREACH(con, &session_table->session_con_list, next) {
-        client_nic = con->con_client_nic;
-        server_nic = con->con_server_nic;
-        smb2_spd_to_txt(con->con_speed, spd, sizeof(spd));
-        SMBDEBUG("Connection [c-%3llu(%u) s-%3llu(RSS_%llu)(%u)] Speed %14s, state %-12s %-8s, id %d %s\n",
-                 client_nic->nic_index,
-                 client_nic->nic_state,
-                 server_nic->nic_index &  SMB2_IF_INDEX_MASK,
-                 server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
-                 server_nic->nic_state,
-                 spd,
-                 smb2_mc_state_to_str(con->state),
-                 smb2_mc_active_state_to_str(con->state, con->active_state),
-                 (con->iod) ? (con->iod->iod_id) : -1,
-                 (con->iod) ? ((con->iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) ? "ALT" : "MAIN") : "");
+static const char *
+smb2_mc_nic_state_to_str(enum _SMB2_MC_NIC_STATE state)
+{
+    switch(state) {
+        case SMB2_MC_STATE_IDLE:
+            return("Idle");
+        case SMB2_MC_STATE_ON_TRIAL:
+            return("On Trial");
+        case SMB2_MC_STATE_USED:
+            return("Used");
+        case SMB2_MC_STATE_DISCONNECTED:
+            return("Disc");
+        default:
+            return("Unknown");
     }
-
 }
-#endif
+
+void
+smb2_mc_print_all_connections(const char *display_string, struct session_network_interface_info *session_table)
+{
+    struct session_con_entry *con = NULL;
+    
+    TAILQ_FOREACH(con, &session_table->session_con_list, next) {
+        smb2_mc_print_one_connection(display_string, con);
+    }
+}
+
+void
+smb2_mc_print_one_connection(const char *display_string, struct session_con_entry *con)
+{
+    struct complete_nic_info_entry *client_nic = NULL;
+    struct complete_nic_info_entry *server_nic = NULL;
+    char spd[20] = {0};
+    
+    if ((con == NULL) ||
+        (con->con_client_nic == NULL) ||
+        (con->con_server_nic == NULL)) {
+        /* print nothing */
+        return;
+    }
+    
+    client_nic = con->con_client_nic;
+    server_nic = con->con_server_nic;
+    smb2_spd_to_txt(con->con_speed, spd, sizeof(spd));
+    SMB_LOG_MC("%s: Connection [c-%3llu(RSS_%llu)(%8s) s-%3llu(RSS_%llu)(%8s)] Speed %14s, state %-12s %-8s, id %d %s\n",
+               display_string,
+               client_nic->nic_index & SMB2_IF_INDEX_MASK,
+               client_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               smb2_mc_nic_state_to_str(client_nic->nic_state),
+               server_nic->nic_index &  SMB2_IF_INDEX_MASK,
+               server_nic->nic_index >> SMB2_IF_RSS_INDEX_SHIFT,
+               smb2_mc_nic_state_to_str(server_nic->nic_state),
+               spd,
+               smb2_mc_state_to_str(con->state),
+               smb2_mc_active_state_to_str(con->state, con->active_state),
+               (con->iod) ? (con->iod->iod_id) : -1,
+               (con->iod) ? ((con->iod->iod_flags & SMBIOD_ALTERNATE_CHANNEL) ? "ALT" : "MAIN") : "");
+}
+

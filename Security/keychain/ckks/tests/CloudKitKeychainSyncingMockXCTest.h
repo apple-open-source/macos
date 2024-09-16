@@ -31,6 +31,7 @@
 #import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #include "OSX/sec/Security/SecItemShim.h"
+#include <Security/Affordance_OTConstants.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -122,6 +123,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account zoneID:(CKRecordZoneID*)zoneID;
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account password:(NSString* _Nullable)password zoneID:(CKRecordZoneID*)zoneID;
 
+- (NSDictionary*)fakeINetRecordDictionary:(NSString*)server
+                                  account:(NSString*)account
+                                   zoneID:(CKRecordZoneID*)zoneID;
+
 - (NSDictionary*)fakeCertificateRecordDictionary:(NSData*)serialNumber zoneID:(CKRecordZoneID*)zoneID;
 
 - (NSDictionary*)fakeKeyRecordDictionary:(NSString*)label zoneID:(CKRecordZoneID*)zoneID;
@@ -132,18 +137,28 @@ NS_ASSUME_NONNULL_BEGIN
                    recordName:(NSString*)recordName
                   withAccount:(NSString* _Nullable)account
                           key:(CKKSKey* _Nullable)key;
-
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
+                   recordName:(NSString*)recordName
+                  withAccount:(NSString* _Nullable)account
+                          key:(CKKSKey* _Nullable)key
+plaintextPCSServiceIdentifier:(NSNumber*)pcsServiceIdentifier
+        plaintextPCSPublicKey:(NSData*)pcsPublicKey
+   plaintextPCSPublicIdentity:(NSData*) pcsPublicIdentity;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
                    recordName:(NSString*)recordName
                itemDictionary:(NSDictionary*)itemDictionary
-                          key:(CKKSKey* _Nullable)key;
+                          key:(CKKSKey* _Nullable)key
+plaintextPCSServiceIdentifier:(NSNumber* _Nullable)pcsServiceIdentifier
+        plaintextPCSPublicKey:(NSData* _Nullable)pcsPublicKey
+   plaintextPCSPublicIdentity:(NSData* _Nullable)pcsPublicIdentity;
 
 - (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account;
 - (CKRecord*)createFakeMultiuserRecord:(CKRecordZoneID*)zoneID musr:(NSUUID*)musruuid recordName:(NSString*)recordName account:(NSString*)account;
 
-- (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key;
+- (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key plaintextPCSServiceIdentifier:(NSNumber* _Nullable)plaintextPCSServiceIdentifier plaintextPCSPublicKey:(NSData* _Nullable)plaintextPCSPublicKey plaintextPCSPublicIdentity:(NSData* _Nullable)plaintextPCSPublicIdentity;
 - (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary;
-- (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary key:(CKKSKey*)key;
+- (CKRecord*)newRecord:(CKRecordID*)recordID withNewItemData:(NSDictionary*)dictionary key:(CKKSKey*)key plaintextPCSServiceIdentifier:(NSNumber* _Nullable)pcsServiceIdentifier plaintextPCSPublicKey:(NSData* _Nullable)pcsPublicKey plaintextPCSPublicIdentity:(NSData* _Nullable)pcsPublicIdentity;
+
 - (NSDictionary*)decryptRecord:(CKRecord*)record;
 
 - (void)addItemToCloudKitZone:(NSDictionary*)itemDict recordName:(NSString*)recordName zoneID:(CKRecordZoneID*)zoneID;

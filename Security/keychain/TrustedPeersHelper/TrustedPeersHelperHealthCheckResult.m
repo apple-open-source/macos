@@ -2,6 +2,7 @@
 
 #if OCTAGON
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
+#import "keychain/ot/proto/generated_source/OTEscrowMoveRequestContext.h"
 #endif
 
 @implementation TrustedPeersHelperHealthCheckResult

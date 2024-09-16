@@ -37,7 +37,6 @@
 #include "ExceptionOr.h"
 #include "MediaStreamRequest.h"
 #include "RealtimeMediaSource.h"
-#include "RealtimeMediaSourceSupportedConstraints.h"
 #include <wtf/Function.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
@@ -49,31 +48,39 @@
 #endif
 
 namespace WebCore {
+class RealtimeMediaSourceCenterObserver;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::RealtimeMediaSourceCenterObserver> : std::true_type { };
+}
+
+namespace WebCore {
 
 class CaptureDevice;
 class CaptureDeviceManager;
 class RealtimeMediaSourceSettings;
-class RealtimeMediaSourceSupportedConstraints;
 class TrackSourceInfo;
 
 struct MediaConstraints;
 
+class WEBCORE_EXPORT RealtimeMediaSourceCenterObserver : public CanMakeWeakPtr<RealtimeMediaSourceCenterObserver> {
+public:
+    virtual ~RealtimeMediaSourceCenterObserver();
+
+    virtual void devicesChanged() = 0;
+    virtual void deviceWillBeRemoved(const String& persistentId) = 0;
+};
+
 class WEBCORE_EXPORT RealtimeMediaSourceCenter : public ThreadSafeRefCounted<RealtimeMediaSourceCenter, WTF::DestructionThread::MainRunLoop> {
 public:
-    class Observer : public CanMakeWeakPtr<Observer> {
-    public:
-        virtual ~Observer();
-
-        virtual void devicesChanged() = 0;
-        virtual void deviceWillBeRemoved(const String& persistentId) = 0;
-    };
-
     ~RealtimeMediaSourceCenter();
 
     WEBCORE_EXPORT static RealtimeMediaSourceCenter& singleton();
 
     using ValidConstraintsHandler = Function<void(Vector<CaptureDevice>&& audioDeviceUIDs, Vector<CaptureDevice>&& videoDeviceUIDs)>;
-    using InvalidConstraintsHandler = Function<void(const String& invalidConstraint)>;
+    using InvalidConstraintsHandler = Function<void(MediaConstraintType)>;
     WEBCORE_EXPORT void validateRequestConstraints(ValidConstraintsHandler&&, InvalidConstraintsHandler&&, const MediaStreamRequest&, MediaDeviceHashSalts&&);
 
     using NewMediaStreamHandler = Function<void(Expected<Ref<MediaStreamPrivate>, CaptureSourceError>&&)>;
@@ -81,8 +88,6 @@ public:
 
     WEBCORE_EXPORT void getMediaStreamDevices(CompletionHandler<void(Vector<CaptureDevice>&&)>&&);
     WEBCORE_EXPORT std::optional<RealtimeMediaSourceCapabilities> getCapabilities(const CaptureDevice&);
-
-    const RealtimeMediaSourceSupportedConstraints& supportedConstraints() { return m_supportedConstraints; }
 
     WEBCORE_EXPORT AudioCaptureFactory& audioCaptureFactory();
     WEBCORE_EXPORT void setAudioCaptureFactory(AudioCaptureFactory&);
@@ -96,10 +101,10 @@ public:
     WEBCORE_EXPORT void setDisplayCaptureFactory(DisplayCaptureFactory&);
     WEBCORE_EXPORT void unsetDisplayCaptureFactory(DisplayCaptureFactory&);
 
-    WEBCORE_EXPORT String hashStringWithSalt(const String& id, const String& hashSalt);
+    WEBCORE_EXPORT static String hashStringWithSalt(const String& id, const String& hashSalt);
 
-    WEBCORE_EXPORT void addDevicesChangedObserver(Observer&);
-    WEBCORE_EXPORT void removeDevicesChangedObserver(Observer&);
+    WEBCORE_EXPORT void addDevicesChangedObserver(RealtimeMediaSourceCenterObserver&);
+    WEBCORE_EXPORT void removeDevicesChangedObserver(RealtimeMediaSourceCenterObserver&);
 
     void captureDevicesChanged();
     void captureDeviceWillBeRemoved(const String& persistentId);
@@ -130,17 +135,15 @@ private:
         CaptureDevice device;
     };
 
-    void getDisplayMediaDevices(const MediaStreamRequest&, MediaDeviceHashSalts&&, Vector<DeviceInfo>&, String&);
-    void getUserMediaDevices(const MediaStreamRequest&, MediaDeviceHashSalts&&, Vector<DeviceInfo>& audioDevices, Vector<DeviceInfo>& videoDevices, String&);
+    void getDisplayMediaDevices(const MediaStreamRequest&, MediaDeviceHashSalts&&, Vector<DeviceInfo>&, MediaConstraintType&);
+    void getUserMediaDevices(const MediaStreamRequest&, MediaDeviceHashSalts&&, Vector<DeviceInfo>& audioDevices, Vector<DeviceInfo>& videoDevices, MediaConstraintType&);
     void validateRequestConstraintsAfterEnumeration(ValidConstraintsHandler&&, InvalidConstraintsHandler&&, const MediaStreamRequest&, MediaDeviceHashSalts&&);
     void enumerateDevices(bool shouldEnumerateCamera, bool shouldEnumerateDisplay, bool shouldEnumerateMicrophone, bool shouldEnumerateSpeakers, CompletionHandler<void()>&&);
-
-    RealtimeMediaSourceSupportedConstraints m_supportedConstraints;
 
     RunLoop::Timer m_debounceTimer;
     void triggerDevicesChangedObservers();
 
-    WeakHashSet<Observer> m_observers;
+    WeakHashSet<RealtimeMediaSourceCenterObserver> m_observers;
 
     AudioCaptureFactory* m_audioCaptureFactoryOverride { nullptr };
     VideoCaptureFactory* m_videoCaptureFactoryOverride { nullptr };

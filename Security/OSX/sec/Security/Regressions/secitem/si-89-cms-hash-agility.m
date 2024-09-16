@@ -67,10 +67,7 @@ static void ios_shim_tests(void)
        "Get hash agility value array");
     is(CFArrayGetCount(attrValues), 1, "One attribute value");
     ok(hashAgilityValue = CFArrayGetValueAtIndex(attrValues, 0), "Get hash agility value");
-    size_t offset = 0;
-    if (useMessageSecurityEnabled()) {
-        offset = 2; // MessageSecurity framework doesn't provide decoded attribute values
-    }
+    size_t offset = 2; // MessageSecurity framework doesn't provide decoded attribute values
     is((size_t)CFDataGetLength(hashAgilityValue) - offset, sizeof(attribute), "Verify size of parsed hash agility value");
     is(memcmp(attribute, CFDataGetBytePtr(hashAgilityValue) + offset, sizeof(attribute)), 0,
        "Verify correct hash agility value");
@@ -322,6 +319,8 @@ static void ios_shim_V2_tests(void) {
        "Got wrong SHA256 agility value");
 
     attrValues = NULL;
+    tmpAttrs = NULL;
+    CFReleaseNull(trust);
 
     /*verify we can get the signing time attribute */
     require_action(signingTime = attrs[(__bridge NSString*)kSecCMSSignDate], exit, fail("Failed to get signing time"));
@@ -332,6 +331,7 @@ static void ios_shim_V2_tests(void) {
     [message resetBytesInRange:NSMakeRange(2110, 1)]; /* reset byte in hash agility attribute */
     is(SecCMSVerify((__bridge CFDataRef)message, (__bridge CFDataRef)contentData, policy, &trust, NULL), errSecAuthFailed,
        "Verify invalid CMS message");
+    CFReleaseNull(trust);
 
     /* verify the valid message with no hash agility attribute */
     message = [NSMutableData dataWithBytes:valid_no_attr length:valid_no_attr_size];

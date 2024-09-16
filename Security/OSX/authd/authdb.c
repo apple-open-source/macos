@@ -14,6 +14,7 @@
 #include "authutilities.h"
 #include <libgen.h>
 #include <sys/stat.h>
+#include "PreloginUserDb.h"
 
 AUTHD_DEFINE_LOG
 
@@ -186,26 +187,20 @@ static int32_t _db_upgrade_from_version(authdb_connection_t dbconn, int32_t vers
 
 static CFDictionaryRef _copy_plist(auth_items_t config, CFAbsoluteTime *outTs)
 {
-    CFURLRef authURL = NULL;
-    CFPropertyListRef plist = NULL;
-    CFDataRef data = NULL;
-    int32_t rc = 0;
-    CFErrorRef err = NULL;
-    CFTypeRef value = NULL;
+    CFDateRef mDate = NULL;
+    CFErrorRef error = NULL;
     CFAbsoluteTime ts = 0;
     CFAbsoluteTime old_ts = 0;
-    Boolean ok;
-    authURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(AUTHDB_DATA), kCFURLPOSIXPathStyle, false);
-    require_action(authURL != NULL, done, os_log_error(AUTHD_LOG, "authdb: file not found %{public}s", AUTHDB_DATA));
-
-    ok = CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
-    require_action(ok && value != NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to get modification date: %{public}@", err));
+    CFDictionaryRef plist = NULL;
     
-    if (CFGetTypeID(value) == CFDateGetTypeID()) {
-        ts = CFDateGetAbsoluteTime(value);
-        if (outTs) {
-            *outTs = ts;
-        }
+    struct stat attr;
+    int err = stat(AUTHDB_DATA, &attr);
+    require_action(err == 0, done, os_log_error(AUTHD_LOG, "authdb: file mdate not available %{public}s, err %d", AUTHDB_DATA, err));
+    mDate = dateFromUnixTimestamp(attr.st_mtime);
+
+    ts = CFDateGetAbsoluteTime(mDate);
+    if (outTs) {
+        *outTs = ts;
     }
     
     if (config) {
@@ -217,20 +212,16 @@ static CFDictionaryRef _copy_plist(auth_items_t config, CFAbsoluteTime *outTs)
     // Somehow (probably during install) ts < old_ts, even though that should never happen.
     // Solution: always import plist and update db when time stamps don't match.
     // After a successful import, old_ts = ts below.
-    if (!config || (ts != old_ts)) {
+    if (!config || (ts != old_ts))
+    {
         os_log_debug(AUTHD_LOG, "authdb: %{public}s modified old=%f, new=%f", AUTHDB_DATA, old_ts, ts);
-        CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, authURL, &data, NULL, NULL, (SInt32*)&rc);
-        require_noerr_action(rc, done, os_log_error(AUTHD_LOG, "authdb: failed to load %{public}s", AUTHDB_DATA));
-        
-        plist = CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, &err);
-        require_action(err == NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to read plist: %{public}@", err));
+        plist = readDatabasePlist(CFSTR(AUTHDB_DATA), &error);
+        require_action(error == NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to read plist: %{public}@", error));
     }
 
 done:
-    CFReleaseSafe(authURL);
-    CFReleaseSafe(value);
-    CFReleaseSafe(err);
-    CFReleaseSafe(data);
+    CFReleaseSafe(error);
+    CFReleaseSafe(mDate);
 
     return plist;
 }

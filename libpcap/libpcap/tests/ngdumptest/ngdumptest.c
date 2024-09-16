@@ -381,7 +381,7 @@ make_data_block(const void *data, size_t len)
 }
 
 void
-make_section_header_block()
+make_section_header_block(void)
 {
 	pcapng_block_t block = pcap_ng_block_alloc(pcap_ng_block_size_max());
 	

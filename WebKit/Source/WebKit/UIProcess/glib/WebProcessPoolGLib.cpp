@@ -34,6 +34,7 @@
 #include "WebProcessCreationParameters.h"
 #include <WebCore/PlatformDisplay.h>
 #include <wtf/FileSystem.h>
+#include <wtf/glib/Application.h>
 #include <wtf/glib/Sandbox.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -48,12 +49,13 @@
 #include <wpe/wpe.h>
 #endif
 
-#if PLATFORM(GTK)
-#if USE(EGL)
-#include "AcceleratedBackingStoreDMABuf.h"
-#endif
-#include "GtkSettingsManager.h"
+#if PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
 #include "ScreenManager.h"
+#endif
+
+#if PLATFORM(GTK)
+#include "AcceleratedBackingStoreDMABuf.h"
+#include "GtkSettingsManager.h"
 #endif
 
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
@@ -84,7 +86,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #if USE(GBM)
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
     if (usingWPEPlatformAPI)
-        parameters.renderDeviceFile = String::fromUTF8(wpe_render_node_device());
+        parameters.renderDeviceFile = String::fromUTF8(wpe_display_get_drm_render_node(wpe_display_get_primary()));
     else
         parameters.renderDeviceFile = WebCore::PlatformDisplay::sharedDisplay().drmRenderNodeFile();
 #else
@@ -92,7 +94,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 #endif
 
-#if PLATFORM(GTK) && USE(EGL)
+#if PLATFORM(GTK)
     parameters.dmaBufRendererBufferMode = AcceleratedBackingStoreDMABuf::rendererBufferMode();
 #elif PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
     if (usingWPEPlatformAPI) {
@@ -124,7 +126,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.gstreamerOptions = WebCore::extractGStreamerOptionsFromCommandLine();
 #endif
 
-#if PLATFORM(GTK) && !USE(GTK4)
+#if PLATFORM(GTK) && !USE(GTK4) && USE(CAIRO)
     parameters.useSystemAppearanceForScrollbars = m_configuration->useSystemAppearanceForScrollbars();
 #endif
 
@@ -132,9 +134,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
     parameters.disableFontHintingForTesting = m_configuration->disableFontHintingForTesting();
 
-    GApplication* app = g_application_get_default();
-    if (app)
-        parameters.applicationID = String::fromLatin1(g_application_get_application_id(app));
+    parameters.applicationID = String::fromUTF8(WTF::applicationID().span());
     parameters.applicationName = String::fromLatin1(g_get_application_name());
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -159,6 +159,11 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #if PLATFORM(GTK)
     parameters.gtkSettings = GtkSettingsManager::singleton().settingsState();
     parameters.screenProperties = ScreenManager::singleton().collectScreenProperties();
+#endif
+
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+    if (usingWPEPlatformAPI)
+        parameters.screenProperties = ScreenManager::singleton().collectScreenProperties();
 #endif
 }
 

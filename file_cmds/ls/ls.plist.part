@@ -13,6 +13,7 @@
 			<string>ls.1, ls.c, print.c: implement -@: extended attributes (4518860)</string>
 			<string>ls.1, ls.c: implement -%: distinguish dataless files and directories (44903893)</string>
 			<string>ls.1: improve descriptions (3856723, 6591295)</string>
+			<string>ls.1, ls.c: add -X support (113717829, 115865986)</string>
 			<string>ls.c: improve UNIX conformance (3666135, 6591295)</string>
 			<string>ls.c: remove -Z support</string>
 			<string>ls.c: don't ignore errors on stdout (89147045)</string>

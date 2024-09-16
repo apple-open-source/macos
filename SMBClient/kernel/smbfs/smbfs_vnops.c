@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2019 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,6 +74,7 @@
 #include <smbfs/smbfs_security.h>
 #include <smbfs/smbfs_attrlist.h>
 #include <smbclient/smbclient_internal.h>
+#include <netsmb/smb_read_write.h>
 
 #include <sys/buf.h>
 
@@ -98,6 +99,7 @@ char smb_symmagic[SMB_SYMMAGICLEN] = {'X', 'S', 'y', 'm', '\n'};
 
 extern struct smb_reconnect_stats smb_reconn_stats;
 extern uint32_t g_max_dir_entries_cached;
+extern lck_grp_t *smb_rw_group;
 
 static int smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
                          SMBFID *fidp, vfs_context_t context);
@@ -114,6 +116,269 @@ int smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname
                       SMBFID *fidp, struct smbfattr *fattrp, vnode_t *vpp,
                       vfs_context_t context);
 void smbfs_check_for_ubc_invalidate(vnode_t vp, const char *reason);
+
+static int smbfs_active_cookies_cnt(struct vnode *dvp);
+
+/*
+ * Copied from NFS Client (nfs_kdebug_blah functions) for Ariadne support
+ */
+void smb_ktrace_io_start(mount_t mp, void *io_id, off_t offset, size_t blocksize, uint32_t flags, int64_t resid);
+void smb_ktrace_io_end(vnode_t vp, void *io_id, int64_t resid, int error);
+
+/*
+ * Helper function to post a ktrace with string to a fsrw_code like
+ * DEVICE_NAME_INFO_START(mp <-> URL) or VNODE_PATH_INFO_START(vp <-> file path)
+ */
+static void
+smb_ktrace_add_string(vm_offset_t identifier, char *buf, size_t buflen, const uint32_t fsrw_code)
+{
+    size_t args_to_write = 0;
+    size_t buflen64 = buflen % sizeof(uint64_t) == 0 ? buflen / sizeof(uint64_t) : (buflen / sizeof(uint64_t)) + 1;
+    uint64_t *buf64 = (uint64_t *)buf;
+
+    /*
+     * We are limited per ktrace event to just 4 uint64_t to post the entire
+     * string so may have to post multiple ktrace events to get entire string.
+     *
+     * 1. Start with DBG_FUNC_START in code, arg1 is identifier, 24 char bytes
+     * 2. Keep posting 32 char bytes at a time
+     * 3. At end of string, set DBG_FUNC_END in code
+     */
+    for (size_t i = 0; i < buflen64; i += args_to_write) {
+        int code = DBG_FUNC_NONE;
+        size_t args_left = buflen64 - i;
+        uint64_t arg1, arg2, arg3, arg4;
+        
+        if (i == 0) {
+            /* Post beginning of string (up to 24 bytes) along with identifier */
+            code |= DBG_FUNC_START;
+            args_to_write = MIN(3, args_left);
+
+            arg1 = (uintptr_t)identifier;
+            arg2 = args_to_write >= 1 ? (uint64_t)buf64[i + 0] : 0;
+            arg3 = args_to_write >= 2 ? (uint64_t)buf64[i + 1] : 0;
+            arg4 = args_to_write >= 3 ? (uint64_t)buf64[i + 2] : 0;
+        }
+        else {
+            /* Keep posting string up to 32 bytes at a time */
+            args_to_write = MIN(4, args_left);
+
+            arg1 = args_to_write >= 1 ? (uint64_t)buf64[i + 0] : 0;
+            arg2 = args_to_write >= 2 ? (uint64_t)buf64[i + 1] : 0;
+            arg3 = args_to_write >= 3 ? (uint64_t)buf64[i + 2] : 0;
+            arg4 = args_to_write >= 4 ? (uint64_t)buf64[i + 3] : 0;
+        }
+
+        if (i + args_to_write == buflen64) {
+            /* Done with string, mark the end of the string */
+            code |= DBG_FUNC_END;
+        }
+
+        KERNEL_DEBUG_CONSTANT_IST(KDEBUG_COMMON, (FSDBG_CODE(DBG_FSRW, fsrw_code)) | code, arg1, arg2, arg3, arg4, 0);
+    }
+}
+
+/*
+ * Helper function to get the "mount from" URL to display in Ariadne in the
+ * FileSystem I/O section instead of just showing "Device 0x/0x". If we fail
+ * to create the URL, then Ariadne will show the "Device 0x/0x" instead.
+ */
+static int
+smb_ktrace_device_url(mount_t mp)
+{
+    char buf[PATH_MAX] = {0};
+    size_t buflen = sizeof(buf);
+    static const uint32_t DEVICE_NAME_INFO_START = 0x26;
+    struct vfsstatfs *stats = {0};
+    vm_offset_t mp_perm = 0;
+
+    if (mp == NULL) {
+        /* Paranoid check, should never happen */
+        SMBERROR("Got NULL mount \n");
+        return(EINVAL);
+    }
+    
+    if ((stats = vfs_statfs(mp)) == NULL) {
+        /* Paranoid check, should never happen */
+        SMBERROR("vfs_statfs returned NULL \n");
+        return(EINVAL);
+    }
+    
+    /*
+     * Get the "mount from" string which is in format of
+     * "//<user>@<server>/<share>", so just need to add the "smb:" to the
+     * front of the string.
+     */
+    if ((buflen = snprintf(buf, sizeof(buf), "smb:%s", stats->f_mntfromname)) <= 0) {
+        SMBERROR("Failed to build mount URL for mount \n");
+        return(EINVAL);
+    }
+    
+    /* Expose the mount point address to user space */
+    vm_kernel_addrperm_external((vm_offset_t)mp, &mp_perm);
+    
+    /* Associate this URL with this mount point */
+    smb_ktrace_add_string(mp_perm, buf, buflen, DEVICE_NAME_INFO_START);
+    
+    return(0);
+}
+
+/*
+ * Helper function to get the path to the vnode and then post it to ktrace
+ */
+static int
+smb_ktrace_vnode_path(vnode_t vp)
+{
+    int error = 0;
+    char buf[PATH_MAX] = {0};
+    size_t buflen = sizeof(buf);
+    static const uint32_t VNODE_PATH_INFO_START = 0x24;
+    vm_offset_t vp_perm;
+
+    if (vp == NULL) {
+        /* Paranoid check, should never happen */
+        SMBERROR("vp is NULL? \n");
+        return(EINVAL);
+    }
+
+    if ((error = vn_getpath_ext(vp, NULL, buf, &buflen, BUILDPATH_VOLUME_RELATIVE)) != 0) {
+        /* Paranoid check, should never happen */
+        SMBERROR("Failed %d to get path for vnode \n", error);
+        return(error);
+    }
+
+    /* Expose the vnode address to user space */
+    vm_kernel_addrperm_external((vm_offset_t)vp, &vp_perm);
+
+    /* Associate this path with this vnode */
+    smb_ktrace_add_string(vp_perm, buf, buflen, VNODE_PATH_INFO_START);
+
+    return(0);
+}
+
+/*
+ * Log the start of an IO and also register the SMB mount from URL with this
+ * mount point so Ariadne can display it under FileSystem IO row. The start IO
+ * and end IO events both log an IO ID and that is how Ariadne matches them
+ * together.
+ */
+void
+smb_ktrace_io_start(mount_t mp, void *io_id, off_t offset, size_t blocksize, uint32_t flags, int64_t resid)
+{
+    int code = 0;
+    size_t blocknu = offset / blocksize;
+    vm_offset_t id_perm, mp_perm;
+
+    /* Is ktracing logging enabled? */
+    if (!(smbfs_loglevel & SMB_KTRACE_LOG_LEVEL)) {
+        /* Nope */
+        return;
+    }
+    
+    if (ISSET(flags, B_READ)) {
+        SET(code, DKIO_READ);
+    }
+    
+    if (ISSET(flags, B_ASYNC)) {
+        SET(code, DKIO_ASYNC);
+    }
+    
+    if (ISSET(flags, B_META)) {
+        SET(code, DKIO_META);
+    }
+    
+    if (ISSET(flags, B_NOCACHE)) {
+        SET(code, DKIO_NOCACHE);
+    }
+    
+    if (ISSET(flags, B_PAGEIO)) {
+        SET(code, DKIO_PAGING);
+    }
+
+    /*
+     * Try to associate the mountpoint to a SMB URL to show in Ariadne.
+     *
+     * Note that we only have to do this once per mount on its first IO, but
+     * since kernel tracing can be enabled/disabled at any time, we currently
+     * dont know if we have done this already or not so we are lazy and do it
+     * on every IO. A minor future enhancement would be to have a per mount
+     * flag to indicate whether we have done this for this mount and if so,
+     * skip doing it again.
+     */
+    smb_ktrace_device_url(mp);
+    
+    /*
+     * Ignore any errors from smb_ktrace_device_url as that is to just
+     * have a nice URL showing instead showing just a device 0x/0x
+     */
+    
+    /*
+     * Expose the address of io_id to user space which is used to match the
+     * start and end IO events. This address must be unique to this specific
+     * IO.
+     */
+    vm_kernel_addrperm_external((vm_offset_t)io_id, &id_perm);
+    
+    /*
+     * Expose the mountpoint address to user space which is used to match to
+     * the corrert SMB URL for this mountpoint
+     */
+    vm_kernel_addrperm_external((vm_offset_t)mp, &mp_perm);
+    
+    /*
+     * Notify start of IO with mountpoint, offset, block size and length
+     */
+    KERNEL_DEBUG_CONSTANT_IST(KDEBUG_COMMON, (FSDBG_CODE(DBG_DKRW, code)) | DBG_FUNC_NONE, id_perm, mp_perm, blocknu, resid, 0);
+}
+
+/*
+ * Log the end of an IO along with the path to file being accessed
+ */
+void
+smb_ktrace_io_end(vnode_t vp, void *io_id, int64_t resid, int error)
+{
+    int code = DKIO_DONE;
+    vm_offset_t id_perm, vp_perm;
+
+    /* Is ktracing logging enabled? */
+    if (!(smbfs_loglevel & SMB_KTRACE_LOG_LEVEL)) {
+        /* Nope */
+        return;
+    }
+
+    /*
+     * Try to associate the vnode to a file path
+     *
+     * Note that we only have to do this once per vnode on its first IO, but
+     * since kernel tracing can be enabled/disabled at any time, we currently
+     * dont know if we have done this already or not so we are lazy and do it
+     * on every IO. A minor future enhancement would be to have a per vnode
+     * flag to indicate whether we have done this for this vnode and if so,
+     * skip doing it again.
+     */
+    smb_ktrace_vnode_path(vp);
+    
+    /*
+     * Ignore any errors from smb_ktrace_vnode_path as that is to just
+     * display the path to the file in use
+     */
+    
+    /*
+     * Expose the address of io_id to user space which is used to match the
+     * start and end IO events. This address must be unique to this specific
+     * IO.
+     */
+    vm_kernel_addrperm_external((vm_offset_t)io_id, &id_perm);
+
+    /*
+     * Expose the address of the vnode to user space. Ariadne collects the
+     * file path just on the end IO event.
+     */
+    vm_kernel_addrperm_external((vm_offset_t)vp, &vp_perm);
+
+    /* Notify end of IO with vnode, offset, remaining length and any error */
+    KERNEL_DEBUG_CONSTANT_IST(KDEBUG_COMMON, (FSDBG_CODE(DBG_DKRW, code)) | DBG_FUNC_NONE, id_perm, vp_perm, resid, error, 0);
+}
 
 
 void
@@ -566,6 +831,9 @@ smbfs_close_fid(struct smb_share *share, vnode_t vp, int openMode, int close_bot
         np->f_sharedFID_openWCnt = 0;
         np->f_sharedFID_isEXLOCK = 0;
         np->f_sharedFID_isSHLOCK = 0;
+
+        /* Clear this flag as it uses the shared fork */
+        np->f_needClose = 0;
 
         /* Clear the flock pid since its only used on sharedFID */
         np->f_smbflock_pid = 0;
@@ -1423,10 +1691,12 @@ smbfs_vnop_close(struct vnop_close_args *ap)
                  * Use cluster_push to clear the dirty blocks since ubc_msync()
                  * wont clear dirty blocks.
                  */
-                SMB_LOG_UBC_LOCK(np, "IO_CLOSE cluster_push on <%s> due to closing file \n",
+                SMB_LOG_UBC_LOCK(np, "cluster_push(IO_CLOSE) and UBC_PUSHDIRTY on <%s> due to closing file \n",
                                  np->n_name);
                 np->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
+                                
                 cluster_push(vp, IO_CLOSE);
+                ubc_msync(vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
             }
 		}
 
@@ -1542,6 +1812,8 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
     struct smb2_durable_handle temp_dur_hndl = {0};
     int lease_need_free = 0, dur_need_free = 0, ask_for_acl = 0;
     struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
+    int update_size = 0;
+    struct smbfattr *fap = NULL;
 
 	/*
 	 * NOTE: vap can be NULL!
@@ -1737,6 +2009,25 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
             /* Shouldnt ever happen */
             SMBERROR("smbfs_add_update_lease update failed %d\n", warning);
         }
+        
+        /*
+         * Work around a smbx bug <118084412> where a second Create
+         * triggers a lease break which results in data being written,
+         * but the Create reply still shows the previous file EOF
+         * instead of the new/current length. cluster_read() will only
+         * read up to EOF that is passed in.
+         */
+        smbnode_lease_lock(&np->n_lease, smbfs_create_open);
+
+        if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+            (np->n_lease.lease_state & SMB2_LEASE_READ_CACHING) &&
+            !(np->n_lease.lease_state & SMB2_LEASE_WRITE_CACHING)) {
+            /* Ask again for the file EOF */
+            update_size = 1;
+            (void) smbfs_update_cache(share, vp, NULL, context);
+        }
+
+        smbnode_lease_unlock(&np->n_lease);
     }
     
     smbnode_lease_unlock(&temp_lease);
@@ -1928,6 +2219,30 @@ smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname *cn
 	/* smbfs_nget returns a locked node, unlock it */
 	smbnode_unlock(VTOSMB(vp));		/* Release the smbnode lock */
 
+    if (update_size == 1) {
+        SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
+        if (fap != NULL) {
+            /*
+             * Have to use QueryInfo because Windows will return correct EOF in
+             * Create reply, but stale EOF in Create/QueryDir/Close.
+             */
+            warning = smbfs_smb_qpathinfo(share, np, VREG,
+                                          fap, SMB_QFILEINFO_ALL_INFO,
+                                          NULL, NULL, NULL,
+                                          context);
+            if (warning) {
+                SMBERROR_LOCK(np, "smbfs_smb_qpathinfo failed <%d> on <%s>\n",
+                              warning, np->n_name);
+            }
+            else {
+                np->n_size = fap->fa_size;
+                np->n_data_alloc = fap->fa_data_alloc;
+            }
+            
+            SMB_FREE_TYPE(struct smbfattr, fap);
+        }
+    }
+
 out:
     /* Free the temp lease */
     if (lease_need_free) {
@@ -1971,6 +2286,7 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
     int lease_need_free = 0;
     int dur_need_free = 0;
     struct smb2_dur_hndl_and_lease dur_hndl_lease = {0};
+    int update_size = 0;
 
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_OPEN | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
@@ -2054,6 +2370,19 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
         }
     }
     
+    /*
+     * If we had to open the fork myself, then close the fork now as we will
+     * now have an open fork to use.
+     * We only do this in read.
+     */
+    if (np->f_needClose) {
+        np->f_needClose = 0;
+        warning = smbfs_close(share, vp, FREAD, context);
+        if (warning) {
+            SMBWARNING_LOCK(np, "error %d closing %s\n", warning, np->n_name);
+       }
+    }
+
     if ((mode & O_EXLOCK) || (mode & O_SHLOCK)) {
         SMB_LOG_FILE_OPS_LOCK(np, "lockFID refcnt <%d> rw <%d> r <%d> w <%d> totalW <%d> on <%s> \n",
                               np->f_lockFID_refcnt,
@@ -2075,19 +2404,6 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
             error = EBUSY;
             goto exit;
         }
-
-		/*
-		 * if using deny modes and I had to open the file myself, then close 
-		 * the file now so it does not interfere with the deny mode open.
-		 * We only do this in read.
-		 */
-		if (np->f_needClose) {
-			np->f_needClose = 0;
-			warning = smbfs_close(share, vp, FREAD, context);
-			if (warning) {
-				SMBWARNING_LOCK(np, "error %d closing %s\n", warning, np->n_name);
-           }
-		}
 
         /* Using deny modes, see if lockFID already actively in use */
         if (np->f_lockFID_refcnt > 0) {
@@ -2165,6 +2481,13 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
                      */
                     np->f_lockFID_refcnt += 1;
                     //reusedOpen = 1;
+                    
+                    /*
+                     * Since reusing file, no need to check last close to next
+                     * open mod time.
+                     */
+                    np->n_last_close_mtime.tv_sec = 0;
+                    np->n_last_close_mtime.tv_nsec = 0;
                     
                     smbnode_lease_unlock(&np->n_lease);
 
@@ -2299,6 +2622,13 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
                     np->f_sharedFID_refcnt += 1;
                     //reusedOpen = 1;
 
+                    /*
+                     * Since reusing file, no need to check last close to next
+                     * open mod time.
+                     */
+                    np->n_last_close_mtime.tv_sec = 0;
+                    np->n_last_close_mtime.tv_nsec = 0;
+
                     smbnode_lease_unlock(&np->n_lease);
 
                     /* Update read/write counters */
@@ -2402,6 +2732,24 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
                 /* Shouldnt ever happen */
                 SMBERROR("smbfs_add_update_lease update failed %d\n", warning);
             }
+            
+            /*
+             * Work around a smbx bug <118084412> where a second Create
+             * triggers a lease break which results in data being written,
+             * but the Create reply still shows the previous file EOF
+             * instead of the new/current length. cluster_read() will only
+             * read up to EOF that is passed in.
+             */
+            smbnode_lease_lock(&np->n_lease, smbfs_create_open);
+
+            if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
+                (np->n_lease.lease_state & SMB2_LEASE_READ_CACHING) &&
+                !(np->n_lease.lease_state & SMB2_LEASE_WRITE_CACHING)) {
+                /* Ask again for the file EOF */
+                update_size = 1;
+            }
+
+            smbnode_lease_unlock(&np->n_lease);
         }
         else {
             /* Did not get a lease, so remove it from the tables */
@@ -2557,8 +2905,27 @@ smbfs_open(struct smb_share *share, vnode_t vp, int mode,
         goto exit;
     }
 
-exit:    
-	if (((accessMode & kOpenMask) == kAccessWrite) &&
+    if (update_size == 1) {
+        /*
+         * Have to use QueryInfo because Windows will return correct EOF in
+         * Create reply, but stale EOF in Create/QueryDir/Close.
+         */
+        warning = smbfs_smb_qpathinfo(share, np, VREG,
+                                      fap, SMB_QFILEINFO_ALL_INFO,
+                                      NULL, NULL, NULL,
+                                      context);
+        if (warning) {
+            SMBERROR_LOCK(np, "smbfs_smb_qpathinfo failed <%d> on <%s>\n",
+                          warning, np->n_name);
+        }
+        else {
+            np->n_size = fap->fa_size;
+            np->n_data_alloc = fap->fa_data_alloc;
+        }
+    }
+
+exit:
+    if (((accessMode & kOpenMask) == kAccessWrite) &&
 		(addedReadRights == 0)) {
 		/* if opened with just write, then turn off cluster code */
 		vnode_setnocache(vp);
@@ -3412,13 +3779,15 @@ smbfs_vnop_mmap_check(struct vnop_mmap_check_args *ap)
 
     if (vp == NULL) {
         SMBERROR("vp is null \n");
-        return(EINVAL);
+        error = EINVAL;
+        goto exit;
     }
 
     np = VTOSMB(vp);
     if (np == NULL) {
         SMBERROR("np is null \n");
-        return(EINVAL);
+        error = EINVAL;
+        goto exit;
     }
 
     np->n_lastvop = smbfs_vnop_mmap_check;
@@ -3428,6 +3797,7 @@ smbfs_vnop_mmap_check(struct vnop_mmap_check_args *ap)
      */
     error = smbfs_is_dataless_access_allowed(vp, 0, ap->a_context);
 
+exit:
     SMB_LOG_KTRACE(SMB_DBG_MMAP_CHECK | DBG_FUNC_END, error, 0, 0, 0, 0);
     
     return (error);
@@ -3776,8 +4146,8 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
         smbfs_closedirlookup(np, 1, "vnop_reclaim", ap->a_context);
 
 		/* Free the enumeration cache if it exists */
-        smb_dir_cache_remove(vp, &np->d_main_cache, "main", "vnop_reclaim", 0);
-        smb_dir_cache_remove(vp, &np->d_overflow_cache, "overflow", "vnop_reclaim", 0);
+        smb_dir_cache_remove(vp, &np->d_main_cache, "main", "vnop_reclaim", 0, 0);
+        smb_dir_cache_remove(vp, &np->d_overflow_cache, "overflow", "vnop_reclaim", 0, 0);
 		
 		/*
          * Dont call smb_global_dir_cache_remove_one() as this will lead to
@@ -3857,12 +4227,14 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	 */
     lck_rw_lock_exclusive(&np->n_parent_rwlock);    /* do our own locking */
 
-    SET(np->n_flag, NTRANSIT);
-	
+    lck_mtx_lock(&np->n_flag_alloc_lock);
+    SET(np->n_flag_alloc, NTRANSIT);
+    lck_mtx_unlock(&np->n_flag_alloc_lock);
+
     par_vp = smbfs_smb_get_parent(np, 0);  /* do our own locking */
     if (par_vp != NULL) {
         if ((np->n_flag & NREFPARENT) &&
-            ((VTOSMB(par_vp)->n_flag & NTRANSIT) != NTRANSIT)) {
+            ((VTOSMB(par_vp)->n_flag_alloc & NTRANSIT) != NTRANSIT)) {
             /* 
              * Parent exists and is not being reclaimed, remove child's 
              * refcount 
@@ -3890,34 +4262,26 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
                    vfs_isforce(vnode_mount(vp)), 0, 0);
 
     /* Child_refcnt should be zero */
-	if (np->n_child_refcnt) {
-        if (!(vfs_isforce(vnode_mount(vp)))) {
-            /*
-             * Forced unmounts are very brutal, and it's not unusual for a 
-             * parent node being reclaimed to have a non-zero child refcount. 
-             * So we only log an error if this is not a forced unmount, which 
-             * we do care about.
-             */
-            const char *vname = vnode_getname(vp);
-            if (vname != NULL) {
-                SMBERROR("%s: node: %s, n_child_refcnt not zero like it should be: %ld\n",
-                         __FUNCTION__, vname, (long) np->n_child_refcnt);
-                vnode_putname(vname);
-            }
-            else {
-                SMBERROR("%s: n_child_refcnt not zero like it should be: %ld\n",
-                         __FUNCTION__, (long) np->n_child_refcnt);
-            }
+	if (np->n_child_refcnt && !vfs_isforce(vnode_mount(vp))) {
+        /*
+         * Forced unmounts are very brutal, and it's not unusual for a
+         * parent node being reclaimed to have a non-zero child refcount.
+         * So we only log an error if this is not a forced unmount, which
+         * we do care about.
+         */
+        const char *vname = vnode_getname(vp);
+        if (vname != NULL) {
+            SMBERROR("%s: node: %s, n_child_refcnt not zero like it should be: %ld\n",
+                     __FUNCTION__, vname, (long) np->n_child_refcnt);
+            vnode_putname(vname);
         }
-        
-		smbfs_ClearChildren(smp, np);
-       
-        smb_vhashrem(np);
+        else {
+            SMBERROR("%s: n_child_refcnt not zero like it should be: %ld\n",
+                     __FUNCTION__, (long) np->n_child_refcnt);
+        }
     }
-    else {
-        smb_vhashrem(np);
-    }
-    
+
+    smb_vhashrem(np);
 	cache_purge(vp);
     
     if (smp->sm_rvp == vp) {
@@ -3991,14 +4355,22 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
     vnode_clearfsnode(vp);
 	smbnode_unlock(np);
 
-	CLR(np->n_flag, (NALLOC|NTRANSIT));
-	if (ISSET(np->n_flag, NWALLOC) || ISSET(np->n_flag, NWTRANSIT)) {
-		CLR(np->n_flag, (NWALLOC|NWTRANSIT));
+    lck_mtx_lock(&np->n_flag_alloc_lock);
+	CLR(np->n_flag_alloc, (NALLOC|NTRANSIT));
+	if (ISSET(np->n_flag_alloc, NWALLOC) || ISSET(np->n_flag_alloc, NWTRANSIT)) {
+		CLR(np->n_flag_alloc, (NWALLOC|NWTRANSIT));
+        lck_mtx_unlock(&np->n_flag_alloc_lock);
+
 		wakeup(np);
-	}
+    } else {
+        lck_mtx_unlock(&np->n_flag_alloc_lock);
+    }
+
 	lck_rw_destroy(&np->n_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_name_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_parent_rwlock, smbfs_rwlock_group);
+    lck_mtx_destroy(&np->n_flag_alloc_lock, smbfs_mutex_group);
+
     SMB_FREE_TYPE(struct smbnode, np);
 
 	SMB_LOG_KTRACE(SMB_DBG_RECLAIM | DBG_FUNC_END, 0, 0, 0, 0, 0);
@@ -5225,12 +5597,28 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
     uint64_t curr_size = np->n_size, new_size = vap->va_data_size;
     uint32_t trycnt = 0;
     uint32_t setinfo_ntstatus = 0;
+    uint32_t allow_compression = 1;
 
-    SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY on <%s> due to set file data size \n",
-                     np->n_name);
-    
-    np->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
-    ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
+    if (np->n_flag & N_WRITE_IMMEDIATELY) {
+        /*
+         * If we do NOT have a write lease, then push out any dirty UBC
+         * data immediately before we do the set EOF.
+         */
+        SMB_LOG_UBC_LOCK(np, "UBC_PUSHDIRTY on <%s> due to set file data size \n",
+                         np->n_name);
+
+        np->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
+        ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
+    }
+    else {
+        /*
+         * If we do have a write lease, then assume we must be the only one
+         * with the file open, so should be ok to skip pushing out dirty UBC
+         * data.
+         */
+        SMB_LOG_UBC_LOCK(np, "Have write lease, so skip UBC_PUSHDIRTY on <%s> due to set file data size \n",
+                         np->n_name);
+    }
 
     /* The seteof call requires the file to be opened for write and append data. */
     rights = SMB2_FILE_WRITE_DATA | SMB2_FILE_APPEND_DATA;
@@ -5300,7 +5688,8 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 
             /* zero fill if needed, ignore any errors will catch them on the seteof call */
             if (curr_size < new_size) {
-                error = smbfs_0extend(share, fid, curr_size, new_size, 0, context);
+                error = smbfs_0extend(share, fid, curr_size, new_size, 0,
+                                      &allow_compression, context);
                 SMB_LOG_KTRACE(SMB_DBG_SMBFS_SETATTR | DBG_FUNC_NONE,
                                0xabc002, error, 0, 0, 0);
             }
@@ -5367,7 +5756,27 @@ smbfs_set_data_size(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 
     /* Return that we did modify the data size */
     *modified = 1;
+    
+    /*
+     * Changing the EOF will cause the mod time to get updated and since
+     * *modified flag is being set, the next attribute lookup will detect
+     * the mod time change and potentially invalidate UBC unneccessarily.
+     * Clear np->n_mtime.tv_sec to skip the mod time check. This is checked in
+     * smbfs_update_size().
+     *
+     * Another spot is in the last close mod time check to next open mod time.
+     * The file is closed and the last close mod time is saved. The EOF is
+     * changed and the mod time gets changed on the server. On the next open
+     * by this client, then curr mod time is checked against the last close
+     * mod time and found to be different due to the set EOF. UBC is
+     * invalidated when it does not need to be. Clear n_last_close_mtime to
+     * skip this check. This is checked in smbfs_vnop_open_common()
+     */
+    np->n_mtime.tv_sec = 0;
+    np->n_mtime.tv_nsec = 0;
 
+    np->n_last_close_mtime.tv_sec = 0;
+    np->n_last_close_mtime.tv_nsec = 0;
 out:
     return(error);
 }
@@ -6116,126 +6525,151 @@ smbfs_vnop_blockmap(struct vnop_blockmap_args *ap)
     return (0);
 }
 
-/*
- * smbfs_vnop_strategy
- *
- *	struct buf *a_bp;
- */
-static int 
-smbfs_vnop_strategy(struct vnop_strategy_args *ap)
+int
+smbfs_do_strategy(struct buf *bp)
 {
-	struct buf *bp = ap->a_bp;
-	vnode_t vp = buf_vnode(bp);
-	int32_t bflags = buf_flags(bp);
-	struct smbnode *np = VTOSMB(vp);
-	caddr_t io_addr = 0;
-	uio_t	uio = NULL;
-	int32_t error;
+    vnode_t vp = buf_vnode(bp);
+    int32_t bflags = buf_flags(bp);
+    struct smbnode *np = VTOSMB(vp);
+    caddr_t io_addr = 0;
+    uio_t uio = NULL;
+    int32_t error = 0, tmp_error = 0;
     SMBFID fid = 0;
-	struct smb_share *share;
-	uint32_t trycnt = 0;
+    struct smb_share *share = NULL;
+    uint32_t trycnt = 0;
     struct smbfattr *fap = NULL;
-		
-    SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_START, 0, 0, 0, 0, 0);
+    uint32_t allow_compression = 1, need_unmap = 0;
+    vm_prot_t prot = PROT_READ;
+    
+    SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
 	if (np->f_openState & kNeedRevoke) {
         /* behave like the deadfs does */
         SMBERROR_LOCK(np, "%s waiting to be revoked\n", np->n_name);
         error = EIO;
-		buf_seterror(bp, error);
         goto exit;
     }
 	
 	if ((np->f_sharedFID_refcnt == 0) && (np->f_lockFID_refcnt == 0)) {
-        /* 
-         * This happens when a file is open and mmapped, then server goes down
-         * and calls start soft timing out with ETIMEDOUT. The reads/writes 
-         * error out, then the close gets called, it gets an error but clears
-         * the f_refcnt.  When unmount comes along, it tries again to push
-         * out the data and thats when we end up here.
+        /*
+         * One case where the file is not currently open and we get called.
+         * vnode_vput->vnode_reclaim_internal->vgone->vclean will call
+         * ubc_msync_internal which calls vnode_pageout even though all dirty
+         * data was pushed out on the last vnop_close.
+         *
+         * If file is not open, no way to push out data, so just return an
+         * error.
          */
-        SMBERROR_LOCK(np, "%s has no file refs\n", np->n_name);
+        SMB_LOG_IO_LOCK(np, "%s: %s has no file refs \n",
+                        np->n_name, (bflags & B_READ) ? "READ" : "WRITE");
         error = ENXIO;
-		buf_seterror(bp, error);
         goto exit;
     }
 
-    SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
-    if (fap == NULL) {
-        SMBERROR("SMB_MALLOC_TYPE failed\n");
-        error = EIO;
-        buf_seterror(bp, error);
-        goto exit;
+    /* Is data compression allowed on this file? */
+    if (np->n_flag & N_DONT_COMPRESS) {
+        allow_compression = 0;
     }
 
     /* Not safe to call UBC during this operation */
     np->n_write_unsafe = true;
 
     /*
-	 * Can't use the physical addresses passed in the vector list, so map it
-	 * into the kernel address space
-	 */
-    if ((error = buf_map(bp, &io_addr))) {
-        panic("smbfs_vnop_strategy: buf_map() failed with (%d)", error);
-	}
-	
+     * Can't use the physical addresses passed in the vector list, so map it
+     * into the kernel address space. buf_map_range() can fail if there are
+     * concurrent map requests.
+     */
+    if (bflags & B_READ) {
+        /* Reading from network into UPL buffer */
+        prot = PROT_WRITE;
+    }
+    else {
+        /* Writing data from UPL to network */
+        prot = PROT_READ;
+    }
+    
+    /* If upl for this bp is in use, then block until its available */
+    error = smbfs_buf_map(bp, &io_addr, prot);
+    if (error) {
+        SMBERROR_LOCK(np, "%s: %s smbfs_buf_map() failed <%d>. Failing with EIO \n",
+                      np->n_name, (bflags & B_READ) ? "READ" : "WRITE", error);
+        error = EIO;
+        goto exit;
+    }
+    
     /*
      * NOTE: MUST call buf_unmap() to match the above buf_map()!!!
      */
-
-	uio = uio_create(1, ((off_t)buf_blkno(bp)) * PAGE_SIZE, UIO_SYSSPACE, 
-					 (bflags & B_READ) ? UIO_READ : UIO_WRITE);
-	if (!uio) {
-        panic("smbfs_vnop_strategy: uio_create() failed");
-	}
-	
-	uio_addiov(uio, CAST_USER_ADDR_T(io_addr), buf_count(bp));
+    need_unmap = 1;
     
-	/* 
-	 * Remember that buf_proc(bp) can return NULL, but in that case this is
-	 * coming from the kernel and is not associated with a particular proc.  
-	 * In fact it just may be the pager itself trying to free up space and there 
-	 * is no proc. I need to find any proc that already has the fork open for 
-	 * read or write to use for read/write to work. This is handled in the
-	 * FindFileRef routine.
-	 */
+    uio = uio_create(1, ((off_t)buf_blkno(bp)) * PAGE_SIZE, UIO_SYSSPACE,
+                     (bflags & B_READ) ? UIO_READ : UIO_WRITE);
+    if (!uio) {
+        SMBERROR_LOCK(np, "%s: %s uio_create() failed \n",
+                      np->n_name, (bflags & B_READ) ? "READ" : "WRITE");
+        error = ENOMEM;
+        goto exit;
+    }
+    
+    uio_addiov(uio, CAST_USER_ADDR_T(io_addr), buf_count(bp));
+    
+    /*
+     * Remember that buf_proc(bp) can return NULL, but in that case this is
+     * coming from the kernel and is not associated with a particular proc.
+     * In fact it just may be the pager itself trying to free up space and there
+     * is no proc. I need to find any proc that already has the fork open for
+     * read or write to use for read/write to work. This is handled in the
+     * FindFileRef routine.
+     */
     error = FindFileRef(vp, buf_proc(bp), (bflags & B_READ) ? kAccessRead : kAccessWrite,
                         uio_offset(uio), uio_resid(uio), &fid);
     if (error) {
         /* This should never fail */
-        SMBERROR_LOCK(np, "FindFileRef for <%s> failed <%d> on %s \n",
-                      (bflags & B_READ) ? "READ" : "WRITE", error, np->n_name);
+        SMBERROR_LOCK(np, "%s: %s FindFileRef failed <%d> \n",
+                      np->n_name, (bflags & B_READ) ? "READ" : "WRITE", error);
         error = EIO;
-        buf_seterror(bp, error);
-        if ((error = buf_unmap(bp))) {
-            panic("smbfs_vnop_strategy: buf_unmap() failed with (%d)", error);
-        }
         goto exit;
     }
     
-	DBG_ASSERT(fid);
-	
-	SMB_LOG_IO_LOCK(np, "%s: %s offset %lld, size %lld, bflags 0x%x\n",
-                    (bflags & B_READ) ? "Read":"Write", np->n_name, uio_offset(uio),
+    DBG_ASSERT(fid);
+    
+    SMB_LOG_IO_LOCK(np, "%s: %s, offset %lld, size %lld, bflags 0x%x\n",
+                    np->n_name, (bflags & B_READ) ? "Read":"Write", uio_offset(uio),
                     uio_resid(uio), bflags);
-	
-	share = smb_get_share_with_reference(VTOSMBFS(vp));
-	/*
-	 * Since we have already authorized the user when we opened the file, just 
-	 * pass a NULL context down to the authorization code.
-	 */
-	if (bflags & B_READ) {
-		error = smbfs_doread(share, (off_t)np->n_size, uio, fid, NULL);
-	} else {
-		error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, 0, NULL);
+    
+    share = smb_get_share_with_reference(VTOSMBFS(vp));
+
+    SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_NONE, 0xabc001, uio_offset(uio), uio_resid(uio), 0, 0);
+
+    /*
+     * Since we have already authorized the user when we opened the file, just
+     * pass a NULL context down to the authorization code.
+     */
+    
+    smb_ktrace_io_start(np->n_mount->sm_mp, uio, uio_offset(uio), VTOSMBFS(vp)->sm_statfsbuf.f_bsize, bflags, uio_resid(uio));
+    
+    if (bflags & B_READ) {
+        error = smbfs_doread(share, (off_t)np->n_size, uio, fid, allow_compression, NULL);
+    }
+    else {
+        error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, 0, &allow_compression, NULL);
         
         if (!error) {
             /* Save last time we wrote data */
             nanouptime(&np->n_last_write_time);
         }
-	}
-    SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_NONE,
-                   0xabc001, error, 0, 0, 0);
+        
+        /* Check for too many write compression failures */
+        if (!(np->n_flag & N_DONT_COMPRESS) && (allow_compression == 0)) {
+            SMBWARNING_LOCK(np, "%s: Compression disabled because of too many compression failures \n",
+                            np->n_name);
+            np->n_flag |= N_DONT_COMPRESS;
+        }
+    }
+    
+    smb_ktrace_io_end(vp, uio, uio_resid(uio), error);
+    
+    SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_NONE, 0xabc002, error, 0, 0, 0);
     
     /*
      * I'm pretty sure the reopen code below is only for SMB v1 since SMB v2/3
@@ -6252,10 +6686,19 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
          * We now have a counter that keeps us from going into an infinite loop. Once
          * we implement SMB 2/3 we should take a second look at how this should be done.
          */
+        SMB_MALLOC_TYPE(fap, struct smbfattr, Z_WAITOK_ZERO);
+        if (fap == NULL) {
+            SMBERROR_LOCK(np, "%s: %s SMB_MALLOC_TYPE() failed \n",
+                          np->n_name, (bflags & B_READ) ? "READ" : "WRITE");
+            smb_share_rele(share, NULL);
+            error = EIO;
+            goto exit;
+        }
+
         while ((error == EBADF) && (trycnt < SMB_MAX_REOPEN_CNT)) {
             lck_mtx_lock(&np->f_openStateLock);
 
-            SMB_LOG_IO_LOCK(np, "%s failed the %s, because of reconnect, openState = 0x%x. Try again.\n",
+            SMB_LOG_IO_LOCK(np, "%s: %s failed because of reconnect, openState = 0x%x. Try again.\n",
                        np->n_name, (bflags & B_READ) ? "READ" : "WRITE", np->f_openState);
 
             if (np->f_openState & kNeedRevoke) {
@@ -6275,7 +6718,8 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
                              (bflags & B_READ) ? UIO_READ : UIO_WRITE);
             if (!uio) {
                 error = ENOMEM;
-            } else {
+            }
+            else {
                 uio_addiov(uio, CAST_USER_ADDR_T(io_addr), buf_count(bp));
             
                 error = smbfs_smb_open_file(share, np,
@@ -6293,83 +6737,90 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
                 break;
             }
             if (bflags & B_READ) {
-                error = smbfs_doread(share, (off_t)np->n_size, uio, fid, NULL);
-            } else {
-                error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, 0, NULL);
+                error = smbfs_doread(share, (off_t)np->n_size, uio, fid, allow_compression, NULL);
+            }
+            else {
+                /* SMBv1 so no need to check for write compress fails */
+                error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, 0, &allow_compression, NULL);
                 
                 if (!error) {
                     /* Save last time we wrote data */
                     nanouptime(&np->n_last_write_time);
                 }
             }
-            SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_NONE,
-                           0xabc002, error, 0, 0, 0);
 
             (void)smbfs_smb_close(share, fid, NULL);
             trycnt++;
         }
     }
-	
-	if (bflags & B_READ) {
-		/* 
-		 * If we were not able to read the entire page, check to
-		 * see if we are at the end of the file, and if so, zero
-		 * out the remaining part of the page.
-		 */
-		while ((error == 0) && (uio_resid(uio))) {
-			size_t bytes_to_zero = (uio_resid(uio) > PAGE_SIZE) ? PAGE_SIZE : (size_t)uio_resid(uio);
-			
-			bzero((caddr_t) (io_addr + buf_count(bp) - uio_resid(uio)), bytes_to_zero); 
-			smbfs_uio_update(uio, bytes_to_zero);
-		}
-    } else {
-		lck_mtx_lock(&np->f_clusterWriteLock);
-		if ((u_quad_t)uio_offset(uio) >= np->n_size) {
-			/* We finished writing past the eof reset the flag */
-			nanouptime(&np->n_sizetime);
-			np->waitOnClusterWrite = FALSE;
+    
+    if (bflags & B_READ) {
+        /*
+         * If we were not able to read the entire page, check to
+         * see if we are at the end of the file, and if so, zero
+         * out the remaining part of the page.
+         */
+        while ((error == 0) && (uio_resid(uio))) {
+            size_t bytes_to_zero = (uio_resid(uio) > PAGE_SIZE) ? PAGE_SIZE : (size_t)uio_resid(uio);
+            
+            bzero((caddr_t) (io_addr + buf_count(bp) - uio_resid(uio)), bytes_to_zero);
+            smbfs_uio_update(uio, bytes_to_zero);
+        }
+    }
+    else {
+        lck_mtx_lock(&np->f_clusterWriteLock);
+        if ((u_quad_t)uio_offset(uio) >= np->n_size) {
+            /* We finished writing past the eof reset the flag */
+            nanouptime(&np->n_sizetime);
+            np->waitOnClusterWrite = FALSE;
             SMB_LOG_IO_LOCK(np, "%s: TURNING OFF waitOnClusterWrite np->n_size = %lld\n",
                             np->n_name, np->n_size);
-		}
-		lck_mtx_unlock(&np->f_clusterWriteLock);
+        }
+        lck_mtx_unlock(&np->f_clusterWriteLock);
     }
-	
-	if (error) {
-		SMBERROR_LOCK(np, "%s on %s failed with an error of %d\n",
-                      (bflags & B_READ) ? "READ" : "WRITE", np->n_name, error);
+    
+    if (error) {
+        SMBERROR_LOCK(np, "%s: %s failed with an error of %d \n",
+                      np->n_name, (bflags & B_READ) ? "READ" : "WRITE", error);
 
-		np->f_clusterCloseError = error;	/* Error to be returned on close */
-		
-		if ( (error == ENOTCONN) || (error == EBADF) || (error == ETIMEDOUT) ) {
-			/* 
-			 * VFS cluster code has now been changed to handle non transient 
-			 * errors see radar 2894150.  It should be safe to return ENXIO. 
-			 */
-			SMB_LOG_IO("failed with %d, returning ENXIO instead\n", error);
-			error = ENXIO;
-		}
-	}
-    
-	smb_share_rele(share, NULL);
-    buf_seterror(bp, error);
-    
-	/* Should be zero when all done with reading/writing file */
-    buf_setresid(bp, (uint32_t)uio_resid(uio));
-	
-    if ((error = buf_unmap(bp))) {
-        panic("smbfs_vnop_strategy: buf_unmap() failed with (%d)", error);
+        np->f_clusterCloseError = error;    /* Error to be returned on close */
+        
+        if ((error == ENOTCONN) || (error == EBADF) || (error == ETIMEDOUT)) {
+            /*
+             * VFS cluster code has now been changed to handle non transient
+             * errors see radar 2894150.  It should be safe to return ENXIO.
+             */
+            SMB_LOG_IO("%s: failed with %d, returning ENXIO instead\n",
+                       np->n_name, error);
+            error = ENXIO;
+        }
     }
+    
+    smb_share_rele(share, NULL);
+    
+    /* Should be zero when all done with reading/writing file */
+    buf_setresid(bp, (uint32_t)uio_resid(uio));
     
 exit:
+    buf_seterror(bp, error);
+
+    if (need_unmap) {
+        if ((tmp_error = smbfs_buf_unmap(bp))) {
+            SMBERROR_LOCK(np, "%s: %s smbfs_buf_unmap() failed with (%d) \n",
+                          np->n_name, (bflags & B_READ) ? "READ" : "WRITE", tmp_error);
+        }
+    }
+
     np->n_write_unsafe = false;
 
     if (error) {
-		SMB_LOG_IO_LOCK(np, "%s: buf_resid(bp) %d, error = %d \n",
+        SMB_LOG_IO_LOCK(np, "%s: buf_resid(bp) %d, error = %d \n",
                         np->n_name, buf_resid(bp), error);
-	}
-    
-	if (uio != NULL)
-		uio_free(uio);
+    }
+
+    if (uio != NULL) {
+        uio_free(uio);
+    }
     
     buf_biodone(bp);
 
@@ -6377,7 +6828,79 @@ exit:
         SMB_FREE_TYPE(struct smbfattr, fap);
     }
 
+    SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_END, error, 0, 0, 0, 0);
+    return (error);
+}
+
+/*
+ * smbfs_vnop_strategy
+ *
+ *	struct buf *a_bp;
+ */
+static int 
+smbfs_vnop_strategy(struct vnop_strategy_args *ap)
+{
+    struct smb_rw_arg *rw_pb_ptr = NULL;
+    vnode_t vp = buf_vnode(ap->a_bp);
+    struct smb_share *share = NULL;
+    struct smb_session *sessionp = NULL;
+    int error = 0;
+    
+    SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_START, 0, 0, 0, 0, 0);
+
+    if (vp == NULL) {
+        SMBERROR("vp is NULL? \n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    share = smb_get_share_with_reference(VTOSMBFS(vp));
+    if (share == NULL) {
+        SMBERROR("share is NULL? \n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    sessionp = SS_TO_SESSION(share);
+    if (sessionp == NULL) {
+        SMBERROR("sessionp is NULL? \n");
+        error = EINVAL;
+        goto exit;
+    }
+
+    /* Malloc a smb_rw */
+    SMB_MALLOC_TYPE(rw_pb_ptr, struct smb_rw_arg, Z_WAITOK_ZERO);
+    if (rw_pb_ptr == NULL) {
+        SMBERROR("SMB_MALLOC_TYPE failed\n");
+        error = ENOMEM;
+        goto exit;
+    }
+
+    /* Fill it out */
+    lck_mtx_init(&rw_pb_ptr->rw_arg_lock, smb_rw_group, LCK_ATTR_NULL);
+
+    rw_pb_ptr->command = SMB_VNOP_STRATEGY;
+    rw_pb_ptr->strategy.bp = ap->a_bp;
+
+    /*
+     * Queue up the strategy to be handled by rw helper threads
+     * The rw helper threads will call smbfs_do_strategy() to
+     * actually send the read/write request and handle the reply
+     *
+     * Note: the rw helper thread is responsible for freeing rw_arg_lock
+     * and this rw_pb_ptr
+     */
+    rw_pb_ptr->flags |= SMB_RW_IN_USE;
+
+    smb_rw_proxy(rw_pb_ptr);
+
+exit:
     SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_END, error, 0, 0, 0, 0);
+
+    if (share!= NULL) {
+        smb_share_rele(share, NULL);
+    }
+
     return (error);
 }
 
@@ -6397,23 +6920,24 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	int error = 0;
 	struct smbnode *np = NULL;
     SMBFID fid = 0;
-	struct smb_share *share;
-	
-	/* Preflight checks */
-	if (!vnode_isreg(vp)) {
-		/* can only read regular files */
-		if (vnode_isdir(vp))
-			return (EISDIR);
-		else
-			return (EPERM);
-	}
-
-	if (uio_resid(uio) == 0)
-		return (0);		/* Nothing left to do */
-	
-	if (uio_offset(uio) < 0)
-		return (EINVAL);	/* cant read from a negative offset */
-	
+    struct smb_share *share = NULL;
+    uint32_t allow_compression = 1, do_cluster = 1, bflags = 0;
+    
+    /* Preflight checks */
+    if (!vnode_isreg(vp)) {
+        /* can only read regular files */
+        if (vnode_isdir(vp))
+            return (EISDIR);
+        else
+            return (EPERM);
+    }
+    
+    if (uio_resid(uio) == 0)
+        return (0);		/* Nothing left to do */
+    
+    if (uio_offset(uio) < 0)
+        return (EINVAL);	/* cant read from a negative offset */
+    
     /*
      * Check to see if its a dataless file and allowed to be materialized
      */
@@ -6438,6 +6962,11 @@ smbfs_vnop_read(struct vnop_read_args *ap)
     /* Is there a pending UBC invalidate? */
     smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_read");
     
+    /* Is data compression allowed on this file? */
+    if (np->n_flag & N_DONT_COMPRESS) {
+        allow_compression = 0;
+    }
+
     /*
 	 * History: FreeBSD vs Darwin VFS difference; we can get VNOP_READ without
  	 * preceeding open via the exec path, so do it implicitly.  VNOP_INACTIVE  
@@ -6471,27 +7000,46 @@ smbfs_vnop_read(struct vnop_read_args *ap)
     }
 
     /*
-	 * Note: smbfs_isCacheable checks to see if the file is globally non 
-	 * cacheable, but we also need to support non cacheable on a per file
-	 * descriptor level for reads/writes. So also check the IO_NOCACHE flag.
-	 *
-	 * So IO_NOCACHE means the same thing as VNOCACHE_DATA but only for this IO.
-	 * Now VNOCACHE_DATA has the following comment:
-	 *		"don't keep data cached once it's been consumed"
-	 * Which seems to imply we could use cluster_read, but we would need to 
-	 * push out any data first and then invalidate the range after we are done 
-	 * with the read? Byte range locking prevents us from using the cluster_read.
-	 */
-	if (smbfsIsCacheable(vp) &&
-        !(ap->a_ioflag & IO_NOCACHE) &&
-        !(SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_DATACACHE_OFF)) {
-		error = cluster_read(vp, uio, (off_t) np->n_size, ap->a_ioflag);
-        SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE, 0xabc001, error, 0, 0, 0);
+     * Whenever possible, we want to use the cluster calls as we get better
+     * performance due to its read ahead and write behind support.
+     */
+
+    if (!smbfsIsCacheable(vp) ||
+        (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_DATACACHE_OFF)) {
+        /*
+         * If file is not currently cacheable or data caching is disabled,
+         * then skip calling cluster_read
+         */
+        do_cluster = 0;
+    }
+    
+    if (ap->a_ioflag & IO_NOCACHE) {
+        /* If IO_NOCACHE flag is set then skip calling cluster_read */
+        do_cluster = 0;
+    }
+    
+    if ((np->f_lockFID_refcnt > 0) && (np->f_lockFID_isEXLOCK)) {
+        /*
+         * If we have the file open for exclusive access, then we get definitely
+         * use the cluster code as we are the only ones who can have the file
+         * open.
+         */
+        do_cluster = 1;
+    }
+
+    if (do_cluster) {
+        SMB_LOG_IO_LOCK(np, "%s: Cached Read, offset %lld, size %lld \n",
+                        np->n_name, uio_offset(uio), uio_resid(uio));
+        
+        SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE, 0xabc001, uio_offset(uio), uio_resid(uio), 0, 0);
+
+        error = cluster_read(vp, uio, np->n_size, ap->a_ioflag);
 		if (error) {
 			SMB_LOG_IO_LOCK(np, "%s failed cluster_read with an error of %d\n",
                             np->n_name, error);
 		}
-		/* 
+        
+		/*
 		 * EACCES means a denyConflict occured and must have hit some other 
 		 * computer's byte range lock on that file. Mark the file as 
 		 * noncacheable and retry read again
@@ -6534,6 +7082,8 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	if (error)
 		goto exit;
     
+    SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE, 0xabc002, uio_offset(uio), uio_resid(uio), 0, 0);
+
 	/*
 	 * AFP COMMENTS (<rdar://problem/5977339>) Be careful of a cacheable write 
 	 * that extends the eof, but leaves a hole between the old eof and the new 
@@ -6574,12 +7124,24 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 	
 	DBG_ASSERT(fid);
 
-	error = smbfs_doread(share, (off_t)np->n_size, uio, fid, ap->a_context);
-    SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE, 0xabc002, error, 0, 0, 0);
+    SMB_LOG_IO_LOCK(np, "%s: Non cached Read, offset %lld, size %lld \n",
+                    np->n_name, uio_offset(uio), uio_resid(uio));
+
+    bflags = B_READ;
+    if (ap->a_ioflag & IO_NOCACHE) {
+        bflags |= B_NOCACHE;
+    }
+    
+    smb_ktrace_io_start(np->n_mount->sm_mp, uio, uio_offset(uio), VTOSMBFS(vp)->sm_statfsbuf.f_bsize, bflags, uio_resid(uio));
+
+    error = smbfs_doread(share, (off_t)np->n_size, uio, fid,
+                         allow_compression, ap->a_context);
+
+    smb_ktrace_io_end(vp, uio, uio_resid(uio), error);
 
 	/*
 	 * We got an error, did it happen on a reconnect, then retry. First see if
-	 * we have a new share to use, then attmept to reopent the file, then try
+	 * we have a new share to use, then attempt to reopen the file, then try
 	 * the read again.
 	 */
 	while (error == EBADF) {
@@ -6591,8 +7153,14 @@ smbfs_vnop_read(struct vnop_read_args *ap)
 		share = smb_get_share_with_reference(VTOSMBFS(vp));
 		/* The reopen code will handle the case of the node being revoked. */
 		if (smbfs_io_reopen(share, vp, uio, kAccessRead, &fid, error, ap->a_context) == 0) {
+            
+            smb_ktrace_io_start(np->n_mount->sm_mp, uio, uio_offset(uio), VTOSMBFS(vp)->sm_statfsbuf.f_bsize, bflags, uio_resid(uio));
+            
 			error = smbfs_doread(share, (off_t)np->n_size, uio, fid, 
-                                 ap->a_context);
+                                 allow_compression, ap->a_context);
+            
+            smb_ktrace_io_end(vp, uio, uio_resid(uio), error);
+            
             SMB_LOG_KTRACE(SMB_DBG_READ | DBG_FUNC_NONE,
                            0xabc003, error, 0, 0, 0);
 		}
@@ -6629,13 +7197,14 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	vnode_t vp = ap->a_vp;
 	vnode_t parent_vp = NULL;	/* Always null unless this is a stream node */
 	struct smbnode *np = NULL;
-	struct smb_share *share;
+	struct smb_share *share = NULL;
 	uio_t uio = ap->a_uio;
 	int error = 0;
     SMBFID fid = 0;
 	u_quad_t originalEOF = 0;	
-	user_size_t writeCount;
-	
+	user_size_t writeCount = 0;
+    uint32_t allow_compression = 1, do_cluster = 1, bflags = 0;
+
 	/* Preflight checks */
 	if (!vnode_isreg(vp)) {
 		/* can only write regular files */
@@ -6674,6 +7243,11 @@ smbfs_vnop_write(struct vnop_write_args *ap)
     /* Is there a pending UBC invalidate? */
     smbfs_check_for_ubc_invalidate(vp, "smbfs_vnop_write");
 
+    /* Is data compression allowed on this file? */
+    if (np->n_flag & N_DONT_COMPRESS) {
+        allow_compression = 0;
+    }
+
     /* Before trying the write see if the file needs to be reopened or revoked */
 	error = smbfs_smb_reopen_file(share, np, ap->a_context);
 	if (error) {
@@ -6696,41 +7270,41 @@ smbfs_vnop_write(struct vnop_write_args *ap)
     }
 
     /*
-     * [MS-SMB2] 3.2.1.5
-     * If Read only caching, then client MUST send all writes to server
+     * Whenever possible, we want to use the cluster calls as we get better
+     * performance due to its read ahead and write behind support.
      */
-    smbnode_lease_lock(&np->n_lease, smbfs_vnop_write);
-
-    if ((np->n_lease.flags & SMB2_LEASE_GRANTED) &&
-        (np->n_lease.lease_state & SMB2_LEASE_READ_CACHING) &&
-        !(np->n_lease.lease_state & SMB2_LEASE_WRITE_CACHING)) {
-        /* Send this write out immediately */
-        //SMBERROR_LOCK(np, "Cached write sent immediately to server on <%s> \n", np->n_name);
-        ap->a_ioflag |= IO_NOCACHE;
+    
+    if (!smbfsIsCacheable(vp) ||
+        (SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_DATACACHE_OFF)) {
+        /*
+         * If file is not currently cacheable or data caching is disabled,
+         * then skip calling cluster_write
+         */
+        do_cluster = 0;
     }
 
-    smbnode_lease_unlock(&np->n_lease);
+    if (ap->a_ioflag & IO_NOCACHE) {
+        /* If IO_NOCACHE flag is set then skip calling cluster_write */
+        do_cluster = 0;
+    }
+    
+    if ((np->f_lockFID_refcnt > 0) && (np->f_lockFID_isEXLOCK)) {
+        /*
+         * If we have the file open for exclusive access, then we get definitely
+         * use the cluster code as we are the only ones who can have the file
+         * open.
+         */
+        do_cluster = 1;
+    }
 
-    /*
-	 * Note: smbfs_isCacheable checks to see if the file is globally non 
-	 * cacheable, but we also need to support non cacheable on a per file
-	 * descriptor level for reads/writes. So also check the IO_NOCACHE flag.
-	 *
-	 * So IO_NOCACHE means the same thing as VNOCACHE_DATA but only for this IO.
-	 * Now VNOCACHE_DATA has the following comment:
-	 *		"don't keep data cached once it's been consumed"
-	 * Which seems to imply we could use cluster_write, but we would need to 
-	 * push out any data and then invalidate the range after we are done 
-	 * with the write? Byte range locking prevents us from using the cluster_write.
-	 */
-	if (smbfsIsCacheable(vp) &&
-        !(ap->a_ioflag & IO_NOCACHE) &&
-        !(SS_TO_SESSION(share)->session_misc_flags & SMBV_MNT_DATACACHE_OFF)) {
-		u_quad_t writelimit;
-        u_quad_t newEOF;
-        u_quad_t zero_head_off;
-        u_quad_t zero_tail_off;
-        int32_t lflag;
+    if (do_cluster) {
+		u_quad_t writelimit = 0;
+        u_quad_t newEOF = 0;
+        u_quad_t zero_head_off = 0;
+        u_quad_t zero_tail_off = 0;
+        int32_t lflag = 0;
+
+        SMB_LOG_KTRACE(SMB_DBG_WRITE | DBG_FUNC_NONE, 0xabc001, uio_offset(uio), uio_resid(uio), 0, 0);
 
         lflag = ap->a_ioflag & ~(IO_TAILZEROFILL | IO_HEADZEROFILL |
 								 IO_NOZEROVALID | IO_NOZERODIRTY);
@@ -6758,8 +7332,10 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 				/* Make sure we tell the kernel to zero fill the tail */
 				lflag |= IO_TAILZEROFILL; 
 			}
-        } else
+        }
+        else {
             newEOF = np->n_size;
+        }
 		
 		lck_mtx_lock(&np->f_clusterWriteLock);
 		if (originalEOF < newEOF) {
@@ -6769,13 +7345,25 @@ smbfs_vnop_write(struct vnop_write_args *ap)
                             np->n_name, originalEOF, newEOF);
 		}
 		lck_mtx_unlock(&np->f_clusterWriteLock);
-		/*
-         * If the write starts beyond the current EOF then we we'll zero fill 
-		 * from the current EOF to where the write begins
+
+        SMB_LOG_IO_LOCK(np, "%s: Cached Write, offset %lld, size %lld \n",
+                        np->n_name, uio_offset(uio), uio_resid(uio));
+        
+        if (np->n_flag & N_WRITE_IMMEDIATELY) {
+            /*
+             * [MS-SMB2] 3.2.1.5
+             * If Read only caching, then client MUST send all writes to server
+             */
+            SMB_LOG_IO_LOCK(np, "%s: Write immediately so set IO_SYNC \n",
+                            np->n_name);
+            lflag |= IO_SYNC;
+        }
+        
+        /*
+         * If the write starts beyond the current EOF then we we'll zero fill
+         * from the current EOF to where the write begins
          */
         error = cluster_write(vp, uio, originalEOF, newEOF, zero_head_off, zero_tail_off, lflag);
-        SMB_LOG_KTRACE(SMB_DBG_WRITE | DBG_FUNC_NONE,
-                       0xabc001, error, 0, 0, 0);
 		if (error) {
 			lck_mtx_lock(&np->f_clusterWriteLock);
 			np->n_size = originalEOF; /* Set it back to the original eof */
@@ -6784,8 +7372,9 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 
             SMB_LOG_IO_LOCK(np, "%s failed cluster_write with an error of %d\n", np->n_name, error);
 		}
-		/* 
-		 * EACCES means a denyConflict occured and must have hit some other 
+
+        /*
+		 * EACCES means a denyConflict occured and must have hit some other
 		 * computer's byte range lock on that file. Mark the file as 
 		 * noncacheable and retry read again
 		 *
@@ -6820,14 +7409,18 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 			vnode_setnocache(vp);
 			/* Fall through and try a non cached write */
 			error = 0;
- 		} else {
+ 		}
+        else {
 			goto exit;
 		}
     }
     
-	if (error)
-		goto exit;
+    if (error) {
+        goto exit;
+    }
         
+    SMB_LOG_KTRACE(SMB_DBG_WRITE | DBG_FUNC_NONE, 0xabc002, uio_offset(uio), uio_resid(uio), 0, 0);
+
     /*
 	 * If it is not cacheable, make sure to wipe out UBC since any of its
 	 * data would be no be invalid.  Make sure to push out any dirty data 
@@ -6839,7 +7432,6 @@ smbfs_vnop_write(struct vnop_write_args *ap)
     np->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
 	ubc_msync(vp, uio_offset(uio), uio_offset(uio)+ uio_resid(uio), NULL,
 			   UBC_PUSHDIRTY | UBC_SYNC);
-
 
     SMB_LOG_UBC_LOCK(np, "UBC_INVALIDATE on <%s> on offset/len due to non cacheable write \n",
                      np->n_name);
@@ -6855,6 +7447,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 			/* We allocated, need to free it */
 			uio_free(uio);
 		}
+
 		/*
 		 * We could get disconnected in the middle of a write, so we need to make 
 		 * a copy of the uio, just in case. 
@@ -6864,17 +7457,35 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 			/* Failed, so just used the passed in uio */
 			uio = ap->a_uio;
 		}
-		error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, ap->a_ioflag, 
-							  ap->a_context);
-        SMB_LOG_KTRACE(SMB_DBG_WRITE | DBG_FUNC_NONE,
-                       0xabc002, error, 0, 0, 0);
+        
+        SMB_LOG_IO_LOCK(np, "%s: Non cached Write, offset %lld, size %lld \n",
+                        np->n_name, uio_offset(uio), uio_resid(uio));
+        
+        bflags = 0;
+        if (ap->a_ioflag & IO_NOCACHE) {
+            bflags |= B_NOCACHE;
+        }
+        
+        smb_ktrace_io_start(np->n_mount->sm_mp, uio,uio_offset(uio), VTOSMBFS(vp)->sm_statfsbuf.f_bsize, bflags, uio_resid(uio));
+
+		error = smbfs_dowrite(share, (off_t)np->n_size, uio, fid, ap->a_ioflag,
+                              &allow_compression, ap->a_context);
+        
+        smb_ktrace_io_end(vp, uio, uio_resid(uio), error);
         
         if (!error) {
             /* Save last time we wrote data */
             nanouptime(&np->n_last_write_time);
         }
         
-		if (error == EBADF) {
+        /* Check for too many write compression failures */
+        if (!(np->n_flag & N_DONT_COMPRESS) && (allow_compression == 0)) {
+            SMBWARNING_LOCK(np, "Compression disabled on <%s> because of too many compression failures \n",
+                            np->n_name);
+            np->n_flag |= N_DONT_COMPRESS;
+        }
+
+        if (error == EBADF) {
 			/* Could be a dfs share make sure we have the correct share */
 			smb_share_rele(share, ap->a_context);
 			share = smb_get_share_with_reference(VTOSMBFS(vp));
@@ -6907,6 +7518,7 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 		SMB_LOG_IO_LOCK(np, "%s failed non cached write with an error of %d\n",
                         np->n_name, error);
 	}
+
 exit:
 	/* Wrote pass the eof, need to set the new file size */
 	if (!error && ((uint64_t) uio_offset(uio) > originalEOF)) {
@@ -6949,7 +7561,7 @@ exit:
                         np->n_sizetime.tv_sec, np->n_sizetime.tv_nsec);
 
 		/*
-		 * We could have lost a cache update in the write. Since we wrote pass 
+		 * We could have lost a cache update in the write. Since we wrote past
 		 * the eof, mark that the close should clear the cache timer. This way
 		 * the cache will be update with the server. We clear this flag in cache
 		 * entry so any lookups after this write will clear the flag.
@@ -6966,11 +7578,13 @@ exit:
 	}
 	
 	/* Tell the stream's parent that something has changed */
-	if (vnode_isnamedstream(vp))
-		parent_vp = smb_update_rsrc_and_getparent(vp, FALSE);
+    if (vnode_isnamedstream(vp)) {
+        parent_vp = smb_update_rsrc_and_getparent(vp, FALSE);
+    }
 
 	smb_share_rele(share, ap->a_context);
 	smbnode_unlock(VTOSMB(vp));
+
 	/* We have the parent vnode, so reset its meta data cache timer. */
 	if (parent_vp) {
 		VTOSMB(parent_vp)->attribute_cache_timer = 0;
@@ -7640,8 +8254,8 @@ smbfs_rmdir(struct smb_share *share, vnode_t dvp, vnode_t vp,
     }
 
     /* Free the enumeration cache if it exists */
-    smb_dir_cache_remove(vp, &np->d_main_cache, "main", "smbfs_rmdir", 0);
-    smb_dir_cache_remove(vp, &np->d_overflow_cache, "overflow", "smbfs_rmdir", 0);
+    smb_dir_cache_remove(vp, &np->d_main_cache, "main", "smbfs_rmdir", 0, 0);
+    smb_dir_cache_remove(vp, &np->d_overflow_cache, "overflow", "smbfs_rmdir", 0, 0);
     
 	/* Remove it from the global dir enum cache */
 	smb_global_dir_cache_remove_one(vp, 0);
@@ -8344,6 +8958,16 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
             
 			lck_rw_unlock_exclusive(&fnp->n_name_rwlock);
 
+            /* Check new name for whether compression allowed or not */
+            if (smb_compression_allowed(vnode_mount(fvp), fvp) == 0) {
+                /* Compression not allowed on this file based on extension */
+                fnp->n_flag |= N_DONT_COMPRESS;
+            }
+            else {
+                /* Compression is allowed on this file based on extension */
+                fnp->n_flag &= ~N_DONT_COMPRESS;
+            }
+
 			/* Now its safe to free the old name */
             SMB_FREE_DATA(old_name, old_name_allocsize);
 		}
@@ -8771,8 +9395,20 @@ smbfs_vnop_readdir(struct vnop_readdir_args *ap)
 {
 	vnode_t	vp = ap->a_vp;
 	uio_t uio = ap->a_uio;
-	int error;
-	int32_t numdirent = 0;
+	int error = 0;
+    int32_t dot_and_dotdot = 0;
+    int32_t numdirent = 0;
+    struct smbnode *np = VTOSMB(vp);
+    struct smb_share *share = NULL;
+    union {
+        struct dirent de32;
+        struct direntry de64;
+    } de = {0};
+    uint32_t delen = 0;
+    int i = 0;
+    uint64_t node_ino = 0;
+    vnode_t par_vp = NULL;
+    off_t offset = uio_offset(uio);
 
 	if (uio_offset(uio) < 0)
 		return (EINVAL);
@@ -8785,31 +9421,99 @@ smbfs_vnop_readdir(struct vnop_readdir_args *ap)
 	
 	if (uio_resid(uio) == 0)
 		return (0);
-    
-	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
+
+	if ((error = smbnode_lock(np, SMBFS_EXCLUSIVE_LOCK)))
 		return (error);
-		
+
 	SMB_LOG_KTRACE(SMB_DBG_READ_DIR | DBG_FUNC_START, VTOSMB(vp)->d_fid, 0, 0, 0, 0);
 
-    struct smbnode *np = VTOSMB(vp);
 	np->n_lastvop = smbfs_vnop_readdir;
     np->n_write_unsafe = true;
-	
-	error = smbfs_readvdir(vp, uio, ap->a_flags, &numdirent, ap->a_context);
-	if (error == ENOENT) {
-		/* We have reached the end of the search */
-		if (ap->a_eofflag)
-			*ap->a_eofflag = 1;
-		error = 0;
-	}
-    
-	/* Return the number of entries from this lookup */ 
-	if (ap->a_numdirent)
-		*ap->a_numdirent = numdirent;
-    
+
+    share = smb_get_share_with_reference(VFSTOSMBFS(vnode_mount(vp)));
+
+    /*
+     * SMB servers will return the dot and dotdot in most cases. If the share is a
+     * FAT Filesystem then the information return could be bogus, also if its a
+     * FAT drive then they won't even return the dot or the dotdot. Since we already
+     * know everything about dot and dotdot just fill them in here and then skip
+     * them during the lookup.
+     */
+    if (offset == 0) {
+        np->d_rdir_offset = 0;
+        for (i = 0; i < 2; i++) {
+            if (i == 0) {
+                node_ino = np->n_ino;
+            }
+            else {
+                par_vp = smbfs_smb_get_parent(np, kShareLock);
+                if (par_vp != NULL) {
+                    node_ino = VTOSMB(par_vp)->n_ino;
+                    vnode_put(par_vp);
+                }
+                else {
+                    if (np->n_parent_vid == 0) {
+                        /* Must be the root of share */
+                        node_ino = SMBFS_ROOT_INO;
+                    }
+                    else {
+                        /* Parent got recycled already? */
+                        SMBWARNING_LOCK(np, "Missing parent for <%s> \n",
+                                        np->n_name);
+                        error = ENOENT;
+                        goto done;
+                    }
+                }
+            }
+            delen = smbfs_fill_direntry(&de, "..", i + 1, DT_DIR,
+                                        node_ino, ap->a_flags);
+            /*
+             * At this point we always expect them to have enough room for dot
+             * and dotdot. If not enough room then uiomove will return an error.
+             */
+            error = uiomove((void *)&de, delen, uio);
+            if (error) {
+                SMBERROR("uiomove failed:%d", error);
+                goto done;
+            }
+            offset++;
+            dot_and_dotdot++;
+        }
+        /*
+         * Since the uio offset is really never used,
+         * we can set it without causing any issues
+         * both enumeration functions interpret offset == 0 as a start of
+         * a new enumeration and setup the enumeration in this case
+         * Set offset to 0
+         */
+        uio_setoffset(uio, 0);
+    }
+
+    if (VTOSMBFS(vp)->sm_args.altflags & SMBFS_MNT_DIR_CACHE_OFF) {
+        error = smbfs_readvdir(vp, uio, ap->a_flags, &numdirent, ap->a_context);
+        if (error == ENOENT) {
+            /* We have reached the end of the search */
+            if (ap->a_eofflag)
+                *ap->a_eofflag = 1;
+            error = 0;
+        }
+
+        /* Return the number of entries from this lookup */
+        if (ap->a_numdirent)
+            *ap->a_numdirent = numdirent;
+    } else {
+        error = smbfs_enum_dir(vp, uio, false, ap);
+    }
+    ap->a_numdirent += dot_and_dotdot;
+done:
     np->n_write_unsafe = false;
-	smbnode_unlock(VTOSMB(vp));
-    
+
+    if (share != NULL) {
+        smb_share_rele(share, ap->a_context);
+    }
+
+    smbnode_unlock(np);
+
     SMB_LOG_KTRACE(SMB_DBG_READ_DIR | DBG_FUNC_END, error, numdirent, 0, 0, 0);
 	return (error);
 }
@@ -8818,9 +9522,10 @@ int32_t
 smbfs_fsync(struct smb_share *share, vnode_t vp, int waitfor, int ubc_flags, 
 			vfs_context_t context)
 {
-#pragma unused(waitfor, ubc_flags)
-	int error;
-	off_t size;
+#pragma unused(ubc_flags)
+	int error = 0;
+	off_t size = 0;
+    int flags = 0;
 	
 	if (!vnode_isreg(vp)) {
 		return 0; /* Nothing to do here */
@@ -8830,29 +9535,46 @@ smbfs_fsync(struct smb_share *share, vnode_t vp, int waitfor, int ubc_flags,
     
 	size = smb_ubc_getsize(vp);
 	if ((size > 0) && smbfsIsCacheable(vp)) {
-		if (VTOSMB(vp)->n_flag & NISMAPPED) {
-			/* More expensive, but handles mmapped files */
-            SMB_LOG_UBC_LOCK(VTOSMB(vp), "UBC_PUSHDIRTY on <%s> due to fsync on mmapped file \n",
-                             VTOSMB(vp)->n_name);
+        if (VTOSMB(vp)->n_flag & NISMAPPED) {
+            /* More expensive, but handles mmapped files */
+            SMB_LOG_UBC_LOCK(VTOSMB(vp), "UBC_PUSHDIRTY on <%s> due to fsync on mmapped file. waitfor 0x%x \n",
+                             VTOSMB(vp)->n_name, waitfor);
             
             VTOSMB(vp)->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
-			ubc_msync (vp, 0, ubc_getsize(vp), NULL, UBC_PUSHDIRTY | UBC_SYNC);
-		}
-		else {
-			/* Less expensive, but does not handle mmapped files */
-            SMB_LOG_UBC_LOCK(VTOSMB(vp), "IO_SYNC cluster_push on <%s> due to fsync \n",
-                             VTOSMB(vp)->n_name);
+            
+            flags = UBC_PUSHDIRTY;
+            if (waitfor & (MNT_WAIT | MNT_DWAIT)) {
+                flags |= UBC_SYNC;
+            }
+            error = ubc_msync (vp, 0, ubc_getsize(vp), NULL, flags);
+        }
+        else {
+            /* Less expensive, but does not handle mmapped files */
+            SMB_LOG_UBC_LOCK(VTOSMB(vp), "IO_SYNC cluster_push on <%s> due to fsync. waitfor 0x%x \n",
+                             VTOSMB(vp)->n_name, waitfor);
 
             VTOSMB(vp)->n_flag &= ~NNEEDS_UBC_PUSHDIRTY;
-            cluster_push(vp, IO_SYNC);
-		}
+            
+            if (waitfor & (MNT_WAIT | MNT_DWAIT)) {
+                flags |= IO_SYNC;
+            }
+            cluster_push_err(vp, flags, NULL, NULL, &error);
+        }
+
+        if (error) {
+            SMBERROR_LOCK(VTOSMB(vp), "ubc_msync or cluster_push failed %d on <%s> \n",
+                          error, VTOSMB(vp)->n_name);
+            VTOSMB(vp)->n_flag |= NNEEDS_UBC_PUSHDIRTY;
+            goto exit;
+        }
 	}
 
     error = smbfs_smb_fsync(share, VTOSMB(vp), 0, context);
 	if (!error) {
 		VTOSMBFS(vp)->sm_statfstime = 0;
 	}
-
+    
+exit:
 	SMB_LOG_KTRACE(SMB_DBG_SMBFS_FSYNC | DBG_FUNC_END, error, 0, 0, 0, 0);
     return (error);
 }
@@ -9033,6 +9755,25 @@ static int smbfs_vnop_pathconf(struct vnop_pathconf_args *ap)
     return (error);
 }
 
+static int smbfs_is_vnop_ioctl_command_supported(u_long command) {
+    switch (command) {
+        case smbfsByteRangeLock2FSCTL:
+        case smbfsByteRangeLockFSCTL:
+        case smbfsDebugTestFSCTL:
+        case smbfsGetSessionSockaddrFSCTL:
+        case smbfsGetSessionSockaddrFSCTL2:
+        case smbfsUniqueShareIDFSCTL:
+        case smbfsTimeMachineFSCTL:
+        case smbfsGetStatsFSCTL:
+        case F_FULLFSYNC:
+        case smbfsStatFSCTL:
+        case smbfsUpdateLeaseFSCTL:
+            return true;
+        default:
+            return false;
+    }
+}
+
 /*
  * smbfs_vnop_ioctl - smbfs vnodeop entry point
  *	vnode_t a_vp;
@@ -9052,6 +9793,10 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 	struct smb_session *sessionp = NULL;
 	uint32_t timeout = 0;
 	
+    if (!smbfs_is_vnop_ioctl_command_supported(ap->a_command)) {
+        return ENOTSUP;
+    }
+
 	error = smbnode_lock(VTOSMB(ap->a_vp), SMBFS_EXCLUSIVE_LOCK);
     if (error) {
 		return (error);
@@ -9764,11 +10509,15 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
                 if (smbfsIsCacheable(vp)) {
                     pb->file.flags |= SMB_FILE_UBC_CACHING;
                 }
-                
+
                 if (np->n_flag & NISMAPPED) {
                     pb->file.flags |= SMB_FILE_MMAPPED;
                 }
-                
+               
+                if (np->n_flag & N_DONT_COMPRESS) {
+                    pb->file.flags |= SMB_FILE_DONT_COMPRESS;
+                }
+
                 /* Fill in sharedFID info */
                 pb->file.sharedFID_refcnt = np->f_sharedFID_refcnt;
                 pb->file.sharedFID_mmapped = np->f_sharedFID_mmapped;
@@ -9963,6 +10712,10 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
         }
 
 		default:
+            /*
+             * Should never happen as command is checked in
+             * smbfs_is_vnop_ioctl_command_supported()
+             */
 			error = ENOTSUP;
 			goto exit;
     }
@@ -11161,7 +11914,8 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
     struct smbfattr fattr = {0};
     u_int16_t newFinderFlags;
 	int old_dosattr = 0;
-	
+    uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
+
 	DBG_ASSERT(!vnode_isnamedstream(vp));
 	
 	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
@@ -11355,7 +12109,8 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
             
             /* Now we can write the afp info back out with the new finder information */
             if (!error) {
-                error = smb_smb_write(share, fid, afp_uio, 0, ap->a_context);
+                error = smb_smb_write(share, fid, afp_uio, 0,
+                                      &allow_compression, ap->a_context);
                 SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
                                0xabc002, error, stype, 0, 0);
             }
@@ -11433,7 +12188,8 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
         }
         
         /* Now write out the stream data */
-        error = smb_smb_write(share, fid, ap->a_uio, 0, ap->a_context);
+        error = smb_smb_write(share, fid, ap->a_uio, 0,
+                              &allow_compression, ap->a_context);
         SMB_LOG_KTRACE(SMB_DBG_SET_XATTR | DBG_FUNC_NONE,
                        0xabc004, error, stype, 0, 0);
         
@@ -11538,6 +12294,7 @@ smbfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 		goto exit;
 	}
     
+    /* Note that if np->n_chtime changes, it clears np->n_fstatus */
 	if (np->n_fstatus & kNO_SUBSTREAMS) {
 		error = ENOATTR;
 		goto exit;
@@ -11551,7 +12308,7 @@ smbfs_vnop_listxattr(struct vnop_listxattr_args *ap)
     /* For listing xattrs, create is done on the item, not the stream */
     if ((np) && (np->n_vnode)) {
         /* Use vnode to determine type */
-        vnode_type = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+        vnode_type = vnode_vtype(vp);
     }
 
 	error = smbfs_smb_qstreaminfo(share, np, vnode_type,
@@ -11614,8 +12371,14 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 	struct smb_share *share = NULL;
 	enum stream_types stype = kNoStream;
 	struct timespec ts;
+    uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
+    enum vtype vnode_type = VREG;
 
-	DBG_ASSERT(!vnode_isnamedstream(vp));
+    if (vp) {
+        vnode_type = vnode_vtype(vp);
+    }
+
+    DBG_ASSERT(!vnode_isnamedstream(vp));
 	
 	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
 		return (error);
@@ -11667,10 +12430,8 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 			 * stream should be ok, but some servers (EMC) don't support deleting
 			 * the named stream. In this case see if we can just zero out the
 			 * finder info.
-             *
-             * Streams are always VREG since they are files
-			 */
-			error = smbfs_smb_delete(share, np, VREG,
+             */
+			error = smbfs_smb_delete(share, np, vnode_type,
                                      sfmname, strnlen(sfmname, share->ss_maxfilenamelen+1),
                                      1, ap->a_context);
             SMB_LOG_KTRACE(SMB_DBG_RM_XATTR | DBG_FUNC_NONE,
@@ -11729,7 +12490,8 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 			}
             
 			if (!error) {
-				error = smb_smb_write(share, fid, afp_uio, 0, ap->a_context);
+				error = smb_smb_write(share, fid, afp_uio, 0,
+                                      &allow_compression, ap->a_context);
                 SMB_LOG_KTRACE(SMB_DBG_RM_XATTR | DBG_FUNC_NONE,
                                0xabc003, error, stype, 0, 0);
             }
@@ -11749,8 +12511,7 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		}
 	}
     else {
-        /* Streams are always VREG since they are files */
-		error = smbfs_smb_delete(share, np, VREG,
+		error = smbfs_smb_delete(share, np, vnode_type,
                                  sfmname, strnlen(sfmname, share->ss_maxfilenamelen+1),
                                  1, ap->a_context);
         SMB_LOG_KTRACE(SMB_DBG_RM_XATTR | DBG_FUNC_NONE,
@@ -11823,6 +12584,9 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
     enum vtype vnode_type = VREG; /* Streams are always files */
     struct smbfattr *fap = NULL;
     uint32_t ntstatus = 0;
+    uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
+    uint32_t max_io_size = 0;
+    user_ssize_t len = 0;
 
 	DBG_ASSERT(!vnode_isnamedstream(vp));
 	
@@ -11864,6 +12628,8 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
 	/*
      * <6804472> <26559530> Return no error if resource fork length is 0
      * Always allow KAUTH_FILESEC_XATTR to be checked
+     *
+     * Note that if np->n_chtime changes, it clears np->n_fstatus
      */
 	if (!(stype & kResourceFrk) &&
         !(strcmp(ap->a_name, KAUTH_FILESEC_XATTR) == 0) &&
@@ -12058,6 +12824,11 @@ done:
 			error = ENOATTR;
 		}
         else {
+            len = uio_resid(uio);
+            max_io_size = smb2_session_max_io_size(SS_TO_SESSION(share), SMB2_READ);
+            if (len > max_io_size) {
+                goto multiple_transactions;
+            }
             /* open and read the data */
             if (SS_TO_SESSION(share)->session_flags & SMBV_SMB2) {
                 /* SMB 2/3 will do create/read/close */
@@ -12086,8 +12857,9 @@ done:
     if (error != ENOTSUP) {
 		goto out;
     }
-		
-	/* 
+
+multiple_transactions:
+	/*
 	 * May need to add an oplock to this open call, if this is a finder info open.
 	 * Not sure I remember the exact details, something about deletes.
 	 */
@@ -12126,19 +12898,19 @@ done:
 		r = r - uio_resid(uio);
 		uio_setoffset(uio, uio_offset(uio) + 4*4);
 		
-		error = smb_smb_read(share, fid, uio, ap->a_context);
+		error = smb_smb_read(share, fid, uio, allow_compression, ap->a_context);
 		
 		uio_setoffset(uio, uio_offset(uio) - 4*4);
 		uio_setresid(uio, uio_resid(uio) + r);
 	}
     else {
-		error = smb_smb_read(share, fid, uio, ap->a_context);
+		error = smb_smb_read(share, fid, uio, allow_compression, ap->a_context);
 	}
 
 	SMB_LOG_KTRACE(SMB_DBG_GET_XATTR | DBG_FUNC_NONE,
 		       0xabc005, error, stype, 0, 0);
 
-out:;
+out:
 	if (uio && sizep && (*sizep > rq_resid))
 			error = ERANGE;
 		
@@ -13553,10 +14325,9 @@ smbfs_pack_vap(struct smb_share *share, vnode_t dvp,
 static int
 smbfs_add_dir_entry_attr(struct smb_share *share, vnode_t dvp,
                          const char *name, size_t name_len,
-                         struct attrlist *alist, uint64_t a_options,
-                         struct vnode_attr *vap, struct smbfattr *fap,
-                         uio_t uio, ssize_t *max_fixed_len,
-                         vfs_context_t context)
+                         struct vnop_getattrlistbulk_args *attr_ap,
+                         struct smbfattr *fap, uio_t uio,
+                         ssize_t *max_fixed_len, vfs_context_t context)
 {
     int error = 0;
     enum vtype vnode_type = VREG;
@@ -13566,7 +14337,20 @@ smbfs_add_dir_entry_attr(struct smb_share *share, vnode_t dvp,
     char *tname = NULL;
 	uint32_t flags = 0;
 	uint32_t cn_flags = 0;
-	
+    struct attrlist *alist = NULL;
+    uint64_t a_options = 0;
+    struct vnode_attr *vap = NULL;
+
+    if (attr_ap == NULL) {
+        SMBERROR("attr_ap is NULL? \n");
+        error = ENOBUFS;
+        goto done;
+    }
+
+    alist = attr_ap->a_alist;
+    a_options = attr_ap->a_options;
+    vap = attr_ap->a_vap;
+
     /*
      * Get the vnode type. vfs_setup_vattr_from_attrlist() only cares if
      * its a dir or not.
@@ -13701,6 +14485,21 @@ smbfs_add_dir_entry_attr(struct smb_share *share, vnode_t dvp,
 								  &fap->fa_reqtime,
 								  name, name_len);
 			
+            /* 
+             * If kAAPL_SUPPORTS_READ_DIR_ATTR_V2 is supported, then we should
+             * have the latest info on whether an xattr exists on the item
+             * or not.
+             */
+            if (fap->fa_valid_mask & FA_FSTATUS_VALID) {
+                /* 
+                 * This is a valid field use it. It will set the n_fstatus
+                 * to indicate no xattrs (which includes RsrcFork and Finder
+                 * Info) or to 0 (meaning some xattr exists but we dont know
+                 * which ones).
+                 */
+                VTOSMB(vp)->n_fstatus = fap->fa_fstatus;
+            }
+            
             smbnode_unlock(VTOSMB(vp));
         }
     }
@@ -13738,6 +14537,38 @@ done:
     return (error);
 }
 
+static void
+smbfs_fetch_new_entries_eof(vnode_t dvp, struct smb_enum_cache *cachep, vfs_context_t context)
+{
+    int num_of_enumerations;
+    struct smbnode *dnp = VTOSMB(dvp);
+    /* Done enumerating dir */
+    if (!(cachep->flags & kDirCachePartial)) {
+        /* Only set if not at max entries in dir cache */
+        SMB_LOG_DIR_CACHE_LOCK(dnp, "Set cache complete in <%s> \n",
+                               dnp->n_name);
+        cachep->flags |= kDirCacheComplete;
+    }
+    
+    SMB_LOG_DIR_CACHE_LOCK(dnp, "Done enumerating dir for <%s> \n",
+                           dnp->n_name);
+    
+    smbnode_lease_lock(&dnp->n_lease, smbfs_fetch_new_entries_eof);
+    if (!(dnp->n_lease.flags & SMB2_LEASE_GRANTED) ||
+        !(dnp->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING)) {
+        /* No dir lease, so close dir now */
+        smbnode_lease_unlock(&dnp->n_lease);
+        num_of_enumerations = smbfs_active_cookies_cnt(dvp);
+        if (num_of_enumerations == 1) {
+            /* only smbfs_closedirlookup if there are no more enumerations */
+            smbfs_closedirlookup(dnp, 0, "fetch_new_entries EOF", context);
+        }
+    }
+    else {
+        /* We have a dir lease, so dont need to close the dir */
+        smbnode_lease_unlock(&dnp->n_lease);
+    }
+}
 
 static int
 smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
@@ -13751,7 +14582,7 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     int error = 0, tmp_error = 0;
     struct smbfs_fctx *ctx = NULL;
     off_t fetch_count = kAsyncFetchCount;
-    struct timespec	start, stop;
+    struct timespec	start = {0}, stop = {0};
 	u_quad_t reparse_point_len = 0;
 	int need_refill = 0;
 	off_t saved_d_offset = 0;
@@ -13759,9 +14590,10 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     struct timespec waittime, now;
     int old_dir = 0;
     uint32_t cache_entries_added = 0;
+    off_t current_offset = 0, target_offset = offset;
 
     dnp = VTOSMB(dvp);
-
+    current_offset = dnp->d_offset;
 	SMB_LOG_LEASING_LOCK(dnp, "Filling enum cache for <%s>\n", dnp->n_name);
 
 	SMB_LOG_DIR_CACHE_LOCK(dnp, "fetch offset %lld d_offset %lld cachep->offset %lld for <%s>\n",
@@ -13770,6 +14602,14 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     SMB_LOG_KTRACE(SMB_DBG_SMBFS_FETCH_NEW_ENTRIES | DBG_FUNC_START,
                    offset, dnp->d_offset, cachep->offset, 0, 0);
 
+    if ((ctx = dnp->d_fctx) &&
+        ctx->f_fid_closed &&
+        SLIST_EMPTY(&ctx->f_queries) &&
+        ((ctx->f_flags & SMBFS_RDD_EOF) == SMBFS_RDD_EOF)) {
+        smbfs_fetch_new_entries_eof(dvp, cachep, context);
+        error = ENOENT;
+        goto done;
+    }
     /* Is this dir older than 10 min from now? */
     waittime.tv_sec = 60 * 10;
     waittime.tv_nsec = 0;
@@ -13877,14 +14717,12 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
 		(offset == 0) ||
 		(offset != dnp->d_offset) ||
 		(need_refill == 1)) {
+    restart_enumeration:
         SMB_LOG_DIR_CACHE_LOCK(dnp, "Restart enum offset %lld d_offset %lld for <%s> \n",
                                offset, dnp->d_offset, dnp->n_name);
-        
         smbfs_closedirlookup(dnp, 0, "fetch_new_entries restart", context); /* sets dnp->d_offset to 0 */
         
-        if (offset == 0) {
-            dnp->d_offset = 0;
-        }
+        current_offset = 0;
         
         error = smbfs_smb_findopen(share, dnp, "*", 1, &dnp->d_fctx, TRUE,
                                    0, context);
@@ -13894,8 +14732,14 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
              * Remove the overflow cache if it exists, but only if we are
              * filling the main cache
              */
-            smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "fetch_new_entries restart", 1);
+            smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "fetch_new_entries restart", 1, 0);
         }
+    } else if (is_overflow && cachep->offset == 0) {
+        /*
+         * Main cache is full and we switched to overflow cache
+         * Don't restart enumeration, get entries and store in overflow cache
+         */
+        cachep->offset = offset;
     }
     
     if (error) {
@@ -13904,20 +14748,21 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
     
     ctx = dnp->d_fctx;
     
-	if (is_overflow == 1) {
+	if (is_overflow) {
         /*
          * Do we need to skip entries until we get to the starting offset for
-         * the overflow cache?
+         * the overflow cache or for the directory offset?
          */
-        while (cachep->offset < offset) {
+        while (current_offset < target_offset) {
             error = smbfs_findnext(ctx, context);
             if (error) {
                 smbfs_closedirlookup(dnp, 0, "fetch_new_entries findnext error", context);
                 goto done;
             }
-
-            cachep->offset++;
+            current_offset++;
         }
+        dnp->d_offset = offset;
+        cachep->offset = target_offset;
 	}
 	
     /*
@@ -13929,31 +14774,26 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
                    fetch_count, 0, 0, 0, 0);
 
     while (fetch_count > 0) {
+        if (ctx->f_fid_closed && SLIST_EMPTY(&ctx->f_queries)) {
+            /* dir was closed after sending the last query dir
+             * because the directory needs to be closed whenever possible
+             * we have no more saved entries
+             * restart enumeration to open the directory
+             */
+            if (ctx->f_flags & SMBFS_RDD_EOF) {
+                /* Don't restart enumeration if we reached EOF */
+                smbfs_fetch_new_entries_eof(dvp, cachep, context);
+                error = ENOENT;
+                break;
+            }
+            target_offset = cachep->offset;
+            goto restart_enumeration;
+        }
         error = smbfs_findnext(ctx, context);
         if (error) {
             if (error == ENOENT) {
                 /* Done enumerating dir */
-                if (!(cachep->flags & kDirCachePartial)) {
-                    /* Only set if not at max entries in dir cache */
-                    SMB_LOG_DIR_CACHE_LOCK(dnp, "Set cache complete in <%s> \n",
-                                           dnp->n_name);
-                    cachep->flags |= kDirCacheComplete;
-                }
-				
-                SMB_LOG_DIR_CACHE_LOCK(dnp, "Done enumerating dir for <%s> \n",
-                                       dnp->n_name);
-
-                smbnode_lease_lock(&dnp->n_lease, smbfs_fetch_new_entries);
-                if (!(dnp->n_lease.flags & SMB2_LEASE_GRANTED) ||
-                    !(dnp->n_lease.lease_state & SMB2_LEASE_HANDLE_CACHING)) {
-                    /* No dir lease, so close dir now */
-                    smbnode_lease_unlock(&dnp->n_lease);
-					smbfs_closedirlookup(dnp, 0, "fetch_new_entries EOF", context);
-				}
-				else {
-                    /* We have a dir lease, so dont need to close the dir */
-                    smbnode_lease_unlock(&dnp->n_lease);
-				}
+                smbfs_fetch_new_entries_eof(dvp, cachep, context);
             }
             break;
         }
@@ -14011,13 +14851,36 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
             cache_entries_added += 1;
         }
     }
-    
-    /* Get the meta data for this set of entries */
-    if (cachep->flags & kDirCacheDirty) {
-        smb_dir_cache_get_attrs(share, dvp, cachep, 1, context);
-        cachep->flags &= ~kDirCacheDirty;
+
+    /*
+     * if we got here through smbfs_vnop_readdir then named streams are off
+     */
+    if ((SS_TO_SESSION(share)->session_flags & SMBV_SMB2) &&
+        (share->ss_fstype != SMB_FS_FAT) &&
+        (share->ss_attributes & FILE_NAMED_STREAMS)) {
+        /* Get the meta data for this set of entries */
+        if (cachep->flags & kDirCacheDirty) {
+            smb_dir_cache_get_attrs(share, dvp, cachep, 1, context);
+            cachep->flags &= ~kDirCacheDirty;
+        }
     }
     
+    /*
+     * for overflow, close the dir when possible
+     * if dnp->d_fctx is NULL, enumeration is finished
+     */
+    if ((ctx = dnp->d_fctx) &&
+        ctx->f_need_close && is_overflow) {
+        error = smb2_smb_close_fid(ctx->f_share, ctx->f_create_fid,
+                                   NULL, NULL, NULL, context);
+        smbfs_remove_dir_lease(dnp, "smbfs_fetch_new_entries done");
+        ctx->f_need_close = FALSE;
+        ctx->f_fid_closed = TRUE;
+        if (error) {
+            SMBDEBUG("smb2_smb_close_fid failed %d\n", error);
+        }
+    }
+
 done:
     nanotime(&stop);
     SMB_LOG_DIR_CACHE_LOCK(dnp, "elapsed time %ld:%ld for <%s>\n",
@@ -14183,6 +15046,67 @@ smbfs_update_cookie(struct vnode *dvp, uint64_t key, off_t resume_offset,
     }
     
     return(error);
+}
+
+static int
+smbfs_active_cookies_cnt(struct vnode *dvp) {
+    uint8_t counter = 0, i = 0;
+    struct smbnode *dnp = NULL;
+
+    if (dvp == NULL) {
+        SMBERROR("Invalid parameter");
+        return 0;
+    }
+    
+    dnp = VTOSMB(dvp);
+    
+    lck_mtx_lock(&dnp->d_cookie_lock);
+
+    /* Find an entry which has 0 for the time (unused) or the oldest */
+    for (i = 0; i < kSMBDirCookieMaxCnt; i++) {
+        if (((dnp->d_cookies[i].last_used.tv_sec != 0) ||
+             (dnp->d_cookies[i].last_used.tv_nsec != 0)) &&
+            (dnp->d_cookies[i].resume_node_id != 0)) {
+            counter++;
+        }
+    }
+    lck_mtx_unlock(&dnp->d_cookie_lock);
+
+    return counter;
+}
+
+static off_t
+smbfs_cookies_min_offset(struct vnode *dvp, uint64_t key)
+{
+    uint8_t i = 0;
+    off_t min_offset = 0;
+    struct smbnode *dnp = NULL;
+
+    if (dvp == NULL) {
+        SMBERROR("Invalid parameter");
+        return(EINVAL);
+    }
+    
+    dnp = VTOSMB(dvp);
+    
+    lck_mtx_lock(&dnp->d_cookie_lock);
+
+    /* Find an entry which has 0 for the time (unused) or the oldest */
+    for (i = 0; i < kSMBDirCookieMaxCnt; i++) {
+        if (dnp->d_cookies[i].key == key) {
+            continue;;
+        }
+        if ((dnp->d_cookies[i].last_used.tv_sec != 0) ||
+            (dnp->d_cookies[i].last_used.tv_nsec != 0)) {
+
+            if ((min_offset == 0) || (dnp->d_cookies[i].resume_offset < min_offset)) {
+                min_offset = dnp->d_cookies[i].resume_offset;
+            }
+        }
+    }
+    lck_mtx_unlock(&dnp->d_cookie_lock);
+
+    return min_offset;
 }
 
 static int
@@ -14387,29 +15311,15 @@ smbfs_verify_resume(struct smb_session *sessionp, struct vnode *dvp,
     return(error);
 }
 
-
-static int
-smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
-/* struct vnop_getattrlistbulk_args {
- struct vnodeop_desc *a_desc;
- vnode_t a_vp;
- struct attrlist *a_alist;
- struct vnode_attr *a_vap;
- struct uio *a_uio;
- void *a_private;
- uint64_t a_options;
- int32_t *a_eofflag;
- int32_t *a_actualcount;
- vfs_context_t a_context;
- } *ap; */
+/*
+ * The calling routine must hold a reference on the share
+ */
+int
+smbfs_enum_dir(struct vnode *dvp, uio_t uio, int is_attrlist, void* vnop_argsp)
 {
-    struct vnode *dvp = ap->a_vp;
-    uio_t uio = ap->a_uio;
-    struct vnode_attr *vap = ap->a_vap;
-    vfs_context_t context = ap->a_context;
-    struct smbnode *dnp = NULL;
+    struct smbnode *dnp = VTOSMB(dvp);
     ssize_t max_fixed_len = 0;
-    off_t offset;
+    off_t offset = 0;
     int error = 0, overflow_error, tmp_error;
     struct smb_share *share = NULL;
    	struct smb_session *sessionp = NULL;
@@ -14417,8 +15327,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     struct cached_dir_entry *enum_cache_currp = NULL;
     off_t skip_count = 0;
     int32_t add_remaining = 0;
-    struct timespec	start, stop;
-	struct smbmount *smp = NULL;
+    struct timespec    start, stop;
     int first = 0;
     char *last_entry_namep = NULL;
     uint64_t key = 0;
@@ -14426,94 +15335,33 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     struct smb_dir_cookie *resume_cookiep = NULL;
     off_t resume_offset = 0;
     int check_resume = 0;
+    int flags = 0;
+    int *countp = NULL, *is_eofp = NULL;
+    struct vnop_readdir_args *readdir_argsp = NULL;
+    struct vnop_getattrlistbulk_args *getattrlistbulk_argsp = NULL;
+    vfs_context_t context = NULL;
 
-    /*
-     * For smbfs_vnop_getattrlistbulk, we need to have all the meta data 
-     * fetched BEFORE we can pack and put the entry into the users buffer.
-     * In order to do this, the enumerations are done first and the results
-     * are stored in the dir cache. Then the meta data is fetched for each
-     * entry in the dir cache. Then, we use the dir cache to start filling in
-     * the user's buffer.
-     *
-     * Once the max number of entries allowed in the dir cache is reached,
-     * from then on, we use the overflow cache. The overflow cache is smaller
-     * and only kept briefly.
-     *
-     * The main cache holds g_max_dir_entries_cached entries and always caches
-     * from the beginning (offset 0). The overflow cache will cache a smaller
-     * range of entries and has a variable start_offset and offset to indicate
-     * the current cached range of entries. If the current enumeration is past
-     * the end of the main cache, but within the overflow cache, then the
-     * overflow cache used to return the entries. If the current enumeration 
-     * does not fall within the current overflow cache, then the dir is closed
-     * and the enumeration is started from the beginnning. Entries are skipped
-     * until the desired offset is reached, then that offset is saved as the
-     * starting offset for the overflow cache and the overflow cache is filled
-     * with the next kAsyncFetchCount number of entries.
-     *
-     * The actual offset stored in uio_offset is now a key value used to find
-     * a dir cookie that contains the information needed to resume an
-     * enumeration. This info is also used to validate where the dir has
-     * changed while we were in the middle of enumerating it.
-     */
-    
-    /*
-     * offset - offset of item to start at
-     * d_offset - offset of next item to fetch from server
-     * dnp->d_main_cache.offset - offset of next item to be placed into dir cache
-     */
+    share = VTOSMBFS(dvp)->sm_share;
+    sessionp = SS_TO_SESSION(share);
 
-    /* Check for invalid buffer space. */
-    if ((uio_resid(uio) <= 0) || (uio_iovcnt(uio) > 1)) {
-        SMBDEBUG("Invalid buf size\n");
-        return (EINVAL);
+    if (is_attrlist == 1) {
+        getattrlistbulk_argsp = (struct vnop_getattrlistbulk_args*)vnop_argsp;
+        countp = getattrlistbulk_argsp->a_actualcount;
+        is_eofp = getattrlistbulk_argsp->a_eofflag;
+        context = getattrlistbulk_argsp->a_context;
+    } else {
+        readdir_argsp = (struct vnop_readdir_args*)vnop_argsp;
+        countp = readdir_argsp->a_numdirent;
+        is_eofp = readdir_argsp->a_eofflag;
+        flags = readdir_argsp->a_flags;
+        context = readdir_argsp->a_context;
     }
-    
-    /*
-     * Lock parent dir that we are enumerating
-     */
-    if ((error = smbnode_lock(VTOSMB(dvp), SMBFS_EXCLUSIVE_LOCK))) {
-        return (error);
-    }
-
-    SMB_MALLOC_DATA(last_entry_namep, PATH_MAX, Z_WAITOK_ZERO);
-
     nanotime(&start);
 
-    VTOSMB(dvp)->n_lastvop = smbfs_vnop_getattrlistbulk;
-    
-    dnp = VTOSMB(dvp);
-    
-    SMB_LOG_KTRACE(SMB_DBG_GET_ATTRLIST_BULK | DBG_FUNC_START, dnp->d_fid, 0, 0, 0, 0);
-    
-    /* Get Share reference */
-    share = smb_get_share_with_reference(VTOSMBFS(dvp));
-   	sessionp = SS_TO_SESSION(share);
-    
-    /*
-     * Non FAT Filesystem, named streams, and SMB 2/3 are required.
-     * smbfs_vnop_getattrlistbulk will always use dir caching.
-     */
-    if (!(sessionp->session_flags & SMBV_SMB2) ||
-        (share->ss_fstype == SMB_FS_FAT) ||
-        !(share->ss_attributes & FILE_NAMED_STREAMS)) {
-        SMB_LOG_DIR_CACHE("FAT or no named streams so smbfs_vnop_getattrlistbulk not supported \n");
-        error = ENOTSUP;
-        goto err_exit;
-    }
-    
-    /* See if dir caching is disabled or not */
-    smp = VFSTOSMBFS(vnode_mount(dvp));
-    if (smp != NULL) {
-        if (smp->sm_args.altflags & SMBFS_MNT_DIR_CACHE_OFF) {
-            SMB_LOG_DIR_CACHE("Dir Enumeration cache turned off \n");
-            error = ENOTSUP;
-            goto err_exit;
-        }
-    }
-    
     /* Offset is the key to find the dir cookie */
     offset = uio_offset(uio);
+
+    SMB_MALLOC_DATA(last_entry_namep, PATH_MAX, Z_WAITOK_ZERO);
 
     if (uio_offset(uio) != 0) {
         SMB_LOG_DIR_CACHE_LOCK(dnp, "Resuming enumeration for <%s>\n", dnp->n_name);
@@ -14553,13 +15401,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
     SMB_LOG_DIR_CACHE_LOCK(dnp, "offset %lld d_offset %lld d_main_cache.offset %lld for <%s>\n",
                            offset, dnp->d_offset, dnp->d_main_cache.offset,
                            dnp->n_name);
-	*(ap->a_actualcount) = 0;
-    *(ap->a_eofflag) = 0;
-    
-    /* We should not need to allocate va_name */
-    if (VATTR_IS_ACTIVE(vap, va_name)) {
-        SMB_ASSERT(vap->va_name != NULL);
-    }
+    *is_eofp = 0;
 
     /* Lock dir enum cache list */
     lck_mtx_lock(&dnp->d_enum_cache_list_lock);
@@ -14576,10 +15418,10 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
             /*
              * Start filling from dir cache
              */
-			SMB_LOG_LEASING_LOCK(dnp, "Using enum cache for <%s> \n",
-								   dnp->n_name);
+            SMB_LOG_LEASING_LOCK(dnp, "Using enum cache for <%s> \n",
+                                   dnp->n_name);
 
-			SMB_LOG_DIR_CACHE_LOCK(dnp, "Using enum cache offset %lld cache_offset %lld for <%s> \n",
+            SMB_LOG_DIR_CACHE_LOCK(dnp, "Using enum cache offset %lld cache_offset %lld for <%s> \n",
                                    offset, dnp->d_main_cache.offset, dnp->n_name);
             
             SMB_LOG_KTRACE(SMB_DBG_GET_ATTRLIST_BULK | DBG_FUNC_NONE,
@@ -14607,8 +15449,8 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
                     /* Should never happen */
                     SMBERROR_LOCK(dnp, "Out of cached entries i = %d offset = %lld/%lld for <%s> \n",
                                   i, offset, dnp->d_main_cache.offset, dnp->n_name);
-                    smb_dir_cache_remove(dvp, &dnp->d_main_cache, "main", "Out of cached entries", 1);
-                    smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "Out of cached entries", 1);
+                    smb_dir_cache_remove(dvp, &dnp->d_main_cache, "main", "Out of cached entries", 1, 0);
+                    smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "Out of cached entries", 1, 0);
                     goto fetch_new_entries;
                 }
                 
@@ -14643,13 +15485,21 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
                                            dnp->n_name);
                     goto fetch_new_entries;
                 }
-                
-                error = smbfs_add_dir_entry_attr(share, dvp,
-                                                 enum_cache_currp->name, enum_cache_currp->name_len,
-                                                 ap->a_alist, ap->a_options,
-                                                 vap, &enum_cache_currp->fattr,
-                                                 uio, &max_fixed_len,
-                                                 context);
+                if (is_attrlist) {
+                    error = smbfs_add_dir_entry_attr(share, dvp,
+                                                     enum_cache_currp->name, 
+                                                     enum_cache_currp->name_len,
+                                                     getattrlistbulk_argsp, &enum_cache_currp->fattr,
+                                                     uio, &max_fixed_len,
+                                                     context);
+                } else {
+                    error = smbfs_add_dir_entry(dvp, uio, flags,
+                                                enum_cache_currp->name,
+                                                enum_cache_currp->name_len,
+                                                &enum_cache_currp->fattr,
+                                                is_attrlist);
+
+                }
                 switch (error) {
                     case 0:
                         /* Item added successfully */
@@ -14659,17 +15509,17 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
                             first = 1;
                         }
 
-                        *ap->a_actualcount += 1;
+                        *countp += 1;
                         offset++;
-						if (offset > dnp->d_offset) {
-							/* 
-							 * To handle multiple threads enumerating at the 
-							 * same time, only increment d_offset if its less
-							 * than offset, meaning that we must have fetched
-							 * more entries from server
-							 */
-							dnp->d_offset++;
-						}
+                        if (offset > dnp->d_offset) {
+                            /*
+                             * To handle multiple threads enumerating at the
+                             * same time, only increment d_offset if its less
+                             * than offset, meaning that we must have fetched
+                             * more entries from server
+                             */
+                            dnp->d_offset++;
+                        }
 
                         /* Save last entry added for debugging */
                         strncpy(last_entry_namep, enum_cache_currp->name,
@@ -14735,7 +15585,7 @@ smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
 
         if ((dnp->d_main_cache.flags & kDirCachePartial) &&
             (add_remaining == 1)) {
-            /* 
+            /*
              * This time through loop was to just add the remaining entries
              * that we got right before hitting max number of entries allowed.
              */
@@ -14793,7 +15643,7 @@ fetch_new_entries:
                     SMB_LOG_DIR_CACHE2_LOCK(dnp, "Ran out of saved i %d skip %lld offset %lld start %lld offset %lld for <%s> \n",
                                             i, skip_count, offset, dnp->d_overflow_cache.start_offset,
                                             dnp->d_overflow_cache.offset, dnp->n_name);
-                    smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "Out of cached entries", 1);
+                    smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "Out of cached entries", 1, 0);
                     goto done_with_saved;
                 }
 
@@ -14828,13 +15678,21 @@ fetch_new_entries:
                                            dnp->n_name);
                     goto done_with_saved;
                 }
+                if (is_attrlist) {
+                    error = smbfs_add_dir_entry_attr(share, dvp,
+                                                     enum_cache_currp->name,
+                                                     enum_cache_currp->name_len,
+                                                     getattrlistbulk_argsp, &enum_cache_currp->fattr,
+                                                     uio, &max_fixed_len,
+                                                     context);
+                } else {
+                    error = smbfs_add_dir_entry(dvp, uio, flags,
+                                                enum_cache_currp->name,
+                                                enum_cache_currp->name_len,
+                                                &enum_cache_currp->fattr,
+                                                is_attrlist);
 
-                error = smbfs_add_dir_entry_attr(share, dvp,
-                                                 enum_cache_currp->name, enum_cache_currp->name_len,
-                                                 ap->a_alist, ap->a_options,
-                                                 vap, &enum_cache_currp->fattr,
-                                                 uio, &max_fixed_len,
-                                                 context);
+                }
                 switch (error) {
                     case 0:
                         /* Item added successfully */
@@ -14844,7 +15702,7 @@ fetch_new_entries:
                             first = 1;
                         }
 
-                        *ap->a_actualcount += 1;
+                        *countp += 1;
                         offset++;
                         if (offset > dnp->d_offset) {
                             /*
@@ -14920,19 +15778,30 @@ done_with_saved:
             SMB_LOG_DIR_CACHE_LOCK(dnp, "Using overflow for <%s> \n",
                                    dnp->n_name);
 
-            /* Overflow cache should now be empty and can be removed */
-            smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "done with saved", 1);
-
             /*
-             * Start the enumeration from beginning for overflow cache
+             * Currently, Finder has two threads enumerating at the same time
+             * don't remove entries that should be returned next from the cache
              */
-            smbfs_closedirlookup(dnp, 0, "switch to overflow", context);
+            off_t min_offset = smbfs_cookies_min_offset(dvp, key);
+            if (min_offset == 0 || offset < min_offset) {
+                /* this is the only thread enumerating or,
+                 * this is the thread with the smallest offset
+                 * note: offset may not be equal to cookie.resume_offset
+                 */
+                min_offset = offset;
+            }
+            
+            /*
+             * Remove entries in over flow cache up to min_offset
+             * as we expect another enumeration to continue from min_offset
+             */
+            smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "done with saved", 1, min_offset);
 
             overflow_error = smbfs_fetch_new_entries(share, dvp,
                                                      &dnp->d_overflow_cache, offset,
                                                      1, context);
             if ((overflow_error) && (overflow_error != ENOENT)) {
-				error = overflow_error;
+                error = overflow_error;
                 goto done;
             }
         }
@@ -14940,7 +15809,13 @@ done_with_saved:
         first = 0;
         bzero(last_entry_namep, PATH_MAX);
 
+        off_t overflow_offset = dnp->d_overflow_cache.start_offset;
         enum_cache_currp = dnp->d_overflow_cache.list;
+
+        while (overflow_offset < offset && enum_cache_currp != NULL) {
+            overflow_offset++;
+            enum_cache_currp = enum_cache_currp->next;
+        }
 
         /* Do we need to verify the resume entry? */
         if (check_resume) {
@@ -14975,13 +15850,21 @@ done_with_saved:
                 error = 0;
                 goto done;
             }
-            
-            error = smbfs_add_dir_entry_attr(share, dvp,
-                                             enum_cache_currp->name, enum_cache_currp->name_len,
-                                             ap->a_alist, ap->a_options,
-                                             vap, &enum_cache_currp->fattr,
-                                             uio, &max_fixed_len,
-                                             context);
+            if (is_attrlist) {
+                error = smbfs_add_dir_entry_attr(share, dvp,
+                                                 enum_cache_currp->name,
+                                                 enum_cache_currp->name_len,
+                                                 getattrlistbulk_argsp, &enum_cache_currp->fattr,
+                                                 uio, &max_fixed_len,
+                                                 context);
+            } else {
+                error = smbfs_add_dir_entry(dvp, uio, flags,
+                                            enum_cache_currp->name,
+                                            enum_cache_currp->name_len,
+                                            &enum_cache_currp->fattr,
+                                            is_attrlist);
+
+            }
             switch (error) {
                 case 0:
                     /* Item added successfully */
@@ -14995,7 +15878,7 @@ done_with_saved:
                     strncpy(last_entry_namep, enum_cache_currp->name,
                             PATH_MAX);
 
-                    *ap->a_actualcount += 1;
+                    *countp += 1;
                     offset++;
                     dnp->d_offset++;
                     break;
@@ -15028,12 +15911,11 @@ done_with_saved:
                                     last_entry_namep, dnp->n_name);
         }
 
-		if (overflow_error == ENOENT) {
-			SMB_LOG_DIR_CACHE_LOCK(dnp, "Overflow finished enumerating for <%s> \n",
-								   dnp->n_name);
-			error = ENOENT;
-		}
-		
+        if (overflow_error == ENOENT) {
+            SMB_LOG_DIR_CACHE_LOCK(dnp, "Overflow finished enumerating for <%s> \n",
+                                   dnp->n_name);
+            error = ENOENT;
+        }
         /* All done adding non cached entries */
         goto done;
     }
@@ -15042,10 +15924,9 @@ done:
     lck_mtx_unlock(&dnp->d_enum_cache_list_lock);
 
     if (error == ENOENT) {
-		SMB_LOG_DIR_CACHE_LOCK(dnp, "Setting EOF flag for <%s> \n",
+        SMB_LOG_DIR_CACHE_LOCK(dnp, "Setting EOF flag for <%s> \n",
                                dnp->n_name);
-		
-        *(ap->a_eofflag) = TRUE;
+        *is_eofp = TRUE;
         error = 0;
         
         /* At EOF, so next resume entry is NULL */
@@ -15066,42 +15947,150 @@ done:
         
         uio_setoffset(uio, key);
     }
-	
-	/* Update the global dir enum cache list */
-	tmp_error = smb_global_dir_cache_update_entry(dvp);
-	if (tmp_error == ENOENT) {
-		/* 
-		 * Not yet in list, so add it in. Since we added a dir to the global
-		 * cache, check to see if we need to remove an old dir.  We need to
-		 * do this check after we free the lock on this dir to prevent a 
-		 * deadlock <34561718>
-		 */
-		smb_global_dir_cache_add_entry(dvp, 0);
-	}
-    
-err_exit:
-    if (share != NULL) {
-        smb_share_rele(share, context);
+
+    /* Update the global dir enum cache list */
+    tmp_error = smb_global_dir_cache_update_entry(dvp);
+    if (tmp_error == ENOENT) {
+        /*
+         * Not yet in list, so add it in. Since we added a dir to the global
+         * cache, check to see if we need to remove an old dir.  We need to
+         * do this check after we free the lock on this dir to prevent a
+         * deadlock <34561718>
+         */
+        smb_global_dir_cache_add_entry(dvp, 0);
     }
     
-	SMB_LOG_DIR_CACHE_LOCK(dnp, "actual count %d for <%s> \n",
-                           *ap->a_actualcount, dnp->n_name);
+err_exit:
+    SMB_LOG_DIR_CACHE_LOCK(dnp, "actual count %d for <%s> \n",
+                           *countp, dnp->n_name);
 
-	nanotime(&stop);
+    nanotime(&stop);
     SMB_LOG_DIR_CACHE_LOCK(dnp, "elapsed time %ld for <%s>\n",
                            stop.tv_sec - start.tv_sec, dnp->n_name);
-
-    smbnode_unlock(VTOSMB(dvp));
-	
-	/* Do we need to prune the global dir enum cache list? */
-	smb_global_dir_cache_prune(NULL, 0, context);
-	
-    SMB_LOG_KTRACE(SMB_DBG_GET_ATTRLIST_BULK | DBG_FUNC_END,
-                   error, *ap->a_actualcount, 0, 0, 0);
     
     if (last_entry_namep != NULL) {
         SMB_FREE_DATA(last_entry_namep, PATH_MAX);
     }
+    /* Do we need to prune the global dir enum cache list? */
+    smb_global_dir_cache_prune(NULL, 0, context);
+    return error;
+}
+
+static int
+smbfs_vnop_getattrlistbulk(struct vnop_getattrlistbulk_args *ap)
+/* struct vnop_getattrlistbulk_args {
+ struct vnodeop_desc *a_desc;
+ vnode_t a_vp;
+ struct attrlist *a_alist;
+ struct vnode_attr *a_vap;
+ struct uio *a_uio;
+ void *a_private;
+ uint64_t a_options;
+ int32_t *a_eofflag;
+ int32_t *a_actualcount;
+ vfs_context_t a_context;
+ } *ap; */
+{
+    struct vnode *dvp = ap->a_vp;
+    uio_t uio = ap->a_uio;
+    int error = 0;
+    struct smbnode *dnp = VTOSMB(dvp);;
+    struct smb_share *share = NULL;
+    struct smb_session *sessionp = NULL;
+    struct smbmount *smp = NULL;
+    /*
+     * For smbfs_vnop_getattrlistbulk, we need to have all the meta data 
+     * fetched BEFORE we can pack and put the entry into the users buffer.
+     * In order to do this, the enumerations are done first and the results
+     * are stored in the dir cache. Then the meta data is fetched for each
+     * entry in the dir cache. Then, we use the dir cache to start filling in
+     * the user's buffer.
+     *
+     * Once the max number of entries allowed in the dir cache is reached,
+     * from then on, we use the overflow cache. The overflow cache is smaller
+     * and only kept briefly.
+     *
+     * The main cache holds g_max_dir_entries_cached entries and always caches
+     * from the beginning (offset 0). The overflow cache will cache a smaller
+     * range of entries and has a variable start_offset and offset to indicate
+     * the current cached range of entries. If the current enumeration is past
+     * the end of the main cache, but within the overflow cache, then the
+     * overflow cache used to return the entries. If the current enumeration 
+     * does not fall within the current overflow cache, then the dir is closed
+     * and the enumeration is started from the beginnning. Entries are skipped
+     * until the desired offset is reached, then that offset is saved as the
+     * starting offset for the overflow cache and the overflow cache is filled
+     * with the next kAsyncFetchCount number of entries.
+     *
+     * The actual offset stored in uio_offset is now a key value used to find
+     * a dir cookie that contains the information needed to resume an
+     * enumeration. This info is also used to validate where the dir has
+     * changed while we were in the middle of enumerating it.
+     */
+
+    /*
+     * offset - offset of item to start at
+     * d_offset - offset of next item to fetch from server
+     * dnp->d_main_cache.offset - offset of next item to be placed into dir cache
+     */
+
+    /* Check for invalid buffer space. */
+    if ((uio_resid(uio) <= 0) || (uio_iovcnt(uio) > 1)) {
+        SMBDEBUG("Invalid buf size\n");
+        return (EINVAL);
+    }
+    /* We should not need to allocate va_name */
+    if (VATTR_IS_ACTIVE(ap->a_vap, va_name)) {
+        SMB_ASSERT(ap->a_vap->va_name != NULL);
+    }
+    /*
+     * Lock parent dir that we are enumerating
+     */
+    if ((error = smbnode_lock(dnp, SMBFS_EXCLUSIVE_LOCK))) {
+        return (error);
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_GET_ATTRLIST_BULK | DBG_FUNC_START, dnp->d_fid, 0, 0, 0, 0);
+
+    dnp->n_lastvop = smbfs_vnop_getattrlistbulk;
+
+    /* See if dir caching is disabled or not */
+    smp = VFSTOSMBFS(vnode_mount(dvp));
+    if (smp != NULL) {
+        if (smp->sm_args.altflags & SMBFS_MNT_DIR_CACHE_OFF) {
+            SMB_LOG_DIR_CACHE("Dir Enumeration cache turned off \n");
+            error = ENOTSUP;
+            goto err_exit;
+        }
+    }
+
+    /* Get Share reference */
+    share = smb_get_share_with_reference(smp);
+   	sessionp = SS_TO_SESSION(share);
+
+    /*
+     * Non FAT Filesystem, named streams, and SMB 2/3 are required.
+     * smbfs_vnop_getattrlistbulk will always use dir caching.
+     */
+    if (!(sessionp->session_flags & SMBV_SMB2) ||
+        (share->ss_fstype == SMB_FS_FAT) ||
+        !(share->ss_attributes & FILE_NAMED_STREAMS)) {
+        SMB_LOG_DIR_CACHE("FAT or no named streams so smbfs_vnop_getattrlistbulk not supported \n");
+        error = ENOTSUP;
+        goto err_exit;
+    }
+
+    error = smbfs_enum_dir(dvp, uio, true, ap);
+
+err_exit:
+    smbnode_unlock(dnp);
+
+    if (share != NULL) {
+        smb_share_rele(share, ap->a_context);
+    }
+
+    SMB_LOG_KTRACE(SMB_DBG_GET_ATTRLIST_BULK | DBG_FUNC_END,
+                   error, *ap->a_actualcount, 0, 0, 0);
 
     return (error);
 }

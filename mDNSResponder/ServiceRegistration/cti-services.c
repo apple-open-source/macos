@@ -28,6 +28,7 @@
 #include <os/log.h>
 #include <netinet/in.h>
 #include <net/if.h>
+#include <arpa/inet.h>
 #include <netinet6/in6_var.h>
 #include <netinet/icmp6.h>
 #include <netinet6/nd6.h>
@@ -848,33 +849,66 @@ cti_internal_string_event_reply(cti_connection_t NONNULL conn_ref, object_t repl
     cti_string_property_reply_t callback = conn_ref->callback.string_property_reply;
     xpc_retain(reply);
     cti_status_t status = status_in;
-    const char *tunnel_name = NULL;
+    const char *string_value = NULL;
     if (status == kCTIStatus_NoError) {
-        uint64_t command_result = xpc_dictionary_get_int64(reply, "commandResult");
-        if (command_result != 0) {
-            ERROR("[CX%d] cti_internal_tunnel_reply_callback: nonzero result %llu", conn_ref->serial, command_result);
-            status = kCTIStatus_UnknownError;
+        // Initial reply (events do a get as well as subscribing to events, and the responses look different.
+        xpc_object_t command_result_value = xpc_dictionary_get_value(reply, "commandResult");
+        if (command_result_value != NULL) {
+            uint64_t command_result = xpc_int64_get_value(command_result_value);
+            if (command_result != 0) {
+                ERROR("[CX%d] nonzero result %llu", conn_ref->serial, command_result);
+                status = kCTIStatus_UnknownError;
+            } else {
+                object_t result_dictionary = xpc_dictionary_get_dictionary(reply, "commandData");
+                if (status == kCTIStatus_NoError) {
+                    if (result_dictionary != NULL) {
+                        const char *property_name = xpc_dictionary_get_string(result_dictionary, "property_name");
+                        if (property_name == NULL || strcmp(property_name, conn_ref->return_property_name)) {
+                            status = kCTIStatus_UnknownError;
+                        } else {
+                            string_value = xpc_dictionary_get_string(result_dictionary, "value");
+                            if (string_value == NULL) {
+                                status = kCTIStatus_UnknownError;
+                            }
+                        }
+                    } else {
+                        status = kCTIStatus_UnknownError;
+                    }
+                }
+            }
         } else {
-            object_t result_dictionary = xpc_dictionary_get_dictionary(reply, "commandData");
-            if (status == kCTIStatus_NoError) {
-                if (result_dictionary != NULL) {
-                    const char *property_name = xpc_dictionary_get_string(result_dictionary, "property_name");
-                    if (property_name == NULL || strcmp(property_name, conn_ref->return_property_name)) {
+            xpc_object_t event_data_dict = xpc_dictionary_get_dictionary(reply, "eventData");
+            if (event_data_dict == NULL) {
+                ERROR("[CX%d] no eventData dictionary", conn_ref->serial);
+                status = kCTIStatus_UnknownError;
+            } else {
+                // Event data looks like { "v_type" : 13, "path": <string>, "value": <string>, "key": <property_name> }
+                xpc_object_t value_array = xpc_dictionary_get_array(event_data_dict, "value");
+                if (value_array == NULL) {
+                    ERROR("[CX%d] eventData dictionary contains no 'value' key", conn_ref->serial);
+                    status = kCTIStatus_UnknownError;
+                } else {
+                    size_t count = xpc_array_get_count(value_array);
+                    if (count < 1) {
+                        ERROR("[CX%d] eventData value array has no elements", conn_ref->serial);
                         status = kCTIStatus_UnknownError;
                     } else {
-                        tunnel_name = xpc_dictionary_get_string(result_dictionary, "value");
-                        if (tunnel_name == NULL) {
+                        if (count > 1) {
+                            ERROR("[CX%d] eventData value array has %zd elements", conn_ref->serial, count);
+                            // This is weird, but we're not going to deliberately fail because of it.
+                        }
+                        string_value = xpc_array_get_string(value_array, 0);
+                        if (string_value == NULL) {
+                            ERROR("[CX%d] eventData value array's first element is not a string", conn_ref->serial);
                             status = kCTIStatus_UnknownError;
                         }
                     }
-                } else {
-                    status = kCTIStatus_UnknownError;
                 }
             }
         }
     }
     if (callback != NULL) {
-        callback(conn_ref->context, tunnel_name, status);
+        callback(conn_ref->context, string_value, status);
     }
     xpc_release(reply);
 }
@@ -1181,12 +1215,16 @@ cti_internal_network_node_type_callback(cti_connection_t NONNULL conn_ref, objec
                     network_node_type = kCTI_NetworkNodeType_EndDevice;
                 } else if (!strcmp(node_type_name, "sleepy-end-device")) {
                     network_node_type = kCTI_NetworkNodeType_SleepyEndDevice;
+                } else if (!strcmp(node_type_name, "synchronized-sleepy-end-device")) {
+                    network_node_type = kCTI_NetworkNodeType_SynchronizedSleepyEndDevice;
                 } else if (!strcmp(node_type_name, "nl-lurker")) {
                     network_node_type = kCTI_NetworkNodeType_NestLurker;
                 } else if (!strcmp(node_type_name, "commissioner")) {
                     network_node_type = kCTI_NetworkNodeType_Commissioner;
                 } else if (!strcmp(node_type_name, "leader")) {
                     network_node_type = kCTI_NetworkNodeType_Leader;
+                } else if (!strcmp(node_type_name, "sleepy-router")) {
+                    network_node_type = kCTI_NetworkNodeType_SleepyRouter;
                 }
             }
         }
@@ -2254,6 +2292,150 @@ cti_get_rloc16_(srp_server_t *UNUSED server, cti_connection_t *ref,
 
     return errx;
 }
+
+static void
+cti_internal_wed_reply_callback(cti_connection_t NONNULL conn_ref, object_t reply, cti_status_t status_in)
+{
+    cti_wed_reply_t callback = conn_ref->callback.wed_reply;
+    cti_service_vec_t *vec = NULL;
+    cti_status_t status = status_in;
+
+    const char *extended_mac = NULL;
+    const char *ml_eid = NULL;
+    bool added = false;
+
+    if (status == kCTIStatus_NoError) {
+        object_t result_dictionary = NULL;
+        status = cti_event_or_response_extract(reply, &result_dictionary);
+        if (status == kCTIStatus_NoError) {
+            object_t *value_array = xpc_dictionary_get_array(result_dictionary, "value");
+            if (value_array == NULL) {
+                INFO("[CX%d] wed status array not present in wed status event.", conn_ref->serial);
+                goto out;
+            } else {
+                size_t value_array_length = xpc_array_get_count(value_array);
+                for (size_t i = 0; i < value_array_length; i++) {
+                    object_t *elt = xpc_array_get_value(value_array, i);
+                    xpc_type_t type = xpc_get_type(elt);
+                    if (type != XPC_TYPE_DICTIONARY) {
+                        ERROR("non-dictionary element of value array");
+                        goto out;
+                    }
+                    const char *key = xpc_dictionary_get_string(elt, "key");
+                    if (key == NULL) {
+                        ERROR("no key in value array");
+                        goto out;
+                    }
+                    const char *value = xpc_dictionary_get_string(elt, "value");
+                    if (!strcmp(key, "extendedMACAddress")) {
+                        extended_mac = value;
+                    } else if (!strcmp(key, "mleid")) {
+                        ml_eid = value;
+                    } else if (!strcmp(key, "status")) {
+                        if (!strcmp(value, "wed_added")) {
+                            added = true;
+                        } else if (!strcmp(value, "wed_removed")) {
+                            added = false;
+                        } else {
+                            ERROR("unknown wed status " PUB_S_SRP, value);
+                            goto out;
+                        }
+                    } else {
+                        if (value == NULL) {
+                            INFO("unknown key in response: " PUB_S_SRP, key);
+                        } else {
+                            INFO("unknown key " PUB_S_SRP " with value " PRI_S_SRP, key, value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+out:
+    if (callback != NULL) {
+        if (added && (ml_eid == NULL || extended_mac == NULL)) {
+            added = false;
+        }
+        INFO("[CX%d] calling callback for %p", conn_ref->serial, conn_ref);
+        callback(conn_ref->context, extended_mac, ml_eid, added, status);
+    }
+    if (vec != NULL) {
+        RELEASE_HERE(vec, cti_service_vec);
+    }
+}
+
+cti_status_t
+cti_track_wed_status_(srp_server_t *UNUSED server, cti_connection_t *ref, void *NULLABLE context,
+                      cti_wed_reply_t NONNULL callback, run_context_t NULLABLE client_queue,
+                      const char *file, int line)
+{
+    cti_callback_t app_callback;
+    app_callback.wed_reply = callback;
+    cti_status_t errx;
+    object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+
+    xpc_dictionary_set_string(dict, "interface", "org.wpantund.v1");
+    xpc_dictionary_set_string(dict, "path", "/org/wpantund/utun2");
+    xpc_dictionary_set_string(dict, "method", "PropGet");
+    xpc_dictionary_set_string(dict, "property_name", "WakeOnDeviceConnectionStatus");
+
+    errx = setup_for_command(ref, client_queue, "get_wed_status", "WakeOnDeviceConnectionStatus", NULL, dict, "WpanctlCmd",
+                             context, app_callback, cti_internal_wed_reply_callback, false, file, line);
+    xpc_release(dict);
+
+    return errx;
+}
+
+cti_status_t
+cti_track_neighbor_ml_eid_(srp_server_t *UNUSED server, cti_connection_t *ref, void *NULLABLE context,
+                           cti_string_property_reply_t NONNULL callback, run_context_t NULLABLE client_queue,
+                           const char *file, int line)
+{
+    cti_callback_t app_callback;
+    app_callback.string_property_reply = callback;
+    cti_status_t errx;
+    object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+
+    xpc_dictionary_set_string(dict, "interface", "org.wpantund.v1");
+    xpc_dictionary_set_string(dict, "path", "/org/wpantund/utun2");
+    xpc_dictionary_set_string(dict, "method", "PropGet");
+    xpc_dictionary_set_string(dict, "property_name", "ThreadNeighborMeshLocalAddress");
+
+    errx = setup_for_command(ref, client_queue, "get_neighbor_ml_eid", "ThreadNeighborMeshLocalAddress", "ThreadNeighborMeshLocalAddress", dict, "WpanctlCmd",
+                             context, app_callback, cti_internal_string_event_reply, false, file, line);
+    xpc_release(dict);
+
+    return errx;
+}
+
+cti_status_t
+cti_add_ml_eid_mapping_(srp_server_t *UNUSED server, void *NULLABLE context,
+                        cti_reply_t NONNULL callback, run_context_t NULLABLE client_queue,
+                        struct in6_addr *omr_addr, struct in6_addr *ml_eid, const char *hostname,
+                        const char *file, int line)
+{
+    cti_callback_t app_callback;
+    app_callback.reply = callback;
+    cti_status_t errx;
+    object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+    char addrbuf[INET6_ADDRSTRLEN];
+
+    xpc_dictionary_set_string(dict, "interface", "org.wpantund.v1");
+    xpc_dictionary_set_string(dict, "path", "/org/wpantund/utun2");
+    xpc_dictionary_set_string(dict, "method", "UpdateAccessoryData");
+    inet_ntop(AF_INET6, omr_addr, addrbuf, sizeof(addrbuf));
+    xpc_dictionary_set_string(dict, "ipaddr_add", addrbuf);
+    inet_ntop(AF_INET6, ml_eid, addrbuf, sizeof(addrbuf));
+    xpc_dictionary_set_string(dict, "ipaddr_lookup", addrbuf);
+    xpc_dictionary_set_string(dict, "host_info", hostname);
+
+    errx = setup_for_command(NULL, client_queue, "add_mle_mapping", NULL, NULL, dict, "WpanctlCmd",
+                             context, app_callback, cti_internal_reply_callback, false, file, line);
+    xpc_release(dict);
+
+    return errx;
+}
+
 
 cti_status_t
 cti_events_discontinue(cti_connection_t ref)

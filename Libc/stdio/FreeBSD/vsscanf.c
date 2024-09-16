@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.14 2008/04/17 22:17:54 jhb 
 #include <stdio.h>
 #include <string.h>
 #include "local.h"
+#include "libc_hooks_impl.h"
 
 static int
 eofread(void *, char *, int);
@@ -61,6 +62,8 @@ vsscanf_l(const char * __restrict str, locale_t loc,
 	struct __sFILEX ext;
 	f._extra = &ext;
 	INITEXTRA(&f);
+
+	libc_hooks_will_read_cstring(str);
 
 	f._file = -1;
 	f._flags = __SRD;

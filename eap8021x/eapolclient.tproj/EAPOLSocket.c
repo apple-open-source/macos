@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020, 2023 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1091,7 +1091,6 @@ is_link_active(const char * name)
 PRIVATE_EXTERN void
 EAPOLSocketSourceUpdateWiFiLocalMACAddress(EAPOLSocketRef sock)
 {
-#if TARGET_OS_IOS || TARGET_OS_WATCH
     LinkAddressesRef 		link_addrs = NULL;
     EAPOLSocketSourceRef	source = sock->source;
 
@@ -1120,7 +1119,6 @@ failed:
     if (link_addrs != NULL) {
 	LinkAddresses_free(&link_addrs);
     }
-#endif /* TARGET_OS_IOS || TARGET_OS_WATCH */
     return;
 }
 

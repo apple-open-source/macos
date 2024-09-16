@@ -77,7 +77,7 @@
 #include <wtf/Ref.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -135,7 +135,7 @@ private:
 
     String mergeId() final
     {
-        return "SetStyleSheetText " + m_styleSheet->id();
+        return makeString("SetStyleSheetText "_s, m_styleSheet->id());
     }
 
     void merge(std::unique_ptr<Action> action) override
@@ -176,7 +176,7 @@ public:
     String mergeId() override
     {
         ASSERT(m_styleSheet->id() == m_cssId.styleSheetId());
-        return makeString("SetStyleText ", m_styleSheet->id(), ':', m_cssId.ordinal());
+        return makeString("SetStyleText "_s, m_styleSheet->id(), ':', m_cssId.ordinal());
     }
 
     void merge(std::unique_ptr<Action> action) override
@@ -416,22 +416,8 @@ std::optional<Inspector::Protocol::CSS::PseudoId> InspectorCSSAgent::protocolVal
         return Inspector::Protocol::CSS::PseudoId::Selection;
     case PseudoId::Highlight:
         return Inspector::Protocol::CSS::PseudoId::Highlight;
-    case PseudoId::Scrollbar:
-        return Inspector::Protocol::CSS::PseudoId::Scrollbar;
-    case PseudoId::ScrollbarThumb:
-        return Inspector::Protocol::CSS::PseudoId::ScrollbarThumb;
-    case PseudoId::ScrollbarButton:
-        return Inspector::Protocol::CSS::PseudoId::ScrollbarButton;
-    case PseudoId::ScrollbarTrack:
-        return Inspector::Protocol::CSS::PseudoId::ScrollbarTrack;
-    case PseudoId::ScrollbarTrackPiece:
-        return Inspector::Protocol::CSS::PseudoId::ScrollbarTrackPiece;
-    case PseudoId::ScrollbarCorner:
-        return Inspector::Protocol::CSS::PseudoId::ScrollbarCorner;
     case PseudoId::SpellingError:
         return Inspector::Protocol::CSS::PseudoId::SpellingError;
-    case PseudoId::Resizer:
-        return Inspector::Protocol::CSS::PseudoId::Resizer;
     case PseudoId::ViewTransition:
         return Inspector::Protocol::CSS::PseudoId::ViewTransition;
     case PseudoId::ViewTransitionGroup:
@@ -442,6 +428,22 @@ std::optional<Inspector::Protocol::CSS::PseudoId> InspectorCSSAgent::protocolVal
         return Inspector::Protocol::CSS::PseudoId::ViewTransitionOld;
     case PseudoId::ViewTransitionNew:
         return Inspector::Protocol::CSS::PseudoId::ViewTransitionNew;
+    case PseudoId::WebKitResizer:
+        return Inspector::Protocol::CSS::PseudoId::WebKitResizer;
+    case PseudoId::WebKitScrollbar:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbar;
+    case PseudoId::WebKitScrollbarThumb:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbarThumb;
+    case PseudoId::WebKitScrollbarButton:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbarButton;
+    case PseudoId::WebKitScrollbarTrack:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbarTrack;
+    case PseudoId::WebKitScrollbarTrackPiece:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbarTrackPiece;
+    case PseudoId::WebKitScrollbarCorner:
+        return Inspector::Protocol::CSS::PseudoId::WebKitScrollbarCorner;
+    case PseudoId::InternalWritingSuggestions:
+        return { };
 
     default:
         ASSERT_NOT_REACHED();
@@ -461,7 +463,7 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Inspector::Pr
         return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
 
     Element* originalElement = element;
-    PseudoId elementPseudoId = element->pseudoId();
+    auto elementPseudoId = element->pseudoId();
     if (elementPseudoId != PseudoId::None) {
         element = downcast<PseudoElement>(*element).hostElement();
         if (!element)
@@ -470,7 +472,7 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Inspector::Pr
 
     // Matched rules.
     auto& styleResolver = element->styleResolver();
-    auto matchedRules = styleResolver.pseudoStyleRulesForElement(element, elementPseudoId, Style::Resolver::AllCSSRules);
+    auto matchedRules = styleResolver.pseudoStyleRulesForElement(element, elementPseudoId == PseudoId::None ? std::nullopt : std::optional(Style::PseudoElementIdentifier { elementPseudoId }), Style::Resolver::AllCSSRules);
     auto matchedCSSRules = buildArrayForMatchedRuleList(matchedRules, styleResolver, *element, elementPseudoId);
     RefPtr<JSON::ArrayOf<Inspector::Protocol::CSS::PseudoIdMatches>> pseudoElements;
     RefPtr<JSON::ArrayOf<Inspector::Protocol::CSS::InheritedStyleEntry>> inherited;
@@ -507,8 +509,8 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Inspector::Pr
                 auto entry = Inspector::Protocol::CSS::InheritedStyleEntry::create()
                     .setMatchedCSSRules(buildArrayForMatchedRuleList(parentMatchedRules, styleResolver, ancestor, PseudoId::None))
                     .release();
-                if (is<StyledElement>(ancestor) && downcast<StyledElement>(ancestor).cssomStyle().length()) {
-                    auto& styleSheet = asInspectorStyleSheet(downcast<StyledElement>(ancestor));
+                if (RefPtr styledElement = dynamicDowncast<StyledElement>(ancestor); styledElement && styledElement->cssomStyle().length()) {
+                    auto& styleSheet = asInspectorStyleSheet(*styledElement);
                     entry->setInlineStyle(styleSheet.buildObjectForStyle(styleSheet.styleForId(InspectorCSSId(styleSheet.id(), 0))));
                 }
                 inherited->addItem(WTFMove(entry));
@@ -527,12 +529,12 @@ Inspector::Protocol::ErrorStringOr<std::tuple<RefPtr<Inspector::Protocol::CSS::C
     if (!element)
         return makeUnexpected(errorString);
 
-    if (!is<StyledElement>(element))
+    RefPtr styledElement = dynamicDowncast<StyledElement>(*element);
+    if (!styledElement)
         return { { nullptr, nullptr } };
 
-    auto& styledElement = downcast<StyledElement>(*element);
-    auto& styleSheet = asInspectorStyleSheet(styledElement);
-    return { { styleSheet.buildObjectForStyle(&styledElement.cssomStyle()), buildObjectForAttributesStyle(styledElement) } };
+    auto& styleSheet = asInspectorStyleSheet(*styledElement);
+    return { { styleSheet.buildObjectForStyle(&styledElement->cssomStyle()), buildObjectForAttributesStyle(*styledElement) } };
 }
 
 Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::CSSComputedStyleProperty>>> InspectorCSSAgent::getComputedStyleForNode(Inspector::Protocol::DOM::NodeId nodeId)
@@ -546,7 +548,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::CSS::C
     if (!element->isConnected())
         return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
 
-    auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, true);
+    auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, CSSComputedStyleDeclaration::AllowVisited::Yes);
     auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), WTFMove(computedStyleInfo), nullptr);
     return inspectorStyle->buildArrayForComputedStyle();
 }
@@ -934,7 +936,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorCSSAgent::forcePseudoState(Ins
 
         auto pseudoClass = Inspector::Protocol::Helpers::parseEnumValueFromString<Inspector::Protocol::CSS::ForceablePseudoClass>(pseudoClassString);
         if (!pseudoClass)
-            return makeUnexpected(makeString("Unknown forcedPseudoClass: ", pseudoClassString));
+            return makeUnexpected(makeString("Unknown forcedPseudoClass: "_s, pseudoClassString));
 
         switch (*pseudoClass) {
         case Inspector::Protocol::CSS::ForceablePseudoClass::Active:
@@ -1036,7 +1038,7 @@ OptionSet<InspectorCSSAgent::LayoutFlag> InspectorCSSAgent::layoutFlagsForNode(N
                 if (frameView->isScrollable())
                     layoutFlags.add(InspectorCSSAgent::LayoutFlag::Scrollable);
             }
-        } else if (is<RenderBox>(*renderer) && downcast<RenderBox>(*renderer).canBeScrolledAndHasScrollableArea())
+        } else if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*renderer); renderBox && renderBox->canBeScrolledAndHasScrollableArea())
             layoutFlags.add(InspectorCSSAgent::LayoutFlag::Scrollable);
     }
 

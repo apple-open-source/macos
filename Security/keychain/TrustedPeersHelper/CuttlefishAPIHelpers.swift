@@ -60,3 +60,27 @@ extension FetchRecoverableTLKSharesResponse.View {
         return records.compactMap { $0 }
     }
 }
+
+extension CurrentCKKSItem {
+    func convert() -> CuttlefishCurrentItem {
+        return CuttlefishCurrentItem(self.itemSpecifier.convert(), item: CKRecord(self.item)!)
+    }
+}
+
+extension CurrentCKKSItemSpecifier {
+    func convert() -> CuttlefishCurrentItemSpecifier {
+        return CuttlefishCurrentItemSpecifier(self.itemPointerName, zoneID: self.zone)
+    }
+}
+
+extension PCSService {
+    func convert() -> CuttlefishPCSServiceIdentifier {
+        return CuttlefishPCSServiceIdentifier(self.serviceIdentifier as NSNumber, pcsPublicKey: self.publicKey, zoneID: self.zone)
+    }
+}
+
+extension DirectPCSIdentity {
+    func convert() -> CuttlefishPCSIdentity {
+        return CuttlefishPCSIdentity(self.pcsService.convert(), item: CKRecord(self.item)!)
+    }
+}

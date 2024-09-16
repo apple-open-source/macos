@@ -79,7 +79,7 @@ void Adapter::getProperties(WGPUAdapterProperties& properties)
 
 bool Adapter::hasFeature(WGPUFeatureName feature)
 {
-    return std::find(m_capabilities.features.begin(), m_capabilities.features.end(), feature);
+    return m_capabilities.features.contains(feature);
 }
 
 void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHandler<void(WGPURequestDeviceStatus, Ref<Device>&&, String&&)>&& callback)
@@ -117,7 +117,7 @@ void Adapter::requestDevice(const WGPUDeviceDescriptor& descriptor, CompletionHa
     } else
         limits = defaultLimits();
 
-    auto features = Vector { descriptor.requiredFeatures, descriptor.requiredFeatureCount };
+    Vector<WGPUFeatureName> features(std::span { descriptor.requiredFeatures, descriptor.requiredFeatureCount });
     if (includesUnsupportedFeatures(features, m_capabilities.features)) {
         callback(WGPURequestDeviceStatus_Error, Device::createInvalid(*this), "Device does not support requested features"_s);
         return;

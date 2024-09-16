@@ -138,7 +138,7 @@ static void runWithoutAnimations(const WTF::Function<void()>& function)
     [CATransaction commit];
 }
 
-RefPtr<LocalSampleBufferDisplayLayer> LocalSampleBufferDisplayLayer::create(Client& client)
+RefPtr<LocalSampleBufferDisplayLayer> LocalSampleBufferDisplayLayer::create(SampleBufferDisplayLayerClient& client)
 {
     RetainPtr<AVSampleBufferDisplayLayer> sampleBufferDisplayLayer;
     @try {
@@ -152,11 +152,11 @@ RefPtr<LocalSampleBufferDisplayLayer> LocalSampleBufferDisplayLayer::create(Clie
     return adoptRef(*new LocalSampleBufferDisplayLayer(WTFMove(sampleBufferDisplayLayer), client));
 }
 
-LocalSampleBufferDisplayLayer::LocalSampleBufferDisplayLayer(RetainPtr<AVSampleBufferDisplayLayer>&& sampleBufferDisplayLayer, Client& client)
+LocalSampleBufferDisplayLayer::LocalSampleBufferDisplayLayer(RetainPtr<AVSampleBufferDisplayLayer>&& sampleBufferDisplayLayer, SampleBufferDisplayLayerClient& client)
     : SampleBufferDisplayLayer(client)
     , m_statusChangeListener(adoptNS([[WebAVSampleBufferStatusChangeListener alloc] initWithParent:this]))
     , m_sampleBufferDisplayLayer(WTFMove(sampleBufferDisplayLayer))
-    , m_processingQueue(WorkQueue::create("LocalSampleBufferDisplayLayer queue"))
+    , m_processingQueue(WorkQueue::create("LocalSampleBufferDisplayLayer queue"_s))
 #if !RELEASE_LOG_DISABLED
     , m_frameRateMonitor([this](auto info) { onIrregularFrameRateNotification(info.frameTime, info.lastFrameTime); })
 #endif
@@ -196,10 +196,10 @@ LocalSampleBufferDisplayLayer::~LocalSampleBufferDisplayLayer()
 
     m_pendingVideoFrameQueue.clear();
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_sampleBufferDisplayLayer stopRequestingMediaData];
     [m_sampleBufferDisplayLayer flush];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     m_sampleBufferDisplayLayer = nullptr;
 
     m_rootLayer = nullptr;
@@ -221,15 +221,15 @@ void LocalSampleBufferDisplayLayer::setShouldMaintainAspectRatio(bool shouldMain
 void LocalSampleBufferDisplayLayer::layerStatusDidChange()
 {
     ASSERT(isMainThread());
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (m_client && m_sampleBufferDisplayLayer.get().status == AVQueuedSampleBufferRenderingStatusFailed) {
+ALLOW_DEPRECATED_DECLARATIONS_END
         RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::layerStatusDidChange going to failed status (%{public}s) ", m_logIdentifier.utf8().data());
         if (!m_didFail) {
             m_didFail = true;
             m_client->sampleBufferDisplayLayerStatusDidFail();
         }
     }
-    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void LocalSampleBufferDisplayLayer::layerErrorDidChange()
@@ -254,9 +254,9 @@ PlatformLayer* LocalSampleBufferDisplayLayer::rootLayer()
 
 bool LocalSampleBufferDisplayLayer::didFail() const
 {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return m_didFail || [m_sampleBufferDisplayLayer status] == AVQueuedSampleBufferRenderingStatusFailed;
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void LocalSampleBufferDisplayLayer::updateDisplayMode(bool hideDisplayLayer, bool hideRootLayer)
@@ -314,9 +314,9 @@ void LocalSampleBufferDisplayLayer::flush()
         if (!protectedThis)
             return;
 
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [m_sampleBufferDisplayLayer flush];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     });
 }
 
@@ -328,9 +328,9 @@ void LocalSampleBufferDisplayLayer::flushAndRemoveImage()
             return;
 
         @try {
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             [m_sampleBufferDisplayLayer flushAndRemoveImage];
-            ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
         } @catch(id exception) {
             RELEASE_LOG_ERROR(WebRTC, "LocalSampleBufferDisplayLayer::flushAndRemoveImage failed");
             layerErrorDidChange();
@@ -399,9 +399,9 @@ void LocalSampleBufferDisplayLayer::enqueueBufferInternal(CVPixelBufferRef pixel
     if (m_renderPolicy == RenderPolicy::Immediately || now >= presentationTime)
         setSampleBufferAsDisplayImmediately(sampleBuffer.get());
 
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_sampleBufferDisplayLayer enqueueSampleBuffer:sampleBuffer.get()];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if !RELEASE_LOG_DISABLED
     constexpr size_t frameCountPerLog = 1800; // log every minute at 30 fps
@@ -475,7 +475,7 @@ void LocalSampleBufferDisplayLayer::requestNotificationWhenReadyForVideoData()
     assertIsCurrent(workQueue());
 
     ThreadSafeWeakPtr weakThis { *this };
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_sampleBufferDisplayLayer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
         auto protectedThis = weakThis.get();
         if (!protectedThis)
@@ -498,7 +498,7 @@ void LocalSampleBufferDisplayLayer::requestNotificationWhenReadyForVideoData()
             }
         });
     }];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 }

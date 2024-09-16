@@ -44,7 +44,9 @@ strcoll_l(const char *s, const char *s2, locale_t loc)
 	int sverrno;
 
 	NORMALIZE_LOCALE(loc);
-	if (loc->__collate_load_error || (t = __collate_mbstowcs(s, loc)) == NULL || (t2 = __collate_mbstowcs(s2, loc)) == NULL) {
+	if (XLOCALE_COLLATE(loc)->__collate_load_error ||
+	    (t = __collate_mbstowcs(s, loc)) == NULL ||
+	    (t2 = __collate_mbstowcs(s2, loc)) == NULL) {
 		sverrno = errno;
 		free((void *)t);
 		free((void *)t2);

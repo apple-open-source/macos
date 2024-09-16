@@ -1,0 +1,76 @@
+hostname lookup for ipv4 doesn't do the right thing. // FIXME
+==> do the loop thing for getaddrinfo
+
+specifying a ipv4 address gets me no socket at all now // FIXED
+
+specifying a ipv6 address doesn't work? // FIXED
+
+%%
+
+TCP mode:
+- :port			bind to local port and await connection
+- hostname:port		connect to remote machine/port
+- hostname:port:hostname:port		connect to remote machine/port
+
+192.168.175.48 = 816818368
+
+audio mode option parsing
+
+TCP/IP socket functionality:
+- good ifdef's to get rid of it
+- good ifdef's to get rid of hostname resolution
+- specification for local binding
+- Manpage
+- usage()
+
+nicht gegen -k linken wenn audio support nicht drin
+
+zlib:
+- z <compressionlevel>
+  negative compressionlevel = bzip2
+  compressionlevel = - decompress (bzip2 auto-detection)
+
+%%
+
+Current mode durrently doesn't speed up, I probably overlooked some
+obvious synchronization.
+
+"Since first transfer" should also exclude the last write (or at least
+the close, important on tapes).
+
+Support -B option to set blocksize for writes, if not already set by
+-b, which will continue to set both unless -B has been used before.
+
+In concurrent mode, who is going to report what? Parent is easier
+handling-wise, but it cannot report output throughput without having
+an upward pipe. But we may need such a pipe soon anyway.
+
+Don't use the required blocksize for the pipe in concurrent mode. This
+can easily be done if read and write block size are specified
+seperately and then just set obs in the parent and ibs in the child to
+a useful value (maybe even to be specified by the user, cause it's a
+space vs. number of syscalls tradeoff).
+
+Throughput report not only as 'since program started', but also as
+'since first read/write succeeded' (also subsctract the amount of data
+this syscall took) and 'only take time spent on incoming or outgoing
+side into account'.
+
+poll/select:
+- poll nur auf lesefd
+- danach haben wir einen (teil-)block
+1) wenn im puffer noch platz fuer einen block, dann poll auf beide fd
+   wenn nicht, dann poll nur auf schreibfd
+- wenn wir lesefd zurueckkriegen, dann puffer um diesen Block
+  erweitern
+- wenn wir schreibfd zurueckkriegen, dann den pointer im buffer
+  erhoehen, um das was wir weggeschrieben haben.
+
+- wenn kein Platz mehr zum lesen, dann leerschreiben. Wenn
+  leergeschrieben und kein platz mehr zum lesen, dann reset
+  von curread und curwrite
+
+Manpage:
+-S
+-c 4
+-w

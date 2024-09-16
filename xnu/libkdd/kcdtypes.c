@@ -634,6 +634,13 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		break;
 	}
 
+	case STACKSHOT_KCTYPE_OS_BUILD_VERSION: {
+		i = 0;
+		_STRINGTYPE("os_build_version");
+		setup_type_definition(retval, type_id, i, "os_build_version");
+		break;
+	}
+
 	case STACKSHOT_KCTYPE_KERN_PAGE_SIZE: {
 		i = 0;
 		setup_subtype_description(&subtypes[i++], KC_ST_UINT32, 0, "kernel_page_size");
@@ -987,7 +994,13 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		setup_type_definition(retval, type_id, 1, "cs_trust_level");
 		break;
 	}
-
+	case TASK_CRASHINFO_JIT_ADDRESS_RANGE: {
+		i = 0;
+		_SUBTYPE(KC_ST_UINT64, struct crashinfo_jit_address_range, start_address);
+		_SUBTYPE(KC_ST_UINT64, struct crashinfo_jit_address_range, end_address);
+		setup_type_definition(retval, type_id, 1, "jit_address_range");
+		break;
+	}
 	case EXIT_REASON_SNAPSHOT: {
 		_SUBTYPE(KC_ST_UINT32, struct exit_reason_snapshot, ers_namespace);
 		_SUBTYPE(KC_ST_UINT64, struct exit_reason_snapshot, ers_code);

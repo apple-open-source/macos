@@ -28,6 +28,24 @@
 
 #if ENABLE(B3_JIT)
 
+// On Windows, there's macros for these which interfere with the opcodes
+#pragma push_macro("RotateLeft32")
+#pragma push_macro("RotateLeft64")
+#pragma push_macro("RotateRight32")
+#pragma push_macro("RotateRight64")
+#pragma push_macro("StoreFence")
+#pragma push_macro("LoadFence")
+#pragma push_macro("MemoryFence")
+
+#undef RotateLeft32
+#undef RotateLeft64
+#undef RotateRight32
+#undef RotateRight64
+#undef StoreFence
+#undef LoadFence
+#undef MemoryFence
+
+#if USE(JSVALUE64)
 #include "AirBlockInsertionSet.h"
 #include "AirCCallSpecial.h"
 #include "AirCode.h"
@@ -104,7 +122,7 @@ public:
         , m_procedure(procedure)
         , m_code(procedure.code())
         , m_blockInsertionSet(m_code)
-#if CPU(X86) || CPU(X86_64)
+#if CPU(X86_64)
         , m_eax(X86Registers::eax)
         , m_ecx(X86Registers::ecx)
         , m_edx(X86Registers::edx)
@@ -599,7 +617,9 @@ private:
             if (m_locked.contains(left) || m_locked.contains(right)
                 || !Arg::isValidIndexForm(Air::Move, 1, offset, width))
                 return fallback();
-            
+
+            if (isMergeableValue(left, ZExt32) || isMergeableValue(left, SExt32))
+                return indexArg(tmp(right), left, 1, offset);
             return indexArg(tmp(left), right, 1, offset);
         }
 
@@ -3351,9 +3371,18 @@ private:
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
 
-            // EXTR Pattern: d = ((n & mask) << highWidth) | (m >> lowWidth)
-            // Where: highWidth = datasize - lowWidth
-            //        mask = (1 << lowWidth) - 1
+            // Turn this: d = ((n & mask) << highWidth) | (m >>> lowWidth)
+            // Into this: EXTR Rd Rn Rm lsb
+            //
+            //                 Rn               Rm
+            //         |<---datasize--->|<---datasize--->|
+            //                  |<---datasize--->|<-lsb->|
+            //                          Rd
+            //
+            // Conditions:
+            //     lowWidth = lsb (0 <= lsb < datasize)
+            //     highWidth = datasize - lowWidth
+            //     mask = (1 << lowWidth) - 1
             auto tryAppendEXTR = [&] (Value* left, Value* right) -> bool {
                 Air::Opcode opcode = opcodeForType(ExtractRegister32, ExtractRegister64, m_value->type());
                 if (!isValidForm(opcode, Arg::Tmp, Arg::Tmp, Arg::Imm, Arg::Tmp))
@@ -3384,6 +3413,7 @@ private:
                 if (!WTF::safeAdd(lowWidth, highWidth, resultWidth) || resultWidth != datasize || maskBitCount != lowWidth || lowWidth == datasize)
                     return false;
 
+                ASSERT(lowWidth < datasize);
                 append(opcode, tmp(nValue), tmp(mValue), imm(lowWidthValue), tmp(m_value));
                 return true;
             };
@@ -5284,7 +5314,7 @@ private:
 
 void lowerToAir(Procedure& procedure)
 {
-    PhaseScope phaseScope(procedure, "lowerToAir");
+    PhaseScope phaseScope(procedure, "lowerToAir"_s);
     LowerToAir lowerToAir(procedure);
     lowerToAir.run();
 }
@@ -5294,5 +5324,15 @@ void lowerToAir(Procedure& procedure)
 #if !ASSERT_ENABLED
 IGNORE_RETURN_TYPE_WARNINGS_END
 #endif
+
+#endif // USE(JSVALUE64)
+
+#pragma pop_macro("RotateLeft32")
+#pragma pop_macro("RotateLeft64")
+#pragma pop_macro("RotateRight32")
+#pragma pop_macro("RotateRight64")
+#pragma pop_macro("StoreFence")
+#pragma pop_macro("LoadFence")
+#pragma pop_macro("MemoryFence")
 
 #endif // ENABLE(B3_JIT)

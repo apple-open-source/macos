@@ -28,7 +28,7 @@
 
 #if USE(GLIB)
 
-#include "SharedMemory.h"
+#include <WebCore/SharedMemory.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -42,12 +42,12 @@
 namespace WebKit {
 namespace NetworkCache {
 
-Data::Data(const uint8_t* data, size_t size)
-    : m_size(size)
+Data::Data(std::span<const uint8_t> data)
+    : m_size(data.size())
 {
-    uint8_t* copiedData = static_cast<uint8_t*>(fastMalloc(size));
-    memcpy(copiedData, data, size);
-    m_buffer = adoptGRef(g_bytes_new_with_free_func(copiedData, size, fastFree, copiedData));
+    uint8_t* copiedData = static_cast<uint8_t*>(fastMalloc(data.size()));
+    memcpy(copiedData, data.data(), data.size());
+    m_buffer = adoptGRef(g_bytes_new_with_free_func(copiedData, data.size(), fastFree, copiedData));
 }
 
 Data::Data(GRefPtr<GBytes>&& buffer, FileSystem::PlatformFileHandle fd)
@@ -63,9 +63,11 @@ Data Data::empty()
     return { adoptGRef(g_bytes_new(nullptr, 0)) };
 }
 
-const uint8_t* Data::data() const
+std::span<const uint8_t> Data::span() const
 {
-    return m_buffer ? reinterpret_cast<const uint8_t*>(g_bytes_get_data(m_buffer.get(), nullptr)) : nullptr;
+    if (!m_buffer)
+        return { };
+    return { reinterpret_cast<const uint8_t*>(g_bytes_get_data(m_buffer.get(), nullptr)), m_size };
 }
 
 bool Data::isNull() const
@@ -130,14 +132,14 @@ static void deleteMapWrapper(MapWrapper* wrapper)
 Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::PlatformFileHandle fd)
 {
     size_t size = mappedFile.size();
-    const void* map = mappedFile.data();
+    auto* map = mappedFile.span().data();
     ASSERT(map);
     ASSERT(map != MAP_FAILED);
     MapWrapper* wrapper = new MapWrapper { WTFMove(mappedFile), fd };
     return { adoptGRef(g_bytes_new_with_free_func(map, size, reinterpret_cast<GDestroyNotify>(deleteMapWrapper), wrapper)), fd };
 }
 
-RefPtr<SharedMemory> Data::tryCreateSharedMemory() const
+RefPtr<WebCore::SharedMemory> Data::tryCreateSharedMemory() const
 {
     if (isNull() || !isMap())
         return nullptr;
@@ -145,7 +147,7 @@ RefPtr<SharedMemory> Data::tryCreateSharedMemory() const
     int fd = FileSystem::posixFileDescriptor(m_fileDescriptor);
     gsize length;
     const auto* data = g_bytes_get_data(m_buffer.get(), &length);
-    return SharedMemory::wrapMap(const_cast<void*>(data), length, fd);
+    return WebCore::SharedMemory::wrapMap(const_cast<void*>(data), length, fd);
 }
 
 } // namespace NetworkCache

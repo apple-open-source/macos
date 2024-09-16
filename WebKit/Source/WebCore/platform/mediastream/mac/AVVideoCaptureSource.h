@@ -105,7 +105,6 @@ private:
 
     VideoFrameRotation videoFrameRotation() const final { return m_videoFrameRotation; }
     void setFrameRateAndZoomWithPreset(double, double, std::optional<VideoPreset>&&) final;
-    bool prefersPreset(const VideoPreset&) final;
     void generatePresets() final;
     bool canResizeVideoFrames() const final { return true; }
 
@@ -119,6 +118,7 @@ private:
     void orientationChanged(IntDegrees orientation) final;
 
     bool setFrameRateConstraint(double minFrameRate, double maxFrameRate);
+    bool areSettingsMatching() const;
 
     IntSize sizeForPreset(NSString*);
 
@@ -127,7 +127,7 @@ private:
     IntDegrees sensorOrientationFromVideoOutput();
 
 #if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "AVVideoCaptureSource"; }
+    ASCIILiteral logClassName() const override { return "AVVideoCaptureSource"_s; }
 #endif
 
     void beginConfiguration();
@@ -137,6 +137,9 @@ private:
 
     void updateVerifyCapturingTimer();
     void verifyIsCapturing();
+#if PLATFORM(IOS_FAMILY)
+    void startupTimerFired();
+#endif
 
     std::optional<double> computeMinZoom() const;
     std::optional<double> computeMaxZoom(AVCaptureDeviceFormat*) const;
@@ -172,23 +175,24 @@ private:
     Lock m_photoLock;
     std::optional<VideoPreset> m_currentPreset;
     std::optional<VideoPreset> m_appliedPreset;
-    RetainPtr<AVFrameRateRange> m_appliedFrameRateRange;
-    double m_appliedZoom { 1 };
 
-    double m_currentFrameRate;
+    double m_currentFrameRate { 0 };
     double m_currentZoom { 1 };
     double m_zoomScaleFactor { 1 };
     uint64_t m_beginConfigurationCount { 0 };
     bool m_interrupted { false };
     bool m_isRunning { false };
     bool m_hasBegunConfigurationForConstraints { false };
-    bool m_needsResolutionReconfiguration { false };
     bool m_needsTorchReconfiguration { false };
     bool m_needsWhiteBalanceReconfiguration { false };
 
     static constexpr Seconds verifyCaptureInterval = 30_s;
     static const uint64_t framesToDropWhenStarting = 4;
 
+#if PLATFORM(IOS_FAMILY)
+    bool m_shouldCallNotifyMutedChange { false };
+    Timer m_startupTimer;
+#endif
     Timer m_verifyCapturingTimer;
     uint64_t m_framesCount { 0 };
     uint64_t m_lastFramesCount { 0 };

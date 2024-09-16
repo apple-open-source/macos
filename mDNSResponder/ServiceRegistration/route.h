@@ -1,6 +1,6 @@
 /* route.h
  *
- * Copyright (c) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -359,6 +359,8 @@ struct route_state {
     int num_thread_interfaces; // Should be zero or one.
     int ula_serial;
     int num_thread_prefixes;
+    int times_advertised_unicast, times_advertised_anycast;
+    int times_unadvertised_unicast, times_unadvertised_anycast;
     subproc_t *NULLABLE thread_interface_enumerator_process;
     subproc_t *NULLABLE thread_prefix_adder_process;
     subproc_t *NULLABLE thread_rti_setter_process;
@@ -415,7 +417,6 @@ struct route_state {
 #endif // RA_TESTER
 };
 
-extern srp_server_t *NONNULL srp_server; // temporary static srp server pointer
 extern route_state_t *NONNULL route_states; // same
 
 route_state_t *NULLABLE route_state_create(srp_server_t *NONNULL server_state, const char *NONNULL name);
@@ -445,6 +446,7 @@ void router_solicit(icmp_message_t *NONNULL message);
 void router_advertisement(icmp_message_t *NONNULL message);
 void neighbor_advertisement(icmp_message_t *NONNULL message);
 
+int route_get_current_infra_interface_index(void);
 #endif // __SERVICE_REGISTRATION_ROUTE_H
 
 // Local Variables:

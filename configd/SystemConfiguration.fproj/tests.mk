@@ -6,20 +6,17 @@ WIFI_FRAMEWORK=-framework CoreWLAN
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=arm64 arm64e
 WIFI_FRAMEWORK=-framework MobileWiFi 
 endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=x86_64 arm64
 CORETELEPHONY=
 endif
 
 ifeq ($(PLATFORM),watchos)
 # watchOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=arm64_32
 WIFI_FRAMEWORK=-framework MobileWiFi 
 endif
 
@@ -33,7 +30,7 @@ else
 # Mac OS X or iOS internal SDK
 SDK=$(PLATFORM).internal
 SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
-CC = xcrun -sdk $(SDK) cc
+CC = xcrun -sdk $(SDK) cc -fno-color-diagnostics
 endif
 
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
@@ -74,5 +71,9 @@ scnetworkdefaultset: $(SCNETWORK_DEFAULT_SET_TEST_CFILES)
 	$(CC) -DTEST_SCNETWORK_DEFAULT_SET -I../common -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework IOKit -framework Foundation -framework SystemConfiguration -lCrashReporterClient $(PF_INC) -Wall -g -o $@ $^
 	codesign -s - $@
 
+sccontrolprefs: SCControlPrefs.c
+	$(CC) -DTEST_SCCONTROL_PREFS -I../common -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(SC_INCLUDE) -framework SystemConfiguration $(PF_INC) -framework CoreFoundation -Wall -g -o $@ $^
+	codesign -s - $@
+
 clean:
-	rm -f scnetworkdefaultset network-settings category-transform scnetworkcategory scnetworkinterface
+	rm -rf *.o *~ *.dSYM scnetworkdefaultset network-settings category-transform scnetworkcategory scnetworkinterface sccontrolprefs

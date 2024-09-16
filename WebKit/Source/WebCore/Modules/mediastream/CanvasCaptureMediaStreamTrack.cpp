@@ -33,6 +33,10 @@
 #include "WebGLRenderingContextBase.h"
 #include <wtf/IsoMallocInlines.h>
 
+#if USE(GSTREAMER)
+#include "VideoFrameGStreamer.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(CanvasCaptureMediaStreamTrack);
@@ -68,11 +72,6 @@ Ref<CanvasCaptureMediaStreamTrack::Source> CanvasCaptureMediaStreamTrack::Source
         source->captureCanvas();
     });
     return source;
-}
-
-const char* CanvasCaptureMediaStreamTrack::activeDOMObjectName() const
-{
-    return "CanvasCaptureMediaStreamTrack";
 }
 
 // FIXME: Give source id and name
@@ -201,6 +200,18 @@ void CanvasCaptureMediaStreamTrack::Source::captureCanvas()
     }();
     if (!videoFrame)
         return;
+
+#if USE(GSTREAMER)
+    auto gstVideoFrame = downcast<VideoFrameGStreamer>(videoFrame);
+    if (m_frameRequestRate)
+        gstVideoFrame->setFrameRate(*m_frameRequestRate);
+    else {
+        static const double s_frameRate = 60;
+        gstVideoFrame->setMaxFrameRate(s_frameRate);
+        gstVideoFrame->setPresentationTime(m_presentationTimeStamp);
+        m_presentationTimeStamp = m_presentationTimeStamp + MediaTime::createWithDouble(1.0 / s_frameRate);
+    }
+#endif
 
     VideoFrameTimeMetadata metadata;
     metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
