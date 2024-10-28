@@ -271,7 +271,7 @@ void AXIsolatedTree::generateSubtree(AccessibilityObject& axObject)
     // We're about to a lot of read-only work, so start the attribute cache.
     AXAttributeCacheEnabler enableCache(axObject.axObjectCache());
     collectNodeChangesForSubtree(axObject);
-    queueRemovalsAndUnresolvedChanges({ });
+    queueRemovalsAndUnresolvedChanges();
 }
 
 bool AXIsolatedTree::shouldCreateNodeChange(AccessibilityObject& axObject)
@@ -372,11 +372,11 @@ void AXIsolatedTree::queueRemovalsLocked(Vector<AXID>&& subtreeRemovals)
     m_pendingProtectedFromDeletionIDs.formUnion(std::exchange(m_protectedFromDeletionIDs, { }));
 }
 
-void AXIsolatedTree::queueRemovalsAndUnresolvedChanges(Vector<AXID>&& subtreeRemovals)
+void AXIsolatedTree::queueRemovalsAndUnresolvedChanges()
 {
     ASSERT(isMainThread());
 
-    queueAppendsAndRemovals(resolveAppends(), WTFMove(subtreeRemovals));
+    queueAppendsAndRemovals(resolveAppends(), std::exchange(m_subtreesToRemove, { }));
 }
 
 Vector<AXIsolatedTree::NodeChange> AXIsolatedTree::resolveAppends()
@@ -942,10 +942,9 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
         updateDependentProperties(*axAncestor);
     }
 
+    m_subtreesToRemove.appendVector(WTFMove(oldChildrenIDs));
     if (resolveNodeChanges == ResolveNodeChanges::Yes)
-        queueRemovalsAndUnresolvedChanges(WTFMove(oldChildrenIDs));
-    else
-        queueRemovals(WTFMove(oldChildrenIDs));
+        queueRemovalsAndUnresolvedChanges();
 }
 
 void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<Ref<AccessibilityObject>>& axObjects)
@@ -959,7 +958,7 @@ void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<Ref<Accessibilit
     for (auto& axObject : axObjects)
         updateChildren(axObject.get(), ResolveNodeChanges::No);
 
-    queueRemovalsAndUnresolvedChanges({ });
+    queueRemovalsAndUnresolvedChanges();
 }
 
 void AXIsolatedTree::setPageActivityState(OptionSet<ActivityState> state)
@@ -1367,7 +1366,7 @@ void AXIsolatedTree::processQueuedNodeUpdates()
     if (m_relationsNeedUpdate)
         updateRelations(cache->relations());
 
-    queueRemovalsAndUnresolvedChanges({ });
+    queueRemovalsAndUnresolvedChanges();
 }
 
 #if ENABLE(AX_THREAD_TEXT_APIS)

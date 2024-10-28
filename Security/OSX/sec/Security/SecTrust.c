@@ -1946,6 +1946,11 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
 
         SecTrustValidateInput(trust);
 
+        struct {
+            CFArrayRef details;
+            CFDictionaryRef info;
+            CFArrayRef chain;
+        } *trustContext = calloc(1, sizeof(*trustContext));
         TRUSTD_XPC_ASYNC(sec_trust_evaluate,
                          handle_trust_evaluate_xpc_async,
                          queue,
@@ -1954,6 +1959,10 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
             __block OSStatus result = errSecInternalError;
             dispatch_sync(trust->_trustQueue, ^{
                 trust->_trustResult = tr;
+                CFAssignRetained(trust->_details, trustContext->details);
+                CFAssignRetained(trust->_info, trustContext->info);
+                CFAssignRetained(trust->_chain, trustContext->chain);
+                free(trustContext);
                 if (trust->_trustResult == kSecTrustResultInvalid /* TODO check domain */ &&
                     SecErrorGetOSStatus(error) == errSecNotAvailable &&
                     CFArrayGetCount(trust->_certificates)) {
@@ -1990,7 +1999,7 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
                          trust->_certificates, trust->_anchors, trust->_anchorsOnly, trust->_keychainsAllowed,
                          trust->_policies, trust->_responses, trust->_SCTs, trust->_trustedLogs,
                          verifyTime, SecTrustGetCurrentAccessGroups(), trust->_exceptions, trust->_auditToken, trust->_attribution,
-                         &trust->_details, &trust->_info, &trust->_chain);
+                         &trustContext->details, &trustContext->info, &trustContext->chain);
         dispatch_release(queue); // dispatch_async call above retained the queue for the block
     };
 
@@ -2387,6 +2396,7 @@ SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
             if (!exception_dictionary) { status = errSecAllocate; goto out; }
             if ((options & kSecTrustOptionAllowExpired) != 0) {
                 CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+                CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckValidLeaf, kCFBooleanFalse);
             }
             if ((options & (kSecTrustOptionImplicitAnchors | kSecTrustOptionAllowExpiredRoot)) != 0) {
                 /* Check that root is self-signed. */
@@ -2413,6 +2423,7 @@ SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
         if (!exception_dictionary) { status = errSecAllocate; goto out; }
         if ((options & kSecTrustOptionAllowExpired) != 0) {
             CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckTemporalValidity, kCFBooleanFalse);
+            CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckValidLeaf, kCFBooleanFalse);
         }
         if ((options & kSecTrustOptionAllowExpiredRoot) != 0) {
             CFDictionaryAddValue(exception_dictionary, kSecPolicyCheckValidRoot, kCFBooleanFalse);

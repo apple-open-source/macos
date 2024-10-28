@@ -1160,6 +1160,7 @@ enable_info
 enable_suexec
 enable_cgid
 enable_cgi
+enable_cgid_fdpassing
 enable_dav_fs
 enable_dav_lock
 with_module
@@ -2048,6 +2049,7 @@ Optional Features:
   --enable-cgid           CGI scripts. Enabled by default with threaded MPMs
   --enable-cgi            CGI scripts. Enabled by default with non-threaded
                           MPMs
+  --enable-cgid-fdpassing Enable experimental mod_cgid support for fd passing
   --enable-dav-fs         DAV provider for the filesystem. --enable-dav also
                           enables mod_dav_fs.
   --enable-dav-lock       DAV provider for generic locking
@@ -8773,6 +8775,14 @@ printf "%s\n" "#define HAVE_SYS_GETTID 1" >>confdefs.h
 
   fi
 fi
+
+case ${host}X${ac_cv_func_gettid}X${ap_cv_gettid} in
+*linux-*XyesX* | *linux-*XnoXyes)
+
+printf "%s\n" "#define DEFAULT_LOG_TID \"g\"" >>confdefs.h
+
+     ;;
+esac
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for tm_gmtoff in struct tm" >&5
 printf %s "checking for tm_gmtoff in struct tm... " >&6; }
@@ -39901,6 +39911,28 @@ fi
       fi
     done
   fi
+
+
+# Check whether --enable-cgid-fdpassing was given.
+if test ${enable_cgid_fdpassing+y}
+then :
+  enableval=$enable_cgid_fdpassing; if test "$enableval" = "yes"; then
+     ac_fn_check_decl "$LINENO" "CMSG_DATA" "ac_cv_have_decl_CMSG_DATA" "
+#include <sys/types.h>
+#include <sys/socket.h>
+" "$ac_c_undeclared_builtin_options" "CFLAGS"
+if test "x$ac_cv_have_decl_CMSG_DATA" = xyes
+then :
+
+printf "%s\n" "#define HAVE_CGID_FDPASSING 1" >>confdefs.h
+
+else case e in #(
+  e) as_fn_error $? "cannot support mod_cgid fd-passing on this system" "$LINENO" 5 ;;
+esac
+fi
+  fi
+
+fi
 
 
 

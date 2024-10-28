@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2024 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -7650,6 +7650,9 @@ append_serviceIDs_for_interface(CFMutableArrayRef services_changed,
     void *		keys_values_buf[N_KEYS_VALUES_STATIC * 2];
     void * *		values;
 
+    if (S_service_state_dict == NULL) {
+	return;
+    }
     count = CFDictionaryGetCount(S_service_state_dict);
     if (count <= N_KEYS_VALUES_STATIC) {
 	keys = keys_values_buf;
@@ -9279,11 +9282,6 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 			    });
 #endif /* !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER) */
 
-#if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER)
-    /* start IPMonitor Control (InterfaceRank) server */
-    StartIPMonitorControlServer();
-#endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER) */
-
     /* initialize DNS configuration */
     dns_configuration_init(bundle);
 
@@ -9291,6 +9289,11 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     proxy_configuration_init(bundle);
 
     ip_plugin_init();
+
+#if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER)
+    /* start IPMonitor Control (InterfaceRank) server */
+    StartIPMonitorControlServer();
+#endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER) */
 
     if (S_session != NULL) {
 	dns_configuration_monitor(queue,

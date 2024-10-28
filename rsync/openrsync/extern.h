@@ -31,6 +31,7 @@
 
 #ifdef __APPLE__
 #include <os/log.h>
+#include <errno.h>
 #endif
 
 #ifndef __printflike
@@ -704,8 +705,11 @@ extern int verbose;
 #define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
 
 #ifdef __APPLE__
-#define	do_os_log(type, ...)	\
-	os_log_ ## type(syslog_trace_obj, __VA_ARGS__)
+#define	do_os_log(type, ...) do {				\
+	int rserrno = errno;					\
+	os_log_ ## type(syslog_trace_obj, __VA_ARGS__);		\
+	errno = rserrno;					\
+} while(0)
 
 /*
  * ERR() gets mapped to an error, but ERRX1() gets more chatty so we map those
@@ -733,9 +737,11 @@ extern int verbose;
  * LOG4 entirely because it's logging incredibly detailed transfer information.
  */
 #define	syslog_trace_log(errlevel, _fmt, ...) do {		\
-	if ((errlevel) == 0)					\
+	if ((errlevel) == 0) {					\
+		int rserrno = errno;				\
 		os_log(syslog_trace_obj, (_fmt), ##__VA_ARGS__);	\
-	else if ((errlevel) == 1)				\
+		errno = rserrno;				\
+	} else if ((errlevel) == 1)				\
 		do_os_log(info, (_fmt), ##__VA_ARGS__);		\
 	else if ((errlevel) == 2)				\
 		do_os_log(debug, (_fmt), ##__VA_ARGS__);	\
@@ -1039,7 +1045,8 @@ int		 backup_to_dir(struct sess *, int, const struct flist *,
 int		 is_unsafe_link(const char *, const char *, const char *);
 char		*make_safe_link(const char *);
 
-int		 mkpath(char *);
+int		 mkpath(char *, mode_t);
+int		 mkpathat(int fd, char *, mode_t);
 int		 mksock(const char *, char *);
 
 int		 mkstempat(int, char *);

@@ -364,7 +364,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-#if PLATFORM(MAC) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
+#if (PLATFORM(MAC) || PLATFORM(MACCATALYST)) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
     OSObjectPtr<dispatch_semaphore_t> codeCheckSemaphore;
     if (SandboxExtension::consumePermanently(parameters.trustdExtensionHandle)) {
         // Open up a Mach connection to trustd by doing a code check validation on the main bundle.
@@ -581,7 +581,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     }
 #endif
 
-#if HAVE(VIDEO_RESTRICTED_DECODING) && PLATFORM(MAC) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
+#if HAVE(VIDEO_RESTRICTED_DECODING) && (PLATFORM(MAC) || PLATFORM(MACCATALYST)) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
     if (codeCheckSemaphore)
         dispatch_semaphore_wait(codeCheckSemaphore.get(), DISPATCH_TIME_FOREVER);
 #endif
@@ -891,11 +891,13 @@ void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationP
     WebCore::PublicSuffixStore::singleton().enablePublicSuffixCache();
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    if (isLockdownModeEnabled()) {
 #if PLATFORM(IOS_FAMILY)
-    prewarmLogs();
+        prewarmLogs();
 #endif
-    registerLogHook();
-#endif
+        registerLogHook();
+    }
+#endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 
 #if PLATFORM(MAC)
     // Deny the WebContent process access to the WindowServer.

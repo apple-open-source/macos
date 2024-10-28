@@ -37,6 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName oncePerReport:(BOOL)once;
 + (NSString*)hwModelID;
 
++ (NSString * _Nullable)underlyingErrors:(NSError *_Nullable)error;
+
 - (void)drainLogQueue;
 
 - (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key;

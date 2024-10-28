@@ -7,6 +7,7 @@
 0755	root	wheel	private/var/db/ExtensibleSSO
 0755	root	wheel	private/var/db/ExtensibleSSO/Configuration
 0755	501	501	private/var/db/com.apple.findmy.findmybeaconingd
+0755	501	501	private/var/db/com.apple.devicemanagementclient
 0755	root	wheel	private/var/hardware
 0750	501	501	private/var/mobile
 0755	501	501	private/var/mobile/Applications

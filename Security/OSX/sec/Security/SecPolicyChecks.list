@@ -23,6 +23,7 @@
 POLICYCHECKMACRO(SSLHostname,                    R, N, L,  , O, H, 0x80012400, errSecHostNameMismatch) //CSSMERR_APPLETP_HOSTNAME_MISMATCH
 POLICYCHECKMACRO(Email,                          R, N, L, A, O, H, 0x80012418, errSecSMIMEEmailAddressesNotFound) //CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
 POLICYCHECKMACRO(TemporalValidity,               R, E, L, A, O, C, 0x8001210A, errSecCertificateExpired) //CSSMERR_TP_CERT_EXPIRED
+POLICYCHECKMACRO(ValidLeaf,                      R, E, L,  , O, C, 0x8001210A, errSecCertificateExpired) //CSSMERR_TP_CERT_EXPIRED
 POLICYCHECKMACRO(WeakKeySize,                    F, S, L, A, O, K, 0x80012115, errSecUnsupportedKeySize) //CSSMERR_TP_INVALID_CERTIFICATE
 POLICYCHECKMACRO(WeakSignature,                  F, H, L, A, O, S, 0x80010955, errSecInvalidDigestAlgorithm) //CSSMERR_CSP_INVALID_DIGEST_ALGORITHM
 POLICYCHECKMACRO(KeyUsage,                       R, U, L,  , O, P, 0x80012406, errSecInvalidKeyUsageForPolicy) //CSSMERR_APPLETP_INVALID_KEY_USAGE

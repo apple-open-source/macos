@@ -555,7 +555,7 @@ rsync_receiver(struct sess *sess, struct cleanup_ctx *cleanup_ctx,
 		} else {
 			if ((tofree = strdup(root)) == NULL)
 				err(ERR_NOMEM, NULL);
-			if (mkpath(tofree) < 0)
+			if (mkpath(tofree, 0755) < 0)
 				err(ERR_FILE_IO, "%s: mkpath", tofree);
 			free(tofree);
 		}

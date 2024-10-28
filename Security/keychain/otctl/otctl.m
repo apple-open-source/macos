@@ -134,7 +134,6 @@ int main(int argc, char** argv)
 
     char* idmsTargetContext = NULL;
     char* idmsCuttlefishPassword = NULL;
-
     struct argument options[] = {
         {.shortname = 's', .longname = "secret", .argument = &secretArg, .description = "escrow secret"},
         {.shortname = 'e', .longname = "bottleID", .argument = &bottleIDArg, .description = "bottle record id"},
@@ -306,13 +305,25 @@ int main(int argc, char** argv)
             errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
         }
         if(resetoctagon) {
-            return [ctl resetOctagon:arguments idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS timeout:timeout];
+            return [ctl resetOctagon:arguments 
+                   idmsTargetContext:idmsTargetContextString
+              idmsCuttlefishPassword:idmsCuttlefishPasswordString
+                          notifyIdMS:notifyIdMS
+                             timeout:timeout];
         }
         if(resetProtectedData) {
-            return [ctl resetProtectedData:arguments appleID:appleID dsid:dsid idmsTargetContext:idmsTargetContextString idmsCuttlefishPassword:idmsCuttlefishPasswordString notifyIdMS:notifyIdMS];
+            return [ctl resetProtectedData:arguments 
+                                   appleID:appleID
+                                      dsid:dsid
+                         idmsTargetContext:idmsTargetContextString
+                    idmsCuttlefishPassword:idmsCuttlefishPasswordString
+                                notifyIdMS:notifyIdMS];
         }
         if(reset) {
-            return [ctl reset:arguments appleID:appleID dsid:dsid];
+            return [ctl reset:arguments 
+                      appleID:appleID
+                         dsid:dsid];
+
         }
         if(userControllableViewsSyncStatus) {
             if(argEnable && argPause) {

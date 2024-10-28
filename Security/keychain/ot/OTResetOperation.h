@@ -38,9 +38,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init:(NSString*)containerName
            contextID:(NSString*)contextID
               reason:(CuttlefishResetReason)reason
-        idmsTargetContext:(NSString *_Nullable)idmsTargetContext
+   idmsTargetContext:(NSString *_Nullable)idmsTargetContext
 idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-notifyIdMS:(bool)notifyIdMS
+          notifyIdMS:(bool)notifyIdMS
        intendedState:(OctagonState*)intendedState
         dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState

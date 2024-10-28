@@ -308,6 +308,7 @@
 		96A9A4AA2BA3BBAA00F4703A /* test41_backup_dir.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 96A9A4A02BA3BA2100F4703A /* test41_backup_dir.test */; };
 		96A9A4AB2BA3BBAA00F4703A /* test42_copy_dest.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 96A9A49D2BA3BA2100F4703A /* test42_copy_dest.test */; };
 		96A9A4AC2BA3BBAA00F4703A /* test43_whole_file.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 96A9A4A12BA3BA2100F4703A /* test43_whole_file.test */; };
+		96CAB6E12C3F51C5001DCCC1 /* test63_relative.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 96CAB6DD2C3F51B4001DCCC1 /* test63_relative.test */; };
 		D319B28C2BA3A0D2004EEAAD /* libresolv.9.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D319B28B2BA3A0D2004EEAAD /* libresolv.9.tbd */; };
 		D3989D872B8907CB0030BB33 /* test29_missing_ids.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = D3F07AFD2B880C490081131B /* test29_missing_ids.test */; };
 		D3F672DC2BA4D3C700662817 /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = D3F672C32BA4D3C700662817 /* adler32.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-non-prototype"; }; };
@@ -450,6 +451,7 @@
 			dstPath = /AppleInternal/Tests/rsync/openrsync;
 			dstSubfolderSpec = 0;
 			files = (
+				96CAB6E12C3F51C5001DCCC1 /* test63_relative.test in Copy Test Files */,
 				96A9A4A42BA3BBAA00F4703A /* test35_checksum_seed.test in Copy Test Files */,
 				96A9A4A52BA3BBAA00F4703A /* test36_block_size.test in Copy Test Files */,
 				96A9A4A62BA3BBAA00F4703A /* test37_chmod.test in Copy Test Files */,
@@ -874,6 +876,7 @@
 		96A9A4A12BA3BA2100F4703A /* test43_whole_file.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test43_whole_file.test; path = tests/openrsync/test43_whole_file.test; sourceTree = "<group>"; };
 		96A9A4A22BA3BA2100F4703A /* test38_executability.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test38_executability.test; path = tests/openrsync/test38_executability.test; sourceTree = "<group>"; };
 		96A9A4A32BA3BA2100F4703A /* test36_block_size.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test36_block_size.test; path = tests/openrsync/test36_block_size.test; sourceTree = "<group>"; };
+		96CAB6DD2C3F51B4001DCCC1 /* test63_relative.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test63_relative.test; path = tests/openrsync/test63_relative.test; sourceTree = "<group>"; };
 		D319B28B2BA3A0D2004EEAAD /* libresolv.9.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libresolv.9.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.Internal.sdk/usr/lib/libresolv.9.tbd; sourceTree = DEVELOPER_DIR; };
 		D3F07AFD2B880C490081131B /* test29_missing_ids.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = test29_missing_ids.test; path = tests/openrsync/test29_missing_ids.test; sourceTree = "<group>"; };
 		D3F672C32BA4D3C700662817 /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = adler32.c; sourceTree = "<group>"; };
@@ -1035,6 +1038,7 @@
 		2A5465F52AFEC976005C5CBB /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				96CAB6DD2C3F51B4001DCCC1 /* test63_relative.test */,
 				96A9A49B2BA3BA2100F4703A /* test35_checksum_seed.test */,
 				96A9A4A32BA3BA2100F4703A /* test36_block_size.test */,
 				96A9A49C2BA3BA2100F4703A /* test37_chmod.test */,

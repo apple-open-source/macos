@@ -2330,18 +2330,19 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                     {
                                         status = kDAReturnBadArgument;
                                     }
-#if TARGET_OS_OSX
+
                                     if ( status == 0 )
                                     {
+#if TARGET_OS_OSX
                                         status = sandbox_check_by_audit_token(_token, "file-mount", SANDBOX_FILTER_PATH | SANDBOX_CHECK_ALLOW_APPROVAL | SANDBOX_CHECK_CANONICAL, path);
                                         if ( status )
                                         {
                                             status = kDAReturnNotPrivileged;
                                         }
-                                        
+#endif
                                         if ( status == 0 && audit_token_to_euid( _token ) )
                                         {
-                                            int ret = stat( path, &path_info);
+                                            int ret = fstatat( AT_FDCWD , path, &path_info , AT_SYMLINK_NOFOLLOW_ANY );
                                             if ( ret != 0 )
                                             {
                                                 status = unix_err( errno );
@@ -2354,8 +2355,6 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                         free( mntpath );
                                         
                                     }
-                                    
-#endif
                                     if ( audit_token_to_euid( _token ) )
                                     {
                                         if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )

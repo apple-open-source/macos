@@ -33,6 +33,7 @@ cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 #include <mach/mach_error.h>
 #include <sys/stat.h>
 #include <sys/csr.h>
+#include <os/variant_private.h>
 
 #define NVRAM_BYTE_LEN 3
 
@@ -64,7 +65,7 @@ static io_registry_entry_t gSelectedOptionsRef;
 static bool                gUseXML;
 static bool                gPrintInHex;
 static bool                gUseForceSync;
-static bool                gInternalBuild;
+static bool                gInternalBuild = false;
 
 #if TARGET_OS_BRIDGE /* Stuff for nvram bridge -> intel */
 #include <dlfcn.h>
@@ -97,7 +98,11 @@ int main(int argc, char **argv)
   mach_port_t         mainPort;
   int                 argcount = 0;
 
+#if TARGET_OS_OSX
   gInternalBuild = (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0);
+#else
+  gInternalBuild = os_variant_allows_internal_security_policies(NULL);
+#endif
 
   result = IOMainPort(bootstrap_port, &mainPort);
   if (result != KERN_SUCCESS) {

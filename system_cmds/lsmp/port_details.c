@@ -84,6 +84,10 @@ const char * kobject_name(natural_t kotype)
         case IKOT_THREAD_READ:      return "THREAD-READ";
         case IKOT_SUID_CRED:        return "SUID_CRED";
         case IKOT_HYPERVISOR:       return "HYPERVISOR";
+        case IKOT_TASK_ID_TOKEN:    return "TASK_ID_TOKEN";
+        case IKOT_TASK_FATAL:       return "TASK_FATAL";
+        case IKOT_KCDATA:           return "KCDATA";
+        case IKOT_EXCLAVES_RESOURCE:return "EXCLAVES_RESOURCE";
         case IKOT_UNKNOWN:
         default:                    return "UNKNOWN";
 	}
@@ -655,7 +659,7 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
         JSON_OBJECT_SET(json, identifier, "0x%08x", (natural_t)kobject);
         JSON_OBJECT_SET(json, type, "%s", kobject_name(kotype));
         
-        if (desc[0]) {
+        if (desc[0] && kotype != IKOT_TASK_ID_TOKEN) {
             JSON_OBJECT_SET(json, description, "%s", escape(desc));
             printf("                                             0x%08x  %s %s", (natural_t)kobject, kobject_name(kotype), desc);
         } else {
@@ -680,16 +684,24 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
             }
         }
 
-			if ((kotype == IKOT_THREAD_CONTROL) ||
-                (kotype == IKOT_THREAD_READ) ||
-                (kotype == IKOT_THREAD_INSPECT)) {
-				for (int i = 0; i < taskinfo->threadCount; i++) {
-					if (taskinfo->threadInfos[i].th_kobject == kobject) {
-						printf(" (%#llx)", taskinfo->threadInfos[i].th_id);
-						break;
-					}
-				}
-			}
+        if ((kotype == IKOT_THREAD_CONTROL) ||
+            (kotype == IKOT_THREAD_READ) ||
+            (kotype == IKOT_THREAD_INSPECT)) {
+            for (int i = 0; i < taskinfo->threadCount; i++) {
+                if (taskinfo->threadInfos[i].th_kobject == kobject) {
+                    printf(" (%#llx)", taskinfo->threadInfos[i].th_id);
+                    break;
+                }
+            }
+        }
+
+        if (kotype == IKOT_TASK_ID_TOKEN) {
+            // desc should store the pid
+            int pid = atoi(desc);
+            if (pid) {
+                printf(" (%d) %s", pid, get_task_name_by_pid(pid));
+            }
+        }
 
         printf("\n");
         if (kotype == IKOT_VOUCHER) {

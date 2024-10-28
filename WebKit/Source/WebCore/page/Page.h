@@ -1179,7 +1179,8 @@ public:
     void respondToUnappliedWritingToolsEditing(EditCommandComposition*);
     void respondToReappliedWritingToolsEditing(EditCommandComposition*);
 
-    WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForSessionWithID(const WritingTools::SessionID&) const;
+    WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForActiveWritingToolsSession() const;
+    WEBCORE_EXPORT void intelligenceTextAnimationsDidComplete();
 #endif
 
     bool hasActiveNowPlayingSession() const { return m_hasActiveNowPlayingSession; }

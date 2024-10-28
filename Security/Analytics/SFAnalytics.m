@@ -152,6 +152,11 @@ NSString* const SFAnalyticsEventModelID = @"modelid";
 NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
+static NSString *const SFAnalyticsUnderlyingErrorDomain = @"d";
+static NSString *const SFAnalyticsUnderlyingErrorCode= @"c";
+static NSString *const SFAnalyticsUnderlyingErrorUnderlyingError= @"u";
+static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
+
 @interface SFAnalytics ()
 @property (readwrite) NSMutableSet<SFAnalyticsMetricsHook>* metricsHooks;
 @property (readwrite) SFAnalyticsCollection *collection;
@@ -708,6 +713,73 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
+// Turn an NSError into a json link tree, skip domain/code for the first level, since
+// it's reported by the upper layer
++ (id _Nullable)treeOfUnderlyingErrors:(id _Nullable)object depth:(NSInteger)depth {
+    if (depth > 5) {
+        return nil;
+    }
+    NSInteger newDepth = depth + 1;
+    if ([object isKindOfClass:[NSError class]]) {
+        NSError* e = object;
+        NSMutableDictionary *result = [NSMutableDictionary dictionary];
+        if (depth != 0) {
+            result[SFAnalyticsUnderlyingErrorDomain] = e.domain;
+            result[SFAnalyticsUnderlyingErrorCode] = @(e.code);
+        }
+
+        id one = [self treeOfUnderlyingErrors:e.userInfo[NSUnderlyingErrorKey] depth:newDepth];
+        result[SFAnalyticsUnderlyingErrorUnderlyingError] = one;
+        
+        id multiple = [self treeOfUnderlyingErrors:e.userInfo[NSMultipleUnderlyingErrorsKey] depth:newDepth];
+        result[SFAnalyticsUnderlyingErrorMultipleUnderlyingError] = multiple;
+
+        if (result.count == 0) {
+            return nil;
+        }
+        return result;
+    } else if ([object isKindOfClass:[NSArray class]]) {
+        NSArray *array = object;
+        NSMutableArray *result = [NSMutableArray array];
+        for (id item in array) {
+            if (![item isKindOfClass:[NSError class]]) {
+                continue;
+            }
+            id o = [self treeOfUnderlyingErrors:item depth:newDepth];
+            if (o == nil) {
+                continue;
+            }
+            [result addObject:o];
+        }
+        if (result.count == 0) {
+            return nil;
+        }
+        return result;
+    }
+    
+    return nil;
+}
+
++ (NSString * _Nullable)underlyingErrors:(NSError *_Nullable)error {
+    id object = [[self class] treeOfUnderlyingErrors:error depth:0];
+    if (object == nil) {
+        return nil;
+    }
+    if ([NSJSONSerialization isValidJSONObject:object] == NO) {
+        secerror("SFA: underlyingErrors encoded to not json %{public}@", error);
+        return nil;
+    }
+    NSError *localError = nil;
+    NSData *json = [NSJSONSerialization dataWithJSONObject:object
+                                                   options:NSJSONWritingSortedKeys
+                                                     error:&localError];
+    if (json == nil) {
+        secerror("SFA: underlyingErrors failed to encode %{public}@ with failure: %{public}@", error, localError);
+        return nil;
+    }
+    return [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+}
+
 - (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
 {
     if(!eventResultError) {
@@ -721,17 +793,12 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
             eventAttributes = [NSMutableDictionary dictionary];
         }
 
-        /* if we have underlying errors, capture the chain below the top-most error */
-        NSError *underlyingError = eventResultError.userInfo[NSUnderlyingErrorKey];
-        if ([underlyingError isKindOfClass:[NSError class]]) {
-            NSMutableString *chain = [NSMutableString string];
-            int count = 0;
-            do {
-                [chain appendFormat:@"%@-%ld:", underlyingError.domain, (long)underlyingError.code];
-                underlyingError = underlyingError.userInfo[NSUnderlyingErrorKey];
-            } while (count++ < 5 && [underlyingError isKindOfClass:[NSError class]]);
-
-            eventAttributes[SFAnalyticsAttributeErrorUnderlyingChain] = chain;
+        /* 
+         * if we have underlying errors, topic implementation have captured it already, do
+         * capture the chain below the top-most error
+         */
+        if (eventAttributes[SFAnalyticsAttributeErrorUnderlyingChain] == nil) {
+            eventAttributes[SFAnalyticsAttributeErrorUnderlyingChain] = [[self class] underlyingErrors:eventResultError];
         }
 
         eventAttributes[SFAnalyticsAttributeErrorDomain] = eventResultError.domain;

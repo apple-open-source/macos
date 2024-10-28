@@ -229,6 +229,8 @@ extern const CFStringRef kSecPolicyAppleParakeetService
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 extern const CFStringRef kSecPolicyAppleiAPAuthV4
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
+extern const CFStringRef kSecPolicyAppleDCAttestation
+    API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -2250,6 +2252,20 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type)
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 
+/*!
+ @function SecPolicyCreateDCAttestation
+ @abstract Returns a policy object for verifying Data Center Attestation certs
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check.
+ The intended use of this policy is that the caller pass in the DC Attestation roots
+ to SecTrustSetAnchorCertificates().
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateDCAttestation(void)
+    API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
+
+
 /*
  *  Legacy functions (macOS only)
  */
@@ -2374,6 +2390,7 @@ extern const CFStringRef kSecPolicyCheckTemporalValidity;
 extern const CFStringRef kSecPolicyCheckUnparseableExtension;
 extern const CFStringRef kSecPolicyCheckUsageConstraints;
 extern const CFStringRef kSecPolicyCheckValidityPeriodMaximums;
+extern const CFStringRef kSecPolicyCheckValidLeaf;
 extern const CFStringRef kSecPolicyCheckValidRoot;
 extern const CFStringRef kSecPolicyCheckWeakKeySize;
 extern const CFStringRef kSecPolicyCheckWeakSignature;
@@ -2478,6 +2495,7 @@ bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertEmailSAN(SecCertificateRef cert, CFTypeRef pvcValue, bool sanOnly);
 bool SecPolicyCheckCertTemporalValidity(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertValidLeaf(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertWeakKeySize(SecCertificateRef cert, CFTypeRef __nullable pvcValue);
 bool SecPolicyCheckCertKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue);

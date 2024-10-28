@@ -270,6 +270,7 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
     }
 
     if (decoder.messageReceiverName() == Messages::NetworkSocketChannel::messageReceiverName()) {
+        MESSAGE_CHECK(decoder.destinationID());
         if (auto* channel = m_networkSocketChannels.get(AtomicObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
             channel->didReceiveMessage(connection, decoder);
         return;
@@ -297,6 +298,7 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
 #endif
 
     if (decoder.messageReceiverName() == Messages::NetworkTransportSession::messageReceiverName()) {
+        MESSAGE_CHECK(decoder.destinationID());
         if (auto* networkTransportSession = m_networkTransportSessions.get(WebTransportSessionIdentifier(decoder.destinationID())))
             networkTransportSession->didReceiveMessage(connection, decoder);
         return;
@@ -484,7 +486,7 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
 #endif
 }
 
-void NetworkConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName)
+void NetworkConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, int32_t)
 {
     RELEASE_LOG_FAULT(IPC, "Received an invalid message '%" PUBLIC_LOG_STRING "' from WebContent process %" PRIu64 ", requesting for it to be terminated.", description(messageName).characters(), m_webProcessIdentifier.toUInt64());
     m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::TerminateWebProcess(m_webProcessIdentifier), 0);

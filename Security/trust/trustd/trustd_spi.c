@@ -120,3 +120,14 @@ void trustd_init_server(void) {
 #endif
 #endif  // LIBTRUSTD
 }
+
+void trustd_exit_clean(const char *reason) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 11ULL*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        const char *default_reason = "Will exit trustd when all transactions are complete.";
+        secnotice("OTATrust", "%s uptime: %llu, system: %llus",
+                  (reason) ? reason : default_reason,
+                  (unsigned long long)TimeSinceProcessLaunch(),
+                  (unsigned long long)TimeSinceSystemStartup());
+        xpc_transaction_exit_clean();
+    });
+}

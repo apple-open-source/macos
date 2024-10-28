@@ -477,11 +477,20 @@ static void SecPolicyCheckTemporalValidity(SecPVCRef pvc,
 	for (ix = 0; ix < count; ++ix) {
 		SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
 		if (!SecCertificateIsValid(cert, verifyTime)) {
-			/* Intermediate certificate has expired. */
+			/* certificate has expired. */
 			if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
 				return;
 		}
 	}
+}
+
+static void SecPolicyCheckValidLeaf(SecPVCRef pvc, CFStringRef key) {
+    CFAbsoluteTime verifyTime = SecPVCGetVerifyTime(pvc);
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
+    if (!SecCertificateIsValid(cert, verifyTime)) {
+        if (!SecPVCSetResult(pvc, key, 0, kCFBooleanFalse))
+            return;
+    }
 }
 
 /* AUDIT[securityd](done):
@@ -2390,7 +2399,7 @@ static int32_t detailKeyToCssmErr(CFStringRef key) {
     else if (CFEqual(key, kSecPolicyCheckEmail)) {
         result = -2147408872; // CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
     }
-    else if (CFEqual(key, kSecPolicyCheckTemporalValidity)) {
+    else if (CFEqual(key, kSecPolicyCheckTemporalValidity) || CFEqual(key, kSecPolicyCheckValidLeaf)) {
         result = -2147409654; // CSSMERR_TP_CERT_EXPIRED
     }
 

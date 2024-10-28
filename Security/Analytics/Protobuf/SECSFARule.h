@@ -5,6 +5,8 @@
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
 
+#import "SECSFAGlobalEnums.h"
+
 @class SECSFAAction;
 
 #ifdef __cplusplus
@@ -18,11 +20,13 @@ __attribute__((visibility("hidden")))
 {
     int64_t _repeatAfterSeconds;
     SECSFAAction *_action;
+    SECSFAEventClass _eventClass;
     NSString *_eventType;
     NSData *_match;
     NSString *_process;
     struct {
         uint repeatAfterSeconds:1;
+        uint eventClass:1;
     } _has;
 }
 
@@ -41,6 +45,11 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasProcess;
 @property (nonatomic, retain) NSString *process;
+
+@property (nonatomic) BOOL hasEventClass;
+@property (nonatomic) SECSFAEventClass eventClass;
+- (NSString *)eventClassAsString:(SECSFAEventClass)value;
+- (SECSFAEventClass)StringAsEventClass:(NSString *)str;
 
 // Performs a shallow copy into other
 - (void)copyTo:(SECSFARule *)other;

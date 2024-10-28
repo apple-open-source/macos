@@ -405,6 +405,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/IDBKeyPath.h
     Modules/indexeddb/IDBKeyRange.h
     Modules/indexeddb/IDBKeyRangeData.h
+    Modules/indexeddb/IDBObjectStoreIdentifier.h
     Modules/indexeddb/IDBOpenDBRequest.h
     Modules/indexeddb/IDBRequest.h
     Modules/indexeddb/IDBTransaction.h
@@ -1430,6 +1431,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/MediaResourceLoader.h
     loader/MixedContentChecker.h
     loader/NavigationAction.h
+    loader/NavigationIdentifier.h
     loader/NavigationRequester.h
     loader/NavigationScheduler.h
     loader/NetscapePlugInStreamLoader.h
@@ -1601,6 +1603,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/SpeechSynthesisClient.h
     page/StorageBlockingPolicy.h
     page/StructuredSerializeOptions.h
+    page/TextAnimationTypes.h
     page/TextDirectionSubmenuInclusionBehavior.h
     page/TextIndicator.h
     page/TranslationContextMenuInfo.h

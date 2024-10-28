@@ -37,6 +37,8 @@
 #include <dlfcn.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
+#import <LowPowerMode/_PMLowPowerMode.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <pthread.h>
 #include <notify.h>
@@ -1298,6 +1300,7 @@ exit:
 
     return modified;
 }
+
 
 
 

@@ -166,6 +166,21 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func performCKServerUnreadableDataRemoval(with user: TPSpecificUser?,
+                                              reply: @escaping (Error?) -> Void) {
+        do {
+            logger.info("performCKServerUnreadableDataRemoval for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.performCKServerUnreadableDataRemoval() { error in
+                self.logComplete(function: "performCKServerUnreadableDataRemoval", container: container.name, error: error)
+                reply(error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("performCKServerUnreadableDataRemoval failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(error.sanitizeForClientXPC())
+        }
+    }
+
     func localReset(with user: TPSpecificUser?, reply: @escaping (Error?) -> Void) {
         do {
             logger.info("Performing local reset for \(String(describing: user), privacy: .public)")

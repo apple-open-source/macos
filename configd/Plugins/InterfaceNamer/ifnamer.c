@@ -1911,7 +1911,19 @@ shareLocked(void)
 static Boolean
 allowNewInterfaces(void)
 {
-    return (S_allow_new_interfaces || os_variant_is_darwinos(IFNAMER_SUBSYSTEM));
+    const char *	allow_str = NULL;
+
+    if (S_allow_new_interfaces) {
+	allow_str = "preference setting";
+    }
+    else if (os_variant_is_darwinos(IFNAMER_SUBSYSTEM)) {
+	allow_str = "darwinOS";
+    }
+    if (allow_str != NULL) {
+	SC_log(LOG_INFO, "%s: %s allows naming new interfaces",
+	       __func__, allow_str);
+    }
+    return allow_str != NULL;
 }
 
 static boolean_t
@@ -3106,6 +3118,65 @@ entryForNamingRequestChanged(void *refCon, io_service_t service,
     return;
 }
 
+#if TARGET_OS_OSX
+static Boolean
+isNCMVirtualInterface(SCNetworkInterfaceRef interface)
+{
+    Boolean	ret = FALSE;
+
+    if (_SCNetworkInterfaceIsTethered(interface)) {
+	CFStringRef	path;
+	CFRange	r;
+
+	path = _SCNetworkInterfaceGetIOPath(interface);
+	if (path != NULL) {
+#define USB_USER_HCI	CFSTR("/AppleUSBUserHCIPort@")
+#define USB_NCM_DATA	CFSTR("/AppleUSBNCMData/")
+	    r = CFStringFind(path, USB_USER_HCI, 0);
+	    if (r.location != kCFNotFound) {
+		r = CFStringFind(path, USB_NCM_DATA, 0);
+		ret = (r.location != kCFNotFound);
+	    }
+	}
+    }
+    return ret;
+}
+
+static Boolean
+allowedToNameInterfaceWithLockedConsole(SCNetworkInterfaceRef interface)
+{
+    const char *	allow_type = NULL;
+
+    if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
+	allow_type = "pre-configured";
+    }
+    else if (_SCNetworkInterfaceIsUserEthernet(interface)) {
+	allow_type = "user ethernet";
+    }
+    else if (isNCMVirtualInterface(interface)) {
+	allow_type = "virtual NCM";
+    }
+    if (allow_type != NULL) {
+	SC_log(LOG_INFO, "%s: allowing %s: %@",
+	       __func__, allow_type, interface);
+    }
+    return allow_type != NULL;
+}
+
+static Boolean
+unableToNameInterfaceBecauseConsoleIsLocked(SCNetworkInterfaceRef interface)
+{
+    Boolean	unable_to_name;
+
+    unable_to_name = !allowNewInterfaces() &&
+	!allowedToNameInterfaceWithLockedConsole(interface) &&
+	isConsoleLocked();
+    return unable_to_name;
+}
+
+
+#endif /* TARGET_OS_OSX */
+
 static SCNetworkInterfaceRef
 assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 			   CFMutableArrayRef if_list, CFIndex i)
@@ -3133,10 +3204,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	int		zero_val = 0;
 
 #if TARGET_OS_OSX
-	if (!allowNewInterfaces() &&
-	    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
-	    !_SCNetworkInterfaceIsUserEthernet(interface) &&
-	    isConsoleLocked()) {
+	if (unableToNameInterfaceBecauseConsoleIsLocked(interface)) {
 	    // ignore interface until console is unlocked
 	    addWatchedLockedInterface(interface, path, "[ephemeral]");
 	    goto done;
@@ -3189,9 +3257,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 	if ((unit == NULL) &&
 	    !is_builtin &&
 	    (dbdict != NULL) &&
-	    !allowNewInterfaces() &&
-	    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
-	    isConsoleLocked()) {
+	    unableToNameInterfaceBecauseConsoleIsLocked(interface)) {
 	    // if new (but matching) interface and console locked, ignore
 	    addWatchedLockedInterface(interface, path, "[matching]");
 	    goto done;
@@ -3242,9 +3308,7 @@ assignNameAndCopyInterface(SCNetworkInterfaceRef interface,
 #if TARGET_OS_OSX
 	    if (!is_builtin &&
 		(unit == NULL) &&
-		!allowNewInterfaces() &&
-		!_SCNetworkInterfaceIsApplePreconfigured(interface) &&
-		isConsoleLocked()) {
+		unableToNameInterfaceBecauseConsoleIsLocked(interface)) {
 		// if new interface and console locked, ignore
 		addWatchedLockedInterface(interface, path, "[new]");
 		goto done;

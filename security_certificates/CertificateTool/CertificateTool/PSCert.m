@@ -12,23 +12,21 @@
 #import <corecrypto/ccsha2.h>
 #import <corecrypto/ccdigest.h>
 #import <Security/Security.h>
+#import <Security/SecCertificatePriv.h>
 
 #import "DataConversion.h"
 
 // SecCertificateInternal.h declararations
 CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 
-// SecCertificatePriv.h declarations
-// (note we cannot simply include SecCertificatePriv.h, since some of
-// these functions were exported but not declared prior to 10.12.2,
-// and we need to build on earlier versions.)
-CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
-CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
-
-
 static CFDataRef GetNormalizedIssuerContent(SecCertificateRef cert)
 {
     return SecCertificateGetNormalizedIssuerContent(cert);
+}
+
+static CFDataRef GetNormalizedSubjectContent(SecCertificateRef cert)
+{
+    return SecCertificateGetNormalizedSubjectContent(cert);
 }
 
 static CFDataRef GetAuthorityKeyID(SecCertificateRef cert)
@@ -154,12 +152,12 @@ static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
 
     if (NULL != iosCertRef)
     {
-        CFDataRef temp_data = GetNormalizedIssuerContent(iosCertRef);
+        CFDataRef temp_data = GetNormalizedSubjectContent(iosCertRef);
 
         if (NULL == temp_data)
         {
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
-            NSLog(@"GetNormalizedIssuerContent returned NULL for %@", name);
+            NSLog(@"GetNormalizedSubjectContent returned NULL for %@", name);
             if (name) { CFRelease(name); }
             CFRelease(iosCertRef);
             return result;
@@ -168,7 +166,7 @@ static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
         if (CFGetTypeID(temp_data) != CFDataGetTypeID())
         {
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
-            NSLog(@"GetNormalizedIssuerContent returned non-CFDataRef type for %@", name);
+            NSLog(@"GetNormalizedSubjectContent returned non-CFDataRef type for %@", name);
             if (name) { CFRelease(name); }
             CFRelease(iosCertRef);
             return result;

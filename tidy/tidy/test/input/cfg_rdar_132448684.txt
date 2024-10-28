@@ -1,0 +1,2 @@
+force-output: yes
+output-xhtml: yes

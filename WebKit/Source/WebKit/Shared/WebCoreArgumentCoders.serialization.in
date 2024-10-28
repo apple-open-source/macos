@@ -514,7 +514,7 @@ struct WebCore::IDBCursorRecord {
 class WebCore::IDBCursorInfo {
     WebCore::IDBResourceIdentifier identifier();
     WebCore::IDBResourceIdentifier transactionIdentifier();
-    uint64_t objectStoreIdentifier();
+    WebCore::IDBObjectStoreIdentifier objectStoreIdentifier();
     uint64_t sourceIdentifier();
 
     WebCore::IDBKeyRangeData range();
@@ -533,7 +533,7 @@ struct WebCore::IDBGetAllRecordsData {
     WebCore::IDBKeyRangeData keyRangeData;
     WebCore::IndexedDB::GetAllType getAllType;
     std::optional<uint32_t> count;
-    uint64_t objectStoreIdentifier;
+    WebCore::IDBObjectStoreIdentifier objectStoreIdentifier;
     uint64_t indexIdentifier;
 }
 
@@ -557,8 +557,7 @@ class WebCore::IDBDatabaseInfo {
     String m_name
     uint64_t m_version
     uint64_t m_maxIndexID
-    uint64_t m_maxObjectStoreID
-    HashMap<uint64_t, WebCore::IDBObjectStoreInfo> m_objectStoreMap
+    HashMap<WebCore::IDBObjectStoreIdentifier, WebCore::IDBObjectStoreInfo> m_objectStoreMap
 }
 
 struct WebCore::IDBKeyRangeData {
@@ -587,7 +586,7 @@ struct WebCore::IDBGetRecordData {
 
 class WebCore::IDBIndexInfo {
     uint64_t identifier()
-    uint64_t objectStoreIdentifier()
+    WebCore::IDBObjectStoreIdentifier objectStoreIdentifier()
     String name()
     WebCore::IDBKeyPath keyPath()
     bool unique()
@@ -595,7 +594,7 @@ class WebCore::IDBIndexInfo {
 }
 
 class WebCore::IDBObjectStoreInfo {
-    uint64_t identifier()
+    WebCore::IDBObjectStoreIdentifier identifier()
     String name()
     std::optional<WebCore::IDBKeyPath> keyPath()
     bool autoIncrement()
@@ -633,7 +632,7 @@ class WebCore::IDBRequestData {
     [Validator='!m_requestIdentifier->isEmpty()'] WebCore::IDBResourceIdentifier m_requestIdentifier;
     [Validator='!m_transactionIdentifier->isEmpty()'] WebCore::IDBResourceIdentifier m_transactionIdentifier;
     std::optional<WebCore::IDBResourceIdentifier> m_cursorIdentifier;
-    uint64_t m_objectStoreIdentifier;
+    Markable<WebCore::IDBObjectStoreIdentifier> m_objectStoreIdentifier;
     uint64_t m_indexIdentifier;
     WebCore::IndexedDB::IndexRecordType m_indexRecordType;
     uint64_t m_requestedVersion;
@@ -6039,6 +6038,8 @@ header: <WebCore/ISOVTTCue.h>
     bool expectCancel;
     bool supportClientPin;
     bool supportInternalUV;
+    long maxCredentialCountInList;
+    long maxCredentialIdLength;
 };
 
 [Nested] enum class WebCore::MockWebAuthenticationConfiguration::NfcError : uint8_t {
@@ -8127,10 +8128,10 @@ enum class WebCore::ContentExtensionDefaultEnablement : bool
 using WebCore::ContentExtensionEnablement = std::pair<WebCore::ContentExtensionDefaultEnablement, HashSet<String>>;
 
 #if USE(CG)
-using WebCore::DisplayList::Item = std::variant<WebCore::DisplayList::ApplyDeviceScaleFactor, WebCore::DisplayList::BeginTransparencyLayer, WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode, WebCore::DisplayList::ClearRect, WebCore::DisplayList::ClearDropShadow, WebCore::DisplayList::Clip, WebCore::DisplayList::ClipRoundedRect, WebCore::DisplayList::ClipOut, WebCore::DisplayList::ClipOutRoundedRect, WebCore::DisplayList::ClipOutToPath, WebCore::DisplayList::ClipPath, WebCore::DisplayList::ClipToImageBuffer, WebCore::DisplayList::ConcatenateCTM, WebCore::DisplayList::DrawControlPart, WebCore::DisplayList::DrawDotsForDocumentMarker, WebCore::DisplayList::DrawEllipse, WebCore::DisplayList::DrawFilteredImageBuffer, WebCore::DisplayList::DrawFocusRingPath, WebCore::DisplayList::DrawFocusRingRects, WebCore::DisplayList::DrawGlyphs, WebCore::DisplayList::DrawDecomposedGlyphs, WebCore::DisplayList::DrawDisplayListItems, WebCore::DisplayList::DrawImageBuffer, WebCore::DisplayList::DrawLine, WebCore::DisplayList::DrawLinesForText, WebCore::DisplayList::DrawNativeImage, WebCore::DisplayList::DrawPath, WebCore::DisplayList::DrawPattern, WebCore::DisplayList::DrawRect, WebCore::DisplayList::DrawSystemImage, WebCore::DisplayList::EndTransparencyLayer, WebCore::DisplayList::FillCompositedRect, WebCore::DisplayList::FillEllipse, WebCore::DisplayList::FillPathSegment, WebCore::DisplayList::FillPath, WebCore::DisplayList::FillRect, WebCore::DisplayList::FillRectWithColor, WebCore::DisplayList::FillRectWithGradient, WebCore::DisplayList::FillRectWithGradientAndSpaceTransform, WebCore::DisplayList::FillRectWithRoundedHole, WebCore::DisplayList::FillRoundedRect, WebCore::DisplayList::ResetClip, WebCore::DisplayList::Restore, WebCore::DisplayList::Rotate, WebCore::DisplayList::Save, WebCore::DisplayList::Scale, WebCore::DisplayList::SetCTM, WebCore::DisplayList::SetInlineFillColor, WebCore::DisplayList::SetInlineStroke, WebCore::DisplayList::SetLineCap, WebCore::DisplayList::SetLineDash, WebCore::DisplayList::SetLineJoin, WebCore::DisplayList::SetMiterLimit, WebCore::DisplayList::SetState, WebCore::DisplayList::StrokeEllipse, WebCore::DisplayList::StrokeLine, WebCore::DisplayList::StrokePathSegment, WebCore::DisplayList::StrokePath, WebCore::DisplayList::StrokeRect, WebCore::DisplayList::Translate, WebCore::DisplayList::FillLine, WebCore::DisplayList::FillArc, WebCore::DisplayList::FillClosedArc, WebCore::DisplayList::FillQuadCurve, WebCore::DisplayList::FillBezierCurve, WebCore::DisplayList::StrokeArc, WebCore::DisplayList::StrokeClosedArc, WebCore::DisplayList::StrokeQuadCurve, WebCore::DisplayList::StrokeBezierCurve, WebCore::DisplayList::PaintFrameForMedia, WebCore::DisplayList::ApplyFillPattern, WebCore::DisplayList::ApplyStrokePattern>;
+using WebCore::DisplayList::Item = std::variant<WebCore::DisplayList::ApplyDeviceScaleFactor, WebCore::DisplayList::BeginTransparencyLayer, WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode, WebCore::DisplayList::ClearRect, WebCore::DisplayList::ClearDropShadow, WebCore::DisplayList::Clip, WebCore::DisplayList::ClipRoundedRect, WebCore::DisplayList::ClipOut, WebCore::DisplayList::ClipOutRoundedRect, WebCore::DisplayList::ClipOutToPath, WebCore::DisplayList::ClipPath, WebCore::DisplayList::ClipToImageBuffer, WebCore::DisplayList::ConcatenateCTM, WebCore::DisplayList::DrawControlPart, WebCore::DisplayList::DrawDotsForDocumentMarker, WebCore::DisplayList::DrawEllipse, WebCore::DisplayList::DrawFilteredImageBuffer, WebCore::DisplayList::DrawFocusRingPath, WebCore::DisplayList::DrawFocusRingRects, WebCore::DisplayList::DrawGlyphs, WebCore::DisplayList::DrawDecomposedGlyphs, WebCore::DisplayList::DrawDisplayListItems, WebCore::DisplayList::DrawImageBuffer, WebCore::DisplayList::DrawLine, WebCore::DisplayList::DrawLinesForText, WebCore::DisplayList::DrawNativeImage, WebCore::DisplayList::DrawPath, WebCore::DisplayList::DrawPattern, WebCore::DisplayList::DrawRect, WebCore::DisplayList::DrawSystemImage, WebCore::DisplayList::EndTransparencyLayer, WebCore::DisplayList::FillCompositedRect, WebCore::DisplayList::FillEllipse, WebCore::DisplayList::FillPathSegment, WebCore::DisplayList::FillPath, WebCore::DisplayList::FillRect, WebCore::DisplayList::FillRectWithColor, WebCore::DisplayList::FillRectWithGradient, WebCore::DisplayList::FillRectWithGradientAndSpaceTransform, WebCore::DisplayList::FillRectWithRoundedHole, WebCore::DisplayList::FillRoundedRect, WebCore::DisplayList::ResetClip, WebCore::DisplayList::Restore, WebCore::DisplayList::Rotate, WebCore::DisplayList::Save, WebCore::DisplayList::Scale, WebCore::DisplayList::SetCTM, WebCore::DisplayList::SetInlineFillColor, WebCore::DisplayList::SetInlineStroke, WebCore::DisplayList::SetLineCap, WebCore::DisplayList::SetLineDash, WebCore::DisplayList::SetLineJoin, WebCore::DisplayList::SetMiterLimit, WebCore::DisplayList::SetState, WebCore::DisplayList::StrokeEllipse, WebCore::DisplayList::StrokeLine, WebCore::DisplayList::StrokePathSegment, WebCore::DisplayList::StrokePath, WebCore::DisplayList::StrokeRect, WebCore::DisplayList::Translate, WebCore::DisplayList::FillLine, WebCore::DisplayList::FillArc, WebCore::DisplayList::FillClosedArc, WebCore::DisplayList::FillQuadCurve, WebCore::DisplayList::FillBezierCurve, WebCore::DisplayList::StrokeArc, WebCore::DisplayList::StrokeClosedArc, WebCore::DisplayList::StrokeQuadCurve, WebCore::DisplayList::StrokeBezierCurve, WebCore::DisplayList::ApplyFillPattern, WebCore::DisplayList::ApplyStrokePattern>;
 #endif
 #if ENABLE(VIDEO) && !USE(CG)
-using WebCore::DisplayList::Item = std::variant<WebCore::DisplayList::ApplyDeviceScaleFactor, WebCore::DisplayList::BeginTransparencyLayer, WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode, WebCore::DisplayList::ClearRect, WebCore::DisplayList::ClearDropShadow, WebCore::DisplayList::Clip, WebCore::DisplayList::ClipRoundedRect, WebCore::DisplayList::ClipOut, WebCore::DisplayList::ClipOutRoundedRect, WebCore::DisplayList::ClipOutToPath, WebCore::DisplayList::ClipPath, WebCore::DisplayList::ClipToImageBuffer, WebCore::DisplayList::ConcatenateCTM, WebCore::DisplayList::DrawControlPart, WebCore::DisplayList::DrawDotsForDocumentMarker, WebCore::DisplayList::DrawEllipse, WebCore::DisplayList::DrawFilteredImageBuffer, WebCore::DisplayList::DrawFocusRingPath, WebCore::DisplayList::DrawFocusRingRects, WebCore::DisplayList::DrawGlyphs, WebCore::DisplayList::DrawDecomposedGlyphs, WebCore::DisplayList::DrawDisplayListItems, WebCore::DisplayList::DrawImageBuffer, WebCore::DisplayList::DrawLine, WebCore::DisplayList::DrawLinesForText, WebCore::DisplayList::DrawNativeImage, WebCore::DisplayList::DrawPath, WebCore::DisplayList::DrawPattern, WebCore::DisplayList::DrawRect, WebCore::DisplayList::DrawSystemImage, WebCore::DisplayList::EndTransparencyLayer, WebCore::DisplayList::FillCompositedRect, WebCore::DisplayList::FillEllipse, WebCore::DisplayList::FillPathSegment, WebCore::DisplayList::FillPath, WebCore::DisplayList::FillRect, WebCore::DisplayList::FillRectWithColor, WebCore::DisplayList::FillRectWithGradient, WebCore::DisplayList::FillRectWithGradientAndSpaceTransform, WebCore::DisplayList::FillRectWithRoundedHole, WebCore::DisplayList::FillRoundedRect, WebCore::DisplayList::ResetClip, WebCore::DisplayList::Restore, WebCore::DisplayList::Rotate, WebCore::DisplayList::Save, WebCore::DisplayList::Scale, WebCore::DisplayList::SetCTM, WebCore::DisplayList::SetInlineFillColor, WebCore::DisplayList::SetInlineStroke, WebCore::DisplayList::SetLineCap, WebCore::DisplayList::SetLineDash, WebCore::DisplayList::SetLineJoin, WebCore::DisplayList::SetMiterLimit, WebCore::DisplayList::SetState, WebCore::DisplayList::StrokeEllipse, WebCore::DisplayList::StrokeLine, WebCore::DisplayList::StrokePathSegment, WebCore::DisplayList::StrokePath, WebCore::DisplayList::StrokeRect, WebCore::DisplayList::Translate, WebCore::DisplayList::PaintFrameForMedia>;
+using WebCore::DisplayList::Item = std::variant<WebCore::DisplayList::ApplyDeviceScaleFactor, WebCore::DisplayList::BeginTransparencyLayer, WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode, WebCore::DisplayList::ClearRect, WebCore::DisplayList::ClearDropShadow, WebCore::DisplayList::Clip, WebCore::DisplayList::ClipRoundedRect, WebCore::DisplayList::ClipOut, WebCore::DisplayList::ClipOutRoundedRect, WebCore::DisplayList::ClipOutToPath, WebCore::DisplayList::ClipPath, WebCore::DisplayList::ClipToImageBuffer, WebCore::DisplayList::ConcatenateCTM, WebCore::DisplayList::DrawControlPart, WebCore::DisplayList::DrawDotsForDocumentMarker, WebCore::DisplayList::DrawEllipse, WebCore::DisplayList::DrawFilteredImageBuffer, WebCore::DisplayList::DrawFocusRingPath, WebCore::DisplayList::DrawFocusRingRects, WebCore::DisplayList::DrawGlyphs, WebCore::DisplayList::DrawDecomposedGlyphs, WebCore::DisplayList::DrawDisplayListItems, WebCore::DisplayList::DrawImageBuffer, WebCore::DisplayList::DrawLine, WebCore::DisplayList::DrawLinesForText, WebCore::DisplayList::DrawNativeImage, WebCore::DisplayList::DrawPath, WebCore::DisplayList::DrawPattern, WebCore::DisplayList::DrawRect, WebCore::DisplayList::DrawSystemImage, WebCore::DisplayList::EndTransparencyLayer, WebCore::DisplayList::FillCompositedRect, WebCore::DisplayList::FillEllipse, WebCore::DisplayList::FillPathSegment, WebCore::DisplayList::FillPath, WebCore::DisplayList::FillRect, WebCore::DisplayList::FillRectWithColor, WebCore::DisplayList::FillRectWithGradient, WebCore::DisplayList::FillRectWithGradientAndSpaceTransform, WebCore::DisplayList::FillRectWithRoundedHole, WebCore::DisplayList::FillRoundedRect, WebCore::DisplayList::ResetClip, WebCore::DisplayList::Restore, WebCore::DisplayList::Rotate, WebCore::DisplayList::Save, WebCore::DisplayList::Scale, WebCore::DisplayList::SetCTM, WebCore::DisplayList::SetInlineFillColor, WebCore::DisplayList::SetInlineStroke, WebCore::DisplayList::SetLineCap, WebCore::DisplayList::SetLineDash, WebCore::DisplayList::SetLineJoin, WebCore::DisplayList::SetMiterLimit, WebCore::DisplayList::SetState, WebCore::DisplayList::StrokeEllipse, WebCore::DisplayList::StrokeLine, WebCore::DisplayList::StrokePathSegment, WebCore::DisplayList::StrokePath, WebCore::DisplayList::StrokeRect, WebCore::DisplayList::Translate>;
 #endif
 #if !ENABLE(VIDEO) && !USE(CG)
 using WebCore::DisplayList::Item = std::variant<WebCore::DisplayList::ApplyDeviceScaleFactor, WebCore::DisplayList::BeginTransparencyLayer, WebCore::DisplayList::BeginTransparencyLayerWithCompositeMode, WebCore::DisplayList::ClearRect, WebCore::DisplayList::ClearDropShadow, WebCore::DisplayList::Clip, WebCore::DisplayList::ClipRoundedRect, WebCore::DisplayList::ClipOut, WebCore::DisplayList::ClipOutRoundedRect, WebCore::DisplayList::ClipOutToPath, WebCore::DisplayList::ClipPath, WebCore::DisplayList::ClipToImageBuffer, WebCore::DisplayList::ConcatenateCTM, WebCore::DisplayList::DrawControlPart, WebCore::DisplayList::DrawDotsForDocumentMarker, WebCore::DisplayList::DrawEllipse, WebCore::DisplayList::DrawFilteredImageBuffer, WebCore::DisplayList::DrawFocusRingPath, WebCore::DisplayList::DrawFocusRingRects, WebCore::DisplayList::DrawGlyphs, WebCore::DisplayList::DrawDecomposedGlyphs, WebCore::DisplayList::DrawDisplayListItems, WebCore::DisplayList::DrawImageBuffer, WebCore::DisplayList::DrawLine, WebCore::DisplayList::DrawLinesForText, WebCore::DisplayList::DrawNativeImage, WebCore::DisplayList::DrawPath, WebCore::DisplayList::DrawPattern, WebCore::DisplayList::DrawRect, WebCore::DisplayList::DrawSystemImage, WebCore::DisplayList::EndTransparencyLayer, WebCore::DisplayList::FillCompositedRect, WebCore::DisplayList::FillEllipse, WebCore::DisplayList::FillPathSegment, WebCore::DisplayList::FillPath, WebCore::DisplayList::FillRect, WebCore::DisplayList::FillRectWithColor, WebCore::DisplayList::FillRectWithGradient, WebCore::DisplayList::FillRectWithGradientAndSpaceTransform, WebCore::DisplayList::FillRectWithRoundedHole, WebCore::DisplayList::FillRoundedRect, WebCore::DisplayList::ResetClip, WebCore::DisplayList::Restore, WebCore::DisplayList::Rotate, WebCore::DisplayList::Save, WebCore::DisplayList::Scale, WebCore::DisplayList::SetCTM, WebCore::DisplayList::SetInlineFillColor, WebCore::DisplayList::SetInlineStroke, WebCore::DisplayList::SetLineCap, WebCore::DisplayList::SetLineDash, WebCore::DisplayList::SetLineJoin, WebCore::DisplayList::SetMiterLimit, WebCore::DisplayList::SetState, WebCore::DisplayList::StrokeEllipse, WebCore::DisplayList::StrokeLine, WebCore::DisplayList::StrokePathSegment, WebCore::DisplayList::StrokePath, WebCore::DisplayList::StrokeRect, WebCore::DisplayList::Translate>;

@@ -4210,6 +4210,13 @@ static int _partial_resolveAndOpen(const struct _rooted_path_parts* pp, struct s
     return -1;
   }
 
+  // We want to pass O_RESOLVE_BENEATH to openat() but that is not yet in macOS (127233765)
+  // This is an O_RESOLVE_BENEATH substitute in the meantime.
+  if (pp->_partial[0] == '/' || strstr(pp->_partial, "../")) {
+    ppLog("PPR: Refuse to open non-relative path '%s'", pp->_partial);
+    return -1;
+  }
+
   int fd = openat(root_fd, pp->_partial, O_RDONLY | O_NOFOLLOW);
 
   int serr = errno;

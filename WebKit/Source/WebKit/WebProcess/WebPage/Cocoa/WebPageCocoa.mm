@@ -313,29 +313,6 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
     return dictionaryPopupInfo;
 }
 
-#if ENABLE(WRITING_TOOLS_UI)
-void WebPage::createTextIndicatorForTextAnimationID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
-{
-    m_textAnimationController->createTextIndicatorForTextAnimationID(uuid, WTFMove(completionHandler));
-}
-
-void WebPage::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
-{
-    m_textAnimationController->updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible, WTFMove(completionHandler));
-}
-
-void WebPage::enableSourceTextAnimationAfterElementWithID(const String& elementID, const WTF::UUID& uuid)
-{
-    m_textAnimationController->enableSourceTextAnimationAfterElementWithID(elementID, uuid);
-}
-
-void WebPage::enableTextAnimationTypeForElementWithID(const String& elementID, const WTF::UUID& uuid)
-{
-    m_textAnimationController->enableTextAnimationTypeForElementWithID(elementID, uuid);
-}
-
-#endif // ENABLE(WRITING_TOOLS)
-
 void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& replacementEditingRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, InsertTextOptions&& options)
 {
     RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
@@ -980,14 +957,87 @@ void WebPage::writingToolsSessionDidReceiveAction(const WritingTools::Session& s
     corePage()->writingToolsSessionDidReceiveAction(session, action);
 }
 
-void WebPage::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::Session::ID& sessionID, const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect rect)
+void WebPage::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect rect)
 {
-    send(Messages::WebPageProxy::ProofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(sessionID, replacementID, rect));
+    send(Messages::WebPageProxy::ProofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(replacementID, rect));
 }
 
-void WebPage::proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::Session::ID& sessionID, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
+void WebPage::proofreadingSessionUpdateStateForSuggestionWithID(WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
 {
-    send(Messages::WebPageProxy::ProofreadingSessionUpdateStateForSuggestionWithID(sessionID, state, replacementID));
+    send(Messages::WebPageProxy::ProofreadingSessionUpdateStateForSuggestionWithID(state, replacementID));
+}
+
+void WebPage::addTextAnimationForAnimationID(const WTF::UUID& uuid, const WebCore::TextAnimationData& styleData, const WebCore::TextIndicatorData& indicatorData, CompletionHandler<void(WebCore::TextAnimationRunMode)>&& completionHandler)
+{
+    if (completionHandler)
+        sendWithAsyncReply(Messages::WebPageProxy::AddTextAnimationForAnimationIDWithCompletionHandler(uuid, styleData, indicatorData), WTFMove(completionHandler));
+    else
+        send(Messages::WebPageProxy::AddTextAnimationForAnimationID(uuid, styleData, indicatorData));
+}
+
+void WebPage::removeTextAnimationForAnimationID(const WTF::UUID& uuid)
+{
+    send(Messages::WebPageProxy::RemoveTextAnimationForAnimationID(uuid));
+}
+
+void WebPage::removeInitialTextAnimationForActiveWritingToolsSession()
+{
+    m_textAnimationController->removeInitialTextAnimationForActiveWritingToolsSession();
+}
+
+void WebPage::addInitialTextAnimationForActiveWritingToolsSession()
+{
+    m_textAnimationController->addInitialTextAnimationForActiveWritingToolsSession();
+}
+
+void WebPage::addSourceTextAnimationForActiveWritingToolsSession(const WTF::UUID& sourceAnimationUUID, const WTF::UUID& destinationAnimationUUID, bool finished, const CharacterRange& range, const String& string, CompletionHandler<void(WebCore::TextAnimationRunMode)>&& completionHandler)
+{
+    m_textAnimationController->addSourceTextAnimationForActiveWritingToolsSession(sourceAnimationUUID, destinationAnimationUUID, finished, range, string, WTFMove(completionHandler));
+}
+
+void WebPage::addDestinationTextAnimationForActiveWritingToolsSession(const WTF::UUID& sourceAnimationUUID, const WTF::UUID& destinationAnimationUUID, const std::optional<CharacterRange>& range, const String& string)
+{
+    m_textAnimationController->addDestinationTextAnimationForActiveWritingToolsSession(sourceAnimationUUID, destinationAnimationUUID, range, string);
+}
+
+void WebPage::saveSnapshotOfTextPlaceholderForAnimation(const WebCore::SimpleRange& placeholderRange)
+{
+    m_textAnimationController->saveSnapshotOfTextPlaceholderForAnimation(placeholderRange);
+}
+
+void WebPage::clearAnimationsForActiveWritingToolsSession()
+{
+    m_textAnimationController->clearAnimationsForActiveWritingToolsSession();
+}
+
+void WebPage::createTextIndicatorForTextAnimationID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+{
+    m_textAnimationController->createTextIndicatorForTextAnimationID(uuid, WTFMove(completionHandler));
+}
+
+void WebPage::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
+{
+    m_textAnimationController->updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible, WTFMove(completionHandler));
+}
+
+void WebPage::enableSourceTextAnimationAfterElementWithID(const String& elementID)
+{
+    m_textAnimationController->enableSourceTextAnimationAfterElementWithID(elementID);
+}
+
+void WebPage::enableTextAnimationTypeForElementWithID(const String& elementID)
+{
+    m_textAnimationController->enableTextAnimationTypeForElementWithID(elementID);
+}
+
+void WebPage::intelligenceTextAnimationsDidComplete()
+{
+    corePage()->intelligenceTextAnimationsDidComplete();
+}
+
+void WebPage::didEndPartialIntelligenceTextAnimation()
+{
+    send(Messages::WebPageProxy::DidEndPartialIntelligenceTextAnimation());
 }
 
 #endif

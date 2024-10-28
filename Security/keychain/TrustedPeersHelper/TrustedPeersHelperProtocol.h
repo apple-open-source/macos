@@ -244,6 +244,9 @@ NS_ASSUME_NONNULL_BEGIN
                   demoAccount:(bool)demoAccount
                         reply:(void (^)(NSError * _Nullable error))reply;
 
+- (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                                       reply:(void (^)(NSError * _Nullable error))reply;
+
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                              reply:(void (^)(NSError * _Nullable error))reply;
 

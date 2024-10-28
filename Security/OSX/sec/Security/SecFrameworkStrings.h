@@ -259,6 +259,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_SSLHostname                 SecStringWithDefaultValue("SSL hostname does not match name(s) in certificate", "Trust", 0, "SSL hostname does not match name(s) in certificate", "Error for SSL hostname mismatch")
 #define SEC_TRUST_ERROR_Email                       SecStringWithDefaultValue("Email address does not match name(s) in certificate", "Trust", 0, "Email address does not match name(s) in certificate", "Error for email mismatch")
 #define SEC_TRUST_ERROR_TemporalValidity            SecStringWithDefaultValue("Certificate is not temporally valid", "Trust", 0, "Certificate is not temporally valid", "Error for temporal validity")
+#define SEC_TRUST_ERROR_ValidLeaf                   SecStringWithDefaultValue("Certificate is not temporally valid", "Trust", 0, "Certificate is not temporally valid", "Error for temporal validity")
 #define SEC_TRUST_ERROR_WeakKeySize                 SecStringWithDefaultValue("Certificate is using a broken key size", "Trust", 0, "Certificate is using a broken key size", "Error for weak keys")
 #define SEC_TRUST_ERROR_WeakSignature               SecStringWithDefaultValue("Certificate is using a broken signature algorithm", "Trust", 0, "Certificate is using a broken signature algorithm", "Error for weak signatures")
 #define SEC_TRUST_ERROR_KeyUsage                    SecStringWithDefaultValue("Key usage does not match certificate usage", "Trust", 0, "Key usage does not match certificate usage", "Error for key usage mismatch")

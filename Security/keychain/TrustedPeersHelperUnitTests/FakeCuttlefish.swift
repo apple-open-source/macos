@@ -336,6 +336,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var resetListener: ((ResetRequest) -> NSError?)?
     var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
     var removeRecoveryKeyListener: ((RemoveRecoveryKeyRequest) -> NSError?)?
+    var performCKServerDataRemovalListener: ((RemoveUnreadableCKServerDataRequest) -> NSError?)?
 
     static let mapper = { (doc: TPPolicyDocument) in (doc.version.versionNumber, (doc.version.policyHash, doc.protobuf)) }
 
@@ -804,7 +805,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         }
 
         // copy Peer so that we can update it safely
-        var peer = try! Peer(serializedData: try! existingPeer.serializedData())
+        var peer = try! Peer(serializedBytes: try! existingPeer.serializedData())
 
         // Before performing write, check if we should error
         if let updateListener = self.updateListener {
@@ -1348,5 +1349,17 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             $0.items = pcsIdentities
             $0.synckeys = Array(synckeys)
         }))
+    }
+
+    func performCkserverUnreadableDataRemoval(_ request: RemoveUnreadableCKServerDataRequest, completion: @escaping (Result<RemoveUnreadableCKServerDataResponse, any Error>) -> Void) {
+        print("FakeCuttlefish: performCkserverUnreadableDataRemoval called")
+        if let performCKServerDataRemovalListener = self.performCKServerDataRemovalListener {
+            let possibleError = performCKServerDataRemovalListener(request)
+            guard possibleError == nil else {
+                completion(.failure(possibleError!))
+                return
+            }
+        }
+        completion(.success(RemoveUnreadableCKServerDataResponse()))
     }
 }

@@ -2118,6 +2118,33 @@
 #endif
 		<dict>
 			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test63_relative</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test63_relative.results.txt</string>
+				<string>test63_relative</string>
+			</array>
+			<key>Description</key>
+			<string>test63_relative</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>rsync.tests_kyua.sh.test6b_perms</string>
 			<key>ShellEnv</key>
 			<dict>

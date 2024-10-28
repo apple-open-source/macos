@@ -197,6 +197,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
                        reply:(nonnull void (^)(NSError * _Nullable))reply;
 
+- (void)performCKServerUnreadableDataRemoval:(void (^)(NSError* _Nullable error))reply;
+
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)rpcEstablish:(nonnull NSString *)altDSID

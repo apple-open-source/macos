@@ -20,7 +20,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[RValue] struct WebKit::WebProcessCreationParameters {
+[RValue, DebugDecodingFailure] struct WebKit::WebProcessCreationParameters {
     WebKit::AuxiliaryProcessCreationParameters auxiliaryProcessParameters;
     String injectedBundlePath;
     WebKit::SandboxExtensionHandle injectedBundlePathExtensionHandle;
@@ -74,7 +74,6 @@
     bool attrStyleEnabled;
     bool shouldThrowExceptionForGlobalConstantRedeclaration;
     WebCore::CrossOriginMode crossOriginMode;
-    bool isLockdownModeEnabled;
 
 #if ENABLE(SERVICE_CONTROLS)
     bool hasImageServices;
@@ -148,7 +147,7 @@
 
     std::optional<WebKit::SandboxExtensionHandle> mobileGestaltExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> launchServicesExtensionHandle;
-#if PLATFORM(MAC) && HAVE(VIDEO_RESTRICTED_DECODING)
+#if (PLATFORM(MAC) || PLATFORM(MACCATALYST)) && HAVE(VIDEO_RESTRICTED_DECODING)
     WebKit::SandboxExtensionHandle trustdExtensionHandle;
 #endif
 #if HAVE(VIDEO_RESTRICTED_DECODING)

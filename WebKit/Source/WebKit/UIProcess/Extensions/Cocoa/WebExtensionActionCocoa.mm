@@ -238,6 +238,20 @@ using namespace WebKit;
 
     _webExtensionAction->popupDidFinishDocumentLoad();
 }
+
+#if PLATFORM(MAC)
+- (void)webView:(WKWebView *)webView runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
+{
+    RefPtr extensionContext = _webExtensionAction ? _webExtensionAction->extensionContext() : nullptr;
+    if (!extensionContext) {
+        completionHandler(nil);
+        return;
+    }
+
+    extensionContext->runOpenPanel(webView, parameters, completionHandler);
+}
+#endif // PLATFORM(MAC)
+
 @end
 
 #if PLATFORM(IOS_FAMILY)
@@ -445,12 +459,11 @@ static void* kvoContext = &kvoContext;
 
         [self _updateDetentForSheetPresentationController:dynamic_objc_cast<UISheetPresentationController>(presentationController)];
     } else {
-        CGSize boundsSize = _popupWebView.bounds.size;
         CGSize contentSize = _popupWebView.scrollView.contentSize;
         CGSize desiredSize = CGSizeMake(std::min(contentSize.width, maximumPopoverWidth), std::min(contentSize.height, maximumPopoverHeight));
 
-        CGFloat minimumWidth = std::min(desiredSize.width, boundsSize.width);
-        CGFloat minimumHeight = _popupWebView.contentSizeHasStabilized ? std::min(desiredSize.height, boundsSize.height) : minimumPopoverHeight;
+        CGFloat minimumWidth = desiredSize.width;
+        CGFloat minimumHeight = _popupWebView.contentSizeHasStabilized ? std::min(desiredSize.height, minimumPopoverHeight) : minimumPopoverHeight;
         CGSize minimumLayoutSize = CGSizeMake(minimumWidth, minimumHeight);
 
         [_popupWebView _overrideLayoutParametersWithMinimumLayoutSize:minimumLayoutSize minimumUnobscuredSizeOverride:minimumLayoutSize maximumUnobscuredSizeOverride:CGSizeZero];

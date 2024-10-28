@@ -1606,6 +1606,11 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #endif
 #define kIOPMSystemProModeEngaged						""
 #define kIOPMSystemProModeDisengaged					""
+
+#define kIOPMEnergyModeAutomatic                         "Automatic"
+#define kIOPMEnergyModeLow                               "LowPowerMode"
+#define kIOPMEnergyModeHigh                              "HighPowerMode"
+
 // See xnu/iokit/IOKit/pwr_mgt/IOPM.h for other PM Settings keys:
 //  kIOPMDeepSleepEnabledKey 
 //  kIOPMDeepSleepDelayKey 
@@ -1784,6 +1789,20 @@ IOReturn IOPMSetPMPreference(CFStringRef key, CFTypeRef value, CFStringRef pwr_s
 @result Returns kIOReturnSuccess or an error condition if request failed.
  */
 IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
+
+#if TARGET_OS_OSX
+#define kIOPMModePreferenceEntitlement  CFSTR("com.apple.private.iokit.updatemodepreference")
+/*!
+@function      IOPMSetEnergyModePreference
+@abstract      Function for configuring mode preference based on the power source
+@discussion    Entitled callers can use this function to configure the Energy Mode to be
+               used for the specified power source.
+@param energyMode     Energy Mode - one of CFSTR(kIOPMEnergyModeAutomatic), CFSTR(kIOPMEnergyModeLow), CFSTR(kIOPMEnergyModeHigh)
+@param pwr_src CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey)
+@result        Returns kIOReturnSuccess or an error condition if request failed.
+*/
+IOReturn IOPMSetEnergyModePreference(CFStringRef energyMode, CFStringRef pwr_src);
+#endif // TARGET_OS_OSX
 
 /*!
  @function          IOPMUsingDefaultPreferences

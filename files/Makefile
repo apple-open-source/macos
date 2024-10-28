@@ -43,7 +43,7 @@ CONTENT_PLATFORM=ios_sim
 endif
 
 ifeq "$(CONTENT_PLATFORM)" "ios_sim"
-SRC_HIERARCHY=hierarchy
+SRC_HIERARCHY=hierarchy hierarchy.ios_sim
 else
 SRC_HIERARCHY=hierarchy hierarchy.not_sim hierarchy.$(CONTENT_PLATFORM)
 endif

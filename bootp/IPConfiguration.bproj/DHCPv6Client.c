@@ -293,8 +293,6 @@ DHCPv6ClientVerifyModeIsNone(DHCPv6ClientRef client, const char * func)
 STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
     kDHCPv6OPTION_DOMAIN_LIST,
-    kDHCPv6OPTION_POSIX_TIMEZONE,
-    kDHCPv6OPTION_TZDB_TIMEZONE,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL
 };
 

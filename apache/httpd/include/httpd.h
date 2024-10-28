@@ -667,6 +667,7 @@ typedef apr_uint64_t ap_request_bnotes_t;
  *
  */
 #define AP_REQUEST_STRONG_ETAG 1 >> 0
+#define AP_REQUEST_TRUSTED_CT  1 << 1
 
 /**
  * This is a convenience macro to ease with getting specific request
@@ -689,6 +690,12 @@ typedef apr_uint64_t ap_request_bnotes_t;
         AP_REQUEST_GET_BNOTE((r), AP_REQUEST_STRONG_ETAG)
 /** @} */
 
+/**
+ * Returns true if the content-type field is from a trusted source
+ */
+#define AP_REQUEST_IS_TRUSTED_CT(r) \
+    (!!AP_REQUEST_GET_BNOTE((r), AP_REQUEST_TRUSTED_CT))
+/** @} */
 
 /**
  * @defgroup module_magic Module Magic mime types
@@ -2655,6 +2662,42 @@ AP_DECLARE(const char *)ap_dir_fnmatch(ap_dir_match_t *w, const char *path,
  * @return 1 if the last Transfer-Encoding is "chunked", else 0
  */
 AP_DECLARE(int) ap_is_chunked(apr_pool_t *p, const char *line);
+
+
+/**
+ * apr_filepath_merge with an allow-list
+ * Merge additional file path onto the previously processed rootpath
+ * @param newpath the merged paths returned
+ * @param rootpath the root file path (NULL uses the current working path)
+ * @param addpath the path to add to the root path
+ * @param flags the desired APR_FILEPATH_ rules to apply when merging
+ * @param p the pool to allocate the new path string from
+ * @remark if the flag APR_FILEPATH_TRUENAME is given, and the addpath
+ * contains wildcard characters ('*', '?') on platforms that don't support
+ * such characters within filenames, the paths will be merged, but the
+ * result code will be APR_EPATHWILD, and all further segments will not
+ * reflect the true filenames including the wildcard and following segments.
+ */
+AP_DECLARE(apr_status_t) ap_filepath_merge(char **newpath,
+                                             const char *rootpath,
+                                             const char *addpath,
+                                             apr_int32_t flags,
+                                             apr_pool_t *p);
+
+#ifdef WIN32
+#define apr_filepath_merge  ap_filepath_merge
+#endif
+
+/* Win32/NetWare/OS2 need to check for both forward and back slashes
+ * in ap_normalize_path() and ap_escape_url().
+ */
+#ifdef CASE_BLIND_FILESYSTEM
+#define AP_IS_SLASH(s) ((s == '/') || (s == '\\'))
+#define AP_SLASHES "/\\"
+#else
+#define AP_IS_SLASH(s) (s == '/')
+#define AP_SLASHES "/"
+#endif
 
 #ifdef __cplusplus
 }

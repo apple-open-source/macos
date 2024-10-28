@@ -121,3 +121,4 @@ POLICYMACRO(VerifiedMark,                          115, E, VerifiedMark,        
 POLICYMACRO(ParakeetSigning,                       116, E, ParakeetSigning,                       , Y, ParakeetSigning)
 POLICYMACRO(iAPAuthV4,                             117, E, iAPAuthV4,                             ,  , iAPAuthV4)
 POLICYMACRO(ParakeetService,                       118, E, ParakeetService,                       ,  , ParakeetService)
+POLICYMACRO(DCAttestation,                         119, E, DCAttestation,                         , Y, DCAttestation)

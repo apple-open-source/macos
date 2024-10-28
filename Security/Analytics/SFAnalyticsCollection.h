@@ -33,6 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @protocol SFAnalyticsCollectionAction <NSObject>
+- (BOOL)shouldRatelimit:(SFAnalytics*)logger rule:(SFAnalyticsMatchingRule*)rule;
 - (void)autoBugCaptureWithType:(NSString *)type  subType:(NSString *)subType domain:(NSString *)domain;
 - (void)tapToRadar:(NSString*)alert
        description:(NSString*)description

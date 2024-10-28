@@ -1135,6 +1135,7 @@ rtadv_solicit(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     switch (event_id) {
     case IFEventID_start_e:
 	rtadv_set_state(service_p, rtadv_state_solicit_e);
+	service_plat_discovery_clear(service_p);
 	ServiceSetBusy(service_p, TRUE);
 	rtadv->start = timer_get_current_time();
 	rtadv->dhcpv6_complete = 0;

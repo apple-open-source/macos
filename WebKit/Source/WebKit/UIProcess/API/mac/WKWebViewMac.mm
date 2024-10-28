@@ -703,6 +703,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 
 - (void)showContextMenuForSelection:(id)sender
 {
+    _page->handleContextMenuKeyEvent();
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -1784,6 +1785,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setFont:(NSFont *)font sender:(id)sender
 {
     _impl->setFontForWebView(font, sender);
+}
+
+- (void)_showWritingTools
+{
+#if ENABLE(WRITING_TOOLS)
+    _impl->showWritingTools();
+#endif
 }
 
 @end // WKWebView (WKPrivateMac)

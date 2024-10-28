@@ -2333,6 +2333,29 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
+    func performCKServerUnreadableDataRemoval(reply: @escaping (Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .info : .error
+            logger.log(level: logType, "performCkserverUnreadableRemoval complete \(traceError($0), privacy: .public)")
+            sem.release()
+            reply($0)
+        }
+        self.moc.performAndWait {
+            let request = RemoveUnreadableCKServerDataRequest()
+            self.cuttlefish.performCkserverUnreadableDataRemoval(request) { response in
+                switch response {
+                case .success(_):
+                    logger.notice("performCkserverUnreadableRemoval success")
+                case .failure(let error):
+                    logger.error("performCkserverUnreadableRemoval failed: \(String(describing: error), privacy: .public)")
+                    reply(error)
+                    return
+                }
+            }
+        }
+    }
+
     func localReset(reply: @escaping (Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {

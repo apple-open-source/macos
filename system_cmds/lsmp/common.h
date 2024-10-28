@@ -147,8 +147,11 @@ typedef struct my_per_task_info {
 #define IKOT_THREAD_READ          47
 #define IKOT_SUID_CRED            48
 #define IKOT_HYPERVISOR           49
-
-#define IKOT_UNKNOWN              50	/* magic catchall	*/
+#define IKOT_TASK_ID_TOKEN        50
+#define IKOT_TASK_FATAL           51
+#define IKOT_KCDATA               52
+#define IKOT_EXCLAVES_RESOURCE    53
+#define IKOT_UNKNOWN              54	/* magic catchall	*/
 #define IKOT_MAX_TYPE             (IKOT_UNKNOWN+1)	/* # of IKOT_ types	*/
 
 
@@ -193,6 +196,7 @@ void deallocate_taskinfo_memory(my_per_task_info_t *data);
 kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo, JSON_t json);
 kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo, JSON_t json);
 my_per_task_info_t * get_taskinfo_by_kobject(natural_t kobj);
+char * get_task_name_by_pid(pid_t pid);
 
 void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t len);
 void get_exc_mask_string(exception_mask_t m, char *out_string, size_t len);

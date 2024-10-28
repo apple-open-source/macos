@@ -25,6 +25,48 @@
 				<string>BATS_TMP_DIR/.+.out</string>
 			</array>
 		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.syslog_trace__samba</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/usr/libexec/rsync/rsync.samba</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/syslog_trace.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/error.log</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.syslog_trace__openrsync</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>rsync</key>
+				<string>/usr/libexec/rsync/rsync.openrsync</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/syslog_trace.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/error.log</string>
+			</array>
+		</dict>
 		<!-- These that require atf-sh(1) availability -->
 #if TARGET_OS_OSX
 		<dict>

@@ -581,6 +581,9 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("service-worker-process"_s, "1"_s);
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("registrable-domain"_s, m_registrableDomain->string());
     }
+
+    if (shouldEnableLockdownMode())
+        launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("enable-lockdown-mode"_s, "1"_s);
 }
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE)
@@ -705,6 +708,8 @@ void WebProcessProxy::shutDown()
     m_backgroundResponsivenessTimer.invalidate();
     m_audibleMediaActivity = std::nullopt;
     m_mediaStreamingActivity = std::nullopt;
+    m_foregroundToken = nullptr;
+    m_backgroundToken = nullptr;
 
     for (Ref page : mainPages())
         page->disconnectFramesFromPage();
@@ -1260,7 +1265,7 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         remotePage.processDidTerminate(coreProcessIdentifier());
 }
 
-void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName)
+void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, int32_t indexOfObjectFailingDecoding)
 {
     logInvalidMessage(connection, messageName);
 

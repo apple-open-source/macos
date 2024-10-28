@@ -573,6 +573,7 @@ __private_extern__ const char *sleepType2String(int sleepType);
 __private_extern__ int getLastSleepType(void);
 __private_extern__ IOReturn _smcWriteKey( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
 __private_extern__ IOReturn _smcWriteKeyLarge( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
+__private_extern__ bool _smcCheckKeyExistsLarge( uint32_t key);
 __private_extern__ IOReturn _smcReadKey( uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, bool byteSwap);
 __private_extern__ IOReturn _smcReadKeySwizzle(uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, unsigned int byteSwap);
 __private_extern__ bool isSenderEntitled(xpc_object_t remoteConnection, CFStringRef entitlementString, bool requireRoot);

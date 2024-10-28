@@ -30,4 +30,11 @@
 
 void DisableLocalization(void);
 
+/* interval in seconds since startup */
+uint64_t TimeSinceSystemStartup(void);
+/* nsec interval since trustd process launch */
+uint64_t TimeSinceProcessLaunch(void);
+/* nsec interval until trustd has been up for at least this many nsecs */
+int64_t TimeUntilProcessUptime(int64_t uptime_nsecs);
+
 #endif /* _SECURITY_SECTRUSTLOGGINGSERVER_H_ */

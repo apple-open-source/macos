@@ -217,7 +217,7 @@ public:
     class Client : public MessageReceiver {
     public:
         virtual void didClose(Connection&) = 0;
-        virtual void didReceiveInvalidMessage(Connection&, MessageName) = 0;
+        virtual void didReceiveInvalidMessage(Connection&, MessageName, int32_t indexOfObjectFailingDecoding) = 0;
         virtual void requestRemoteProcessTermination() { }
 
     protected:
@@ -453,7 +453,7 @@ public:
 
     void dispatchMessageReceiverMessage(MessageReceiver&, UniqueRef<Decoder>&&);
     // Can be called from any thread.
-    void dispatchDidReceiveInvalidMessage(MessageName);
+    void dispatchDidReceiveInvalidMessage(MessageName, int32_t indexOfObjectFailingDecoding);
     void dispatchDidCloseAndInvalidate();
 
     size_t pendingMessageCountForTesting() const;
@@ -536,7 +536,10 @@ private:
     bool sendMessage(std::unique_ptr<MachMessage>);
 #endif
     template<typename F>
-    void dispatchToClient(F&& clientRunLoopTask);
+    void dispatchToClient(F&& clientRunLoopTask) WTF_EXCLUDES_LOCK(m_incomingMessagesLock);
+
+    template<typename F>
+    void dispatchToClientWithIncomingMessagesLock(F&& clientRunLoopTask) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
 
     size_t numberOfMessagesToProcess(size_t totalMessages);
     bool isThrottlingIncomingMessages() const { return *m_incomingMessagesThrottlingLevel > 0; }

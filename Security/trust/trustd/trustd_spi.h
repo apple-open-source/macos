@@ -25,6 +25,8 @@
 #define _TRUSTD_SPI_h
 
 #include <stdio.h>
+#include <xpc/private.h>
+#include <xpc/xpc.h>
 #include <CoreFoundation/CFURL.h>
 
 // Don't call these functions unless you are trustd
@@ -32,5 +34,6 @@ extern struct trustd trustd_spi;
 
 void trustd_init_server(void);
 void trustd_init(CFURLRef home_dir);
+void trustd_exit_clean(const char *reason);
 
 #endif /* _TRUSTD_SPI_h */

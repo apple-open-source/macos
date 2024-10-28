@@ -171,6 +171,10 @@
 #else
 #undef	USE_READDIR_R
 #endif
+#ifdef __APPLE__
+/* readdir_r() is unsafe, cf. rdar://133228511 */
+#undef USE_READDIR_R
+#endif
 
 /* Set up defaults for internal error codes. */
 #ifndef ARCHIVE_ERRNO_FILE_FORMAT

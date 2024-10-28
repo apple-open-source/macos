@@ -785,7 +785,7 @@ typedef struct magazine_s { // vm_allocate()'d, so the array of magazines is pag
 	// Take magazine_lock first,  Depot lock when needed for recirc, then szone->{tiny,small}_regions_lock when needed for alloc
 	_malloc_lock_s magazine_lock MALLOC_CACHE_ALIGN;
 	// Protection for the crtical section that does allocate_pages outside the magazine_lock
-	volatile boolean_t alloc_underway;
+	_malloc_lock_s magazine_alloc_lock;
 
 	// One element deep "death row", optimizes malloc/free/malloc for identical size.
 	void *mag_last_free;

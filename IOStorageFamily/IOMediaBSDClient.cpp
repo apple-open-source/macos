@@ -2792,7 +2792,9 @@ inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, int error)
 }
 
 inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptionBits dkroptions = 0)
-{
+{   
+    IOMemoryDescriptor * buffer = NULL;
+
     if (dkrtype == DKRTYPE_BUF)
     {
         buf_t bp = (buf_t)dkr;
@@ -2806,7 +2808,7 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptio
 
             options |= (flags & B_READ) ? kIODirectionIn : kIODirectionOut;
 
-            return IOMemoryDescriptor::withOptions(          // (multiple-range)
+            buffer = IOMemoryDescriptor::withOptions(          // (multiple-range)
                 buf_upl(bp),
                 buf_count(bp),
                 buf_uploffset(bp),
@@ -2815,7 +2817,7 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptio
         }
         else
         {
-            return IOMemoryDescriptor::withAddressRange(       // (single-range)
+            buffer = IOMemoryDescriptor::withAddressRange(       // (single-range)
                 buf_dataptr(bp),
                 buf_count(bp),
                 ( (flags & B_READ) ? kIODirectionIn : kIODirectionOut) | dkroptions,
@@ -2829,13 +2831,23 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptio
 
         options |= (uio_rw(uio) == UIO_READ) ? kIODirectionIn : kIODirectionOut;
 
-        return IOMemoryDescriptor::withOptions(              // (multiple-range)
+        buffer = IOMemoryDescriptor::withOptions(              // (multiple-range)
             uio,
             uio_iovcnt(uio),
             0,
             (uio_isuserspace(uio)) ? get_user_task() : get_kernel_task(),
             options );
     }
+
+    if ( buffer )
+    {
+
+        buffer->setMapperOptions(buffer->getMapperOptions() | kIOMapperUncached);
+
+    }
+    
+
+    return buffer;
 }
 
 inline void * DKR_GET_DRIVER_DATA(dkr_t dkr, dkrtype_t dkrtype)

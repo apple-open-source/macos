@@ -22,19 +22,22 @@ NS_ASSUME_NONNULL_BEGIN
 - (int)depart:(OTControlArguments*)arguments;
 
 - (int)resetOctagon:(OTControlArguments*)arguments
-  idmsTargetContext:(NSString*_Nullable)idmsTargetContextString
+  idmsTargetContext:(NSString*_Nullable)idmsTargetContext
 idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
          notifyIdMS:(bool)notifyIdMS
             timeout:(NSTimeInterval)timeout;
 
+
 - (int)resetProtectedData:(OTControlArguments*)arguments
-                  appleID:(NSString * _Nullable)appleID
+                  appleID:(NSString *_Nullable)appleID
                      dsid:(NSString *_Nullable)dsid
         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
                notifyIdMS:(bool)notifyIdMS;
 
-- (int)reset:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
+- (int)reset:(OTControlArguments*)arguments
+     appleID:(NSString * _Nullable)appleID
+        dsid:(NSString *_Nullable)dsid;
 
 - (int)status:(OTControlArguments*)arguments json:(bool)json;
 

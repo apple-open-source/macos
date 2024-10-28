@@ -134,6 +134,7 @@
 #import <WebCore/Scrollbar.h>
 #import <WebCore/ShareData.h>
 #import <WebCore/TextAlternativeWithRange.h>
+#import <WebCore/TextAnimationTypes.h>
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/TextRecognitionResult.h>
@@ -1422,6 +1423,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(IMAGE_ANALYSIS)
     [self _setUpImageAnalysis];
 #endif
+
+    _sourceAnimationIDtoDestinationAnimationID = adoptNS([[NSMutableDictionary alloc] init]);
 
     _hasSetUpInteractions = YES;
 }
@@ -3905,6 +3908,11 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (BOOL)requiresAccessoryView
 {
+#if ENABLE(WRITING_TOOLS)
+    if (_isPresentingWritingTools)
+        return NO;
+#endif
+
     if ([_formInputSession accessoryViewShouldNotShow])
         return NO;
 
@@ -11847,32 +11855,6 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     }];
 }
 
-#if ENABLE(WRITING_TOOLS_UI)
-
-- (void)addTextAnimationForAnimationID:(NSUUID *)uuid withStyleType:(WKTextAnimationType)styleType
-{
-    if (!_page->preferences().textAnimationsEnabled())
-        return;
-
-    if (!_textAnimationManager)
-        _textAnimationManager = adoptNS([WebKit::allocWKSTextAnimationManagerInstance() initWithDelegate:self]);
-
-    [_textAnimationManager addTextAnimationForAnimationID:uuid withStyleType:styleType];
-}
-
-- (void)removeTextAnimationForAnimationID:(NSUUID *)uuid
-{
-    if (!_page->preferences().textAnimationsEnabled())
-        return;
-
-    if (!_textAnimationManager)
-        return;
-
-    [_textAnimationManager removeTextAnimationForAnimationID:uuid];
-}
-
-#endif
-
 #if HAVE(UIFINDINTERACTION)
 
 - (void)find:(id)sender
@@ -13228,7 +13210,7 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 
 #pragma mark - WKSTextAnimationSourceDelegate
 
-#if ENABLE(WRITING_TOOLS_UI)
+#if ENABLE(WRITING_TOOLS)
 - (void)targetedPreviewForID:(NSUUID *)uuid completionHandler:(void (^)(UITargetedPreview *))completionHandler
 {
     auto textUUID = WTF::UUID::fromNSUUID(uuid);
@@ -13261,7 +13243,11 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 
 - (void)updateUnderlyingTextVisibilityForTextAnimationID:(NSUUID *)uuid visible:(BOOL)visible completionHandler:(void (^)(void))completionHandler
 {
+    NSUUID *destinationUUID = _sourceAnimationIDtoDestinationAnimationID.get()[uuid];
     auto textUUID = WTF::UUID::fromNSUUID(uuid);
+    if (destinationUUID)
+        textUUID = WTF::UUID::fromNSUUID(destinationUUID);
+
     _page->updateUnderlyingTextVisibilityForTextAnimationID(*textUUID, visible, [completionHandler = makeBlockPtr(completionHandler)] () {
         completionHandler();
     });
@@ -13274,8 +13260,54 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 
 - (void)callCompletionHandlerForAnimationID:(NSUUID *)uuid
 {
+    NSUUID *destinationUUID = _sourceAnimationIDtoDestinationAnimationID.get()[uuid];
+
+    if (!destinationUUID)
+        return;
+
+    auto animationUUID = WTF::UUID::fromNSUUID(destinationUUID);
+    _page->callCompletionHandlerForAnimationID(*animationUUID, WebCore::TextAnimationRunMode::RunAnimation);
+}
+
+- (void)callCompletionHandlerForAnimationID:(NSUUID *)uuid completionHandler:(void (^)(UITargetedPreview * _Nullable))completionHandler
+{
     auto animationUUID = WTF::UUID::fromNSUUID(uuid);
-    _page->callCompletionHandlerForAnimationID(*animationUUID);
+
+    // Store this completion handler so that it can be called after the execution of the next
+    // call to replace the text and eventually use this completion handler to pass the
+    // text indicator to UIKit.
+    _page->storeDestinationCompletionHandlerForAnimationID(*animationUUID, [protectedSelf = retainPtr(self),  completionHandler = makeBlockPtr(completionHandler)] (std::optional<WebCore::TextIndicatorData> textIndicatorData) {
+        if (!textIndicatorData) {
+            completionHandler(nil);
+            return;
+        }
+
+        auto snapshot = textIndicatorData->contentImage;
+        if (!snapshot) {
+            completionHandler(nil);
+            return;
+        }
+
+        auto snapshotImage = snapshot->nativeImage();
+        if (!snapshotImage) {
+            completionHandler(nil);
+            return;
+        }
+
+        RetainPtr image = adoptNS([[UIImage alloc] initWithCGImage:snapshotImage->platformImage().get() scale:protectedSelf->_page->deviceScaleFactor() orientation:UIImageOrientationUp]);
+
+        RetainPtr targetedPreview = createTargetedPreview(image.get(), protectedSelf.get(), [protectedSelf containerForContextMenuHintPreviews], textIndicatorData->textBoundingRectInRootViewCoordinates, textIndicatorData->textRectsInBoundingRectCoordinates, nil);
+
+        completionHandler(targetedPreview.get());
+    });
+
+    _page->callCompletionHandlerForAnimationID(*animationUUID, WebCore::TextAnimationRunMode::RunAnimation);
+
+}
+
+- (void)replacementEffectDidComplete
+{
+    _page->didEndPartialIntelligenceTextAnimationImpl();
 }
 
 #endif
@@ -13297,6 +13329,22 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 #endif // USE(BROWSERENGINEKIT)
 
 #if ENABLE(WRITING_TOOLS)
+
+- (void)willPresentWritingTools
+{
+    _isPresentingWritingTools = YES;
+    // FIXME (rdar://problem/136376688): Stop manually hiding the accessory view once UIKit fixes rdar://136304542.
+    self.formAccessoryView.hidden = YES;
+    [self reloadInputViews];
+}
+
+- (void)didDismissWritingTools
+{
+    _isPresentingWritingTools = NO;
+    // FIXME (rdar://problem/136376688): Stop manually unhiding the accessory view once UIKit fixes rdar://136304542.
+    self.formAccessoryView.hidden = NO;
+    [self reloadInputViews];
+}
 
 // FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
 - (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions
@@ -13347,6 +13395,46 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 - (void)writingToolsSession:(WTSession *)session didReceiveAction:(WTAction)action
 {
     [_webView writingToolsSession:session didReceiveAction:action];
+}
+
+static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationType style)
+{
+    switch (style) {
+    case WebCore::TextAnimationType::Initial:
+        return WKTextAnimationTypeInitial;
+    case WebCore::TextAnimationType::Source:
+        return WKTextAnimationTypeSource;
+    case WebCore::TextAnimationType::Final:
+        return WKTextAnimationTypeFinal;
+    }
+}
+
+- (void)addTextAnimationForAnimationID:(NSUUID *)uuid withData:(const WebCore::TextAnimationData&)data
+{
+    if (!_page->preferences().textAnimationsEnabled())
+        return;
+
+    if (data.style == WebCore::TextAnimationType::Final)
+        [_sourceAnimationIDtoDestinationAnimationID setObject:uuid forKey:data.sourceAnimationUUID];
+
+    if (!_textAnimationManager)
+        _textAnimationManager = adoptNS([WebKit::allocWKSTextAnimationManagerInstance() initWithDelegate:self]);
+
+    [_textAnimationManager addTextAnimationForAnimationID:uuid withStyleType:toWKTextAnimationType(data.style)];
+}
+
+- (void)removeTextAnimationForAnimationID:(NSUUID *)uuid
+{
+    if (!uuid)
+        return;
+
+    if (!_page->preferences().textAnimationsEnabled())
+        return;
+
+    if (!_textAnimationManager)
+        return;
+
+    [_textAnimationManager removeTextAnimationForAnimationID:uuid];
 }
 
 #endif

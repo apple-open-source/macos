@@ -1320,15 +1320,9 @@ szone_log(malloc_zone_t *zone, void *log_address)
 static MALLOC_INLINE void
 szone_force_lock_magazine(szone_t *szone, magazine_t *mag)
 {
-	while (1) {
-		SZONE_MAGAZINE_PTR_LOCK(mag);
-		if (!mag->alloc_underway) {
-			return;
-		}
-
-		SZONE_MAGAZINE_PTR_UNLOCK(mag);
-		yield();
-	}
+	// Acquire the alloc lock first to avoid deadlocking with allocating threads
+	_malloc_lock_lock(&mag->magazine_alloc_lock);
+	SZONE_MAGAZINE_PTR_LOCK(mag);
 }
 
 static void
@@ -1369,16 +1363,19 @@ szone_force_unlock(szone_t *szone)
 	if (szone->is_medium_engaged) {
 		for (i = -1; i < szone->medium_rack.num_magazines; ++i) {
 			SZONE_MAGAZINE_PTR_UNLOCK((&(szone->medium_rack.magazines[i])));
+			_malloc_lock_unlock(&szone->medium_rack.magazines[i].magazine_alloc_lock);
 		}
 	}
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
 	for (i = -1; i < szone->small_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_UNLOCK((&(szone->small_rack.magazines[i])));
+		_malloc_lock_unlock(&szone->small_rack.magazines[i].magazine_alloc_lock);
 	}
 
 	for (i = -1; i < szone->tiny_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_UNLOCK((&(szone->tiny_rack.magazines[i])));
+		_malloc_lock_unlock(&szone->tiny_rack.magazines[i].magazine_alloc_lock);
 	}
 }
 
@@ -1393,16 +1390,19 @@ szone_reinit_lock(szone_t *szone)
 	if (szone->is_medium_engaged) {
 		for (i = -1; i < szone->medium_rack.num_magazines; ++i) {
 			SZONE_MAGAZINE_PTR_REINIT_LOCK((&(szone->medium_rack.magazines[i])));
+			_malloc_lock_init(&szone->medium_rack.magazines[i].magazine_alloc_lock);
 		}
 	}
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
 	for (i = -1; i < szone->small_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_REINIT_LOCK((&(szone->small_rack.magazines[i])));
+		_malloc_lock_init(&szone->small_rack.magazines[i].magazine_alloc_lock);
 	}
 
 	for (i = -1; i < szone->tiny_rack.num_magazines; ++i) {
 		SZONE_MAGAZINE_PTR_REINIT_LOCK((&(szone->tiny_rack.magazines[i])));
+		_malloc_lock_init(&szone->tiny_rack.magazines[i].magazine_alloc_lock);
 	}
 }
 
@@ -1426,6 +1426,11 @@ szone_locked(szone_t *szone)
 					return 1;
 				}
 				SZONE_MAGAZINE_PTR_UNLOCK((&(szone->small_rack.magazines[i])));
+				tookLock = _malloc_lock_trylock(&szone->medium_rack.magazines[i].magazine_alloc_lock);
+				if (tookLock == 0) {
+					return 1;
+				}
+				_malloc_lock_unlock(&szone->medium_rack.magazines[i].magazine_alloc_lock);
 		}
 	}
 #endif // CONFIG_MEDIUM_ALLOCATOR
@@ -1436,6 +1441,11 @@ szone_locked(szone_t *szone)
 			return 1;
 		}
 		SZONE_MAGAZINE_PTR_UNLOCK((&(szone->small_rack.magazines[i])));
+		tookLock = _malloc_lock_trylock(&szone->small_rack.magazines[i].magazine_alloc_lock);
+		if (tookLock == 0) {
+			return 1;
+		}
+		_malloc_lock_unlock(&szone->small_rack.magazines[i].magazine_alloc_lock);
 	}
 
 	for (i = -1; i < szone->tiny_rack.num_magazines; ++i) {
@@ -1444,6 +1454,11 @@ szone_locked(szone_t *szone)
 			return 1;
 		}
 		SZONE_MAGAZINE_PTR_UNLOCK((&(szone->tiny_rack.magazines[i])));
+		tookLock = _malloc_lock_trylock(&szone->tiny_rack.magazines[i].magazine_alloc_lock);
+		if (tookLock == 0) {
+			return 1;
+		}
+		_malloc_lock_unlock(&szone->tiny_rack.magazines[i].magazine_alloc_lock);
 	}
 	return 0;
 }

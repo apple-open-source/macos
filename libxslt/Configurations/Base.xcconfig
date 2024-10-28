@@ -25,7 +25,7 @@ OTHER_CFLAGS_UBSAN_YES = -fno-sanitize=float-divide-by-zero,pointer-overflow;
 OTHER_LDFLAGS = $(inherited) $(OTHER_LDFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER));
 OTHER_LDFLAGS_LIBFUZZER_YES = -fsanitize-coverage=inline-8bit-counters,trace-cmp;
 
-CLANG_TRIVIAL_AUTO_VAR_INIT[sdk=iphone*]=zero;
+CLANG_TRIVIAL_AUTO_VAR_INIT = zero;
 
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = $(LIBXML2_HEADER_PATH);

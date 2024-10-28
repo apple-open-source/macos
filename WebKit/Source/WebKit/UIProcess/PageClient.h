@@ -30,7 +30,6 @@
 #include "PDFPluginIdentifier.h"
 #include "PasteboardAccessIntent.h"
 #include "SameDocumentNavigationType.h"
-#include "TextAnimationType.h"
 #include "WebColorPicker.h"
 #include "WebDateTimePicker.h"
 #include "WebPopupMenuProxy.h"
@@ -48,6 +47,7 @@
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ShareableBitmap.h>
+#include <WebCore/TextAnimationTypes.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ValidationBubble.h>
 #include <variant>
@@ -718,10 +718,7 @@ public:
 #if ENABLE(APP_HIGHLIGHTS)
     virtual void storeAppHighlight(const WebCore::AppHighlight&) = 0;
 #endif
-#if ENABLE(WRITING_TOOLS_UI)
-    virtual void addTextAnimationForAnimationID(const WTF::UUID&, const WebKit::TextAnimationData&) = 0;
-    virtual void removeTextAnimationForAnimationID(const WTF::UUID&) = 0;
-#endif
+
     virtual void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin) { }
 
 #if PLATFORM(COCOA)
@@ -746,13 +743,18 @@ public:
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-    virtual void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::SessionID&, const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) = 0;
+    virtual void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) = 0;
 
-    virtual void proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::SessionID&, WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&) = 0;
+    virtual void proofreadingSessionUpdateStateForSuggestionWithID(WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&) = 0;
 
     virtual void writingToolsActiveWillChange() = 0;
-
     virtual void writingToolsActiveDidChange() = 0;
+
+    virtual void didEndPartialIntelligenceTextAnimation() = 0;
+    virtual bool writingToolsTextReplacementsFinished() = 0;
+
+    virtual void addTextAnimationForAnimationID(const WTF::UUID&, const WebCore::TextAnimationData&) = 0;
+    virtual void removeTextAnimationForAnimationID(const WTF::UUID&) = 0;
 #endif
 
 #if ENABLE(DATA_DETECTION)

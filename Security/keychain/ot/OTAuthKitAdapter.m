@@ -47,8 +47,14 @@
     BOOL isCdpCapable = NO;
 
     AKAccountManager *manager = [AKAccountManager sharedInstance];
-    ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
-    AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount:authKitAccount];
+    NSError *error = nil;
+    ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID error:&error];
+    AKAppleIDSecurityLevel securityLevel = AKAppleIDSecurityLevelUnknown;
+    if (authKitAccount != nil) {
+        securityLevel = [manager securityLevelForAccount:authKitAccount];
+    } else {
+        secnotice("authkit", "failed to get AK account: %@", error);
+    }
     if(securityLevel == AKAppleIDSecurityLevelHSA2 || securityLevel == AKAppleIDSecurityLevelManaged) {
         isCdpCapable = YES;
     }
@@ -79,7 +85,7 @@
             break;
     }
 
-    secnotice("authkit", "Security level for altDSID %@ is %lu.  Account type: %@", [manager altDSIDForAccount:authKitAccount], (unsigned long)securityLevel, accountType);
+    secnotice("authkit", "Security level for altDSID %@ is %lu.  Account type: %@", altDSID, (unsigned long)securityLevel, accountType);
     return isCdpCapable;
 }
 

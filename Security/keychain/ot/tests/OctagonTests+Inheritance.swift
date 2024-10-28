@@ -473,7 +473,6 @@ class OctagonInheritanceTests: OctagonTestsBase {
 
         // now there is an IK set! Let's call reset and establish
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
-
         self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { resetError in
             XCTAssertNil(resetError, "should be no error resetting and establishing")
             resetAndEstablishExpectation.fulfill()

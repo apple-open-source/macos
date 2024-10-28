@@ -1,4 +1,4 @@
-// protocompiler --outputDir Protobuf --arc < ./SFACollection.proto
+// protocompiler --arc --outputDir Protobuf --proto SFACollection.proto
 
 syntax = "proto2";
 
@@ -43,6 +43,24 @@ message Rule {
     optional Action action = 3;
     optional int64 repeatAfterSeconds = 4;
     optional string process = 5;
+    optional EventClass eventClass = 6;
+}
+
+// Structured so the sane behavior with minimal encoding is do for newer clients
+// so if you have older clients for this event type, your match better match only errors
+// but that would be true regardless of the value of eventclass.
+//
+// 0 - new: only errors, older clients: all events
+// 1 - all events
+// 10 -> offset by SFAnalyticsEventClass: 10 == SFAnalyticsEventClassSuccess
+enum EventClass {
+    Errors = 0;
+    All = 1;
+    Success = 10;
+    HardFailure = 11;
+    SoftFailure = 12;
+    Note = 13;
+    Rockwell = 14;
 }
 
 message Rules {

@@ -1358,8 +1358,6 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_balancer(proxy_balancer *balance
         ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s, APLOGNO(00921) "slotmem_attach failed");
         return APR_EGENERAL;
     }
-    if (balancer->lbmethod && balancer->lbmethod->reset)
-        balancer->lbmethod->reset(balancer, s);
 
 #if APR_HAS_THREADS
     if (balancer->tmutex == NULL) {
@@ -1512,8 +1510,9 @@ static void socket_cleanup(proxy_conn_rec *conn)
     apr_pool_clear(conn->scpool);
 }
 
-static void address_cleanup(proxy_conn_rec *conn)
+static void conn_cleanup(proxy_conn_rec *conn)
 {
+    socket_cleanup(conn);
     conn->address = NULL;
     conn->addr = NULL;
     conn->hostname = NULL;
@@ -1521,9 +1520,6 @@ static void address_cleanup(proxy_conn_rec *conn)
     conn->uds_path = NULL;
     if (conn->uds_pool) {
         apr_pool_clear(conn->uds_pool);
-    }
-    if (conn->sock) {
-        socket_cleanup(conn);
     }
 }
 
@@ -2431,15 +2427,14 @@ static int ap_proxy_retry_worker(const char *proxy_function, proxy_worker *worke
  * were passed a UDS url (eg: from mod_proxy) and adjust uds_path
  * as required.  
  */
-static int fix_uds_filename(request_rec *r, char **url) 
+static int fixup_uds_filename(request_rec *r) 
 {
     char *uds_url = r->filename + 6, *origin_url;
 
     if (!strncmp(r->filename, "proxy:", 6) &&
             !ap_cstr_casecmpn(uds_url, "unix:", 5) &&
             (origin_url = ap_strchr(uds_url + 5, '|'))) {
-        char *uds_path = NULL;
-        apr_size_t url_len;
+        char *uds_path = NULL, *end;
         apr_uri_t urisock;
         apr_status_t rv;
 
@@ -2451,23 +2446,146 @@ static int fix_uds_filename(request_rec *r, char **url)
                                                   || !urisock.hostname[0])) {
             uds_path = ap_runtime_dir_relative(r->pool, urisock.path);
         }
-        if (!uds_path) {
+        if (!uds_path || !(end = ap_strchr(origin_url, ':'))) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(10292)
                     "Invalid proxy UDS filename (%s)", r->filename);
-            return 0;
+            apr_table_unset(r->notes, "uds_path");
+            return HTTP_BAD_REQUEST;
         }
         apr_table_setn(r->notes, "uds_path", uds_path);
 
-        /* Remove the UDS path from *url and r->filename */
-        url_len = strlen(origin_url);
-        *url = apr_pstrmemdup(r->pool, origin_url, url_len);
-        memcpy(uds_url, *url, url_len + 1);
-
         ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
-                "*: rewrite of url due to UDS(%s): %s (%s)",
-                uds_path, *url, r->filename);
+                "*: fixup UDS from %s: %s (%s)",
+                r->filename, origin_url, uds_path);
+
+        /* The hostname part of the URL is not mandated for UDS though
+         * the canon_handler hooks will require it, so add "localhost"
+         * if it's missing (won't be used anyway for an AF_UNIX socket).
+         */
+        if (!end[1]) {
+            r->filename = apr_pstrcat(r->pool, "proxy:",
+                                      origin_url, "//localhost",
+                                      NULL);
+        }
+        else if (end[1] == '/' && end[2] == '/' && !end[3]) {
+            r->filename = apr_pstrcat(r->pool, "proxy:",
+                                      origin_url, "localhost",
+                                      NULL);
+        }
+        else {
+            /* Overwrite the UDS part of r->filename in place */
+            memmove(uds_url, origin_url, strlen(origin_url) + 1);
+        }
+        return OK;
     }
-    return 1;
+
+    apr_table_unset(r->notes, "uds_path");
+    return DECLINED;
+}
+
+/* Deprecated (unused upstream) */
+PROXY_DECLARE(int) ap_proxy_fixup_uds_filename(request_rec *r)
+{
+    return fixup_uds_filename(r);
+}
+
+PROXY_DECLARE(const char *) ap_proxy_interpolate(request_rec *r,
+                                                 const char *str)
+{
+    /* Interpolate an env str in a configuration string
+     * Syntax ${var} --> value_of(var)
+     * Method: replace one var, and recurse on remainder of string
+     * Nothing clever here, and crap like nested vars may do silly things
+     * but we'll at least avoid sending the unwary into a loop
+     */
+    const char *start;
+    const char *end;
+    const char *var;
+    const char *val;
+    const char *firstpart;
+
+    start = ap_strstr_c(str, "${");
+    if (start == NULL) {
+        return str;
+    }
+    end = ap_strchr_c(start+2, '}');
+    if (end == NULL) {
+        return str;
+    }
+    /* OK, this is syntax we want to interpolate.  Is there such a var ? */
+    var = apr_pstrmemdup(r->pool, start+2, end-(start+2));
+    val = apr_table_get(r->subprocess_env, var);
+    firstpart = apr_pstrmemdup(r->pool, str, (start-str));
+
+    if (val == NULL) {
+        return apr_pstrcat(r->pool, firstpart,
+                           ap_proxy_interpolate(r, end+1), NULL);
+    }
+    else {
+        return apr_pstrcat(r->pool, firstpart, val,
+                           ap_proxy_interpolate(r, end+1), NULL);
+    }
+}
+
+static apr_array_header_t *proxy_vars(request_rec *r, apr_array_header_t *hdr)
+{
+    int i;
+    apr_array_header_t *ret = apr_array_make(r->pool, hdr->nelts,
+                                             sizeof (struct proxy_alias));
+    struct proxy_alias *old = (struct proxy_alias *) hdr->elts;
+
+    for (i = 0; i < hdr->nelts; ++i) {
+        struct proxy_alias *newcopy = apr_array_push(ret);
+        newcopy->fake = (old[i].flags & PROXYPASS_INTERPOLATE)
+                        ? ap_proxy_interpolate(r, old[i].fake) : old[i].fake;
+        newcopy->real = (old[i].flags & PROXYPASS_INTERPOLATE)
+                        ? ap_proxy_interpolate(r, old[i].real) : old[i].real;
+    }
+    return ret;
+}
+
+PROXY_DECLARE(int) ap_proxy_canon_url(request_rec *r)
+{
+    char *url, *p;
+    int access_status;
+    proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config,
+                                                 &proxy_module);
+
+    if (!r->proxyreq || !r->filename || strncmp(r->filename, "proxy:", 6) != 0)
+        return DECLINED;
+
+    /* Put the UDS path appart if any (and not already stripped) */
+    if (r->proxyreq == PROXYREQ_REVERSE) {
+        access_status = fixup_uds_filename(r);
+        if (ap_is_HTTP_ERROR(access_status)) {
+            return access_status;
+        }
+    }
+
+    /* Keep this after fixup_uds_filename() */
+    url = apr_pstrdup(r->pool, r->filename + 6);
+
+    if ((dconf->interpolate_env == 1) && (r->proxyreq == PROXYREQ_REVERSE)) {
+        /* create per-request copy of reverse proxy conf,
+         * and interpolate vars in it
+         */
+        proxy_req_conf *rconf = apr_palloc(r->pool, sizeof(proxy_req_conf));
+        ap_set_module_config(r->request_config, &proxy_module, rconf);
+        rconf->raliases = proxy_vars(r, dconf->raliases);
+        rconf->cookie_paths = proxy_vars(r, dconf->cookie_paths);
+        rconf->cookie_domains = proxy_vars(r, dconf->cookie_domains);
+    }
+
+    /* canonicalise each specific scheme */
+    if ((access_status = proxy_run_canon_handler(r, url))) {
+        return access_status;
+    }
+
+    p = strchr(url, ':');
+    if (p == NULL || p == url)
+        return HTTP_BAD_REQUEST;
+
+    return OK;      /* otherwise; we've done the best we can */
 }
 
 PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
@@ -2479,19 +2597,16 @@ PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
 
     access_status = proxy_run_pre_request(worker, balancer, r, conf, url);
     if (access_status == DECLINED && *balancer == NULL) {
-        const int forward = (r->proxyreq == PROXYREQ_PROXY);
+        /* UDS path stripped from *url by proxy_fixup() already */
         *worker = ap_proxy_get_worker_ex(r->pool, NULL, conf, *url,
-                                         forward ? AP_PROXY_WORKER_NO_UDS : 0);
+                                         AP_PROXY_WORKER_NO_UDS);
         if (*worker) {
             ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                           "%s: found worker %s for %s",
                           (*worker)->s->scheme, (*worker)->s->name_ex, *url);
-            if (!forward && !fix_uds_filename(r, url)) {
-                return HTTP_INTERNAL_SERVER_ERROR;
-            }
             access_status = OK;
         }
-        else if (forward) {
+        else if (r->proxyreq == PROXYREQ_PROXY) {
             if (conf->forward) {
                 ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r,
                               "*: found forward proxy worker for %s", *url);
@@ -2518,9 +2633,6 @@ PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
                  * regarding the Connection header in the request.
                  */
                 apr_table_setn(r->subprocess_env, "proxy-nokeepalive", "1");
-                if (!fix_uds_filename(r, url)) {
-                    return HTTP_INTERNAL_SERVER_ERROR;
-                }
             }
         }
     }
@@ -2530,6 +2642,7 @@ PROXY_DECLARE(int) ap_proxy_pre_request(proxy_worker **worker,
                       "all workers are busy.  Unable to serve %s", *url);
         access_status = HTTP_SERVICE_UNAVAILABLE;
     }
+
     return access_status;
 }
 
@@ -2784,8 +2897,8 @@ static apr_status_t worker_address_resolve(proxy_worker *worker,
         apr_sockaddr_t *addr = *paddr;
         for (; addr; addr = addr->next) {
             addrs = apr_psprintf(pool, "%s%s%pI",
-                                 addrs ? ", " : "",
                                  addrs ? addrs : "",
+                                 addrs ? ", " : "",
                                  addr);
         }
         if (r) {
@@ -2959,15 +3072,16 @@ PROXY_DECLARE(apr_status_t) ap_proxy_determine_address(const char *proxy_functio
                      */
                     address->expiry = apr_atomic_read32(&worker->s->address_expiry);
                     if (address->expiry <= now) {
-                        apr_uint32_t new_expiry = address->expiry + ttl;
-                        while (new_expiry <= now) {
-                            new_expiry += ttl;
-                        }
-                        new_expiry = apr_atomic_cas32(&worker->s->address_expiry,
-                                                      new_expiry, address->expiry);
-                        /* race lost? well the expiry should grow anyway.. */
-                        AP_DEBUG_ASSERT(new_expiry > now);
-                        address->expiry = new_expiry;
+                        apr_uint32_t prev, next = (now + ttl) - (now % ttl);
+                        do {
+                            prev = apr_atomic_cas32(&worker->s->address_expiry,
+                                                    next, address->expiry);
+                            if (prev == address->expiry) {
+                                address->expiry = next;
+                                break;
+                            }
+                            address->expiry = prev;
+                        } while (prev <= now);
                     }
                 }
                 else {
@@ -3008,13 +3122,40 @@ PROXY_DECLARE(apr_status_t) ap_proxy_determine_address(const char *proxy_functio
 
             PROXY_THREAD_UNLOCK(worker);
 
-            /* Kill any socket using the old address */
-            if (conn->sock) {
-                if (r ? APLOGrdebug(r) : APLOGdebug(s)) {
-                    /* XXX: this requires the old conn->addr[ess] to still
-                     * be alive since it's not copied by apr_socket_connect()
-                     * in ap_proxy_connect_backend().
-                     */
+            /* Release the old conn address */
+            if (conn->address) {
+                /* On Windows and OS/2, apr_socket_connect() called from
+                 * ap_proxy_connect_backend() does a simple pointer copy of
+                 * its given conn->addr[->next] into conn->sock->remote_addr.
+                 * Thus conn->addr cannot be freed if the conn->sock should be
+                 * kept alive (same new and old addresses) and the old address
+                 * is still in conn->sock->remote_addr. In this case we rather
+                 * delay the release of the old address by moving the cleanup
+                 * to conn->scpool such that it runs when the socket is closed.
+                 * In any other case, including other platforms, just release
+                 * the old address now since conn->sock->remote_addr is either
+                 * obsolete (socket forcibly closed) or a copy on conn->scpool
+                 * already (not a dangling pointer).
+                 */
+                int keep_addr_alive = 0,
+                    keep_conn_alive = (conn->sock && conn->addr &&
+                                       proxy_addrs_equal(conn->addr,
+                                                         address->addr));
+                if (keep_conn_alive) {
+#if defined(WIN32) || defined(OS2)
+                    apr_sockaddr_t *remote_addr = NULL;
+                    apr_socket_addr_get(&remote_addr, APR_REMOTE, conn->sock);
+                    for (addr = conn->addr; addr; addr = addr->next) {
+                        if (addr == remote_addr) {
+                            keep_addr_alive = 1;
+                            break;
+                        }
+                    }
+#else
+                    /* Nothing to do, keep_addr_alive = 0 */
+#endif
+                }
+                else if (conn->sock && (r ? APLOGrdebug(r) : APLOGdebug(s))) {
                     apr_sockaddr_t *local_addr = NULL;
                     apr_sockaddr_t *remote_addr = NULL;
                     apr_socket_addr_get(&local_addr, APR_LOCAL, conn->sock);
@@ -3032,18 +3173,26 @@ PROXY_DECLARE(apr_status_t) ap_proxy_determine_address(const char *proxy_functio
                                      local_addr, remote_addr);
                     }
                 }
-                socket_cleanup(conn);
+                if (keep_addr_alive) {
+                    apr_pool_cleanup_kill(conn->pool, conn->address,
+                                          proxy_address_cleanup);
+                    apr_pool_cleanup_register(conn->scpool, conn->address,
+                                              proxy_address_cleanup,
+                                              apr_pool_cleanup_null);
+                }
+                else {
+                    apr_pool_cleanup_run(conn->pool, conn->address,
+                                         proxy_address_cleanup);
+                    if (!keep_conn_alive) {
+                        conn_cleanup(conn);
+                    }
+                }
             }
 
-            /* Kill the old address (if any) and use the new one */
-            if (conn->address) {
-                apr_pool_cleanup_run(conn->pool, conn->address,
-                                     proxy_address_cleanup);
-            }
+            /* Use the new address */
             apr_pool_cleanup_register(conn->pool, address,
                                       proxy_address_cleanup,
                                       apr_pool_cleanup_null);
-            address_cleanup(conn);
             conn->address = address;
             conn->hostname = address->hostname;
             conn->port = address->hostport;
@@ -3079,6 +3228,13 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
                              apr_pstrcat(p,"URI cannot be parsed: ", *url,
                                          NULL));
     }
+
+    if (!uri->hostname) {
+        return ap_proxyerror(r, HTTP_BAD_REQUEST,
+                             apr_pstrcat(p,"URI has no hostname: ", *url,
+                                         NULL));
+    }
+
     if (!uri->port) {
         uri->port = ap_proxy_port_of_scheme(uri->scheme);
     }
@@ -3125,7 +3281,7 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
         if (!conn->uds_path || strcmp(conn->uds_path, uds_path) != 0) {
             apr_pool_t *pool = conn->pool;
             if (conn->uds_path) {
-                address_cleanup(conn);
+                conn_cleanup(conn);
                 if (!conn->uds_pool) {
                     apr_pool_create(&conn->uds_pool, worker->cp->dns_pool);
                 }
@@ -3226,7 +3382,7 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
         if (conn->hostname
             && (conn->port != hostport
                 || ap_cstr_casecmp(conn->hostname, hostname) != 0)) {
-            address_cleanup(conn);
+            conn_cleanup(conn);
         }
 
         /* Resolve the connection address with the determined hostname/port */
@@ -4462,6 +4618,10 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
 
     /* Compute Host header */
     if (dconf->preserve_host == 0) {
+        if (!uri->hostname) {
+            rc = HTTP_BAD_REQUEST;
+            goto cleanup;
+        }
         if (ap_strchr_c(uri->hostname, ':')) { /* if literal IPv6 address */
             if (uri->port_str && uri->port != DEFAULT_HTTP_PORT) {
                 host = apr_pstrcat(r->pool, "[", uri->hostname, "]:",

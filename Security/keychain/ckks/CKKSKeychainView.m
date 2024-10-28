@@ -2581,7 +2581,7 @@
                 
                 [currentItemsDecrypted addObject:[[CKKSCurrentItemQueryResult alloc] initWithIdentifier:identifier accessGroup:accessGroup zoneID:obj.itemPtr.zoneID decryptedRecord:attributes]];
 
-                if ([obj.itemPtr.zoneID isEqualToString:(id)kSecAttrViewHintManatee] && !self.firstManateeKeyFetched) {
+                if ([obj.itemPtr.zoneID isEqualToString:(__bridge NSString*)kSecAttrViewHintManatee] && !self.firstManateeKeyFetched) {
                     self.firstManateeKeyFetched = true;
                     [self sendMetricForFirstManateeAccess];
                 }
@@ -2697,6 +2697,11 @@
                 }
                 
                 [pcsItemsDecrypted addObject:[[CKKSPCSIdentityQueryResult alloc] initWithServiceNumber:obj.service.PCSServiceID publicKey:[obj.service.PCSPublicKey base64EncodedStringWithOptions:0] zoneID:obj.service.zoneID decryptedRecord:attributes]];
+
+                if ([obj.service.zoneID isEqualToString:(__bridge NSString*)kSecAttrViewHintManatee] && !self.firstManateeKeyFetched) {
+                    self.firstManateeKeyFetched = true;
+                    [self sendMetricForFirstManateeAccess];
+                }
             }
         }];
 

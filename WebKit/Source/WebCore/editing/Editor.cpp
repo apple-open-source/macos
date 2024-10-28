@@ -37,6 +37,8 @@
 #include "CSSValuePool.h"
 #include "CachedResourceLoader.h"
 #include "ChangeListTypeCommand.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "ClipboardEvent.h"
 #include "CommonAtomStrings.h"
 #include "CompositionEvent.h"
@@ -3670,7 +3672,15 @@ RefPtr<TextPlaceholderElement> Editor::insertTextPlaceholder(const IntSize& size
     if (!placeholder->parentNode())
         return nullptr;
 
+    document->selection().addCaretVisibilitySuppressionReason(CaretVisibilitySuppressionReason::TextPlaceholderIsShowing);
+
     document->selection().setSelection(VisibleSelection { positionInParentBeforeNode(placeholder.ptr()) }, FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes));
+
+#if ENABLE(WRITING_TOOLS)
+    // For Writing Tools, we need the snapshot of the last inserted placeholder.
+    if (auto placeholderRange = makeRangeSelectingNode(placeholder.get()))
+        protectedDocument()->page()->chrome().client().saveSnapshotOfTextPlaceholderForAnimation(*placeholderRange);
+#endif
 
     return placeholder;
 }
@@ -3691,6 +3701,8 @@ void Editor::removeTextPlaceholder(TextPlaceholderElement& placeholder)
     // To match the Legacy WebKit implementation, set the text insertion point to be before where the placeholder used to be.
     if (document->selection().isFocusedAndActive() && document->focusedElement() == savedRootEditableElement)
         document->selection().setSelection(VisibleSelection { savedPositionBeforePlaceholder }, FrameSelection::defaultSetSelectionOptions(UserTriggered::Yes));
+
+    document->selection().removeCaretVisibilitySuppressionReason(CaretVisibilitySuppressionReason::TextPlaceholderIsShowing);
 }
 
 static inline void collapseCaretWidth(IntRect& rect)

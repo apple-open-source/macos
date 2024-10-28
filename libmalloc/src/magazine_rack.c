@@ -77,9 +77,11 @@ rack_init(rack_t *rack, rack_type_t type, uint32_t num_magazines, uint32_t debug
 
 		_malloc_lock_init(&rack->region_lock);
 		_malloc_lock_init(&rack->magazines[DEPOT_MAGAZINE_INDEX].magazine_lock);
+		_malloc_lock_init(&rack->magazines[DEPOT_MAGAZINE_INDEX].magazine_alloc_lock);
 
 		for (int i=0; i < rack->num_magazines; i++) {
 			_malloc_lock_init(&rack->magazines[i].magazine_lock);
+			_malloc_lock_init(&rack->magazines[i].magazine_alloc_lock);
 		}
 	}
 }

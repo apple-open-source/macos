@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export TIDY_SCRIPT_DIR="$(dirname $0)"
+export TIDY_BUILD_DIR="${TIDY_SCRIPT_DIR}/../../build/Release"
+
+export DYLD_FRAMEWORK_PATH="${TIDY_BUILD_DIR}"
+export DYLD_LIBRARY_PATH="${TIDY_BUILD_DIR}"
+exec ${TIDY_BUILD_DIR}/tidy $*

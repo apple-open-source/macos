@@ -1311,7 +1311,6 @@ extension OctagonPairingTests {
             XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
             resetAndEstablishExpectation.fulfill()
         }
-
         self.wait(for: [resetAndEstablishExpectation], timeout: 10)
         self.assertEnters(context: acceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 

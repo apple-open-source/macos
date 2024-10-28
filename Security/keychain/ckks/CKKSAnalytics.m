@@ -340,7 +340,7 @@ NSString* const SOSDeferralAnalyticsResetToOffering = @"ResetToOffering";
 
 - (void)addCKPartialError:(NSMutableDictionary *)errorDictionary error:(NSError *)error depth:(NSUInteger)depth
 {
-    // capture one random underlaying error
+    // capture one random underlying error
     if ([self isCKPartialError:error]) {
         NSDictionary<NSString *,NSError *> *partialErrors = error.userInfo[CKPartialErrorsByItemIDKey];
         if ([partialErrors isKindOfClass:[NSDictionary class]]) {

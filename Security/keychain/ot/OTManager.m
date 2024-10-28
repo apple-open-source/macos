@@ -1153,7 +1153,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
               resetReason:(CuttlefishResetReason)resetReason
         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-	       notifyIdMS:(bool)notifyIdMS
+               notifyIdMS:(bool)notifyIdMS
           accountSettings:(OTAccountSettings *_Nullable)accountSettings
                     reply:(void (^)(NSError * _Nullable))reply
 {
@@ -1180,9 +1180,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }];
 }
 
-- (void)resetAcountData:(OTControlArguments*)arguments
-            resetReason:(CuttlefishResetReason)resetReason
-                  reply:(void (^)(NSError* _Nullable error))reply
+- (void)clearCliqueFromAccount:(OTControlArguments*)arguments
+                   resetReason:(CuttlefishResetReason)resetReason
+                         reply:(void (^)(NSError* _Nullable error))reply
 {
     NSError* clientError = nil;
     OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
@@ -1193,7 +1193,26 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
     [cfshContext startOctagonStateMachine];
-    [cfshContext rpcReset:resetReason reply:reply];
+    [cfshContext rpcReset:resetReason
+                    reply:reply];
+}
+
+- (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                       reply:(void (^)(NSError* _Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting a performCKServerUnreadableDataRemoval RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    [cfshContext startOctagonStateMachine];
+    [cfshContext performCKServerUnreadableDataRemoval:^(NSError* removalError) {
+        reply(removalError);
+    }];
 }
 
 - (void)establish:(OTControlArguments*)arguments

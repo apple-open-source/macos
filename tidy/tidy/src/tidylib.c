@@ -1157,15 +1157,27 @@ int         tidyDocParseStream( TidyDocImpl* doc, StreamIn* in )
     if ( xmlIn )
     {
         TY_(ParseXMLDocument)( doc );
-        if ( !TY_(CheckNodeIntegrity)( &doc->root ) )
+        if ( !TY_(CheckNodeIntegrity)( &doc->root ) ) {
+#ifdef ENABLE_LIBFUZZER
+            doc->docIn = NULL;
+            return tidyDocStatus( doc );
+#else
             FatalError( integrity );
+#endif
+        }
     }
     else
     {
         doc->warnings = 0;
         TY_(ParseDocument)( doc );
-        if ( !TY_(CheckNodeIntegrity)( &doc->root ) )
+        if ( !TY_(CheckNodeIntegrity)( &doc->root ) ) {
+#ifdef ENABLE_LIBFUZZER
+            doc->docIn = NULL;
+            return tidyDocStatus( doc );
+#else
             FatalError( integrity );
+#endif
+        }
     }
 
 #ifdef TIDY_WIN32_MLANG_SUPPORT

@@ -4491,25 +4491,27 @@ xmlStaticCopyNodeList(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent) {
     xmlDtdPtr newSubset = NULL;
 
     while (node != NULL) {
-	if (node->type == XML_DTD_NODE ) {
 #ifdef LIBXML_TREE_ENABLED
-	    if ((doc == NULL) || (doc->intSubset != NULL)) {
+	if (node->type == XML_DTD_NODE ) {
+	    if (doc == NULL) {
 		node = node->next;
 		continue;
 	    }
-            q = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr) node );
-            if (q == NULL) goto error;
-            q->doc = doc;
-            q->parent = parent;
-            newSubset = (xmlDtdPtr) q;
-#else
-            node = node->next;
-            continue;
+	    if ((doc->intSubset == NULL) && (newSubset == NULL)) {
+		q = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr) node );
+		if (q == NULL) goto error;
+		q->doc = doc;
+		q->parent = parent;
+		newSubset = (xmlDtdPtr) q;
+		xmlAddChild(parent, q);
+	    } else {
+		q = (xmlNodePtr) doc->intSubset;
+		xmlAddChild(parent, q);
+	    }
+	} else
 #endif /* LIBXML_TREE_ENABLED */
-	} else {
 	    q = xmlStaticCopyNode(node, doc, parent, 1);
-	    if (q == NULL) goto error;
-        }
+	if (q == NULL) goto error;
 	if (ret == NULL) {
 	    q->prev = NULL;
 	    ret = p = q;
@@ -4521,7 +4523,7 @@ xmlStaticCopyNodeList(xmlNodePtr node, xmlDocPtr doc, xmlNodePtr parent) {
 	}
 	node = node->next;
     }
-    if (newSubset != NULL)
+    if ((doc != NULL) && (newSubset != NULL))
         doc->intSubset = newSubset;
     return(ret);
 error:

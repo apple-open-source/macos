@@ -3,6 +3,7 @@
 #include <darwintest_utils.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <libtop.h>
 
 T_GLOBAL_META(T_META_NAMESPACE("top"));
 
@@ -114,4 +115,46 @@ T_DECL(stats_option, "test that top can show single columns")
 	test_stats_option("idlew", "IDLEW");
 	test_stats_option("power", "POWER");
 	test_stats_option("user", "USER");
+}
+
+boolean_t
+_test_print(void * __unused user_data, const char *format, ...)
+{
+	char *msg = NULL;
+	va_list ap;
+	va_start(ap, format);
+	int bytes = vasprintf(&msg, format, ap);
+	va_end(ap);
+	T_LOG("libtop: %s", msg);
+	free(msg);
+	return TRUE;
+}
+
+int
+_pid_sort(void * __unused user_data, const libtop_psamp_t *lhs, const libtop_psamp_t *rhs)
+{
+	return lhs->pid - rhs->pid;
+}
+
+T_DECL(libtop_inspect, "test that libtop can access statistics with task inspect ports",
+		T_META_ASROOT(true))
+{
+	int init_ret = libtop_init_with_options(_test_print, NULL, LIBTOP_INIT_INSPECT);
+	T_ASSERT_POSIX_SUCCESS(init_ret, "libtop_init_with_options");
+	T_ATEND(libtop_fini);
+
+	libtop_sample(FALSE, FALSE);
+
+	const libtop_tsamp_t *tsamp = libtop_tsamp();
+
+	T_EXPECT_GT(tsamp->threads, 0, "non-zero total threads");
+	// nprocs isn't updated until `libtop_psort`.
+	libtop_psort(_pid_sort, NULL);
+	T_EXPECT_GT(tsamp->nprocs, 0, "non-zero total processes");
+
+	const libtop_psamp_t *psamp = NULL;
+	while ((psamp = libtop_piterate()) != NULL) {
+		T_QUIET; T_EXPECT_GT(psamp->th, 0ULL, "non-zero thread count in single process");
+		T_QUIET; T_EXPECT_GT(psamp->total_timens, 0ULL, "non-zero CPU time from threads in single process");
+	}
 }

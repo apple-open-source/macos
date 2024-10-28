@@ -196,6 +196,12 @@ struct IOPCIConfigSave
 };
 
 // -- Helper functions for accessing the savedConfig DW array --
+static inline uint8_t savedConfigRead8( IOPCIConfigSave *save, uint16_t offset)
+{
+	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);
+	return *(uint8_t *)(&savedConfig[offset]);
+}
+
 static inline uint16_t savedConfigRead16( IOPCIConfigSave *save, uint16_t offset)
 {
 	uint8_t *savedConfig = reinterpret_cast<uint8_t*>(save->savedConfig);

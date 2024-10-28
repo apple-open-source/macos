@@ -69,7 +69,7 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 BundleDiskRep::~BundleDiskRep()
 {
 }
-	
+
 void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
 {
 	char cOld[PATH_MAX];
@@ -115,11 +115,12 @@ void BundleDiskRep::setup(const Context *ctx)
 	} else if (::access(supportFiles.c_str(), F_OK) == 0) {	// ancient legacy boondoggle bundle
 		// treat like a shallow bundle; do not allow Versions arbitration
 		appDisqualified = true;
-	} else if (::access(version.c_str(), F_OK) == 0) {	// versioned bundle
-		if (CFBundleRef versionBundle = _CFBundleCreateUnique(NULL, CFTempURL(version)))
+	} else if (!(ctx && ctx->skipFrameworkCheck) && ::access(version.c_str(), F_OK) == 0) {	// versioned bundle
+		if (CFBundleRef versionBundle = _CFBundleCreateUnique(NULL, CFTempURL(version))) {
 			mBundle.take(versionBundle);	// replace top bundle ref
-		else
+		} else {
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
+		}
 		appDisqualified = true;
 		validateFrameworkRoot(root);
 	} else {
@@ -133,7 +134,7 @@ void BundleDiskRep::setup(const Context *ctx)
 	CFTypeRef packageVersion = CFDictionaryGetValue(infoDict, CFSTR("IFMajorVersion"));
 
 	// conventional executable bundle: CFBundle identifies an executable for us
-	if (CFRef<CFURLRef> mainExec = CFBundleCopyExecutableURL(mBundle))		// if CFBundle claims an executable...
+	if (CFRef<CFURLRef> mainExec = CFBundleCopyExecutableURL(mBundle)) {		// if CFBundle claims an executable...
 		if (mainHTML == NULL) {												// ... and it's not a widget
 
 			// Note that this check is skipped if there is a specific framework version checked.
@@ -163,7 +164,8 @@ void BundleDiskRep::setup(const Context *ctx)
 			mAppLike = isAppBundle && !appDisqualified;
 			return;
 		}
-	
+	}
+
 	// widget
 	if (mainHTML) {
 		if (CFGetTypeID(mainHTML) != CFStringGetTypeID())

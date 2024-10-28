@@ -452,7 +452,7 @@ private:
     void queueChange(const NodeChange&) WTF_REQUIRES_LOCK(m_changeLogLock);
     void queueRemovals(Vector<AXID>&&);
     void queueRemovalsLocked(Vector<AXID>&&) WTF_REQUIRES_LOCK(m_changeLogLock);
-    void queueRemovalsAndUnresolvedChanges(Vector<AXID>&&);
+    void queueRemovalsAndUnresolvedChanges();
     Vector<NodeChange> resolveAppends();
     void queueAppendsAndRemovals(Vector<NodeChange>&&, Vector<AXID>&&);
 
@@ -485,6 +485,11 @@ private:
     // The key is the ID of the object that will be resolved into an m_pendingAppends NodeChange.
     // The value is whether the wrapper should be attached on the main thread or the AX thread.
     HashMap<AXID, AttachWrapper> m_unresolvedPendingAppends;
+    // Only accessed on the main thread.
+    // While performing tree updates, we append nodes to this list that are no longer connected
+    // in the tree and should be removed. This list turns into m_pendingSubtreeRemovals when
+    // handed off to the secondary thread.
+    Vector<AXID> m_subtreesToRemove;
     // Only accessed on the main thread.
     // This is used when updating the isolated tree in response to dynamic children changes.
     // It is required to protect objects from being incorrectly deleted when they are re-parented,

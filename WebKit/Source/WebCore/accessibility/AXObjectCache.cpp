@@ -743,8 +743,11 @@ Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject& r
     if (auto* renderMenuList = dynamicDowncast<RenderMenuList>(renderer))
         return AccessibilityMenuList::create(*renderMenuList);
 
-    // standard tables
-    if ((is<RenderTable>(renderer) && !renderer.isAnonymous()) || isAccessibilityTable(node.get()))
+
+    // Some websites put display:table on tbody / thead / tfoot, resulting in a RenderTable being generated.
+    // We don't want to consider these tables (since they are typically wrapped by an actual <table> element),
+    // so only create an AccessibilityTable when !is<HTMLTableSectionElement>.
+    if ((is<RenderTable>(renderer) && !renderer.isAnonymous() && !is<HTMLTableSectionElement>(node.get())) || isAccessibilityTable(node.get()))
         return AccessibilityTable::create(renderer);
     if ((is<RenderTableRow>(renderer) && !renderer.isAnonymous()) || isAccessibilityTableRow(node.get()))
         return AccessibilityTableRow::create(renderer);
@@ -1301,6 +1304,17 @@ void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
     else if (auto* axRow = dynamicDowncast<AccessibilityTableRow>(object)) {
         if (auto* parentTable = axRow->parentTable())
             deferRecomputeTableCellSlots(*parentTable);
+    } else if (auto* scrollView = dynamicDowncast<AccessibilityScrollView>(object)) {
+        // When the children of an iframe change, e.g., because its visibility changes,
+        // then we need to dirty the web area's subtree since the scroll area doesn't
+        // have a node nor renderer, thus, failing the check below and returning early.
+
+        // Only do this when the web area is not the root web area, as this indicates
+        // we are in an iframe.
+        if (RefPtr webArea = scrollView->webAreaObject(); webArea && webArea != rootWebArea()) {
+            webArea->setNeedsToUpdateSubtree();
+            webArea->setNeedsToUpdateChildren();
+        }
     }
 
     if (!object.node() && !object.renderer())
@@ -1337,6 +1351,9 @@ void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
             // A label's descendant was added or removed. Update its LabelFor relationships.
             handleLabelChanged(parent.get());
         }
+
+        for (const auto& describedObject : parent->descriptionForObjects())
+            postNotification(downcast<AccessibilityObject>(describedObject.get()), nullptr, AXExtendedDescriptionChanged);
 
         if (parent->hasTagName(captionTag))
             foundTableCaption = true;
@@ -4398,7 +4415,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<Ref<AccessibilityO
             tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::IsExpanded });
             break;
         case AXExtendedDescriptionChanged:
-            tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::ExtendedDescription });
+            tree->queueNodeUpdate(notification.first->objectID(), { { AXPropertyName::AccessibilityText, AXPropertyName::ExtendedDescription } });
             break;
         case AXFocusableStateChanged:
             tree->queueNodeUpdate(notification.first->objectID(), { AXPropertyName::CanSetFocusAttribute });

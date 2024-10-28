@@ -5131,6 +5131,7 @@ skip_fi:
 exit:
 	if (buffer) free(buffer);
 	if (dataptr) free(dataptr);
+	if (acl_dataptr) free(acl_dataptr);
 	return error;
 }
 
@@ -5696,6 +5697,7 @@ static int copyfile_pack(copyfile_state_t s)
 		}
 #endif
 		free(databuf);
+		databuf = NULL;
 
 		copyfile_debug(3, "copied %ld bytes of \"%s\" data @ offset 0x%08x", datasize, nameptr, entry->offset);
 	next:
@@ -5734,6 +5736,7 @@ static int copyfile_pack(copyfile_state_t s)
 exit:
 	if (filehdr) free(filehdr);
 	if (attrnamebuf) free(attrnamebuf);
+	if (databuf) free(databuf);
 
 	if (error)
 		return error;

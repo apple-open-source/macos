@@ -4930,6 +4930,11 @@ void Page::compositionSessionDidReceiveTextWithReplacementRange(const WritingToo
     m_writingToolsController->compositionSessionDidReceiveTextWithReplacementRange(session, attributedText, range, context, finished);
 }
 
+void Page::writingToolsSessionDidReceiveAction(const WritingTools::Session& session, WritingTools::Action action)
+{
+    m_writingToolsController->writingToolsSessionDidReceiveAction(session, action);
+}
+
 void Page::updateStateForSelectedSuggestionIfNeeded()
 {
     m_writingToolsController->updateStateForSelectedSuggestionIfNeeded();
@@ -4945,14 +4950,14 @@ void Page::respondToReappliedWritingToolsEditing(EditCommandComposition* command
     m_writingToolsController->respondToReappliedEditing(command);
 }
 
-std::optional<SimpleRange> Page::contextRangeForSessionWithID(const WritingTools::Session::ID& sessionID) const
+std::optional<SimpleRange> Page::contextRangeForActiveWritingToolsSession() const
 {
-    return m_writingToolsController->contextRangeForSessionWithID(sessionID);
+    return m_writingToolsController->activeSessionRange();
 }
 
-void Page::writingToolsSessionDidReceiveAction(const WritingTools::Session& session, WritingTools::Action action)
+void Page::intelligenceTextAnimationsDidComplete()
 {
-    m_writingToolsController->writingToolsSessionDidReceiveAction(session, action);
+    m_writingToolsController->intelligenceTextAnimationsDidComplete();
 }
 #endif
 

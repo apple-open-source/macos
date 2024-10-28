@@ -2113,16 +2113,17 @@ small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_request
 
 		// The magazine is exhausted. A new region (heap) must be allocated to satisfy this call to malloc().
 		// The allocation, an mmap() system call, will be performed outside the magazine spin locks by the first
-		// thread that suffers the exhaustion. That thread sets "alloc_underway" and enters a critical section.
-		// Threads arriving here later are excluded from the critical section, yield the CPU, and then retry the
-		// allocation. After some time the magazine is resupplied, the original thread leaves with its allocation,
-		// and retry-ing threads succeed in the code just above.
-		if (!small_mag_ptr->alloc_underway) {
+		// thread that suffers the exhaustion. That thread accquires the magazine_alloc_lock, then drops the
+		// magazine lock to allow freeing threads to proceed. Allocating thrads that arrive later  are excluded
+		// from the critial section by the alloc lock. When those are unblocked, they succeed in the code above.
+		//
+		// Note that we need to trylock the alloc lock to avoid a deadlock, since we can't block on the alloc
+		// lock while holding the magazine lock
+		if (os_likely(_malloc_lock_trylock(&small_mag_ptr->magazine_alloc_lock))) {
+			// We got the alloc lock, so we are the thread that should allocate a new region
 			void *fresh_region;
 
 			// time to create a new region (do this outside the magazine lock)
-			small_mag_ptr->alloc_underway = TRUE;
-			OSMemoryBarrier();
 			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 			fresh_region = mvm_allocate_pages(SMALL_REGION_SIZE,
 					SMALL_BLOCKS_ALIGN,
@@ -2134,9 +2135,8 @@ small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_request
 			MAGMALLOC_ALLOCREGION(SMALL_SZONE_FROM_RACK(rack), (int)mag_index, fresh_region, SMALL_REGION_SIZE);
 
 			if (!fresh_region) { // out of memory!
-				small_mag_ptr->alloc_underway = FALSE;
-				OSMemoryBarrier();
 				SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
+				_malloc_lock_unlock(&small_mag_ptr->magazine_alloc_lock);
 				return NULL;
 			}
 
@@ -2144,14 +2144,20 @@ small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_request
 			ptr = small_malloc_from_region_no_lock(rack, small_mag_ptr, mag_index, msize, fresh_region);
 
 			// we don't clear because this freshly allocated space is pristine
-			small_mag_ptr->alloc_underway = FALSE;
-			OSMemoryBarrier();
 			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
+			_malloc_lock_unlock(&small_mag_ptr->magazine_alloc_lock);
 			CHECK(szone, __PRETTY_FUNCTION__);
 			return ptr;
 		} else {
+			// We failed to get the alloc lock, so someone else is allocating.
+			// Drop the magazine lock...
 			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
-			yield();
+
+			// Wait for the other thread on the alloc lock
+			_malloc_lock_lock(&small_mag_ptr->magazine_alloc_lock);
+			_malloc_lock_unlock(&small_mag_ptr->magazine_alloc_lock);
+
+			// Reacquire the magazine lock to go around the loop again
 			SZONE_MAGAZINE_PTR_LOCK(small_mag_ptr);
 		}
 	}

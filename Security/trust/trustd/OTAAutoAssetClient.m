@@ -27,6 +27,7 @@
 #import "trust/trustd/SecTrustLoggingServer.h"
 #import "trust/trustd/trustdFileLocations.h"
 #import "trust/trustd/trustdVariants.h"
+#import "trust/trustd/trustd_spi.h"
 #import "trust/trustd/OTATrustUtilities.h"
 #import <utilities/SecCFWrappers.h>
 #import <notify.h>
@@ -152,8 +153,7 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
                   (unsigned long long)self.lastAvailableVersion, (unsigned long long)self.lastCurrentVersion);
         if (self.lastAvailableVersion > self.lastCurrentVersion) {
             // restart trustd to pick up new asset
-            secnotice("OTATrust", "Will exit when clean to use updated asset");
-            xpc_transaction_exit_clean();
+            trustd_exit_clean("Will exit when clean to use newer asset version.");
         }
     }
     CFReleaseNull(error);
@@ -272,6 +272,26 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
     return nil;
 }
 
++ (BOOL)retryReadSavedTrustStoreAssetPath:(NSString *)assetPath {
+    __block BOOL result = NO;
+    // try to read again in 0.25 seconds, timing out after 1 second
+    dispatch_semaphore_t waitSemaphore = dispatch_semaphore_create(0);
+    dispatch_time_t finishTime = dispatch_time(DISPATCH_TIME_NOW, 1ULL*NSEC_PER_SEC);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC/4), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        NSString *savedPath = [OTAAutoAssetClient savedTrustStoreAssetPath];
+        if (savedPath && [assetPath isEqualToString:savedPath]) {
+            result = YES;
+        }
+        secnotice("OTATrust", "retryReadSavedTrustStoreAssetPath result: %@",
+                  (result) ? @"YES" : @"NO");
+        dispatch_semaphore_signal(waitSemaphore);
+    });
+    if (dispatch_semaphore_wait(waitSemaphore, finishTime) != 0) {
+        secerror("timed out attempting to read saved asset path");
+    }
+    return result;
+}
+
 + (BOOL)saveTrustStoreAssetPath:(NSString *)assetPath {
 #if !TARGET_OS_BRIDGE
     if (!TrustdVariantAllowsFileWrite()) {
@@ -283,11 +303,25 @@ static NSString * const OTACryptexesPathPrefix = @"/System/Cryptexes/OS/";
     });
     if (!plistPath) { return NO; }
 
+    NSString *savedPath = [OTAAutoAssetClient savedTrustStoreAssetPath];
+    if (savedPath && [assetPath isEqualToString:savedPath]) { return YES; } // this is a no-op
+
     NSError *error = nil;
     NSURL *plistURL = [NSURL fileURLWithPath:plistPath isDirectory:NO];
     NSMutableDictionary *autoAssetDict = [NSMutableDictionary dictionaryWithCapacity:0];
     autoAssetDict[OTAAutoAssetPathKey] = assetPath;
+    secnotice("OTATrust", "writing asset path \"%@\" (was \"%@\")", assetPath, savedPath);
     if (![autoAssetDict writeToClassDURL:plistURL permissions:0666 error:&error]) {
+        // Either file permissions are actually wrong, or another trustd is writing
+        // the file with an exclusive lock. In the second case, reading it again
+        // after a short interval should return the same value we were trying to
+        // write, in which case the operation is successful.
+        // Note that the system instance of trustd is not guaranteed to be running
+        // when a newly-available asset is first encountered during trustd startup;
+        // any running instance of trustd has permission to update the asset path.
+        if ([OTAAutoAssetClient retryReadSavedTrustStoreAssetPath:assetPath]) {
+            return YES;
+        }
         secerror("failed to write %{public}@: %@", plistPath, error);
     } else {
         return YES;
@@ -440,12 +474,14 @@ static uint64_t CurrentlyAvailableTrustStoreVersion(NSString *assetPath) {
             }
             if (hasNewContent) {
                 // save new asset path
+                secnotice("OTATrust", "--- New asset path obtained from MobileAsset ---");
                 if ([OTAAutoAssetClient saveTrustStoreAssetPath:localContentURL.path] == YES) {
-                    secnotice("OTATrust", "--- New asset path obtained from MobileAsset ---");
                     // restart trustd to pick up new asset
-                    secnotice("OTATrust", "Will exit when clean to use updated asset");
                     TrustdHealthAnalyticsLogSuccess(TAEventAssetUpdate);
-                    xpc_transaction_exit_clean();
+                    trustd_exit_clean("Will exit when clean to use updated asset path.");
+                } else {
+                    secnotice("OTATrust", "Will not exit due to earlier error.");
+                    TrustdHealthAnalyticsLogErrorCode(TAEventAssetUpdate, false, EACCES);
                 }
             }
         }

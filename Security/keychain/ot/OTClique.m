@@ -460,7 +460,12 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     OTClique* clique = [[OTClique alloc] initWithContextData:data];
 
     NSError* localError = nil;
-    [clique resetAndEstablish:resetReason idmsTargetContext:nil idmsCuttlefishPassword:nil notifyIdMS:false accountSettings:nil error:&localError];
+    [clique resetAndEstablish:resetReason 
+            idmsTargetContext:nil
+       idmsCuttlefishPassword:nil
+                   notifyIdMS:false
+              accountSettings:nil 
+                        error:&localError];
 
     if(localError) {
         secnotice("clique-newfriends", "account reset failed: %@", localError);
@@ -611,7 +616,12 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
         NSError* resetError = nil;
 
         OctagonSignpost resetSignPost = OctagonSignpostBegin(OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle);
-        [clique resetAndEstablish:CuttlefishResetReasonNoBottleDuringEscrowRecovery idmsTargetContext:nil idmsCuttlefishPassword:nil notifyIdMS:false accountSettings:nil error:&resetError];
+        [clique resetAndEstablish:CuttlefishResetReasonNoBottleDuringEscrowRecovery
+                idmsTargetContext:nil
+           idmsCuttlefishPassword:nil
+                       notifyIdMS:false
+                  accountSettings:nil
+                            error:&resetError];
         subTaskSuccess = (resetError == nil) ? true : false;
         OctagonSignpostEnd(resetSignPost, OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle, OctagonSignpostNumber1(OctagonSignpostNamePerformResetAndEstablishAfterFailedBottle), (int)subTaskSuccess);
 
@@ -2491,8 +2501,8 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
 }
 
-+ (BOOL)resetAcountData:(OTConfigurationContext*)data
-                  error:(NSError**)error
++ (BOOL)clearCliqueFromAccount:(OTConfigurationContext*)data
+                         error:(NSError**)error
 {
 #if OCTAGON
     if ([OTClique isCloudServicesAvailable] == NO) {
@@ -2541,9 +2551,9 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     __block NSError* localError = nil;
     
-    [control resetAcountData:[[OTControlArguments alloc] initWithConfiguration:data]
-                resetReason:CuttlefishResetReasonUserInitiatedReset
-                      reply:^(NSError * _Nullable wipeError) {
+    [control clearCliqueFromAccount:[[OTControlArguments alloc] initWithConfiguration:data]
+                        resetReason:CuttlefishResetReasonUserInitiatedReset
+                              reply:^(NSError * _Nullable wipeError) {
         if (wipeError) {
             secerror("clique-reset-account-data: failed to reset: %@", wipeError);
             localError = wipeError;
@@ -2568,6 +2578,47 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     return nil;
 #endif
 
+}
++ (BOOL)performCKServerUnreadableDataRemoval:(OTConfigurationContext*)data
+                                       error:(NSError**)error
+{
+#if OCTAGON
+
+    NSError *controlError = nil;
+    OTControl *control = [data makeOTControl:&controlError];
+    if (!control) {
+        secerror("clique-perform-ckserver-unreadable-data-removal: unable to create otcontrol: %@", controlError);
+        if (error) {
+            *error = controlError;
+        }
+        return NO;
+    }
+
+    __block NSError* localError = nil;
+    [control performCKServerUnreadableDataRemoval:[[OTControlArguments alloc] initWithConfiguration:data]
+                                            reply:^(NSError * _Nullable deleteError) {
+        if (deleteError) {
+            secerror("clique-perform-ckserver-unreadable-data-removal: failed to remove data from ckserver: %@", deleteError);
+            localError = deleteError;
+        } else {
+            secnotice("clique-perform-ckserver-unreadable-data-removal", "removed unreadable data from ckserver");
+        }
+    }];
+    
+    if (localError) {
+        if(error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    return YES;
+#else // !OCTAGON
+    if(error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:nil];
+    }
+    return nil;
+#endif
 }
 
 @end

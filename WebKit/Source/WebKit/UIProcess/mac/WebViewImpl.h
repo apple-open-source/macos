@@ -738,9 +738,13 @@ public:
     bool inlinePredictionsEnabled() const { return m_inlinePredictionsEnabled; }
 #endif
 
-#if ENABLE(WRITING_TOOLS_UI)
-    void addTextAnimationForAnimationID(WTF::UUID, const WebKit::TextAnimationData&);
+#if ENABLE(WRITING_TOOLS)
+    void showWritingTools();
+
+    void addTextAnimationForAnimationID(WTF::UUID, const WebCore::TextAnimationData&);
     void removeTextAnimationForAnimationID(WTF::UUID);
+
+    void hideTextAnimationView();
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)
@@ -981,7 +985,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-    RetainPtr<WKTextAnimationManager> m_TextAnimationTypeManager;
+    RetainPtr<WKTextAnimationManager> m_textAnimationTypeManager;
 #endif
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)

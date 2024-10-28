@@ -191,8 +191,10 @@
 		AFDAEFF70F1C445800CF328A /* logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = logging.h; sourceTree = "<group>"; };
 		AFDAF00D0F1EF57D00CF328A /* userinput_secondary_order.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = userinput_secondary_order.c; sourceTree = "<group>"; };
 		AFDAF0130F1EF58C00CF328A /* userinput_secondary_order.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = userinput_secondary_order.h; sourceTree = "<group>"; };
-		C96B5A3D1F05C78C0094F4E6 /* test_top.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_top.c; path = tests/test_top.c; sourceTree = "<group>"; };
-		C99DD6D21F0559B60026898A /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = text; name = Makefile; path = tests/Makefile; sourceTree = "<group>"; };
+		CE38AFD32C7551DB0024F7F3 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		CE38AFD42C7551DB0024F7F3 /* test_top.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test_top.c; sourceTree = "<group>"; };
+		CE38AFD52C7551DB0024F7F3 /* test_top_entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = test_top_entitlements.plist; sourceTree = "<group>"; };
+		CE4190652C70137E00F3D7B3 /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -222,9 +224,10 @@
 		08FB7794FE84155DC02AAC07 /* top_xcode */ = {
 			isa = PBXGroup;
 			children = (
+				CE4190652C70137E00F3D7B3 /* entitlements.plist */,
 				AFC4EBD40F15E82500670DE6 /* libtop Sources */,
 				08FB7795FE84155DC02AAC07 /* Source */,
-				C99DD6D11F05599F0026898A /* Tests */,
+				CE38AFD62C7551DB0024F7F3 /* tests */,
 				C6859E96029091FE04C91782 /* Documentation */,
 				08FB779DFE84155DC02AAC07 /* External Frameworks and Libraries */,
 				19C28FBDFE9D53C911CA2CBB /* Products */,
@@ -354,13 +357,14 @@
 			name = Documentation;
 			sourceTree = "<group>";
 		};
-		C99DD6D11F05599F0026898A /* Tests */ = {
+		CE38AFD62C7551DB0024F7F3 /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				C96B5A3D1F05C78C0094F4E6 /* test_top.c */,
-				C99DD6D21F0559B60026898A /* Makefile */,
+				CE38AFD32C7551DB0024F7F3 /* Makefile */,
+				CE38AFD42C7551DB0024F7F3 /* test_top.c */,
+				CE38AFD52C7551DB0024F7F3 /* test_top_entitlements.plist */,
 			);
-			name = Tests;
+			path = tests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

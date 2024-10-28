@@ -62,6 +62,7 @@
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdVariants.h"
+#include "trust/trustd/trustd_spi.h"
 #import <ipc/securityd_client.h>
 
 #if !TARGET_OS_BRIDGE
@@ -1837,8 +1838,7 @@ static SecOTAPKIRef SecOTACreate(void) {
             [otapkiref->_autoAssetClient registerForAssetChangedNotificationsWithBlock:^{
                 dispatch_sync(kOTAReloadAssetsQueue, ^{
                     secnotice("OTATrust", "--- Received asset download notification ---");
-                    secnotice("OTATrust", "Will exit when clean to use updated assets");
-                    xpc_transaction_exit_clean();
+                    trustd_exit_clean("Will exit when clean to use downloaded asset.");
                 });
             }];
         } else {

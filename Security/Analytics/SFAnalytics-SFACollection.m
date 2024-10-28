@@ -54,6 +54,8 @@ typedef NS_ERROR_ENUM(kSFAErrorDomain, kSFAErrorCode) {
         return nil;
     }
     for (NSDictionary *item in rules) {
+        SECSFAEventClass eventClassInteger = SECSFAEventClass_Errors;
+        
         if (![item isKindOfClass:[NSDictionary class]]) {
             NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorRulesInvalidType description:@"rules type invalid"];
             if (error) {
@@ -69,6 +71,39 @@ typedef NS_ERROR_ENUM(kSFAErrorDomain, kSFAErrorCode) {
                 *error = e;
             }
             return nil;
+        }
+        NSString *eventClass = item[@"eventClass"];
+        if (eventClass != nil) {
+            if (![eventClass isKindOfClass:[NSString class]]) {
+                if (error) {
+                    NSError *e = [NSError errorWithDomain:kSFAErrorDomain code:kSFAErrorTypeMissing description:@"eventType not a string"];
+                    *error = e;
+                }
+                return nil;
+            }
+            if ([eventClass isEqual:@"all"]) {
+                eventClassInteger = SECSFAEventClass_All;
+            } else if ([eventClass isEqual:@"errors"]) {
+                eventClassInteger = SECSFAEventClass_Errors;
+            } else if ([eventClass isEqual:@"success"]) {
+                eventClassInteger = SECSFAEventClass_Success;
+            } else if ([eventClass isEqual:@"hardfail"]) {
+                eventClassInteger = SECSFAEventClass_HardFailure;
+            } else if ([eventClass isEqual:@"softfail"]) {
+                eventClassInteger = SECSFAEventClass_SoftFailure;
+            } else if ([eventClass isEqual:@"note"]) {
+                eventClassInteger = SECSFAEventClass_Note;
+            } else if ([eventClass isEqual:@"rockwell"]) {
+                eventClassInteger = SECSFAEventClass_Rockwell;
+            } else {
+                if (error) {
+                    NSError *e = [NSError errorWithDomain:kSFAErrorDomain 
+                                                     code:kSFAErrorTypeMissing
+                                              description:[NSString stringWithFormat:@"unknown eventclass: %@", eventClass]];
+                    *error = e;
+                }
+                return nil;
+            }
         }
         NSDictionary *match = item[@"match"];
         if (![match isKindOfClass:[NSDictionary class]]) {
@@ -90,6 +125,9 @@ typedef NS_ERROR_ENUM(kSFAErrorDomain, kSFAErrorCode) {
         NSError *matchError = nil;
         SECSFARule *rule = [[SECSFARule alloc] init];
         rule.eventType = eventType;
+        if (eventClassInteger) {
+            rule.eventClass = eventClassInteger;
+        }
         rule.repeatAfterSeconds = [repeatAfterSeconds intValue];
         rule.match = [NSPropertyListSerialization dataWithPropertyList:match
                                                                 format:NSPropertyListBinaryFormat_v1_0

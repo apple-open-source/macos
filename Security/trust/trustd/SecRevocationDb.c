@@ -32,6 +32,7 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/trustdFileLocations.h"
 #include "trust/trustd/trustdVariants.h"
+#include "trust/trustd/trustd_spi.h"
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCMS.h>
 #include <Security/SecFramework.h>
@@ -839,9 +840,7 @@ static bool SecValidUpdateForceReplaceDatabase(void) {
     if (result) {
         // exit as gracefully as possible so we can replace the database
         secnotice("validupdate", "process exiting to replace db file");
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3ull*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            xpc_transaction_exit_clean();
-        });
+        trustd_exit_clean(NULL);
     }
     return result;
 }

@@ -4264,8 +4264,9 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationSystem(CFDataRef testRootHash) 
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
-    /* BAA certs expire */
-    SecPolicyAddBasicX509Options(options);
+    /* BAA leafs expire but not CAs */
+    SecPolicyAddBasicCertOptions(options);
+    CFDictionaryAddValue(options, kSecPolicyCheckValidLeaf, kCFBooleanTrue);
 
     /* Anchored to one of the Basic Attestation roots. Allow alternative root for developers */
     SecPolicyAddAnchorSHA256Options(options, BASystemRootCA_SHA256);
@@ -4291,8 +4292,9 @@ SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef testRootHash) {
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
-    /* BAA certs expire */
-    SecPolicyAddBasicX509Options(options);
+    /* BAA leafs expire but not CAs */
+    SecPolicyAddBasicCertOptions(options);
+    CFDictionaryAddValue(options, kSecPolicyCheckValidLeaf, kCFBooleanTrue);
 
     /* Anchored to one of the Basic Attestation roots. Allow alternative root for developers */
     SecPolicyAddAnchorSHA256Options(options, BAUserRootCA_SHA256);
@@ -5411,6 +5413,30 @@ SecPolicyRef SecPolicyCreateiAPAuthV4(SeciAPAuthV4Type type) {
 
     require(result = SecPolicyCreate(kSecPolicyAppleiAPAuthV4,
                                      kSecPolicyNameiAPAuthV4, options), errOut);
+
+errOut:
+    CFReleaseNull(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateDCAttestation(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* Attestation roots don't expire, but leafs do */
+    SecPolicyAddBasicCertOptions(options);
+    CFDictionaryAddValue(options, kSecPolicyCheckValidLeaf, kCFBooleanTrue);
+
+    /* Prevent AIA checks */
+    CFDictionaryAddValue(options, kSecPolicyCheckNoNetworkAccess,
+                         kCFBooleanTrue);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleDCAttestation,
+                                     kSecPolicyNameDCAttestation, options), errOut);
 
 errOut:
     CFReleaseNull(options);

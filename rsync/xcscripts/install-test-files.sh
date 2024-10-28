@@ -4,6 +4,8 @@ set -e -x
 install -d -o root -g wheel -m 0755 "$DSTROOT"/AppleInternal/Tests/rsync
 install -o root -g wheel -m 0755 "$SRCROOT"/tests/rsync.sh \
 	"$DSTROOT"/AppleInternal/Tests/rsync
+install -o root -g wheel -m 0755 "$SRCROOT"/tests/syslog_trace.sh \
+	"$DSTROOT"/AppleInternal/Tests/rsync
 
 tmpdir=$(mktemp -dt rsync_test_plist)
 tmplist="$tmpdir/rsync.plist"

@@ -1041,7 +1041,7 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
     }
 
     if (!MessageReceiveQueueMap::isValidMessage(*message)) {
-        dispatchDidReceiveInvalidMessage(message->messageName());
+        dispatchDidReceiveInvalidMessage(message->messageName(), message->indexOfObjectFailingDecoding());
         return;
     }
 
@@ -1097,7 +1097,7 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
     }
 
     if ((message->shouldDispatchMessageWhenWaitingForSyncReply() == ShouldDispatchWhenWaitingForSyncReply::YesDuringUnboundedIPC && !message->isAllowedWhenWaitingForUnboundedSyncReply()) || (message->shouldDispatchMessageWhenWaitingForSyncReply() == ShouldDispatchWhenWaitingForSyncReply::Yes && !message->isAllowedWhenWaitingForSyncReply())) {
-        dispatchDidReceiveInvalidMessage(message->messageName());
+        dispatchDidReceiveInvalidMessage(message->messageName(), message->indexOfObjectFailingDecoding());
         return;
     }
 
@@ -1285,12 +1285,12 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
         sendSyncReply(WTFMove(replyEncoder));
 }
 
-void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName)
+void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName, int32_t indexOfObjectFailingDecoding)
 {
-    dispatchToClient([protectedThis = Ref { *this }, messageName] {
+    dispatchToClient([protectedThis = Ref { *this }, messageName, indexOfObjectFailingDecoding] {
         if (!protectedThis->isValid())
             return;
-        protectedThis->m_client->didReceiveInvalidMessage(protectedThis, messageName);
+        protectedThis->m_client->didReceiveInvalidMessage(protectedThis, messageName, indexOfObjectFailingDecoding);
     });
 }
 
@@ -1335,7 +1335,7 @@ void Connection::enqueueIncomingMessage(UniqueRef<Decoder> incomingMessage)
             return;
 
         if (isIncomingMessagesThrottlingEnabled() && m_incomingMessages.size() >= maxPendingIncomingMessagesKillingThreshold) {
-            dispatchToClient([protectedThis = Ref { *this }] {
+            dispatchToClientWithIncomingMessagesLock([protectedThis = Ref { *this }] {
                 if (!protectedThis->m_client)
                     return;
                 protectedThis->m_client->requestRemoteProcessTermination();
@@ -1427,7 +1427,7 @@ void Connection::dispatchMessage(UniqueRef<Decoder> message)
             if (m_ignoreInvalidMessageForTesting)
                 return;
 #endif
-            m_client->didReceiveInvalidMessage(*this, message->messageName());
+            m_client->didReceiveInvalidMessage(*this, message->messageName(), message->indexOfObjectFailingDecoding());
             return;
         }
         m_inDispatchMessageMarkedToUseFullySynchronousModeForTesting++;
@@ -1465,7 +1465,7 @@ void Connection::dispatchMessage(UniqueRef<Decoder> message)
         && !m_ignoreInvalidMessageForTesting
 #endif
         && isValid())
-        m_client->didReceiveInvalidMessage(*this, message->messageName());
+        m_client->didReceiveInvalidMessage(*this, message->messageName(), message->indexOfObjectFailingDecoding());
 
     m_didReceiveInvalidMessage = oldDidReceiveInvalidMessage;
 }
@@ -1648,6 +1648,12 @@ template<typename F>
 void Connection::dispatchToClient(F&& clientRunLoopTask)
 {
     Locker lock { m_incomingMessagesLock };
+    dispatchToClientWithIncomingMessagesLock(std::forward<F>(clientRunLoopTask));
+}
+
+template<typename F>
+void Connection::dispatchToClientWithIncomingMessagesLock(F&& clientRunLoopTask)
+{
     if (!m_syncState)
         return;
     dispatcher().dispatch(WTFMove(clientRunLoopTask));

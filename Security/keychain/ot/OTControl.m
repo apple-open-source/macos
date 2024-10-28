@@ -445,7 +445,7 @@
     }] resetAndEstablish:arguments
              resetReason:resetReason
        idmsTargetContext:idmsTargetContext
-       idmsCuttlefishPassword:idmsCuttlefishPassword
+  idmsCuttlefishPassword:idmsCuttlefishPassword
               notifyIdMS:notifyIdMS
          accountSettings:accountSettings
                    reply:reply];
@@ -910,13 +910,24 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] getAccountMetadata:arguments reply:reply];
 }
 
-- (void)resetAcountData:(OTControlArguments*)arguments
-            resetReason:(CuttlefishResetReason)resetReason
-                  reply:(void (^)(NSError* _Nullable error))reply
+- (void)clearCliqueFromAccount:(OTControlArguments*)arguments
+                   resetReason:(CuttlefishResetReason)resetReason
+                         reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] resetAcountData:arguments resetReason:resetReason reply:reply];
+    }] clearCliqueFromAccount:arguments
+     resetReason:resetReason
+     reply:reply];
+}
+
+- (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                       reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] performCKServerUnreadableDataRemoval:arguments
+                                        reply:reply];
 }
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments

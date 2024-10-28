@@ -27,7 +27,6 @@ var deviceName: String?
 var serialNumber: String?
 var osVersion: String?
 var policySecrets: [String: Data]?
-
 enum Command {
     case dump
     case depart
@@ -134,21 +133,28 @@ var commands: [Command] = []
 var argIterator = args.makeIterator()
 var configurationData: [String: Any]?
 
-var accountIsDemo: Bool = false
+func getPrimaryAccount() -> ACAccount {
+    let store = ACAccountStore()
 
-let store = ACAccountStore()
-
-guard let account = store.aa_primaryAppleAccount() else {
-    print("Unable to fetch primary Apple account!")
-    abort()
+    guard let account = store.aa_primaryAppleAccount() else {
+        print("Unable to fetch primary Apple account!")
+        abort()
+    }
+    return account
 }
 
-let akManager = AKAccountManager.sharedInstance
-let authKitAccount = akManager.authKitAccount(withAltDSID: account.aa_altDSID)
+func isDemoAccount(account: ACAccount) -> Bool {
+    let akManager = AKAccountManager.sharedInstance
+    let authKitAccount = try? akManager.authKitAccount(withAltDSID: account.aa_altDSID, error: ())
 
-if let account = authKitAccount {
-    accountIsDemo = akManager.demoAccount(for: account)
+    guard let authKitAccount else {
+        return false
+    }
+    return akManager.demoAccount(for: authKitAccount)
 }
+
+let account = getPrimaryAccount()
+let accountIsDemo = isDemoAccount(account: account)
 
 while let arg = argIterator.next() {
     switch arg {
@@ -391,10 +397,8 @@ while let arg = argIterator.next() {
 
     case "prepare":
         commands.append(.prepare)
-
     case "reset":
         commands.append(.reset)
-
     case "update":
         commands.append(.update)
 
@@ -764,7 +768,7 @@ for command in commands {
 
             if let data = data {
                 do {
-                    let string = try GetSupportAppInfoResponse(serializedData: data).jsonString()
+                    let string = try GetSupportAppInfoResponse(serializedBytes: data).jsonString()
                     print("\(string)")
                 } catch {
                     print("Error decoding protobuf: \(error)")

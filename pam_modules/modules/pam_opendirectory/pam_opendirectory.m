@@ -51,6 +51,7 @@
 
 #define PM_DISPLAY_NAME "OpenDirectory"
 #define PAM_OD_PW_EXP "ODPasswordExpire"
+#define PAM_OD_NON_PWD "non_password_auth"
 
 #include "Logging.h"
 
@@ -90,6 +91,7 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char pwbuffer[2 * PATH_MAX];
 	const char *ttl_str = NULL;
 	long ttl = 30 * 60;
+    bool ignorePasswordLockout = openpam_get_option(pamh, PAM_OD_NON_PWD);
 
 	/* get the username */
 	retval = pam_get_user(pamh, &user, NULL);
@@ -130,8 +132,13 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	/* check user password policy */
 	retval = od_record_check_pwpolicy(cfRecord);
 	if (PAM_SUCCESS != retval) {
-        _LOG_ERROR("%s - check password policy failed %d", PM_DISPLAY_NAME, retval);
-		goto cleanup;
+        if (ignorePasswordLockout && retval == PAM_APPLE_ACCT_TEMP_LOCK) {
+            _LOG_INFO("%s - ignored password lockout because non-password auth was used", PM_DISPLAY_NAME);
+        }
+        else {
+            _LOG_ERROR("%s - check password policy failed %d", PM_DISPLAY_NAME, retval);
+            goto cleanup;
+        }
 	}
 
 	/* check user authentication authority */

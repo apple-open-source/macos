@@ -249,7 +249,10 @@ struct PerWebProcessState {
 
 #if ENABLE(WRITING_TOOLS)
     RetainPtr<NSMapTable<NSUUID *, WTTextSuggestion *>> _writingToolsTextSuggestions;
-    RetainPtr<NSMapTable<NSUUID *, WTSession *>> _writingToolsSessions;
+    RetainPtr<WTSession> _activeWritingToolsSession;
+
+    NSUInteger _partialIntelligenceTextAnimationCount;
+    BOOL _writingToolsTextReplacementsFinished;
 #endif
 
 #if PLATFORM(MAC)
@@ -402,9 +405,9 @@ struct PerWebProcessState {
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID showDetailsForSuggestionWithUUID:(NSUUID *)replacementUUID relativeToRect:(CGRect)rect;
+- (void)_proofreadingSessionShowDetailsForSuggestionWithUUID:(NSUUID *)replacementUUID relativeToRect:(CGRect)rect;
 
-- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID updateState:(WebCore::WritingTools::TextSuggestionState)state forSuggestionWithUUID:(NSUUID *)replacementUUID;
+- (void)_proofreadingSessionUpdateState:(WebCore::WritingTools::TextSuggestionState)state forSuggestionWithUUID:(NSUUID *)replacementUUID;
 
 #if PLATFORM(MAC)
 // FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
@@ -416,11 +419,12 @@ struct PerWebProcessState {
 - (PlatformWritingToolsResultOptions)allowedWritingToolsResultOptions;
 #endif
 
-#endif // ENABLE(WRITING_TOOLS)
+- (void)_didEndPartialIntelligenceTextAnimation;
+- (BOOL)_writingToolsTextReplacementsFinished;
 
-#if ENABLE(WRITING_TOOLS_UI)
-- (void)_addTextAnimationForAnimationID:(NSUUID *)uuid withData:(const WebKit::TextAnimationData&)styleData;
+- (void)_addTextAnimationForAnimationID:(NSUUID *)uuid withData:(const WebCore::TextAnimationData&)styleData;
 - (void)_removeTextAnimationForAnimationID:(NSUUID *)uuid;
+
 #endif
 
 - (void)_internalDoAfterNextPresentationUpdate:(void (^)(void))updateBlock withoutWaitingForPainting:(BOOL)withoutWaitingForPainting withoutWaitingForAnimatedResize:(BOOL)withoutWaitingForAnimatedResize;

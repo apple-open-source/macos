@@ -109,8 +109,6 @@ static my_per_task_info_t NOT_FOUND_TASK_INFO = {
     .threadExceptionInfos = NULL
 };
 
-char * get_task_name_by_pid(pid_t pid);
-
 static void proc_pid_to_name(int pid, char *pname){
     if (0 == proc_name(pid, pname, PROC_NAME_LEN)) {
         strcpy(pname, "Unknown Process");

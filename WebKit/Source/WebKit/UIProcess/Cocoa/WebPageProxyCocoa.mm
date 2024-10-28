@@ -76,6 +76,7 @@
 #import <WebCore/RunLoopObserver.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <WebCore/TextAlternativeWithRange.h>
+#import <WebCore/TextAnimationTypes.h>
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/BrowserEngineKitSPI.h>
@@ -1212,27 +1213,28 @@ void WebPageProxy::writingToolsSessionDidReceiveAction(const WebCore::WritingToo
     legacyMainFrameProcess().send(Messages::WebPage::WritingToolsSessionDidReceiveAction(session, action), webPageIDInMainFrameProcess());
 }
 
-#endif // ENABLE(WRITING_TOOLS)
-
-#if ENABLE(WRITING_TOOLS_UI)
-
-void WebPageProxy::enableSourceTextAnimationAfterElementWithID(const String& elementID, const WTF::UUID& uuid)
+void WebPageProxy::enableSourceTextAnimationAfterElementWithID(const String& elementID)
 {
     if (!hasRunningProcess())
         return;
 
-    legacyMainFrameProcess().send(Messages::WebPage::enableSourceTextAnimationAfterElementWithID(elementID, uuid), webPageIDInMainFrameProcess());
+    legacyMainFrameProcess().send(Messages::WebPage::EnableSourceTextAnimationAfterElementWithID(elementID), webPageIDInMainFrameProcess());
 }
 
-void WebPageProxy::enableTextAnimationTypeForElementWithID(const String& elementID, const WTF::UUID& uuid)
+void WebPageProxy::enableTextAnimationTypeForElementWithID(const String& elementID)
 {
     if (!hasRunningProcess())
         return;
 
-    legacyMainFrameProcess().send(Messages::WebPage::EnableTextAnimationTypeForElementWithID(elementID, uuid), webPageIDInMainFrameProcess());
+    legacyMainFrameProcess().send(Messages::WebPage::EnableTextAnimationTypeForElementWithID(elementID), webPageIDInMainFrameProcess());
 }
 
-void WebPageProxy::addTextAnimationForAnimationID(IPC::Connection& connection, const WTF::UUID& uuid, const TextAnimationData& styleData, const WebCore::TextIndicatorData& indicatorData, CompletionHandler<void()>&& completionHandler)
+void WebPageProxy::addTextAnimationForAnimationID(IPC::Connection& connection, const WTF::UUID& uuid, const WebCore::TextAnimationData& styleData, const WebCore::TextIndicatorData& indicatorData)
+{
+    addTextAnimationForAnimationIDWithCompletionHandler(connection, uuid, styleData, indicatorData, { });
+}
+
+void WebPageProxy::addTextAnimationForAnimationIDWithCompletionHandler(IPC::Connection& connection, const WTF::UUID& uuid, const WebCore::TextAnimationData& styleData, const WebCore::TextIndicatorData& indicatorData, CompletionHandler<void(WebCore::TextAnimationRunMode)>&& completionHandler)
 {
     MESSAGE_CHECK(uuid.isValid());
 
@@ -1241,17 +1243,44 @@ void WebPageProxy::addTextAnimationForAnimationID(IPC::Connection& connection, c
     if (completionHandler)
         internals().completionHandlerForAnimationID.add(uuid, WTFMove(completionHandler));
 
+#if PLATFORM(IOS_FAMILY)
+    // The shape of the iOS API requires us to have stored this completionHandler when we call into the WebProcess
+    // to replace the text and generate the text indicator of the replacement text.
+    if (auto destinationAnimationCompletionHandler = internals().completionHandlerForDestinationTextIndicatorForSourceID.take(uuid))
+        destinationAnimationCompletionHandler(indicatorData);
+
+    // Storing and sending information for the different shaped SPI on iOS.
+    if (styleData.runMode == WebCore::TextAnimationRunMode::RunAnimation) {
+        if (styleData.style == WebCore::TextAnimationType::Source)
+            internals().sourceAnimationIDtoDestinationAnimationID.add(styleData.destinationAnimationUUID, uuid);
+
+        if (styleData.style == WebCore::TextAnimationType::Final) {
+            if (auto sourceAnimationID = internals().sourceAnimationIDtoDestinationAnimationID.take(uuid)) {
+                if (auto completionHandler = internals().completionHandlerForDestinationTextIndicatorForSourceID.take(sourceAnimationID))
+                    completionHandler(indicatorData);
+            }
+        }
+    }
+#endif
+
     protectedPageClient()->addTextAnimationForAnimationID(uuid, styleData);
 }
 
-void WebPageProxy::callCompletionHandlerForAnimationID(const WTF::UUID& uuid)
+void WebPageProxy::callCompletionHandlerForAnimationID(const WTF::UUID& uuid, WebCore::TextAnimationRunMode runMode)
 {
     if (!hasRunningProcess())
         return;
 
     if (auto completionHandler = internals().completionHandlerForAnimationID.take(uuid))
-        completionHandler();
+        completionHandler(runMode);
 }
+
+#if PLATFORM(IOS_FAMILY)
+void WebPageProxy::storeDestinationCompletionHandlerForAnimationID(const WTF::UUID& destinationAnimationUUID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>)>&& completionHandler)
+{
+    internals().completionHandlerForDestinationTextIndicatorForSourceID.add(destinationAnimationUUID, WTFMove(completionHandler));
+}
+#endif
 
 void WebPageProxy::getTextIndicatorForID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
 {
@@ -1268,7 +1297,7 @@ void WebPageProxy::getTextIndicatorForID(const WTF::UUID& uuid, CompletionHandle
     }
 
     // FIXME: This shouldn't be reached/called anymore. Verify and remove.
-    legacyMainFrameProcess().sendWithAsyncReply(Messages::WebPage::createTextIndicatorForTextAnimationID(uuid), WTFMove(completionHandler), webPageIDInMainFrameProcess());
+    legacyMainFrameProcess().sendWithAsyncReply(Messages::WebPage::CreateTextIndicatorForTextAnimationID(uuid), WTFMove(completionHandler), webPageIDInMainFrameProcess());
 }
 
 void WebPageProxy::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
@@ -1278,7 +1307,30 @@ void WebPageProxy::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::U
         return;
     }
 
-    legacyMainFrameProcess().sendWithAsyncReply(Messages::WebPage::updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible), WTFMove(completionHandler), webPageIDInMainFrameProcess());
+    legacyMainFrameProcess().sendWithAsyncReply(Messages::WebPage::UpdateUnderlyingTextVisibilityForTextAnimationID(uuid, visible), WTFMove(completionHandler), webPageIDInMainFrameProcess());
+}
+
+void WebPageProxy::didEndPartialIntelligenceTextAnimationImpl()
+{
+    protectedPageClient()->didEndPartialIntelligenceTextAnimation();
+}
+
+void WebPageProxy::didEndPartialIntelligenceTextAnimation(IPC::Connection&)
+{
+    didEndPartialIntelligenceTextAnimationImpl();
+}
+
+bool WebPageProxy::writingToolsTextReplacementsFinished()
+{
+    return protectedPageClient()->writingToolsTextReplacementsFinished();
+}
+
+void WebPageProxy::intelligenceTextAnimationsDidComplete()
+{
+    if (!hasRunningProcess())
+        return;
+
+    legacyMainFrameProcess().send(Messages::WebPage::IntelligenceTextAnimationsDidComplete(), webPageIDInMainFrameProcess());
 }
 
 void WebPageProxy::removeTextAnimationForAnimationID(IPC::Connection& connection, const WTF::UUID& uuid)
@@ -1288,22 +1340,14 @@ void WebPageProxy::removeTextAnimationForAnimationID(IPC::Connection& connection
     protectedPageClient()->removeTextAnimationForAnimationID(uuid);
 }
 
-#endif // ENABLE(WRITING_TOOLS_UI)
-
-#if ENABLE(WRITING_TOOLS)
-
-void WebPageProxy::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(IPC::Connection& connection, const WebCore::WritingTools::Session::ID& sessionID, const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect selectionBoundsInRootView)
+void WebPageProxy::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(IPC::Connection& connection, const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect selectionBoundsInRootView)
 {
-    MESSAGE_CHECK(sessionID.isValid());
-
-    protectedPageClient()->proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(sessionID, replacementID, selectionBoundsInRootView);
+    protectedPageClient()->proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(replacementID, selectionBoundsInRootView);
 }
 
-void WebPageProxy::proofreadingSessionUpdateStateForSuggestionWithID(IPC::Connection& connection, const WebCore::WritingTools::Session::ID& sessionID, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
+void WebPageProxy::proofreadingSessionUpdateStateForSuggestionWithID(IPC::Connection& connection, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
 {
-    MESSAGE_CHECK(sessionID.isValid());
-
-    protectedPageClient()->proofreadingSessionUpdateStateForSuggestionWithID(sessionID, state, replacementID);
+    protectedPageClient()->proofreadingSessionUpdateStateForSuggestionWithID(state, replacementID);
 }
 
 #endif // ENABLE(WRITING_TOOLS)

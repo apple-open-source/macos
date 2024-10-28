@@ -80,7 +80,6 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 @property (nonatomic) BOOL octagonCapableRecordsExist;
 @property (nonatomic) BOOL overrideForSetupAccountScript; // this should only be used for the account setup script
 @property (nonatomic) BOOL overrideForJoinAfterRestore; // this should only be used in tests
-
 // Use these when tracking metrics for RTC
 @property (nonatomic, copy, nullable) NSString* flowID;
 @property (nonatomic, copy, nullable) NSString* deviceSessionID;
@@ -477,19 +476,50 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(
 * @param data The OTClique configuration data
 * @param error Reports any error along the process
 * @return a new clique
-*/
+ */
 + (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
                         idmsTargetContext:(NSString *_Nullable)idmsTargetContext
                    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
-notifyIdMS:(bool)notifyIdMS
+                               notifyIdMS:(bool)notifyIdMS
                                     error:(NSError**)error;
 
 + (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data
                                     error:(NSError**)error;
 
+/*
+* @abstract CoreCDP to call this function when they need to clear the CDP account data without re-establishing a clique.
+*   This routine resets both Octagon and SOS.
+*   This routine will delete all encrypted content in CloudKit.
+*   This routine does NOT create a new octagon and sos circle and does not re-join these systems.
+*   This routine does NOT create a new escrow record
+*   This routine will need ensure OTConfigurationContext contains appleID and passwordEquivalentToken to delete all CDP records
+* @param data The OTClique configuration data
+* @param error Reports any error along the process
+* @return a BOOL of whehther or not it was successful
+ */
+
++ (BOOL)clearCliqueFromAccount:(OTConfigurationContext*)data
+                         error:(NSError**)error;
+
 - (NSString* _Nullable)cliqueMemberIdentifier:(NSError* __autoreleasing * _Nullable)error;
 
+/*
+* @abstract CoreCDP to call this function when they only need to perform a ckserver reset.  This means Octagon data will remain
+            untouched and only unreadable data will be removed from the server.
+*   This routine WILL NOT reset Octagon and SOS.
+*   This routine will delete all encrypted content in CloudKit.
+*   This routine does NOT create a new octagon and sos circle and does not re-join these systems.
+*   This routine does NOT create a new escrow record
+* @param data The OTClique configuration data
+* @param error Reports any error along the process
+* @return a BOOL of whehther or not it was successful
+ */
++ (BOOL)performCKServerUnreadableDataRemoval:(OTConfigurationContext*)data
+                                       error:(NSError**)error;
+
 @end
+
+
 
 NS_ASSUME_NONNULL_END
 

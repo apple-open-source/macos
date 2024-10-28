@@ -99,11 +99,6 @@ public:
     void storeAppHighlight(const WebCore::AppHighlight&) final;
 #endif
 
-#if ENABLE(WRITING_TOOLS_UI)
-    void addTextAnimationForAnimationID(const WTF::UUID&, const WebKit::TextAnimationData&) final;
-    void removeTextAnimationForAnimationID(const WTF::UUID&) final;
-#endif
-
     void microphoneCaptureWillChange() final;
     void cameraCaptureWillChange() final;
     void displayCaptureWillChange() final;
@@ -119,12 +114,18 @@ public:
     WindowKind windowKind() final;
 
 #if ENABLE(WRITING_TOOLS)
-    void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::SessionID&, const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) final;
+    void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) final;
 
-    void proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::SessionID&, WebCore::WritingTools::TextSuggestionState, const WTF::UUID& replacementUUID) final;
+    void proofreadingSessionUpdateStateForSuggestionWithID(WebCore::WritingTools::TextSuggestionState, const WTF::UUID& replacementUUID) final;
 
     void writingToolsActiveWillChange() final;
     void writingToolsActiveDidChange() final;
+
+    void didEndPartialIntelligenceTextAnimation() final;
+    bool writingToolsTextReplacementsFinished() final;
+
+    void addTextAnimationForAnimationID(const WTF::UUID&, const WebCore::TextAnimationData&) final;
+    void removeTextAnimationForAnimationID(const WTF::UUID&) final;
 #endif
 
 #if ENABLE(GAMEPAD)

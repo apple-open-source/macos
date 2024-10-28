@@ -66,6 +66,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSlotElement.h"
+#include "HTMLTableSectionElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
 #include "LocalFrame.h"
@@ -629,13 +630,20 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
         }
     }
 
-    auto* displayContentsParent = child->displayContentsParent();
+    RefPtr displayContentsParent = child->displayContentsParent();
     // To avoid double-inserting a child of a `display: contents` element, only insert if `this` is the rightful parent.
     if (displayContentsParent && displayContentsParent != this) {
         // Make sure the display:contents parent object knows it has a child it needs to add.
         displayContentsParent->setNeedsToUpdateChildren();
+
         // Don't exit early for certain table components, as they rely on inserting children for which they are not the rightful parent to behave correctly.
-        if (!isTableColumn() && roleValue() != AccessibilityRole::TableHeaderContainer)
+        bool allowInsert = isTableColumn() || roleValue() == AccessibilityRole::TableHeaderContainer;
+
+        // AccessibilityTable::addChildren never actually calls `insertChild` for table section elements
+        // (e.g. tbody, thead), so don't block this `insertChild` for display:contents section elements,
+        // or else the child elements of the section element will never be inserted into the tree.
+        allowInsert = allowInsert || (isAccessibilityTableInstance() && is<HTMLTableSectionElement>(displayContentsParent->element()));
+        if (!allowInsert)
             return;
     }
 
@@ -2429,8 +2437,12 @@ bool AccessibilityObject::hasAttribute(const QualifiedName& attribute) const
     if (element->hasAttributeWithoutSynchronization(attribute))
         return true;
 
-    if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
-        return defaultARIA->hasAttribute(attribute);
+    if (auto* defaultARIA = element->customElementDefaultARIAIfExists()) {
+        // We do not want to use CustomElementDefaultARIA::hasAttribute here, as it returns true
+        // even if the author has set the attribute to null (e.g. this.internals.ariaValueNow = null),
+        // which should be treated the same as removing the attribute.
+        return !defaultARIA->valueForAttribute(*element, attribute).isNull();
+    }
 
     return false;
 }
@@ -3961,7 +3973,7 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     if (useParentData && (m_isIgnoredFromParentData.isAXHidden || m_isIgnoredFromParentData.isPresentationalChildOfAriaRole))
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (isARIAHidden())
+    if (isARIAHidden() || isWithinHiddenWebArea())
         return AccessibilityObjectInclusion::IgnoreObject;
 
     bool ignoreARIAHidden = isFocused();
@@ -3975,6 +3987,22 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
         return AccessibilityObjectInclusion::IncludeObject;
 
     return accessibilityPlatformIncludesObject();
+}
+
+bool AccessibilityObject::isWithinHiddenWebArea() const
+{
+    RefPtr webArea = this->containingWebArea();
+    CheckedPtr renderView = webArea ? dynamicDowncast<RenderView>(webArea->renderer()) : nullptr;
+    CheckedPtr frameRenderer = renderView ? renderView->frameView().frame().ownerRenderer() : nullptr;
+    while (frameRenderer) {
+        if (frameRenderer->style().usedVisibility() != Visibility::Visible || frameRenderer->style().effectiveInert())
+            return true;
+
+        renderView = frameRenderer->document().renderView();
+        frameRenderer = renderView ? renderView->frameView().frame().ownerRenderer() : nullptr;
+    }
+    return false;
+
 }
     
 bool AccessibilityObject::accessibilityIsIgnored() const
@@ -4380,6 +4408,14 @@ bool AccessibilityObject::ignoredByRowAncestor() const
     });
 
     return ancestor && ancestor->isTableRow();
+}
+
+AccessibilityObject* AccessibilityObject::containingWebArea() const
+{
+    CheckedPtr frameView = documentFrameView();
+    CheckedPtr cache = axObjectCache();
+    RefPtr root = cache ? dynamicDowncast<AccessibilityScrollView>(cache->getOrCreate(frameView.get())) : nullptr;
+    return root ? root->webAreaObject() : nullptr;
 }
 
 namespace Accessibility {

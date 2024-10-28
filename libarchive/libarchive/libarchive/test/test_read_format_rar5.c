@@ -1324,3 +1324,26 @@ DEFINE_TEST(test_read_format_rar5_bad_window_size_in_multiarchive_file)
 
 	EPILOGUE();
 }
+
+DEFINE_TEST(test_read_format_rar5_data_ready_pointer_leak)
+{
+	/* oss fuzz 70024 */
+
+	char buf[4096];
+	PROLOGUE("test_read_format_rar5_data_ready_pointer_leak.rar");
+
+	/* Return codes of those calls are ignored, because this sample file
+	 * is invalid. However, the unpacker shouldn't produce any SIGSEGV
+	 * errors during processing. */
+
+	(void) archive_read_next_header(a, &ae);
+	(void) archive_read_data(a, buf, sizeof(buf));
+	(void) archive_read_next_header(a, &ae);
+	(void) archive_read_data(a, buf, sizeof(buf));
+	(void) archive_read_data(a, buf, sizeof(buf));
+	(void) archive_read_next_header(a, &ae);
+	/* This call shouldn't produce SIGSEGV. */
+	(void) archive_read_data(a, buf, sizeof(buf));
+
+	EPILOGUE();
+}

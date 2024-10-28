@@ -78,6 +78,10 @@ class FakeCKOperationRunner: CKOperationRunner {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<RemoveRecoveryKeyResponse, Error>) -> Void) {
                 self.server.removeRecoveryKey(request, completion: completionBlock)
             }
+        } else if let request = operation.request as? RemoveUnreadableCKServerDataRequest {
+            if let completionBlock = operation.codeOperationResultBlock as? ((Result<RemoveUnreadableCKServerDataResponse, Error>) -> Void) {
+                self.server.performCkserverUnreadableDataRemoval(request, completion: completionBlock)
+            }
         } else {
             abort()
         }
@@ -2992,8 +2996,8 @@ class OctagonTests: OctagonTestsBase {
                                                     handler: nil)
         self.manager.resetAndEstablish(OTControlArguments(configuration: self.otcliqueContext),
                                        resetReason: .testGenerated) { resetError in
-                                        XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
-                                        resetAndEstablishExpectation.fulfill()
+            XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
+            resetAndEstablishExpectation.fulfill()
         }
 
         self.wait(for: [resetAndEstablishExpectation], timeout: 10)
@@ -4027,11 +4031,6 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
 
         self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateBecomeReady)
-
-        self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
-            XCTAssertNil(error, "error should be nil")
-        }
-
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateBecomeReady, within: 10 * NSEC_PER_SEC)
 
         self.releaseOctagonStateMachine(context: self.cuttlefishContext, from: OctagonStateBecomeReady)
@@ -4054,7 +4053,6 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertEqual(account.sendingMetricsPermitted, OTAccountMetadataClassC_MetricsState.PERMITTED, "metrics should be permitted")
 
         self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateBecomeReady)
-
         self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
             XCTAssertNil(error, "error should be nil")
         }

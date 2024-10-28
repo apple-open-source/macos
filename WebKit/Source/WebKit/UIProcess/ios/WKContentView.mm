@@ -816,7 +816,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if HAVE(UI_FOCUS_ITEM_DEFERRAL_MODE)
 - (UIFocusItemDeferralMode)focusItemDeferralMode
 {
-    return (UIFocusItemDeferralMode)UIFocusItemDeferralModeNever;
+    return UIFocusItemDeferralModeNever;
 }
 #endif
 

@@ -125,7 +125,6 @@ struct WebProcessCreationParameters {
     bool attrStyleEnabled { false };
     bool shouldThrowExceptionForGlobalConstantRedeclaration { true };
     WebCore::CrossOriginMode crossOriginMode { WebCore::CrossOriginMode::Shared }; // Cross-origin isolation via COOP+COEP headers.
-    bool isLockdownModeEnabled { false };
 
 #if ENABLE(SERVICE_CONTROLS)
     bool hasImageServices { false };
@@ -200,7 +199,7 @@ struct WebProcessCreationParameters {
     std::optional<SandboxExtension::Handle> mobileGestaltExtensionHandle;
     std::optional<SandboxExtension::Handle> launchServicesExtensionHandle;
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     SandboxExtension::Handle trustdExtensionHandle;
 #endif
     bool enableDecodingHEIC { false };

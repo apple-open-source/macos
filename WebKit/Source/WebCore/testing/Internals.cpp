@@ -1918,7 +1918,16 @@ ExceptionOr<Ref<DOMRect>> Internals::absoluteCaretBounds()
 
     return DOMRect::create(document->frame()->selection().absoluteCaretBounds());
 }
-    
+
+ExceptionOr<bool> Internals::isCaretVisible()
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->frame())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    return document->frame()->selection().isCaretVisible();
+}
+
 ExceptionOr<bool> Internals::isCaretBlinkingSuspended()
 {
     auto* document = contextDocument();
@@ -2796,6 +2805,11 @@ bool Internals::hasWritingToolsTextSuggestionMarker(int from, int length)
     return hasMarkerFor(DocumentMarker::Type::WritingToolsTextSuggestion, from, length);
 }
 #endif
+
+bool Internals::hasTransparentContentMarker(int from, int length)
+{
+    return hasMarkerFor(DocumentMarker::Type::TransparentContent, from, length);
+}
 
 void Internals::setContinuousSpellCheckingEnabled(bool enabled)
 {

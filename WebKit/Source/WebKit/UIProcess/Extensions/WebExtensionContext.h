@@ -96,6 +96,7 @@ OBJC_CLASS WKWebViewConfiguration;
 OBJC_CLASS _WKWebExtensionContext;
 OBJC_CLASS _WKWebExtensionContextDelegate;
 OBJC_CLASS _WKWebExtensionDeclarativeNetRequestSQLiteStore;
+OBJC_CLASS _WKWebExtensionLocalization;
 OBJC_CLASS _WKWebExtensionRegisteredScriptsSQLiteStore;
 OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
 OBJC_PROTOCOL(_WKWebExtensionTab);
@@ -104,6 +105,7 @@ OBJC_PROTOCOL(_WKWebExtensionWindow);
 #if PLATFORM(MAC)
 OBJC_CLASS NSEvent;
 OBJC_CLASS NSMenu;
+OBJC_CLASS WKOpenPanelParameters;
 #endif
 
 namespace PAL {
@@ -291,6 +293,8 @@ public:
     const String& uniqueIdentifier() const { return m_uniqueIdentifier; }
     void setUniqueIdentifier(String&&);
 
+    _WKWebExtensionLocalization *localization();
+
     bool isInspectable() const { return m_inspectable; }
     void setInspectable(bool);
 
@@ -477,6 +481,10 @@ public:
     void didFinishDocumentLoad(WKWebView *, WKNavigation *);
     void didFailNavigation(WKWebView *, WKNavigation *, NSError *);
     void webViewWebContentProcessDidTerminate(WKWebView *);
+
+#if PLATFORM(MAC)
+    void runOpenPanel(WKWebView *, WKOpenPanelParameters *, void (^)(NSArray *));
+#endif
 
     void addInjectedContent(WebUserContentControllerProxy&);
     void removeInjectedContent(WebUserContentControllerProxy&);
@@ -668,7 +676,7 @@ private:
     // Storage
     void setSessionStorageAllowedInContentScripts(bool);
     bool isSessionStorageAllowedInContentScripts() const { return m_isSessionStorageAllowedInContentScripts; }
-    size_t quoataForStorageType(WebExtensionDataType);
+    size_t quotaForStorageType(WebExtensionDataType);
 
     _WKWebExtensionStorageSQLiteStore *localStorageStore();
     _WKWebExtensionStorageSQLiteStore *sessionStorageStore();
@@ -772,7 +780,8 @@ private:
     bool isPortConnected(WebExtensionContentWorldType sourceContentWorldType, WebExtensionContentWorldType targetContentWorldType, WebExtensionPortChannelIdentifier);
     void clearQueuedPortMessages(WebExtensionContentWorldType, WebExtensionPortChannelIdentifier);
     Vector<MessagePageProxyIdentifierPair> portQueuedMessages(WebExtensionContentWorldType, WebExtensionPortChannelIdentifier);
-    void fireQueuedPortMessageEventsIfNeeded(WebProcessProxy&, WebExtensionContentWorldType, WebExtensionPortChannelIdentifier);
+    void firePortMessageEventsIfNeeded(WebExtensionContentWorldType, std::optional<WebPageProxyIdentifier>, WebExtensionPortChannelIdentifier, const String& messageJSON);
+    void fireQueuedPortMessageEventsIfNeeded(WebExtensionContentWorldType, WebExtensionPortChannelIdentifier);
     void sendQueuedNativePortMessagesIfNeeded(WebExtensionPortChannelIdentifier);
     void firePortDisconnectEventIfNeeded(WebExtensionContentWorldType sourceContentWorldType, WebExtensionContentWorldType targetContentWorldType, WebExtensionPortChannelIdentifier);
 
@@ -873,6 +882,8 @@ private:
     URL m_baseURL;
     String m_uniqueIdentifier = WTF::UUID::createVersion4().toString();
     bool m_customUniqueIdentifier { false };
+
+    RetainPtr<_WKWebExtensionLocalization> m_localization;
 
     bool m_inspectable { false };
 

@@ -868,7 +868,9 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         if (visibilityChanged)
             protectedDocument()->invalidateRenderingDependentRegions();
 
-        if (visibilityChanged) {
+        bool inertChanged = m_style.effectiveInert() != newStyle.effectiveInert();
+
+        if (visibilityChanged || inertChanged) {
             Ref document = this->document();
             if (CheckedPtr cache = document->existingAXObjectCache())
                 cache->childrenChanged(checkedParent().get(), this);
@@ -1094,6 +1096,9 @@ void RenderElement::willBeRemovedFromTree()
     // Keep our layer hierarchy updated.
     if (firstChild() || hasLayer())
         removeLayers();
+
+    if (isOutOfFlowPositioned() && parent()->childrenInline())
+        checkedParent()->dirtyLinesFromChangedChild(*this);
 
     RenderObject::willBeRemovedFromTree();
 }

@@ -1431,6 +1431,27 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser * _Nullable)specificUser 
+                                                       reply:(nonnull void (^)(NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(error);
+            }
+            ++i;
+        }] performCKServerUnreadableDataRemovalWithSpecificUser:specificUser
+         reply:reply];
+    } while (retry);
+}
+
+
 @end
 
 #pragma clang diagnostic pop

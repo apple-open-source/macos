@@ -49,6 +49,32 @@
     return _process != nil;
 }
 @synthesize process = _process;
+@synthesize eventClass = _eventClass;
+- (SECSFAEventClass)eventClass
+{
+    return _has.eventClass ? _eventClass : SECSFAEventClass_Errors;
+}
+- (void)setEventClass:(SECSFAEventClass)v
+{
+    _has.eventClass = (uint)YES;
+    _eventClass = v;
+}
+- (void)setHasEventClass:(BOOL)f
+{
+    _has.eventClass = (uint)f;
+}
+- (BOOL)hasEventClass
+{
+    return _has.eventClass != 0;
+}
+- (NSString *)eventClassAsString:(SECSFAEventClass)value
+{
+    return SECSFAEventClassAsString(value);
+}
+- (SECSFAEventClass)StringAsEventClass:(NSString *)str
+{
+    return StringAsSECSFAEventClass(str);
+}
 
 - (NSString *)description
 {
@@ -77,6 +103,10 @@
     if (self->_process)
     {
         [dict setObject:self->_process forKey:@"process"];
+    }
+    if (self->_has.eventClass)
+    {
+        [dict setObject:SECSFAEventClassAsString(self->_eventClass) forKey:@"eventClass"];
     }
     return dict;
 }
@@ -139,6 +169,12 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
                 self->_process = new_process;
             }
             break;
+            case 6 /* eventClass */:
+            {
+                self->_has.eventClass = (uint)YES;
+                self->_eventClass = PBReaderReadInt32(reader);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -189,6 +225,13 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
             PBDataWriterWriteStringField(writer, self->_process, 5);
         }
     }
+    /* eventClass */
+    {
+        if (self->_has.eventClass)
+        {
+            PBDataWriterWriteInt32Field(writer, self->_eventClass, 6);
+        }
+    }
 }
 
 - (void)copyTo:(SECSFARule *)other
@@ -214,6 +257,11 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
     {
         other.process = _process;
     }
+    if (self->_has.eventClass)
+    {
+        other->_eventClass = _eventClass;
+        other->_has.eventClass = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -228,6 +276,11 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
         copy->_has.repeatAfterSeconds = YES;
     }
     copy->_process = [_process copyWithZone:zone];
+    if (self->_has.eventClass)
+    {
+        copy->_eventClass = _eventClass;
+        copy->_has.eventClass = YES;
+    }
     return copy;
 }
 
@@ -245,6 +298,8 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
     ((self->_has.repeatAfterSeconds && other->_has.repeatAfterSeconds && self->_repeatAfterSeconds == other->_repeatAfterSeconds) || (!self->_has.repeatAfterSeconds && !other->_has.repeatAfterSeconds))
     &&
     ((!self->_process && !other->_process) || [self->_process isEqual:other->_process])
+    &&
+    ((self->_has.eventClass && other->_has.eventClass && self->_eventClass == other->_eventClass) || (!self->_has.eventClass && !other->_has.eventClass))
     ;
 }
 
@@ -261,6 +316,8 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
     (self->_has.repeatAfterSeconds ? PBHashInt((NSUInteger)self->_repeatAfterSeconds) : 0)
     ^
     [self->_process hash]
+    ^
+    (self->_has.eventClass ? PBHashInt((NSUInteger)self->_eventClass) : 0)
     ;
 }
 
@@ -290,6 +347,11 @@ BOOL SECSFARuleReadFrom(__unsafe_unretained SECSFARule *self, __unsafe_unretaine
     if (other->_process)
     {
         [self setProcess:other->_process];
+    }
+    if (other->_has.eventClass)
+    {
+        self->_eventClass = other->_eventClass;
+        self->_has.eventClass = YES;
     }
 }
 

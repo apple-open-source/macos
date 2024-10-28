@@ -113,13 +113,14 @@ public:
 public:
 	// optional information that might be used to create a suitable DiskRep. All optional
 	struct Context {
-		Context() : arch(Architecture::none), version(NULL), offset(0), fileOnly(false), inMemory(NULL), size(0) { }
+		Context() : arch(Architecture::none), version(NULL), offset(0), fileOnly(false), inMemory(NULL), size(0), skipFrameworkCheck(false) { }
 		Architecture arch;			// explicit architecture (choose amongst universal variants)
 		const char *version;		// bundle version (string)
 		off_t offset;				// explicit file offset
 		bool fileOnly;				// only consider single-file representations (no bundles etc.)
 		const void *inMemory;		// consider using in-memory copy at this address
 		size_t size;				// size of this mach-o slice
+		bool skipFrameworkCheck;	// force guess to skip framework check
 	};
 
 	static DiskRep *bestGuess(const char *path, const Context *ctx = NULL); // canonical heuristic, any path

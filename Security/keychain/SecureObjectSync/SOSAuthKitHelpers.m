@@ -170,8 +170,16 @@ static ACAccount *GetPrimaryAccount(void) {
     AKAccountManager *manager = [AKAccountManager sharedInstance];
 
     if (manager && primaryAccount) {
-        ACAccount *account = [manager authKitAccountWithAltDSID:[manager altDSIDForAccount:primaryAccount]];
-        AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount:account];
+        NSError *error;
+        NSString *altDSID = [manager altDSIDForAccount:primaryAccount];
+        ACAccount *account = [manager authKitAccountWithAltDSID:altDSID error:&error];
+        AKAppleIDSecurityLevel securityLevel = AKAppleIDSecurityLevelUnknown;
+        if (account != nil) {
+            securityLevel = [manager securityLevelForAccount:account];
+        } else {
+            secnotice("sosauthkit", "failed to get ak account: %@", error);
+        }
+
         if (securityLevel == AKAppleIDSecurityLevelHSA2 || securityLevel == AKAppleIDSecurityLevelManaged) {
             isCDPCapable = true;
         } else {
@@ -203,7 +211,7 @@ static ACAccount *GetPrimaryAccount(void) {
                 break;
         }
         
-        secnotice("sosauthkit", "Security level for altDSID %@ is %lu.  Account type: %@", [manager altDSIDForAccount:primaryAccount], (unsigned long)securityLevel, accountType);
+        secnotice("sosauthkit", "Security level for altDSID %@ is %lu.  Account type: %@", altDSID, (unsigned long)securityLevel, accountType);
         
         secnotice("sosauthkit", "Account %s CDP Capable", (isCDPCapable) ? "is": "isn't" );
     } else {

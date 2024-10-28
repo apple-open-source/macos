@@ -138,7 +138,6 @@ protocol ConfiguredCuttlefishAPIAsync: CuttlefishAPIAsync, ConfiguredCloudKit {
 }
 
 public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
-
     private let underlyingCKOperationRunner: CKOperationRunner
     private let queue: DispatchQueue
 
@@ -398,6 +397,12 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
     public func fetchPcsidentityByPublicKey(_ request: DirectPCSIdentityFetchRequest, completion: @escaping (Result<DirectPCSIdentityFetchResponse, any Error>) -> Void) {
         retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
             return CuttlefishAPI.FetchPcsidentityByPublicKeyOperation(request: request)
+        }, completion: completion)
+    }
+    
+    public func performCkserverUnreadableDataRemoval(_ request: RemoveUnreadableCKServerDataRequest, completion: @escaping (Result<RemoveUnreadableCKServerDataResponse, any Error>) -> Void) {
+        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
+            return CuttlefishAPI.PerformCkserverUnreadableDataRemovalOperation(request: request)
         }, completion: completion)
     }
 }

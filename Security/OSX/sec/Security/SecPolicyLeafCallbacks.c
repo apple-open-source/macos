@@ -384,6 +384,15 @@ bool SecPolicyCheckCertTemporalValidity(SecCertificateRef cert, CFTypeRef pvcVal
     return true;
 }
 
+bool SecPolicyCheckCertValidLeaf(SecCertificateRef cert, CFTypeRef pvcValue) {
+    CFAbsoluteTime verifyTime = CFDateGetAbsoluteTime(pvcValue);
+    if (!SecCertificateIsValid(cert, verifyTime)) {
+        /* Leaf certificate has expired. */
+        return false;
+    }
+    return true;
+}
+
 bool SecPolicyCheckCertSubjectCommonNamePrefix(SecCertificateRef cert, CFTypeRef pvcValue) {
     CFStringRef prefix = pvcValue;
     bool match = true;
@@ -841,8 +850,8 @@ static void SecLeafPVCValidateKey(const void *key, const void *value,
         return;
     }
 
-    /* kSecPolicyCheckTemporalValidity is special */
-    if (CFEqual(key, kSecPolicyCheckTemporalValidity)) {
+    /* kSecPolicyCheckTemporalValidity is special because the verify time isn't part of the policy */
+    if (CFEqual(key, kSecPolicyCheckTemporalValidity) || CFEqual(key, kSecPolicyCheckValidLeaf)) {
         CFDateRef verifyDate = CFDateCreate(NULL, pvc->verifyTime);
         if(!fcn(pvc->leaf, verifyDate)) {
             SecLeafPVCSetResult(pvc, key, 0, kCFBooleanFalse);

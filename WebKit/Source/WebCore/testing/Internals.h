@@ -331,6 +331,7 @@ public:
     ExceptionOr<Ref<DOMRect>> absoluteLineRectFromPoint(int x, int y);
 
     ExceptionOr<Ref<DOMRect>> absoluteCaretBounds();
+    ExceptionOr<bool> isCaretVisible();
     ExceptionOr<bool> isCaretBlinkingSuspended();
     ExceptionOr<bool> isCaretBlinkingSuspended(Document&);
 
@@ -449,6 +450,7 @@ public:
 #if ENABLE(WRITING_TOOLS)
     bool hasWritingToolsTextSuggestionMarker(int from, int length);
 #endif
+    bool hasTransparentContentMarker(int from, int length);
     void setContinuousSpellCheckingEnabled(bool);
     void setAutomaticQuoteSubstitutionEnabled(bool);
     void setAutomaticLinkDetectionEnabled(bool);

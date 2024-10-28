@@ -1,5 +1,6 @@
 BUILD_VARIANTS = normal development kasan
 CODE_SIGN_IDENTITY = -
+OTHER_CFLAGS_normal = $(inherited) -DRELEASE=1
 OTHER_CFLAGS_development = $(inherited) -DDEVELOPMENT=1
 OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
 OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern

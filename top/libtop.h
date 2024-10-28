@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004, 2019 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2024, 2019 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,6 +27,7 @@
 #include <stdarg.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
+#include <os/base.h>
 
 __BEGIN_DECLS
 
@@ -354,6 +355,25 @@ struct libtop_psamp_s {
  * Returns zero for success, non-zero for error.
  */
 int libtop_init(libtop_print_t *a_print, void *a_user_data);
+
+/*
+ * Options for libtop_initx.
+ */
+OS_OPTIONS(libtop_init_options, uint32_t,
+	LIBTOP_INIT_BASE = 0x00,
+	/*
+	 * Use task inspect ports to gather data.
+	 *
+	 * Information about the memory usage of frameworks will not be available.
+	 */
+	LIBTOP_INIT_INSPECT = 0x01,
+);
+
+/*
+ * Initialize libtop, like libtop_init, but with options.
+ */
+int libtop_init_with_options(libtop_print_t *a_print, void *a_user_data,
+	libtop_init_options_t options);
 
 /* Shut down libtop. */
 void libtop_fini(void);

@@ -308,7 +308,8 @@ pre_symlink(struct upload *p, struct sess *sess)
 			}
 		} else {
 			LOG3("%s: creating symlink: %s", f->path, f->link);
-			if (mktemplate(&temp, f->path, sess->opts->recursive,
+			if (mktemplate(&temp, f->path,
+			    sess->opts->recursive || strchr(f->path, '/') != NULL,
 			    IS_TMPDIR) == -1) {
 				ERRX1("mktemplate");
 				return -1;
@@ -416,7 +417,8 @@ pre_dev(struct upload *p, struct sess *sess)
 				return -1;
 			}
 		} else {
-			if (mktemplate(&temp, f->path, sess->opts->recursive,
+			if (mktemplate(&temp, f->path,
+			    sess->opts->recursive || strchr(f->path, '/') != NULL,
 			    IS_TMPDIR) == -1) {
 				ERRX1("mktemplate");
 				return -1;
@@ -510,7 +512,8 @@ pre_fifo(struct upload *p, struct sess *sess)
 				return -1;
 			}
 		} else {
-			if (mktemplate(&temp, f->path, sess->opts->recursive,
+			if (mktemplate(&temp, f->path,
+			    sess->opts->recursive || strchr(f->path, '/') != NULL,
 			    IS_TMPDIR) == -1) {
 				ERRX1("mktemplate");
 				return -1;
@@ -598,7 +601,8 @@ pre_sock(struct upload *p, struct sess *sess)
 				return -1;
 			}
 		} else {
-			if (mktemplate(&temp, f->path, sess->opts->recursive,
+			if (mktemplate(&temp, f->path,
+			    sess->opts->recursive || strchr(f->path, '/') != NULL,
 			    IS_TMPDIR) == -1) {
 				ERRX1("mktemplate");
 				return -1;
@@ -930,8 +934,9 @@ pre_dir(struct upload *p, struct sess *sess)
 	 * case it's u-w or something.
 	 */
 
-	if (mkdirat(p->rootfd, f->path, 0777 & ~p->oumask) == -1) {
-		ERR("%s: mkdirat", f->path);
+	if (mkpathat(p->rootfd, f->path, 0777 & ~p->oumask) == -1 &&
+	    errno != EEXIST) {
+		ERR("%s: mkpathat", f->path);
 		return -1;
 	}
 

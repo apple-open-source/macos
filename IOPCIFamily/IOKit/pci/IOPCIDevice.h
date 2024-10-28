@@ -1137,6 +1137,7 @@ private:
 protected:
 	bool isDownstreamFacing(void);
 	bool shouldSkipReset(void);
+	static bool hasL1Errata(IOPCIDevice *nub);
 };
 __exported_pop
 

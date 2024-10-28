@@ -50,13 +50,13 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 
 @interface SFAnalyticsMatchingRule ()
 @property (readwrite) SECSFARule *rule;
-@property NSDate *lastMatch;
 @property NSDictionary<NSString*,id> *matchingDictionary;
+@property NSDate *lastMatch;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithSFARule:(SECSFARule *)rule logger:(SFAnalytics*)logger;
 
-- (BOOL)matchAttributes:(NSDictionary *)attributes;
+- (BOOL)matchAttributes:(NSDictionary *)attributes eventClass:(SFAnalyticsEventClass)eventClass;
 
 - (BOOL)valueMatch:(id)vKey target:(id)vTarget;
 - (BOOL)isSubsetMatch:(NSDictionary *)match target:(NSDictionary *)target;
@@ -147,7 +147,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     return self.matchingDictionary;
 }
 
-- (BOOL)matchAttributes:(NSDictionary *)attributes
+- (BOOL)matchAttributes:(NSDictionary *)attributes eventClass:(SFAnalyticsEventClass)eventClass
 {
     if (self.rule.hasMatch) {
         NSDictionary *match = [self cachedMatchDictionary];
@@ -160,26 +160,44 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
             return NO;
         }
     }
-
-    return YES;
-}
-
-- (BOOL)shouldRatelimit:(SFAnalytics *)logger {
-    if (self.lastMatch) {
-        int64_t repeatAfterSeconds = self.rule.repeatAfterSeconds;
-        if (repeatAfterSeconds == 0) {
-            repeatAfterSeconds = 3600 * 24; //if not set, provided sesable default: 24h
-        }
-        NSDate *allowedMatch = [NSDate dateWithTimeIntervalSinceNow:-1 * repeatAfterSeconds];
-        if ([allowedMatch compare:self.lastMatch] != NSOrderedDescending) {
-            return YES;
-        }
+    switch (self.rule.eventClass) {
+        case SECSFAEventClass_All:
+            break;
+        case SECSFAEventClass_Errors:
+            if (eventClass != SFAnalyticsEventClassHardFailure && eventClass != SFAnalyticsEventClassSoftFailure) {
+                return NO;
+            }
+            break;
+        case SECSFAEventClass_Success:
+            if (eventClass != SFAnalyticsEventClassSuccess) {
+                return NO;
+            }
+            break;
+        case SECSFAEventClass_HardFailure:
+            if (eventClass != SFAnalyticsEventClassHardFailure) {
+                return NO;
+            }
+            break;
+        case SECSFAEventClass_SoftFailure:
+            if (eventClass != SFAnalyticsEventClassSoftFailure) {
+                return NO;
+            }
+            break;
+        case SECSFAEventClass_Note:
+            if (eventClass != SFAnalyticsEventClassNote) {
+                return NO;
+            }
+            break;
+        case SECSFAEventClass_Rockwell:
+            if (eventClass != SFAnalyticsEventClassRockwell) {
+                return NO;
+            }
+            break;
+        default:
+            return NO;
     }
 
-    self.lastMatch = [NSDate date];
-    [logger setDateProperty:self.lastMatch forKey:[self lastMatchTimeKey]];
-
-    return NO;
+    return YES;
 }
 
 
@@ -193,7 +211,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     }
 
     if (action.hasTtr) {
-        if ([self shouldRatelimit:logger]) {
+        if ([actions shouldRatelimit:logger rule:self]) {
             os_log_info(getOSLog(), "SFACollection ratelimit ttr: %@", self.rule.eventType);
             return 0;
         }
@@ -209,7 +227,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
                  attributes:attributes];
         return 0;
     } else if (action.hasAbc) {
-        if ([self shouldRatelimit:logger]) {
+        if ([actions shouldRatelimit:logger rule:self]) {
             os_log_info(getOSLog(), "SFACollection ratelimit abc: %@", self.rule.eventType);
             return 0;
         }
@@ -252,6 +270,24 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 @end
 
 @implementation DefaultCollectionActions
+
+- (BOOL)shouldRatelimit:(SFAnalytics *)logger rule:(SFAnalyticsMatchingRule *)rule {
+    if (rule.lastMatch) {
+        int64_t repeatAfterSeconds = rule.rule.repeatAfterSeconds;
+        if (repeatAfterSeconds == 0) {
+            repeatAfterSeconds = 3600 * 24; //if not set, provided sesable default: 24h
+        }
+        NSDate *allowedMatch = [NSDate dateWithTimeIntervalSinceNow:-1 * repeatAfterSeconds];
+        if ([allowedMatch compare:rule.lastMatch] != NSOrderedDescending) {
+            return YES;
+        }
+    }
+
+    rule.lastMatch = [NSDate date];
+    [logger setDateProperty:rule.lastMatch forKey:[rule lastMatchTimeKey]];
+
+    return NO;
+}
 
 - (void)autoBugCaptureWithType:(NSString *)type subType:(NSString *)subType domain:(NSString *)domain {
     [SecABC triggerAutoBugCaptureWithType:type
@@ -431,7 +467,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
             return;
         }
         for (SFAnalyticsMatchingRule* rule in rules) {
-            if ([rule matchAttributes:attributes]) {
+            if ([rule matchAttributes:attributes eventClass:eventClass]) {
                 actions |= [rule doAction:self.actions attributes:attributes logger:logger];
             }
         }

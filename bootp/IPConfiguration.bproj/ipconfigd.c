@@ -4815,6 +4815,17 @@ service_plat_discovery_complete(ServiceRef service_p)
    return (IFStateFlagsAreSet(ifstate, kIFStateFlagsPLATDiscoveryComplete));
 }
 
+PRIVATE_EXTERN void
+service_plat_discovery_clear(ServiceRef service_p)
+{
+    IFStateRef		ifstate;
+
+    ifstate = service_ifstate(service_p);
+    IFStateFlagsClear(ifstate,
+		      kIFStateFlagsNAT64PrefixAvailable
+		      | kIFStateFlagsPLATDiscoveryComplete);
+}
+
 STATIC void
 service_set_disable_dhcpv6(ServiceRef service_p, boolean_t disable)
 {
@@ -9390,7 +9401,6 @@ ServiceCopyWakeID(ServiceRef service_p)
 				     if_name(ifstate->if_p),
 				     method_string));
 }
-
 
 /**
  ** Routines to read configuration and convert from CF types to

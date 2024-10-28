@@ -521,7 +521,7 @@ static bool isUnsupportedWebExtensionNavigation(API::NavigationAction& navigatio
         return false;
 
     auto *requiredBaseURL = page.cocoaView().get()._requiredWebExtensionBaseURL;
-    if (!requiredBaseURL)
+    if (!requiredBaseURL || navigationAction.shouldPerformDownload())
         return false;
 
     if (RefPtr extensionController = page.webExtensionController()) {
@@ -1087,8 +1087,6 @@ void NavigationState::NavigationClient::didSameDocumentNavigation(WebPageProxy&,
     auto navigationDelegate = m_navigationState->navigationDelegate();
     if (!navigationDelegate)
         return;
-
-    // FIXME: We should assert that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
 
     [static_cast<id<WKNavigationDelegatePrivate>>(navigationDelegate) _webView:m_navigationState->webView().get() navigation:wrapper(navigation) didSameDocumentNavigation:toWKSameDocumentNavigationType(navigationType)];
 }

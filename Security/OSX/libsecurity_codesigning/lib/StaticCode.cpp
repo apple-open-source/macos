@@ -3053,6 +3053,12 @@ void SecStaticCode::visitOtherArchitectures(void (^visitor)(SecStaticCode* other
 					if (ctx.offset != activeOffset) {	// inactive architecture; check it
 						SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
 
+						if (subcode->mainExecutablePath() != this->mainExecutablePath()) {
+							ctx.skipFrameworkCheck = true;
+							subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
+							ctx.skipFrameworkCheck = false;
+						}
+
 						// There may not actually be a full validation happening, but any operations that do occur should respect the
 						// same network settings as the existing validation, so propagate those flags forward here.
 						SecCSFlags flagsToPropagate = (kSecCSAllowNetworkAccess | kSecCSNoNetworkAccess);

@@ -27,3 +27,21 @@
 #include <AssertMacros.h>
 #include "SecTrustLoggingServer.h"
 
+
+uint64_t TimeSinceSystemStartup(void) {
+    struct timespec uptime;
+    clock_gettime(CLOCK_UPTIME_RAW, &uptime);
+    return (uint64_t)uptime.tv_sec;
+}
+
+uint64_t TimeSinceProcessLaunch(void) {
+    return mach_absolute_time() - launchTime;
+}
+
+int64_t TimeUntilProcessUptime(int64_t uptime_nsecs) {
+    int64_t uptime = (int64_t)TimeSinceProcessLaunch();
+    if (uptime > 0 && uptime < uptime_nsecs) {
+        return uptime_nsecs - uptime;
+    }
+    return 0;
+}

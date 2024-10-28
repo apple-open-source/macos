@@ -489,6 +489,7 @@ class OctagonPersonaTests: OctagonTestsBase {
                 XCTAssertNil(error, "resetAndEstablish should not have errored")
                 resetExpectation.fulfill()
             }
+
             self.wait(for: [resetExpectation], timeout: 100)
 
             secondaryAccountContext = try self.manager.context(forClientRPC: OTControlArguments(altDSID: secondAccountAltDSID),

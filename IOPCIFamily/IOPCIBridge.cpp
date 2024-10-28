@@ -2954,9 +2954,16 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
                     OSSafeReleaseNULL(matching);
                     if (tbNode)
                     {
+						IOPCIDevice *linkPartner = OSDynamicCast(IOPCIDevice, getParentEntry(gIOServicePlane));
                         OSNumber *clx = OSDynamicCast(OSNumber, tbNode->getProperty(kIOThunderboltPortCLxStateProperty, gIOServicePlane));
                         tbNode->release();
-                        if (clx && clx->unsigned32BitValue()) nub->setProperty(kIOCLxEnabledKey, kOSBooleanTrue);
+
+                        if (   (clx && clx->unsigned32BitValue())
+							&& !IOPCIDevice::hasL1Errata(nub)
+							&& (nub->isDownstreamFacing() || !IOPCIDevice::hasL1Errata(linkPartner)))
+						{
+							nub->setProperty(kIOCLxEnabledKey, kOSBooleanTrue);
+						}
                     }
                 }
             }

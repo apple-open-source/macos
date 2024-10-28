@@ -236,7 +236,12 @@ static void print_unjson(const char *title, NSString *key, NSDictionary *dict)
 #endif
 }
 
-- (int)resetOctagon:(OTControlArguments*)arguments idmsTargetContext:(NSString*_Nullable)idmsTargetContext idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS timeout:(NSTimeInterval)timeout {
+- (int)resetOctagon:(OTControlArguments*)arguments 
+  idmsTargetContext:(NSString*_Nullable)idmsTargetContext
+idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
+         notifyIdMS:(bool)notifyIdMS
+            timeout:(NSTimeInterval)timeout
+{
 #if OCTAGON
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
     __block int ret = 1;
@@ -288,7 +293,6 @@ static void print_unjson(const char *title, NSString *key, NSDictionary *dict)
     data.altDSID = arguments.altDSID;
     data.context = arguments.contextID;
     data.containerName = arguments.containerName;
-
     OTClique* clique = [OTClique resetProtectedData:data idmsTargetContext:idmsTargetContext idmsCuttlefishPassword:idmsCuttlefishPassword notifyIdMS:notifyIdMS error:&error];
     if(clique != nil && error == nil) {
         printf("resetProtectedData succeeded\n");
@@ -2198,7 +2202,9 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
-- (int)reset:(OTControlArguments*)arguments appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid
+- (int)reset:(OTControlArguments*)arguments
+     appleID:(NSString * _Nullable)appleID
+        dsid:(NSString *_Nullable)dsid
 {
 #if OCTAGON
     __block int ret = 1;
@@ -2209,9 +2215,8 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     data.altDSID = arguments.altDSID;
     data.context = arguments.contextID;
     data.containerName = arguments.containerName;
-
     NSError* localError = nil;
-    BOOL result = [OTClique resetAcountData:data error:&localError];
+    BOOL result = [OTClique clearCliqueFromAccount:data error:&localError];
     if (localError || !result) {
         fprintf(stderr, "Failed to wipe account data: %s\n", [[localError description] UTF8String]);
     } else {

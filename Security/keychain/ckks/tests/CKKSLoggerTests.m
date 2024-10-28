@@ -251,7 +251,7 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
     }
 }
 
-- (void)testUnderlayingError
+- (void)testUnderlyingError
 {
     NSDictionary *errorString = nil;
     NSError *error = nil;

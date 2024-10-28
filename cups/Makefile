@@ -29,7 +29,7 @@ CUPS_ModuleMapUnifdefOptions=-UBUILD_FOR_MACOS
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-513" \
+		  --with-cups-build="cups-513.3" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
@@ -191,16 +191,21 @@ installapi-verify: configure
 	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-tbds
 
 install-module-maps:
+	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project)_old.modulemap $(SRCROOT)/$(Project)_old.modulemap
 	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project).modulemap $(SRCROOT)/$(Project).modulemap
-	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project).private.modulemap $(SRCROOT)/$(Project).private.modulemap
+	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project)_old.private.modulemap $(SRCROOT)/$(Project)_old.private.modulemap
+	-$(UNIFDEF) $(CUPS_ModuleMapUnifdefOptions) -o $(BuildDirectory)/$(Project)_private.modulemap $(SRCROOT)/$(Project)_private.modulemap
 # If a module map is the only module map in a directory, it should be called
 # 'module.modulemap' even if it is for a private module. And if there are 2
 # module maps in the same directory, call the module map for a private module
 # 'module.private.modulemap'.
 ifeq ($(CUPS_HasPublicHeaders),YES)
-	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/include/$(Project)/module.modulemap
-	$(INSTALL_FILE) $(BuildDirectory)/$(Project).private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_old.modulemap $(DSTROOT)/usr/include/$(Project)/module.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/include/$(Project).modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_old.private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
 else
-	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
-	$(INSTALL_FILE) $(BuildDirectory)/$(Project).private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.private.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_old.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/local/include/$(Project).modulemap
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_old.private.modulemap $(DSTROOT)/usr/local/include/$(Project)/module.private.modulemap
 endif
+	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_private.modulemap $(DSTROOT)/usr/local/include/$(Project)_private.modulemap

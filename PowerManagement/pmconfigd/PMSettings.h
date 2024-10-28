@@ -87,4 +87,5 @@ void xctSetPowerNapState(bool allowDBT, bool allowSS);
 void xctSetEnergySettings(CFDictionaryRef settings);
 #endif
 
+
 #endif //_PMSettings_h_

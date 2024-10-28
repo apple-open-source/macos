@@ -472,7 +472,7 @@
     if (error) {
         /* If we already fetched some extents, we return them without an error. */
         if (extentIndex == 0) {
-            reply(error);
+            return reply(error);
         }
     }
 

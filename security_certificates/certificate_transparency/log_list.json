@@ -1,7 +1,7 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v4.json",
-    "assetVersion": 23,
-    "assetVersionV2": 1004,
+    "assetVersion": 24,
+    "assetVersionV2": 1005,
     "operators": [
         {
             "email": [
@@ -27,11 +27,10 @@
         {
             "email": [
                 "ct-logs@cloudflare.com",
-                "brendan@cloudflare.com",
-                "nick@cloudflare.com",
-                "pat@cloudflare.com",
-                "zi@cloudflare.com",
-                "ivan@cloudflare.com"
+                "mihir@cloudflare.com",
+                "dkozlov@cloudflare.com",
+                "leland@cloudflare.com",
+                "dtran@cloudflare.com"
             ],
             "logs": [
                 {
@@ -178,7 +177,7 @@
                     "state": {
                         "usable": {
                             "timestamp": "2023-11-13T19:41:36Z",
-                            "version": "228"
+                            "version": "300"
                         }
                     },
                     "temporal_interval": {
@@ -186,6 +185,23 @@
                         "start_inclusive": "2025-01-01T00:00:00Z"
                     },
                     "url": "https://ct.cloudflare.com/logs/nimbus2025/"
+                },
+                {
+                    "description": "Cloudflare 'Nimbus 2026' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2FxhT6xq0iCATopC9gStS9SxHHmOKTLeaVNZ661488Aq8tARXQV+6+jB0983v5FkRm4OJxPqu29GJ1iG70Ahow==",
+                    "log_id": "yzj3FYl8hKFEX1vB3fvJbvKaWc1HCmkFhbDLFMMUWOc=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-26T21:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.cloudflare.com/logs/nimbus2026/"
                 }
             ],
             "name": "Cloudflare"
@@ -1200,9 +1216,9 @@
                     "log_id": "tp3cvDwave9vn9YMiLEGe3fwgmiLLXhl0Es5q+knpXU=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "281"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:35:59Z",
+                            "version": "302"
                         }
                     },
                     "temporal_interval": {
@@ -1263,14 +1279,48 @@
                     "url": "https://wyvern.ct.digicert.com/2025h2/"
                 },
                 {
+                    "description": "DigiCert 'Wyvern 2026h1' Log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7Lw0OeKajbeZepHxBXJS2pOJXToHi5ntgKUW2nMhIOuGlofFxtkXum65TBNY1dGD+HrfHge8Fc3ASs0qMXEHVQ==",
+                    "log_id": "ZBHEbKQS7KeJHKICLgC8q08oB9QeNSer6v7VA8l9zfA=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-24T12:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "url": "https://wyvern.ct.digicert.com/2026h1/"
+                },
+                {
+                    "description": "DigiCert 'Wyvern 2026h2' Log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEenPbSvLeT+zhFBu+pqk8IbhFEs16iCaRIFb1STLDdWzL6XwTdTWcbOzxMTzB3puME5K3rT0PoZyPSM50JxgjmQ==",
+                    "log_id": "wjF+V0UZo0XufzjespBB68fCIVoiv3/Vta12mtkOUs0=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-24T12:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-07-01T00:00:00Z"
+                    },
+                    "url": "https://wyvern.ct.digicert.com/2026h2/"
+                },
+                {
                     "description": "DigiCert 'Sphinx2024h1' Log",
                     "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAExuQpaZj+KJJXEk2e7Q7nMqLmnCd4pCl8mdXb+iLB3V6n9NjqyNdEjeDxjAoBHdgiqNPrySKONvtKsXCcXcHoMw==",
                     "log_id": "2wds3mqLeOxY1gVklutqJqjFnnISk+isAyfd3onbWio=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2024-06-16T00:00:00Z",
-                            "version": "285"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:35:45Z",
+                            "version": "301"
                         }
                     },
                     "temporal_interval": {
@@ -1329,6 +1379,40 @@
                         "start_inclusive": "2025-07-01T00:00:00Z"
                     },
                     "url": "https://sphinx.ct.digicert.com/2025h2/"
+                },
+                {
+                    "description": "DigiCert 'Sphinx 2026h1' Log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq4S++DyHokIlmmacritS51r5IRsZA6UH4kYLH4pefGyu/xl3huh7/O5rNk/yvMOeBQKaCAG1SSM1xNNQK1Hp9A==",
+                    "log_id": "SZybad4dfOz8Nt7Nh2SmuFuvCoeAGdFVUvvp6ynd+MM=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-24T12:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "url": "https://sphinx.ct.digicert.com/2026h1/"
+                },
+                {
+                    "description": "DigiCert 'Sphinx 2026h2' Log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEquD0JkRQT/2inuaA4HC1sc6UpfiXgURVQmQcInmnZFnTiZMhZvsJgWAfYlU0OIykOC6slQzr7U9kvEVC9wZ6zQ==",
+                    "log_id": "lE5Dh/rswe+B8xkkJqgYZQHH0184AgE/cmd9VTcuGdg=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-24T12:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-07-01T00:00:00Z"
+                    },
+                    "url": "https://sphinx.ct.digicert.com/2026h2/"
                 }
             ],
             "name": "DigiCert"
@@ -1374,9 +1458,9 @@
                     "log_id": "KdA6G7Z0qnEc0wNbZVfBT4qni0/oOJRJ7KRT+US9JGg=",
                     "mmd": 86400,
                     "state": {
-                        "retired": {
-                            "timestamp": "2024-01-29T00:00:00Z",
-                            "version": "249"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:37:13Z",
+                            "version": "304"
                         }
                     },
                     "temporal_interval": {
@@ -1442,9 +1526,9 @@
                     "log_id": "ouK/1h7eLy8HoNZObTen3GVDsMa1LqLat4r4mm31F9g=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2023-11-13T19:45:12Z",
-                            "version": "237"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:37:42Z",
+                            "version": "306"
                         }
                     },
                     "temporal_interval": {
@@ -1510,9 +1594,9 @@
                     "log_id": "UIUBWNy2BZXADpKoEQLszf4/a3hYQp9XmDU4ydpSUGM=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2024-04-28T16:00:00Z",
-                            "version": "263"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:37:26Z",
+                            "version": "305"
                         }
                     },
                     "temporal_interval": {
@@ -1688,9 +1772,9 @@
                     "log_id": "O1N3dT4tuYBOizBbBv5AO2fYT8P0x70ADS1yb+H61Bc=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "180"
+                        "rejected": {
+                            "timestamp": "2024-08-27T23:36:43Z",
+                            "version": "303"
                         }
                     },
                     "temporal_interval": {
@@ -1749,6 +1833,40 @@
                         "start_inclusive": "2025-06-20T00:00:00Z"
                     },
                     "url": "https://oak.ct.letsencrypt.org/2025h2/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2026H1' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmdRhcCL6d5MNs8eAliJRvyV5sQFC6UF7iwzHsmVaifT64gJG1IrHzBAHESdFSJAjQN56TYky+9cK616MovH2SQ==",
+                    "log_id": "GYbUxyiqb/66A294Kk0BkarOLXIxD67OXXBBLSVMx9Q=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-20T00:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-20T00:00:00Z",
+                        "start_inclusive": "2025-12-20T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2026h1/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2026H2' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEanCds5bj7IU2lcNPnIvZfMnVkSmu69aH3AS8O/Y0D/bbCPdSqYjvuz9Z1tT29PxcqYxf+w1g5CwPFuwqsm3rFQ==",
+                    "log_id": "rKswcGzr7IQx9BPS9JFfER5CJEOx8qaMTzwrO6ceAsM=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2024-08-20T00:00:00Z",
+                            "version": "307"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-20T00:00:00Z",
+                        "start_inclusive": "2026-06-20T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2026h2/"
                 }
             ],
             "name": "Let's Encrypt"
@@ -1915,5 +2033,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "299"
+    "version": "307"
 }

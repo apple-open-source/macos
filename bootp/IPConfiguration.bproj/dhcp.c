@@ -275,8 +275,6 @@ static const uint8_t dhcp_static_default_params[] = {
     dhcptag_ipv6_only_preferred_e,
     dhcptag_proxy_auto_discovery_url_e,
     dhcptag_captive_portal_url_e,
-    dhcptag_posix_timezone_e,
-    dhcptag_tzdb_timezone_e,
 #if TARGET_OS_OSX
     dhcptag_ldap_url_e,
     dhcptag_nb_over_tcpip_name_server_e,

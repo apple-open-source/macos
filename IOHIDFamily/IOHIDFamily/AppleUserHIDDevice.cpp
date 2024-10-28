@@ -137,8 +137,13 @@ IOService * AppleUserHIDDevice::probe(IOService *provider, SInt32 *score)
     if (isSingleUser()) {
         return NULL;
     }
+    
 
+#if TARGET_OS_VISION && RELEASE
+    return NULL;
+#else
     return super::probe(provider, score);
+#endif
 }
 
 //----------------------------------------------------------------------------------------------------

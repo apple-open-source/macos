@@ -1450,7 +1450,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             XCTAssertNil(error, "Should be no error performing a reset and establish")
             resetAndEstablishExpectation.fulfill()
         }
-
         self.wait(for: [resetAndEstablishExpectation], timeout: 10)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)

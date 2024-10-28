@@ -70,7 +70,7 @@ extern NSString* const SFAnalyticsTopicSWTransparency;
 extern NSString* const SFAnalyticsTopicNetworking;
 
 typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
-    SFAnalyticsEventClassSuccess,
+    SFAnalyticsEventClassSuccess = 0,
     SFAnalyticsEventClassHardFailure,
     SFAnalyticsEventClassSoftFailure,
     SFAnalyticsEventClassNote,

@@ -48,6 +48,8 @@
 		<string>Patch for special header size (108529089)</string>
 		<string>libarchive/archive_write_disk_posix.c patch to fix symlink issue (112604343)</string>
 		<string>libarchive/libarchive/archive_read_support_format_rar.c to path oob access(129148071)</string>
+		<string>libarchive/... Apply 1382d671a4bc32155cbb52a60cf9937120f56028 to fix integer overflow</string>
+		<string>libarchive/archive_platform.h Don't use readdir_r(), it is unsafe (133228511)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

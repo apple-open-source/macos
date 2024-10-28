@@ -917,7 +917,11 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        let policyV1Document = builtInPolicyDocuments.first { $0.version.versionNumber == 1 }!
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
+        let policyV1Document = builtInPolicyDocumentsFilteredByVersion { $0 == 1 }.first!()
         pastPeerContext.policyOverride = policyV1Document.version
 
         let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
@@ -999,7 +1003,11 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        let policyV18Document = builtInPolicyDocuments.first { $0.version.versionNumber == 18 }!
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
+        let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 
         let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
@@ -1076,7 +1084,11 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
-        let policyV18Document = builtInPolicyDocuments.first { $0.version.versionNumber == 18 }!
+        self.mockDeviceInfo.mockModelID = oldDeviceInfo
+#else
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+#endif
+        let policyV18Document = builtInPolicyDocumentsFilteredByVersion { $0 == 18 }.first!()
         pastPeerContext.policyOverride = policyV18Document.version
 
         let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")

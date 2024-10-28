@@ -1055,8 +1055,8 @@ static Bool ParseTriState( TidyTriState theState, TidyDocImpl* doc,
 Bool ParseNewline( TidyDocImpl* doc, const TidyOptionImpl* entry )
 {
     int nl = -1;
-    tmbchar work[ 16 ] = {0};
-    tmbstr cp = work, end = work + sizeof(work);
+    tmbchar work[ 17 ] = {0};
+    tmbstr cp = work, end = work + sizeof(work) - 1;
     TidyConfigImpl* cfg = &doc->config;
     tchar c = SkipWhite( cfg );
 

@@ -844,6 +844,13 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     }
 #endif
 
+#ifdef SSL_OP_NO_RENEGOTIATION
+    /* For server-side SSL_CTX, disable renegotiation by default.. */
+    if (!mctx->pkp) {
+        SSL_CTX_set_options(ctx, SSL_OP_NO_RENEGOTIATION);
+    }
+#endif
+
 #ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
     /* For server-side SSL_CTX, enable ignoring unexpected EOF */
     /* (OpenSSL 1.1.1 behavioural compatibility).. */
@@ -872,6 +879,14 @@ static void ssl_init_ctx_session_cache(server_rec *s,
     }
 }
 
+#ifdef SSL_OP_NO_RENEGOTIATION
+/* OpenSSL-level renegotiation protection. */
+#define MODSSL_BLOCKS_RENEG (0)
+#else
+/* mod_ssl-level renegotiation protection. */
+#define MODSSL_BLOCKS_RENEG (1)
+#endif
+
 static void ssl_init_ctx_callbacks(server_rec *s,
                                    apr_pool_t *p,
                                    apr_pool_t *ptemp,
@@ -885,7 +900,13 @@ static void ssl_init_ctx_callbacks(server_rec *s,
     SSL_CTX_set_tmp_dh_callback(ctx,  ssl_callback_TmpDH);
 #endif
 
-    SSL_CTX_set_info_callback(ctx, ssl_callback_Info);
+    /* The info callback is used for debug-level tracing.  For OpenSSL
+     * versions where SSL_OP_NO_RENEGOTIATION is not available, the
+     * callback is also used to prevent use of client-initiated
+     * renegotiation.  Enable it in either case. */
+    if (APLOGdebug(s) || MODSSL_BLOCKS_RENEG) {
+        SSL_CTX_set_info_callback(ctx, ssl_callback_Info);
+    }
 
 #ifdef HAVE_TLS_ALPN
     SSL_CTX_set_alpn_select_cb(ctx, ssl_callback_alpn_select, NULL);
@@ -1346,6 +1367,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
     const char *vhost_id = mctx->sc->vhost_id, *key_id, *certfile, *keyfile;
     int i;
     EVP_PKEY *pkey;
+    int custom_dh_done = 0;
 #ifdef HAVE_ECC
     EC_GROUP *ecgroup = NULL;
     int curve_nid = 0;
@@ -1402,7 +1424,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
         if (modssl_is_engine_id(keyfile)) {
             apr_status_t rv;
 
-            if ((rv = modssl_load_engine_keypair(s, ptemp, vhost_id,
+            if ((rv = modssl_load_engine_keypair(s, p, ptemp, vhost_id,
                                                  engine_certfile, keyfile,
                                                  &cert, &pkey))) {
                 return rv;
@@ -1411,8 +1433,10 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
             if (cert) {
                 if (SSL_CTX_use_certificate(mctx->ssl_ctx, cert) < 1) {
                     ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(10137)
-                                 "Failed to configure engine certificate %s, check %s",
-                                 key_id, certfile);
+                                 "Failed to configure certificate %s from %s, check %s",
+                                 key_id, mc->szCryptoDevice ?
+                                             mc->szCryptoDevice : "provider",
+                                 certfile);
                     ssl_log_ssl_error(SSLLOG_MARK, APLOG_EMERG, s);
                     return APR_EGENERAL;
                 }
@@ -1423,8 +1447,9 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
             
             if (SSL_CTX_use_PrivateKey(mctx->ssl_ctx, pkey) < 1) {
                 ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(10130)
-                             "Failed to configure private key %s from engine",
-                             keyfile);
+                             "Failed to configure private key %s from %s",
+                             keyfile, mc->szCryptoDevice ?
+                                          mc->szCryptoDevice : "provider");
                 ssl_log_ssl_error(SSLLOG_MARK, APLOG_EMERG, s);
                 return APR_EGENERAL;
             }
@@ -1518,14 +1543,14 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
      */
     certfile = APR_ARRAY_IDX(mctx->pks->cert_files, 0, const char *);
     if (certfile && !modssl_is_engine_id(certfile)) {
-        int done = 0, num_bits = 0;
+        int num_bits = 0;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         DH *dh = modssl_dh_from_file(certfile);
         if (dh) {
             num_bits = DH_bits(dh);
             SSL_CTX_set_tmp_dh(mctx->ssl_ctx, dh);
             DH_free(dh);
-            done = 1;
+            custom_dh_done = 1;
         }
 #else
         pkey = modssl_dh_pkey_from_file(certfile);
@@ -1535,18 +1560,18 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
                 EVP_PKEY_free(pkey);
             }
             else {
-                done = 1;
+                custom_dh_done = 1;
             }
         }
 #endif
-        if (done) {
+        if (custom_dh_done) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(02540)
                          "Custom DH parameters (%d bits) for %s loaded from %s",
                          num_bits, vhost_id, certfile);
         }
     }
 #if !MODSSL_USE_OPENSSL_PRE_1_1_API
-    else {
+    if (!custom_dh_done) {
         /* If no parameter is manually configured, enable auto
          * selection. */
         SSL_CTX_set_dh_auto(mctx->ssl_ctx, 1);

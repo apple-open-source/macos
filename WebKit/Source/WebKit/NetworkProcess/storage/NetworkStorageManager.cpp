@@ -29,6 +29,7 @@
 #include "BackgroundFetchChange.h"
 #include "BackgroundFetchStoreManager.h"
 #include "CacheStorageCache.h"
+#include "CacheStorageDiskStore.h"
 #include "CacheStorageManager.h"
 #include "CacheStorageRegistry.h"
 #include "FileSystemStorageHandleRegistry.h"
@@ -50,6 +51,7 @@
 #include "StorageAreaRegistry.h"
 #include "UnifiedOriginStorageLevel.h"
 #include "WebsiteDataType.h"
+#include <WebCore/DOMCacheEngine.h>
 #include <WebCore/IDBRequestData.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/ServiceWorkerContextData.h>
@@ -1610,7 +1612,7 @@ void NetworkStorageManager::deleteObjectStore(const WebCore::IDBRequestData& req
     transaction->deleteObjectStore(requestData, objectStoreName);
 }
 
-void NetworkStorageManager::renameObjectStore(const WebCore::IDBRequestData& requestData, uint64_t objectStoreIdentifier, const String& newName)
+void NetworkStorageManager::renameObjectStore(const WebCore::IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier, const String& newName)
 {
     auto transaction = idbTransaction(requestData);
     if (!transaction || !transaction->isVersionChange())
@@ -1619,7 +1621,7 @@ void NetworkStorageManager::renameObjectStore(const WebCore::IDBRequestData& req
     transaction->renameObjectStore(requestData, objectStoreIdentifier, newName);
 }
 
-void NetworkStorageManager::clearObjectStore(const WebCore::IDBRequestData& requestData, uint64_t objectStoreIdentifier)
+void NetworkStorageManager::clearObjectStore(const WebCore::IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier)
 {
     if (auto transaction = idbTransaction(requestData))
         transaction->clearObjectStore(requestData, objectStoreIdentifier);
@@ -1631,13 +1633,13 @@ void NetworkStorageManager::createIndex(const WebCore::IDBRequestData& requestDa
         transaction->createIndex(requestData, indexInfo);
 }
 
-void NetworkStorageManager::deleteIndex(const WebCore::IDBRequestData& requestData, uint64_t objectStoreIdentifier, const String& indexName)
+void NetworkStorageManager::deleteIndex(const WebCore::IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier, const String& indexName)
 {
     if (auto transaction = idbTransaction(requestData))
         transaction->deleteIndex(requestData, objectStoreIdentifier, indexName);
 }
 
-void NetworkStorageManager::renameIndex(const WebCore::IDBRequestData& requestData, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName)
+void NetworkStorageManager::renameIndex(const WebCore::IDBRequestData& requestData, WebCore::IDBObjectStoreIdentifier objectStoreIdentifier, uint64_t indexIdentifier, const String& newName)
 {
     if (auto transaction = idbTransaction(requestData))
         transaction->renameIndex(requestData, objectStoreIdentifier, indexIdentifier, newName);
@@ -1799,11 +1801,14 @@ void NetworkStorageManager::cacheStorageRemoveRecords(WebCore::DOMCacheIdentifie
     cache->removeRecords(WTFMove(request), WTFMove(options), WTFMove(callback));
 }
 
-void NetworkStorageManager::cacheStoragePutRecords(WebCore::DOMCacheIdentifier cacheIdentifier, Vector<WebCore::DOMCacheEngine::CrossThreadRecord>&& records, WebCore::DOMCacheEngine::RecordIdentifiersCallback&& callback)
+void NetworkStorageManager::cacheStoragePutRecords(IPC::Connection& connection, WebCore::DOMCacheIdentifier cacheIdentifier, Vector<WebCore::DOMCacheEngine::CrossThreadRecord>&& records, WebCore::DOMCacheEngine::RecordIdentifiersCallback&& callback)
 {
     auto* cache = m_cacheStorageRegistry->cache(cacheIdentifier);
     if (!cache)
         return callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal));
+
+    for (auto& record : records)
+        MESSAGE_CHECK_COMPLETION(record.responseBodySize >= CacheStorageDiskStore::computeRealBodySizeForStorage(record.responseBody), &connection, callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal)));
 
     cache->putRecords(WTFMove(records), WTFMove(callback));
 }

@@ -372,6 +372,7 @@ void		service_clat46_set_is_available(ServiceRef service_p,
 boolean_t	service_nat64_prefix_available(ServiceRef service_p);
 boolean_t	service_plat_discovery_failed(ServiceRef service_p);
 boolean_t	service_plat_discovery_complete(ServiceRef service_p);
+void		service_plat_discovery_clear(ServiceRef service_p);
 
 /**
  ** router_arp routines

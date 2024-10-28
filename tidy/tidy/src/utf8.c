@@ -242,7 +242,7 @@ int TY_(DecodeUTF8BytesToChar)( uint* c, uint firstByte, ctmbstr successorBytes,
             if ( !buf[i] || (buf[i] & 0xC0) != 0x80 )
             {
                 hasError = yes;
-                bytes = i;
+                bytes = i+1;
                 break;
             }
             n = (n << 6) | (buf[i] & 0x3F);
@@ -259,7 +259,7 @@ int TY_(DecodeUTF8BytesToChar)( uint* c, uint firstByte, ctmbstr successorBytes,
             if ( b == EOF || (buf[i] & 0xC0) != 0x80 )
             {
                 hasError = yes;
-                bytes = i;
+                bytes = i+1;
                 if ( b != EOF )
                     inp->ungetByte( inp->sourceData, buf[i] );
                 break;
@@ -333,6 +333,7 @@ int TY_(DecodeUTF8BytesToChar)( uint* c, uint firstByte, ctmbstr successorBytes,
     }
 #endif
 
+    assert(bytes > 0);
     *count = bytes;
     *c = n;
     if ( hasError )
@@ -460,7 +461,8 @@ uint TY_(GetUTF8)( ctmbstr str, uint *ch )
     }
 
     *ch = n;
-    return bytes - 1;
+    assert(bytes > 0);
+    return (bytes > 0) ? (bytes - 1) : 0;
 }
 
 /* store char c as UTF-8 encoded byte stream */
@@ -481,6 +483,7 @@ tmbstr TY_(PutUTF8)( tmbstr buf, uint c )
         count = 3;
     }
     
+    assert(count >= 0);
     buf += count;
     return buf;
 }

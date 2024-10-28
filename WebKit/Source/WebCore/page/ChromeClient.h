@@ -127,6 +127,7 @@ class Node;
 class Page;
 class PopupMenuClient;
 class SecurityOrigin;
+class SecurityOriginData;
 class ViewportConstraints;
 class Widget;
 
@@ -144,7 +145,6 @@ struct DateTimeChooserParameters;
 struct FocusOptions;
 struct GraphicsDeviceAdapter;
 struct MockWebAuthenticationConfiguration;
-class SecurityOriginData;
 struct ShareDataWithParsedURL;
 struct TextIndicatorData;
 struct TextRecognitionOptions;
@@ -154,6 +154,7 @@ struct WindowFeatures;
 enum class CookieConsentDecisionResult : uint8_t;
 enum class ModalContainerControlType : uint8_t;
 enum class ModalContainerDecision : uint8_t;
+enum class TextAnimationRunMode : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 
 enum class DidFilterLinkDecoration : bool { No, Yes };
@@ -667,24 +668,26 @@ public:
     virtual double baseViewportLayoutSizeScaleFactor() const { return 1; }
 
 #if ENABLE(WRITING_TOOLS)
-    virtual void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WritingTools::SessionID&, const WritingTools::TextSuggestionID&, IntRect) { }
+    virtual void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WritingTools::TextSuggestionID&, IntRect) { }
 
-    virtual void proofreadingSessionUpdateStateForSuggestionWithID(const WritingTools::SessionID&, WritingTools::TextSuggestionState, const WritingTools::TextSuggestionID&) { }
+    virtual void proofreadingSessionUpdateStateForSuggestionWithID(WritingTools::TextSuggestionState, const WritingTools::TextSuggestionID&) { }
 
     virtual void removeTextAnimationForAnimationID(const WTF::UUID&) { }
 
-    virtual void removeTransparentMarkersForSessionID(const WritingTools::SessionID&) { }
+    virtual void removeInitialTextAnimationForActiveWritingToolsSession() { }
 
-    virtual void removeInitialTextAnimation(const WritingTools::SessionID&) { }
+    virtual void addInitialTextAnimationForActiveWritingToolsSession() { }
 
-    virtual void addInitialTextAnimation(const WritingTools::SessionID&) { }
+    virtual void addSourceTextAnimationForActiveWritingToolsSession(const WTF::UUID& /*sourceAnimationUUID*/, const WTF::UUID& /*destinationAnimationUUID*/, bool, const CharacterRange&, const String&, CompletionHandler<void(TextAnimationRunMode)>&&) { }
 
-    virtual void addSourceTextAnimation(const WritingTools::SessionID&, const CharacterRange&, const String, WTF::CompletionHandler<void(void)>&&) { }
+    virtual void addDestinationTextAnimationForActiveWritingToolsSession(const WTF::UUID& /*sourceAnimationUUID*/, const WTF::UUID& /*destinationAnimationUUID*/, const std::optional<CharacterRange>&, const String&) { }
 
-    virtual void addDestinationTextAnimation(const WritingTools::SessionID&, const CharacterRange&, const String) { }
+    virtual void saveSnapshotOfTextPlaceholderForAnimation(const SimpleRange&) { };
 
-    virtual void clearAnimationsForSessionID(const WritingTools::SessionID&) { };
+    virtual void clearAnimationsForActiveWritingToolsSession() { };
 #endif
+
+    virtual void setIsInRedo(bool) { }
 
     virtual void hasActiveNowPlayingSessionChanged(bool) { }
 

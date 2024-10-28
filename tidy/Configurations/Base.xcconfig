@@ -33,7 +33,9 @@ GCC_C_LANGUAGE_STANDARD = gnu11;
 GCC_DYNAMIC_NO_PIC = NO;
 GCC_ENABLE_CPP_EXCEPTIONS = NO;
 GCC_ENABLE_CPP_RTTI = NO;
+GCC_DEBUGGING_SYMBOLS = default;
 GCC_ENABLE_SYMBOL_SEPARATION = NO;
+GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 GCC_NO_COMMON_BLOCKS = YES;
 GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -57,7 +59,8 @@ WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=array-parameter -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=enum-conversion -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=missing-field-initializers -Werror=return-stack-address -Werror=shorten-64-to-32 -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 
 TIDY_CFLAGS = -DTIDY_APPLE_CHANGES=1;
-OTHER_CFLAGS = $(inherited) $(TIDY_CFLAGS);
+OTHER_CFLAGS = $(inherited) $(TIDY_CFLAGS) $(OTHER_CFLAGS_LIBFUZZER_$(ENABLE_LIBFUZZER));
+OTHER_CFLAGS_LIBFUZZER_YES = -g -fno-omit-frame-pointer -DENABLE_LIBFUZZER -UNDEBUG;
 
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = $(HEADER_SEARCH_PATHS_TIDY_DEPLOYMENT_LOCATION_$(DEPLOYMENT_LOCATION));

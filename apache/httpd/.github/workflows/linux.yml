@@ -21,6 +21,8 @@ on:
 env:
   MARGS: "-j2"
   CFLAGS: "-g"
+  # This will need updating as the ubuntu-latest image changes:
+  PHP_FPM: "/usr/sbin/php-fpm8.1"
 
 jobs:
   build:
@@ -48,11 +50,11 @@ jobs:
           - name: Shared MPMs, all-modules
             config: --enable-mods-shared=reallyall --enable-mpms-shared=all
           # -------------------------------------------------------------------------
-          - name: Event MPM, all-modules, mod_cgid only
-            config: --enable-mods-shared=reallyall --with-mpm=event --disable-cgi
+          - name: Event MPM, all-modules, mod_cgid fdpassing
+            config: --enable-mods-shared=reallyall --with-mpm=event --disable-cgi --enable-cgid-fdpassing
           # -------------------------------------------------------------------------
-          - name: Event MPM, all-modules, no CMSG_DATA
-            config: --enable-mods-shared=reallyall --with-mpm=event ac_cv_have_decl_CMSG_DATA=no
+          - name: Event MPM, all-modules, mod_cgid w/o fdpassing
+            config: --enable-mods-shared=reallyall --with-mpm=event --disable-cgi
           # -------------------------------------------------------------------------
           - name: Default, all-modules + install
             config: --enable-mods-shared=reallyall
@@ -215,7 +217,7 @@ jobs:
               APR_VERSION=1.7.4
               APU_VERSION=1.6.3
               APU_CONFIG="--with-crypto"
-              RUSTLS_VERSION="v0.10.0"
+              RUSTLS_VERSION="v0.13.0"
               NO_TEST_FRAMEWORK=1
               TEST_INSTALL=1
               TEST_MOD_TLS=1

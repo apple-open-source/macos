@@ -3440,7 +3440,7 @@ void WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly()
 bool WebViewImpl::hasContentRelativeChildViews() const
 {
 #if ENABLE(WRITING_TOOLS)
-    return [m_TextAnimationTypeManager hasActiveTextAnimationType];
+    return [m_textAnimationTypeManager hasActiveTextAnimationType];
 #else
     return false;
 #endif
@@ -3477,14 +3477,14 @@ void WebViewImpl::contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState 
 void WebViewImpl::suppressContentRelativeChildViews()
 {
 #if ENABLE(WRITING_TOOLS)
-    [m_TextAnimationTypeManager suppressTextAnimationType];
+    [m_textAnimationTypeManager suppressTextAnimationType];
 #endif
 }
 
 void WebViewImpl::restoreContentRelativeChildViews()
 {
 #if ENABLE(WRITING_TOOLS)
-    [m_TextAnimationTypeManager restoreTextAnimationType];
+    [m_textAnimationTypeManager restoreTextAnimationType];
 #endif
 }
 
@@ -4605,16 +4605,28 @@ void WebViewImpl::removeTextPlaceholder(NSTextPlaceholder *placeholder, bool wil
         completionHandler();
 }
 
-#if ENABLE(WRITING_TOOLS_UI)
-void WebViewImpl::addTextAnimationForAnimationID(WTF::UUID uuid, const WebKit::TextAnimationData& data)
+#if ENABLE(WRITING_TOOLS)
+
+void WebViewImpl::showWritingTools()
+{
+    IntRect selectionRect;
+
+    auto& editorState = m_page->editorState();
+    if (editorState.selectionIsRange && editorState.hasPostLayoutData())
+        selectionRect = editorState.postLayoutData->selectionBoundingRect;
+
+    [[PAL::getWTWritingToolsClass() sharedInstance] showPanelForSelectionRect:selectionRect ofView:m_view.getAutoreleased() forDelegate:(NSObject<WTWritingToolsDelegate> *)m_view.getAutoreleased()];
+}
+
+void WebViewImpl::addTextAnimationForAnimationID(WTF::UUID uuid, const WebCore::TextAnimationData& data)
 {
     if (!m_page->preferences().textAnimationsEnabled())
         return;
 
-    if (!m_TextAnimationTypeManager)
-        m_TextAnimationTypeManager = adoptNS([[WKTextAnimationManager alloc] initWithWebViewImpl:*this]);
+    if (!m_textAnimationTypeManager)
+        m_textAnimationTypeManager = adoptNS([[WKTextAnimationManager alloc] initWithWebViewImpl:*this]);
 
-    [m_TextAnimationTypeManager addTextAnimationForAnimationID:uuid withData:data];
+    [m_textAnimationTypeManager addTextAnimationForAnimationID:uuid withData:data];
 }
 
 void WebViewImpl::removeTextAnimationForAnimationID(WTF::UUID uuid)
@@ -4622,9 +4634,15 @@ void WebViewImpl::removeTextAnimationForAnimationID(WTF::UUID uuid)
     if (!m_page->preferences().textAnimationsEnabled())
         return;
 
-    [m_TextAnimationTypeManager removeTextAnimationForAnimationID:uuid];
+    [m_textAnimationTypeManager removeTextAnimationForAnimationID:uuid];
 }
-#endif
+
+void WebViewImpl::hideTextAnimationView()
+{
+    [m_textAnimationTypeManager hideTextAnimationView];
+}
+
+#endif // ENABLE(WRITING_TOOLS)
 
 ViewGestureController& WebViewImpl::ensureGestureController()
 {

@@ -267,7 +267,7 @@ download_partial_fd(struct sess *sess, int rootfd, const struct flist *f)
 	}
 
 	if (ret == -1) {
-		ret = mkdirat(rootfd, partial_dir,
+		ret = mkpathat(rootfd, partial_dir,
 		    S_IRUSR|S_IWUSR|S_IXUSR);
 
 		/*
@@ -1546,7 +1546,7 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 			}
 		} else {
 			if (mktemplate(&p->fname, f->path,
-			    sess->opts->recursive || sess->opts->relative,
+			    sess->opts->recursive || strchr(f->path, '/') != NULL,
 			    IS_TMPDIR) == -1) {
 				ERRX1("mktemplate");
 				goto out;
@@ -1817,9 +1817,9 @@ again:
 				goto out;
 			}
 
-			if (mkdirat(p->rootfd, curr->rmdir, 0700) == -1 &&
+			if (mkpathat(p->rootfd, curr->rmdir, 0700) == -1 &&
 			    errno != EEXIST) {
-				ERR("mkdir '%s'", curr->rmdir);
+				ERR("mkpathat '%s'", curr->rmdir);
 				free(curr->rmdir);
 				curr->rmdir = NULL;
 				goto out;

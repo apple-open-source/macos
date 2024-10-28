@@ -1575,6 +1575,26 @@ test5b_symlink_kills_dir_body()
 }
 
 
+atf_test_case test63_relative
+
+test63_relative_head()
+{
+    atf_set "descr" "test63_relative"
+
+}
+
+test63_relative_body()
+{
+    export tstdir=$(atf_get_srcdir)
+    setup_sshkey
+    if "$tstdir/test63_relative.test" ; then
+        atf_pass
+    else
+        atf_fail "test63_relative.test failed"
+    fi
+}
+
+
 atf_test_case test6_perms
 
 test6_perms_head()
@@ -1793,6 +1813,7 @@ atf_init_test_cases()
     atf_add_test_case test52_version_output
     atf_add_test_case test5_symlink_kills_dir
     atf_add_test_case test5b_symlink_kills_dir
+    atf_add_test_case test63_relative
     atf_add_test_case test6_perms
     atf_add_test_case test6b_perms
     atf_add_test_case test7_symlinks

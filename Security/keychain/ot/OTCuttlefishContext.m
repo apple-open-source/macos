@@ -742,6 +742,25 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                            path:path
                                           reply:reply];
 }
+- (void)performCKServerUnreadableDataRemoval:(void (^)(NSError* _Nullable error))reply
+{
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon-perform-ckserver-unreadable-data-removal", "No cloudkit account present: %@", accountError);
+        reply(accountError);
+        return;
+    }
+
+    [self.cuttlefishXPCWrapper performCKServerUnreadableDataRemovalWithSpecificUser:self.activeAccount
+                                                                              reply:^(NSError * _Nullable removeError) {
+        if (removeError) {
+            secerror("octagon-perform-ckserver-unreadable-data-removal: failed with error: %@", removeError);
+        } else {
+            secnotice("octagon-perform-ckserver-unreadable-data-removal", "succeeded!");
+        }
+        reply(removeError);
+    }];
+}
 
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
                        reply:(nonnull void (^)(NSError * _Nullable))reply
@@ -775,7 +794,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     _idmsTargetContext = idmsTargetContext;
     _idmsCuttlefishPassword = idmsCuttlefishPassword;
     _notifyIdMS = notifyIdMS;
-
     self.accountSettings = [self mergedAccountSettings:accountSettings];
 
     // The reset flow can split into an error-handling path halfway through; this is okay

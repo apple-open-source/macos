@@ -35,7 +35,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)targetedPreviewForID:(NSUUID *)uuid completionHandler:(void (^)(UITargetedPreview * _Nullable))completionHandler;
 - (void)updateUnderlyingTextVisibilityForTextAnimationID:(NSUUID *)uuid visible:(BOOL)visible completionHandler:(void (^)(void))completionHandler;
 - (UIView *)containingViewForTextAnimationType;
+- (void)callCompletionHandlerForAnimationID:(NSUUID *)uuid completionHandler:(void (^)(UITargetedPreview * _Nullable))completionHandler;
 - (void)callCompletionHandlerForAnimationID:(NSUUID *)uuid;
+- (void)replacementEffectDidComplete;
 
 @end
 

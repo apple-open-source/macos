@@ -94,7 +94,8 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(recoverWithRecoveryKey:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(removeRecoveryKey:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(preflightRecoverOctagonUsingRecoveryKey:recoveryKey:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(resetAcountData:resetReason:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(clearCliqueFromAccount:resetReason:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(performCKServerUnreadableDataRemoval:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(totalTrustedPeers:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(areRecoveryKeysDistrusted:reply:) argumentIndex:1 ofReply:YES];
     }

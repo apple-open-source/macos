@@ -793,7 +793,7 @@ flist_recv_name(struct sess *sess, int fd, struct flist *f, uint8_t flags,
 		return 0;
 	}
 
-	if (f->path[0] == '/') {
+	if (f->path[0] == '/' && !sess->opts->relative) {
 		ERRX("security violation: absolute pathname: %s",
 		    f->path);
 		return 0;
@@ -811,6 +811,20 @@ flist_recv_name(struct sess *sess, int fd, struct flist *f, uint8_t flags,
 	/* Record our last path and construct our filename. */
 
 	strlcpy(last, f->path, PATH_MAX);
+	if (sess->opts->relative && f->path[0] == '/') {
+		f->wpath = f->path;
+		while (f->wpath[0] == '/') {
+			f->wpath++;
+			len--;
+		}
+
+		/*
+		 * f->path is allocated on the heap, so we just preserve that as
+		 * the beginning of the path instead of having to add another
+		 * pointer to retain the start of the buffer.
+		 */
+		memmove(f->path, f->wpath, len + 1);
+	}
 	f->wpath = f->path;
 	return 1;
 }
@@ -1026,10 +1040,9 @@ flist_append(struct sess *sess, const struct stat *st,
 		else
 			f->wpath++;
 	} else {
-		if (f->path[0] == '/')
-			f->wpath = f->path + 1;
-		else
-			f->wpath = f->path;
+		f->wpath = f->path;
+		while (f->wpath[0] == '/')
+			f->wpath++;
 		if (!flist_append_dirs(f->path, fl)) {
 			ERR("flist_append_dirs");
 			return 0;
@@ -1519,7 +1532,7 @@ flist_gen_dirent_file(struct sess *sess, const char *type, const char *root,
 }
 
 static ssize_t
-flist_dirent_strip(const char *root)
+flist_dirent_strip(struct sess *sess, const char *root)
 {
 	char	 *cp;
 	ssize_t	 stripdir;
@@ -1540,7 +1553,7 @@ flist_dirent_strip(const char *root)
 	 * last directory component.
 	 */
 
-	if (stripdir == 0)
+	if (stripdir == 0 && !sess->opts->relative)
 		if ((cp = strrchr(root, '/')) != NULL)
 			stripdir = cp - root + 1;
 
@@ -1634,7 +1647,7 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 		if (sess->opts->copy_dirlinks) {
 			if (S_ISDIR(st2.st_mode)) {
 				if (stripdir == -1)
-					stripdir = flist_dirent_strip(root);
+					stripdir = flist_dirent_strip(sess, root);
 				snprintf(buf2, sizeof(buf2), "%s/", root);
 				LOG4("symlinks: recursing '%s' -> '%s' '%s'\n",
 				    root, buf, buf2);
@@ -1645,8 +1658,17 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 
 		if (sess->opts->copy_unsafe_links &&
 		    is_unsafe_link(buf, root, root)) {
-			return flist_gen_dirent_file(sess, "file", root,
-			    fl, &st2);
+			if (S_ISDIR(st2.st_mode)) {
+				if (stripdir == -1)
+					stripdir = flist_dirent_strip(sess, root);
+				snprintf(buf2, sizeof(buf2), "%s/", root);
+				LOG4("symlinks: recursing '%s' -> '%s' '%s'",
+				    root, buf, buf2);
+				return flist_gen_dirent(sess, buf2, fl, stripdir);
+			} else {
+				return flist_gen_dirent_file(sess, "file",
+				    root, fl, &st2);
+			}
 		}
 
 		return flist_gen_dirent_file(sess, "symlink", root, fl, &st);
@@ -1669,7 +1691,7 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 	cargv[1] = NULL;
 
 	if (stripdir == -1)
-		stripdir = flist_dirent_strip(rootbuf);
+		stripdir = flist_dirent_strip(sess, rootbuf);
 
 	/*
 	 * If we're recursive, then we need to take down all of the
@@ -1904,6 +1926,12 @@ flist_gen_dirs(struct sess *sess, size_t argc, char **argv, struct fl *fl)
 		if (dname[0] == '\0')
 			dname = ".";
 		rules_base(dname);
+		if (sess->opts->relative) {
+			if (!flist_append_dirs(dname, fl)) {
+				ERR("flist_append_dirs");
+				return 0;
+			}
+		}
 		if (!flist_gen_dirent(sess, dname, fl, -1))
 			errors++;
 	}

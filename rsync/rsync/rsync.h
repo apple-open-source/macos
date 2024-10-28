@@ -856,8 +856,11 @@ void rsyserr(enum logcode, int, const char *, ...)
  */
 #define	maybe_log_fault(lc, ...) do {				\
 	if (os_variant_has_internal_content(RSYNC_SUBSYSTEM) &&	\
-	    ((lc) == FSOCKERR || (lc) == FERROR))		\
+	    ((lc) == FSOCKERR || (lc) == FERROR)) {		\
+		int rserrno = errno;				\
 		os_log_fault(OS_LOG_DEFAULT, __VA_ARGS__);	\
+		errno = rserrno;				\
+	}							\
 } while(0)
 
 #define	rprintf(lc, ...) do {			\
